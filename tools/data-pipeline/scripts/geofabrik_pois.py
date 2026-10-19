@@ -2,7 +2,7 @@
 """POI di una regione dagli estratti Geofabrik, nello stesso XML che build-region.sh riceve da Overpass.
 
 Uso: geofabrik_pois.py --bbox=minLon,minLat,maxLon,maxLat [--iso=XX] [--border confine.geojson] --out poi.osm.xml --cache DIR
-     [--user-agent UA] [--index FILE]
+     [--id ID --sibling ID:minLon,minLat,maxLon,maxLat ...] [--user-agent UA] [--index FILE]
 
 L'indice index-v1.json viene scaricato una volta in --cache e riusato dalle regioni successive; --index (opzione
 manuale, build-region.sh non la passa) usa invece un indice locale: utile per provare lo script senza rete
@@ -18,7 +18,7 @@ sull'indice o con un indice ritoccato.
    Overpass se cade nell'area, altrimenti un punto sull'oggetto) cade nel bbox si scrive un <node>, o una
    <way>/<relation> con quel punto come <center>. Le relazioni che osmium export non assembla (non multipolygon ne'
    boundary) prendono il centro dai loro membri (relazioni_non_aree). Con --border si scrive solo un oggetto con il
-   punto dentro il confine (Confine).
+   punto dentro il confine (Confine); con --sibling, solo se il punto spetta alla regione e non a una sorella (vince).
 
 Esce con codice 1 se qualcosa non va (download, osmium): build-region.sh ripiega allora su Overpass.
 """
@@ -540,11 +540,32 @@ def relazioni_non_aree(clipped, tmp, nome):
     return out
 
 
-def scrivi_xml(sources, bbox, out, relazioni=(), confine=None):
-    """Scrive gli oggetti di ogni geojsonseq in sources, piu' le relazioni [(id, tag, lon, lat)] di relazioni_non_aree,
-    nell'XML di Overpass; ritorna quanti. Con confine (Confine) solo quelli con il punto dentro."""
+def distanza_dal_centro(lon, lat, bbox):
+    """Distanza del punto dal centro del rettangolo, in gradi con la longitudine scalata sulla latitudine del punto."""
     minx, miny, maxx, maxy = bbox
-    seen, fuori = set(), set()
+    return math.hypot((lon - (minx + maxx) / 2) * math.cos(math.radians(lat)), lat - (miny + maxy) / 2)
+
+
+def vince(lon, lat, regione, bbox, sorelle):
+    """Vero se il punto, dentro il rettangolo della regione, le spetta rispetto alle sorelle [(id, bbox)]: le regioni
+    sullo stesso confine (le regioni russe sul confine della Russia) con i rettangoli sovrapposti o con un lato in
+    comune. Il punto va alla regione che lo contiene con il centro del rettangolo piu' vicino, a parita' all'id piu'
+    basso: ogni regione fa lo stesso calcolo, quindi il punto resta in una sola. Il centro piu' vicino lascia i
+    capoluoghi nella loro regione meglio della distanza dai lati (Nizhny Novgorod in Volga-Vjatka invece che in Centro,
+    Celjabinsk negli Urali europei invece che in Siberia)."""
+    mia = (distanza_dal_centro(lon, lat, bbox), regione)
+    for sid, (minx, miny, maxx, maxy) in sorelle:
+        if minx <= lon <= maxx and miny <= lat <= maxy and (distanza_dal_centro(lon, lat, (minx, miny, maxx, maxy)), sid) < mia:
+            return False
+    return True
+
+
+def scrivi_xml(sources, bbox, out, relazioni=(), confine=None, sorelle=(), regione=None):
+    """Scrive gli oggetti di ogni geojsonseq in sources, piu' le relazioni [(id, tag, lon, lat)] di relazioni_non_aree,
+    nell'XML di Overpass; ritorna quanti. Con confine (Confine) solo quelli con il punto dentro; con sorelle solo quelli
+    che spettano alla regione (vince)."""
+    minx, miny, maxx, maxy = bbox
+    seen, fuori, ceduti = set(), set(), set()
 
     def oggetti():
         for source in sources:
@@ -571,6 +592,9 @@ def scrivi_xml(sources, bbox, out, relazioni=(), confine=None):
             if confine and not confine.dentro(lon, lat):
                 fuori.add((kind, oid))
                 continue
+            if sorelle and not vince(lon, lat, regione, bbox, sorelle):
+                ceduti.add((kind, oid))
+                continue
             seen.add((kind, oid))
             tags = "".join(f"<tag k={quoteattr(k)} v={quoteattr(str(v))}/>" for k, v in props.items())
             if kind == "node":
@@ -581,6 +605,8 @@ def scrivi_xml(sources, bbox, out, relazioni=(), confine=None):
     if confine:
         # Una relazione in due estratti conta una volta: fuori solo se non e' entrata da nessuno dei due.
         print(f"-- geofabrik: {len(fuori - seen)} oggetti fuori dal confine scartati", flush=True)
+    if sorelle:
+        print(f"-- geofabrik: {len(ceduti - seen)} oggetti ceduti alle regioni sorelle", flush=True)
     return len(seen)
 
 
@@ -592,9 +618,16 @@ def main():
     parser.add_argument("--cache", required=True, help="cartella degli estratti ridotti, condivisa dalle regioni del job")
     parser.add_argument("--user-agent", default="PocketTravel-pipeline")
     parser.add_argument("--border", help="confine della nazione (Feature GeoJSON di country_border.py): i POI fuori si scartano")
+    parser.add_argument("--id", help="id della regione, per --sibling")
+    parser.add_argument("--sibling", action="append", default=[], metavar="ID:minLon,minLat,maxLon,maxLat",
+                        help="regione sullo stesso confine con il rettangolo sovrapposto (ripetibile): i POI della "
+                             "sovrapposizione restano solo nella regione con il centro del rettangolo piu' vicino")
     parser.add_argument("--index", help="index-v1.json locale, usato al posto di quello scaricato in --cache (opzione manuale, non usata da build-region.sh)")
     args = parser.parse_args()
     bbox = tuple(float(v) for v in args.bbox.split(","))
+    sorelle = [(sid, tuple(float(v) for v in b.split(","))) for sid, b in (s.split(":", 1) for s in args.sibling)]
+    if sorelle and not args.id:
+        parser.error("--sibling richiede --id")
     os.makedirs(args.cache, exist_ok=True)
 
     index_path = args.index or os.path.join(args.cache, "index-v1.json")
@@ -635,7 +668,7 @@ def main():
         if args.border:
             with open(args.border, encoding="utf-8") as f:
                 confine = Confine(json.load(f))
-        count = scrivi_xml(sources, bbox, args.out, relazioni, confine)
+        count = scrivi_xml(sources, bbox, args.out, relazioni, confine, sorelle, args.id)
     # Nessun oggetto e' quasi certamente un errore (formato di osmium cambiato, filtro sbagliato): meglio Overpass.
     if count == 0:
         sys.exit("nessun oggetto POI dagli estratti Geofabrik")

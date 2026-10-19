@@ -432,6 +432,71 @@ class ConfineTest(unittest.TestCase):
         self.assertIn("4 oggetti fuori dal confine scartati", logs["regione"])
 
 
+class SorelleTest(unittest.TestCase):
+    # Le 10 regioni russe sul confine della nazione (regions.sh): 17 coppie di rettangoli si sovrappongono.
+    RUSSIA = {
+        "russia-caucaso-settentrionale": (32.50, 41.19, 48.58, 50.23), "russia-centro": (30.79, 51.78, 47.61, 59.64),
+        "russia-nord-europeo": (28.41, 58.49, 68.95, 81.86), "russia-nord-ovest": (27.35, 55.57, 36.18, 61.33),
+        "russia-terra-nera-centrale": (34.11, 49.56, 43.24, 53.83), "russia-urali-europei": (50.79, 50.49, 61.59, 61.69),
+        "russia-volga": (41.16, 44.74, 54.18, 56.67), "russia-volga-vjatka": (41.78, 53.66, 53.93, 61.06),
+        "russia-siberia": (60.00, 45.00, 120.00, 82.00), "russia-estremo-oriente": (120.00, 41.50, 180.00, 77.50),
+    }
+
+    def vincitrici(self, lon, lat, inverti=False):
+        out = []
+        for rid, bbox in self.RUSSIA.items():
+            sorelle = [(s, b) for s, b in self.RUSSIA.items() if s != rid]
+            if inverti:
+                sorelle.reverse()
+            minx, miny, maxx, maxy = bbox
+            if minx <= lon <= maxx and miny <= lat <= maxy and geofabrik_pois.vince(lon, lat, rid, bbox, sorelle):
+                out.append(rid)
+        return out
+
+    def test_ogni_punto_in_una_sola_regione_in_qualunque_ordine(self):
+        # Griglia di 0,25 gradi sui lati dei rettangoli compresi (lati comuni a 60 E e 120 E, angoli).
+        coppie = set()
+        for i in range(int((180 - 27) / 0.25) + 1):
+            for j in range(int((82 - 41) / 0.25) + 1):
+                lon, lat = 27 + i * 0.25, 41 + j * 0.25
+                dentro = [r for r, (a, b, c, d) in self.RUSSIA.items() if a <= lon <= c and b <= lat <= d]
+                coppie.update((x, y) for x in dentro for y in dentro if x < y)
+                vincitrici = self.vincitrici(lon, lat)
+                self.assertEqual(len(vincitrici), 1 if dentro else 0, (lon, lat, vincitrici))
+                self.assertEqual(vincitrici, self.vincitrici(lon, lat, inverti=True), (lon, lat))
+        # Le 17 coppie sovrapposte, piu' Siberia ed Estremo Oriente, che hanno in comune il lato a 120 E.
+        self.assertEqual(len(coppie), 18)
+
+    def test_vince_la_regione_con_il_centro_piu_vicino(self):
+        # Nizhny Novgorod (44,0 E; 56,33 N) sta nei rettangoli di Centro, Volga e Volga-Vjatka; Celjabinsk (61,4 E;
+        # 55,16 N) in quelli degli Urali europei e della Siberia, a 1,4 gradi dal lato est del primo.
+        self.assertEqual(self.vincitrici(44.0, 56.33), ["russia-volga-vjatka"])
+        self.assertEqual(self.vincitrici(61.4, 55.16), ["russia-urali-europei"])
+        # Fuori dalle sovrapposizioni resta alla sua regione; senza sorelle vince sempre.
+        self.assertEqual(self.vincitrici(50.0, 46.0), ["russia-volga"])
+        self.assertTrue(geofabrik_pois.vince(30.0, 60.0, "x", (0, 0, 30, 60), []))
+
+    def test_a_parita_l_id_piu_basso(self):
+        a, b = (0, 0, 2, 2), (0, 0, 2, 2)
+        self.assertTrue(geofabrik_pois.vince(1, 1, "a", a, [("b", b)]))
+        self.assertFalse(geofabrik_pois.vince(1, 1, "b", b, [("a", a)]))
+
+    def test_scrivi_xml_cede_i_punti_alla_sorella(self):
+        features = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [x, 0.5]},
+                     "properties": {"@type": "node", "@id": i, "amenity": "cafe"}} for i, x in enumerate((0.2, 1.5, 1.9))]
+        with tempfile.TemporaryDirectory() as tmp:
+            source = os.path.join(tmp, "a.geojsonseq")
+            with open(source, "w", encoding="utf-8") as f:
+                f.writelines(json.dumps(x) + "\n" for x in features)
+            out = os.path.join(tmp, "out.osm.xml")
+            with mock.patch("sys.stdout", new_callable=io.StringIO) as stdout:
+                count = geofabrik_pois.scrivi_xml([source], (0, 0, 2, 1), out, sorelle=[("b", (1, 0, 3, 1))], regione="a")
+            ids = [e.get("id") for e in ElementTree.parse(out).getroot()]
+        # 1,5 e' a meta' tra i centri (1 e 2): parita', resta in "a"; 1,9 e' piu' vicino al centro di "b".
+        self.assertEqual((count, ids), (2, ["0", "1"]))
+        self.assertIn("1 oggetti ceduti alle regioni sorelle", stdout.getvalue())
+
+
 class FileDatatoTest(unittest.TestCase):
     def test_il_piu_recente_della_cartella(self):
         listing = (b'<a href="iceland-260929.osm.pbf">x</a><a href="iceland-260930.osm.pbf">x</a>'

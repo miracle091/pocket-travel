@@ -402,6 +402,7 @@ BORDER_FILE=""
 BORDER_AREA=""
 BORDER_RELATION=""
 BORDER_CHECKED=""
+POI_SCOPE=""
 # Regola del taglio sul confine, in manifest.json come poi.borderRule: un pacchetto pubblicato con un'altra regola si
 # rigenera una volta anche se recente. 2: geofabrik_pois.py tiene solo gli oggetti con il punto (sull'oggetto) dentro il
 # confine completo di country_border.py, quindi ogni via o area a cavallo in una sola regione e nessun membro lontano
@@ -417,6 +418,21 @@ find_border() {
     BORDER_FILE="$WORKDIR/confine.geojson"
     BORDER_AREA=$((3600000000 + BORDER_RELATION))
     echo "-- confine OSM: relazione $BORDER_RELATION"
+    # Regioni sorelle: tagliate sulla stessa relazione nel `manifest.json` pubblicato, con il rettangolo di regions.sh
+    # che tocca questo (le 10 regioni russe sul confine della Russia: 17 coppie di rettangoli sovrapposti, POI delle
+    # sovrapposizioni in due pacchetti). geofabrik_pois.py lascia ogni POI di una sovrapposizione a una regione sola
+    # (--sibling): tutte le sorelle devono vedere gli stessi rettangoli, quindi vengono tutti da regions.sh, come --bbox.
+    # In manifest.json come poi.scope (sorelle e regione, con i rettangoli), che fa rigenerare i POI quando le sorelle o
+    # un rettangolo cambiano.
+    if [ -s "${PUBLISHED_MANIFEST:-}" ]; then
+      SIBLING_IDS="$(jq -r --arg id "$REGION_ID" --argjson rel "$BORDER_RELATION" \
+        '(.regions // [])[] | select(.regionId != $id and .poi.borderRelation == $rel) | .regionId' "$PUBLISHED_MANIFEST" 2>/dev/null || true)"
+      POI_SCOPE="$( (source "$SCRIPT_DIR/regions.sh" && printf '%s\n' "${ALL_REGIONS[@]}") \
+        | awk -F'|' -v ids=" $(printf '%s ' $SIBLING_IDS)" -v self="$REGION_ID" -v a="$MIN_LON" -v b="$MIN_LAT" -v c="$MAX_LON" -v d="$MAX_LAT" '
+          index(ids, " " $1 " ") && $3 <= c && $5 >= a && $4 <= d && $6 >= b { out[n++] = $1 ":" $3 "," $4 "," $5 "," $6 }
+          END { if (n) { out[n++] = self ":" a "," b "," c "," d; for (i = 0; i < n; i++) print out[i] } }' | sort | paste -sd' ')"
+      [ -z "$POI_SCOPE" ] || echo "-- regioni sorelle sullo stesso confine: $POI_SCOPE"
+    fi
   elif [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.border // false' 2>/dev/null || true)" = "true" ]; then
     # I POI pubblicati sono gia' tagliati sul confine: senza (Nominatim non raggiungibile) si pubblicherebbero di nuovo
     # quelli dei paesi vicini.
@@ -481,6 +497,11 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     # POI non si aggiornerebbero mai.
     PUBLISHED_REGION="$(jq -c --arg id "$REGION_ID" '[(.regions // [])[] | select(.regionId == $id)][0] // empty' "$PUBLISHED_MANIFEST" 2>/dev/null || true)"
     PUBLISHED_POI_URL="$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.file.url // ""' 2>/dev/null || true)"
+    # Rettangolo cambiato in regions.sh con le stesse tile: la regione saltata o aggiornata in modo incrementale terrebbe
+    # in map.source quello pubblicato, che l'app usa per la mappa e le regioni sorelle per i POI. Si rigenera tutta.
+    SAME_BBOX="$(printf '%s' "$PUBLISHED_REGION" | jq --argjson b "[$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT]" \
+      '[.map.source.minLon, .map.source.minLat, .map.source.maxLon, .map.source.maxLat] == $b' 2>/dev/null || true)"
+    [ "$SAME_BBOX" = true ] || [ -z "$PUBLISHED_REGION" ] || echo "-- $REGION_ID: rettangolo diverso da quello pubblicato: rigenero tutto"
     POI_DATE="$(printf '%s' "$PUBLISHED_POI_URL" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)\(\.[0-9][0-9.]*\)\?--\(poi\|content\)\.db\(\.xz\)\?$#\1#p')"
     POI_AGE_DAYS=""
     if [ -n "$POI_DATE" ]; then
@@ -515,9 +536,12 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     elif [ -n "$BORDER_FILE" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.borderRule // ""' 2>/dev/null || true)" != "$POI_BORDER_RULE" ]; then
       echo "-- $REGION_ID: POI pubblicati tagliati senza la regola $POI_BORDER_RULE del confine: li rigenero"
       POI_STALE=true
+    elif [ -n "$BORDER_FILE" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.scope // ""' 2>/dev/null || true)" != "$POI_SCOPE" ]; then
+      echo "-- $REGION_ID: POI pubblicati con altre regioni sorelle: li rigenero"
+      POI_STALE=true
     fi
 
-    if [ -n "$EXPECTED_SORTED" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$PUBLISHED_SORTED" = "$EXPECTED_SORTED" ] && [ "$POI_STALE" != "true" ] && [ "$MAP_DUE" != "true" ] \
+    if [ -n "$EXPECTED_SORTED" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$PUBLISHED_SORTED" = "$EXPECTED_SORTED" ] && [ "$POI_STALE" != "true" ] && [ "$MAP_DUE" != "true" ] && [ "$SAME_BBOX" = true ] \
       && [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("routingCar")')" = "true" ]; then
       echo "== [$REGION_ID] invariata rispetto al manifest.json pubblicato (stesse tile .rd5, stesse dimensioni): salto la rigenerazione =="
       : > "$OUTPUT_DIR/.skipped"
@@ -550,7 +574,7 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     # ricavata da tutte le tile, non solo da quelle cambiate), viene rigenerata per intero.
     if [ -n "$PUBLISHED_REGION" ] && [ "$EXPECTED_SORTED" != "[]" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("routing") and has("routingCar")')" = "true" ]; then
       SAME_TILES="$(jq -n --argjson a "$EXPECTED_SORTED" --argjson b "$PUBLISHED_SORTED" '($a | map(.name)) == ($b | map(.name))')"
-      if [ "$SAME_TILES" = "true" ] && [ -n "$POI_AGE_DAYS" ]; then
+      if [ "$SAME_TILES" = "true" ] && [ "$SAME_BBOX" = true ] && [ -n "$POI_AGE_DAYS" ]; then
         if [ "$POI_STALE" = "true" ]; then
           echo "-- $REGION_ID: stesse tile, poi.db di $POI_AGE_DAYS giorni (max $POI_MAX_AGE_DAYS): aggiorno le tile cambiate e rigenero il poi.db"
           POI_ONLY=true
@@ -717,7 +741,10 @@ fetch_overpass_chunk() {
 GEOFABRIK_XML=""
 if [ "${GEOFABRIK_POI:-true}" = "true" ] && command -v osmium >/dev/null; then
   echo "-- POI dagli estratti Geofabrik..."
-  if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --iso="$REGION_ISO" ${BORDER_FILE:+--border "$BORDER_FILE"} \
+  SIBLING_ARGS=()
+  for sibling in $POI_SCOPE; do [ "${sibling%%:*}" = "$REGION_ID" ] || SIBLING_ARGS+=(--sibling "$sibling"); done
+  [ -z "$POI_SCOPE" ] || SIBLING_ARGS+=(--id "$REGION_ID")
+  if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --iso="$REGION_ISO" ${BORDER_FILE:+--border "$BORDER_FILE"} "${SIBLING_ARGS[@]}" \
     --out "$WORKDIR/poi-geofabrik.osm.xml" --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT"; then
     GEOFABRIK_XML="$WORKDIR/poi-geofabrik.osm.xml"
   else
@@ -838,10 +865,18 @@ if [ -n "$BORDER_FILE" ]; then
     POI_BORDER_RULE_JSON="$POI_BORDER_RULE"
   fi
 fi
+# Le sorelle le applica solo geofabrik_pois.py: con Overpass la voce resta senza, e la run dopo rigenera i POI.
+POI_SCOPE_JSON=null
+if [ -n "$GEOFABRIK_XML" ] && [ -n "$POI_SCOPE" ]; then
+  POI_SCOPE_JSON="$(jq -n --arg scope "$POI_SCOPE" '$scope')"
+fi
 # Primo pacchetto tagliato su questo confine: quello pubblicato aveva anche i POI dei paesi o degli stati vicini (Oman:
 # due terzi negli Emirati; Virginia Occidentale: tre quarti negli stati vicini), quindi il confronto con la meta'
-# scarterebbe il risultato giusto. Resta il controllo sul risultato vuoto.
-if [ "$POI_BORDER" = true ] && [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.borderRelation // ""' 2>/dev/null || true)" != "$BORDER_RELATION" ]; then
+# scarterebbe il risultato giusto. Lo stesso per il primo pacchetto con altre sorelle, se geofabrik_pois.py le ha
+# applicate: le regioni russe cedono fino a tre quarti dei POI pubblicati, che stavano anche nelle sorelle (Nord europeo
+# 25% tenuti, Volga 35%, misura del 2026-10-19). Resta il controllo sul risultato vuoto.
+if [ "$POI_BORDER" = true ] && { [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.borderRelation // ""' 2>/dev/null || true)" != "$BORDER_RELATION" ] \
+  || { [ -n "$GEOFABRIK_XML" ] && [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.scope // ""' 2>/dev/null || true)" != "$POI_SCOPE" ]; }; }; then
   PUBLISHED_POI_COUNT=""
   PUBLISHED_POI_URL=""
 fi
@@ -890,8 +925,9 @@ if [ "$POI_ONLY" = "true" ]; then
       # conteggio (assenti nelle voci piu' vecchie), altrimenti ogni run li rigenera.
       if [ "$key" = "poi" ]; then
         jq -c --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" --argjson borderRelation "${BORDER_RELATION:-null}" \
-          --argjson borderRule "$POI_BORDER_RULE_JSON" \
-          '.regions |= map(.poi.count = $count | .poi.border = $border | .poi.borderRelation = $borderRelation | .poi.borderRule = $borderRule)' \
+          --argjson borderRule "$POI_BORDER_RULE_JSON" --argjson scope "$POI_SCOPE_JSON" \
+          '.regions |= map(.poi.count = $count | .poi.border = $border | .poi.borderRelation = $borderRelation | .poi.borderRule = $borderRule
+            | if $scope then .poi.scope = $scope else del(.poi.scope) end)' \
           "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
         mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
       fi
@@ -899,9 +935,10 @@ if [ "$POI_ONLY" = "true" ]; then
     fi
     jq -c --arg key "$key" --arg version "$VERSION" --arg name "$name" --arg url "$url" \
       --argjson size "$(wc -c < "$file" | tr -d ' ')" --arg hash "$hash" --argjson xz "$(xz_entry "$file" "$url")" --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" --argjson borderRelation "${BORDER_RELATION:-null}" \
-      --argjson borderRule "$POI_BORDER_RULE_JSON" '
+      --argjson borderRule "$POI_BORDER_RULE_JSON" --argjson scope "$POI_SCOPE_JSON" '
       .regions |= map(.[$key] = {version: $version, file: {name: $name, url: $url, sizeBytes: $size, sha256: $hash}, fileXz: $xz}
-        + (if $key == "poi" then {count: $count, border: $border, borderRelation: $borderRelation, borderRule: $borderRule} else {} end))' \
+        + (if $key == "poi" then {count: $count, border: $border, borderRelation: $borderRelation, borderRule: $borderRule}
+          + (if $scope then {scope: $scope} else {} end) else {} end))' \
       "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
     mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
   }
@@ -983,11 +1020,12 @@ POI_XZ="$(xz_entry "$POI_DB" "$POI_DB_URL")"
 POI_EXTRA_XZ="null"
 [ -f "$POI_EXTRA_DB" ] && POI_EXTRA_XZ="$(xz_entry "$POI_EXTRA_DB" "$POI_EXTRA_DB_URL")"
 # border: POI tagliati su un confine OSM; borderRelation: la relazione (nazione o suddivisione); borderRule: la regola
-# del taglio (POI_BORDER_RULE). Il controllo del conteggio sopra e la rigenerazione anticipata confrontano solo
-# pacchetti tagliati sulla stessa relazione.
+# del taglio (POI_BORDER_RULE); scope: le regioni sorelle (POI_SCOPE), assente senza. Il controllo del conteggio sopra
+# e la rigenerazione anticipata confrontano solo pacchetti tagliati sulla stessa relazione, con le stesse sorelle.
 jq -c --argjson xz "$POI_XZ" --argjson extraXz "$POI_EXTRA_XZ" --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" \
-  --argjson borderRelation "${BORDER_RELATION:-null}" --argjson borderRule "$POI_BORDER_RULE_JSON" \
-  '.regions |= map(.poi.fileXz = $xz | .poi.count = $count | .poi.border = $border | .poi.borderRelation = $borderRelation | .poi.borderRule = $borderRule | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
+  --argjson borderRelation "${BORDER_RELATION:-null}" --argjson borderRule "$POI_BORDER_RULE_JSON" --argjson scope "$POI_SCOPE_JSON" \
+  '.regions |= map(.poi.fileXz = $xz | .poi.count = $count | .poi.border = $border | .poi.borderRelation = $borderRelation | .poi.borderRule = $borderRule
+    | (if $scope then .poi.scope = $scope else del(.poi.scope) end) | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
   "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
 mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
 # Mappa d'insieme compressa (voce fileXz): dimensione/hash gia' calcolati da build_preview, niente
