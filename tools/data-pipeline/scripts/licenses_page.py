@@ -4,7 +4,7 @@
 Uso: python3 licenses_page.py <cartella del sito>
 
 Scrive licenses.html (italiano) e licenses-en.html (inglese) nella cartella del sito: software, modelli e
-dati fissi dalle tabelle qui sotto (da tenere allineate alla schermata Licenze dell'app, LicenseData.kt),
+dati fissi dalle tabelle qui sotto (da tenere allineate alla schermata Licenze dell'app, app/aboutlibraries),
 fonti dei numeri civici e reti dei mezzi pubblici da address-grid.json e transit.json della stessa
 pubblicazione. Un indice mancante lascia vuota la sua sezione.
 """
@@ -24,7 +24,8 @@ APACHE = ("Apache-2.0", "https://www.apache.org/licenses/LICENSE-2.0")
 BSD2 = ("BSD-2-Clause", "https://opensource.org/license/bsd-2-clause")
 BSD3 = ("BSD-3-Clause", "https://opensource.org/license/bsd-3-clause")
 ZERO_BSD = ("0BSD", "https://opensource.org/license/0bsd")
-UNLICENSE = ("Unlicense", "https://unlicense.org/")
+MPL = ("MPL-2.0", "https://www.mozilla.org/MPL/2.0/")
+APACHE_LLVM = ("Apache-2.0 WITH LLVM-exception", "https://llvm.org/LICENSE.txt")
 OFL = ("SIL OFL 1.1", "https://openfontlicense.org/open-font-license-official-text/")
 CC_BY_SA = ("CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0/")
 CC_BY = ("CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/")
@@ -51,13 +52,14 @@ TEXTS = {
         "other": "English",
         "software_title": "Software e modelli", "components": "Componenti",
         "software": [
-            (MIT, "BRouter, llama.cpp, nlohmann/json, cpp-httplib"),
-            (APACHE, "Jetpack (Compose, Room, WorkManager, Hilt), kotlinx.serialization, OkHttp, Planetiler, "
+            (MIT, "BRouter, llama.cpp, nlohmann/json, cpp-httplib, pmtiles-reader"),
+            (APACHE, "Jetpack (Compose, Room, WorkManager, Hilt, CameraX), kotlinx.serialization, OkHttp, Guava, Gson, "
                      "KleidiAI, icone Material Symbols, modelli Qwen3.5 e Qwen3"),
-            (BSD2, "MapLibre GL"),
-            (BSD3, "pmtiles-reader, basemap Protomaps"),
+            (APACHE_LLVM, "LLVM OpenMP"),
+            (BSD2, "MapLibre (con i componenti C++ elencati nell'app)"),
+            (BSD3, "libyuv (in CameraX)"),
             (ZERO_BSD, "XZ for Java"),
-            (UNLICENSE, "subprocess.h"),
+            (MPL, "Public Suffix List (in OkHttp)"),
             (OFL, "font Noto Sans (etichette della mappa)"),
             (CC_BY_SA, "modelli Pocket Travel, addestrati su testi di Wikivoyage e Wikipedia"),
             (("Pubblico dominio", None), "Natural Earth (confini), OurAirports (aeroporti), bandiere (in gran parte)"),
@@ -65,6 +67,7 @@ TEXTS = {
         "data_title": "Dati", "use": "Uso nell'app",
         "data": [
             (("OpenStreetMap", "https://www.openstreetmap.org/copyright"), ODBL, "mappe, punti di interesse, civici, ambasciate"),
+            (("Protomaps", "https://github.com/protomaps/basemaps"), ODBL, "mappa, mappa d'insieme e mappa del mondo"),
             (("Wikivoyage", "https://www.wikivoyage.org"), CC_BY_SA, "guide (adattate, alcune sezioni tradotte automaticamente)"),
             (("Wikipedia", "https://www.wikipedia.org"), CC_BY_SA, "storia e clima delle città"),
             (("Wikidata", "https://www.wikidata.org"), CC0, "fatti rapidi, ambasciate, compagnie aeree"),
@@ -96,13 +99,14 @@ TEXTS = {
         "other": "Italiano",
         "software_title": "Software and models", "components": "Components",
         "software": [
-            (MIT, "BRouter, llama.cpp, nlohmann/json, cpp-httplib"),
-            (APACHE, "Jetpack (Compose, Room, WorkManager, Hilt), kotlinx.serialization, OkHttp, Planetiler, "
+            (MIT, "BRouter, llama.cpp, nlohmann/json, cpp-httplib, pmtiles-reader"),
+            (APACHE, "Jetpack (Compose, Room, WorkManager, Hilt, CameraX), kotlinx.serialization, OkHttp, Guava, Gson, "
                      "KleidiAI, Material Symbols icons, Qwen3.5 and Qwen3 models"),
-            (BSD2, "MapLibre GL"),
-            (BSD3, "pmtiles-reader, Protomaps basemap"),
+            (APACHE_LLVM, "LLVM OpenMP"),
+            (BSD2, "MapLibre (with the C++ components listed in the app)"),
+            (BSD3, "libyuv (in CameraX)"),
             (ZERO_BSD, "XZ for Java"),
-            (UNLICENSE, "subprocess.h"),
+            (MPL, "Public Suffix List (in OkHttp)"),
             (OFL, "Noto Sans font (map labels)"),
             (CC_BY_SA, "Pocket Travel models, trained on Wikivoyage and Wikipedia texts"),
             (("Public domain", None), "Natural Earth (borders), OurAirports (airports), flags (mostly)"),
@@ -110,6 +114,7 @@ TEXTS = {
         "data_title": "Data", "use": "Use in the app",
         "data": [
             (("OpenStreetMap", "https://www.openstreetmap.org/copyright"), ODBL, "maps, points of interest, house numbers, embassies"),
+            (("Protomaps", "https://github.com/protomaps/basemaps"), ODBL, "map, overview map and world map"),
             (("Wikivoyage", "https://www.wikivoyage.org"), CC_BY_SA, "guides (adapted, some sections machine-translated)"),
             (("Wikipedia", "https://www.wikipedia.org"), CC_BY_SA, "city history and climate"),
             (("Wikidata", "https://www.wikidata.org"), CC0, "quick facts, embassies, airlines"),

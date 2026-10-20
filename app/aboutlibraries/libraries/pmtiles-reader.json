@@ -1,0 +1,8 @@
+{
+  "uniqueId": "ch.poole.geo.pmtiles-reader:Reader",
+  "name": "pmtiles-reader",
+  "licenses": [
+    "MIT-pmtiles-reader",
+    "Apache-2.0-pmtiles-reader"
+  ]
+}

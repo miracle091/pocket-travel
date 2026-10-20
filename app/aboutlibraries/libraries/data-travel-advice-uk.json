@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:travel-advice-uk",
+  "name": "gov.uk Foreign travel advice",
+  "website": "https://www.gov.uk/foreign-travel-advice",
+  "licenses": [
+    "OGL-UK-3.0"
+  ],
+  "tag": "data"
+}

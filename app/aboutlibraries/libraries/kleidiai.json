@@ -1,0 +1,9 @@
+{
+  "uniqueId": "com.arm:kleidiai",
+  "name": "KleidiAI",
+  "artifactVersion": "1.31.0",
+  "website": "https://github.com/ARM-software/kleidiai",
+  "licenses": [
+    "Apache-2.0-kleidiai"
+  ]
+}

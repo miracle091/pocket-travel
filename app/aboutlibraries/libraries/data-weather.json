@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:weather",
+  "name": "Open-Meteo.com, GeoNames",
+  "website": "https://open-meteo.com",
+  "licenses": [
+    "CC-BY-4.0"
+  ],
+  "tag": "data"
+}

@@ -213,66 +213,51 @@
     <string name="licenses_address_sources_title">Fonti dei numeri civici</string>
     <string name="licenses_transit_sources_title">Fonti degli orari dei mezzi pubblici</string>
     <string name="licenses_link">Pagina della licenza</string>
+    <string name="licenses_section_software">Software</string>
+    <string name="licenses_section_models">Modelli IA</string>
+    <string name="licenses_section_data">Dati</string>
+    <string name="licenses_version">Versione %1$s</string>
 
     <!-- Licenze di terze parti (LicenseData.kt): nomi uguali in ogni lingua -->
-    <string name="licenses_component_maplibre" translatable="false">MapLibre GL (Android SDK)</string>
-    <string name="licenses_component_planetiler" translatable="false">Planetiler</string>
-    <string name="licenses_component_jetpack" translatable="false">Jetpack Compose, Room, WorkManager, Hilt</string>
-    <string name="licenses_component_kotlinx_serialization" translatable="false">kotlinx.serialization</string>
-    <string name="licenses_component_wikivoyage" translatable="false">Wikivoyage</string>
-    <string name="licenses_name_mit" translatable="false">MIT</string>
-    <string name="licenses_name_apache" translatable="false">Apache-2.0</string>
-    <string name="licenses_name_bsd2" translatable="false">BSD-2-Clause</string>
-    <string name="licenses_name_bsd3" translatable="false">BSD-3-Clause</string>
-    <string name="licenses_name_unlicense" translatable="false">Unlicense</string>
-    <string name="licenses_name_0bsd" translatable="false">0BSD</string>
-    <string name="licenses_name_ofl" translatable="false">SIL OFL 1.1</string>
-    <string name="licenses_name_odbl" translatable="false">ODbL 1.0</string>
-    <string name="licenses_name_cc_by_sa" translatable="false">CC BY-SA 4.0</string>
-    <string name="licenses_name_cc0" translatable="false">CC0 1.0</string>
-    <string name="licenses_name_cc_by" translatable="false">CC BY 4.0</string>
-    <string name="licenses_name_ogl_canada" translatable="false">Open Government Licence - Canada 2.0</string>
-    <string name="licenses_name_ogl_uk" translatable="false">Open Government Licence v3.0</string>
-    <string name="licenses_name_licence_ouverte" translatable="false">Licence Ouverte 2.0 (Etalab)</string>
     <!-- Dicitura di attribuzione richiesta dalla Open Government Licence v3.0, uguale in ogni lingua -->
     <string name="licenses_note_emergency_uk" translatable="false">Contains public sector information licensed under the Open Government Licence v3.0</string>
 
     <!-- Licenze di terze parti (LicenseData.kt): testi tradotti -->
-    <string name="licenses_component_brouter">BRouter Core (third-party/brouter, con le patch del progetto)</string>
-    <string name="licenses_component_llama_cpp">llama.cpp (third-party/llama-cpp, con le patch del progetto)</string>
-    <string name="licenses_note_llama_cpp">Sostituisce LiteRT-LM (Google), senza nuove release da agosto 2026. Non esiste un AAR Maven ufficiale: si compila dal sorgente con NDK e CMake</string>
-    <string name="licenses_component_nlohmann_json">nlohmann/json (usato da llama.cpp, third-party/llama-cpp/vendor/nlohmann)</string>
-    <string name="licenses_component_subprocess">sheredom/subprocess.h (usato da llama.cpp, third-party/llama-cpp/vendor/sheredom)</string>
-    <string name="licenses_component_cpp_httplib">yhirose/cpp-httplib (usato da llama.cpp, third-party/llama-cpp/vendor/cpp-httplib)</string>
-    <string name="licenses_component_kleidiai">KleidiAI (Arm, kernel ottimizzati usati da llama.cpp su arm64)</string>
-    <string name="licenses_component_okhttp">OkHttp (download dei contenuti, dei modelli e del meteo)</string>
+    <string name="licenses_component_brouter">BRouter (calcolo dei percorsi)</string>
+    <string name="licenses_note_brouter">Compilato dal codice sorgente con le patch del progetto, insieme ai profili di navigazione dello stesso progetto</string>
+    <string name="licenses_component_llama_cpp">llama.cpp e ggml</string>
+    <string name="licenses_note_llama_cpp">Esegue i modelli dell\'assistente sul dispositivo. Compilato dal codice sorgente con le patch del progetto</string>
+    <string name="licenses_component_nlohmann_json">nlohmann/json (incluso in llama.cpp)</string>
+    <string name="licenses_component_cpp_httplib">cpp-httplib (incluso in llama.cpp)</string>
+    <string name="licenses_component_kleidiai">KleidiAI (Arm, calcoli ottimizzati per i processori arm64, inclusi in llama.cpp)</string>
+    <string name="licenses_component_openmp">LLVM OpenMP (calcolo in parallelo dei modelli dell\'assistente)</string>
+    <string name="licenses_component_public_suffix">Public Suffix List (Mozilla, inclusa in OkHttp)</string>
     <string name="licenses_component_qwen">Modelli Qwen3.5 e Qwen3 (Alibaba Cloud, team Qwen)</string>
     <string name="licenses_note_qwen">Modelli dell\'assistente sul dispositivo, scaricati su richiesta da Hugging Face nelle versioni GGUF quantizzate da Unsloth</string>
-    <string name="licenses_component_trained_models">Modelli addestrati da Pocket Travel (pockettravel/*-travel-it-GGUF)</string>
+    <string name="licenses_component_trained_models">Modelli addestrati da Pocket Travel (pockettravel/*-travel-it-GGUF e *-travel-en-GGUF)</string>
     <string name="licenses_note_trained_models">Fine-tuning dei modelli Qwen, addestrati su testi di Wikivoyage e Wikipedia; scaricati su richiesta da Hugging Face</string>
-    <string name="licenses_component_pmtiles_reader">pmtiles-reader (lettura PMTiles via HTTP range, core:sync)</string>
-    <string name="licenses_component_xz">XZ for Java (decompressione dei punti di interesse, core:sync)</string>
-    <string name="licenses_component_protomaps">Basemap Protomaps (software/schema)</string>
+    <string name="licenses_component_protomaps">Mappa: build Protomaps</string>
+    <string name="licenses_note_protomaps">Mappa, mappa d\'insieme e mappa del mondo estratte dalla build giornaliera di Protomaps, con dati © OpenStreetMap contributors e Natural Earth</string>
     <string name="licenses_component_natural_earth">Natural Earth (confini dei paesi, mappa delle nazioni)</string>
     <string name="licenses_name_public_domain">Pubblico dominio</string>
-    <string name="licenses_note_natural_earth">Dati 1:50m, ridotti a confini, codice ISO e nome del paese (feature:map/src/main/assets/world)</string>
+    <string name="licenses_note_natural_earth">Dati in scala 1:50m, ridotti a confini, codice ISO e nome del paese</string>
     <string name="licenses_component_airports">OurAirports (aeroporti) e Wikidata (compagnie aeree, nomi delle città)</string>
     <string name="licenses_name_airports">Pubblico dominio (OurAirports), CC0 (Wikidata)</string>
-    <string name="licenses_note_airports">Completamento di aeroporti e compagnie nei biglietti dei documenti (feature:vault/src/main/assets). I dati di OurAirports sono forniti senza garanzie</string>
-    <string name="licenses_component_flags">Bandiere nazionali (westnordost/flags-vector-drawables-android, core:ui/src/main/res/drawable/ic_flag_*)</string>
+    <string name="licenses_note_airports">Completamento di aeroporti e compagnie aeree nei biglietti dei documenti. I dati di OurAirports sono forniti senza garanzie</string>
+    <string name="licenses_component_flags">Bandiere nazionali (westnordost/flags-vector-drawables-android)</string>
     <string name="licenses_name_flags">Licenza di ciascuna bandiera su Wikipedia/Wikimedia Commons, in gran parte pubblico dominio</string>
     <string name="licenses_note_flags">Vettoriali esportati dalle bandiere di Wikipedia (Timeline of national flags)</string>
-    <string name="licenses_component_material_symbols">Icone Material Symbols (Google, google/material-design-icons, core:ui/src/main/res/drawable/ms_*)</string>
+    <string name="licenses_component_material_symbols">Icone Material Symbols (Google)</string>
     <string name="licenses_note_material_symbols">Icone dell\'interfaccia, delle categorie dei punti di interesse e delle frecce di navigazione</string>
-    <string name="licenses_component_noto_sans">Klokantech Noto Sans (glifi delle etichette della mappa, feature:map/src/main/assets/fonts)</string>
-    <string name="licenses_note_noto_sans">Font Noto Sans (Google) ripacchettato in SDF da openmaptiles/fonts; inclusi i range di latino, greco, cirillico, armeno, ebraico, arabo, thai, georgiano e punteggiatura</string>
+    <string name="licenses_component_noto_sans">Font Noto Sans (etichette della mappa)</string>
+    <string name="licenses_note_noto_sans">Glifi convertiti per la mappa da openmaptiles/fonts; inclusi i caratteri latini, greci, cirillici, armeni, ebraici, arabi, thai e georgiani</string>
     <string name="licenses_component_osm">Dati OpenStreetMap</string>
-    <string name="licenses_note_osm">Richiede attribuzione e condivisione delle modifiche al database</string>
+    <string name="licenses_note_osm">© OpenStreetMap contributors. Mappa, rete stradale, punti di interesse, numeri civici e ambasciate contengono dati di OpenStreetMap, disponibili con licenza ODbL</string>
     <string name="licenses_note_wikivoyage">Testo degli autori di Wikivoyage, con il link a ogni pagina usata tra le fonti della guida. Le sezioni sono adattate (estratte e ripulite dalla formattazione); alcune sono tradotte automaticamente dalla pagina nell\'altra lingua (italiano o inglese) con i modelli opus-mt-tc-big di Helsinki-NLP. Anche il testo adattato e tradotto è distribuito con licenza CC BY-SA 4.0</string>
     <string name="licenses_component_wikipedia">Wikipedia (storia e clima delle città)</string>
     <string name="licenses_note_wikipedia">Testo degli autori di Wikipedia: sezioni Storia (accorciata) e Clima della voce di ogni città, con il link alla voce tra le fonti della guida. Se la sezione manca o è povera, è tradotta automaticamente dalla voce nell\'altra lingua, come per Wikivoyage. Anche il testo adattato e tradotto è distribuito con licenza CC BY-SA 4.0</string>
     <string name="licenses_component_wikidata">Wikidata (ambasciate e consolati, Fatti rapidi delle guide)</string>
-    <string name="licenses_note_wikidata">Pubblico dominio: l\'attribuzione non è obbligatoria, ma la fonte è Wikidata</string>
+    <string name="licenses_note_wikidata">Dati dedicati al pubblico dominio</string>
     <string name="licenses_component_weather">Meteo: Open-Meteo.com (previsioni) e GeoNames (posizione delle città)</string>
     <string name="licenses_note_weather">Weather data by Open-Meteo.com, uso non commerciale. Coordinate delle città dal geocoding di Open-Meteo, basato su GeoNames</string>
     <string name="licenses_component_emergency_canada">Numeri di emergenza: Travel.gc.ca (Governo del Canada)</string>

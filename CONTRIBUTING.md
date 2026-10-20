@@ -49,7 +49,7 @@ La [guida per sviluppatori](docs/GUIDA.md) spiega come preparare l'ambiente, com
 | Database | ogni modifica allo schema Room ha una migrazione in `Migrations.kt` e un test in `RegionDatabaseMigrationTest` |
 | Terze parti | BRouter e llama.cpp non si modificano: le modifiche sono patch in `third-party/patches/` |
 | Testi | ogni stringa in italiano (`values/`) e in inglese (`values-en/`), con i termini e le regole di [STYLE.md](docs/STYLE.md) |
-| Dati | ogni nuova fonte ha una licenza aperta compatibile ed entra nella schermata Licenze (`LicenseData.kt`) e nella [pagina delle licenze](https://miracle091.github.io/pocket-travel/licenses.html) (`tools/data-pipeline/scripts/licenses_page.py`); niente file generati grandi nel repository |
+| Dati | ogni nuova fonte ha una licenza aperta compatibile ed entra nella schermata Licenze (`app/aboutlibraries`, nome e nota in `LicenseData.kt`) e nella [pagina delle licenze](https://miracle091.github.io/pocket-travel/licenses.html) (`tools/data-pipeline/scripts/licenses_page.py`); niente file generati grandi nel repository |
 
 ## Messaggi di commit
 

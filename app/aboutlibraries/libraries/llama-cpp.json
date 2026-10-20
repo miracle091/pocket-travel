@@ -1,0 +1,9 @@
+{
+  "uniqueId": "org.ggml:llama.cpp",
+  "name": "llama.cpp and ggml",
+  "artifactVersion": "0.7.0",
+  "website": "https://github.com/ggml-org/llama.cpp",
+  "licenses": [
+    "MIT-llama.cpp"
+  ]
+}

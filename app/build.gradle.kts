@@ -4,6 +4,8 @@ plugins {
     id("pockettravel.hilt")
     // Rotte type-safe di Navigation Compose (PocketTravelDestinations).
     alias(libs.plugins.kotlin.serialization)
+    // Schermata Licenze: elenco delle dipendenze con i testi delle licenze, generato al build (res/raw/aboutlibraries.json).
+    alias(libs.plugins.aboutlibraries.android)
 }
 
 android {
@@ -83,6 +85,33 @@ android {
     }
 }
 
+// Schermata Licenze: il plugin scrive per ogni variante res/raw/aboutlibraries.json con le dipendenze dei classpath
+// della variante e le definizioni a mano di app/aboutlibraries (libraries/ per i componenti fuori da Gradle e gli
+// avvisi di copyright, licenses/ per i testi). Senza rete: i testi delle licenze stanno tutti in licenses/.
+aboutLibraries {
+    offlineMode = true
+    collect {
+        configPath = file("aboutlibraries")
+    }
+    // Una dipendenza con una licenza fuori da questo elenco fa fallire il build: va controllata prima di aggiungerla
+    // qui. LicenseDataTest controlla che ogni voce abbia un testo di licenza e i componenti fuori da Gradle.
+    license {
+        strictMode = com.mikepenz.aboutlibraries.plugin.StrictMode.FAIL
+        allowedLicenses.addAll(
+            // Codice
+            "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "MIT", "BSD-2-Clause", "BSD-3-Clause", "0BSD", "MPL-2.0", "OFL-1.1",
+            // Modelli e dati
+            "CC-BY-SA-4.0", "ODbL-1.0", "CC0-1.0", "CC-BY-4.0", "OGL-Canada-2.0", "OGL-UK-3.0", "etalab-2.0",
+            "public-domain-natural-earth", "public-domain-ourairports", "wikimedia-commons-flags",
+        )
+    }
+}
+
+// LicenseDataTest legge i JSON generati per debug e release.
+tasks.withType<Test>().configureEach {
+    inputs.files(tasks.named("prepareLibraryDefinitionsDebug"), tasks.named("prepareLibraryDefinitionsRelease"))
+}
+
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:sync"))
@@ -109,9 +138,12 @@ dependencies {
     implementation(libs.hilt.work)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.fragment.ktx)
+    implementation(libs.aboutlibraries.core)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // aboutlibraries-core legge il JSON con org.json, che nel android.jar dei test JVM ha solo gli stub.
+    testImplementation(libs.org.json)
     testImplementation(testFixtures(project(":core:data")))
     testImplementation(testFixtures(project(":core:sync")))
     testImplementation(testFixtures(project(":feature:ai")))

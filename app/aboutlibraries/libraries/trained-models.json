@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.models:trained",
+  "name": "Pocket Travel models",
+  "website": "https://huggingface.co/pockettravel",
+  "licenses": [
+    "CC-BY-SA-4.0"
+  ],
+  "tag": "models"
+}

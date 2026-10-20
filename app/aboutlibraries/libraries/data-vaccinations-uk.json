@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:vaccinations-uk",
+  "name": "TravelHealthPro",
+  "website": "https://travelhealthpro.org.uk",
+  "licenses": [
+    "OGL-UK-3.0"
+  ],
+  "tag": "data"
+}

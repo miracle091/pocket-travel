@@ -1,0 +1,8 @@
+{
+  "uniqueId": "com.github.nlohmann:json",
+  "name": "nlohmann/json",
+  "website": "https://github.com/nlohmann/json",
+  "licenses": [
+    "MIT-nlohmann-json"
+  ]
+}

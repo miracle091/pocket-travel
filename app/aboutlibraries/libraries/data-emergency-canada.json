@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:emergency-canada",
+  "name": "Travel.gc.ca",
+  "website": "https://travel.gc.ca",
+  "licenses": [
+    "OGL-Canada-2.0"
+  ],
+  "tag": "data"
+}

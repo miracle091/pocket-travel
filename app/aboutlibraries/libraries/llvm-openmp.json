@@ -1,0 +1,8 @@
+{
+  "uniqueId": "org.llvm:openmp",
+  "name": "LLVM OpenMP",
+  "website": "https://openmp.llvm.org",
+  "licenses": [
+    "Apache-2.0-WITH-LLVM-exception-openmp"
+  ]
+}

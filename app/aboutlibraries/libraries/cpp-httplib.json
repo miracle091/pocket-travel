@@ -1,0 +1,8 @@
+{
+  "uniqueId": "com.github.yhirose:cpp-httplib",
+  "name": "cpp-httplib",
+  "website": "https://github.com/yhirose/cpp-httplib",
+  "licenses": [
+    "MIT-cpp-httplib"
+  ]
+}

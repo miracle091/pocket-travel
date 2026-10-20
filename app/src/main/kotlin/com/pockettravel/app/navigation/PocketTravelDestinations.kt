@@ -19,6 +19,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable data object LicensesRoute
 
+@Serializable data class LicenseRoute(val uniqueId: String)
+
 @Serializable data object VaultRoute
 
 @Serializable data object MoreRoute

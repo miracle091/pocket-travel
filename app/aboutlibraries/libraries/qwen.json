@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.models:qwen",
+  "name": "Qwen3.5, Qwen3",
+  "website": "https://huggingface.co/Qwen",
+  "licenses": [
+    "Apache-2.0-qwen"
+  ],
+  "tag": "models"
+}

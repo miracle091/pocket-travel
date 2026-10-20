@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- aboutlibraries.json si legge per nome (Libs.Builder().withContext): senza questa riga lo shrink delle risorse della release lo toglie. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/aboutlibraries" />

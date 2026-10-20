@@ -1,0 +1,9 @@
+{
+  "uniqueId": "btools:brouter",
+  "name": "BRouter",
+  "artifactVersion": "1.7.10",
+  "website": "https://github.com/abrensch/brouter",
+  "licenses": [
+    "MIT-brouter"
+  ]
+}

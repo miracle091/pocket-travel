@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:protomaps",
+  "name": "Protomaps",
+  "website": "https://github.com/protomaps/basemaps",
+  "licenses": [
+    "ODbL-1.0"
+  ],
+  "tag": "data"
+}

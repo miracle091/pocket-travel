@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:natural-earth",
+  "name": "Natural Earth",
+  "website": "https://www.naturalearthdata.com",
+  "licenses": [
+    "public-domain-natural-earth"
+  ],
+  "tag": "data"
+}

@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:vaccinations-france",
+  "name": "France Diplomatie",
+  "website": "https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/",
+  "licenses": [
+    "etalab-2.0"
+  ],
+  "tag": "data"
+}

@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:wikivoyage",
+  "name": "Wikivoyage",
+  "website": "https://www.wikivoyage.org",
+  "licenses": [
+    "CC-BY-SA-4.0"
+  ],
+  "tag": "data"
+}

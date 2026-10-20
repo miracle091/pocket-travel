@@ -1,0 +1,8 @@
+{
+  "uniqueId": "com.google:noto-sans",
+  "name": "Noto Sans",
+  "website": "https://github.com/openmaptiles/fonts",
+  "licenses": [
+    "OFL-1.1-noto-sans"
+  ]
+}

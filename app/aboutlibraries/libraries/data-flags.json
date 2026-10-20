@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:flags",
+  "name": "flags-vector-drawables-android",
+  "website": "https://github.com/westnordost/flags-vector-drawables-android",
+  "licenses": [
+    "wikimedia-commons-flags"
+  ],
+  "tag": "data"
+}

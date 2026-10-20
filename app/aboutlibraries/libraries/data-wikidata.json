@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:wikidata",
+  "name": "Wikidata",
+  "website": "https://www.wikidata.org",
+  "licenses": [
+    "CC0-1.0"
+  ],
+  "tag": "data"
+}

@@ -1,0 +1,8 @@
+{
+  "uniqueId": "org.publicsuffix:list",
+  "name": "Public Suffix List",
+  "website": "https://github.com/publicsuffix/list",
+  "licenses": [
+    "MPL-2.0"
+  ]
+}

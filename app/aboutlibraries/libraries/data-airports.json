@@ -1,0 +1,10 @@
+{
+  "uniqueId": "pockettravel.data:airports",
+  "name": "OurAirports, Wikidata",
+  "website": "https://ourairports.com",
+  "licenses": [
+    "public-domain-ourairports",
+    "CC0-1.0"
+  ],
+  "tag": "data"
+}

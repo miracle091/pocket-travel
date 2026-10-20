@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:openstreetmap",
+  "name": "OpenStreetMap",
+  "website": "https://www.openstreetmap.org/copyright",
+  "licenses": [
+    "ODbL-1.0"
+  ],
+  "tag": "data"
+}

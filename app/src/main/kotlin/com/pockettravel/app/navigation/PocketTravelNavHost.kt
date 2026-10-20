@@ -59,6 +59,7 @@ import androidx.navigation.toRoute
 import androidx.window.core.layout.WindowSizeClass
 import com.pockettravel.app.R
 import com.pockettravel.app.browser.InAppBrowserScreen
+import com.pockettravel.app.licenses.LicenseScreen
 import com.pockettravel.app.licenses.LicensesScreen
 import com.pockettravel.app.settings.SettingsScreen
 import com.pockettravel.app.settings.SettingsViewModel
@@ -287,7 +288,19 @@ fun PocketTravelNavHost(
                 }
             }
             composable<LicensesRoute> {
-                LicensesScreen(onBack = dropUnlessResumed { navController.popBackStack() })
+                LicensesScreen(
+                    viewModel = hiltViewModel(),
+                    onBack = dropUnlessResumed { navController.popBackStack() },
+                    onOpenLibrary = { navController.navigate(LicenseRoute(it)) },
+                )
+            }
+            composable<LicenseRoute> { backStackEntry ->
+                // Lo stesso ViewModel dell'elenco (sta nella voce LicensesRoute sotto): i dati sono gia' letti.
+                LicenseScreen(
+                    viewModel = hiltViewModel(remember(backStackEntry) { navController.getBackStackEntry(LicensesRoute) }),
+                    uniqueId = backStackEntry.toRoute<LicenseRoute>().uniqueId,
+                    onBack = dropUnlessResumed { navController.popBackStack() },
+                )
             }
             composable<RegionHubRoute>(
                 // Dall'elenco regioni la riga si trasforma nell'hub (container transform): la
