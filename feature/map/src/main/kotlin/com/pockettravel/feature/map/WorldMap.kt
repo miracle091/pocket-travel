@@ -43,6 +43,8 @@ import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.FillLayer
 
 /** Stato di una nazione sulla mappa delle nazioni, deciso dall'elenco regioni di `manifest.json`. */
 enum class CountryStatus { DOWNLOADED, AVAILABLE }
@@ -65,10 +67,9 @@ fun WorldMap(
     val colors = MaterialTheme.colorScheme
     val dark = colors.surface.luminance() < 0.5f
     val locale = LocalLocale.current.platformLocale
-    val styleJson = remember(countryStatus, colors, dark, locale) {
+    val styleJson = remember(colors, dark, locale) {
         worldStyleJson(
             locale = locale,
-            countryStatus = countryStatus,
             ocean = if (dark) "#17344a" else "#a7cfe8",
             land = colors.surfaceDim.hex(),
             available = colors.primaryContainer.hex(),
@@ -79,6 +80,7 @@ fun WorldMap(
         )
     }
     val currentOnCountryClick by rememberUpdatedState(onCountryClick)
+    val currentCountryStatus by rememberUpdatedState(countryStatus)
     var configuredStyle by remember { mutableStateOf<String?>(null) }
     var listenerAdded by remember { mutableStateOf(false) }
 
@@ -102,7 +104,9 @@ fun WorldMap(
                 }
                 if (configuredStyle != styleJson) {
                     configuredStyle = styleJson
-                    map.setStyle(Style.Builder().fromJson(styleJson))
+                    map.setStyle(Style.Builder().fromJson(styleJson)) { style -> style.applyCountryStatus(currentCountryStatus) }
+                } else {
+                    map.style?.takeIf { it.isFullyLoaded }?.applyCountryStatus(countryStatus)
                 }
             }
         },
@@ -167,7 +171,7 @@ internal fun rememberMapViewWithLifecycle(): MapView {
             // Al messaggio successivo: la composizione puo' togliere la mappa nel mezzo di una misura
             // (transizione della navigazione), e onStop/onDestroy fermano il rendering, distruggono la mappa
             // nativa e svuotano lo stile, lavoro da tenere fuori dalla misura. Non tolgono viste figlie
-            // (MapView di MapLibre 13.6.1). Handler e non mapView.post, che da staccata non partirebbe.
+            // (MapView di MapLibre 13.7.1). Handler e non mapView.post, che da staccata non partirebbe.
             Handler(Looper.getMainLooper()).post {
                 if (last == Lifecycle.Event.ON_RESUME) mapView.onPause()
                 if (last == Lifecycle.Event.ON_RESUME || last == Lifecycle.Event.ON_PAUSE || last == Lifecycle.Event.ON_START) mapView.onStop()
@@ -189,8 +193,27 @@ private const val RGB_MASK = 0xFFFFFF
 
 private fun Color.hex(): String = "#%06X".format(toArgb() and RGB_MASK)
 
+// Layer delle nazioni per stato: colore fisso, filtro sui codici impostato da applyCountryStatus.
+private val STATUS_LAYERS = mapOf(CountryStatus.AVAILABLE to "countries-available", CountryStatus.DOWNLOADED to "countries-downloaded")
+
+/** Filtro del layer di [status]: le nazioni con quello stato (nessuna se la lista e' vuota). */
+internal fun countryStatusFilter(countryStatus: Map<String, CountryStatus>, status: CountryStatus): String {
+    val isos = countryStatus.filterValues { it == status }.keys.sorted().joinToString(",") { "\"$it\"" }
+    return """["in", ["get", "iso"], ["literal", [$isos]]]"""
+}
+
+/**
+ * Applica lo stato delle nazioni ai filtri dei layer, senza ricaricare lo stile: con lo stesso GeoJSON, un nuovo
+ * stile riusa i tile gia' preparati e i layer aggiunti o cambiati restano vuoti o neri (MapLibre 13.7.1),
+ * mentre setFilter li ricalcola.
+ */
+private fun Style.applyCountryStatus(countryStatus: Map<String, CountryStatus>) {
+    STATUS_LAYERS.forEach { (status, id) ->
+        getLayerAs<FillLayer>(id)?.setFilter(Expression.raw(countryStatusFilter(countryStatus, status)))
+    }
+}
+
 internal fun worldStyleJson(
-    countryStatus: Map<String, CountryStatus>,
     // Le etichette dell'asset sono in italiano: in un'altra lingua il nome viene dal codice "iso".
     locale: Locale = Locale.ITALIAN,
     ocean: String,
@@ -201,17 +224,6 @@ internal fun worldStyleJson(
     label: String,
     labelHalo: String,
 ): String {
-    fun isoList(status: CountryStatus) =
-        countryStatus.filterValues { it == status }.keys.sorted().joinToString(",") { "\"$it\"" }
-    val downloadedIsos = isoList(CountryStatus.DOWNLOADED)
-    val availableIsos = isoList(CountryStatus.AVAILABLE)
-    // "match" non accetta liste vuote: i rami si aggiungono solo se c'e' almeno una nazione.
-    val fillColor = if (downloadedIsos.isEmpty() && availableIsos.isEmpty()) "\"$land\"" else buildString {
-        append("[\"match\", [\"get\", \"iso\"], ")
-        if (downloadedIsos.isNotEmpty()) append("[$downloadedIsos], \"$downloaded\", ")
-        if (availableIsos.isNotEmpty()) append("[$availableIsos], \"$available\", ")
-        append("\"$land\"]")
-    }
     val labelField = if (locale.language == "it") {
         """["get", "name"]"""
     } else {
@@ -231,7 +243,9 @@ internal fun worldStyleJson(
           },
           "layers": [
             { "id": "ocean", "type": "background", "paint": { "background-color": "$ocean" } },
-            { "id": "countries-fill", "type": "fill", "source": "countries", "paint": { "fill-color": $fillColor } },
+            { "id": "countries-fill", "type": "fill", "source": "countries", "paint": { "fill-color": "$land" } },
+            { "id": "countries-available", "type": "fill", "source": "countries", "filter": ["in", ["get", "iso"], ["literal", []]], "paint": { "fill-color": "$available" } },
+            { "id": "countries-downloaded", "type": "fill", "source": "countries", "filter": ["in", ["get", "iso"], ["literal", []]], "paint": { "fill-color": "$downloaded" } },
             { "id": "countries-line", "type": "line", "source": "countries", "paint": { "line-color": "$border", "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 6, 1.2] } },
             { "id": "country-labels", "type": "symbol", "source": "labels",
               "filter": ["<=", ["get", "rank"], ["+", 2, ["*", 1.5, ["zoom"]]]],
