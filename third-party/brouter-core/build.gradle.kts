@@ -38,6 +38,7 @@ val brouterPatched = layout.buildDirectory.dir("generated/brouter")
 abstract class PatchedSources @Inject constructor(
     private val fs: FileSystemOperations,
     private val exec: ExecOperations,
+    private val archives: ArchiveOperations,
 ) : DefaultTask() {
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
@@ -66,10 +67,21 @@ abstract class PatchedSources @Inject constructor(
                     "git -c core.longpaths=true submodule update --init --depth 1",
             )
         }
+        // Dal commit del submodule (git archive), non dai suoi file: con core.autocrlf=true i file hanno CRLF e le
+        // patch, in LF, non si applicherebbero.
+        val tar = temporaryDir.resolve("brouter.tar")
+        exec.exec {
+            workingDir = root
+            commandLine(
+                listOf("git", "-c", "core.autocrlf=false", "-c", "core.eol=lf", "archive", "--format=tar", "-o", tar.absolutePath, "HEAD") +
+                    modules.get().map { "$it/src/main/java" },
+            )
+        }
         fs.sync {
-            from(root) { modules.get().forEach { include("$it/src/main/java/**") } }
+            from(archives.tarTree(tar))
             into(out)
         }
+        tar.delete()
         for (patch in patches.files.sortedBy { it.name }) {
             // GIT_CEILING_DIRECTORIES: git apply non deve trovare il repository del progetto sopra la copia,
             // o leggerebbe i percorsi delle patch dalla sua root.

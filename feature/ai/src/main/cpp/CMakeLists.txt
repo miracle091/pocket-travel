@@ -2,7 +2,7 @@
 # third-party/LICENSE-LLAMA-CPP.txt): non esiste un AAR Maven ufficiale per Android,
 # ne' un wrapper di terze parti affidabile (verificato su ai.google.dev, GitHub, JitPack a
 # settembre 2026), quindi si compila da sorgente con NDK/CMake. Struttura e flag adattati da
-# examples/llama.android di ggml-org/llama.cpp (autori Arm, stesso git tag).
+# examples/llama.android di ggml-org/llama.cpp (autori Arm, tag v0.6.0).
 cmake_minimum_required(VERSION 3.31.6)
 
 project("llm-engine" VERSION 1.0.0 LANGUAGES C CXX)
@@ -42,10 +42,10 @@ endif()
 
 # llama.cpp e' il submodule third-party/llama-cpp, sul commit di una release upstream e mai modificato. Si
 # compila una copia in .cache/cxx/llama-cpp-src con applicate le patch di third-party/patches/llama-cpp (le
-# modifiche del progetto). La copia si rifa' solo quando, a un configure, cambiano il commit del submodule, le sue
-# modifiche locali (git diff), le patch o questo file (impronta in llama-cpp-src.stamp), cosi' i build incrementali
-# restano tali. Il lock evita che le
-# configurazioni parallele delle ABI la rifacciano insieme.
+# modifiche del progetto). La copia viene dal commit del submodule (git archive), non dai suoi file: con
+# core.autocrlf=true i file hanno CRLF e le patch, in LF, non si applicherebbero. Si rifa' solo quando cambiano il
+# commit del submodule, le patch o questo file (impronta in llama-cpp-src.stamp), cosi' i build incrementali
+# restano tali. Il lock evita che le configurazioni parallele delle ABI la rifacciano insieme.
 set(LLAMA_UPSTREAM ${POCKET_TRAVEL_ROOT}/third-party/llama-cpp)
 if(NOT EXISTS ${LLAMA_UPSTREAM}/CMakeLists.txt)
     message(FATAL_ERROR "third-party/llama-cpp e' vuota: scaricare i submodule con "
@@ -63,11 +63,8 @@ execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --path-format=absolute --git
         WORKING_DIRECTORY ${LLAMA_UPSTREAM} OUTPUT_VARIABLE LLAMA_HEAD_FILE OUTPUT_STRIP_TRAILING_WHITESPACE
         COMMAND_ERROR_IS_FATAL ANY)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${LLAMA_PATCHES} ${LLAMA_HEAD_FILE})
-# core.longpaths: su Windows tools/ui del submodule supera i 260 caratteri, e senza git diff fallisce.
-execute_process(COMMAND ${GIT_EXECUTABLE} -c core.longpaths=true diff HEAD WORKING_DIRECTORY ${LLAMA_UPSTREAM}
-        OUTPUT_VARIABLE LLAMA_LOCAL_CHANGES COMMAND_ERROR_IS_FATAL ANY)
 file(SHA256 ${CMAKE_CURRENT_LIST_FILE} LLAMA_COPY_RULES)
-set(LLAMA_STAMP "${LLAMA_COMMIT}\n${LLAMA_LOCAL_CHANGES}\n${LLAMA_COPY_RULES}")
+set(LLAMA_STAMP "${LLAMA_COMMIT}\n${LLAMA_COPY_RULES}")
 foreach(LLAMA_PATCH ${LLAMA_PATCHES})
     file(SHA256 ${LLAMA_PATCH} LLAMA_PATCH_HASH)
     string(APPEND LLAMA_STAMP "\n${LLAMA_PATCH} ${LLAMA_PATCH_HASH}")
@@ -80,27 +77,21 @@ if(EXISTS ${LLAMA_SRC}.stamp)
     file(READ ${LLAMA_SRC}.stamp LLAMA_STAMP_OLD)
 endif()
 if(NOT LLAMA_STAMP STREQUAL LLAMA_STAMP_OLD)
-    # file(COPY) conserva le date dei file: un file che una patch cambiava torna con la data del checkout, piu'
-    # vecchia del suo oggetto, e ninja non lo ricompilerebbe. I file patchati dalla copia precedente
-    # (llama-cpp-src.patched) prendono quindi la data di adesso.
-    set(LLAMA_PATCHED_OLD "")
-    if(EXISTS ${LLAMA_SRC}.patched)
-        file(STRINGS ${LLAMA_SRC}.patched LLAMA_PATCHED_OLD)
-    endif()
-    file(REMOVE ${LLAMA_SRC}.stamp ${LLAMA_SRC}.patched)
+    file(REMOVE ${LLAMA_SRC}.stamp)
     file(REMOVE_RECURSE ${LLAMA_SRC})
     # Solo cio' che serve alle librerie llama e llama-common: docs, models, tools, tests ed examples non si
-    # compilano qui, e tools/ui ha percorsi oltre i 260 caratteri di Windows.
-    file(COPY ${LLAMA_UPSTREAM}/CMakeLists.txt ${LLAMA_UPSTREAM}/LICENSE DESTINATION ${LLAMA_SRC})
-    foreach(LLAMA_DIR cmake common ggml include licenses src vendor)
-        file(COPY ${LLAMA_UPSTREAM}/${LLAMA_DIR} DESTINATION ${LLAMA_SRC})
-    endforeach()
-    foreach(LLAMA_FILE ${LLAMA_PATCHED_OLD})
-        file(TOUCH_NOCREATE ${LLAMA_SRC}/${LLAMA_FILE})
-    endforeach()
+    # compilano qui, e tools/ui ha percorsi oltre i 260 caratteri di Windows. Senza conversioni dei fine riga.
+    execute_process(COMMAND ${GIT_EXECUTABLE} -c core.autocrlf=false -c core.eol=lf archive --format=tar
+            -o ${LLAMA_SRC}.tar HEAD CMakeLists.txt LICENSE cmake common ggml include licenses src vendor
+            WORKING_DIRECTORY ${LLAMA_UPSTREAM} COMMAND_ERROR_IS_FATAL ANY)
+    # TOUCH: i file prendono la data di adesso, non quella del commit, piu' vecchia degli oggetti gia' compilati:
+    # senza, ninja non ricompilerebbe i file cambiati (o non piu' patchati). Dopo una copia nuova si ricompila
+    # tutto, con ccache se c'e'.
+    file(MAKE_DIRECTORY ${LLAMA_SRC})
+    file(ARCHIVE_EXTRACT INPUT ${LLAMA_SRC}.tar DESTINATION ${LLAMA_SRC} TOUCH)
+    file(REMOVE ${LLAMA_SRC}.tar)
     # GIT_CEILING_DIRECTORIES: git apply non deve trovare il repository del progetto sopra la copia, o
     # leggerebbe i percorsi delle patch dalla sua root.
-    set(LLAMA_PATCHED "")
     foreach(LLAMA_PATCH ${LLAMA_PATCHES})
         get_filename_component(LLAMA_PATCH_NAME ${LLAMA_PATCH} NAME)
         execute_process(COMMAND ${CMAKE_COMMAND} -E env GIT_CEILING_DIRECTORIES=${LLAMA_CACHE}
@@ -110,14 +101,8 @@ if(NOT LLAMA_STAMP STREQUAL LLAMA_STAMP_OLD)
             message(FATAL_ERROR "La patch ${LLAMA_PATCH_NAME} non si applica a llama.cpp ${LLAMA_COMMIT} "
                     "(third-party/patches/llama-cpp): rifarla sul nuovo codice o toglierla")
         endif()
-        execute_process(COMMAND ${CMAKE_COMMAND} -E env GIT_CEILING_DIRECTORIES=${LLAMA_CACHE}
-                ${GIT_EXECUTABLE} apply --numstat ${LLAMA_PATCH}
-                WORKING_DIRECTORY ${LLAMA_SRC} OUTPUT_VARIABLE LLAMA_PATCH_FILES COMMAND_ERROR_IS_FATAL ANY)
-        string(REGEX REPLACE "[0-9-]+\t[0-9-]+\t|\r" "" LLAMA_PATCH_FILES "${LLAMA_PATCH_FILES}")
-        string(APPEND LLAMA_PATCHED "${LLAMA_PATCH_FILES}")
         message(STATUS "Applicata ${LLAMA_PATCH_NAME}")
     endforeach()
-    file(WRITE ${LLAMA_SRC}.patched "${LLAMA_PATCHED}")
     file(WRITE ${LLAMA_SRC}.stamp ${LLAMA_STAMP})
 endif()
 file(LOCK ${LLAMA_CACHE}/llama-cpp-src.lock RELEASE)
