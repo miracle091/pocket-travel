@@ -115,6 +115,11 @@ add_compile_options(-g0)
 # ggml-cpu scarica KleidiAI con FetchContent_Populate, deprecato da CMake 3.30 (policy CMP0169):
 # llama.cpp dichiara le policy fino alla 3.28, quindi senza questo default CMake stampa un warning dev.
 set(CMAKE_POLICY_DEFAULT_CMP0169 OLD)
+# ggml resta condivisa: le varianti CPU (GGML_BACKEND_DL) si caricano con dlopen e usano libggml-base.so.
+# llama e llama-common diventano statiche dentro libllm-engine.so, e con --exclude-libs il linker toglie
+# il codice che ai_chat.cpp non usa (download, server HTTP, parser degli argomenti...).
+add_subdirectory(${LLAMA_SRC}/ggml build-llama/ggml)
+set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(${LLAMA_SRC} build-llama)
 
 # ggml/src aggiunge -Wdouble-promotion a livello di cartella, che arriva anche ai sorgenti KleidiAI
@@ -137,3 +142,5 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         llama-common
         android
         log)
+# I simboli delle librerie statiche restano interni a libllm-engine.so: esportati, il linker li terrebbe tutti.
+target_link_options(${CMAKE_PROJECT_NAME} PRIVATE -Wl,--exclude-libs,ALL)
