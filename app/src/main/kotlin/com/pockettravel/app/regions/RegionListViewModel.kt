@@ -275,7 +275,8 @@ class RegionListViewModel @Inject constructor(
                 // Come i civici: senza indice dei mezzi pubblici le regioni restano senza quel pacchetto.
                 val transitIndex = manifest.transit?.let { entry -> runCatchingCancellable { transitClient.fetchIndex(entry) }.getOrNull() }
                 this@RegionListViewModel.transitIndex.value = transitIndex
-                baseRegions.value = attachAddressGridCells(manifest.regions, addressGridIndex)
+                // Calcolo su tutte le regioni e le celle della griglia: fuori dal thread principale.
+                baseRegions.value = withContext(defaultDispatcher) { attachAddressGridCells(manifest.regions, addressGridIndex) }
                 replacedRegions.value = manifest.replacedRegions
                 // Le guide si aggiornano da sole anche da qui, non solo col controllo periodico (sotto i 5 MB anche su
                 // rete a consumo).

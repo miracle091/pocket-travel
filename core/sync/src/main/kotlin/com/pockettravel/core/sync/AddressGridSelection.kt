@@ -35,11 +35,20 @@ internal fun CellId.isSameOrDescendantOf(ancestor: CellId): Boolean {
  * nell'intervallo di tile che copre [bbox] allo stesso zoom della cella.
  */
 fun regionGridCells(index: AddressGridIndex, bbox: MapExtractionSource): List<AddressGridCell> =
-    index.cells.filter { cell ->
-        val id = parseCellId(cell.id) ?: return@filter false
-        val range = tileRangeFor(bbox.minLon, bbox.minLat, bbox.maxLon, bbox.maxLat, id.z)
-        id.x in range.minX..range.maxX && id.y in range.minY..range.maxY
+    cellsInBbox(parsedCells(index.cells), bbox)
+
+/** Celle con l'id gia' letto: gli id non validi restano fuori. */
+private fun parsedCells(cells: List<AddressGridCell>): List<Pair<CellId, AddressGridCell>> =
+    cells.mapNotNull { cell -> parseCellId(cell.id)?.let { it to cell } }
+
+/** L'intervallo di tile del rettangolo si calcola una volta per zoom, non per cella. */
+private fun cellsInBbox(cells: List<Pair<CellId, AddressGridCell>>, bbox: MapExtractionSource): List<AddressGridCell> {
+    val ranges = HashMap<Int, TileRange>()
+    return cells.mapNotNull { (id, cell) ->
+        val range = ranges.getOrPut(id.z) { tileRangeFor(bbox.minLon, bbox.minLat, bbox.maxLon, bbox.maxLat, id.z) }
+        cell.takeIf { id.x in range.minX..range.maxX && id.y in range.minY..range.maxY }
     }
+}
 
 /**
  * Versione dei civici di una regione dalle sue celle: "grid-" + i
@@ -66,8 +75,11 @@ fun regionAddressesGridVersion(cells: List<AddressGridCell>): String {
  */
 fun attachAddressGridCells(entries: List<RegionManifestEntry>, index: AddressGridIndex?): List<RegionManifestEntry> {
     if (index == null) return entries
+    // Gli id si leggono una volta sola: con centinaia di regioni e migliaia di celle, rileggerli per ogni
+    // regione costava secondi.
+    val parsed = parsedCells(index.cells)
     return entries.map { entry ->
-        val cells = regionGridCells(index, entry.map.source)
+        val cells = cellsInBbox(parsed, entry.map.source)
         if (cells.isEmpty()) entry else entry.copy(addressGrid = RegionAddressGridEntry(cells))
     }
 }
