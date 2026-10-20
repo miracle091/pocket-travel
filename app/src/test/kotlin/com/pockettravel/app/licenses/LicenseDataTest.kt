@@ -85,6 +85,71 @@ class LicenseDataTest {
         assertEquals(LicenseGroup.SOFTWARE, byId.getValue("org.ggml:llama.cpp").group())
     }
 
+    @Test
+    fun `i testi riformattati cambiano solo gli a capo`() = forEachVariant { variant, libraries ->
+        val texts = libraries.flatMap { it.licenses }.mapNotNull { it.licenseContent }.distinct()
+        val words = { text: String -> text.split(Regex("""\s+""")).filter(String::isNotEmpty) }
+
+        val changed = texts.filter { words(reflowLicenseText(it)) != words(it) }
+
+        assertTrue("$variant: ${changed.size} testi con parole cambiate", changed.isEmpty())
+    }
+
+    @Test
+    fun `i capoversi spezzati a 80 colonne diventano una riga`() {
+        val text = """
+            Permission is hereby granted, free of charge, to any person obtaining a copy
+            of this software and associated documentation files (the "Software"), to deal
+            in the Software without restriction.
+        """.trimIndent()
+
+        assertEquals(1, reflowLicenseText(text).lines().size)
+    }
+
+    @Test
+    fun `titoli, copyright, elenchi e separatori restano su righe proprie`() {
+        val text = """
+            brouter-mapaccess/src/main/java/btools/mapaccess/OsmNogoPolygon.java:
+            Copyright 2001 softSurfer, 2012 Dan Sunday, 2018 Norbert Truchsess
+            This code may be freely used and modified for any purpose providing that
+            this copyright notice is included with it.
+            YaRN algorithm based on LlamaYaRNScaledRotaryEmbedding.py from https://github.com/jquesnelle/yarn
+            MIT licensed. Copyright (c) 2023 Jeffrey Quesnelle and Bowen Peng.
+              * Redistributions of source code must retain the above copyright
+                notice, this list of conditions and the following disclaimer.
+              * Neither the name of Google nor the names of its contributors may
+            OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+            ```
+            MapLibre Native Android uses portions of Android Arch-Common library.
+            URL: [https://developer.android.com/jetpack/androidx/releases/arch-core](https://developer.android.com/)
+            License: [The Apache Software License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.txt)
+
+            copy, publish, distribute and transmit the Information in any medium;
+            adapt the Information;
+        """.trimIndent()
+
+        assertEquals(
+            listOf(
+                "brouter-mapaccess/src/main/java/btools/mapaccess/OsmNogoPolygon.java:",
+                "Copyright 2001 softSurfer, 2012 Dan Sunday, 2018 Norbert Truchsess",
+                "This code may be freely used and modified for any purpose providing that this copyright notice is included with it.",
+                "YaRN algorithm based on LlamaYaRNScaledRotaryEmbedding.py from https://github.com/jquesnelle/yarn",
+                "MIT licensed. Copyright (c) 2023 Jeffrey Quesnelle and Bowen Peng.",
+                "  * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.",
+                "  * Neither the name of Google nor the names of its contributors may",
+                "OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.",
+                "```",
+                "MapLibre Native Android uses portions of Android Arch-Common library.",
+                "URL: [https://developer.android.com/jetpack/androidx/releases/arch-core](https://developer.android.com/)",
+                "License: [The Apache Software License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.txt)",
+                "",
+                "copy, publish, distribute and transmit the Information in any medium;",
+                "adapt the Information;",
+            ),
+            reflowLicenseText(text).lines(),
+        )
+    }
+
     private companion object {
         val noticeLicenses = setOf("MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC")
 

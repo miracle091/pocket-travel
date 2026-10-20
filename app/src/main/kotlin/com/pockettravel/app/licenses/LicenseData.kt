@@ -43,6 +43,40 @@ fun Library.shownLicenses(): List<License> {
     return licenses.filterNot { ownTexts && it.hash == it.spdxId }
 }
 
+/**
+ * Testo di una licenza per lo schermo: unisce le righe che il testo originale spezza a 70–80 colonne, così ogni
+ * capoverso va a capo alla larghezza dello schermo invece di alternare righe lunghe e corte. Titoli, voci di elenco,
+ * righe di copyright, separatori e righe "Nome: valore" restano su righe proprie. Cambiano solo gli a capo.
+ */
+fun reflowLicenseText(text: String): String {
+    val out = mutableListOf<String>()
+    var previous = ""
+    for (line in text.lines().map(String::trimEnd)) {
+        if (out.isNotEmpty() && continuesLine(previous, line)) out[out.lastIndex] = out.last() + " " + line.trim() else out += line
+        previous = line
+    }
+    return out.joinToString("\n")
+}
+
+/** Sotto questa lunghezza una riga è un titolo o la fine voluta di una riga, non un a capo per la larghezza. */
+private const val WRAPPED_LINE_MIN_LENGTH = 50
+private val listItem = Regex("""^(?:[-*•+]\s|\d+(?:\.\d+)*[.)]\s|\([0-9a-zA-Z]{1,4}\)\s|[A-Za-z][A-Za-z ]{0,20}:\s|#)""")
+private val separator = Regex("""[\s=\-_*#~`]+""")
+private val copyrightLine = Regex("""^(?:Copyright|\([cC]\)|©)""")
+
+private fun continuesLine(line: String, next: String): Boolean {
+    val current = line.trim()
+    val following = next.trim()
+    val indent = { text: String -> text.length - text.trimStart().length }
+    val startsSentence = following.firstOrNull(Char::isLetterOrDigit)?.let { it.isUpperCase() || it.isDigit() } == true
+    return current.length >= WRAPPED_LINE_MIN_LENGTH && following.isNotEmpty() &&
+        !separator.matches(current) && !separator.matches(following) &&
+        indent(next) >= indent(line) &&
+        !listItem.containsMatchIn(following) && !current.startsWith('#') &&
+        !copyrightLine.containsMatchIn(current) && "Copyright" !in following &&
+        current.last() != ';' && !(current.last() in ".:!?" && startsSentence)
+}
+
 /** Per `uniqueId` delle definizioni a mano; le dipendenze Gradle mostrano nome e licenza dei loro POM. */
 val licenseLabels: Map<String, LicenseLabel> = mapOf(
     "org.ggml:llama.cpp" to LicenseLabel(R.string.licenses_component_llama_cpp, note = R.string.licenses_note_llama_cpp),

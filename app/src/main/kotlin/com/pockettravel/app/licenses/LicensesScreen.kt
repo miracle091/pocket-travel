@@ -26,6 +26,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -110,7 +111,9 @@ fun LicenseScreen(viewModel: LicensesViewModel, uniqueId: String, onBack: () -> 
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = Spacing.l, bottom = Spacing.s).semantics { heading() },
                     )
-                    license.licenseContent?.let { Text(it.trim(), style = MaterialTheme.typography.bodySmall) }
+                    license.licenseContent?.let { content ->
+                        Text(remember(content) { reflowLicenseText(content.trim()) }, style = MaterialTheme.typography.bodySmall)
+                    }
                     license.url?.let { url -> TextButton(onClick = { uriHandler.openUri(url) }) { Text(stringResource(R.string.licenses_link)) } }
                 }
             }
