@@ -238,8 +238,8 @@
     <string name="licenses_note_emergency_uk" translatable="false">Contains public sector information licensed under the Open Government Licence v3.0</string>
 
     <!-- Licenze di terze parti (LicenseData.kt): testi tradotti -->
-    <string name="licenses_component_brouter">BRouter Core (vendorizzato, third-party/brouter-core)</string>
-    <string name="licenses_component_llama_cpp">llama.cpp (vendorizzato, third-party/llama-cpp)</string>
+    <string name="licenses_component_brouter">BRouter Core (third-party/brouter, con le patch del progetto)</string>
+    <string name="licenses_component_llama_cpp">llama.cpp (third-party/llama-cpp, con le patch del progetto)</string>
     <string name="licenses_note_llama_cpp">Sostituisce LiteRT-LM (Google), senza nuove release da agosto 2026. Non esiste un AAR Maven ufficiale: si compila dal sorgente con NDK e CMake</string>
     <string name="licenses_component_nlohmann_json">nlohmann/json (usato da llama.cpp, third-party/llama-cpp/vendor/nlohmann)</string>
     <string name="licenses_component_subprocess">sheredom/subprocess.h (usato da llama.cpp, third-party/llama-cpp/vendor/sheredom)</string>

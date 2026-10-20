@@ -5,14 +5,14 @@ Quantizzazione con imatrix calibrato sul dataset SFT (--imatrix-rows, default 40
 e' l'alternativa riproducibile alle quant "Dynamic 2.0" di Unsloth, la cui ricetta non e' pubblicata.
 Provato anche su Windows con l'ambiente Python di Unsloth Studio e --bin-dir verso una build di llama.cpp.
 
-Uso (Linux/WSL o Windows, richiede un clone separato di llama.cpp allo stesso tag vendorizzato in
+Uso (Linux/WSL o Windows, richiede un clone separato di llama.cpp allo stesso tag del submodule
 third-party/llama-cpp — v0.6.0, vedi feature/ai/src/main/cpp/CMakeLists.txt — con le dipendenze
 Python installate: `pip install -r <llama.cpp>/requirements/requirements-convert_hf_to_gguf.txt`,
 e llama-quantize compilato: `cmake -B build && cmake --build build --target llama-quantize`):
   python convert_gguf.py <cartella merged> <file .gguf di output> \
       --llama-cpp <path al clone di llama.cpp> [--quantize auto]
-third-party/llama-cpp resta un vendor solo Android (niente strumenti Python): il clone di conversione
-vive fuori dal repo, solo sulla macchina di training.
+Il submodule third-party/llama-cpp resta pulito (le patch si applicano a una copia nel build Android):
+il clone di conversione, con i suoi file compilati, vive fuori dal repo, solo sulla macchina di training.
 
 Il tokenizer e il chat template sono quelli della cartella merged (lo stesso ChatML del training):
 convert_hf_to_gguf.py li legge da tokenizer_config.json/chat_template.jinja e li scrive nei metadata

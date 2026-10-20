@@ -1,0 +1,8 @@
+[submodule "third-party/llama-cpp"]
+	path = third-party/llama-cpp
+	url = https://github.com/ggml-org/llama.cpp
+	shallow = true
+[submodule "third-party/brouter"]
+	path = third-party/brouter
+	url = https://github.com/abrensch/brouter
+	shallow = true

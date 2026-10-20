@@ -24,8 +24,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Wrapper attorno al bridge JNI di llama.cpp (com.pockettravel.feature.ai.llamacpp, vendorizzato
- * in third-party/llama-cpp). [InferenceEngineImpl] e' un singleton di processo (un solo backend
+ * Wrapper attorno al bridge JNI di llama.cpp (com.pockettravel.feature.ai.llamacpp; llama.cpp e' il
+ * submodule third-party/llama-cpp). [InferenceEngineImpl] e' un singleton di processo (un solo backend
  * GGML/NDK caricato una volta): qui non lo si ricrea mai, si carica/scarica solo il MODELLO al
  * suo interno.
  */

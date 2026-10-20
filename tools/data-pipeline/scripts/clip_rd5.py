@@ -2,7 +2,7 @@
 """Ritaglia un segmento BRouter (.rd5, tile 5x5 gradi) sul rettangolo di una regione.
 
 I .rd5 di brouter.de coprono 5x5 gradi: il Lussemburgo ha due tile da 435 MB di cui usa l'1%.
-Il formato (third-party/brouter-core: PhysicalFile, OsmFile) permette di togliere dati senza
+Il formato (third-party/brouter/brouter-mapaccess: PhysicalFile, OsmFile) permette di togliere dati senza
 ricalcolarli:
   - 200 byte di indice: 25 long big-endian, uno per sotto-tile di 1x1 grado (indice lon%5*5 + lat%5),
     16 bit alti = versione del lookup, 48 bassi = fine del blocco della sotto-tile;

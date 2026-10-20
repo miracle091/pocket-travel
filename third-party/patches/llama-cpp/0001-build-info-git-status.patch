@@ -1,11 +1,12 @@
-Il llama.cpp vendorizzato non ha una cartella .git, quindi a ogni configurazione CMake
-common/CMakeLists.txt stampa un warning "Git repository not found" per ogni ABI. Il build info
-resta ai valori predefiniti e l'app non lo usa: il messaggio passa da WARNING a STATUS.
-Riapplicata in automatico da feature/ai/src/main/cpp/CMakeLists.txt.
+La copia di llama.cpp che si compila (feature/ai/.cache/cxx/llama-cpp-src) non ha una cartella .git,
+quindi a ogni configurazione CMake common/CMakeLists.txt stampa un warning "Git repository not found"
+per ogni ABI. Il build info lo genera comunque cmake/build-info.cmake dal repository del progetto,
+in cui sta la copia, e l'app non lo usa: il messaggio passa da WARNING a STATUS. Applicata da feature/ai/src/main/cpp/CMakeLists.txt; percorsi dalla root del
+submodule third-party/llama-cpp.
 
-diff --git a/third-party/llama-cpp/common/CMakeLists.txt b/third-party/llama-cpp/common/CMakeLists.txt
---- a/third-party/llama-cpp/common/CMakeLists.txt
-+++ b/third-party/llama-cpp/common/CMakeLists.txt
+diff --git a/common/CMakeLists.txt b/common/CMakeLists.txt
+--- a/common/CMakeLists.txt
++++ b/common/CMakeLists.txt
 @@ -30,7 +30,7 @@ if(EXISTS "${PROJECT_SOURCE_DIR}/.git")
          message(WARNING "Git index not found in git repository.")
      endif()

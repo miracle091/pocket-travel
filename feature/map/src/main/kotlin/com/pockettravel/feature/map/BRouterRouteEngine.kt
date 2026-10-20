@@ -19,7 +19,7 @@ import kotlin.math.abs
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 
-// BRouter funziona su Android ART; il suo sorgente e' vendorizzato in :third-party:brouter-core.
+// BRouter funziona su Android ART; si compila dal sorgente (submodule third-party/brouter) nel modulo :third-party:brouter-core.
 //
 // API di btools.router.RoutingEngine/RoutingContext/RoutingParamCollector non documentata per uso
 // embedded: ricostruita leggendo il bytecode (javap) di btools.server.BRouter.main(), il comando CLI
