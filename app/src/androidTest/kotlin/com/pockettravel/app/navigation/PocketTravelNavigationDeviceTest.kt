@@ -1,7 +1,7 @@
 package com.pockettravel.app.navigation
 
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.compose.ComposeNavigator

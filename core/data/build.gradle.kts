@@ -44,3 +44,9 @@ dependencies {
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
+
+// I test JVM usano sqlite-jdbc, che carica una libreria nativa con System::load: dal JDK 24 e' un "restricted method"
+// che stampa un warning (e sara' bloccato in una release futura) senza l'accesso nativo dichiarato.
+tasks.withType<Test>().configureEach {
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}

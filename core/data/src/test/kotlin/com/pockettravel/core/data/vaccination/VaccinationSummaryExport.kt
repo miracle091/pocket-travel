@@ -66,7 +66,7 @@ class VaccinationSummaryExport {
                 }
             }
         }
-        File(out).writeText(lines.joinToString("\n", postfix = "\n"))
+        File(checkNotNull(out)).writeText(lines.joinToString("\n", postfix = "\n"))
         println("riassunti delle vaccinazioni: ${lines.size} in $out")
     }
 

@@ -118,7 +118,7 @@ class AddressSearchTest {
         val withStreets = assignStreets(addresses, RoadIndex(roads))
         // Nel centro storico quasi ogni civico ha una strada con nome a pochi metri.
         assertTrue(withStreets.count { it.street != null } > addresses.size / 2)
-        assertTrue(withStreets.filter { it.street != null }.all { it.street == it.street!!.trim() && it.street!!.isNotEmpty() })
+        assertTrue(withStreets.filter { it.street != null }.all { it.street == it.street!!.trim() && it.street.isNotEmpty() })
     }
 
     private fun withDb(block: (File) -> Unit) {

@@ -65,7 +65,7 @@ class PoiRulesTest {
     }
 
     @Test
-    fun `le categorie "da vedere" dipendono dal valore di categoria`() {
+    fun `le categorie da vedere dipendono dal valore di categoria`() {
         assertEquals(PoiCategory.ALLOGGIO, poiCategoryOf("hotel", "tourism=hotel"))
         assertEquals(PoiCategory.ALLOGGIO, poiCategoryOf("alpine_hut", "tourism=alpine_hut"))
         // "Residence Capo Grosso", "Limone Beach": leisure=resort su OSM.

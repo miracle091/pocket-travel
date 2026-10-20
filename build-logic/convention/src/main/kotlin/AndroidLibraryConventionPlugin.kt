@@ -16,6 +16,18 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                 sourceCompatibility = ProjectConventions.JAVA_VERSION
                 targetCompatibility = ProjectConventions.JAVA_VERSION
             }
+            // APK dei test strumentati del modulo: come nell'app, queste librerie arrivano gia' senza simboli dalle
+            // loro AAR (MapLibre, androidx.graphics, CameraX) e AGP segnala a ogni build che non riesce a "strippare".
+            packaging {
+                jniLibs {
+                    keepDebugSymbols += setOf(
+                        "**/libmaplibre.so",
+                        "**/libandroidx.graphics.path.so",
+                        "**/libimage_processing_util_jni.so",
+                        "**/libsurface_util_jni.so",
+                    )
+                }
+            }
         }
         configureKotlinJvmTarget()
         pluginManager.apply(DetektConventionPlugin::class.java)

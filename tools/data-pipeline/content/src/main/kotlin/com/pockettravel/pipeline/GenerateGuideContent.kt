@@ -526,7 +526,7 @@ internal fun englishElectricity(value: String): String? {
 }
 
 private val englishLanguageNames: Map<String, String> by lazy {
-    Locale.getISOLanguages().map(::Locale).associate { it.getDisplayLanguage(Locale.ITALIAN).lowercase() to it.getDisplayLanguage(Locale.ENGLISH) }
+    Locale.getISOLanguages().map(Locale::forLanguageTag).associate { it.getDisplayLanguage(Locale.ITALIAN).lowercase() to it.getDisplayLanguage(Locale.ENGLISH) }
 }
 
 // "Italiano, Tedesco (Trentino-Alto Adige)" -> "Italian, German": tolte le parentesi, ogni nome tradotto; dal

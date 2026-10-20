@@ -75,8 +75,8 @@ class TransitManifestTest {
         val parsed = json.decodeFromString(RegionManifest.serializer(), manifest)
         parsed.transit!!.validate()
         assertNull(json.decodeFromString(RegionManifest.serializer(), manifest.replace(Regex("\"transit\":\\{.*?\\},"), "")).transit)
-        assertThrows(IllegalArgumentException::class.java) { parsed.transit!!.copy(url = "https://evil.example.org/transit.json").validate() }
-        assertThrows(IllegalArgumentException::class.java) { parsed.transit!!.copy(sha256 = "xyz").validate() }
+        assertThrows(IllegalArgumentException::class.java) { parsed.transit.copy(url = "https://evil.example.org/transit.json").validate() }
+        assertThrows(IllegalArgumentException::class.java) { parsed.transit.copy(sha256 = "xyz").validate() }
     }
 
     @Test
@@ -151,8 +151,8 @@ class TransitManifestTest {
         val (francia, spagna) = attachTransitFeeds(listOf(region("francia"), region("spagna")), index, installed = installed)
 
         assertEquals(listOf(missing), francia.transit!!.missing)
-        assertEquals(listOf("Torino"), francia.transit!!.stale)
-        assertTrue(francia.transit!!.feeds.isEmpty())
+        assertEquals(listOf("Torino"), francia.transit.stale)
+        assertTrue(francia.transit.feeds.isEmpty())
         assertNull("senza reti pubblicate il pacchetto non e' offerto", francia.versionOf(PackageKind.TRANSIT))
         assertFalse(PackageKind.TRANSIT in francia.availableKinds)
         assertEquals(0L, francia.downloadBytes(setOf(PackageKind.TRANSIT)))

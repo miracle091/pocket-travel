@@ -28,6 +28,7 @@ class MainDispatcherRule(val dispatcher: TestDispatcher = StandardTestDispatcher
 }
 
 /** Tiene acceso per tutto il test uno stato `WhileSubscribed`: senza chi lo raccoglie il suo `value` non si aggiorna. */
+@OptIn(ExperimentalCoroutinesApi::class)
 fun TestScope.keepCollecting(state: Flow<*>) {
     backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { state.collect { } }
 }

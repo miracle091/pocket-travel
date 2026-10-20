@@ -4,6 +4,7 @@ import androidx.core.content.edit
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
 import com.pockettravel.core.sync.testing.FakePublishedAtStore
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -53,6 +54,7 @@ class DefaultCatalogPreferencesTest {
         },
     ).build()
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun TestScope.preferences(dispatcher: CoroutineDispatcher = UnconfinedTestDispatcher(testScheduler)) =
         DefaultCatalogPreferences(files, client, json, store, dispatcher)
 
