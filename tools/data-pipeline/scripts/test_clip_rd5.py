@@ -14,14 +14,16 @@ import unittest
 import zlib
 from pathlib import Path
 
-from clip_rd5 import CachedSource, FileSource, HttpSource, brouter_crc, clip, overlaps, tile_origin
+from clip_rd5 import (CachedSource, FileSource, HttpSource, LookupVersionError, brouter_crc, check_lookups_version, clip,
+                      overlaps, read_lookups_version, tile_lookups_version, tile_origin)
 
 DIVISOR = 32
 INDEX_SIZE = DIVISOR * DIVISOR * 4
 TAIL = b"\x03extra"
+LOOKUPS = (11, 2)  # versione maggiore e minore di lookups.dat usate dai test
 
 
-def make_rd5(cells):
+def make_rd5(cells, major=11, minor=2):
     """.rd5 con divisor 32; cells = {(sotto-tile, micro-cella): bytes}."""
     blocks, crcs = [], []
     for i in range(25):
@@ -35,9 +37,9 @@ def make_rd5(cells):
         index = struct.pack(f">{DIVISOR * DIVISOR}i", *positions)
         blocks.append(index + data); crcs.append(brouter_crc(index))
     ends, pos = [], 200
-    for block in blocks:
+    for i, block in enumerate(blocks):
         pos += len(block)
-        ends.append((7 << 48) | pos)
+        ends.append(((minor if i == 1 else major) << 48) | pos)
     head = struct.pack(">25q", *ends)
     footer = struct.pack(">qI", 1234, brouter_crc(head) ^ 2) + struct.pack(">25I", *crcs) + TAIL
     return head + b"".join(blocks) + footer
@@ -114,6 +116,8 @@ class ClipRd5Test(unittest.TestCase):
         self.rd5 = make_rd5(self.cells)
         self.dir = Path(tempfile.mkdtemp())
         (self.dir / self.NAME).write_bytes(self.rd5)
+        self.lookups = self.dir / "lookups.dat"
+        self.lookups.write_text("---lookupversion:11\n---minorversion:2\n\n---context:way\n")
 
     def expected(self):
         cell = 1 / DIVISOR
@@ -134,7 +138,7 @@ class ClipRd5Test(unittest.TestCase):
         # un'opzione e fallirebbe per tutte le regioni a ovest di Greenwich.
         out = self.dir / "out.rd5"
         subprocess.run([sys.executable, str(Path(__file__).with_name("clip_rd5.py")), str(self.dir / self.NAME),
-                        str(out), f"--bbox={','.join(map(str, self.BBOX))}", "--margin", "0"],
+                        str(out), f"--bbox={','.join(map(str, self.BBOX))}", "--margin", "0", "--lookups", str(self.lookups)],
                        check=True, capture_output=True)
         self.assertEqual(read_cells(out.read_bytes()), self.expected())
 
@@ -146,7 +150,8 @@ class ClipRd5Test(unittest.TestCase):
         # Tile esistente ma senza micro-cella nel rettangolo: niente .rd5 vuoto, uscita diversa da zero.
         out = self.dir / "out.rd5"
         res = subprocess.run([sys.executable, str(Path(__file__).with_name("clip_rd5.py")), str(self.dir / self.NAME),
-                              str(out), "--bbox=50,50,51,51", "--margin", "0"], capture_output=True)
+                              str(out), "--bbox=50,50,51,51", "--margin", "0", "--lookups", str(self.lookups)],
+                             capture_output=True)
         self.assertEqual(res.returncode, 3)  # tile saltata, non errore
         self.assertFalse(out.exists())
 
@@ -219,7 +224,7 @@ class ClipRd5Test(unittest.TestCase):
             server.server_close()
 
 
-def make_rd5_80(cells):
+def make_rd5_80(cells, major=11, minor=2):
     """Come make_rd5, ma con divisor 80 (CRC dell'indice senza lo xor con 2)."""
     divisor, index_size = 80, 80 * 80 * 4
     blocks, crcs = [], []
@@ -234,12 +239,89 @@ def make_rd5_80(cells):
         index = struct.pack(f">{divisor * divisor}i", *positions)
         blocks.append(index + data); crcs.append(brouter_crc(index))
     ends, pos = [], 200
-    for block in blocks:
+    for i, block in enumerate(blocks):
         pos += len(block)
-        ends.append((7 << 48) | pos)
+        ends.append(((minor if i == 1 else major) << 48) | pos)
     head = struct.pack(">25q", *ends)
     footer = struct.pack(">qI", 99, brouter_crc(head)) + struct.pack(">25I", *crcs) + TAIL
     return head + b"".join(blocks) + footer
+
+
+class LookupsVersionTest(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.dir = Path(tmp.name)
+
+    def head(self, major, minor):
+        return make_rd5({(0, 0): b"x"}, major, minor)[:200]
+
+    def check(self, major, minor):
+        warnings = []
+        check_lookups_version("E10_N40.rd5", self.head(major, minor), LOOKUPS, warnings.append)
+        return warnings
+
+    def test_versione_uguale_ok_senza_avvisi(self):
+        self.assertEqual([], self.check(11, 2))
+
+    def test_minore_piu_bassa_ok_senza_avvisi(self):
+        self.assertEqual([], self.check(11, 1))
+
+    def test_minore_piu_alta_avvisa(self):
+        warnings = self.check(11, 3)
+        self.assertEqual(1, len(warnings))
+        self.assertIn("E10_N40.rd5", warnings[0])
+        self.assertIn("11.3", warnings[0])
+
+    def test_maggiore_diversa_errore_con_tile_e_versioni(self):
+        for major in (10, 12):
+            with self.assertRaises(LookupVersionError) as ctx:
+                self.check(major, 0)
+            msg = str(ctx.exception)
+            self.assertIn("E10_N40.rd5", msg)
+            self.assertIn(f"{major}.0", msg)
+            self.assertIn("11.2", msg)
+            self.assertIn("lookups.dat", msg)
+
+    def test_legge_la_versione_dall_indice(self):
+        self.assertEqual((12, 1), tile_lookups_version(self.head(12, 1)))
+
+    def test_legge_lookups_dat(self):
+        path = self.dir / "lookups.dat"
+        path.write_text("---lookupversion:12\n---minorversion:0\n\n---context:way\n")
+        self.assertEqual((12, 0), read_lookups_version(path))
+        path.write_text("---lookupversion:12\n")
+        with self.assertRaises(ValueError):
+            read_lookups_version(path)
+
+    def test_clip_si_ferma_prima_di_leggere_altro(self):
+        path = self.dir / "E10_N40.rd5"
+        path.write_bytes(make_rd5({(0, 0): b"x"}, 12, 0))
+        src = FileSource(path)
+        try:
+            with self.assertRaises(LookupVersionError):
+                clip(src, (10, 40, 11, 41), LOOKUPS)
+            self.assertEqual(200, src.fetched)
+        finally:
+            src.file.close()
+
+    def test_riga_di_comando_maggiore_diversa_esce_con_4(self):
+        tile, lookups = self.dir / "E10_N40.rd5", self.dir / "lookups.dat"
+        tile.write_bytes(make_rd5({(0, 0): b"x"}, 12, 0))
+        lookups.write_text("---lookupversion:11\n---minorversion:2\n")
+        out = self.dir / "out.rd5"
+        res = subprocess.run([sys.executable, str(Path(__file__).with_name("clip_rd5.py")), str(tile), str(out),
+                              "--bbox=10,40,11,41", "--margin", "0", "--lookups", str(lookups)], capture_output=True)
+        self.assertEqual(4, res.returncode)
+        self.assertIn("E10_N40.rd5", res.stderr.decode())
+        self.assertFalse(out.exists())
+
+    def test_lookups_dat_dell_app_leggibile(self):
+        # Il percorso predefinito punta al file dell'app nel repository.
+        from clip_rd5 import LOOKUPS_PATH
+        major, minor = read_lookups_version(LOOKUPS_PATH)
+        self.assertGreaterEqual(major, 1)
+        self.assertGreaterEqual(minor, 0)
 
 
 class TileOriginTest(unittest.TestCase):

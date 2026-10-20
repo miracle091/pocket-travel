@@ -12,7 +12,10 @@ pacchetti (guide, POI, segmenti `.rd5`, città, mappe d'insieme, celle dei civic
 superato con la copertura mondiale di `regions.sh`; gli asset di una release no (al massimo 1000 per release, da cui
 le release numerate). `map.pmtiles` non si ospita: l'app lo estrae dalla build Protomaps (`PmtilesExtractor`). I
 segmenti `.rd5` invece si ripubblicano, perché i file di brouter.de cambiano dimensione e hash nel tempo (commento in
-testa a `scripts/build-region.sh`).
+testa a `scripts/build-region.sh`). `scripts/clip_rd5.py` confronta la versione dei lookups di ogni tile con quella
+di `feature/map/src/main/assets/brouter-profile/lookups.dat`: se la versione maggiore è diversa (BRouter non leggerebbe
+il segmento) esce con errore, la regione fallisce e resta il pacchetto già pubblicato; se solo la minore è più alta
+dà un avviso. Per adeguarsi si aggiornano `lookups.dat` e i profili con una nuova versione dell'app.
 
 | Job | Nome | Cosa fa |
 |---|---|---|

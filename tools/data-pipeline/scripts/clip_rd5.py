@@ -19,11 +19,14 @@ Si leggono solo le parti necessarie (intestazione, coda, indici delle sotto-tile
 micro-celle tenute): con un URL di brouter.de si scaricano pochi MB invece dell'intera tile.
 
 Uso: python clip_rd5.py <in.rd5 | URL> <out.rd5> --bbox minLon,minLat,maxLon,maxLat --margin 0.1
+Prima di ritagliare confronta la versione dei lookups della tile (letta dall'indice gia' scaricato) con
+quella di lookups.dat dell'app (--lookups): maggiore diversa = errore (uscita 4), minore piu' alta = avviso.
 Stampa su stdout la dimensione del file originale.
 """
 import argparse
 import hashlib
 import http.client
+import os
 import re
 import struct
 import sys
@@ -180,9 +183,61 @@ class CachedSource:
         return data
 
 
-def clip(src, bbox):
-    """(nuovo contenuto, micro-celle tenute) del .rd5 letto da src, ritagliato su bbox."""
+LOOKUPS_PATH = Path(__file__).resolve().parents[3] / "feature/map/src/main/assets/brouter-profile/lookups.dat"
+# Codice d'uscita di una tile con versione dei lookups incompatibile con quella dell'app.
+LOOKUP_MISMATCH_EXIT = 4
+
+
+class LookupVersionError(Exception):
+    """La versione maggiore dei lookups della tile e' diversa da quella di lookups.dat."""
+
+
+def read_lookups_version(path):
+    """(maggiore, minore) letti da `---lookupversion:` e `---minorversion:` di lookups.dat."""
+    found = {}
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        m = re.fullmatch(r"---(lookupversion|minorversion):\s*(\d+)\s*", line)
+        if m:
+            found[m.group(1)] = int(m.group(2))
+    if len(found) != 2:
+        raise ValueError(f"{path}: mancano ---lookupversion o ---minorversion")
+    return found["lookupversion"], found["minorversion"]
+
+
+def tile_lookups_version(head):
+    """(maggiore, minore) dei lookups con cui e' stata creata la tile, dai 200 byte di indice.
+    Come in BRouter (WayLinker.compileFileIndex, PhysicalFile): i 16 bit alti del long 0 sono la versione
+    maggiore, quelli del long 1 la minore. Solo la maggiore e' controllata dal lettore."""
+    index = struct.unpack(">25q", head)
+    return index[0] >> 48, index[1] >> 48
+
+
+def warn(message):
+    """Avviso non fatale: annotazione di GitHub Actions in CI, riga normale su stderr in locale."""
+    print(f"::warning::{message}" if os.environ.get("GITHUB_ACTIONS") else f"AVVISO: {message}", file=sys.stderr)
+
+
+def check_lookups_version(name, head, expected, warn=warn):
+    """Confronta la versione dei lookups della tile (da head) con expected = (maggiore, minore) di lookups.dat.
+    Maggiore diversa: LookupVersionError, BRouter rifiuterebbe la tile ("lookup version mismatch") e
+    ogni percorso fallirebbe. Minore piu' alta: avviso, i valori sconosciuti diventano "unknown"."""
+    major, minor = tile_lookups_version(head)
+    if major != expected[0]:
+        raise LookupVersionError(
+            f"{name}: lookups {major}.{minor} su brouter.de, ma lookups.dat dell'app e' {expected[0]}.{expected[1]}: "
+            "BRouter non leggerebbe il segmento. Non pubblicare: aggiornare lookups.dat e i profili in "
+            "feature/map/src/main/assets/brouter-profile insieme, con una nuova versione dell'app")
+    if minor > expected[1]:
+        warn(f"{name}: lookups {major}.{minor} piu' recenti di lookups.dat ({expected[0]}.{expected[1]}), "
+             "i valori nuovi risultano sconosciuti: aggiornare lookups.dat e i profili alla prossima versione dell'app")
+
+
+def clip(src, bbox, lookups=None, warn=warn):
+    """(nuovo contenuto, micro-celle tenute) del .rd5 letto da src, ritagliato su bbox.
+    Con lookups = (maggiore, minore) controlla prima la versione dei lookups della tile (check_lookups_version)."""
     head = src.read(0, 200)
+    if lookups is not None:
+        check_lookups_version(src.name, head, lookups, warn)
     index = struct.unpack(">25q", head)
     versions = [v >> 48 for v in index]
     ends = [v & 0xFFFFFFFFFFFF for v in index]
@@ -250,6 +305,7 @@ def main():
     ap.add_argument("--margin", type=float, required=True, help="gradi aggiunti al rettangolo su ogni lato (0,1 = ~11 km)")
     ap.add_argument("--user-agent", default="PocketTravelDataPipeline clip_rd5.py", help="per le richieste HTTP")
     ap.add_argument("--range-cache", type=Path, help="cartella degli intervalli gia' scaricati, condivisa tra le regioni di un job (solo con URL)")
+    ap.add_argument("--lookups", type=Path, default=LOOKUPS_PATH, help="lookups.dat dell'app con cui confrontare la versione dei lookups della tile")
     a = ap.parse_args()
     min_lon, min_lat, max_lon, max_lat = map(float, a.bbox.split(","))
     bbox = (min_lon - a.margin, min_lat - a.margin, max_lon + a.margin, max_lat + a.margin)
@@ -257,7 +313,11 @@ def main():
     src = HttpSource(a.src, a.user_agent) if remote else FileSource(a.src)
     if remote and a.range_cache:
         src = CachedSource(src, a.range_cache)
-    out, kept = clip(src, bbox)
+    try:
+        out, kept = clip(src, bbox, read_lookups_version(a.lookups))
+    except LookupVersionError as e:
+        print(f"::error::{e}" if os.environ.get("GITHUB_ACTIONS") else f"ERRORE: {e}", file=sys.stderr)
+        return LOOKUP_MISMATCH_EXIT
     if kept == 0:
         # La tile esiste ma nel rettangolo non ha strade (costa, mare al bordo della regione): non si scrive
         # un .rd5 vuoto e il chiamante salta solo questa tile, con EMPTY_EXIT distinto da un errore vero.
