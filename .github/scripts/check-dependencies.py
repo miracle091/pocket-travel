@@ -159,10 +159,11 @@ def check_vulnerabilities(reports, http, out):
 # ---------------------------------------------------------------------------
 
 _VERSION = re.compile(r"^(\d+(?:\.\d+)*)(.*)$")
-# "pre<hash>" e' la forma delle build di anteprima di MapLibre (13.6.1-pre935d410...).
-_PRE_TOKEN = re.compile(r"^(alpha|beta|rc|cr|m|milestone|dev|eap|snapshot|preview|pre)\d*$|^pre[0-9a-f]{7,}$", re.I)
+# "pre<hash>" e' la forma delle build di anteprima di MapLibre (13.6.1-pre935d410...); "globe" quella del suo ramo
+# di sviluppo del globo, anche con un numero a data (2026.10.19-globe).
+_PRE_TOKEN = re.compile(r"^(alpha|beta|rc|cr|m|milestone|dev|eap|snapshot|preview|pre|globe)\d*$|^pre[0-9a-f]{7,}$", re.I)
 _PRE_RANK = {"alpha": 0, "dev": 0, "eap": 0, "snapshot": 0, "preview": 0, "pre": 0, "m": 0, "milestone": 0,
-             "beta": 1, "rc": 2, "cr": 2}
+             "globe": 0, "beta": 1, "rc": 2, "cr": 2}
 
 
 def _pre_token(version):

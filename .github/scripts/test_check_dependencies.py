@@ -81,7 +81,7 @@ class VersionTest(unittest.TestCase):
 
     def test_prerelease(self):
         for v in ("1.5.0-beta01", "2.0.0-alpha.6", "1.0-M1", "1.0.0-SNAPSHOT", "1.0-rc1", "1.0-dev-5",
-                  "13.6.1-pre935d410353da9d701ad42c97f2e0c300c8d408b8"):
+                  "13.6.1-pre935d410353da9d701ad42c97f2e0c300c8d408b8", "2026.10.19-globe", "13.7.0-pre-globe.0"):
             self.assertTrue(cd.is_prerelease(v), v)
         for v in ("1.12", "20260814", "33.0-jre", "3.53.4.0", "1.0.Final"):
             self.assertFalse(cd.is_prerelease(v), v)
@@ -89,6 +89,7 @@ class VersionTest(unittest.TestCase):
     def test_stabile_ignora_prerelease(self):
         self.assertEqual(cd.newer_version("1.0", ["1.0", "1.1", "1.2-beta01"]), "1.1")
         self.assertIsNone(cd.newer_version("1.1", ["1.0", "1.1", "1.2-beta01"]))
+        self.assertIsNone(cd.newer_version("13.7.1", ["13.6.1", "13.7.0-pre-globe.0", "13.7.1", "2026.10.19-globe"]))
 
     def test_prerelease_scelta_di_proposito_segue_la_sua_linea(self):
         avail = ["1.4.0", "1.5.0-beta01", "1.5.0-beta02", "1.6.0-alpha01"]
