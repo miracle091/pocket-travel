@@ -109,6 +109,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          submodules: true
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -131,13 +132,14 @@ jobs:
         run: |
           sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache
           echo "CCACHE_COMPILERCHECK=string:ndk-$(sed -n 's/^ *ndkVersion = "\(.*\)"/\1/p' feature/ai/build.gradle.kts)" >> "$GITHUB_ENV"
+          echo "LLAMA_COMMIT=$(git rev-parse HEAD:third-party/llama-cpp)" >> "$GITHUB_ENV"
 
       - name: Cache di ccache per llama.cpp
         continue-on-error: true
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /home/runner/.cache/ccache
-          key: ccache-llama-${{ hashFiles('third-party/llama-cpp/**', 'third-party/patches/llama-cpp/**', 'feature/ai/src/main/cpp/**', 'feature/ai/build.gradle.kts') }}
+          key: ccache-llama-${{ env.LLAMA_COMMIT }}-${{ hashFiles('third-party/patches/llama-cpp/**', 'feature/ai/src/main/cpp/**', 'feature/ai/build.gradle.kts') }}
           restore-keys: ccache-llama-
 
       # Prima di compilare: una release con impronte dei modelli diverse dai file su Hugging Face

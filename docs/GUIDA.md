@@ -12,6 +12,7 @@ Questa guida raccoglie le informazioni per lavorare su Pocket Travel. Il **perch
 ## Compilare e provare
 
 ```bash
+git -c core.longpaths=true submodule update --init --depth 1   # una volta, se il clone non ha i submodule
 ./gradlew :app:installDebug          # installa sul dispositivo o sull'emulatore
 ```
 
@@ -96,6 +97,16 @@ Per provare l'app in un'altra lingua senza cambiare quella del dispositivo:
 adb shell cmd locale set-app-locales com.pockettravel.app --locales en   # o it
 ```
 
+## llama.cpp e BRouter
+
+llama.cpp (`third-party/llama-cpp`) e BRouter (`third-party/brouter`) sono submodule git, ognuno sul commit di una release upstream. Il clone che li scarica è `git -c core.longpaths=true clone --recurse-submodules`. Su Windows alcuni percorsi di llama.cpp superano i 260 caratteri: conviene `git config --global core.longpaths true`, una volta per PC, così anche `git status` nel submodule funziona. Il build chiama `git`, che deve stare nel PATH. Dopo un `git pull` che sposta un submodule su un altro commit, `git submodule update --depth 1` lo allinea; senza, il build compila il commit vecchio.
+
+- I submodule restano uguali all'upstream. Le modifiche del progetto sono patch in `third-party/patches/llama-cpp/` e `third-party/patches/brouter/`, con i percorsi dalla root del submodule e una descrizione prima del diff.
+- Il build applica le patch, in ordine di nome, a una copia: il `CMakeLists.txt` di `feature/ai` in `feature/ai/.cache/cxx/llama-cpp-src`, il task `brouterSources` di `third-party/brouter-core` in `third-party/brouter-core/build/generated/brouter`. Una patch che non si applica fa fallire il build con il suo nome.
+- Il modulo `:third-party:brouter-core` compila cinque moduli di BRouter (`brouter-codec`, `brouter-core`, `brouter-expressions`, `brouter-mapaccess`, `brouter-util`) e il file del progetto `TurnInstructions.java`.
+- Una patch nuova si scrive nel submodule, sopra quelle esistenti: si applicano le patch (`cat third-party/patches/brouter/*.patch | git -C third-party/brouter apply --index`), si modificano i file e si salva solo la differenza nuova (`git -C third-party/brouter diff > third-party/patches/brouter/0004-nome.patch`; per un file nuovo prima `git add -N`), poi si scrive la descrizione in testa. Il build compila la copia, non il submodule: la modifica si prova con la patch salvata. Alla fine il submodule torna pulito con `git -C third-party/brouter reset --hard` e, per i file nuovi, `git -C third-party/brouter clean -fd`.
+- Un aggiornamento porta il submodule sul tag della release (`git -C third-party/llama-cpp fetch --depth 1 origin tag <tag>`, poi `git -C third-party/llama-cpp checkout <tag>`). Se il build segnala una patch che non si applica, la patch si rifà sul codice nuovo, oppure si toglie quando l'upstream contiene già la modifica. Il commit registra il nuovo commit del submodule insieme alle patch.
+
 ## Dove si trova il codice
 
 | Cosa cambiare | Guarda in |
@@ -108,7 +119,7 @@ adb shell cmd locale set-app-locales com.pockettravel.app --locales en   # o it
 | i numeri civici (celle da ~10 MB) | `tools/data-pipeline/scripts/build-address-cell.sh` e il seme `tools/data-pipeline/address-grid-seed.tsv` |
 | le fonti Overture dei numeri civici | `tools/data-pipeline/overture-address-sources.tsv` (una fonte nuova resta fuori finché non la si rivede) |
 | i modelli dell'assistente | `feature/ai/.../LlmModelCatalog.kt` (ogni modello addestrato ha la sua lingua) e gli script `train_*.py` / `eval_*.py`; un GGUF ricaricato con lo stesso nome si pubblica con `upload_hf.py --push --update-app-status`, che aggiorna le impronte in `app-status.json` senza rilasciare l'app. Nelle build di debug il menu (⋯) della scheda IA ha il benchmark e il task manager dei modelli (memoria, CPU, contesto, velocità, log esportabili) |
-| percorsi e navigazione | `feature/map/.../BRouterRouteEngine.kt`, `NavigationScreen.kt`, `NavigationTracker.kt`; le aggiunte a BRouter sono segnate "Pocket Travel" in `third-party/brouter-core` |
+| percorsi e navigazione | `feature/map/.../BRouterRouteEngine.kt`, `NavigationScreen.kt`, `NavigationTracker.kt`; le modifiche a BRouter sono le patch in `third-party/patches/brouter` |
 | i testi dell'app | `res/values/strings.xml` (italiano) e `res/values-en/strings.xml` (inglese) di ogni modulo |
 | le vaccinazioni | dati in `tools/data-pipeline/content/src/main/resources/vaccinations/` (TSV curati, bozza con `vaccinations_draft.py`), regole in `core/data/.../vaccination/`, schermata in `feature/guide/.../VaccinationScreen.kt` |
 | popolazione, capitale e coordinate delle città | `tools/data-pipeline/scripts/city_population.py`, usato da `extract-cities-dump.py` e `extract-cities-dump-en.py` |

@@ -1,10 +1,11 @@
 name: Prepara la pipeline dei dati
 description: >
   Preparazione comune dei job di publish-regions.yml, dopo actions/checkout: JDK 25 (lo stesso del daemon Gradle, come
-  negli altri workflow), Gradle con la cache in sola lettura e, a richiesta, go-pmtiles, duckdb e osmium-tool.
+  negli altri workflow), Gradle con la cache in sola lettura e il submodule di BRouter e, a richiesta, go-pmtiles,
+  duckdb e osmium-tool.
 inputs:
   gradle:
-    description: Installa JDK e Gradle (i job che non lanciano ./gradlew li saltano).
+    description: Installa JDK e Gradle e scarica il submodule di BRouter (i job che non lanciano ./gradlew li saltano).
     default: "true"
   pmtiles:
     description: Installa go-pmtiles (versione e sha256 fissati in .github/scripts/install-go-pmtiles.sh).
@@ -31,6 +32,13 @@ runs:
       if: inputs.gradle == 'true'
       with:
         cache-read-only: true
+
+    # La pipeline Kotlin (tools/data-pipeline/content) compila BRouter dal submodule third-party/brouter; il
+    # submodule di llama.cpp qui non serve.
+    - name: Submodule di BRouter
+      if: inputs.gradle == 'true'
+      shell: bash
+      run: git submodule update --init --depth 1 third-party/brouter
 
     - name: Installa go-pmtiles
       if: inputs.pmtiles == 'true'

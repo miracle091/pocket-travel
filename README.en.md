@@ -162,6 +162,8 @@ The app has no server of its own and collects no data about its users. The locat
 
 Android Studio with **JDK 17** or later and Android 8.0 (API 26) are required; Gradle is included. The [developer guide](docs/GUIDA.md) explains how to build, test and generate the data; the [wiki](https://github.com/miracle091/pocket-travel/wiki) explains the technical choices. Both are in Italian.
 
+llama.cpp and BRouter are git submodules in `third-party/`: clone the repository with `git -c core.longpaths=true clone --recurse-submodules https://github.com/miracle091/pocket-travel`, and download them in a clone without submodules with `git -c core.longpaths=true submodule update --init --depth 1`. `core.longpaths` is needed on Windows, where some llama.cpp paths exceed 260 characters.
+
 | Command | What it does |
 |---|---|
 | `./gradlew :app:installDebug` | Installs the debug build |

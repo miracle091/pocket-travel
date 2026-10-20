@@ -163,6 +163,8 @@ L'app non ha un server proprio e non raccoglie dati sugli utenti. La posizione r
 
 Servono Android Studio con **JDK 17** o successivo e Android 8.0 (API 26); Gradle è incluso. La [guida per sviluppatori](docs/GUIDA.md) spiega come compilare, provare e generare i dati; la [wiki](https://github.com/miracle091/pocket-travel/wiki) il perché delle scelte tecniche.
 
+llama.cpp e BRouter sono submodule git in `third-party/`: il repository si clona con `git -c core.longpaths=true clone --recurse-submodules https://github.com/miracle091/pocket-travel`, e in un clone senza submodule si scaricano con `git -c core.longpaths=true submodule update --init --depth 1`. `core.longpaths` serve su Windows, dove alcuni percorsi di llama.cpp superano i 260 caratteri.
+
 | Comando | Cosa fa |
 |---|---|
 | `./gradlew :app:installDebug` | Installa la build di debug |
