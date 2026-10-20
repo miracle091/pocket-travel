@@ -27,7 +27,7 @@ import kotlin.concurrent.thread
 
 /**
  * Verifica il wiring reale (RoutingContext/RoutingParamCollector/RoutingEngine di
- * :third-party:brouter-core, non un mock). Le fixture in src/test/resources/multi-tile-segments/
+ * :core:routing-engine, non un mock). Le fixture in src/test/resources/multi-tile-segments/
  * sono due .rd5 minuscoli con un'unica via; i percorsi reali (con svolte) usano un segmento vero
  * di brouter.de, troppo grande per il repo: quei test girano solo se RD5_CLIP_TEST_DIR indica una
  * cartella con orig/E10_N40.rd5 (da brouter.de) e clipped/E10_N40.rd5 (ritagliato sul rettangolo di

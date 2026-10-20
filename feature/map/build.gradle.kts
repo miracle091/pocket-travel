@@ -18,7 +18,7 @@ android {
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
-    implementation(project(":third-party:brouter-core"))
+    implementation(project(":core:routing-engine"))
     implementation(libs.maplibre.android.sdk)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
@@ -39,7 +39,7 @@ dependencies {
 
     // Test strumentato (androidTest): verifica su device/emulatore reale che il wiring di
     // RouteEngineModule (copia profilo dagli asset, RoutingContext/RoutingEngine di
-    // :third-party:brouter-core) non crashi su Android ART.
+    // :core:routing-engine) non crashi su Android ART.
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
 }

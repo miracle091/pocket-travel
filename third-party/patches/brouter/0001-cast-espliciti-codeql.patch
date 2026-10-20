@@ -1,7 +1,7 @@
 Cast espliciti negli assegnamenti composti (+=) con conversione implicita che restringe il tipo
 (double/float in int, double in float), segnalati da CodeQL: il comportamento resta quello di
 Java, che nei += fa gia' lo stesso cast in silenzio.
-Applicata dal build (task brouterSources di third-party/brouter-core/build.gradle.kts) alla copia dei
+Applicata dal build (task brouterSources di core/routing-engine/build.gradle.kts) alla copia dei
 sorgenti in build/generated/brouter; percorsi dalla root del submodule third-party/brouter.
 
 diff --git a/brouter-core/src/main/java/btools/router/OsmPath.java b/brouter-core/src/main/java/btools/router/OsmPath.java

@@ -1,7 +1,7 @@
 # Regole R8 della release, oltre a proguard-android-optimize.txt e alle consumer rules delle librerie
 # (MapLibre, OkHttp, Room, Hilt, WorkManager, kotlinx.serialization le portano gia').
 
-# BRouter (third-party/brouter-core): RoutingContext crea il modello del percorso con Class.forName dal nome
+# BRouter (core/routing-engine): RoutingContext crea il modello del percorso con Class.forName dal nome
 # scritto nel profilo .brf, e il resto del motore usa nomi di classe e campi letti dai file di profilo.
 -keep class btools.** { *; }
 -dontwarn btools.**

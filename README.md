@@ -181,12 +181,13 @@ llama.cpp e BRouter sono submodule git in `third-party/`: il repository si clona
 ┌──────────────────────────────┴─────────────────────────────┐
 │                         feature/*                          │
 │   guide · map (mappa, Navigatore) · ai · vault · sources   │
-│   con third-party: BRouter (percorsi), llama.cpp via JNI   │
+│    ai con llama.cpp via JNI (submodule in third-party)     │
 └──────────────────────────────┬─────────────────────────────┘
                                │
 ┌──────────────────────────────┴─────────────────────────────┐
 │                           core/*                           │
 │      data (Room) · sync (download, firme) · ui · poi       │
+│     routing-engine (BRouter, submodule in third-party)     │
 └──────────────────────────────┬─────────────────────────────┘
                                │ catalogo firmato (ECDSA P-256)
 ┌──────────────────────────────┴─────────────────────────────┐

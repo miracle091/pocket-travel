@@ -33,7 +33,7 @@ dependencies {
         implementation(libs.aircompressor)
     }
     // Lettura e scrittura dei segmenti .rd5 per la variante "solo auto" della rete stradale (FilterRd5.kt).
-    implementation(project(":third-party:brouter-core"))
+    implementation(project(":core:routing-engine"))
 
     testImplementation(libs.junit)
     // Usato anche da MergeManifests.kt (parsing/merge di manifest.json reali), non solo dai

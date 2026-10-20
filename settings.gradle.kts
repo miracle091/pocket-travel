@@ -29,11 +29,11 @@ include(
     ":core:sync",
     ":core:ui",
     ":core:poi",
+    ":core:routing-engine",
     ":feature:guide",
     ":feature:map",
     ":feature:ai",
     ":feature:sources",
     ":feature:vault",
     ":tools:data-pipeline:content",
-    ":third-party:brouter-core",
 )

@@ -2,7 +2,7 @@
 // in questa cartella) compilato da qui invece che come dipendenza Maven: org.btools:brouter-core
 // e' pubblicato solo su GitHub Packages (richiede autenticazione anche in sola lettura) e JitPack
 // non riesce a buildare il repo (verificato: il suo ambiente di default usa JDK 8, il Gradle
-// wrapper di BRouter richiede 17+ — vedi README Fase 10).
+// wrapper di BRouter richiede 17+).
 //
 // BRouter e' il submodule git third-party/brouter, sul commit di una release upstream e mai modificato.
 // Si compilano solo i moduli lato "router" (brouter-core/mapaccess/util/expressions/codec) usati per
@@ -25,7 +25,7 @@ plugins {
 java {
     // Stesso target del build ufficiale di BRouter (buildSrc/.../brouter.java-conventions.gradle:
     // "options.release = 11") — mantenuto identico per restare fedeli al bytecode gia' verificato
-    // funzionante su Android ART nel prototipo (Fase 10), non un valore scelto a caso.
+    // funzionante su Android ART nel prototipo, non un valore scelto a caso.
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
 }
