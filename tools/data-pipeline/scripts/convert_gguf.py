@@ -6,7 +6,7 @@ e' l'alternativa riproducibile alle quant "Dynamic 2.0" di Unsloth, la cui ricet
 Provato anche su Windows con l'ambiente Python di Unsloth Studio e --bin-dir verso una build di llama.cpp.
 
 Uso (Linux/WSL o Windows, richiede un clone separato di llama.cpp allo stesso tag del submodule
-third-party/llama-cpp — v0.6.0, vedi feature/ai/src/main/cpp/CMakeLists.txt — con le dipendenze
+third-party/llama-cpp — v0.7.0, vedi feature/ai/src/main/cpp/CMakeLists.txt — con le dipendenze
 Python installate: `pip install -r <llama.cpp>/requirements/requirements-convert_hf_to_gguf.txt`,
 e llama-quantize compilato: `cmake -B build && cmake --build build --target llama-quantize`):
   python convert_gguf.py <cartella merged> <file .gguf di output> \
@@ -40,7 +40,7 @@ from status import duration, phase
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 ap.add_argument("merged", type=Path)
 ap.add_argument("output", type=Path)
-ap.add_argument("--llama-cpp", type=Path, required=True, help="cartella del clone locale di llama.cpp (tag v0.6.0)")
+ap.add_argument("--llama-cpp", type=Path, required=True, help="cartella del clone locale di llama.cpp (tag v0.7.0)")
 ap.add_argument("--quantize", default="auto",
                 help='tipo llama-quantize (es. Q4_K_M, Q8_0), Q5_K_M-mix (vedi MIXED), "none" per tenere il f16; '
                      'auto = Q5_K_M-mix per i Qwen3.5, Q4_K_M per gli altri')
@@ -82,7 +82,7 @@ def write_calibration(path):
 
 convert_script = a.llama_cpp / "convert_hf_to_gguf.py"
 if not convert_script.exists():
-    sys.exit(f"convert_hf_to_gguf.py non trovato in {a.llama_cpp} (e' un clone di llama.cpp aggiornato al tag v0.6.0?)")
+    sys.exit(f"convert_hf_to_gguf.py non trovato in {a.llama_cpp} (e' un clone di llama.cpp aggiornato al tag v0.7.0?)")
 
 def step(name, detail, cmd, cwd=None):
     """Esegue una fase e ne stampa inizio e durata (l'output degli strumenti di llama.cpp resta sotto)."""

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Scarica i binari ufficiali di llama.cpp per Windows x64 (llama-server, llama-imatrix, llama-quantize,
-llama-completion) per il backend scelto, alla build fissata LLAMA_BUILD: la b11429 e' lo stesso commit
-del tag v0.6.0 dell'app e del clone di llama.cpp da cui convert_gguf.py usa convert_hf_to_gguf.py.
+llama-completion) per il backend scelto, alla build fissata LLAMA_BUILD: la b11669 e' lo stesso commit
+del tag v0.7.0 dell'app e del clone di llama.cpp da cui convert_gguf.py usa convert_hf_to_gguf.py.
 
 Backend:
   cpu         qualunque CPU x64
@@ -35,16 +35,16 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-LLAMA_BUILD = "b11429"
+LLAMA_BUILD = "b11669"
 RELEASE = f"https://github.com/ggml-org/llama.cpp/releases/download/{LLAMA_BUILD}"
 # sha256 dei pacchetti della release LLAMA_BUILD (campo "digest" degli asset in
-# gh api repos/ggml-org/llama.cpp/releases/tags/b11429): da aggiornare insieme a LLAMA_BUILD.
+# gh api repos/ggml-org/llama.cpp/releases/tags/b11669): da aggiornare insieme a LLAMA_BUILD.
 SHA256 = {
-    "llama-b11429-bin-win-cpu-x64.zip": "1283323272b04cd07905816a597a0da810918102de958f4ff6f7bbaa70ed2efe",
-    "llama-b11429-bin-win-vulkan-x64.zip": "1bfe78ad9168b79fa02bf67f6af9f5e17a966d824d77238517f7bef12ac73b36",
-    "llama-b11429-bin-win-rocm-10.0-x64.zip": "289a8453bb222f0648f91eff3d55133c934119c841eb369b704aafae1d4719d2",
-    "llama-b11429-bin-win-cuda-12.4-x64.zip": "dd6df685c1024e6aa55ca55ad35038692d5e284d4dc895e7a646c3245d3d14ff",
-    "llama-b11429-bin-win-cuda-13.4-x64.zip": "76ddc6eff2389570789ed608881efc6977751a722015d8e8c94f302224ff1a3a",
+    "llama-b11669-bin-win-cpu-x64.zip": "37b3efcf962847ca869745fd4ccf7f5e7e8dacfeff9fa3523b4ca8cdc66d632b",
+    "llama-b11669-bin-win-vulkan-x64.zip": "2c07574e7bde71321cb785282b20cc821e951132149eeceeea32ddebdbf0598e",
+    "llama-b11669-bin-win-rocm-10.0-x64.zip": "940aa2c42450500f73ddbbcf40c5101ce44062d8a9775e9cffc23804433f17ca",
+    "llama-b11669-bin-win-cuda-12.4-x64.zip": "c2da1f73ed176ae093ac5aceb978a7b167a16113f6d74c6789eeaee2135cb8dc",
+    "llama-b11669-bin-win-cuda-13.4-x64.zip": "3b92d5c064f5032e603e531d3ec8961f3bd6613e5dfad047399a92dec8e95dbc",
     "cudart-llama-bin-win-cuda-12.4-x64.zip": "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6",
     "cudart-llama-bin-win-cuda-13.4-x64.zip": "738f8c251ac22b70c3ae6f83a10cf222725df0395246a2cf58f32bdb85fbe668",
 }

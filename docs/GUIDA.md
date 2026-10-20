@@ -131,7 +131,8 @@ llama.cpp (`third-party/llama-cpp`) e BRouter (`third-party/brouter`) sono submo
 1. Aggiornare `versionCode` e `versionName` in `app/build.gradle.kts`.
 2. Nel `CHANGELOG.md` spostare le voci di "Non rilasciato" sotto `## [X.Y.Z] - AAAA-MM-GG` (data del rilascio), lasciare in cima un "Non rilasciato" vuoto e aggiornare i link di confronto in fondo al file.
 3. Se i nuovi dati richiedono questa versione dell'app, aggiornare `tools/data-pipeline/min-app-version-code`.
-4. Fare il push su `main`: `publish-apk.yml` firma l'APK e crea la release. La pipeline dei dati pubblicherà i dati nuovi solo dopo.
+4. Controllare le ultime release stabili di [llama.cpp](https://github.com/ggml-org/llama.cpp/releases) (tag `vX.Y.Z`, non le build `bNNNN`) e di [BRouter](https://github.com/abrensch/brouter/releases) rispetto ai commit dei submodule (`git submodule status`). Con una release più nuova si aggiorna il submodule come spiega "llama.cpp e BRouter", con `LLAMA_BUILD` di `tools/data-pipeline/scripts/get_llama_tools.py` sulla build `bNNNN` dello stesso commit di llama.cpp, e si provano assistente e Navigatore sull'emulatore prima del rilascio.
+5. Fare il push su `main`: `publish-apk.yml` firma l'APK e crea la release. La pipeline dei dati pubblicherà i dati nuovi solo dopo.
 
 ## Regole del progetto
 
