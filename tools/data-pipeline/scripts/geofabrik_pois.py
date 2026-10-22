@@ -10,6 +10,8 @@ sull'indice o con un indice ritoccato.
 
 1. Sceglie dall'indice di Geofabrik (index-v1.json) gli estratti "foglia" il cui poligono tocca il bbox,
    scartando quelli composti (alps, dach, britain-and-ireland...), coperti per lo piu' da estratti piu' piccoli.
+   Le nazioni che nessuna foglia contiene hanno l'estratto in ESTRATTI_DELLE_NAZIONI (Saint-Pierre e Miquelon
+   da openstreetmap.fr).
 2. Scarica ogni estratto e lo riduce con "osmium tags-filter" ai soli oggetti che la query Overpass
    chiederebbe (piu' i nodi delle way e i membri delle relazioni, per la geometria). Il file ridotto
    resta in --cache: le regioni successive dello stesso job non riscaricano lo stesso estratto.
@@ -57,8 +59,13 @@ PAESI_MANCANTI = {"gcc-states": {"SA"}, "ireland-and-northern-ireland": {"GB"},
 # Nazioni senza un estratto proprio la cui terra non sta in nessuna foglia che tocca il loro bbox: le Isole Vergini
 # Britanniche toccano solo us/us-virgin-islands, Trinidad e Tobago solo venezuela, e il taglio sul confine lascerebbe
 # un pacchetto vuoto; le isole stanno nel poligono di central-america. San Marino sta tra i poligoni di centro e
-# nord-est, senza esserne coperto: solo italy lo contiene.
-ESTRATTI_DELLE_NAZIONI = {"VG": "central-america", "TT": "central-america", "SM": "italy"}
+# nord-est, senza esserne coperto: solo italy lo contiene. Saint-Pierre e Miquelon sta solo in canada (6,5 GB; la
+# foglia newfoundland-and-labrador ne ha un solo oggetto): un URL completo indica l'estratto giornaliero di
+# openstreetmap.fr (stessi dati OpenStreetMap, 1,5 MB).
+ESTRATTI_DELLE_NAZIONI = {
+    "VG": "central-america", "TT": "central-america", "SM": "italy",
+    "PM": "https://download.openstreetmap.fr/extracts/north-america/saint_pierre_et_miquelon-latest.osm.pbf",
+}
 NODE_KEYS = ("amenity", "shop", "tourism", "leisure", "historic")
 # Musei e monumenti come aree o relazioni (Tour Eiffel, Louvre), solo con un nome: query di build-region.sh.
 WR_TOURISM_NAMED = {"museum", "gallery", "attraction"}
@@ -262,6 +269,8 @@ def scegli_estratti(index, bbox, iso=None):
     features = [f for f in index["features"] if f.get("geometry") and f["properties"].get("urls", {}).get("pbf")]
     if iso and iso.upper() in ESTRATTI_DELLE_NAZIONI:
         cid = ESTRATTI_DELLE_NAZIONI[iso.upper()]
+        if cid.startswith("https://"):
+            return [(cid.rsplit("/", 1)[1].removesuffix("-latest.osm.pbf"), cid)]
         return [(cid, f["properties"]["urls"]["pbf"]) for f in features if f["properties"]["id"] == cid]
     parents = {f["properties"].get("parent") for f in features}
     leaves = [(f["properties"]["id"], f["properties"]["urls"]["pbf"], anelli(f["geometry"]))

@@ -221,6 +221,15 @@ class ScegliEstrattiTest(unittest.TestCase):
 
         self.assertEqual(chosen, ["italy"])
 
+    def test_con_iso_nazione_con_l_estratto_fuori_da_geofabrik(self):
+        # Come Saint-Pierre e Miquelon: la foglia vicina (Terranova) non lo contiene, l'estratto e' di openstreetmap.fr.
+        index = {"features": [quadrato("newfoundland-and-labrador", 0, 0, 10, 10)]}
+
+        chosen = geofabrik_pois.scegli_estratti(index, (2, 2, 3, 3), "pm")
+
+        self.assertEqual(chosen, [("saint_pierre_et_miquelon", geofabrik_pois.ESTRATTI_DELLE_NAZIONI["PM"])])
+        self.assertTrue(chosen[0][1].startswith("https://download.openstreetmap.fr/"))
+
     def test_bbox_tutto_dentro_un_estratto(self):
         index = {"features": [quadrato("a", 0, 0, 10, 10)]}
 
