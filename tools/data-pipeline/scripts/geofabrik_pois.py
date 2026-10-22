@@ -265,7 +265,8 @@ def scegli_estratti(index, bbox, iso=None):
     """[(id, url pbf)] degli estratti foglia che toccano il bbox, senza quelli composti. Con iso (codice alpha-2
     della nazione della regione) e almeno un estratto di quella nazione tra i candidati, solo quelli: il bbox
     di Norvegia o Arabia Saudita contiene paesi interi (Svezia, Finlandia, Egitto, Iran...) che sarebbero
-    scaricati per un pugno di POI al confine."""
+    scaricati per un pugno di POI al confine. Le nazioni di ESTRATTI_DELLE_NAZIONI prendono solo l'estratto
+    indicato (id Geofabrik, anche composto, o URL completo), senza guardare il bbox."""
     features = [f for f in index["features"] if f.get("geometry") and f["properties"].get("urls", {}).get("pbf")]
     if iso and iso.upper() in ESTRATTI_DELLE_NAZIONI:
         cid = ESTRATTI_DELLE_NAZIONI[iso.upper()]

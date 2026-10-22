@@ -373,6 +373,9 @@ class ValidateManifestTest {
             """{ "version": "2026.09.29.1", "feeds": [${transitFeed(id = "../x")}] }""",
             // L'app rifiuta tutto l'indice se una rete ha la pagina della licenza fuori da https.
             """{ "version": "2026.09.29.1", "feeds": [${transitFeed(licenseUrl = "http://acikveri.bizizmir.com/tr/license")}] }""",
+            // Lo schema si confronta come nell'app, e senza host l'app scarta lo stesso.
+            """{ "version": "2026.09.29.1", "feeds": [${transitFeed(licenseUrl = "HTTPS://data.gov.lv/dati")}] }""",
+            """{ "version": "2026.09.29.1", "feeds": [${transitFeed(licenseUrl = "https:///dati")}] }""",
         ).forEach { json -> assertThrows(ManifestValidationException::class.java) { validateTransitJson(json, allowedHosts) } }
     }
 
@@ -655,6 +658,7 @@ class ValidateManifestTest {
         validateTransitJson(withRealtime(""""gtfsIds": true"""), allowedHosts)
         assertTransitInvalid(withRealtime(""""gtfsIds": true, "realtimeUrl": "http://percorsieorari.gtt.to.it/das_gtfsrt/trip_update.aspx""""))
         assertTransitInvalid(withRealtime(""""gtfsIds": true, "realtimeUrl": "https://user:pw@example.org/rt.pb""""))
+        assertTransitInvalid(withRealtime(""""gtfsIds": true, "realtimeUrl": "HTTPS://gtfsrt.renfe.com/trip_updates.pb""""))
         assertTransitInvalid(withRealtime(""""realtimeUrl": "https://gtfsrt.renfe.com/trip_updates.pb""""))
         assertTransitInvalid(withRealtime(""""gtfsIds": true, "realtimeUrl": "https://gtfsrt.renfe.com/trip_updates.pb", "realtimeSizeBytes": -1"""))
     }

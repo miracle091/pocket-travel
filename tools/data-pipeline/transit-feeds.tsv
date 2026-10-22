@@ -101,7 +101,9 @@
 # trip_id, le corse sono indicate da linea e ora di partenza), Adelaide (il feed risponde in JSON con il protobuf in
 # base64), Praga PID (licenza dell'API Golemio non dichiarata), Lisbona Carris Metropolitana e Marsiglia RTM (niente
 # TripUpdates: solo posizioni e avvisi, o SIRI), ACTV (nessun feed pubblicato con una licenza), Roma RSM e GTT Torino
-# (si aspetta la conferma scritta della licenza).
+# (si aspetta la conferma scritta della licenza), Nizza Lignes d'Azur (dal 22 ottobre 2026 pomeriggio l'indirizzo
+# https://ara-api.enroute.mobi/rla/gtfs/trip-updates risponde 501 "Partner doesn't have the required Gtfs connector" e
+# transport.data.gouv.fr segna la risorsa come non disponibile: si rimette in url_rt quando torna a rispondere).
 #
 # id	regioni	nome	licenza	attribuzione	pagina_licenza	url_feed	cerca_ultimo	url_rt
 mdb-992	lettonia	Autobus nazionali (ATD)	CC0-1.0	Valsts SIA Autotransporta direkcija (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/eng/dataset/atd-gtfs
@@ -146,7 +148,7 @@ renfe-avld	spagna	Treni alta velocità, lunga e media distanza (Renfe)	CC-BY	Ori
 mdb-795	spagna	Valencia, autobus urbani (EMT València)	CC-BY	Ajuntament de València, EMT València (opendata.vlci.valencia.es, CC BY 4.0); modificato	https://opendata.vlci.valencia.es/dataset/google-transit-lines-stops-bus-schedules
 tdg-83582	francia,francia-alta-francia,francia-alvernia-rodano-alpi,francia-borgogna-franca-contea,francia-bretagna,francia-centro-valle-della-loira,francia-grand-est,francia-ile-de-france,francia-normandia,francia-nuova-aquitania,francia-occitania,francia-paesi-della-loira,francia-provenza-alpi-costa-azzurra	Treni SNCF (TGV, Intercités, TER)	ODbL-1.0	SNCF Voyageurs (transport.data.gouv.fr, ODbL 1.0); modificato	https://transport.data.gouv.fr/datasets/horaires-sncf			https://proxy.transport.data.gouv.fr/resource/sncf-gtfs-rt-trip-updates
 tdg-39589	francia,francia-provenza-alpi-costa-azzurra	Marsiglia (RTM)	etalab-2.0	Métropole d'Aix-Marseille-Provence, RTM (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/reseaux-de-transports-en-commun-de-la-metropole-daix-marseille-provence-et-des-bouches-du-rhone
-tdg-83178	francia,francia-provenza-alpi-costa-azzurra	Nizza (Lignes d'Azur)	etalab-2.0	Métropole Nice Côte d'Azur (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/donnees-statiques-et-dynamiques-du-reseau-de-transport-lignes-dazur			https://ara-api.enroute.mobi/rla/gtfs/trip-updates
+tdg-83178	francia,francia-provenza-alpi-costa-azzurra	Nizza (Lignes d'Azur)	etalab-2.0	Métropole Nice Côte d'Azur (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/donnees-statiques-et-dynamiques-du-reseau-de-transport-lignes-dazur			
 tdg-83024	francia,francia-nuova-aquitania	Bordeaux (TBM)	Licence-Ouverte-1.0	Bordeaux Métropole (transport.data.gouv.fr, Licence Ouverte 1.0); modificato	https://transport.data.gouv.fr/datasets/offres-de-services-bus-tram-et-scolaire-au-format-gtfs-netex-gtfs-rt-siri-lite			https://bdx.mecatran.com/utw/ws/gtfsfeed/realtime/bordeaux?apiKey=opendata-bordeaux-metropole-flux-gtfs-rt
 tdg-81678	francia,francia-occitania	Tolosa (Tisséo)	ODbL-1.0	Toulouse Métropole, Tisséo (transport.data.gouv.fr, ODbL 1.0); modificato	https://transport.data.gouv.fr/datasets/tisseo-reseau-transport-urbain-toulousain			https://api.tisseo.fr/opendata/gtfsrt/GtfsRt.pb
 tdg-79220	francia,francia-grand-est	Strasburgo (CTS)	etalab-2.0	CTS - Compagnie des Transports Strasbourgeois (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/donnees-theoriques-gtfs-et-temps-reel-siri-lite-du-reseau-cts

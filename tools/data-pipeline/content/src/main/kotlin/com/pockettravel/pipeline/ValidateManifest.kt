@@ -28,10 +28,11 @@ private fun isAllowedUrl(url: String, allowedHosts: Set<String>): Boolean {
         uri.host in allowedHosts && uri.userInfo == null && uri.fragment == null
 }
 
-// Indirizzo di un ente (feed del tempo reale): https con host, senza credenziali; nessuna lista di host.
-private fun isHttpsUrl(url: String): Boolean {
+// Indirizzo di un ente (feed del tempo reale, pagina della licenza): come TransitFeed.validate() nell'app, schema
+// "https" scritto cosi', con host; per un indirizzo da scaricare anche senza credenziali. Nessuna lista di host.
+private fun isHttpsUrl(url: String, withoutCredentials: Boolean = true): Boolean {
     val uri = runCatching { URI(url) }.getOrNull() ?: return false
-    return uri.scheme.equals("https", ignoreCase = true) && uri.host != null && uri.userInfo == null
+    return uri.scheme == "https" && uri.host != null && (!withoutCredentials || uri.userInfo == null)
 }
 
 fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
@@ -218,7 +219,7 @@ fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
         }
         // Come TransitFeed.validate() nell'app, che altrimenti rifiuta l'intero indice.
         val licenseUrl = feed.optString("licenseUrl", "")
-        if (licenseUrl.isNotEmpty() && !licenseUrl.startsWith("https://")) {
+        if (licenseUrl.isNotEmpty() && !isHttpsUrl(licenseUrl, withoutCredentials = false)) {
             throw ManifestValidationException("transit.json: licenseUrl non https per $id")
         }
         // Tempo reale: il feed che l'app scarica da se', solo https e solo su una transit.db con gli id GTFS.
