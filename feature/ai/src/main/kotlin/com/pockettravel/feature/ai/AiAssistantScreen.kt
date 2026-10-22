@@ -231,7 +231,12 @@ internal fun AiAssistantContent(
         AssistantHeader(uiState = uiState, isReady = isReady, actions = actions)
         if (isReady) {
             Conversation(uiState = uiState, onOpenOfficialSource = onOpenOfficialSource, onClearApiKey = actions.onClearApiKey, modifier = Modifier.weight(1f))
-            QuestionBar(uiState = uiState, actions = actions, splitCountry = splitCountry, voice = voice)
+            val readOnlyRegion = uiState.readOnlyRegion
+            if (readOnlyRegion != null) {
+                ReadOnlyNotice(readOnlyRegion, onNewConversation = actions.onNewConversation)
+            } else {
+                QuestionBar(uiState = uiState, actions = actions, splitCountry = splitCountry, voice = voice)
+            }
         } else {
             Column(
                 modifier = Modifier
@@ -544,6 +549,28 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
             Column(modifier = Modifier.animateContentSize().padding(Spacing.l)) {
                 AnswerContent(uiState, streaming, onOpenOfficialSource, onClearApiKey)
             }
+        }
+    }
+}
+
+// Al posto del campo della domanda, per una conversazione ripresa la cui regione non e' piu' installata.
+@Composable
+private fun ReadOnlyNotice(regionName: String, onNewConversation: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth().padding(Spacing.l),
+    ) {
+        Row(modifier = Modifier.padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s), verticalAlignment = Alignment.CenterVertically) {
+            Icon(AppIcons.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+            Spacer(modifier = Modifier.width(Spacing.m))
+            Text(
+                stringResource(R.string.ai_history_read_only, regionName),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onNewConversation) { Text(stringResource(R.string.ai_new_conversation)) }
         }
     }
 }

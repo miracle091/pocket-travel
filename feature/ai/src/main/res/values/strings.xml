@@ -181,6 +181,7 @@
     <string name="ai_history_empty_body">Le conversazioni con il motore Sul dispositivo si salvano qui, cifrate</string>
     <string name="ai_history_item_details">%1$s, %2$s</string>
     <string name="ai_history_resume">Riprendi la conversazione</string>
+    <string name="ai_history_read_only">La regione (%1$s) non è più installata: la conversazione si può solo leggere</string>
     <string name="ai_history_delete">Elimina</string>
     <string name="ai_history_delete_title">Eliminare la conversazione?</string>
     <string name="ai_history_delete_message">La conversazione (%1$s) verrà eliminata</string>

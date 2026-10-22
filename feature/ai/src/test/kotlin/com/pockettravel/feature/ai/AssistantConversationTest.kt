@@ -142,18 +142,30 @@ class AssistantConversationTest {
     }
 
     @Test
-    fun `la ripresa di una conversazione di una regione non piu' installata usa la regione della schermata`() = runTest {
+    fun `una conversazione di una regione non piu' installata si riapre in sola lettura`() = runTest {
         val repository = repository()
         val live = conversation(repository)
         live.ask(AiEngineMode.ON_DEVICE, "Come arrivo a Madrid?", region = "spagna")
         live.end()
+        testScheduler.advanceUntilIdle()
         regions.installedRegions.value = regions.installedRegions.value.filter { it.regionId != "spagna" }
 
         val resumed = conversation(repository)
         val id = repository.list(repository.unlock()).single().id
-        checkNotNull(resumed.resume(repository.unlock(), id))
+        val opened = checkNotNull(resumed.resume(repository.unlock(), id))
+        assertEquals(listOf("Come arrivo a Madrid?"), opened.turns.map { it.askedQuestion })
+        assertEquals("Spagna", resumed.readOnlyRegionName)
+        assertNull(resumed.id)
         assertNull(resumed.regionId)
-        assertEquals("Come arrivo a Madrid?", resumed.previousQuestion)
+        assertNull(resumed.previousQuestion)
+
+        // La conversazione dopo, nella regione della schermata, e' un'altra: quella salvata resta com'era.
+        resumed.end()
+        assertNull(resumed.readOnlyRegionName)
+        resumed.ask(AiEngineMode.ON_DEVICE, "Come arrivo a Lisbona?")
+        testScheduler.advanceUntilIdle()
+        assertEquals(2, dao.conversations.size)
+        assertEquals(1, dao.turns.count { it.conversationId == id })
     }
 
     @Test

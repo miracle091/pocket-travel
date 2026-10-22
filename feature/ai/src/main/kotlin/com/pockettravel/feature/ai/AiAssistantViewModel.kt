@@ -60,6 +60,8 @@ data class AiUiState(
     val earlierTurns: List<ShownTurn> = emptyList(),
     // La cronologia aperta sopra la schermata; null quando e' chiusa.
     val history: HistoryUiState? = null,
+    // Regione (nome) della conversazione ripresa in sola lettura perche' non piu' installata: niente domande nuove.
+    val readOnlyRegion: String? = null,
     // Conversazioni nella cronologia, per "Elimina la cronologia" nelle Impostazioni.
     val savedConversations: Int = 0,
 )
@@ -325,7 +327,7 @@ class AiAssistantViewModel @Inject constructor(
     fun ask(regionId: String) {
         val state = _uiState.value
         val question = state.question.trim()
-        if (question.isBlank() || state.isThinking) return
+        if (question.isBlank() || state.isThinking || state.readOnlyRegion != null) return
         // Riconosciuta sul dispositivo con regole, anche con il motore online: destinazione e posizione non escono mai.
         parseNavigationRequest(question)?.let { request ->
             _uiState.update { it.copy(question = "", errorMessage = null) }
@@ -391,7 +393,7 @@ class AiAssistantViewModel @Inject constructor(
         askJob?.cancel()
         askJob = null
         conversation.end()
-        _uiState.update { it.copy(isThinking = false, streamingText = "", earlierTurns = emptyList()) }
+        _uiState.update { it.copy(isThinking = false, streamingText = "", earlierTurns = emptyList(), readOnlyRegion = null) }
     }
 
     // La cronologia sbloccata: vive solo mentre la cronologia e' aperta.
@@ -489,6 +491,7 @@ class AiAssistantViewModel @Inject constructor(
                     askedQuestion = shown.lastOrNull()?.askedQuestion,
                     answer = shown.lastOrNull()?.answer,
                     errorMessage = null,
+                    readOnlyRegion = conversation.readOnlyRegionName,
                 )
             }
         }

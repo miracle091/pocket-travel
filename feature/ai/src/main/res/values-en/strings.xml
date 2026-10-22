@@ -181,6 +181,7 @@
     <string name="ai_history_empty_body">Conversations with the On device engine are saved here, encrypted</string>
     <string name="ai_history_item_details">%1$s, %2$s</string>
     <string name="ai_history_resume">Resume the conversation</string>
+    <string name="ai_history_read_only">The region (%1$s) is no longer installed: the conversation can only be read</string>
     <string name="ai_history_delete">Delete</string>
     <string name="ai_history_delete_title">Delete the conversation?</string>
     <string name="ai_history_delete_message">The conversation (%1$s) will be deleted</string>

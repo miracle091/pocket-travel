@@ -85,8 +85,12 @@ class AssistantConversation @Inject constructor(
     /** L'ultima domanda con risposta (con quella prima se era un seguito): la base di un seguito ("E a Lisbona?"). */
     val previousQuestion: String? get() = state?.lastQuestion
 
-    /** Regione di una conversazione ripresa, se e' ancora installata: le domande dopo la usano al posto di quella della schermata. */
+    /** Regione di una conversazione ripresa: le domande dopo la usano al posto di quella della schermata. */
     var regionId: String? = null
+        private set
+
+    /** Regione (nome) di una conversazione ripresa in sola lettura, perche' non e' piu' installata; null altrimenti. */
+    var readOnlyRegionName: String? = null
         private set
 
     /** Un turno con risposta: aggiorna lo stato e, sul dispositivo, si salva. */
@@ -140,17 +144,28 @@ class AssistantConversation @Inject constructor(
         handle = null
         state = null
         regionId = null
+        readOnlyRegionName = null
         // Solo chi l'ha pubblicata la toglie: anche le Impostazioni hanno un ViewModel dell'assistente, senza conversazione.
         if (debug != null) publish(null)
     }
 
-    /** Riprende una conversazione della cronologia al posto di quella aperta; null se non c'e' piu'. */
+    /**
+     * Riprende una conversazione della cronologia al posto di quella aperta; null se non c'e' piu'. Se la sua regione non
+     * e' piu' installata si apre in sola lettura ([readOnlyRegionName]): senza le guide della regione le risposte nuove non
+     * avrebbero il contesto dei turni salvati.
+     */
     suspend fun resume(reader: HistoryReader, id: String): ResumedConversation? {
         val resumed = repository.resume(reader, id) ?: return null
+        val installed = regionRepository.installed(resumed.summary.regionId) != null
         end()
+        if (installed) continueWith(resumed) else readOnlyRegionName = resumed.summary.regionName
+        return resumed
+    }
+
+    private fun continueWith(resumed: ResumedConversation) {
         handle = resumed.handle
         state = ConversationState.of(resumed.summary.regionId, resumed.turns)
-        regionId = resumed.summary.regionId.takeIf { regionRepository.installed(it) != null }
+        regionId = resumed.summary.regionId
         publish(
             ConversationDebugInfo(
                 mode = AiEngineMode.ON_DEVICE,
@@ -164,7 +179,6 @@ class AssistantConversation @Inject constructor(
                 state = checkNotNull(state),
             ),
         )
-        return resumed
     }
 
     private fun publish(info: ConversationDebugInfo?) {
