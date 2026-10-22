@@ -166,11 +166,11 @@
     <string name="more_appearance">Appearance</string>
     <string name="more_appearance_system">Device theme</string>
     <string name="more_appearance_dark">Dark theme</string>
-    <string name="more_appearance_with_dynamic_color">%1$s, colors from the wallpaper</string>
+    <string name="more_appearance_with_dynamic_color">%1$s, system colors</string>
     <string name="more_force_dark">Dark theme</string>
     <string name="more_force_dark_subtitle">Always dark, even when the device uses the light theme</string>
-    <string name="more_dynamic_color">Colors from the wallpaper</string>
-    <string name="more_dynamic_color_subtitle">Use the device\'s wallpaper colors instead of the app\'s</string>
+    <string name="more_dynamic_color">System colors</string>
+    <string name="more_dynamic_color_subtitle">Use the system colors, taken from the device\'s wallpaper, instead of the app\'s</string>
     <string name="more_licenses_subtitle">Third-party components and data</string>
 
     <!-- Navigazione principale -->

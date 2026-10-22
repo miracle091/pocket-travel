@@ -95,6 +95,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Chiave personale per il motore Online | chiave API | API key |
 | Fornitore del motore Online (ChatGPT, Mistral...) | servizio | service |
 | Telefono o tablet dell'utente | dispositivo | device |
+| Colori dell'app presi dal sistema (colore dinamico, da Android 12) al posto di quelli dell'app | colori del sistema | system colors |
 | Dove si trova l'utente | posizione | location |
 | Percorso calcolato | percorso | route |
 | Percorso mostrato prima di "Avvia" (sempre con "del percorso") | anteprima del percorso | route preview |
