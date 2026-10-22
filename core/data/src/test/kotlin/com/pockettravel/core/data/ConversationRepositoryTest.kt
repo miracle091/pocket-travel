@@ -15,6 +15,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Base64
 
 class ConversationRepositoryTest {
     private val dao = FakeConversationDao()
@@ -31,6 +32,15 @@ class ConversationRepositoryTest {
         val unlock = prepareUnlock()
         check(unlock is HistoryKeys.Unlock.Ready) { "atteso Ready, trovato $unlock" }
         return keys.completeUnlock(unlock.cipher)
+    }
+
+    private suspend fun assertFails(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (_: IllegalStateException) {
+            return
+        }
+        throw AssertionError("atteso un errore")
     }
 
     private val summary = ConversationSummary(title = "Serve il visto?", regionId = "italia", regionName = "Italia")
@@ -106,6 +116,33 @@ class ConversationRepositoryTest {
     }
 
     @Test
+    fun `una cancellazione singola non riuscita lancia e la conversazione resta`() = runTest {
+        val repository = repository()
+        val handle = repository.start({ summary }, turn("Prima"))
+        dao.failDeletes = true
+
+        assertFails { repository.delete(handle.id) }
+        assertEquals(setOf(handle.id), dao.conversations.keys)
+
+        dao.failDeletes = false
+        repository.delete(handle.id)
+        assertTrue(dao.conversations.isEmpty())
+    }
+
+    @Test
+    fun `una cancellazione globale non riuscita lancia ma le chiavi si dimenticano`() = runTest {
+        val repository = repository()
+        repository.start({ summary }, turn("Prima"))
+        repository.list(repository.unlock())
+        val resets = masterKey.deleted
+        dao.failDeletes = true
+
+        assertFails { repository.deleteAll() }
+
+        assertEquals(resets + 1, masterKey.deleted)
+    }
+
+    @Test
     fun `un turno di una conversazione cancellata non la ricrea`() = runTest {
         val repository = repository()
         val handle = repository.start({ summary }, turn("Prima"))
@@ -163,6 +200,24 @@ class ConversationRepositoryTest {
         assertEquals(HistoryKeys.Unlock.Invalidated, repository.prepareUnlock())
         assertEquals(1, dao.conversations.size)
         assertEquals(1, writeErrors.size)
+    }
+
+    @Test
+    fun `una chiave pubblica rovinata o un segreto di lunghezza sbagliata rendono la cronologia illeggibile`() = runTest {
+        val repository = repository()
+        repository.start({ summary }, turn("Prima"))
+        repository.list(repository.unlock())
+        val publicKey = prefs.getString("public_key", null)
+
+        prefs.edit().putString("public_key", "AAAA").commit()
+        val corruptPublic = repository.prepareUnlock()
+        check(corruptPublic is HistoryKeys.Unlock.Ready)
+        assertThrows(HistoryUnreadableException::class.java) { keys.completeUnlock(corruptPublic.cipher) }
+
+        prefs.edit().putString("public_key", publicKey).putString("wrapped_secret", Base64.getEncoder().encodeToString(ByteArray(300))).commit()
+        val corruptSecret = repository.prepareUnlock()
+        check(corruptSecret is HistoryKeys.Unlock.Ready)
+        assertThrows(HistoryUnreadableException::class.java) { keys.completeUnlock(corruptSecret.cipher) }
     }
 
     @Test

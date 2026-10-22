@@ -188,6 +188,7 @@
     <string name="ai_history_delete_all">Delete the history</string>
     <string name="ai_history_delete_all_title">Delete the history?</string>
     <string name="ai_history_delete_all_message">All saved conversations will be deleted</string>
+    <string name="ai_history_delete_failed">Couldn\'t delete. Try again</string>
     <plurals name="ai_history_saved_count">
         <item quantity="one">History: %d conversation</item>
         <item quantity="other">History: %d conversations</item>

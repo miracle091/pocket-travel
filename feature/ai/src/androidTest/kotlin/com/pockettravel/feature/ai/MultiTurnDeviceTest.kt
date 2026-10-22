@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.core.data.ConversationRepository
+import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.crypto.HistoryKeys
 import com.pockettravel.core.data.testing.FakeConversationDao
 import com.pockettravel.core.data.testing.FakeRegionRepository
@@ -105,7 +106,8 @@ class MultiTurnDeviceTest {
     fun chiarimentoDopoUnaRipresa() = runBlocking<Unit> {
         val keys = HistoryKeys(InMemorySharedPreferences(), SoftwareHistoryMasterKey())
         val repository = ConversationRepository(FakeConversationDao(), keys, Dispatchers.IO)
-        fun conversation() = AssistantConversation(repository, FakeRegionRepository(), object : HistoryAvailability {
+        val japan = InstalledRegion("giappone", "Giappone", null, null, null, null, null, null, null, null, 0L)
+        fun conversation() = AssistantConversation(repository, FakeRegionRepository(listOf(japan)), object : HistoryAvailability {
             override fun isAvailable() = true
         }, ConversationMonitor())
         val question = "Serve il visto per il Giappone?"

@@ -7,11 +7,13 @@ import com.pockettravel.core.data.crypto.SessionAesCipher
 import com.pockettravel.core.data.db.ConversationDao
 import com.pockettravel.core.data.db.ConversationEntity
 import com.pockettravel.core.data.db.ConversationTurnEntity
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.completeWith
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -149,24 +151,27 @@ class ConversationRepository @Inject constructor(
         )
     }
 
-    // Le cancellazioni passano dalla coda delle scritture: nessuna scrittura chiesta prima arriva dopo.
-    suspend fun delete(id: String) {
-        writes.enqueue { dao.delete(id) }
-        writes.await()
-    }
+    /**
+     * Cancella una conversazione. Passa dalla coda delle scritture: nessuna scrittura chiesta prima arriva dopo. Lancia se
+     * la cancellazione non riesce: la conversazione e' ancora nella cronologia.
+     */
+    suspend fun delete(id: String) = writes.run { dao.delete(id) }
 
     /** Cancella le conversazioni non usate da piu' di [RETENTION_DAYS] giorni (dall'ultimo turno), senza sblocco. */
     fun deleteExpired(now: Long = System.currentTimeMillis()) = writes.enqueue {
         dao.deleteUpdatedBefore(now - RETENTION_DAYS * MS_PER_DAY)
     }
 
-    /** Cancella tutta la cronologia e le sue chiavi: senza sblocco, come dalle Impostazioni o con la chiave invalidata. */
-    suspend fun deleteAll() {
-        writes.enqueue {
+    /**
+     * Cancella tutta la cronologia e le sue chiavi: senza sblocco, come dalle Impostazioni o con la chiave invalidata. Le
+     * chiavi si dimenticano anche se le conversazioni non si cancellano, e in quel caso lancia.
+     */
+    suspend fun deleteAll() = writes.run {
+        try {
             dao.deleteUpdatedBefore(Long.MAX_VALUE)
+        } finally {
             keys.reset()
         }
-        writes.await()
     }
 
     companion object {
@@ -193,6 +198,17 @@ private class SerialWrites(dispatcher: CoroutineDispatcher, onError: (Throwable)
                 block()
             }
         }
+    }
+
+    /** Una scrittura in coda di cui si aspetta l'esito: lancia l'errore della scrittura. */
+    suspend fun run(block: suspend () -> Unit) {
+        val done = CompletableDeferred<Unit>()
+        enqueue {
+            val result = runCatching { block() }
+            done.completeWith(result)
+            result.getOrThrow()
+        }
+        done.await()
     }
 
     /** Aspetta le scritture gia' in coda: un elenco o una cancellazione le vedono tutte. */

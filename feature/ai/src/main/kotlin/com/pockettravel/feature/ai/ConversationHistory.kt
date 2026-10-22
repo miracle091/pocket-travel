@@ -7,7 +7,9 @@ import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -36,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
@@ -62,7 +65,7 @@ import com.pockettravel.core.ui.R as UiR
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ConversationHistoryDialog(history: HistoryUiState, actions: HistoryActions) {
+internal fun ConversationHistoryDialog(history: HistoryUiState, deleteFailed: Boolean, actions: HistoryActions) {
     // L'activity del BiometricPrompt: dentro il Dialog LocalContext e' il contesto della sua finestra, non l'activity.
     val activity = LocalActivity.current as? FragmentActivity
     Dialog(
@@ -90,13 +93,22 @@ internal fun ConversationHistoryDialog(history: HistoryUiState, actions: History
                 )
             },
         ) { padding ->
-            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                when (history) {
-                    HistoryUiState.Loading -> PocketTravelLoadingIndicator(modifier = Modifier.align(Alignment.Center))
-                    HistoryUiState.Unavailable -> NoBiometrics()
-                    is HistoryUiState.Locked -> LockedHistory(history.cipher, activity, actions)
-                    HistoryUiState.Invalidated -> InvalidatedHistory(actions.onDeleteAll)
-                    is HistoryUiState.Unlocked -> ConversationList(history.conversations, actions)
+            Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                if (deleteFailed) {
+                    Text(
+                        stringResource(R.string.ai_history_delete_failed),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+                Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    when (history) {
+                        HistoryUiState.Loading -> PocketTravelLoadingIndicator(modifier = Modifier.align(Alignment.Center))
+                        HistoryUiState.Unavailable -> NoBiometrics()
+                        is HistoryUiState.Locked -> LockedHistory(history.cipher, activity, actions)
+                        HistoryUiState.Invalidated -> InvalidatedHistory(actions.onDeleteAll)
+                        is HistoryUiState.Unlocked -> ConversationList(history.conversations, actions)
+                    }
                 }
             }
         }

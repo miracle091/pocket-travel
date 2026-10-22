@@ -188,6 +188,7 @@
     <string name="ai_history_delete_all">Elimina la cronologia</string>
     <string name="ai_history_delete_all_title">Eliminare la cronologia?</string>
     <string name="ai_history_delete_all_message">Tutte le conversazioni salvate verranno eliminate</string>
+    <string name="ai_history_delete_failed">Eliminazione non riuscita. Riprova</string>
     <plurals name="ai_history_saved_count">
         <item quantity="one">Cronologia: %d conversazione</item>
         <item quantity="other">Cronologia: %d conversazioni</item>

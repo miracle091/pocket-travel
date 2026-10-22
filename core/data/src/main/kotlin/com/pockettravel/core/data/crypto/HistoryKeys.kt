@@ -22,6 +22,7 @@ import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 import javax.crypto.BadPaddingException
 import javax.crypto.Cipher
+import javax.crypto.IllegalBlockSizeException
 import javax.crypto.spec.OAEPParameterSpec
 import javax.crypto.spec.PSource
 import javax.inject.Inject
@@ -93,7 +94,13 @@ class HistoryKeys(private val prefs: SharedPreferences, private val masterKey: H
 
     // La chiave privata della cronologia, o null se i dati salvati non la danno o non corrisponde alla chiave pubblica.
     private fun readPrivateKey(authenticatedCipher: Cipher): RSAPrivateCrtKey? {
-        val publicKey = storedPublicKey() as? RSAPublicKey
+        val publicKey = try {
+            storedPublicKey() as? RSAPublicKey
+        } catch (_: InvalidKeySpecException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        }
         val secret = prefs.getString(KEY_WRAPPED_SECRET, null)?.let { unwrapSecret(authenticatedCipher, it) }
         val encodedPrivate = secret?.let { key ->
             try {
@@ -111,6 +118,8 @@ class HistoryKeys(private val prefs: SharedPreferences, private val masterKey: H
     private fun unwrapSecret(authenticatedCipher: Cipher, stored: String): ByteArray? = try {
         authenticatedCipher.doFinal(decode(stored))
     } catch (_: BadPaddingException) {
+        null
+    } catch (_: IllegalBlockSizeException) {
         null
     } catch (_: IllegalArgumentException) {
         null

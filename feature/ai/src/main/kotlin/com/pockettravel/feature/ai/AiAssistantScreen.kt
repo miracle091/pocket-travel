@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.FilledTonalButton
 import android.text.format.Formatter
+import android.view.WindowManager
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -132,6 +133,7 @@ fun AiAssistantScreen(
             if (activity?.isChangingConfigurations != true) viewModel.closeHistory()
         }
     }
+    SecureWindow(enabled = uiState.showsSavedContent)
     val actions = viewModel.toActions(regionId).copy(
         onQuestionChanged = { text ->
             voiceViewModel.clearMessage()
@@ -149,6 +151,7 @@ fun AiAssistantScreen(
     uiState.history?.let { history ->
         ConversationHistoryDialog(
             history = history,
+            deleteFailed = uiState.historyDeleteFailed,
             actions = HistoryActions(
                 onUnlocked = viewModel::onHistoryUnlocked,
                 onRetry = viewModel::openHistory,
@@ -158,6 +161,21 @@ fun AiAssistantScreen(
                 onDeleteAll = viewModel::deleteHistory,
             ),
         )
+    }
+}
+
+/**
+ * FLAG_SECURE sulla finestra finche' [enabled] e la funzione e' in composizione: niente screenshot e niente contenuto nella
+ * miniatura delle app recenti. Si toglie solo se non c'era gia' prima.
+ */
+@Composable
+internal fun SecureWindow(enabled: Boolean) {
+    val activity = LocalActivity.current
+    DisposableEffect(activity, enabled) {
+        val window = activity?.window
+        val alreadySecure = window != null && (window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) != 0
+        if (enabled) window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose { if (enabled && !alreadySecure) window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
     }
 }
 

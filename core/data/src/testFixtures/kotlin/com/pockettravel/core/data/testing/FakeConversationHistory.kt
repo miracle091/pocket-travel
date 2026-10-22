@@ -18,6 +18,8 @@ import javax.crypto.spec.PSource
 class FakeConversationDao : ConversationDao {
     val conversations = linkedMapOf<String, ConversationEntity>()
     val turns = mutableListOf<ConversationTurnEntity>()
+    // Fa fallire le cancellazioni, come un disco pieno o un database rovinato.
+    var failDeletes = false
     private val countFlow = MutableStateFlow(0)
 
     private fun changed() {
@@ -56,6 +58,7 @@ class FakeConversationDao : ConversationDao {
     override fun observeCount(): Flow<Int> = countFlow
 
     override suspend fun delete(id: String) {
+        check(!failDeletes) { "Cancellazione non riuscita" }
         conversations.remove(id)
         turns.removeAll { it.conversationId == id }
         changed()

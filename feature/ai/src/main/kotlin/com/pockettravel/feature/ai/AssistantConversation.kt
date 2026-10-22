@@ -75,9 +75,17 @@ class AssistantConversation @Inject constructor(
 ) {
     private var handle: ConversationHandle? = null
     private var debug: ConversationDebugInfo? = null
+    private var readOnlyId: String? = null
 
     /** La conversazione salvata aperta; null finche' non ha un turno salvato. */
     val id: String? get() = handle?.id
+
+    /** La conversazione mostrata nella schermata, anche ripresa in sola lettura (che non ha [id]): null se non ce n'e'. */
+    val shownId: String? get() = handle?.id ?: readOnlyId
+
+    /** La schermata mostra una conversazione ripresa dalla cronologia cifrata (anche in sola lettura): va protetta. */
+    var showsSavedContent: Boolean = false
+        private set
 
     var state: ConversationState? = null
         private set
@@ -128,7 +136,7 @@ class AssistantConversation @Inject constructor(
         }
         publish(
             (debug ?: ConversationDebugInfo(mode, saves, now, now, 0, 0, 0, null, checkNotNull(state))).let {
-                it.copy(mode = mode, saved = handle != null, lastTurnAtMs = now, turns = it.turns + 1, state = checkNotNull(state))
+                it.copy(mode = mode, saved = saves && handle != null, lastTurnAtMs = now, turns = it.turns + 1, state = checkNotNull(state))
             },
         )
     }
@@ -145,6 +153,8 @@ class AssistantConversation @Inject constructor(
         state = null
         regionId = null
         readOnlyRegionName = null
+        readOnlyId = null
+        showsSavedContent = false
         // Solo chi l'ha pubblicata la toglie: anche le Impostazioni hanno un ViewModel dell'assistente, senza conversazione.
         if (debug != null) publish(null)
     }
@@ -158,7 +168,13 @@ class AssistantConversation @Inject constructor(
         val resumed = repository.resume(reader, id) ?: return null
         val installed = regionRepository.installed(resumed.summary.regionId) != null
         end()
-        if (installed) continueWith(resumed) else readOnlyRegionName = resumed.summary.regionName
+        showsSavedContent = true
+        if (installed) {
+            continueWith(resumed)
+        } else {
+            readOnlyRegionName = resumed.summary.regionName
+            readOnlyId = id
+        }
         return resumed
     }
 

@@ -126,7 +126,7 @@ class AssistantConversationTest {
         val withoutResume = live.previousQuestion
         live.end()
 
-        // Un'altra schermata (dopo il riavvio dell'app), aperta dalla scheda IA della Spagna.
+        // Un'altra schermata (dopo il riavvio dell'app): la regione ripresa e' quella salvata con la conversazione.
         val resumed = conversation(repository)
         val id = repository.list(repository.unlock()).single().id
         val opened = checkNotNull(resumed.resume(repository.unlock(), id))
@@ -156,16 +156,52 @@ class AssistantConversationTest {
         assertEquals(listOf("Come arrivo a Madrid?"), opened.turns.map { it.askedQuestion })
         assertEquals("Spagna", resumed.readOnlyRegionName)
         assertNull(resumed.id)
+        assertEquals(id, resumed.shownId)
         assertNull(resumed.regionId)
         assertNull(resumed.previousQuestion)
 
         // La conversazione dopo, nella regione della schermata, e' un'altra: quella salvata resta com'era.
         resumed.end()
         assertNull(resumed.readOnlyRegionName)
+        assertNull(resumed.shownId)
         resumed.ask(AiEngineMode.ON_DEVICE, "Come arrivo a Lisbona?")
         testScheduler.advanceUntilIdle()
         assertEquals(2, dao.conversations.size)
         assertEquals(1, dao.turns.count { it.conversationId == id })
+    }
+
+    @Test
+    fun `solo una conversazione ripresa dalla cronologia mostra contenuto salvato`() = runTest {
+        val repository = repository()
+        val live = conversation(repository)
+        live.ask(AiEngineMode.ON_DEVICE, "Come arrivo a Lisbona?")
+        assertEquals(false, live.showsSavedContent)
+        live.end()
+        testScheduler.advanceUntilIdle()
+
+        val resumed = conversation(repository)
+        checkNotNull(resumed.resume(repository.unlock(), repository.list(repository.unlock()).single().id))
+        assertTrue(resumed.showsSavedContent)
+        resumed.ask(AiEngineMode.ON_DEVICE, "E a Porto?")
+        assertTrue(resumed.showsSavedContent)
+        resumed.end()
+        assertEquals(false, resumed.showsSavedContent)
+    }
+
+    @Test
+    fun `anche la conversazione in sola lettura mostra contenuto salvato`() = runTest {
+        val repository = repository()
+        val live = conversation(repository)
+        live.ask(AiEngineMode.ON_DEVICE, "Come arrivo a Madrid?", region = "spagna")
+        live.end()
+        testScheduler.advanceUntilIdle()
+        regions.installedRegions.value = regions.installedRegions.value.filter { it.regionId != "spagna" }
+
+        val resumed = conversation(repository)
+        checkNotNull(resumed.resume(repository.unlock(), repository.list(repository.unlock()).single().id))
+        assertTrue(resumed.showsSavedContent)
+        resumed.end()
+        assertEquals(false, resumed.showsSavedContent)
     }
 
     @Test

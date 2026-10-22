@@ -155,7 +155,17 @@ class RegionDatabaseMigrationPathsTest {
         db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
         val mapColumn = if (version <= 5) "version" else "mapVersion"
         db.execSQL("INSERT INTO installed_regions (regionId, displayName, $mapColumn, sizeBytes, installedAt) VALUES ('italia', 'Italia', '1', 1000, 42)")
-        db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant')")
+        if (version >= 25) {
+            // Dalla 25 i POI hanno la forma compatta.
+            db.execSQL("INSERT INTO poi_region (regionId) VALUES ('italia')")
+            db.execSQL("INSERT INTO poi_code (category, osmTag) VALUES ('restaurant', 'amenity=restaurant')")
+            db.execSQL(
+                "INSERT INTO poi (regionRef, code, latE6, lonE6, name) " +
+                    "SELECT poi_region.ref, poi_code.code, 45000000, 9000000, 'Da Mario' FROM poi_region, poi_code",
+            )
+        } else {
+            db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant')")
+        }
         db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('peru', 'TRASPORTI', 'PERÙ in autobus', 'corpo', 'u')")
         if (version >= 15) {
             db.execSQL("INSERT INTO notes (title, body, updatedAt) VALUES ('cifrato-titolo', 'cifrato-corpo', 100)")
@@ -182,10 +192,10 @@ class RegionDatabaseMigrationPathsTest {
 
     private companion object {
         const val DB_NAME = "migration-paths-test.db"
-        const val CURRENT_VERSION = 25
+        const val CURRENT_VERSION = 26
 
-        // Le versioni da cui parte una migrazione di ALL_MIGRATIONS (le pubblicate piu' la 24, la precedente alla corrente).
-        val RELEASED_STARTS = listOf(3, 5, 6, 9, 11, 15, 17, 24)
+        // Le versioni da cui parte una migrazione di ALL_MIGRATIONS (le pubblicate, 25 compresa, la precedente alla corrente).
+        val RELEASED_STARTS = listOf(3, 5, 6, 9, 11, 15, 17, 24, 25)
 
         // Versioni di sviluppo di cui core/data/schemas ha lo schema esportato.
         val EXPORTED_UNRELEASED = setOf(16, 18, 19, 20, 21, 22, 23)
@@ -200,7 +210,7 @@ class RegionDatabaseMigrationPathsTest {
         val EXPECTED_INDEXES = setOf(
             "index_guide_sections_regionId", "index_city_sections_regionId_city", "index_diplomatic_missions_sending_host",
             "index_poi_regionRef", "index_poi_regionRef_latE6", "index_poi_regionRef_code",
-            "index_poi_region_regionId", "index_poi_code_category_osmTag",
+            "index_poi_region_regionId", "index_poi_code_category_osmTag", "index_conversation_turns_conversationId",
         )
     }
 }

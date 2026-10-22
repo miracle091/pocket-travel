@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -60,8 +61,12 @@ data class AiUiState(
     val earlierTurns: List<ShownTurn> = emptyList(),
     // La cronologia aperta sopra la schermata; null quando e' chiusa.
     val history: HistoryUiState? = null,
+    // L'ultima cancellazione dalla cronologia non e' riuscita: la cronologia mostra l'errore.
+    val historyDeleteFailed: Boolean = false,
     // Regione (nome) della conversazione ripresa in sola lettura perche' non piu' installata: niente domande nuove.
     val readOnlyRegion: String? = null,
+    // La schermata mostra una conversazione ripresa dalla cronologia cifrata: la finestra e' protetta (FLAG_SECURE).
+    val showsSavedContent: Boolean = false,
     // Conversazioni nella cronologia, per "Elimina la cronologia" nelle Impostazioni.
     val savedConversations: Int = 0,
 )
@@ -145,6 +150,11 @@ class AiAssistantViewModel @Inject constructor(
         }
         viewModelScope.launch {
             conversationRepository.count.collect { count -> _uiState.update { it.copy(savedConversations = count) } }
+        }
+        // Cronologia svuotata dalle Impostazioni (un altro ViewModel) con una conversazione salvata sulla schermata:
+        // i turni dopo non si salverebbero piu', quindi se ne comincia una nuova.
+        viewModelScope.launch {
+            historyEmptied(conversationRepository.count) { conversation.shownId != null }.collect { newConversation() }
         }
         // Dimensione mostrata e spazio richiesto come quelli che il download verifichera' (LlmModelDownloadWorker):
         // un modello ricaricato con lo stesso nome puo' pesare diversamente da quanto scritto nell'APK.
@@ -393,7 +403,7 @@ class AiAssistantViewModel @Inject constructor(
         askJob?.cancel()
         askJob = null
         conversation.end()
-        _uiState.update { it.copy(isThinking = false, streamingText = "", earlierTurns = emptyList(), readOnlyRegion = null) }
+        _uiState.update { it.copy(isThinking = false, streamingText = "", earlierTurns = emptyList(), readOnlyRegion = null, showsSavedContent = false) }
     }
 
     // La cronologia sbloccata: vive solo mentre la cronologia e' aperta.
@@ -413,7 +423,7 @@ class AiAssistantViewModel @Inject constructor(
             _uiState.update { it.copy(history = HistoryUiState.Unavailable) }
             return
         }
-        _uiState.update { it.copy(history = HistoryUiState.Loading) }
+        _uiState.update { it.copy(history = HistoryUiState.Loading, historyDeleteFailed = false) }
         viewModelScope.launch {
             val unlock = try {
                 conversationRepository.prepareUnlock()
@@ -461,7 +471,7 @@ class AiAssistantViewModel @Inject constructor(
     fun closeHistory() {
         historyReader = null
         historySession++
-        _uiState.update { it.copy(history = null) }
+        _uiState.update { it.copy(history = null, historyDeleteFailed = false) }
     }
 
     /**
@@ -492,6 +502,7 @@ class AiAssistantViewModel @Inject constructor(
                     answer = shown.lastOrNull()?.answer,
                     errorMessage = null,
                     readOnlyRegion = conversation.readOnlyRegionName,
+                    showsSavedContent = conversation.showsSavedContent,
                 )
             }
         }
@@ -501,10 +512,9 @@ class AiAssistantViewModel @Inject constructor(
     fun deleteConversation(id: String) {
         val reader = historyReader ?: return
         val session = historySession
-        if (conversation.id == id) newConversation()
+        if (conversation.shownId == id) newConversation()
         viewModelScope.launch {
-            conversationRepository.delete(id)
-            showHistoryList(session, reader)
+            if (deleteOrReport { conversationRepository.delete(id) }) showHistoryList(session, reader)
         }
     }
 
@@ -513,8 +523,21 @@ class AiAssistantViewModel @Inject constructor(
         val session = historySession
         newConversation()
         viewModelScope.launch {
-            conversationRepository.deleteAll()
-            updateHistory(session, HistoryUiState.Unlocked(emptyList()))
+            if (deleteOrReport { conversationRepository.deleteAll() }) updateHistory(session, HistoryUiState.Unlocked(emptyList()))
+        }
+    }
+
+    // Esegue una cancellazione; se non riesce lo segna nello stato (la cronologia resta com'e') e restituisce false.
+    private suspend fun deleteOrReport(delete: suspend () -> Unit): Boolean {
+        _uiState.update { it.copy(historyDeleteFailed = false) }
+        return try {
+            delete()
+            true
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            _uiState.update { it.copy(historyDeleteFailed = true) }
+            false
         }
     }
 
@@ -528,6 +551,20 @@ class AiAssistantViewModel @Inject constructor(
 
     override fun onCleared() {
         conversation.end()
+    }
+}
+
+/**
+ * Emette quando le conversazioni salvate passano da qualcuna a zero mentre [shown] dice che la schermata ne mostra una
+ * salvata. Il primo valore e' solo il punto di partenza: all'avvio e per una conversazione appena cominciata (ancora
+ * non scritta) un conteggio a zero non e' uno svuotamento.
+ */
+internal fun historyEmptied(counts: Flow<Int>, shown: () -> Boolean): Flow<Unit> = flow {
+    var previous: Int? = null
+    counts.collect { count ->
+        val before = previous
+        previous = count
+        if ((before ?: 0) > 0 && count == 0 && shown()) emit(Unit)
     }
 }
 
