@@ -10,4 +10,6 @@ class AndroidConnectivityChecker(private val connectivityManager: ConnectivityMa
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
+
+    override fun isMetered(): Boolean = connectivityManager.isActiveNetworkMetered
 }

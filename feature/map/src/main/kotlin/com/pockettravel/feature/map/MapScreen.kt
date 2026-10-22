@@ -29,7 +29,6 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +52,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
 import com.pockettravel.core.data.TransitBoard
@@ -124,6 +124,9 @@ fun MapScreen(
     // tabellone del POI aperto (null finche' si legge), esito dell'ultimo "Aggiorna", download e il POI di cui leggere le partenze.
     transitPackage: TransitPackageState = TransitPackageState.UNKNOWN,
     transitBoard: TransitBoard? = null,
+    // Tempo reale del tabellone aperto (null senza) e "Aggiorna i ritardi".
+    transitRealtime: TransitRealtimeUi? = null,
+    onRefreshRealtime: () -> Unit = {},
     transitUpdateResult: TransitUpdateResult? = null,
     staleTransit: List<String> = emptyList(),
     onDownloadTransit: () -> Unit = {},
@@ -151,13 +154,13 @@ fun MapScreen(
     var selectedPinId by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedPin = pins.firstOrNull { it.id == selectedPinId }
     // Le partenze si leggono solo per un POI di trasporto aperto e con gli orari installati; anche quando
-    // il pacchetto finisce di installarsi con il riquadro aperto.
-    LaunchedEffect(selectedPin, transitPackage) {
-        onTransitStopChange(selectedPin?.takeIf { it.category in TRANSIT_CATEGORIES && transitPackage == TransitPackageState.INSTALLED })
-    }
-    // Uscendo dalla schermata con un riquadro aperto le partenze smettono di essere rilette ogni minuto.
+    // il pacchetto finisce di installarsi con il riquadro aperto. Uscendo dalla schermata, o con l'app in background
+    // (Home, schermo spento), smettono di essere rilette ogni minuto: niente download del tempo reale in background.
     val currentOnTransitStopChange by rememberUpdatedState(onTransitStopChange)
-    DisposableEffect(Unit) { onDispose { currentOnTransitStopChange(null) } }
+    LifecycleStartEffect(selectedPin, transitPackage) {
+        currentOnTransitStopChange(selectedPin?.takeIf { it.category in TRANSIT_CATEGORIES && transitPackage == TransitPackageState.INSTALLED })
+        onStopOrDispose { currentOnTransitStopChange(null) }
+    }
     var cameraFitted by remember { mutableStateOf(false) }
     // Centro e zoom (lat, lon, zoom) dell'ultima vista: una rotazione ricrea la mappa, e senza
     // si tornerebbe all'inquadratura iniziale su tutti i segnalini.
@@ -392,7 +395,9 @@ fun MapScreen(
                 }
                 pin.address?.let { PoiDetailRow(AppIcons.Place, it) }
                 pin.openingHours?.let { OpeningHoursDetail(it) }
-                if (pin.category in TRANSIT_CATEGORIES) TransitDeparturesSection(transitPackage, transitBoard, hideInaccessible, transitUpdateResult, staleTransit, onDownloadTransit)
+                if (pin.category in TRANSIT_CATEGORIES) TransitDeparturesSection(
+                    transitPackage, transitBoard, hideInaccessible, transitUpdateResult, staleTransit, onDownloadTransit, transitRealtime, onRefreshRealtime,
+                )
                 onNavigate?.let { navigate ->
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
                     Button(

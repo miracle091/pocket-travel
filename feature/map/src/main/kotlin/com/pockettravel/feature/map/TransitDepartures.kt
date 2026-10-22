@@ -33,12 +33,15 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.pockettravel.core.data.DepartureRealtime
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitDeparture
 import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.TransitMode
+import com.pockettravel.core.data.delayMinutes
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
@@ -78,6 +81,7 @@ fun transitStationModes(osmTag: String): Set<TransitMode> = when (osmTag) {
  * orari e le fonti; se gli orari non sono installati, il pulsante per scaricarli. [board] e' null
  * finche' si legge. [onDownload] scarica o aggiorna il pacchetto orari della regione; [updateResult] e' l'esito
  * dell'ultimo tocco, se non ha avviato un download. [staleNetworks]: nomi delle reti installate non piu' pubblicate.
+ * [realtime]: il tempo reale delle reti della fermata (null senza, o senza rete), [onRefreshRealtime] "Aggiorna i ritardi".
  */
 @Composable
 internal fun TransitDeparturesSection(
@@ -87,6 +91,8 @@ internal fun TransitDeparturesSection(
     updateResult: TransitUpdateResult?,
     staleNetworks: List<String>,
     onDownload: () -> Unit,
+    realtime: TransitRealtimeUi? = null,
+    onRefreshRealtime: () -> Unit = {},
 ) {
     if (state == TransitPackageState.UNKNOWN) return
     Column(modifier = Modifier.fillMaxWidth().padding(top = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
@@ -164,6 +170,7 @@ internal fun TransitDeparturesSection(
                             }
                         }
                     }
+                    realtime?.let { RealtimeStatus(it, onRefreshRealtime) }
                     Sources(board.feeds)
                 }
             }
@@ -190,8 +197,8 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
     val context = LocalContext.current
     val (clock, laterClocks) = remember(departure.minuteOfDay, departure.later, context) {
         val format = DateFormat.getTimeFormat(context).apply { timeZone = TimeZone.getTimeZone("UTC") }
-        fun clockOf(minute: Int) = format.format(Date(minute % MINUTES_PER_DAY * MILLIS_PER_MINUTE))
-        clockOf(departure.minuteOfDay) to departure.later.joinToString(", ") { clockOf(it.minuteOfDay) }
+        fun clockOf(minute: Int) = format.format(Date(Math.floorMod(minute, MINUTES_PER_DAY) * MILLIS_PER_MINUTE))
+        clockOf(departure.minuteOfDay) to departure.later.joinToString(", ") { clockOf(it.minuteOfDay + it.realtime.delayMinutes) }
     }
     // Le partenze successive della stessa linea e direzione: una riga per linea, anche nelle fermate affollate.
     val laterText = laterClocks.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.transit_later, it) }
@@ -209,11 +216,27 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
     } ?: stringResource(R.string.transit_departure_description_no_headsign, departure.line, mode, clock, relativeSpoken)
     val accessible = departure.wheelchair.takeIf { showAccessibility }
     val accessibleText = accessible?.let { stringResource(if (it) R.string.transit_departure_wheelchair_yes else R.string.transit_departure_wheelchair_no) }
+    // Tempo reale accanto all'orario programmato: ritardo, anticipo o soppressione; niente se in orario o senza feed.
+    val realtime = departure.realtime
+    val delay = (realtime as? DepartureRealtime.Delay)?.minutes ?: 0
+    val realtimeText = when {
+        realtime == DepartureRealtime.Cancelled -> stringResource(R.string.transit_cancelled)
+        delay > 0 -> stringResource(R.string.transit_delay, delay)
+        delay < 0 -> stringResource(R.string.transit_early, -delay)
+        else -> null
+    }
+    val realtimeSpoken = when {
+        realtime == DepartureRealtime.Cancelled -> stringResource(R.string.transit_cancelled)
+        delay > 0 -> pluralStringResource(R.plurals.transit_delay_spoken, delay, delay)
+        delay < 0 -> pluralStringResource(R.plurals.transit_early_spoken, -delay, -delay)
+        else -> null
+    }
+    val cancelled = realtime == DepartureRealtime.Cancelled
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.m),
         modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-            contentDescription = listOfNotNull(description, laterText, accessibleText).joinToString(", ")
+            contentDescription = listOfNotNull(description, realtimeSpoken, laterText, accessibleText).joinToString(", ")
         },
     ) {
         // Il colore della linea e' solo decorazione: sigla, mezzo e destinazione stanno in chiaro.
@@ -243,8 +266,21 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
         }
         if (accessible != null) AccessibilityIcon(accessible)
         Column(horizontalAlignment = Alignment.End) {
-            Text(text = clock, style = MaterialTheme.typography.titleMedium)
-            Text(text = relative, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Soppressa: l'orario barrato (e la parola sotto, che dice lo stesso senza colori).
+            Text(
+                text = clock,
+                style = MaterialTheme.typography.titleMedium,
+                textDecoration = if (cancelled) TextDecoration.LineThrough else null,
+            )
+            if (realtimeText != null) {
+                Text(
+                    text = realtimeText,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (delay < 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                )
+            }
+            if (!cancelled) Text(text = relative, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

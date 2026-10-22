@@ -224,6 +224,22 @@
     <string name="transit_in_min">in %1$d min</string>
     <string name="transit_now">now</string>
     <string name="transit_later">Later departures: %1$s</string>
+    <string name="transit_delay">+%1$d min</string>
+    <string name="transit_early">%1$d min early</string>
+    <string name="transit_cancelled">Canceled</string>
+    <plurals name="transit_delay_spoken">
+        <item quantity="one">%1$d minute late</item>
+        <item quantity="other">%1$d minutes late</item>
+    </plurals>
+    <plurals name="transit_early_spoken">
+        <item quantity="one">%1$d minute early</item>
+        <item quantity="other">%1$d minutes early</item>
+    </plurals>
+    <string name="transit_realtime_updated">Real time, updated at %1$s</string>
+    <string name="transit_realtime_loading">Updating delays…</string>
+    <string name="transit_realtime_failed">Delays not updated: the operator\'s service is not responding</string>
+    <string name="transit_realtime_refresh">Refresh delays</string>
+    <string name="transit_realtime_refresh_size">Refresh delays (%1$s)</string>
     <plurals name="transit_in_minutes_spoken">
         <item quantity="one">in %1$d minute</item>
         <item quantity="other">in %1$d minutes</item>

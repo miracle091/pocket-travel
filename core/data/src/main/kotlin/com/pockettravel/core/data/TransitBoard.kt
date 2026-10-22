@@ -91,6 +91,9 @@ data class TransitDeparture(
     val estimated: Boolean = false,
     // Le partenze successive della stessa linea e direzione, al massimo [TRANSIT_LATER_DEPARTURES] (vuoto nelle successive).
     val later: List<TransitDeparture> = emptyList(),
+    // Ritardo o soppressione dal feed GTFS-RT della rete, null senza tempo reale; [inMinutes] conta gia' il ritardo,
+    // [minuteOfDay] resta l'ora programmata.
+    val realtime: DepartureRealtime? = null,
 )
 
 /**
@@ -193,6 +196,7 @@ internal interface TransitQuery {
 /**
  * Esito per una rete: [board] e' Departures o Expired; null se la rete non ha fermate vicino al punto. [stationModes]: i
  * mezzi della stazione o del terminal nel punto, vuoto per un punto qualsiasi; vedi [TRANSIT_STATION_RADIUS_M].
+ * [realtime]: il feed GTFS-RT della rete, se scaricato; conta solo se la transit.db ha gli id GTFS (meta gtfs_ids).
  */
 internal fun readFeedBoard(
     db: TransitQuery,
@@ -201,6 +205,7 @@ internal fun readFeedBoard(
     longitude: Double,
     now: Instant,
     stationModes: Set<TransitMode> = emptySet(),
+    realtime: RealtimeFeed? = null,
 ): TransitBoard? {
     val meta = db.query("SELECT key, value FROM meta") { it.string(0).orEmpty() to it.string(1).orEmpty() }.toMap()
     // Un formato diverso da quello che l'app sa leggere: la rete si ignora finche' non si aggiorna.
@@ -223,14 +228,19 @@ internal fun readFeedBoard(
     if (today.plusDays(1) < windowStart || today > validUntil.plusDays(TRANSIT_GRACE_DAYS)) return TransitBoard.Expired(validUntil, feeds)
     val grace = today > validUntil // scaduta da poco: i giorni dopo la scadenza prendono i servizi di 7 giorni prima
     val nowMinute = local.hour * 60 + local.minute
+    // Con il tempo reale si leggono anche le partenze programmate fino a [REALTIME_LOOKBACK_MINUTES] fa: in ritardo
+    // possono essere ancora da venire.
+    val realtimeFeed = realtime?.takeIf { meta["gtfs_ids"] == "1" }
 
     val ids = stops.joinToString(",")
     val found = mutableListOf<TransitDeparture>()
+    // Per il tempo reale, una per ogni partenza in [found].
+    val calls = mutableListOf<RealtimeCall>()
     val seen = mutableSetOf<Triple<Int, Int, Int>>()
     // Ieri (servizi che passano la mezzanotte, minuti oltre 1440), oggi e domani (partenze subito dopo
     // mezzanotte quando la finestra la attraversa): minuto di servizio = minuto assoluto - offset * 1440.
     for (offset in -1..1) {
-        val from = maxOf(0, nowMinute - offset * MINUTES_PER_DAY)
+        val from = maxOf(0, nowMinute - (if (realtimeFeed != null) REALTIME_LOOKBACK_MINUTES else 0) - offset * MINUTES_PER_DAY)
         val to = nowMinute + TRANSIT_WINDOW_MINUTES - offset * MINUTES_PER_DAY
         if (to < from) continue
         val estimated = grace && today.plusDays(offset.toLong()) > validUntil
@@ -239,7 +249,7 @@ internal fun readFeedBoard(
         // Formato 2 (GenerateTransit): i pattern della fermata, poi le loro corse per minuto di partenza
         // (chiave della tabella trip); il passaggio alla fermata e' partenza + offset.
         val rows = db.query(
-            "SELECT t.start + ps.offset AS minute, t.id, r.short_name, r.long_name, r.type, r.color, r.text_color, h.text, sv.days, ${if (hasWheelchair) "t.wheelchair" else "NULL"} " +
+            "SELECT t.start + ps.offset AS minute, t.id, r.short_name, r.long_name, r.type, r.color, r.text_color, h.text, sv.days, ${if (hasWheelchair) "t.wheelchair" else "NULL"}, ps.stop " +
                 "FROM pattern_stop ps JOIN trip t ON t.pattern = ps.pattern AND t.start BETWEEN $from - ps.offset AND $to - ps.offset " +
                 "JOIN route r ON r.id = t.route JOIN service sv ON sv.id = t.service LEFT JOIN headsign h ON h.id = t.headsign " +
                 "WHERE ps.stop IN ($ids) ORDER BY minute",
@@ -260,13 +270,13 @@ internal fun readFeedBoard(
                 inMinutes = absolute - nowMinute,
                 wheelchair = wheelchairOf(row.string(DEP_COL_WHEELCHAIR)),
                 estimated = estimated,
-            )
-        }
-        found += rows.filterNotNull()
+            ) to RealtimeCall(row.int(DEP_COL_TRIP), row.int(DEP_COL_STOP), today.plusDays(offset.toLong()), minute)
+        }.filterNotNull()
+        rows.forEach { (departure, call) -> found += departure; calls += call }
     }
-    val daysLeft = ChronoUnit.DAYS.between(today, validUntil).toInt()
+    val departures = realtimeFeed?.let { applyRealtime(db, found, calls, it, zone) } ?: found
     return TransitBoard.Departures(
-        found.sortedBy { it.inMinutes }, validUntil, daysLeft, feeds, if (hasWheelchair) stopWheelchair(db, ids) else null,
+        departures.filter { it.inMinutes >= 0 }.sortedBy { it.inMinutes }, validUntil, ChronoUnit.DAYS.between(today, validUntil).toInt(), feeds, if (hasWheelchair) stopWheelchair(db, ids) else null,
         expired = if (grace) listOf(TransitBoard.Expired(validUntil, feeds, estimated = true)) else emptyList(),
     )
 }
@@ -377,6 +387,10 @@ private const val DEP_COL_TEXT_COLOR = 6
 private const val DEP_COL_HEADSIGN = 7
 private const val DEP_COL_DAYS = 8
 private const val DEP_COL_WHEELCHAIR = 9
+private const val DEP_COL_STOP = 10
+
+/** Con il tempo reale, quanto indietro si leggono le partenze programmate: in ritardo possono essere ancora da venire. */
+internal const val REALTIME_LOOKBACK_MINUTES = 60
 
 // Colonne della query delle fermate vicine.
 private const val STOP_COL_ID = 0
@@ -408,7 +422,10 @@ internal fun combineBoards(boards: List<TransitBoard>): TransitBoard {
     return TransitBoard.Departures(
         items = active.flatMap { it.items }.sortedBy { it.inMinutes }
             .groupBy { Triple(it.line, it.mode, it.headsign) }.values
-            .map { group -> group.first().copy(later = group.drop(1).take(TRANSIT_LATER_DEPARTURES)) },
+            .map { group ->
+                // Tra le successive niente corse soppresse: la riga dice solo un orario.
+                group.first().copy(later = group.drop(1).filter { it.realtime != DepartureRealtime.Cancelled }.take(TRANSIT_LATER_DEPARTURES))
+            },
         validUntil = valid.minOf { it.validUntil },
         daysLeft = valid.minOf { it.daysLeft },
         feeds = active.flatMap { it.feeds },

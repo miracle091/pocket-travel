@@ -225,6 +225,22 @@
     <string name="transit_in_min">tra %1$d min</string>
     <string name="transit_now">ora</string>
     <string name="transit_later">Partenze successive: %1$s</string>
+    <string name="transit_delay">+%1$d min</string>
+    <string name="transit_early">%1$d min in anticipo</string>
+    <string name="transit_cancelled">Soppressa</string>
+    <plurals name="transit_delay_spoken">
+        <item quantity="one">in ritardo di %1$d minuto</item>
+        <item quantity="other">in ritardo di %1$d minuti</item>
+    </plurals>
+    <plurals name="transit_early_spoken">
+        <item quantity="one">%1$d minuto in anticipo</item>
+        <item quantity="other">%1$d minuti in anticipo</item>
+    </plurals>
+    <string name="transit_realtime_updated">In tempo reale, aggiornato alle %1$s</string>
+    <string name="transit_realtime_loading">Aggiornamento dei ritardi…</string>
+    <string name="transit_realtime_failed">Ritardi non aggiornati: il servizio dell\'ente non risponde</string>
+    <string name="transit_realtime_refresh">Aggiorna i ritardi</string>
+    <string name="transit_realtime_refresh_size">Aggiorna i ritardi (%1$s)</string>
     <plurals name="transit_in_minutes_spoken">
         <item quantity="one">tra %1$d minuto</item>
         <item quantity="other">tra %1$d minuti</item>

@@ -21,6 +21,7 @@ class SqliteTransitRepository @Inject constructor(
         longitude: Double,
         stationModes: Set<TransitMode>,
         now: Instant,
+        realtime: Map<String, RealtimeFeed>,
     ): TransitBoard =
         withContext(ioDispatcher) {
             val dir = File(regionStorage.directoryFor(regionId), RegionStorage.TRANSIT_DIR)
@@ -28,7 +29,7 @@ class SqliteTransitRepository @Inject constructor(
             val boards = dir.listFiles { file -> file.isFile && file.extension == "db" }.orEmpty().mapNotNull { file ->
                 runCatching {
                     SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                        readFeedBoard(SqliteTransitQuery(db), infos.firstOrNull { it.id == file.nameWithoutExtension }, latitude, longitude, now, stationModes)
+                        readFeedBoard(SqliteTransitQuery(db), infos.firstOrNull { it.id == file.nameWithoutExtension }, latitude, longitude, now, stationModes, realtime[file.nameWithoutExtension])
                     }
                 }.getOrNull()
             }

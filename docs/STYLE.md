@@ -112,6 +112,12 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Partenze dalle fermate | orari dei mezzi pubblici | public transport timetables |
 | Reti scaricate che il catalogo sposta tra le "Non incluse" (orari scaduti, licenza) | orari non più aggiornati | timetables no longer updated |
 | Rete scaricata che il catalogo toglie del tutto, di solito perché un'altra la sostituisce | rete sostituita | replaced network |
+| Ritardi e soppressioni dal feed dell'ente, solo con la rete | in tempo reale | real time |
+| Minuti dopo l'orario programmato ("+3 min") | ritardo (in ritardo di 3 minuti) | delay (3 minutes late) |
+| Minuti prima dell'orario programmato | in anticipo | early |
+| Corsa che non parte | soppressa | canceled |
+| Ora dell'ultimo download del tempo reale | Aggiornato alle 14:05 | Updated at 14:05 |
+| Pulsante che scarica di nuovo il tempo reale | Aggiorna i ritardi | Refresh delays |
 | Contenuto con negozi, ristoranti, musei... (e la sua aggiunta) | punti di interesse (punti di interesse extra) | points of interest (extra points of interest) |
 | Contenuto con le guide di Wikivoyage delle città | guide delle città | city guides |
 | Mappa con meno dettagli e meno spazio occupato | mappa leggera | light map |

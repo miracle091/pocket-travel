@@ -56,7 +56,7 @@ L'app segnala le nuove versioni con una notifica; le novità sono nel [CHANGELOG
 | 💉 | **Vaccinazioni** | Obbligatorie, raccomandate e da valutare con il medico, calcolate offline da partenza, scali e paesi visitati |
 | 🗺️ | **Mappa** | Ristoranti, hotel, farmacie, bancomat e molto altro, con orari e contatti, filtrati per modo di spostarsi |
 | 🧭 | **Navigatore** | Percorsi a piedi, in bici e in auto, anche tra nazioni, con la navigazione passo passo anche a schermo spento |
-| 🚌 | **Mezzi pubblici** | Partenze delle tre ore successive in fermate e stazioni, per le reti con dati aperti di 32 nazioni, per lo più europee, e di Stati Uniti, Canada, Australia, Nuova Zelanda e Giappone |
+| 🚌 | **Mezzi pubblici** | Partenze delle tre ore successive in fermate e stazioni, per le reti con dati aperti di 32 nazioni, per lo più europee, e di Stati Uniti, Canada, Australia, Nuova Zelanda e Giappone; con la rete, ritardi e corse soppresse in tempo reale dove l'ente li pubblica |
 | 🤖 | **Assistente IA** | Risposte brevi sulla guida scaricata e sulle note, anche senza internet |
 | 🔐 | **Documenti e note** | Passaporto e biglietti cifrati, sbloccabili con impronta o volto; note di viaggio cifrate |
 | 🏛️ | **Fonti ufficiali** | Ministero degli esteri del proprio paese, OMS e CDC |
@@ -69,7 +69,7 @@ Le 355 regioni sono aggiornate ogni settimana e i loro contenuti si scaricano se
 |---|---|---|
 | **Trovare una farmacia senza rete** | La mappa non carica | Mappa e punti di interesse offline |
 | **Arrivare a un indirizzo senza roaming** | Nessun percorso | Navigatore offline, anche tra nazioni |
-| **Prendere l'autobus** | App locale, spesso solo online | Partenze nel riquadro della fermata |
+| **Prendere l'autobus** | App locale, spesso solo online | Partenze nel riquadro della fermata, con i ritardi quando c'è rete |
 | **Fare una domanda sulla città** | Ricerca sul web | Assistente IA sul dispositivo, anche in aereo |
 | **Proteggere i propri dati** | Account e dati sul server | Nessun account, tutto resta sul dispositivo |
 
@@ -138,7 +138,7 @@ L'assistente usa un servizio di IA con la chiave API personale dell'utente, che 
 
 I dati vengono da progetti aperti: [Wikivoyage](https://it.wikivoyage.org) e [Wikipedia](https://it.wikipedia.org) per le guide, [OpenStreetMap](https://www.openstreetmap.org) e [Overture Maps](https://overturemaps.org) per mappe e numeri civici, [Wikidata](https://www.wikidata.org) per fatti rapidi e ambasciate, Travel.gc.ca, TravelHealthPro e gov.uk per vaccinazioni e consigli di viaggio, [Open-Meteo](https://open-meteo.com) per il meteo. Fonti e licenze sono nella [pagina delle licenze](https://miracle091.github.io/pocket-travel/licenses.html).
 
-L'app non ha un server proprio e non raccoglie dati sugli utenti. La posizione resta sul dispositivo; al servizio meteo arriva solo la posizione approssimata, arrotondata a circa 10 km. Il catalogo dei dati è firmato e l'app rifiuta i file non firmati.
+L'app non ha un server proprio e non raccoglie dati sugli utenti. La posizione resta sul dispositivo; al servizio meteo arriva solo la posizione approssimata, arrotondata a circa 10 km. I ritardi in tempo reale dei mezzi pubblici si scaricano dal sito dell'ente della rete, che vede l'indirizzo IP come per ogni pagina web, solo con il riquadro di una fermata aperto e mai in background. Il catalogo dei dati è firmato e l'app rifiuta i file non firmati.
 
 ## Aiuto e contributi
 

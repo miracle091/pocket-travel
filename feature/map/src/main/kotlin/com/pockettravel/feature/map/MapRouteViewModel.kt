@@ -6,6 +6,7 @@ import com.pockettravel.core.data.AreaPois
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.MapAccessibility
 import com.pockettravel.core.data.PoiRepository
+import com.pockettravel.core.data.RealtimeFeed
 import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionZone
@@ -18,9 +19,9 @@ import com.pockettravel.core.data.poiCategory
 import com.pockettravel.core.poi.PoiCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 // Holder minimo per far arrivare OfflineTileSource (fornito da RouteEngineModule), i segnalini e i
@@ -49,6 +51,7 @@ class MapRouteViewModel @Inject constructor(
     private val transitRepository: TransitRepository,
     usageModePreferences: UsageModePreferences,
     connectivityObserver: ConnectivityObserver,
+    private val transitRealtime: TransitRealtimeLoader,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     private val accessible: StateFlow<Boolean> = usageModePreferences.accessible
@@ -92,21 +95,52 @@ class MapRouteViewModel @Inject constructor(
     private val _transitBoard = MutableStateFlow<TransitBoard?>(null)
     private var transitJob: Job? = null
 
+    // Tempo reale del tabellone aperto (null senza reti con il tempo reale o senza rete) e i risvegli del suo ciclo: true per un
+    // tocco su "Aggiorna i ritardi", false per un cambio di rete (persa: il tabellone torna subito l'orario).
+    private val _transitRealtime = MutableStateFlow<TransitRealtimeUi?>(null)
+    private val realtimeRequests = Channel<Boolean>(Channel.CONFLATED)
+
+    init {
+        viewModelScope.launch { connectivityObserver.changes().drop(1).collect { realtimeRequests.trySend(false) } }
+    }
+
     /**
      * Legge le prossime partenze vicino a [pin] e le rilegge ogni minuto finche' il riquadro e' aperto (le partenze
-     * passano); null (riquadro chiuso o orari non installati) le azzera.
+     * passano); null (riquadro chiuso o orari non installati) le azzera. Con la rete, a ogni lettura scarica anche i
+     * feed del tempo reale delle reti della fermata (TransitRealtimeLoader) e rilegge il tabellone con i ritardi.
      */
     fun showDepartures(pin: MapPin?) {
         transitJob?.cancel()
+        // Un tocco su "Aggiorna i ritardi" rimasto in coda vale per la fermata di prima, non per questa.
+        realtimeRequests.tryReceive()
         _transitBoard.value = null
+        _transitRealtime.value = null
         val regionId = regionIdFlow.value
         if (pin == null || regionId == null) return
         transitJob = viewModelScope.launch {
+            var tapped = false
             while (true) {
-                _transitBoard.value = transitRepository.board(regionId, pin.latitude, pin.longitude, transitStationModes(pin.osmTag))
-                delay(DEPARTURES_REFRESH_MILLIS)
+                suspend fun read(realtime: Map<String, RealtimeFeed>) =
+                    transitRepository.board(regionId, pin.latitude, pin.longitude, transitStationModes(pin.osmTag), realtime = realtime)
+                // Prima con i feed gia' scaricati (o nessuno, senza rete), poi con quelli appena arrivati.
+                val board = read(transitRealtime.usable(realtimeNetworks(_transitBoard.value)))
+                _transitBoard.value = board
+                val networks = realtimeNetworks(board)
+                _transitRealtime.value = transitRealtime.ui(networks, loading = true)
+                if (_transitRealtime.value != null) {
+                    transitRealtime.refresh(networks, tapped)
+                    _transitBoard.value = read(transitRealtime.usable(networks))
+                    _transitRealtime.value = transitRealtime.ui(networks, loading = false)
+                }
+                // Un tocco su "Aggiorna i ritardi" o un cambio di rete non aspettano il minuto.
+                tapped = withTimeoutOrNull(DEPARTURES_REFRESH_MILLIS) { realtimeRequests.receive() } == true
             }
         }
+    }
+
+    /** "Aggiorna i ritardi": scarica subito i feed del tempo reale del tabellone aperto, anche quelli grandi. */
+    fun refreshRealtime() {
+        realtimeRequests.trySend(true)
     }
 
     // Versioni installate di mappa, mappa d'insieme e civici della regione corrente, dal database: cambiano
@@ -134,9 +168,9 @@ class MapRouteViewModel @Inject constructor(
         combine(accessible, filterPreferences.hiddenCategories, onlyAccessible) { accessible, hidden, only ->
             MapUiState(accessible = accessible, hiddenCategories = hidden, onlyAccessible = only)
         },
-        _pins, _presentCategories, _transitBoard, mapSource,
-    ) { filters, pins, present, board, source ->
-        filters.copy(pins = pins, presentCategories = present, transitBoard = board, mapSource = source)
+        _pins, _presentCategories, combine(_transitBoard, _transitRealtime) { board, realtime -> board to realtime }, mapSource,
+    ) { filters, pins, present, (board, realtime), source ->
+        filters.copy(pins = pins, presentCategories = present, transitBoard = board, transitRealtime = realtime, mapSource = source)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
@@ -247,5 +281,6 @@ data class MapUiState(
     val accessible: Boolean = false,
     val onlyAccessible: Boolean = false,
     val transitBoard: TransitBoard? = null,
+    val transitRealtime: TransitRealtimeUi? = null,
     val mapSource: MapSourceState? = null,
 )

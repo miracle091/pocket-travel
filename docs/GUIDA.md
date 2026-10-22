@@ -93,6 +93,8 @@ python -m http.server 8000 --directory <cartella con manifest.json>
 
 `10.0.2.2` è il PC visto dall'emulatore.
 
+Per provare il tempo reale dei mezzi pubblici con una rete appena costruita: `build-transit.sh <id> <versione> http://10.0.2.2:8000 <cartella>` su una riga di `transit-feeds.tsv` con `url_rt`, poi nella cartella del catalogo di debug il `transit.json` pubblicato con la voce della rete presa da `transit-entries.jsonl`, e in `manifest.json` la voce `transit` con indirizzo, peso e sha256 del `transit.json` nuovo. Con la rete, il riquadro di una fermata di quella rete mostra ritardi e soppressioni accanto all'orario e "In tempo reale, aggiornato alle …"; in modalità aereo (`adb shell cmd connectivity airplane-mode enable`) le partenze tornano quelle dell'orario. I test del lettore del feed usano i feed registrati in `core/data/src/test/resources/gtfs-rt/`.
+
 Per provare l'app in un'altra lingua senza cambiare quella del dispositivo:
 
 ```bash
@@ -121,6 +123,7 @@ llama.cpp (`third-party/llama-cpp`) e BRouter (`third-party/brouter`) sono submo
 | i numeri civici (celle da ~10 MB) | `tools/data-pipeline/scripts/build-address-cell.sh` e il seme `tools/data-pipeline/address-grid-seed.tsv` |
 | le fonti Overture dei numeri civici | `tools/data-pipeline/overture-address-sources.tsv` (una fonte nuova resta fuori finché non la si rivede) |
 | i modelli dell'assistente | `feature/ai/.../LlmModelCatalog.kt` (ogni modello addestrato ha la sua lingua) e gli script `train_*.py` / `eval_*.py`; un GGUF ricaricato con lo stesso nome si pubblica con `upload_hf.py --push --update-app-status`, che aggiorna le impronte in `app-status.json` senza rilasciare l'app. Nelle build di debug il menu (⋯) della scheda IA ha il benchmark e il task manager dei modelli (memoria, CPU, contesto, velocità, log esportabili) |
+| il tempo reale dei mezzi pubblici | colonna `url_rt` di `tools/data-pipeline/transit-feeds.tsv` (solo con la licenza del tempo reale letta sulla pagina dell'ente); lettura e aggancio in `core/data/.../GtfsRealtimeDecoder.kt` e `TransitRealtime.kt`, download in `feature/map/.../TransitRealtimeLoader.kt` |
 | percorsi e navigazione | `feature/map/.../BRouterRouteEngine.kt`, `NavigationScreen.kt`, `NavigationTracker.kt`; le modifiche a BRouter sono le patch in `third-party/patches/brouter` |
 | i testi dell'app | `res/values/strings.xml` (italiano) e `res/values-en/strings.xml` (inglese) di ogni modulo |
 | le vaccinazioni | dati in `tools/data-pipeline/content/src/main/resources/vaccinations/` (TSV curati, bozza con `vaccinations_draft.py`), regole in `core/data/.../vaccination/`, schermata in `feature/guide/.../VaccinationScreen.kt` |

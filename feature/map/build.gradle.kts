@@ -24,6 +24,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     // Richiesta del permesso di posizione dalla schermata di navigazione.
     implementation(libs.androidx.activity.compose)
+    // Feed GTFS-RT del tempo reale, scaricati dall'ente.
+    implementation(libs.okhttp)
 
     // Tipi nelle firme dei fake: PoiDao e Flow.
     testFixturesApi(project(":core:data"))

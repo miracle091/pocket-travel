@@ -1,16 +1,21 @@
 package com.pockettravel.feature.map
 
 import com.pockettravel.core.data.PoiRepository
+import com.pockettravel.core.data.RealtimeFeed
 import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.data.RegionZonePreferences
 import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.data.TransitBoard
+import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.TransitMode
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.FakeTransitRepository
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
 import com.pockettravel.core.poi.PoiCategory
+import com.pockettravel.feature.map.testing.FakeConnectivityChecker
 import com.pockettravel.feature.map.testing.FakeConnectivityObserver
+import com.pockettravel.feature.map.testing.FakeTransitRealtimeClient
+import com.pockettravel.feature.map.testing.MutableClock
 import com.pockettravel.feature.map.testing.FakeOfflineTileSource
 import com.pockettravel.feature.map.testing.FakePoiDao
 import kotlinx.coroutines.CompletableDeferred
@@ -27,6 +32,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapRouteViewModelTest {
@@ -42,6 +48,9 @@ class MapRouteViewModelTest {
     private val regions = FakeRegionRepository(listOf(installedRegion("r1"), installedRegion("r2")))
     private val transit = FakeTransitRepository()
     private val connectivity = FakeConnectivityObserver()
+    private val realtimeClient = FakeTransitRealtimeClient()
+    private val realtimeConnectivity = FakeConnectivityChecker()
+    private val realtimeClock = MutableClock()
     private val filters = MapFilterPreferences(files)
     private val usageModes = UsageModePreferences(files, filters, RoutingVariantPreferences(files))
     private val zones = RegionZonePreferences(files)
@@ -55,7 +64,8 @@ class MapRouteViewModelTest {
     private fun TestScope.viewModel(): MapRouteViewModel {
         val created = ViewModelHost(MapRouteViewModel::class.java) {
             MapRouteViewModel(
-                tileSource, PoiRepository(dao), zones, regions, filters, transit, usageModes, connectivity, main.dispatcher,
+                tileSource, PoiRepository(dao), zones, regions, filters, transit, usageModes, connectivity,
+                TransitRealtimeLoader(realtimeClient, realtimeConnectivity, realtimeClock), main.dispatcher,
             )
         }
         host = created
@@ -406,6 +416,89 @@ class MapRouteViewModelTest {
             listOf(setOf(TransitMode.TRAIN, TransitMode.METRO), setOf(TransitMode.FERRY), setOf(TransitMode.FERRY)),
             transit.requests.map { it.stationModes },
         )
+        viewModel.showDepartures(null)
+    }
+
+    private val rtNetwork = TransitFeedInfo("renfe", "Renfe", "Renfe", realtimeUrl = "https://rt.example/renfe.pb", realtimeSizeBytes = 30_000)
+    private val rtFeed = RealtimeFeed(null, emptyMap())
+    private val rtBoard = TransitBoard.Departures(emptyList(), LocalDate.parse("2026-11-01"), 10, listOf(rtNetwork))
+
+    @Test
+    fun `con la rete il tabellone si rilegge con il feed del tempo reale, e Aggiorna i ritardi non aspetta il minuto`() = runTest {
+        transit.boards["r1"] = rtBoard
+        realtimeClient.feeds["https://rt.example/renfe.pb"] = rtFeed
+        val viewModel = viewModel()
+        viewModel.loadPins("r1")
+        runCurrent()
+
+        viewModel.showDepartures(pin("railway=station"))
+        runCurrent()
+        // Prima l'orario, poi con il feed appena scaricato.
+        assertEquals(listOf(emptyMap(), mapOf("renfe" to rtFeed)), transit.requests.map { it.realtime })
+        assertEquals(1, realtimeClient.requests.size)
+        assertEquals(false, settled(viewModel.uiState).transitRealtime?.loading)
+
+        advanceTimeBy(30_000)
+        realtimeClock.now += java.time.Duration.ofSeconds(30)
+        viewModel.refreshRealtime()
+        runCurrent()
+        assertEquals(2, realtimeClient.requests.size)
+        viewModel.showDepartures(null)
+        assertNull(settled(viewModel.uiState).transitRealtime)
+    }
+
+    @Test
+    fun `un tocco rimasto in coda non scarica i feed grandi della fermata dopo`() = runTest {
+        val large = rtNetwork.copy(id = "vbb", realtimeUrl = "https://rt.example/vbb.pb", realtimeSizeBytes = 9_000_000)
+        transit.boards["r1"] = rtBoard.copy(feeds = listOf(large))
+        realtimeClient.feeds["https://rt.example/vbb.pb"] = rtFeed
+        realtimeConnectivity.metered = true
+        val viewModel = viewModel()
+        viewModel.loadPins("r1")
+        runCurrent()
+
+        viewModel.refreshRealtime()
+        viewModel.showDepartures(pin("railway=station"))
+        runCurrent()
+        assertTrue(realtimeClient.requests.isEmpty())
+        assertEquals(9_000_000L, settled(viewModel.uiState).transitRealtime?.tapSizeBytes)
+        viewModel.showDepartures(null)
+    }
+
+    @Test
+    fun `persa la rete con il riquadro aperto il tabellone torna subito l'orario`() = runTest {
+        transit.boards["r1"] = rtBoard
+        realtimeClient.feeds["https://rt.example/renfe.pb"] = rtFeed
+        val viewModel = viewModel()
+        viewModel.loadPins("r1")
+        runCurrent()
+        viewModel.showDepartures(pin("railway=station"))
+        runCurrent()
+        assertEquals(mapOf("renfe" to rtFeed), transit.requests.last().realtime)
+
+        realtimeConnectivity.online = false
+        connectivity.online.value = false
+        runCurrent()
+        assertEquals(emptyMap<String, RealtimeFeed>(), transit.requests.last().realtime)
+        assertNull(settled(viewModel.uiState).transitRealtime)
+        // Nessun download in piu': il cambio di rete non vale come un tocco.
+        assertEquals(1, realtimeClient.requests.size)
+        viewModel.showDepartures(null)
+    }
+
+    @Test
+    fun `senza rete nessun download e il tabellone resta l'orario`() = runTest {
+        transit.boards["r1"] = rtBoard
+        realtimeConnectivity.online = false
+        val viewModel = viewModel()
+        viewModel.loadPins("r1")
+        runCurrent()
+
+        viewModel.showDepartures(pin("railway=station"))
+        runCurrent()
+        assertTrue(realtimeClient.requests.isEmpty())
+        assertEquals(listOf(emptyMap<String, RealtimeFeed>()), transit.requests.map { it.realtime })
+        assertNull(settled(viewModel.uiState).transitRealtime)
         viewModel.showDepartures(null)
     }
 }

@@ -1,5 +1,6 @@
 package com.pockettravel.core.data.testing
 
+import com.pockettravel.core.data.RealtimeFeed
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitMode
 import com.pockettravel.core.data.TransitRepository
@@ -14,6 +15,7 @@ class FakeTransitRepository : TransitRepository {
         val longitude: Double,
         val stationModes: Set<TransitMode>,
         val now: Instant,
+        val realtime: Map<String, RealtimeFeed> = emptyMap(),
     )
 
     var defaultBoard: TransitBoard = TransitBoard.NoStops
@@ -29,8 +31,9 @@ class FakeTransitRepository : TransitRepository {
         longitude: Double,
         stationModes: Set<TransitMode>,
         now: Instant,
+        realtime: Map<String, RealtimeFeed>,
     ): TransitBoard {
-        requests += Request(regionId, latitude, longitude, stationModes, now)
+        requests += Request(regionId, latitude, longitude, stationModes, now, realtime)
         failure?.let { throw it }
         return boards[regionId] ?: defaultBoard
     }
