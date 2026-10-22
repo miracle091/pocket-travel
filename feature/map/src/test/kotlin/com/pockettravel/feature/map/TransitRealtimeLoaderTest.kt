@@ -15,7 +15,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Duration
-import java.time.Instant
 import java.time.LocalDate
 
 class TransitRealtimeLoaderTest {
@@ -25,8 +24,9 @@ class TransitRealtimeLoaderTest {
     private val loader = TransitRealtimeLoader(client, connectivity, clock)
 
     private val small = TransitFeedInfo("renfe", "Renfe", "Renfe", realtimeUrl = "https://rt.example/renfe.pb", realtimeSizeBytes = 30_000)
+    private val smallUrl = "https://rt.example/renfe.pb"
     private val large = TransitFeedInfo("vbb", "VBB", "VBB", realtimeUrl = "https://rt.example/vbb.pb", realtimeSizeBytes = 2_250_000)
-    private val feed = RealtimeFeed(Instant.parse("2026-10-22T07:59:40Z"), emptyMap())
+    private val feed = RealtimeFeed(null, emptyMap())
 
     init {
         client.feeds["https://rt.example/renfe.pb"] = feed
@@ -157,6 +157,57 @@ class TransitRealtimeLoaderTest {
         loader.refresh(listOf(small), tapped = false)
         assertEquals(2, cancelling.calls)
         assertEquals(setOf("renfe"), loader.usable(listOf(small)).keys)
+    }
+
+    @Test
+    fun `un feed con l'header vecchio non vale, e l'ora mostrata e' quella dell'header`() = runTest {
+        client.feeds[smallUrl] = RealtimeFeed(clock.now - Duration.ofMinutes(15), emptyMap())
+        loader.refresh(listOf(small), tapped = false)
+        assertTrue(loader.usable(listOf(small)).isEmpty())
+        assertNull(checkNotNull(loader.ui(listOf(small), loading = false)).updatedAt)
+        // Header di 3 minuti fa: vale, e "aggiornato alle" e' l'ora dei dati.
+        later(Duration.ofSeconds(30))
+        val dataTime = clock.now - Duration.ofMinutes(3)
+        client.feeds[smallUrl] = RealtimeFeed(dataTime, emptyMap())
+        loader.refresh(listOf(small), tapped = true)
+        assertEquals(dataTime, checkNotNull(loader.ui(listOf(small), loading = false)).updatedAt)
+        // Un header nel futuro (orologio dell'ente avanti) non conta: vale l'ora del download.
+        client.feeds[smallUrl] = RealtimeFeed(clock.now + Duration.ofMinutes(5), emptyMap())
+        later(Duration.ofSeconds(30))
+        loader.refresh(listOf(small), tapped = true)
+        assertEquals(clock.now, checkNotNull(loader.ui(listOf(small), loading = false)).updatedAt)
+    }
+
+    @Test
+    fun `senza il peso nel catalogo su rete a consumo il feed aspetta un tocco, poi vale quello misurato`() = runTest {
+        val unknown = small.copy(realtimeSizeBytes = null)
+        connectivity.metered = true
+        loader.refresh(listOf(unknown), tapped = false)
+        assertTrue(client.requests.isEmpty())
+        assertEquals(0L, checkNotNull(loader.ui(listOf(unknown), loading = false)).tapSizeBytes)
+        loader.refresh(listOf(unknown), tapped = true)
+        assertEquals(1, client.requests.size)
+        // Misurati 30 KB: da sola si riscarica (dopo 2 minuti su rete a consumo).
+        later(Duration.ofMinutes(3))
+        loader.refresh(listOf(unknown), tapped = false)
+        assertEquals(2, client.requests.size)
+        // Su rete senza limiti il peso ignoto non ferma il primo download.
+        val other = TransitRealtimeLoader(client, FakeConnectivityChecker(metered = false), clock)
+        other.refresh(listOf(unknown), tapped = false)
+        assertEquals(3, client.requests.size)
+    }
+
+    @Test
+    fun `onDownload parte solo se c'e' qualcosa da scaricare`() = runTest {
+        var started = 0
+        loader.refresh(listOf(small), tapped = false) { started++ }
+        loader.refresh(listOf(small), tapped = false) { started++ }
+        assertEquals(1, started)
+        later(Duration.ofSeconds(30))
+        loader.refresh(listOf(small), tapped = true) { started++ }
+        assertEquals(2, started)
+        loader.refresh(listOf(small), tapped = true) { started++ }
+        assertEquals(2, started)
     }
 
     private fun departure(network: String, inMinutes: Int) =

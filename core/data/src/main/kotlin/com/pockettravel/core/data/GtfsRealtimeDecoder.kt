@@ -14,11 +14,14 @@ import java.time.format.DateTimeFormatter
 /**
  * Legge un FeedMessage GTFS-RT; lancia [IllegalArgumentException] se i byte non sono un protobuf valido o manca l'header,
  * obbligatorio in GTFS-RT: Autolinee Toscane a volte risponde 200 con un corpo vuoto, che non e' un feed senza ritardi.
+ * Lancia [IllegalArgumentException] anche oltre [MAX_TRIPS] corse, [MAX_STOPS_PER_TRIP] fermate per corsa o
+ * [MAX_STOPS] fermate in tutto: un feed ostile, di pochi KB compressi, non riempie la memoria di oggetti.
  */
 fun decodeTripUpdates(bytes: ByteArray): RealtimeFeed {
     var timestamp: Instant? = null
     var header = false
     val trips = mutableListOf<RealtimeTrip>()
+    val budget = StopBudget()
     ProtoReader(bytes, 0, bytes.size).forEachField { key, reader ->
         when (key) {
             FEED_HEADER -> {
@@ -27,7 +30,10 @@ fun decodeTripUpdates(bytes: ByteArray): RealtimeFeed {
                     if (f == HEADER_TIMESTAMP) timestamp = r.varint().let { runCatching { Instant.ofEpochSecond(it) }.getOrNull() } else r.skip()
                 }
             }
-            FEED_ENTITY -> readEntity(reader.message())?.let { trips += it }
+            FEED_ENTITY -> readEntity(reader.message(), budget)?.let {
+                trips += it
+                require(trips.size <= MAX_TRIPS) { "feed GTFS-RT con piu' di $MAX_TRIPS corse" }
+            }
             else -> reader.skip()
         }
     }
@@ -35,20 +41,23 @@ fun decodeTripUpdates(bytes: ByteArray): RealtimeFeed {
     return RealtimeFeed(timestamp, trips.groupBy { it.tripId })
 }
 
-private fun readEntity(entity: ProtoReader): RealtimeTrip? {
+/** Fermate ancora ammesse in tutto il feed. */
+private class StopBudget(var left: Int = MAX_STOPS)
+
+private fun readEntity(entity: ProtoReader, budget: StopBudget): RealtimeTrip? {
     var deleted = false
     var trip: RealtimeTrip? = null
     entity.forEachField { key, reader ->
         when (key) {
             ENTITY_IS_DELETED -> deleted = reader.varint() != 0L
-            ENTITY_TRIP_UPDATE -> trip = readTripUpdate(reader.message())
+            ENTITY_TRIP_UPDATE -> trip = readTripUpdate(reader.message(), budget)
             else -> reader.skip()
         }
     }
     return trip?.takeIf { !deleted }
 }
 
-private fun readTripUpdate(update: ProtoReader): RealtimeTrip? {
+private fun readTripUpdate(update: ProtoReader, budget: StopBudget): RealtimeTrip? {
     var tripId: String? = null
     var startDate: LocalDate? = null
     var relationship = 0L
@@ -64,7 +73,10 @@ private fun readTripUpdate(update: ProtoReader): RealtimeTrip? {
                     else -> r.skip()
                 }
             }
-            TRIP_UPDATE_STOP_TIME_UPDATE -> stops += readStopTimeUpdate(reader.message())
+            TRIP_UPDATE_STOP_TIME_UPDATE -> readStopTimeUpdate(reader.message())?.let {
+                require(stops.size < MAX_STOPS_PER_TRIP && budget.left-- > 0) { "feed GTFS-RT con troppe fermate" }
+                stops += it
+            }
             TRIP_UPDATE_DELAY -> delay = reader.varint().toInt()
             else -> reader.skip()
         }
@@ -74,7 +86,8 @@ private fun readTripUpdate(update: ProtoReader): RealtimeTrip? {
     return RealtimeTrip(id, startDate, relationship == TRIP_CANCELED, delay, stops, deleted = relationship == TRIP_DELETED)
 }
 
-private fun readStopTimeUpdate(update: ProtoReader): RealtimeStop {
+// Null per uno StopTimeUpdate che non dice nulla (ne' fermata, ne' ora o ritardo, ne' NO_DATA): non si alloca.
+private fun readStopTimeUpdate(update: ProtoReader): RealtimeStop? {
     var stopId: String? = null
     var relationship = 0L
     var arrival: Pair<Int?, Long?>? = null
@@ -90,6 +103,7 @@ private fun readStopTimeUpdate(update: ProtoReader): RealtimeStop {
     }
     // La partenza conta per chi sale; l'arrivo se la partenza manca (Renfe e Autolinee Toscane danno solo quello).
     val event = departure ?: arrival
+    if (stopId == null && event == null && relationship != STU_NO_DATA) return null
     return RealtimeStop(
         stopId, relationship == STU_SKIPPED, event?.first, event?.second,
         noData = relationship == STU_NO_DATA, fromArrival = departure == null && arrival != null,
@@ -194,6 +208,12 @@ internal class ProtoReader(private val bytes: ByteArray, start: Int, private val
         pos += count
     }
 }
+
+// Tetti contro i feed ostili (Berlino, il piu' grande in catalogo, il 22 ottobre 2026 alle 16:45: 9,9 MB, 9.486 corse,
+// 195.681 fermate, al massimo 98 fermate per corsa nei feed in catalogo).
+private const val MAX_TRIPS = 200_000
+private const val MAX_STOPS_PER_TRIP = 1_000
+private const val MAX_STOPS = 1_000_000
 
 // Wire format.
 private const val WIRE_TYPE_BITS = 3

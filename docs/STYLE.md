@@ -95,7 +95,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Chiave personale per il motore Online | chiave API | API key |
 | Fornitore del motore Online (ChatGPT, Mistral...) | servizio | service |
 | Telefono o tablet dell'utente | dispositivo | device |
-| Colori dell'app presi dal sistema (colore dinamico, da Android 12) al posto di quelli dell'app | colori del sistema | system colors |
+| Colori presi dal sistema (colore dinamico, da Android 12) al posto di quelli dell'app | colori del sistema | system colors |
 | Dove si trova l'utente | posizione | location |
 | Percorso calcolato | percorso | route |
 | Percorso mostrato prima di "Avvia" (sempre con "del percorso") | anteprima del percorso | route preview |
@@ -113,9 +113,9 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Reti scaricate che il catalogo sposta tra le "Non incluse" (orari scaduti, licenza) | orari non più aggiornati | timetables no longer updated |
 | Rete scaricata che il catalogo toglie del tutto, di solito perché un'altra la sostituisce | rete sostituita | replaced network |
 | Ritardi e soppressioni dal feed dell'ente, solo con la rete | in tempo reale | real time |
-| Minuti dopo l'orario programmato ("+3 min") | ritardo (in ritardo di 3 minuti) | delay (3 minutes late) |
-| Minuti prima dell'orario programmato | in anticipo | early |
-| Corsa che non parte | soppressa | canceled |
+| Minuti dopo l'orario programmato ("+3 min"; nelle partenze successive "10:50 +3") | ritardo (in ritardo di 3 minuti) | delay (3 minutes late) |
+| Minuti prima dell'orario programmato (nelle partenze successive "11:20 −2") | in anticipo | early |
+| Corsa che non parte (nelle partenze successive "11:50 soppressa", minuscolo) | soppressa | canceled |
 | Ora dell'ultimo download del tempo reale | Aggiornato alle 14:05 | Updated at 14:05 |
 | Pulsante che scarica di nuovo il tempo reale | Aggiorna i ritardi | Refresh delays |
 | Aggiornamento automatico fermo dopo un quarto d'ora senza tocchi | in pausa | paused |

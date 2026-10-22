@@ -67,6 +67,19 @@ class TransitRealtimeTest {
     }
 
     @Test
+    fun `una corsa circolare che passa due volte dalla fermata vale il passaggio piu' vicino all'orario`() {
+        val first = RealtimeStop("S2", skipped = false, delaySeconds = 300, timeEpochSeconds = nineAm + 300)
+        val second = RealtimeStop("S2", skipped = false, delaySeconds = 0, timeEpochSeconds = nineAm + 3600)
+        val loop = feed(trip(listOf(first, second)))
+        assertEquals(DepartureRealtime.Delay(5), realtimeOf(key(), loop))
+        assertEquals(DepartureRealtime.Delay(0), realtimeOf(key(scheduled = nineAm + 3600), loop))
+        // Il secondo passaggio saltato non sopprime il primo.
+        val skipped = feed(trip(listOf(first, second.copy(skipped = true))))
+        assertEquals(DepartureRealtime.Delay(5), realtimeOf(key(), skipped))
+        assertEquals(DepartureRealtime.Cancelled, realtimeOf(key(scheduled = nineAm + 3600), skipped))
+    }
+
+    @Test
     fun `senza la fermata vale l'ultimo aggiornamento prima, poi il ritardo della corsa`() {
         // S1 alle 08:50 (+4), S3 alle 09:10 (+10): alla fermata delle 09:00 vale S1.
         val s1 = RealtimeStop("S1", skipped = false, delaySeconds = 240, timeEpochSeconds = nineAm - 600 + 240)

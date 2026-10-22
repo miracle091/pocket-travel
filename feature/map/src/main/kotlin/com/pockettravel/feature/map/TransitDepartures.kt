@@ -41,7 +41,6 @@ import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitDeparture
 import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.TransitMode
-import com.pockettravel.core.data.delayMinutes
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
@@ -195,13 +194,26 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
     // Ora della rete nel formato del dispositivo (24 h o AM/PM, anche per TalkBack). Il formatter va in UTC: minuteOfDay e'
     // gia' un orario locale della rete e non va spostato col fuso del dispositivo; GTFS supera le 24 h dopo mezzanotte.
     val context = LocalContext.current
-    val (clock, laterClocks) = remember(departure.minuteOfDay, departure.later, context) {
+    val (clock, laterTexts) = remember(departure.minuteOfDay, departure.later, context) {
         val format = DateFormat.getTimeFormat(context).apply { timeZone = TimeZone.getTimeZone("UTC") }
         fun clockOf(minute: Int) = format.format(Date(Math.floorMod(minute, MINUTES_PER_DAY) * MILLIS_PER_MINUTE))
-        clockOf(departure.minuteOfDay) to departure.later.joinToString(", ") { clockOf(it.minuteOfDay + it.realtime.delayMinutes) }
+        val res = context.resources
+        clockOf(departure.minuteOfDay) to laterTexts(
+            departure.later,
+            ::clockOf,
+            LaterLabels(
+                delay = { res.getString(R.string.transit_later_delay, it) },
+                early = { res.getString(R.string.transit_later_early, it) },
+                cancelled = res.getString(R.string.transit_later_cancelled),
+                delaySpoken = { res.getQuantityString(R.plurals.transit_delay_spoken, it, it) },
+                earlySpoken = { res.getQuantityString(R.plurals.transit_early_spoken, it, it) },
+            ),
+        )
     }
-    // Le partenze successive della stessa linea e direzione: una riga per linea, anche nelle fermate affollate.
-    val laterText = laterClocks.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.transit_later, it) }
+    // Le partenze successive della stessa linea e direzione, all'ora programmata con il ritardo accanto: una riga per
+    // linea, anche nelle fermate affollate.
+    val laterText = laterTexts?.let { stringResource(R.string.transit_later, it.visible) }
+    val laterSpoken = laterTexts?.let { stringResource(R.string.transit_later, it.spoken) }
     val relative = if (departure.inMinutes <= 0) stringResource(R.string.transit_now) else stringResource(R.string.transit_in_min, departure.inMinutes)
     val relativeSpoken = if (departure.inMinutes <= 0) {
         stringResource(R.string.transit_now)
@@ -236,7 +248,7 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.m),
         modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-            contentDescription = listOfNotNull(description, realtimeSpoken, laterText, accessibleText).joinToString(", ")
+            contentDescription = listOfNotNull(description, realtimeSpoken, laterSpoken, accessibleText).joinToString(", ")
         },
     ) {
         // Il colore della linea e' solo decorazione: sigla, mezzo e destinazione stanno in chiaro.

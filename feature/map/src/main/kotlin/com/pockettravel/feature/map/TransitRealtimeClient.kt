@@ -4,6 +4,11 @@ import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.RealtimeFeed
 import com.pockettravel.core.data.decodeTripUpdates
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -41,12 +46,22 @@ class HttpTransitRealtimeClient @Inject constructor(
             .header("Accept-Encoding", "gzip")
             .header("User-Agent", REALTIME_USER_AGENT)
             .build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
-            val counted = CountingInputStream(response.body.byteStream())
-            val gzip = response.header("Content-Encoding").equals("gzip", ignoreCase = true)
-            val bytes = (if (gzip) GZIPInputStream(counted) else counted).use { readAtMost(it, MAX_REALTIME_BYTES) }
-            RealtimeDownload(decodeTripUpdates(bytes), counted.count)
+        val call = client.newCall(request)
+        // execute() e le letture bloccano e non vedono la cancellazione: annullando la coroutine si annulla la chiamata, che
+        // fa fallire la lettura in corso (la sospensione registra il gestore subito, prima del blocco).
+        val canceller = launch(start = CoroutineStart.UNDISPATCHED) {
+            suspendCancellableCoroutine<Unit> { it.invokeOnCancellation { call.cancel() } }
+        }
+        try {
+            call.execute().use { response ->
+                if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+                val counted = CountingInputStream(response.body.byteStream())
+                val gzip = response.header("Content-Encoding").equals("gzip", ignoreCase = true)
+                val bytes = (if (gzip) GZIPInputStream(counted) else counted).use { readAtMost(this, it, MAX_REALTIME_BYTES) }
+                RealtimeDownload(decodeTripUpdates(bytes), counted.count)
+            }
+        } finally {
+            canceller.cancel()
         }
     }
 }
@@ -62,10 +77,11 @@ private class CountingInputStream(input: InputStream) : FilterInputStream(input)
 }
 
 // Lettura con un tetto: un feed piu' grande del previsto (o una risposta sbagliata) non riempie la memoria.
-private fun readAtMost(input: InputStream, limit: Int): ByteArray {
+private fun readAtMost(scope: CoroutineScope, input: InputStream, limit: Int): ByteArray {
     val out = ByteArrayOutputStream()
     val buffer = ByteArray(BUFFER_BYTES)
     while (true) {
+        scope.ensureActive()
         val n = input.read(buffer)
         if (n < 0) break
         out.write(buffer, 0, n)
@@ -74,8 +90,8 @@ private fun readAtMost(input: InputStream, limit: Int): ByteArray {
     return out.toByteArray()
 }
 
-/** Berlino, il feed piu' grande in catalogo, e' circa 9 MB decompresso. */
-internal const val MAX_REALTIME_BYTES = 32 * 1024 * 1024
+/** Berlino, il feed piu' grande in catalogo, e' circa 10 MB decompresso: il tetto lascia un margine, non di piu'. */
+internal const val MAX_REALTIME_BYTES = 16 * 1024 * 1024
 private const val BUFFER_BYTES = 64 * 1024
 private const val REALTIME_ACCEPT = "application/x-protobuf, application/octet-stream, */*"
 private const val REALTIME_USER_AGENT = "PocketTravel (https://github.com/miracle091/pocket-travel)"

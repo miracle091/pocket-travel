@@ -77,7 +77,7 @@ internal fun tripOf(key: RealtimeKey, feed: RealtimeFeed): RealtimeTrip? = feed.
 
 internal fun realtimeOf(key: RealtimeKey, feed: RealtimeFeed): DepartureRealtime? {
     val trip = tripOf(key, feed) ?: return null
-    val atStop = key.stopId?.let { id -> trip.stops.firstOrNull { it.stopId == id } }
+    val atStop = key.stopId?.let { id -> stopPassage(trip, id, key.scheduledEpochSeconds) }
     return when {
         trip.cancelled || atStop?.skipped == true -> DepartureRealtime.Cancelled
         atStop?.noData == true -> null
@@ -85,6 +85,13 @@ internal fun realtimeOf(key: RealtimeKey, feed: RealtimeFeed): DepartureRealtime
             ?.let(::delayOf)
     }
 }
+
+// Lo StopTimeUpdate della fermata [stopId]; se la corsa la tocca due volte (linee circolari) quello con l'ora programmata
+// (ora prevista meno ritardo, o l'ora prevista) piu' vicina a [scheduled]; senza ore, il primo.
+private fun stopPassage(trip: RealtimeTrip, stopId: String, scheduled: Long): RealtimeStop? =
+    trip.stops.filter { it.stopId == stopId }.minByOrNull { stop ->
+        stop.timeEpochSeconds?.let { abs(it - (stop.delaySeconds ?: 0) - scheduled) } ?: Long.MAX_VALUE
+    }
 
 // Senza la fermata: il ritardo dell'ultimo StopTimeUpdate prima di [scheduled]; nessuno se ci sono solo quelli dopo, o se
 // dopo quello c'e' un NO_DATA (vale anche per le fermate seguenti; senza ora non si sa se viene prima di questa: nel

@@ -128,10 +128,13 @@ class MapRouteViewModel @Inject constructor(
                 val board = read(transitRealtime.usable(realtimeNetworks(_transitBoard.value)))
                 _transitBoard.value = board
                 val networks = realtimeNetworks(board)
-                _transitRealtime.value = transitRealtime.ui(networks, loading = true)
+                _transitRealtime.value = transitRealtime.ui(networks, loading = false)
                 if (_transitRealtime.value != null) {
-                    // Da solo scarica solo le reti con una partenza nell'ora successiva; un tocco le scarica tutte.
-                    transitRealtime.refresh(if (tapped) networks else realtimeNetworksDue(board), tapped)
+                    // Da solo scarica solo le reti con una partenza nell'ora successiva; un tocco le scarica tutte. L'indicatore
+                    // di caricamento compare solo se c'e' un download vero.
+                    transitRealtime.refresh(if (tapped) networks else realtimeNetworksDue(board), tapped) {
+                        _transitRealtime.value = transitRealtime.ui(networks, loading = true)
+                    }
                     _transitBoard.value = read(transitRealtime.usable(networks))
                     _transitRealtime.value = transitRealtime.ui(networks, loading = false)
                 }

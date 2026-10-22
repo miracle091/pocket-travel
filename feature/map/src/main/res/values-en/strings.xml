@@ -227,6 +227,9 @@
     <string name="transit_delay">+%1$d min</string>
     <string name="transit_early">%1$d min early</string>
     <string name="transit_cancelled">Canceled</string>
+    <string name="transit_later_delay">+%1$d</string>
+    <string name="transit_later_early">−%1$d</string>
+    <string name="transit_later_cancelled">canceled</string>
     <plurals name="transit_delay_spoken">
         <item quantity="one">%1$d minute late</item>
         <item quantity="other">%1$d minutes late</item>

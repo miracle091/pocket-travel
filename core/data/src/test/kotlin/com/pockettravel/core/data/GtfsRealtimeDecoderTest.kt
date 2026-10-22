@@ -99,4 +99,53 @@ class GtfsRealtimeDecoderTest {
         // Varint oltre 10 byte.
         assertThrows(IllegalArgumentException::class.java) { decodeTripUpdates(byteArrayOf(0x08) + ByteArray(11) { 0x80.toByte() } + byteArrayOf(0x01)) }
     }
+
+    private fun field(key: Int, body: ByteArray): ByteArray {
+        var length = body.size
+        val prefix = mutableListOf(key.toByte())
+        while (length >= 0x80) {
+            prefix += ((length and 0x7F) or 0x80).toByte()
+            length = length ushr 7
+        }
+        prefix += length.toByte()
+        return prefix.toByteArray() + body
+    }
+
+    // FeedMessage { header, entity { trip_update { trip { trip_id }, stop_time_update * stopUpdates } } * trips }.
+    private fun entity(tripId: String, stopUpdate: ByteArray, count: Int): ByteArray =
+        field(0x12, field(0x1A, field(0x0A, field(0x0A, tripId.toByteArray())) + stopUpdate.times(count)))
+
+    private fun ByteArray.times(count: Int): ByteArray {
+        val out = ByteArray(size * count)
+        repeat(count) { copyInto(out, it * size) }
+        return out
+    }
+
+    private val header = byteArrayOf(0x0A, 0x00)
+    private val stopWithId = field(0x12, field(0x22, "S".toByteArray()))
+    private val emptyStop = byteArrayOf(0x12, 0x00)
+
+    @Test
+    fun `gli StopTimeUpdate vuoti non fanno una fermata e non contano nei tetti`() {
+        val feed = decodeTripUpdates(header + entity("T", emptyStop, 5_000) + entity("U", emptyStop + stopWithId, 1))
+        assertEquals(0, feed.trips.getValue("T").single().stops.size)
+        assertEquals(1, feed.trips.getValue("U").single().stops.size)
+        // NO_DATA senza fermata (schedule_relationship 2) e' un'informazione: si tiene.
+        val noData = field(0x12, byteArrayOf(0x28, 0x02))
+        assertTrue(decodeTripUpdates(header + entity("T", noData, 1)).trips.getValue("T").single().stops.single().noData)
+    }
+
+    @Test
+    fun `oltre i tetti di fermate per corsa e di fermate in tutto il feed e' rifiutato`() {
+        assertEquals(1_000, decodeTripUpdates(header + entity("T", stopWithId, 1_000)).trips.getValue("T").single().stops.size)
+        assertThrows(IllegalArgumentException::class.java) { decodeTripUpdates(header + entity("T", stopWithId, 1_001)) }
+        val trip = entity("T", stopWithId, 1_000)
+        assertThrows(IllegalArgumentException::class.java) { decodeTripUpdates(header + trip.times(1_001)) }
+    }
+
+    @Test
+    fun `oltre il tetto di corse il feed e' rifiutato`() {
+        val trip = entity("T", stopWithId, 0)
+        assertThrows(IllegalArgumentException::class.java) { decodeTripUpdates(header + trip.times(200_001)) }
+    }
 }

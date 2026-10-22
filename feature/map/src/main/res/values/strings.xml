@@ -228,6 +228,9 @@
     <string name="transit_delay">+%1$d min</string>
     <string name="transit_early">%1$d min in anticipo</string>
     <string name="transit_cancelled">Soppressa</string>
+    <string name="transit_later_delay">+%1$d</string>
+    <string name="transit_later_early">−%1$d</string>
+    <string name="transit_later_cancelled">soppressa</string>
     <plurals name="transit_delay_spoken">
         <item quantity="one">in ritardo di %1$d minuto</item>
         <item quantity="other">in ritardo di %1$d minuti</item>

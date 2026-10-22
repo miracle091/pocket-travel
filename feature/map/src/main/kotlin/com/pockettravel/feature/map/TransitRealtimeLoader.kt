@@ -42,7 +42,10 @@ class TransitRealtimeLoader @Inject constructor(
     private val connectivity: ConnectivityChecker,
     private val clock: Clock,
 ) {
-    private class Entry(val feed: RealtimeFeed, val fetchedAt: Instant)
+    // [at]: l'ora dei dati, la piu' vecchia tra il download e l'header del feed (un ente fermo serve un feed vecchio con 200).
+    private class Entry(val feed: RealtimeFeed, fetchedAt: Instant) {
+        val at: Instant = feed.timestamp?.takeIf { it < fetchedAt } ?: fetchedAt
+    }
 
     private val feeds = mutableMapOf<String, Entry>()
     private val lastTry = mutableMapOf<String, Instant>()
@@ -62,7 +65,7 @@ class TransitRealtimeLoader @Inject constructor(
         if (networks.isEmpty() || !connectivity.isOnline()) return emptyMap()
         val now = clock.instant()
         return networks.mapNotNull { network ->
-            feeds[network.id]?.takeIf { Duration.between(it.fetchedAt, now) <= REALTIME_MAX_AGE }?.let { network.id to it.feed }
+            feeds[network.id]?.takeIf { Duration.between(it.at, now) <= REALTIME_MAX_AGE }?.let { network.id to it.feed }
         }.toMap()
     }
 
@@ -71,19 +74,13 @@ class TransitRealtimeLoader @Inject constructor(
      * no, se l'aggiornamento automatico non e' in pausa, quelli non in attesa di un tocco il cui ultimo tentativo e' piu'
      * vecchio di [realtimeInterval]. Senza rete non fa nulla.
      */
-    suspend fun refresh(networks: List<TransitFeedInfo>, tapped: Boolean) {
+    suspend fun refresh(networks: List<TransitFeedInfo>, tapped: Boolean, onDownload: () -> Unit = {}) {
         if (!connectivity.isOnline()) return
         val now = clock.instant()
         if (tapped) touch()
         if (!tapped && paused(now)) return
-        val due = networks.filter { network ->
-            val since = lastTry[network.id]?.let { Duration.between(it, now) }
-            when {
-                network.realtimeUrl.isNullOrEmpty() -> false
-                tapped -> since == null || since >= REALTIME_MIN_INTERVAL
-                else -> !waitsForTap(network) && (since == null || since >= interval(network))
-            }
-        }
+        val due = networks.filter { isDue(it, tapped, now) }
+        if (due.isNotEmpty()) onDownload()
         coroutineScope {
             due.map { network ->
                 async {
@@ -112,21 +109,31 @@ class TransitRealtimeLoader @Inject constructor(
         val usable = usable(networks)
         val waiting = networks.filter { it.id !in usable && waitsForTap(it) }
         return TransitRealtimeUi(
-            updatedAt = networks.mapNotNull { network -> feeds[network.id]?.takeIf { network.id in usable }?.fetchedAt }.minOrNull(),
+            updatedAt = networks.mapNotNull { network -> feeds[network.id]?.takeIf { network.id in usable }?.at }.minOrNull(),
             loading = loading,
             failed = networks.any { it.id in failed },
-            tapSizeBytes = waiting.takeIf { it.isNotEmpty() }?.sumOf { sizeOf(it) },
+            tapSizeBytes = waiting.takeIf { it.isNotEmpty() }?.sumOf { sizeOf(it) ?: 0L },
             paused = paused(clock.instant()),
         )
     }
 
+    private fun isDue(network: TransitFeedInfo, tapped: Boolean, now: Instant): Boolean {
+        val since = lastTry[network.id]?.let { Duration.between(it, now) }
+        return when {
+            network.realtimeUrl.isNullOrEmpty() -> false
+            tapped -> since == null || since >= REALTIME_MIN_INTERVAL
+            else -> !waitsForTap(network) && (since == null || since >= interval(network))
+        }
+    }
+
     private fun paused(now: Instant) = Duration.between(lastTouch, now) > REALTIME_IDLE_PAUSE
 
-    private fun sizeOf(network: TransitFeedInfo): Long = lastBytes[network.id] ?: network.realtimeSizeBytes ?: 0L
+    // Null se ne' il catalogo ne' un download ne hanno misurato il peso.
+    private fun sizeOf(network: TransitFeedInfo): Long? = lastBytes[network.id] ?: network.realtimeSizeBytes
 
-    private fun waitsForTap(network: TransitFeedInfo): Boolean = sizeOf(network) > LARGE_REALTIME_BYTES && connectivity.isMetered()
+    private fun waitsForTap(network: TransitFeedInfo): Boolean = connectivity.isMetered() && (sizeOf(network)?.let { it > LARGE_REALTIME_BYTES } ?: true)
 
-    private fun interval(network: TransitFeedInfo): Duration = realtimeInterval(sizeOf(network), connectivity.isMetered())
+    private fun interval(network: TransitFeedInfo): Duration = realtimeInterval(sizeOf(network) ?: 0L, connectivity.isMetered())
 }
 
 /**
