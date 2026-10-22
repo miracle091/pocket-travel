@@ -7,7 +7,7 @@ import java.io.File
 
 /** Tutte le migrazioni, per Room.databaseBuilder e per i test. */
 val ALL_MIGRATIONS: Array<Migration>
-    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_24, MIGRATION_24_25)
+    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_24, MIGRATION_24_25, MIGRATION_25_26)
 
 /** Versioni del database mai uscite in una versione pubblicata dell'app (solo sviluppo). */
 val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16, 18, 19, 20, 21, 22, 23)
@@ -380,10 +380,28 @@ val MIGRATION_17_24 = object : Migration(17, 24) {
     }
 }
 
-// Da 24 a 25: POI in forma compatta (poi_region, poi_code, coordinate intere in microgradi), da 172 a 94 MB per un milione di
-// POI. E' la migrazione piu' recente: resta separata, la 17 -> 24 sopra e' gia' quella unita.
+// Da 24 (v0.10.0) a 25 (v0.11.0): POI in forma compatta (poi_region, poi_code, coordinate intere in microgradi), da 172 a
+// 94 MB per un milione di POI.
 val MIGRATION_24_25 = object : Migration(24, 25) {
     override fun migrate(db: SupportSQLiteDatabase) = migratePoiToCompact(db)
+}
+
+// Da 25 a 26: cronologia delle conversazioni dell'assistente (conversations, conversation_turns), vuota. E' la migrazione
+// piu' recente: resta separata.
+val MIGRATION_25_26 = object : Migration(25, 26) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `conversations` (`id` TEXT NOT NULL, `wrappedKey` TEXT NOT NULL, `encryptedSummary` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `archiveCount` INTEGER NOT NULL, `resumeCount` INTEGER NOT NULL, " +
+                "`lastResumedAt` INTEGER, PRIMARY KEY(`id`))",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `conversation_turns` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `conversationId` TEXT NOT NULL, " +
+                "`encryptedPayload` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, FOREIGN KEY(`conversationId`) REFERENCES `conversations`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_conversation_turns_conversationId` ON `conversation_turns` (`conversationId`)")
+    }
 }
 
 /**

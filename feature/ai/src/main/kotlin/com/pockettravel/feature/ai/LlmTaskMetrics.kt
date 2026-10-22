@@ -120,3 +120,13 @@ internal suspend fun MutableStateFlow<LlmRuntimeStats>.collectTimed(
     }
     return answer.toString()
 }
+
+// Soglia di compattazione proposta: oltre il 75% del contesto i turni vecchi si compattano (solo con i modelli a piu' turni).
+private const val COMPACTION_THRESHOLD_PERCENT = 75
+
+/** Token del contesto oltre i quali la conversazione si compatta. */
+internal fun compactionThreshold(contextSize: Int): Int = contextSize * COMPACTION_THRESHOLD_PERCENT / PERCENT.toInt()
+
+/** Token letti (prompt) e scritti dal modello nelle generazioni finite da [sinceMs], tra quelle tenute nello storico. */
+internal fun conversationTokens(history: List<GenerationStats>, sinceMs: Long): Int =
+    history.filter { it.endedAtMs >= sinceMs }.sumOf { (it.context?.promptTokens ?: 0) + (it.context?.generatedTokens ?: 0) }

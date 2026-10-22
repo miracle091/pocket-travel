@@ -107,6 +107,24 @@
     <string name="ai_taskmgr_cpu_value">%1$.0f%% di un core · %2$d core</string>
     <string name="ai_taskmgr_threads">Thread</string>
     <string name="ai_taskmgr_behaviour">Comportamento</string>
+    <string name="ai_taskmgr_conversation">Conversazione</string>
+    <string name="ai_taskmgr_conversation_none">Nessuna conversazione aperta</string>
+    <string name="ai_taskmgr_conversation_saving">Salvataggio</string>
+    <string name="ai_taskmgr_conversation_saved">Nella cronologia</string>
+    <string name="ai_taskmgr_conversation_not_saved">Solo in memoria</string>
+    <string name="ai_taskmgr_conversation_turns">Turni (nel contesto del modello)</string>
+    <string name="ai_taskmgr_conversation_tokens">Token letti e scritti dal modello</string>
+    <string name="ai_taskmgr_conversation_threshold">Soglia di compattazione</string>
+    <string name="ai_taskmgr_conversation_threshold_value">%1$d token, ne mancano %2$d</string>
+    <string name="ai_taskmgr_conversation_compactions">Compattazioni</string>
+    <string name="ai_taskmgr_conversation_duration">Durata</string>
+    <string name="ai_taskmgr_conversation_since_last">Dall\'ultimo turno</string>
+    <string name="ai_taskmgr_conversation_archives">Archiviazioni</string>
+    <string name="ai_taskmgr_conversation_resumes">Riprese (ultima)</string>
+    <string name="ai_taskmgr_conversation_region">Regione</string>
+    <string name="ai_taskmgr_conversation_cities">Città</string>
+    <string name="ai_taskmgr_conversation_destination">Destinazione</string>
+    <string name="ai_taskmgr_conversation_last_question">Ultima domanda</string>
     <string name="ai_taskmgr_state">Stato</string>
     <string name="ai_taskmgr_state_unloaded">Nessun modello in memoria</string>
     <string name="ai_taskmgr_state_loaded">%1$s in memoria</string>
@@ -144,5 +162,33 @@
     <plurals name="ai_sources_count">
         <item quantity="one">Fonte (%d)</item>
         <item quantity="other">Fonti (%d)</item>
+    </plurals>
+    <!-- Conversazioni e cronologia (solo motore Sul dispositivo) -->
+    <string name="ai_history">Cronologia</string>
+    <string name="ai_new_conversation">Nuova conversazione</string>
+    <string name="ai_history_locked_title">Cronologia bloccata</string>
+    <string name="ai_history_locked_body">La cronologia si apre con la biometria</string>
+    <string name="ai_history_unlock">Sblocca</string>
+    <string name="ai_history_prompt_title">Apri la cronologia</string>
+    <string name="ai_history_prompt_subtitle">Conversazioni con l\'assistente</string>
+    <string name="ai_history_auth_failed">Biometria non riconosciuta</string>
+    <string name="ai_history_no_biometric_title">Biometria non configurata</string>
+    <string name="ai_history_no_biometric_body">Le conversazioni si salvano solo con una biometria forte configurata sul dispositivo, come l\'impronta digitale</string>
+    <string name="ai_history_open_security_settings">Apri le impostazioni di sicurezza</string>
+    <string name="ai_history_invalidated_title">Cronologia non più leggibile</string>
+    <string name="ai_history_invalidated_body">La biometria del dispositivo è cambiata: le conversazioni salvate non si possono più aprire</string>
+    <string name="ai_history_empty_title">Nessuna conversazione</string>
+    <string name="ai_history_empty_body">Le conversazioni con il motore Sul dispositivo si salvano qui, cifrate</string>
+    <string name="ai_history_item_details">%1$s, %2$s</string>
+    <string name="ai_history_resume">Riprendi la conversazione</string>
+    <string name="ai_history_delete">Elimina</string>
+    <string name="ai_history_delete_title">Eliminare la conversazione?</string>
+    <string name="ai_history_delete_message">La conversazione (%1$s) verrà eliminata</string>
+    <string name="ai_history_delete_all">Elimina la cronologia</string>
+    <string name="ai_history_delete_all_title">Eliminare la cronologia?</string>
+    <string name="ai_history_delete_all_message">Tutte le conversazioni salvate verranno eliminate</string>
+    <plurals name="ai_history_saved_count">
+        <item quantity="one">Cronologia: %d conversazione</item>
+        <item quantity="other">Cronologia: %d conversazioni</item>
     </plurals>
 </resources>

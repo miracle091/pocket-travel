@@ -2,8 +2,10 @@ package com.pockettravel.feature.ai.di
 
 import com.pockettravel.feature.ai.AiAvailability
 import com.pockettravel.feature.ai.AiModelUpdates
+import com.pockettravel.feature.ai.BiometricHistoryAvailability
 import com.pockettravel.feature.ai.DefaultAiAvailability
 import com.pockettravel.feature.ai.FileLlmModelManager
+import com.pockettravel.feature.ai.HistoryAvailability
 import com.pockettravel.feature.ai.LlamaOnDeviceLlmEngine
 import com.pockettravel.feature.ai.LlmModelManager
 import com.pockettravel.feature.ai.OnDeviceLlmEngine
@@ -34,4 +36,7 @@ interface AiBindingsModule {
 
     @Binds
     fun bindVoiceInput(voiceInput: OnDeviceVoiceInput): VoiceInput
+
+    @Binds
+    fun bindHistoryAvailability(availability: BiometricHistoryAvailability): HistoryAvailability
 }

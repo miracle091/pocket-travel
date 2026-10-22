@@ -82,7 +82,7 @@ The question can also be dictated with the microphone in the field, from Android
 
 ### 📱 On device (offline)
 
-The model runs on the device and no data leaves it. It needs at least 3 GB of RAM; the app suggests the right model for the RAM and the app language and updates it when it improves. In the table, the model of the next row can be chosen too (with 3 GB the 4 GB one, with 4 GB the 6 GB one, with 6 and 8 GB the 12 GB one): the app warns that the model needs more RAM and that the app may slow down or close.
+The model runs on the device and no data leaves it. Conversations are saved in the history, encrypted on the device: it opens with strong biometrics (fingerprint or face) and is deleted from the Settings. It needs at least 3 GB of RAM; the app suggests the right model for the RAM and the app language and updates it when it improves. In the table, the model of the next row can be chosen too (with 3 GB the 4 GB one, with 4 GB the 6 GB one, with 6 and 8 GB the 12 GB one): the app warns that the model needs more RAM and that the app may slow down or close.
 
 | RAM | Trained on the guides (Italian) | Trained on the guides (English) | Official |
 |---|---|---|---|

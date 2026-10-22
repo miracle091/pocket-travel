@@ -54,6 +54,7 @@ class LlmTaskManagerViewModelTest {
         wordListsOverride = WordListsOverride(files, isDebuggable = true),
         cpuBackends = cpuBackends,
         appRestarter = AppRestarter { restarts++ },
+        conversationMonitor = ConversationMonitor(),
         ioDispatcher = dispatcher,
     )
 

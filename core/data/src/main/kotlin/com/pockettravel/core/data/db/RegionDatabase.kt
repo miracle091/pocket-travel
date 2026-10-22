@@ -27,8 +27,10 @@ import androidx.room.TypeConverters
         VaccSpecialEntity::class,
         VaccRecommendedEntity::class,
         VaccMetaEntity::class,
+        ConversationEntity::class,
+        ConversationTurnEntity::class,
     ],
-    version = 25,
+    version = 26,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -43,4 +45,5 @@ abstract class RegionDatabase : RoomDatabase() {
     abstract fun noteDao(): NoteDao
     abstract fun diplomaticMissionDao(): DiplomaticMissionDao
     abstract fun vaccinationDao(): VaccinationDao
+    abstract fun conversationDao(): ConversationDao
 }

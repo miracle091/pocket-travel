@@ -3,6 +3,7 @@ package com.pockettravel.feature.ai
 import android.Manifest
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.FlowRow
@@ -57,6 +58,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -91,6 +93,7 @@ import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.isOnCellularNetwork
+import javax.crypto.Cipher
 
 @Composable
 fun AiAssistantScreen(
@@ -116,6 +119,19 @@ fun AiAssistantScreen(
             voiceViewModel.stop()
         }
     }
+    // La cronologia sbloccata si richiude come la cassaforte: app in secondo piano o schermata lasciata, non a una
+    // rotazione. Il prompt biometrico non ferma l'activity.
+    val activity = LocalActivity.current
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && activity?.isChangingConfigurations != true) viewModel.closeHistory()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            if (activity?.isChangingConfigurations != true) viewModel.closeHistory()
+        }
+    }
     val actions = viewModel.toActions(regionId).copy(
         onQuestionChanged = { text ->
             voiceViewModel.clearMessage()
@@ -130,6 +146,19 @@ fun AiAssistantScreen(
         onVoicePermissionDenied = voiceViewModel::onPermissionDenied,
     )
     AiAssistantContent(uiState = uiState, actions = actions, onOpenOfficialSource = onOpenOfficialSource, splitCountry = splitCountry, voice = voiceState)
+    uiState.history?.let { history ->
+        ConversationHistoryDialog(
+            history = history,
+            actions = HistoryActions(
+                onUnlocked = viewModel::onHistoryUnlocked,
+                onRetry = viewModel::openHistory,
+                onClose = viewModel::closeHistory,
+                onResume = viewModel::resumeConversation,
+                onDelete = viewModel::deleteConversation,
+                onDeleteAll = viewModel::deleteHistory,
+            ),
+        )
+    }
 }
 
 // Azioni della schermata, raccolte per separare la UI dal ViewModel (@Preview, onboarding).
@@ -151,6 +180,19 @@ data class AiActions(
     val onVoiceStart: () -> Unit = {},
     val onVoiceStop: () -> Unit = {},
     val onVoicePermissionDenied: () -> Unit = {},
+    val onNewConversation: () -> Unit = {},
+    val onOpenHistory: () -> Unit = {},
+    val onDeleteHistory: () -> Unit = {},
+)
+
+/** Le azioni della cronologia, dal ViewModel. */
+internal class HistoryActions(
+    val onUnlocked: (Cipher) -> Unit,
+    val onRetry: () -> Unit,
+    val onClose: () -> Unit,
+    val onResume: (String) -> Unit,
+    val onDelete: (String) -> Unit,
+    val onDeleteAll: () -> Unit,
 )
 
 private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
@@ -168,6 +210,9 @@ private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
     onRunBenchmark = ::runBenchmark,
     onShowBenchmarkComparison = ::showBenchmarkComparison,
     onHideBenchmarkComparison = ::hideBenchmarkComparison,
+    onNewConversation = ::newConversation,
+    onOpenHistory = ::openHistory,
+    onDeleteHistory = ::deleteHistory,
 )
 
 @Composable
@@ -236,11 +281,24 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
             )
         }
         if (isReady) {
+            // La cronologia esiste solo con il motore Sul dispositivo: con Online non si salva niente.
+            if (isOnDevice) {
+                IconButton(onClick = actions.onOpenHistory) {
+                    Icon(AppIcons.History, contentDescription = stringResource(R.string.ai_history))
+                }
+            }
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(AppIcons.More, contentDescription = stringResource(R.string.ai_more_actions))
                 }
                 DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                    if (uiState.askedQuestion != null) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.ai_new_conversation)) },
+                            leadingIcon = { Icon(AppIcons.Add, contentDescription = null) },
+                            onClick = { menuExpanded = false; actions.onNewConversation() },
+                        )
+                    }
                     if (isOnDevice && debugBuild) {
                         DropdownMenuItem(
                             text = { Text(stringResource(if (uiState.isBenchmarking) R.string.ai_benchmark_running else R.string.ai_benchmark_run)) },
@@ -380,6 +438,10 @@ fun AiSettingsSection(viewModel: AiAssistantViewModel = hiltViewModel()) {
 @Composable
 internal fun AiSettingsContent(uiState: AiUiState, actions: AiActions) {
     var showRemoveKeyConfirm by rememberSaveable { mutableStateOf(false) }
+    var showDeleteHistoryConfirm by rememberSaveable { mutableStateOf(false) }
+    if (showDeleteHistoryConfirm) {
+        DeleteHistoryConfirmation(onConfirm = { showDeleteHistoryConfirm = false; actions.onDeleteHistory() }, onDismiss = { showDeleteHistoryConfirm = false })
+    }
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.s),
         verticalArrangement = Arrangement.spacedBy(Spacing.m),
@@ -403,6 +465,18 @@ internal fun AiSettingsContent(uiState: AiUiState, actions: AiActions) {
                         TextButton(onClick = { showRemoveKeyConfirm = true }) { Text(stringResource(R.string.ai_remove_key)) }
                     }
                 }
+            }
+        }
+        // Anche con il motore Online: le conversazioni salvate prima restano finche' non si cancellano.
+        if (uiState.savedConversations > 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(AppIcons.History, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(Spacing.s))
+                Text(
+                    pluralStringResource(R.plurals.ai_history_saved_count, uiState.savedConversations, uiState.savedConversations),
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { showDeleteHistoryConfirm = true }) { Text(stringResource(R.string.ai_history_delete_all)) }
             }
         }
     }
@@ -438,6 +512,11 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
     LaunchedEffect(uiState.streamingText) {
         if (streaming) scrollState.scrollTo(scrollState.maxValue)
     }
+    // Una domanda nuova o una conversazione ripresa: la vista va in fondo, all'ultimo turno (dopo il layout dei turni).
+    LaunchedEffect(asked, uiState.earlierTurns.size) {
+        withFrameNanos { }
+        scrollState.scrollTo(scrollState.maxValue)
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -445,18 +524,13 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
             .padding(Spacing.l),
         verticalArrangement = Arrangement.spacedBy(Spacing.m),
     ) {
-        if (asked != null) {
-            // Domanda dell'utente: bolla a destra, nel colore del primary container.
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.widthIn(max = 320.dp),
-                ) {
-                    Text(asked, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(Spacing.m))
-                }
+        uiState.earlierTurns.forEach { turn ->
+            QuestionBubble(turn.askedQuestion)
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(Spacing.l)) { FinishedAnswer(turn.answer, onOpenOfficialSource) }
             }
         }
+        if (asked != null) QuestionBubble(asked)
         // Risposta: bolla a sinistra su superficie tonale; liveRegion perche' TalkBack annunci la
         // risposta (o l'errore) quando arriva, senza dover cercare dove e' comparsa. Non durante lo
         // streaming: ogni aggiornamento del testo parziale verrebbe riletto, la risposta si annuncia una
@@ -470,6 +544,20 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
             Column(modifier = Modifier.animateContentSize().padding(Spacing.l)) {
                 AnswerContent(uiState, streaming, onOpenOfficialSource, onClearApiKey)
             }
+        }
+    }
+}
+
+// Domanda dell'utente: bolla a destra, nel colore del primary container.
+@Composable
+private fun QuestionBubble(text: String) {
+    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.widthIn(max = 320.dp),
+        ) {
+            Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(Spacing.m))
         }
     }
 }
@@ -552,20 +640,24 @@ private fun AnswerContent(
                 TextButton(onClick = onClearApiKey) { Text(stringResource(R.string.ai_remove_key)) }
             }
         }
-        answer != null -> {
-            Text(answer.text, style = MaterialTheme.typography.bodyLarge)
-            if (answer.sourceCitations.isNotEmpty()) SourceCitations(answer.sourceCitations)
-            if (answer.showOfficialSourceBanner) {
-                val url = answer.officialSourceUrl
-                AssistChip(
-                    onClick = { url?.let(onOpenOfficialSource) },
-                    enabled = url != null,
-                    label = { Text(stringResource(R.string.ai_verify_official)) },
-                    leadingIcon = { Icon(AppIcons.VerifiedLink, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    modifier = Modifier.padding(top = Spacing.s),
-                )
-            }
-        }
+        answer != null -> FinishedAnswer(answer, onOpenOfficialSource)
+    }
+}
+
+// Risposta completa: testo, fonti e, sui temi regolati, il link alla fonte ufficiale.
+@Composable
+private fun FinishedAnswer(answer: AssistantAnswer, onOpenOfficialSource: (url: String) -> Unit) {
+    Text(answer.text, style = MaterialTheme.typography.bodyLarge)
+    if (answer.sourceCitations.isNotEmpty()) SourceCitations(answer.sourceCitations)
+    if (answer.showOfficialSourceBanner) {
+        val url = answer.officialSourceUrl
+        AssistChip(
+            onClick = { url?.let(onOpenOfficialSource) },
+            enabled = url != null,
+            label = { Text(stringResource(R.string.ai_verify_official)) },
+            leadingIcon = { Icon(AppIcons.VerifiedLink, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            modifier = Modifier.padding(top = Spacing.s),
+        )
     }
 }
 

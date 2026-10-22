@@ -81,7 +81,7 @@ La domanda si può anche dettare con il microfono nel campo, da Android 12, con 
 
 ### 📱 Sul dispositivo (offline)
 
-Il modello gira sul dispositivo e nessun dato ne esce. Servono almeno 3 GB di RAM; l'app propone il modello adatto alla RAM e alla lingua dell'app e lo aggiorna quando migliora. Nella tabella, con la RAM del dispositivo si può scegliere anche il modello della riga successiva (con 3 GB quello da 4 GB, con 4 GB quello da 6 GB, con 6 e 8 GB quello da 12 GB): l'app avvisa che il modello richiede più RAM e che l'app può rallentare o chiudersi.
+Il modello gira sul dispositivo e nessun dato ne esce. Le conversazioni si salvano nella cronologia, cifrate sul dispositivo: si apre con la biometria forte (impronta o volto) e si elimina dalle Impostazioni. Servono almeno 3 GB di RAM; l'app propone il modello adatto alla RAM e alla lingua dell'app e lo aggiorna quando migliora. Nella tabella, con la RAM del dispositivo si può scegliere anche il modello della riga successiva (con 3 GB quello da 4 GB, con 4 GB quello da 6 GB, con 6 e 8 GB quello da 12 GB): l'app avvisa che il modello richiede più RAM e che l'app può rallentare o chiudersi.
 
 | RAM | Addestrato sulle guide (italiano) | Addestrato sulle guide (inglese) | Ufficiale |
 |---|---|---|---|

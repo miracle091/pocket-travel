@@ -39,6 +39,8 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.room.testing)
+    // Chiavi software e preferenze in memoria per le misure della cronologia (ConversationHistoryDeviceTest).
+    androidTestImplementation(testFixtures(project(":core:data")))
 }
 
 ksp {

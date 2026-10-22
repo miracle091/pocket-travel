@@ -4,6 +4,12 @@ import android.content.Context
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.pockettravel.core.data.ConversationRepository
+import com.pockettravel.core.data.crypto.HistoryKeys
+import com.pockettravel.core.data.testing.FakeConversationDao
+import com.pockettravel.core.data.testing.FakeRegionRepository
+import com.pockettravel.core.data.testing.InMemorySharedPreferences
+import com.pockettravel.core.data.testing.SoftwareHistoryMasterKey
 import com.pockettravel.feature.ai.llamacpp.ContextUsage
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine
 import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl
@@ -92,6 +98,33 @@ class MultiTurnDeviceTest {
         Log.i(TAG, "chiarimento unito: cita i 90 giorni = ${"90" in answer}")
     }
 
+
+    // La stessa domanda di seguito dopo che la conversazione e' stata salvata, chiusa e ripresa (come dopo un riavvio
+    // dell'app): lo stato ricostruito dai turni salvati da' la stessa domanda unita di prima.
+    @Test
+    fun chiarimentoDopoUnaRipresa() = runBlocking<Unit> {
+        val keys = HistoryKeys(InMemorySharedPreferences(), SoftwareHistoryMasterKey())
+        val repository = ConversationRepository(FakeConversationDao(), keys, Dispatchers.IO)
+        fun conversation() = AssistantConversation(repository, FakeRegionRepository(), object : HistoryAvailability {
+            override fun isAvailable() = true
+        }, ConversationMonitor())
+        val question = "Serve il visto per il Giappone?"
+        val followUp = "E per quanto tempo posso restare?"
+        val first = conversation()
+        val answer = turn("ripresa 1", question, JAPAN)
+        first.onAnswered(AiEngineMode.ON_DEVICE, "giappone", "test", question, AssistantAnswer(answer, emptyList(), false, question = question))
+        first.end()
+
+        val unlock = repository.prepareUnlock()
+        check(unlock is HistoryKeys.Unlock.Ready)
+        val reader = keys.completeUnlock(unlock.cipher)
+        val resumed = conversation()
+        checkNotNull(resumed.resume(reader, repository.list(reader).single().id))
+        val joined = followUpQuestion(checkNotNull(resumed.previousQuestion), followUp, emptyList())
+        assertEquals(followUpQuestion(question, followUp, emptyList()), joined)
+        val again = turn("ripresa 2 unita", joined, JAPAN)
+        Log.i(TAG, "chiarimento dopo la ripresa: cita i 90 giorni = ${"90" in again}")
+    }
     @Test
     fun cambioDiDestinazione() = runBlocking<Unit> {
         turn("destinazione 1", "Cosa vedere a Roma?", ROME)

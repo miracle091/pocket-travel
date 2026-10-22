@@ -3,6 +3,7 @@ package com.pockettravel.core.data
 import androidx.room.InvalidationTracker
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import com.pockettravel.core.data.db.CityDao
+import com.pockettravel.core.data.db.ConversationDao
 import com.pockettravel.core.data.db.DiplomaticMissionDao
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.GuideDao
@@ -65,6 +66,7 @@ class DatabaseCompactorTest {
         override fun noteDao(): NoteDao = throw UnsupportedOperationException()
         override fun diplomaticMissionDao(): DiplomaticMissionDao = throw UnsupportedOperationException()
         override fun vaccinationDao(): VaccinationDao = throw UnsupportedOperationException()
+        override fun conversationDao(): ConversationDao = throw UnsupportedOperationException()
         override fun createInvalidationTracker(): InvalidationTracker = throw UnsupportedOperationException()
         override fun clearAllTables(): Unit = throw UnsupportedOperationException()
     }
@@ -190,6 +192,7 @@ class DatabaseCompactorTest {
             override fun noteDao(): NoteDao = throw UnsupportedOperationException()
             override fun diplomaticMissionDao(): DiplomaticMissionDao = throw UnsupportedOperationException()
             override fun vaccinationDao(): VaccinationDao = throw UnsupportedOperationException()
+            override fun conversationDao(): ConversationDao = throw UnsupportedOperationException()
             override fun createInvalidationTracker(): InvalidationTracker = throw UnsupportedOperationException()
             override fun clearAllTables(): Unit = throw UnsupportedOperationException()
         }

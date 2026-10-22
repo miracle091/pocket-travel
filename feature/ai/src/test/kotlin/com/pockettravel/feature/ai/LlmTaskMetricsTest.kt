@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import com.pockettravel.feature.ai.llamacpp.ContextUsage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -60,5 +61,20 @@ class LlmTaskMetricsTest {
         assertNull(promptTokensPerSecond(promptTokens = 0, timeToFirstTokenMs = 1000))
         assertNull(promptTokensPerSecond(promptTokens = 900, timeToFirstTokenMs = null))
         assertNull(promptTokensPerSecond(promptTokens = 900, timeToFirstTokenMs = 0))
+    }
+
+    @Test
+    fun `la soglia di compattazione e' il 75 per cento del contesto`() {
+        assertEquals(3072, compactionThreshold(4096))
+    }
+
+    @Test
+    fun `i token della conversazione contano solo le generazioni finite dal suo inizio`() {
+        fun generation(endedAt: Long, prompt: Int, generated: Int) =
+            GenerationStats("m", ContextUsage(prompt, generated, prompt + generated, 4096), null, 10, endedAtMs = endedAt)
+        val history = listOf(generation(100, 500, 50), generation(200, 600, 40), generation(300, 700, 30))
+
+        assertEquals(1370, conversationTokens(history, sinceMs = 200))
+        assertEquals(0, conversationTokens(history, sinceMs = 400))
     }
 }

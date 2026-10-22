@@ -476,4 +476,20 @@ class MigrationsSqlTest {
         // 35 + 1999 * 0.0001 = 35.1999 gradi.
         assertEquals(35_199_900L, (scalar("SELECT latE6 FROM poi WHERE id = 2000") as Number).toLong())
     }
+
+    @Test
+    fun `25 a 26 crea la cronologia vuota e i turni si cancellano con la loro conversazione`() {
+        createSchema(25)
+        region("italia", "1", null, 10L, null, 10L)
+        migrate(25, 26)
+
+        assertEquals(0, (scalar("SELECT COUNT(*) FROM conversations") as Number).toInt())
+        assertEquals(1, (scalar("SELECT COUNT(*) FROM installed_regions") as Number).toInt())
+        // Room accende le chiavi esterne a ogni apertura.
+        connection.createStatement().use { it.execute("PRAGMA foreign_keys = ON") }
+        insert("conversations", mapOf("id" to "c1", "wrappedKey" to "k", "encryptedSummary" to "s", "createdAt" to 1, "updatedAt" to 1, "archiveCount" to 0, "resumeCount" to 0))
+        insert("conversation_turns", mapOf("conversationId" to "c1", "encryptedPayload" to "p", "createdAt" to 1))
+        connection.createStatement().use { it.execute("DELETE FROM conversations WHERE id = 'c1'") }
+        assertEquals(0, (scalar("SELECT COUNT(*) FROM conversation_turns") as Number).toInt())
+    }
 }

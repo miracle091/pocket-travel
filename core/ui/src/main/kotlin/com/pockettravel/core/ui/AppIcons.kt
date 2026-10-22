@@ -84,4 +84,5 @@ object AppIcons {
     val Cities: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_location_city)
     val Notes: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_sticky_note_2)
     val Vaccinations: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_vaccines)
+    val History: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_history)
 }

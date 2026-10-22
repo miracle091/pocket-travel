@@ -3,6 +3,7 @@ package com.pockettravel.core.data
 import androidx.room.InvalidationTracker
 import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.db.CityDao
+import com.pockettravel.core.data.db.ConversationDao
 import com.pockettravel.core.data.db.CitySectionEntity
 import com.pockettravel.core.data.db.CitySectionMatch
 import com.pockettravel.core.data.db.DiplomaticMissionDao
@@ -122,6 +123,7 @@ private class UnusedRegionDatabase(
     override fun noteDao(): NoteDao = throw UnsupportedOperationException()
     override fun diplomaticMissionDao(): DiplomaticMissionDao = throw UnsupportedOperationException()
     override fun vaccinationDao(): VaccinationDao = throw UnsupportedOperationException()
+    override fun conversationDao(): ConversationDao = throw UnsupportedOperationException()
 
     // Mai chiamati nei test: qui RegionDatabase non e' mai inizializzata da Room, serve solo
     // come valore-tipo per il costruttore di RegionRepository.

@@ -62,6 +62,9 @@ data class AssistantAnswer(
     val officialSourceUrl: String? = null,
     // La domanda a cui risponde, con quella prima se era un seguito (followUpQuestion): la base del seguito dopo.
     val question: String? = null,
+    // Citta' e nazione nominate nella domanda: lo stato della conversazione.
+    val cities: List<String> = emptyList(),
+    val destination: String? = null,
 )
 
 /** Avanzamento di una risposta: il testo scritto finora, poi la risposta definitiva. */
@@ -130,6 +133,8 @@ class TravelAssistant @Inject constructor(
         val withSource = { answer: AssistantAnswer ->
             answer.copy(
                 question = question,
+                cities = cities,
+                destination = search.country?.name,
                 showOfficialSourceBanner = regulatedMatch != null,
                 officialSourceUrl = regulatedMatch?.let { officialSourceFor(it.category, nationalityPreferences.nationality.value)?.urlFor(destination) },
             )

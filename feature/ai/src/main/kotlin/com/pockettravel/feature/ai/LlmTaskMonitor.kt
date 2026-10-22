@@ -184,9 +184,13 @@ class LlmTaskManagerViewModel @Inject constructor(
     private val wordListsOverride: WordListsOverride,
     private val cpuBackends: CpuBackendStore,
     private val appRestarter: AppRestarter,
+    conversationMonitor: ConversationMonitor,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     val snapshot: StateFlow<LlmTaskSnapshot?> = monitor.latest
+
+    /** La conversazione aperta nella schermata dell'assistente, se ce n'e' una. */
+    val conversation: StateFlow<ConversationDebugInfo?> = conversationMonitor.current
 
     private val _availableCpuBackends = MutableStateFlow<List<String>>(emptyList())
 

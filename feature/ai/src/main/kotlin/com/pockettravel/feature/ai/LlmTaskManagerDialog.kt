@@ -34,6 +34,7 @@ import java.util.Locale
 @Composable
 internal fun LlmTaskManagerDialog(onDismiss: () -> Unit, viewModel: LlmTaskManagerViewModel = hiltViewModel()) {
     val snapshot by viewModel.snapshot.collectAsStateWithLifecycle()
+    val conversation by viewModel.conversation.collectAsStateWithLifecycle()
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ai_close)) } },
@@ -45,6 +46,7 @@ internal fun LlmTaskManagerDialog(onDismiss: () -> Unit, viewModel: LlmTaskManag
                     SpaceSection(current)
                     ResourcesSection(current)
                     BehaviourSection(current.runtime)
+                    ConversationSection(conversation, current.runtime)
                     WordListsSection(viewModel)
                     CpuBackendSection(current.cpuBackend, viewModel)
                 } ?: Text(stringResource(R.string.ai_taskmgr_loading))

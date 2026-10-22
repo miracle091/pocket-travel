@@ -4,6 +4,11 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
+import com.pockettravel.core.data.ConversationRepository
+import com.pockettravel.core.data.SavedConversation
+import com.pockettravel.core.data.crypto.HistoryKeys
+import com.pockettravel.core.data.crypto.HistoryReader
+import com.pockettravel.core.data.crypto.HistoryUnreadableException
 import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.sync.AppStatusClient
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.crypto.Cipher
 import javax.inject.Inject
 
 data class AiUiState(
@@ -50,7 +56,32 @@ data class AiUiState(
     val answer: AssistantAnswer? = null,
     val askedQuestion: String? = null,
     @StringRes val errorMessage: Int? = null,
+    // Turni della conversazione aperta prima di quello in fondo (askedQuestion e answer).
+    val earlierTurns: List<ShownTurn> = emptyList(),
+    // La cronologia aperta sopra la schermata; null quando e' chiusa.
+    val history: HistoryUiState? = null,
+    // Conversazioni nella cronologia, per "Elimina la cronologia" nelle Impostazioni.
+    val savedConversations: Int = 0,
 )
+
+/** Un turno gia' concluso della conversazione mostrata. */
+data class ShownTurn(val askedQuestion: String, val answer: AssistantAnswer)
+
+/** La cronologia delle conversazioni, cifrata: si apre solo dopo la biometria. */
+sealed interface HistoryUiState {
+    data object Loading : HistoryUiState
+
+    /** Biometria forte non configurata: le conversazioni non si salvano. */
+    data object Unavailable : HistoryUiState
+
+    /** Da sbloccare: [cipher] va nel CryptoObject del BiometricPrompt; null dopo un errore del Keystore (solo "Sblocca"). */
+    class Locked(val cipher: Cipher?) : HistoryUiState
+
+    /** Biometria cambiata o dati rovinati: le conversazioni salvate non si leggono piu', resta la cancellazione. */
+    data object Invalidated : HistoryUiState
+
+    data class Unlocked(val conversations: List<SavedConversation>) : HistoryUiState
+}
 
 @HiltViewModel
 class AiAssistantViewModel @Inject constructor(
@@ -62,6 +93,9 @@ class AiAssistantViewModel @Inject constructor(
     private val modelDownloadScheduler: LlmModelDownloadScheduler,
     private val llmBenchmark: LlmBenchmark,
     private val appStatusClient: AppStatusClient,
+    private val conversation: AssistantConversation,
+    private val conversationRepository: ConversationRepository,
+    private val historyAvailability: HistoryAvailability,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -106,6 +140,9 @@ class AiAssistantViewModel @Inject constructor(
         observeModelDownload()
         viewModelScope.launch {
             engine.isLoadingModel.collect { loading -> _uiState.update { it.copy(isModelLoading = loading) } }
+        }
+        viewModelScope.launch {
+            conversationRepository.count.collect { count -> _uiState.update { it.copy(savedConversations = count) } }
         }
         // Dimensione mostrata e spazio richiesto come quelli che il download verifichera' (LlmModelDownloadWorker):
         // un modello ricaricato con lo stesso nome puo' pesare diversamente da quanto scritto nell'APK.
@@ -296,16 +333,31 @@ class AiAssistantViewModel @Inject constructor(
             return
         }
 
-        val previous = previousQuestion
+        resumeJob?.cancel()
+        val previous = conversation.previousQuestion
+        // Una conversazione ripresa resta nella sua regione, anche aperta dalla scheda IA di un'altra.
+        val region = conversation.regionId ?: regionId
         askJob = viewModelScope.launch {
-            _uiState.update { it.copy(isThinking = true, errorMessage = null, askedQuestion = question, question = "", answer = null, streamingText = "") }
+            _uiState.update {
+                // Il turno concluso sale sopra la domanda nuova.
+                val done = it.askedQuestion?.let { asked -> it.answer?.let { answer -> ShownTurn(asked, answer) } }
+                it.copy(
+                    isThinking = true,
+                    errorMessage = null,
+                    earlierTurns = it.earlierTurns + listOfNotNull(done),
+                    askedQuestion = question,
+                    question = "",
+                    answer = null,
+                    streamingText = "",
+                )
+            }
             try {
-                travelAssistant.ask(regionId, question, state.mode, previous).collect { progress ->
+                travelAssistant.ask(region, question, state.mode, previous).collect { progress ->
                     when (progress) {
                         is AssistantProgress.Partial -> _uiState.update { it.copy(streamingText = progress.text) }
                         is AssistantProgress.Done -> {
-                            previousQuestion = progress.answer.question ?: question
                             _uiState.update { it.copy(isThinking = false, streamingText = "", answer = progress.answer) }
+                            conversation.onAnswered(state.mode, region, state.selectedModelId, question, progress.answer)
                         }
                     }
                 }
@@ -313,8 +365,8 @@ class AiAssistantViewModel @Inject constructor(
                 throw error
             } catch (error: Exception) {
                 // Errore a meta': il parziale si scarta, come l'errore sostituisce la risposta nella UI. Senza risposta
-                // visibile nemmeno la base dei seguiti (vedi cancelAsk).
-                previousQuestion = null
+                // visibile nemmeno la base dei seguiti.
+                conversation.onFailed()
                 _uiState.update { it.copy(isThinking = false, streamingText = "", errorMessage = askErrorMessage(error)) }
             }
         }
@@ -323,19 +375,156 @@ class AiAssistantViewModel @Inject constructor(
     // La domanda in corso (generazione o richiesta online).
     private var askJob: Job? = null
 
-    // L'ultima domanda con risposta (con quella prima se era un seguito): la base di un seguito ("E a Lisbona?").
-    private var previousQuestion: String? = null
+    /** Chiude la conversazione aperta (si archivia) e svuota la schermata per una nuova. */
+    fun newConversation() {
+        cancelAsk()
+        _uiState.update { it.copy(askedQuestion = null, answer = null, errorMessage = null) }
+    }
 
     /**
      * Interrompe la domanda in corso, se c'e': chi la chiama sta per azzerare o cambiare la risposta, e
-     * senza questo il testo parziale (o la risposta finale) ricomparirebbe dopo. Con la risposta va via anche
-     * la base dei seguiti: un seguito non si riferisce a una risposta che non si vede piu'.
+     * senza questo il testo parziale (o la risposta finale) ricomparirebbe dopo. Con la risposta finisce anche
+     * la conversazione: un seguito non si riferisce a una risposta che non si vede piu'.
      */
     private fun cancelAsk() {
+        resumeJob?.cancel()
         askJob?.cancel()
         askJob = null
-        previousQuestion = null
-        _uiState.update { it.copy(isThinking = false, streamingText = "") }
+        conversation.end()
+        _uiState.update { it.copy(isThinking = false, streamingText = "", earlierTurns = emptyList()) }
+    }
+
+    // La cronologia sbloccata: vive solo mentre la cronologia e' aperta.
+    private var historyReader: HistoryReader? = null
+
+    // Ogni apertura e chiusura della cronologia ne fa una nuova: un lavoro di quella prima non ne cambia piu' lo stato.
+    private var historySession = 0
+
+    // La ripresa in corso: una domanda o la fine della conversazione la annullano.
+    private var resumeJob: Job? = null
+
+    /** Apre la cronologia: senza biometria spiega perche' non c'e', altrimenti prepara lo sblocco. */
+    fun openHistory() {
+        historyReader = null
+        val session = ++historySession
+        if (!historyAvailability.isAvailable()) {
+            _uiState.update { it.copy(history = HistoryUiState.Unavailable) }
+            return
+        }
+        _uiState.update { it.copy(history = HistoryUiState.Loading) }
+        viewModelScope.launch {
+            val unlock = try {
+                conversationRepository.prepareUnlock()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Errore del Keystore (ProviderException): niente prompt, resta "Sblocca" per riprovare.
+                null
+            }
+            val history = when (unlock) {
+                null -> HistoryUiState.Locked(cipher = null)
+                HistoryKeys.Unlock.Empty -> HistoryUiState.Unlocked(emptyList())
+                HistoryKeys.Unlock.Invalidated -> HistoryUiState.Invalidated
+                is HistoryKeys.Unlock.Ready -> HistoryUiState.Locked(unlock.cipher)
+            }
+            updateHistory(session, history)
+        }
+    }
+
+    /** Biometria riuscita: [authenticatedCipher] e' il Cipher del CryptoObject restituito dal BiometricPrompt. */
+    fun onHistoryUnlocked(authenticatedCipher: Cipher) {
+        val session = historySession
+        updateHistory(session, HistoryUiState.Loading)
+        viewModelScope.launch {
+            val reader = try {
+                conversationRepository.completeUnlock(authenticatedCipher)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: HistoryUnreadableException) {
+                // Chiave del Keystore cambiata o dati rovinati: riprovare darebbe lo stesso errore.
+                updateHistory(session, HistoryUiState.Invalidated)
+                return@launch
+            } catch (_: Exception) {
+                // Errore del Keystore: si puo' riprovare.
+                updateHistory(session, HistoryUiState.Locked(cipher = null))
+                return@launch
+            }
+            // Cronologia chiusa (o riaperta) durante lo sblocco: la chiave non resta in memoria.
+            if (session != historySession || _uiState.value.history == null) return@launch
+            historyReader = reader
+            showHistoryList(session, reader)
+        }
+    }
+
+    fun closeHistory() {
+        historyReader = null
+        historySession++
+        _uiState.update { it.copy(history = null) }
+    }
+
+    /**
+     * Riprende una conversazione della cronologia al posto di quella aperta: i suoi turni tornano sulla schermata e la
+     * domanda dopo la continua. Se non c'e' piu', la conversazione aperta resta com'e'.
+     */
+    fun resumeConversation(id: String) {
+        val reader = historyReader ?: return
+        resumeJob?.cancel()
+        resumeJob = viewModelScope.launch {
+            val resumed = conversation.resume(reader, id)
+            closeHistory()
+            if (resumed == null) return@launch
+            askJob?.cancel()
+            askJob = null
+            val shown = resumed.turns.map { turn ->
+                ShownTurn(
+                    turn.askedQuestion,
+                    AssistantAnswer(turn.answer, turn.citations, turn.showOfficialSourceBanner, turn.officialSourceUrl, turn.question),
+                )
+            }
+            _uiState.update {
+                it.copy(
+                    isThinking = false,
+                    streamingText = "",
+                    earlierTurns = shown.dropLast(1),
+                    askedQuestion = shown.lastOrNull()?.askedQuestion,
+                    answer = shown.lastOrNull()?.answer,
+                    errorMessage = null,
+                )
+            }
+        }
+    }
+
+    /** Cancella una conversazione dalla cronologia; se e' quella aperta, la schermata si svuota. */
+    fun deleteConversation(id: String) {
+        val reader = historyReader ?: return
+        val session = historySession
+        if (conversation.id == id) newConversation()
+        viewModelScope.launch {
+            conversationRepository.delete(id)
+            showHistoryList(session, reader)
+        }
+    }
+
+    /** Cancella tutta la cronologia, senza sblocco (Impostazioni, o cronologia non piu' leggibile). */
+    fun deleteHistory() {
+        val session = historySession
+        newConversation()
+        viewModelScope.launch {
+            conversationRepository.deleteAll()
+            updateHistory(session, HistoryUiState.Unlocked(emptyList()))
+        }
+    }
+
+    private suspend fun showHistoryList(session: Int, reader: HistoryReader) {
+        updateHistory(session, HistoryUiState.Unlocked(conversationRepository.list(reader)))
+    }
+
+    private fun updateHistory(session: Int, history: HistoryUiState) {
+        _uiState.update { if (session != historySession || it.history == null) it else it.copy(history = history) }
+    }
+
+    override fun onCleared() {
+        conversation.end()
     }
 }
 

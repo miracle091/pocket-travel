@@ -107,6 +107,24 @@
     <string name="ai_taskmgr_cpu_value">%1$.0f%% of one core · %2$d cores</string>
     <string name="ai_taskmgr_threads">Threads</string>
     <string name="ai_taskmgr_behaviour">Behavior</string>
+    <string name="ai_taskmgr_conversation">Conversation</string>
+    <string name="ai_taskmgr_conversation_none">No open conversation</string>
+    <string name="ai_taskmgr_conversation_saving">Saving</string>
+    <string name="ai_taskmgr_conversation_saved">In the history</string>
+    <string name="ai_taskmgr_conversation_not_saved">In memory only</string>
+    <string name="ai_taskmgr_conversation_turns">Turns (in the model context)</string>
+    <string name="ai_taskmgr_conversation_tokens">Tokens read and written by the model</string>
+    <string name="ai_taskmgr_conversation_threshold">Compaction threshold</string>
+    <string name="ai_taskmgr_conversation_threshold_value">%1$d tokens, %2$d to go</string>
+    <string name="ai_taskmgr_conversation_compactions">Compactions</string>
+    <string name="ai_taskmgr_conversation_duration">Duration</string>
+    <string name="ai_taskmgr_conversation_since_last">Since the last turn</string>
+    <string name="ai_taskmgr_conversation_archives">Archived</string>
+    <string name="ai_taskmgr_conversation_resumes">Resumed (last)</string>
+    <string name="ai_taskmgr_conversation_region">Region</string>
+    <string name="ai_taskmgr_conversation_cities">Cities</string>
+    <string name="ai_taskmgr_conversation_destination">Destination</string>
+    <string name="ai_taskmgr_conversation_last_question">Last question</string>
     <string name="ai_taskmgr_state">State</string>
     <string name="ai_taskmgr_state_unloaded">No model in memory</string>
     <string name="ai_taskmgr_state_loaded">%1$s in memory</string>
@@ -144,5 +162,33 @@
     <plurals name="ai_sources_count">
         <item quantity="one">Source (%d)</item>
         <item quantity="other">Sources (%d)</item>
+    </plurals>
+    <!-- Conversations and history (On device engine only) -->
+    <string name="ai_history">History</string>
+    <string name="ai_new_conversation">New conversation</string>
+    <string name="ai_history_locked_title">History locked</string>
+    <string name="ai_history_locked_body">The history opens with biometrics</string>
+    <string name="ai_history_unlock">Unlock</string>
+    <string name="ai_history_prompt_title">Open the history</string>
+    <string name="ai_history_prompt_subtitle">Conversations with the assistant</string>
+    <string name="ai_history_auth_failed">Biometrics not recognized</string>
+    <string name="ai_history_no_biometric_title">Biometrics not set up</string>
+    <string name="ai_history_no_biometric_body">Conversations are saved only with strong biometrics set up on the device, such as a fingerprint</string>
+    <string name="ai_history_open_security_settings">Open security settings</string>
+    <string name="ai_history_invalidated_title">History no longer readable</string>
+    <string name="ai_history_invalidated_body">The device biometrics changed: the saved conversations can no longer be opened</string>
+    <string name="ai_history_empty_title">No conversations</string>
+    <string name="ai_history_empty_body">Conversations with the On device engine are saved here, encrypted</string>
+    <string name="ai_history_item_details">%1$s, %2$s</string>
+    <string name="ai_history_resume">Resume the conversation</string>
+    <string name="ai_history_delete">Delete</string>
+    <string name="ai_history_delete_title">Delete the conversation?</string>
+    <string name="ai_history_delete_message">The conversation (%1$s) will be deleted</string>
+    <string name="ai_history_delete_all">Delete the history</string>
+    <string name="ai_history_delete_all_title">Delete the history?</string>
+    <string name="ai_history_delete_all_message">All saved conversations will be deleted</string>
+    <plurals name="ai_history_saved_count">
+        <item quantity="one">History: %d conversation</item>
+        <item quantity="other">History: %d conversations</item>
     </plurals>
 </resources>

@@ -74,6 +74,8 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
@@ -100,4 +102,6 @@ dependencies {
     testImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    // Cronologia in memoria (FakeConversationDao, chiavi software) per la ripresa in MultiTurnDeviceTest.
+    androidTestImplementation(testFixtures(project(":core:data")))
 }
