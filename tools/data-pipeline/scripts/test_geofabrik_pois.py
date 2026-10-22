@@ -179,12 +179,12 @@ class ScegliEstrattiTest(unittest.TestCase):
         self.assertEqual(chosen, ["us/alaska"])
 
     def test_con_iso_senza_estratti_della_nazione_si_usa_solo_il_bbox(self):
-        # Come San Marino: nessun estratto suo, vale l'estratto del paese che lo contiene.
+        # Come la Città del Vaticano: nessun estratto suo, vale l'estratto del paese che lo contiene.
         italia = quadrato("italia", 0, 0, 10, 10)
         italia["properties"]["iso3166-1:alpha2"] = ["IT"]
         index = {"features": [italia]}
 
-        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (4, 4, 5, 5), "sm")]
+        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (4, 4, 5, 5), "va")]
 
         self.assertEqual(chosen, ["italia"])
 
@@ -199,6 +199,27 @@ class ScegliEstrattiTest(unittest.TestCase):
         chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (2, 2, 15, 8), "sa")]
 
         self.assertEqual(chosen, ["gcc-states"])
+
+    def test_con_iso_nazione_che_sta_solo_in_un_estratto_composto(self):
+        # Come le Isole Vergini Britanniche: il bbox tocca solo la foglia us/us-virgin-islands, che non le contiene.
+        isole_usa = quadrato("us/us-virgin-islands", 0, 0, 5, 10, "north-america")
+        isole_usa["properties"]["iso3166-1:alpha2"] = ["VI"]
+        index = {"features": [quadrato("north-america", 0, 0, 30, 30), isole_usa,
+                              quadrato("central-america", 0, 0, 20, 20, "north-america"),
+                              quadrato("cuba", 15, 15, 20, 20, "central-america")]}
+
+        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (2, 2, 8, 8), "vg")]
+
+        self.assertEqual(chosen, ["central-america"])
+
+    def test_con_iso_nazione_tra_due_foglie_che_non_la_coprono(self):
+        # Come San Marino: il bbox tocca centro e nord-est, ma solo italy contiene la nazione.
+        index = {"features": [quadrato("italy", 0, 0, 20, 10),
+                              quadrato("centro", 0, 0, 9, 10, "italy"), quadrato("nord-est", 11, 0, 20, 10, "italy")]}
+
+        chosen = [cid for cid, _ in geofabrik_pois.scegli_estratti(index, (8, 4, 12, 6), "sm")]
+
+        self.assertEqual(chosen, ["italy"])
 
     def test_bbox_tutto_dentro_un_estratto(self):
         index = {"features": [quadrato("a", 0, 0, 10, 10)]}

@@ -54,6 +54,11 @@ TAGS_FILTER = [
 # dell'Irlanda l'Irlanda del Nord, quello della Malesia Singapore e Brunei.
 PAESI_MANCANTI = {"gcc-states": {"SA"}, "ireland-and-northern-ireland": {"GB"},
                   "malaysia-singapore-brunei": {"SG", "BN"}}
+# Nazioni senza un estratto proprio la cui terra non sta in nessuna foglia che tocca il loro bbox: le Isole Vergini
+# Britanniche toccano solo us/us-virgin-islands, Trinidad e Tobago solo venezuela, e il taglio sul confine lascerebbe
+# un pacchetto vuoto; le isole stanno nel poligono di central-america. San Marino sta tra i poligoni di centro e
+# nord-est, senza esserne coperto: solo italy lo contiene.
+ESTRATTI_DELLE_NAZIONI = {"VG": "central-america", "TT": "central-america", "SM": "italy"}
 NODE_KEYS = ("amenity", "shop", "tourism", "leisure", "historic")
 # Musei e monumenti come aree o relazioni (Tour Eiffel, Louvre), solo con un nome: query di build-region.sh.
 WR_TOURISM_NAMED = {"museum", "gallery", "attraction"}
@@ -255,6 +260,9 @@ def scegli_estratti(index, bbox, iso=None):
     di Norvegia o Arabia Saudita contiene paesi interi (Svezia, Finlandia, Egitto, Iran...) che sarebbero
     scaricati per un pugno di POI al confine."""
     features = [f for f in index["features"] if f.get("geometry") and f["properties"].get("urls", {}).get("pbf")]
+    if iso and iso.upper() in ESTRATTI_DELLE_NAZIONI:
+        cid = ESTRATTI_DELLE_NAZIONI[iso.upper()]
+        return [(cid, f["properties"]["urls"]["pbf"]) for f in features if f["properties"]["id"] == cid]
     parents = {f["properties"].get("parent") for f in features}
     leaves = [(f["properties"]["id"], f["properties"]["urls"]["pbf"], anelli(f["geometry"]))
               for f in features if f["properties"]["id"] not in parents]
