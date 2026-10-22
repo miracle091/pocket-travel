@@ -2,6 +2,7 @@ package com.pockettravel.feature.map.testing
 
 import com.pockettravel.core.data.RealtimeFeed
 import com.pockettravel.feature.map.ConnectivityChecker
+import com.pockettravel.feature.map.RealtimeDownload
 import com.pockettravel.feature.map.TransitRealtimeClient
 import java.io.IOException
 import java.time.Clock
@@ -9,14 +10,16 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 
-/** [TransitRealtimeClient] in memoria: risponde con [feeds] per indirizzo (IOException se manca) e registra [requests]. */
+/** [TransitRealtimeClient] in memoria: risponde con [feeds] per indirizzo (IOException se manca), pesanti [bytes] (30 KB se non indicato), e registra [requests]. */
 class FakeTransitRealtimeClient : TransitRealtimeClient {
     val feeds = mutableMapOf<String, RealtimeFeed>()
+    val bytes = mutableMapOf<String, Long>()
     val requests = mutableListOf<String>()
 
-    override suspend fun fetch(url: String): RealtimeFeed {
+    override suspend fun fetch(url: String): RealtimeDownload {
         requests += url
-        return feeds[url] ?: throw IOException("nessun feed per $url")
+        val feed = feeds[url] ?: throw IOException("nessun feed per $url")
+        return RealtimeDownload(feed, bytes[url] ?: 30_000L)
     }
 }
 

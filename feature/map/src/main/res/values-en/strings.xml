@@ -238,6 +238,7 @@
     <string name="transit_realtime_updated">Real time, updated at %1$s</string>
     <string name="transit_realtime_loading">Updating delays…</string>
     <string name="transit_realtime_failed">Delays not updated: the operator\'s service is not responding</string>
+    <string name="transit_realtime_paused">Automatic delay updates paused</string>
     <string name="transit_realtime_refresh">Refresh delays</string>
     <string name="transit_realtime_refresh_size">Refresh delays (%1$s)</string>
     <plurals name="transit_in_minutes_spoken">

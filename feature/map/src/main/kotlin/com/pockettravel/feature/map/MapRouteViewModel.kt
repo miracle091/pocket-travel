@@ -117,6 +117,8 @@ class MapRouteViewModel @Inject constructor(
         _transitRealtime.value = null
         val regionId = regionIdFlow.value
         if (pin == null || regionId == null) return
+        // Un riquadro aperto conta come un tocco: l'aggiornamento automatico (in pausa dopo un quarto d'ora fermo) riparte.
+        transitRealtime.touch()
         transitJob = viewModelScope.launch {
             var tapped = false
             while (true) {
@@ -128,7 +130,8 @@ class MapRouteViewModel @Inject constructor(
                 val networks = realtimeNetworks(board)
                 _transitRealtime.value = transitRealtime.ui(networks, loading = true)
                 if (_transitRealtime.value != null) {
-                    transitRealtime.refresh(networks, tapped)
+                    // Da solo scarica solo le reti con una partenza nell'ora successiva; un tocco le scarica tutte.
+                    transitRealtime.refresh(if (tapped) networks else realtimeNetworksDue(board), tapped)
                     _transitBoard.value = read(transitRealtime.usable(networks))
                     _transitRealtime.value = transitRealtime.ui(networks, loading = false)
                 }

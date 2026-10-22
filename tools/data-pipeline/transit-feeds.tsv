@@ -93,7 +93,7 @@
 # dataset), Bordeaux (Licence Ouverte; la apiKey nell'indirizzo e' quella pubblica e uguale per tutti del portale
 # datahub.bordeaux-metropole.fr, nessuna registrazione), Tolosa (ODbL e condizioni del PAN, come SNCF), Corsica
 # (Licence Ouverte 2.0), Berlino VBB (CC BY 4.0, production.gtfsrt.vbb.de: al massimo 60 richieste al minuto e
-# User-Agent con un contatto; ~9 MB a download, l'app lo scarica da sola solo senza rete a consumo), Zagabria (la
+# User-Agent con un contatto; 2,25 MB compressi a download, 9 decompressi: l'app lo scarica da sola ogni 4 minuti e mezzo, su rete a consumo solo con un tocco), Zagabria (la
 # Otvorena dozvola di zet.hr nomina anche i "GTFS realtime data"), BART e MBTA (i loro termini coprono anche i dati in
 # tempo reale), Sofia (condizioni del Comune per i dati di "livello 1", CC BY 4.0 anche commerciale; non si alterano
 # nomi, codici e colori di fermate e linee), Calgary (Open Government Licence - City of Calgary, come l'orario), STA

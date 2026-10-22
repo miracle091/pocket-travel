@@ -15,15 +15,27 @@ import javax.inject.Inject
 /**
  * Stato del tempo reale sotto il tabellone: [updatedAt] l'ora del download piu' vecchio tra le reti della fermata
  * (null se nessuno e' ancora arrivato), [failed] se l'ultimo tentativo di una rete non e' andato, [tapSizeBytes] il
- * peso dei feed che su rete a consumo si scaricano solo con un tocco (null se nessuno aspetta).
+ * peso dei feed che su rete a consumo si scaricano solo con un tocco (null se nessuno aspetta), [paused] se
+ * l'aggiornamento automatico e' fermo perche' il riquadro e' aperto da [REALTIME_IDLE_PAUSE] senza un tocco.
  */
-data class TransitRealtimeUi(val updatedAt: Instant?, val loading: Boolean, val failed: Boolean, val tapSizeBytes: Long?)
+data class TransitRealtimeUi(
+    val updatedAt: Instant?,
+    val loading: Boolean,
+    val failed: Boolean,
+    val tapSizeBytes: Long?,
+    val paused: Boolean = false,
+)
 
 /**
  * I feed GTFS-RT delle reti del tabellone aperto: li scarica solo con la rete, mai in background (li chiede il ciclo del
- * tabellone di MapRouteViewModel), e li tiene per [REALTIME_MAX_AGE]. Su rete a consumo i feed oltre
- * [LARGE_REALTIME_BYTES] si scaricano solo con un tocco ([refresh] con tapped). Senza rete nessun feed vale: il
- * tabellone resta l'orario di sempre.
+ * tabellone di MapRouteViewModel), e li tiene per [REALTIME_MAX_AGE]. Senza rete nessun feed vale: il tabellone resta
+ * l'orario di sempre. Per non consumare troppi dati con il riquadro aperto a lungo:
+ * - ogni rete si riscarica da sola al piu' ogni [realtimeInterval]: piu' il feed pesa (l'ultimo download misurato, se no
+ *   la stima del catalogo), piu' si aspetta, il doppio su rete a consumo;
+ * - su rete a consumo i feed oltre [LARGE_REALTIME_BYTES] si scaricano solo con un tocco;
+ * - dopo [REALTIME_IDLE_PAUSE] senza un'apertura del riquadro ne' un tocco ([touch]) l'aggiornamento automatico si ferma.
+ * Un tocco su "Aggiorna i ritardi" ([refresh] con tapped) scarica tutto, salvo un altro tocco da meno di
+ * [REALTIME_MIN_INTERVAL].
  */
 class TransitRealtimeLoader @Inject constructor(
     private val client: TransitRealtimeClient,
@@ -36,6 +48,15 @@ class TransitRealtimeLoader @Inject constructor(
     private val lastTry = mutableMapOf<String, Instant>()
     private val failed = mutableSetOf<String>()
 
+    // Byte scaricati (compressi) nell'ultimo download di ogni rete.
+    private val lastBytes = mutableMapOf<String, Long>()
+    private var lastTouch: Instant = clock.instant()
+
+    /** Il riquadro si e' aperto o l'utente ha toccato "Aggiorna i ritardi": l'aggiornamento automatico riparte. */
+    fun touch() {
+        lastTouch = clock.instant()
+    }
+
     /** I feed ancora validi per [networks], per id di rete; vuoto senza rete. */
     fun usable(networks: List<TransitFeedInfo>): Map<String, RealtimeFeed> {
         if (networks.isEmpty() || !connectivity.isOnline()) return emptyMap()
@@ -46,24 +67,31 @@ class TransitRealtimeLoader @Inject constructor(
     }
 
     /**
-     * Scarica in parallelo i feed di [networks]: quelli piccoli (o su rete non a consumo) sempre, i grandi solo con
-     * [tapped]; nessuna rete scaricata piu' spesso di [REALTIME_MIN_INTERVAL]. Senza rete non fa nulla.
+     * Scarica in parallelo i feed di [networks] che ne hanno bisogno: con [tapped] tutti (salvo un tocco ravvicinato); se
+     * no, se l'aggiornamento automatico non e' in pausa, quelli non in attesa di un tocco il cui ultimo tentativo e' piu'
+     * vecchio di [realtimeInterval]. Senza rete non fa nulla.
      */
     suspend fun refresh(networks: List<TransitFeedInfo>, tapped: Boolean) {
         if (!connectivity.isOnline()) return
         val now = clock.instant()
+        if (tapped) touch()
+        if (!tapped && paused(now)) return
         val due = networks.filter { network ->
-            val url = network.realtimeUrl ?: return@filter false
-            url.isNotEmpty() && (tapped || !waitsForTap(network)) &&
-                lastTry[network.id]?.let { Duration.between(it, now) >= REALTIME_MIN_INTERVAL } != false
+            val since = lastTry[network.id]?.let { Duration.between(it, now) }
+            when {
+                network.realtimeUrl.isNullOrEmpty() -> false
+                tapped -> since == null || since >= REALTIME_MIN_INTERVAL
+                else -> !waitsForTap(network) && (since == null || since >= interval(network))
+            }
         }
         coroutineScope {
             due.map { network ->
                 async {
                     lastTry[network.id] = now
                     try {
-                        val feed = client.fetch(checkNotNull(network.realtimeUrl))
-                        feeds[network.id] = Entry(feed, clock.instant())
+                        val download = client.fetch(checkNotNull(network.realtimeUrl))
+                        feeds[network.id] = Entry(download.feed, clock.instant())
+                        lastBytes[network.id] = download.bytes
                         failed -= network.id
                     } catch (e: CancellationException) {
                         // Download interrotto (riquadro chiuso): la fermata dopo della stessa rete lo riprova subito.
@@ -87,12 +115,28 @@ class TransitRealtimeLoader @Inject constructor(
             updatedAt = networks.mapNotNull { network -> feeds[network.id]?.takeIf { network.id in usable }?.fetchedAt }.minOrNull(),
             loading = loading,
             failed = networks.any { it.id in failed },
-            tapSizeBytes = waiting.takeIf { it.isNotEmpty() }?.sumOf { it.realtimeSizeBytes ?: 0L },
+            tapSizeBytes = waiting.takeIf { it.isNotEmpty() }?.sumOf { sizeOf(it) },
+            paused = paused(clock.instant()),
         )
     }
 
-    private fun waitsForTap(network: TransitFeedInfo): Boolean =
-        (network.realtimeSizeBytes ?: 0L) > LARGE_REALTIME_BYTES && connectivity.isMetered()
+    private fun paused(now: Instant) = Duration.between(lastTouch, now) > REALTIME_IDLE_PAUSE
+
+    private fun sizeOf(network: TransitFeedInfo): Long = lastBytes[network.id] ?: network.realtimeSizeBytes ?: 0L
+
+    private fun waitsForTap(network: TransitFeedInfo): Boolean = sizeOf(network) > LARGE_REALTIME_BYTES && connectivity.isMetered()
+
+    private fun interval(network: TransitFeedInfo): Duration = realtimeInterval(sizeOf(network), connectivity.isMetered())
+}
+
+/**
+ * Ogni quanto si riscarica da solo un feed di [bytes] byte: un minuto ogni [REALTIME_BYTES_PER_MINUTE] (Berlino, 2,25 MB:
+ * 4,5 minuti; Renfe, 23 KB: 1 minuto), il doppio su rete a consumo, tra [REALTIME_MIN_AUTO_INTERVAL] e
+ * [REALTIME_MAX_AUTO_INTERVAL].
+ */
+internal fun realtimeInterval(bytes: Long, metered: Boolean): Duration {
+    val seconds = bytes * SECONDS_PER_MINUTE / REALTIME_BYTES_PER_MINUTE * (if (metered) 2 else 1)
+    return Duration.ofSeconds(seconds).coerceIn(REALTIME_MIN_AUTO_INTERVAL, REALTIME_MAX_AUTO_INTERVAL)
 }
 
 /** Le reti con il tempo reale tra quelle del tabellone (anche quelle scadute da poco: le partenze stimate restano senza). */
@@ -101,7 +145,17 @@ fun realtimeNetworks(board: TransitBoard?): List<TransitFeedInfo> = when (board)
     is TransitBoard.Expired, TransitBoard.NoStops, null -> emptyList()
 }.filter { !it.realtimeUrl.isNullOrEmpty() }.distinctBy { it.id }
 
-/** Oltre questo peso (Helsinki, Berlino, Praga) un feed su rete a consumo si scarica solo con un tocco. */
+/**
+ * Tra [realtimeNetworks] quelle con una partenza entro [REALTIME_HORIZON_MINUTES] (anche tra le successive): i ritardi
+ * delle partenze piu' lontane cambiano comunque prima di allora, e il feed di SNCF copre solo l'ora successiva.
+ */
+fun realtimeNetworksDue(board: TransitBoard?): List<TransitFeedInfo> {
+    val departures = (board as? TransitBoard.Departures)?.items.orEmpty().flatMap { listOf(it) + it.later }
+    val near = departures.filter { it.inMinutes <= REALTIME_HORIZON_MINUTES }.mapNotNullTo(mutableSetOf()) { it.network }
+    return realtimeNetworks(board).filter { it.id in near }
+}
+
+/** Oltre questo peso (Berlino, Bordeaux, Tolosa) un feed su rete a consumo si scarica solo con un tocco. */
 internal const val LARGE_REALTIME_BYTES = 1_000_000L
 
 // Un feed piu' vecchio non dice piu' nulla sui ritardi di adesso; i feed degli enti si aggiornano ogni 20 s - 2 min.
@@ -109,3 +163,16 @@ internal val REALTIME_MAX_AGE: Duration = Duration.ofMinutes(10)
 
 // Tocchi ravvicinati su "Aggiorna i ritardi" non riscaricano lo stesso feed.
 internal val REALTIME_MIN_INTERVAL: Duration = Duration.ofSeconds(20)
+
+// Aggiornamento automatico: un minuto di attesa ogni mezzo MB di feed, tra 1 e 7 minuti (sotto REALTIME_MAX_AGE, cosi'
+// tra un download e l'altro il feed precedente vale ancora).
+private const val REALTIME_BYTES_PER_MINUTE = 500_000L
+private const val SECONDS_PER_MINUTE = 60L
+internal val REALTIME_MIN_AUTO_INTERVAL: Duration = Duration.ofMinutes(1)
+internal val REALTIME_MAX_AUTO_INTERVAL: Duration = Duration.ofMinutes(7)
+
+// Riquadro aperto senza tocchi da piu' di cosi' (telefono lasciato sul tavolo): l'aggiornamento automatico si ferma.
+internal val REALTIME_IDLE_PAUSE: Duration = Duration.ofMinutes(15)
+
+// Solo le reti con una partenza entro questi minuti scaricano il feed da sole.
+internal const val REALTIME_HORIZON_MINUTES = 60

@@ -94,6 +94,8 @@ data class TransitDeparture(
     // Ritardo o soppressione dal feed GTFS-RT della rete, null senza tempo reale; [inMinutes] conta gia' il ritardo,
     // [minuteOfDay] resta l'ora programmata.
     val realtime: DepartureRealtime? = null,
+    // Id della rete (TransitFeedInfo.id) della partenza: decide quali feed del tempo reale servono.
+    val network: String? = null,
 )
 
 /**
@@ -270,13 +272,13 @@ internal fun readFeedBoard(
                 inMinutes = absolute - nowMinute,
                 wheelchair = wheelchairOf(row.string(DEP_COL_WHEELCHAIR)),
                 estimated = estimated,
+                network = feed?.id,
             ) to RealtimeCall(row.int(DEP_COL_TRIP), row.int(DEP_COL_STOP), today.plusDays(offset.toLong()), minute)
         }.filterNotNull()
         rows.forEach { (departure, call) -> found += departure; calls += call }
     }
-    val departures = realtimeFeed?.let { applyRealtime(db, found, calls, it, zone) } ?: found
     return TransitBoard.Departures(
-        departures.filter { it.inMinutes >= 0 }.sortedBy { it.inMinutes }, validUntil, ChronoUnit.DAYS.between(today, validUntil).toInt(), feeds, if (hasWheelchair) stopWheelchair(db, ids) else null,
+        (realtimeFeed?.let { applyRealtime(db, found, calls, it, zone) } ?: found).filter { it.inMinutes >= 0 }.sortedBy { it.inMinutes }, validUntil, ChronoUnit.DAYS.between(today, validUntil).toInt(), feeds, if (hasWheelchair) stopWheelchair(db, ids) else null,
         expired = if (grace) listOf(TransitBoard.Expired(validUntil, feeds, estimated = true)) else emptyList(),
     )
 }

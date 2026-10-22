@@ -38,6 +38,14 @@ internal fun RealtimeStatus(realtime: TransitRealtimeUi, onRefresh: () -> Unit) 
             Text(stringResource(R.string.transit_realtime_loading), style = MaterialTheme.typography.bodyMedium)
         }
     }
+    // Riquadro aperto da un quarto d'ora senza tocchi: i ritardi non si riscaricano da soli finche' non si tocca il pulsante.
+    if (realtime.paused && !realtime.loading) {
+        Text(
+            stringResource(R.string.transit_realtime_paused),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
     if (realtime.failed && !realtime.loading) {
         Text(stringResource(R.string.transit_realtime_failed), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
     }

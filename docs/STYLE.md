@@ -118,6 +118,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Corsa che non parte | soppressa | canceled |
 | Ora dell'ultimo download del tempo reale | Aggiornato alle 14:05 | Updated at 14:05 |
 | Pulsante che scarica di nuovo il tempo reale | Aggiorna i ritardi | Refresh delays |
+| Aggiornamento automatico fermo dopo un quarto d'ora senza tocchi | in pausa | paused |
 | Contenuto con negozi, ristoranti, musei... (e la sua aggiunta) | punti di interesse (punti di interesse extra) | points of interest (extra points of interest) |
 | Contenuto con le guide di Wikivoyage delle città | guide delle città | city guides |
 | Mappa con meno dettagli e meno spazio occupato | mappa leggera | light map |

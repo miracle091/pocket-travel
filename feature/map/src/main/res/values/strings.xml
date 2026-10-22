@@ -239,6 +239,7 @@
     <string name="transit_realtime_updated">In tempo reale, aggiornato alle %1$s</string>
     <string name="transit_realtime_loading">Aggiornamento dei ritardi…</string>
     <string name="transit_realtime_failed">Ritardi non aggiornati: il servizio dell\'ente non risponde</string>
+    <string name="transit_realtime_paused">Aggiornamento automatico dei ritardi in pausa</string>
     <string name="transit_realtime_refresh">Aggiorna i ritardi</string>
     <string name="transit_realtime_refresh_size">Aggiorna i ritardi (%1$s)</string>
     <plurals name="transit_in_minutes_spoken">

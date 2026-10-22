@@ -6,6 +6,7 @@ import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.data.RegionZonePreferences
 import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.data.TransitBoard
+import com.pockettravel.core.data.TransitDeparture
 import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.TransitMode
 import com.pockettravel.core.data.testing.FakeRegionRepository
@@ -421,7 +422,9 @@ class MapRouteViewModelTest {
 
     private val rtNetwork = TransitFeedInfo("renfe", "Renfe", "Renfe", realtimeUrl = "https://rt.example/renfe.pb", realtimeSizeBytes = 30_000)
     private val rtFeed = RealtimeFeed(null, emptyMap())
-    private val rtBoard = TransitBoard.Departures(emptyList(), LocalDate.parse("2026-11-01"), 10, listOf(rtNetwork))
+    private val rtBoard = TransitBoard.Departures(
+        listOf(TransitDeparture("C1", TransitMode.TRAIN, null, null, null, 600, 10, network = "renfe")), LocalDate.parse("2026-11-01"), 10, listOf(rtNetwork),
+    )
 
     @Test
     fun `con la rete il tabellone si rilegge con il feed del tempo reale, e Aggiorna i ritardi non aspetta il minuto`() = runTest {
