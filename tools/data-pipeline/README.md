@@ -24,7 +24,7 @@ dà un avviso. Per adeguarsi si aggiornano `lookups.dat` e i profili con una nuo
 | `guides` | Guide | rigenera `guides.db` e `guides-en.db` per tutte le regioni; pubblica solo se cambiano |
 | `world-map` | Mappa del mondo | mappa del mondo z0-8, rigenerata ogni ~30 giorni o se assente |
 | `address-grid` | Civici | celle dei numeri civici della quota del giorno (sezione sotto) |
-| `transit` | Mezzi pubblici | reti di `transit-feeds.tsv`, ricostruite se il feed cambia o dopo 7 giorni; una rete con gli orari scaduti passa da sola tra le "Non incluse" e torna pubblicata quando gli orari tornano validi, con un warning nella run solo in questi due cambi di stato; finche' il feed scaricato ha lo stesso sha256 (`sourceSha256` nella voce di `missing`), la rete scaduta non si riconverte e resta muta |
+| `transit` | Mezzi pubblici | reti di `transit-feeds.tsv`, ricostruite se il feed cambia o dopo 7 giorni; una rete con gli orari scaduti passa da sola tra le "Non incluse" e torna pubblicata quando gli orari tornano validi, con un warning nella run solo in questi due cambi di stato; finche' il feed scaricato ha lo stesso sha256 (`sourceSha256` nella voce di `missing`), la rete scaduta non si riconverte e resta muta; le reti con `url_rt` (feed GTFS-RT dell'ente) tengono i `trip_id` e gli `stop_id` del GTFS e hanno in `transit.json` `realtimeUrl` e `realtimeSizeBytes` |
 | `overture-check` | Controllo Overture | lista bianca delle fonti Overture, una volta per rilascio; esito in una issue |
 | `vaccinations-check` | Controllo vaccinazioni | deriva dei dati vaccinali, il lunedì e nelle run manuali |
 | `publish` | Pubblicazione | unisce i frammenti di catalogo al `manifest.json` pubblicato, lo firma e fa il deploy su Pages |

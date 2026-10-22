@@ -49,6 +49,10 @@ data class TransitFeed(
     val fileXz: RegionManifestFile? = null,
     // Rettangolo delle fermate: minLon, minLat, maxLon, maxLat (build-transit.sh); per le reti vicine.
     val bbox: List<Double>? = null,
+    // Feed GTFS-RT TripUpdates dell'ente, che l'app scarica da se' per i ritardi (solo https), e il peso di un
+    // download misurato dalla pipeline; null se la rete non ha il tempo reale o la misura e' fallita.
+    val realtimeUrl: String? = null,
+    val realtimeSizeBytes: Long? = null,
 ) {
     val downloadFile: RegionManifestFile get() = fileXz ?: file
 }
@@ -73,7 +77,7 @@ internal val TransitFeed.stagedFile: RegionManifestFile get() = file.copy(name =
 internal val TransitFeed.stagedFileXz: RegionManifestFile? get() = fileXz?.copy(name = "$id.db.xz")
 internal val TransitFeed.stagedDownloadFile: RegionManifestFile get() = stagedFileXz ?: stagedFile
 
-internal fun TransitFeed.info() = TransitFeedInfo(id, name, attribution, licenseUrl)
+internal fun TransitFeed.info() = TransitFeedInfo(id, name, attribution, licenseUrl, realtimeUrl = realtimeUrl, realtimeSizeBytes = realtimeSizeBytes)
 
 fun TransitManifestEntry.validate() {
     require(isSafeVersion(version)) { "version dell'indice dei mezzi pubblici non valida" }
@@ -100,6 +104,11 @@ internal fun TransitFeed.validate() {
     require(licenseUrl == null || runCatching { URI(licenseUrl) }.getOrNull()?.let { it.scheme == "https" && it.host != null } == true) {
         "licenseUrl non valido per la rete $id"
     }
+    // Un indirizzo che l'app scarica: https, con host e senza credenziali.
+    require(realtimeUrl == null || runCatching { URI(realtimeUrl) }.getOrNull()?.let { it.scheme == "https" && it.host != null && it.userInfo == null } == true) {
+        "realtimeUrl non valido per la rete $id"
+    }
+    require(realtimeSizeBytes == null || realtimeSizeBytes >= 0) { "realtimeSizeBytes non valido per la rete $id" }
     file.validate("transit/$id")
     fileXz?.validate("transit/$id")
 }

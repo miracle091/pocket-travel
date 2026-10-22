@@ -647,6 +647,19 @@ class ValidateManifestTest {
     private fun transitIndex(feed: String) = """{ "version": "2026.09.29.1", "feeds": [$feed] }"""
 
     @Test
+    fun `tempo reale - realtimeUrl https solo con gtfsIds, peso non negativo`() {
+        fun withRealtime(fields: String) = transitIndex(transitFeed().replace(""""version": """, """$fields, "version": """))
+        validateTransitJson(withRealtime(""""gtfsIds": true, "realtimeUrl": "https://gtfsrt.renfe.com/trip_updates.pb", "realtimeSizeBytes": 30000"""), allowedHosts)
+        // Peso assente (misura fallita) e id GTFS senza feed: validi.
+        validateTransitJson(withRealtime(""""gtfsIds": true, "realtimeUrl": "https://gtfsrt.renfe.com/trip_updates.pb""""), allowedHosts)
+        validateTransitJson(withRealtime(""""gtfsIds": true"""), allowedHosts)
+        assertTransitInvalid(withRealtime(""""gtfsIds": true, "realtimeUrl": "http://percorsieorari.gtt.to.it/das_gtfsrt/trip_update.aspx""""))
+        assertTransitInvalid(withRealtime(""""gtfsIds": true, "realtimeUrl": "https://user:pw@example.org/rt.pb""""))
+        assertTransitInvalid(withRealtime(""""realtimeUrl": "https://gtfsrt.renfe.com/trip_updates.pb""""))
+        assertTransitInvalid(withRealtime(""""gtfsIds": true, "realtimeUrl": "https://gtfsrt.renfe.com/trip_updates.pb", "realtimeSizeBytes": -1"""))
+    }
+
+    @Test
     fun `l'indice delle reti accetta zero reti e una licenseUrl assente o vuota`() {
         validateTransitJson("""{ "version": "2026.09.29.1", "feeds": [] }""", allowedHosts)
         val noLicenseUrl = transitFeed().replace(Regex(""""licenseUrl": "[^"]*","""), "")

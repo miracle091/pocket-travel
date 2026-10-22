@@ -28,6 +28,12 @@ private fun isAllowedUrl(url: String, allowedHosts: Set<String>): Boolean {
         uri.host in allowedHosts && uri.userInfo == null && uri.fragment == null
 }
 
+// Indirizzo di un ente (feed del tempo reale): https con host, senza credenziali; nessuna lista di host.
+private fun isHttpsUrl(url: String): Boolean {
+    val uri = runCatching { URI(url) }.getOrNull() ?: return false
+    return uri.scheme.equals("https", ignoreCase = true) && uri.host != null && uri.userInfo == null
+}
+
 fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
     val root = JSONObject(manifestJson)
     val manifestVersion = root.getInt("manifestVersion")
@@ -214,6 +220,15 @@ fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
         val licenseUrl = feed.optString("licenseUrl", "")
         if (licenseUrl.isNotEmpty() && !licenseUrl.startsWith("https://")) {
             throw ManifestValidationException("transit.json: licenseUrl non https per $id")
+        }
+        // Tempo reale: il feed che l'app scarica da se', solo https e solo su una transit.db con gli id GTFS.
+        val realtimeUrl = feed.optString("realtimeUrl", "")
+        if (realtimeUrl.isNotEmpty()) {
+            if (!isHttpsUrl(realtimeUrl)) throw ManifestValidationException("transit.json: realtimeUrl non https per $id")
+            if (!feed.optBoolean("gtfsIds", false)) throw ManifestValidationException("transit.json: realtimeUrl senza gtfsIds per $id")
+            if (feed.has("realtimeSizeBytes") && feed.getLong("realtimeSizeBytes") < 0) {
+                throw ManifestValidationException("transit.json: realtimeSizeBytes non valido per $id")
+            }
         }
         runCatching { java.time.LocalDate.parse(feed.getString("validUntil")) }
             .getOrElse { throw ManifestValidationException("transit.json: validUntil non valido per $id") }

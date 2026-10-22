@@ -105,6 +105,9 @@ data class TransitFeedInfo(
     val attribution: String,
     val licenseUrl: String? = null,
     @Transient val dataDate: LocalDate? = null,
+    // Feed GTFS-RT della rete e peso di un download (TransitFeed nel catalogo); null senza tempo reale.
+    val realtimeUrl: String? = null,
+    val realtimeSizeBytes: Long? = null,
 ) {
     companion object {
         private val json = Json { ignoreUnknownKeys = true }

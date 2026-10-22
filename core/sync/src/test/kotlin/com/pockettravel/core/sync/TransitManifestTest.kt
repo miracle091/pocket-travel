@@ -39,7 +39,8 @@ class TransitManifestTest {
             },
             {
               "id": "mdb-100", "name": "Milano", "regions": ["italia"], "license": "CC-BY-4.0", "attribution": "ATM",
-              "version": "2026.09.29.5.1",
+              "version": "2026.09.29.5.1", "gtfsIds": true,
+              "realtimeUrl": "https://example.org/gtfs-rt/trip-updates", "realtimeSizeBytes": 94000,
               "file": { "name": "transit.db", "url": "https://github.com/o/r/releases/download/transit-feeds/mdb-100--v--transit.db", "sizeBytes": 9000000, "sha256": "$sha" },
               "fileXz": { "name": "transit.db.xz", "url": "https://github.com/o/r/releases/download/transit-feeds/mdb-100--v--transit.db.xz", "sizeBytes": 2000000, "sha256": "$sha" }
             }
@@ -66,6 +67,23 @@ class TransitManifestTest {
         assertEquals(781_484L, index.feeds[0].downloadFile.sizeBytes)
         // Senza fileXz si scarica direttamente file.
         assertEquals(1_000_000L, index.feeds[1].downloadFile.sizeBytes)
+        // Tempo reale: indirizzo e peso del feed fino a feeds.json; le reti senza non li hanno.
+        assertNull(index.feeds[0].realtimeUrl)
+        val milano = index.feeds[2].info()
+        assertEquals("https://example.org/gtfs-rt/trip-updates", milano.realtimeUrl)
+        assertEquals(94_000L, milano.realtimeSizeBytes)
+        assertEquals(milano, TransitFeedInfo.decode(TransitFeedInfo.encode(listOf(milano))).single())
+    }
+
+    @Test
+    fun `la convalida rifiuta un feed del tempo reale non https o con credenziali`() {
+        val feed = index().feeds[2]
+        fun invalid(bad: TransitFeed) = assertThrows(IllegalArgumentException::class.java) { TransitIndex("v1", listOf(bad)).validate() }
+        invalid(feed.copy(realtimeUrl = "http://percorsieorari.gtt.to.it/das_gtfsrt/trip_update.aspx"))
+        invalid(feed.copy(realtimeUrl = "https://user:pw@example.org/rt"))
+        invalid(feed.copy(realtimeUrl = "file:///sdcard/rt.pb"))
+        invalid(feed.copy(realtimeSizeBytes = -1))
+        TransitIndex("v1", listOf(feed.copy(realtimeSizeBytes = null))).validate()
     }
 
     @Test

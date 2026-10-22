@@ -127,6 +127,38 @@ class GenerateTransitTest {
     }
 
     @Test
+    fun `id GTFS di corse e fermate solo con gtfsIds, per le corse scritte`() {
+        val plain = tmp.root.resolve("plain.db")
+        generateTransit(gtfs(feed), plain, "mdb-1", monday, 7)
+        DriverManager.getConnection("jdbc:sqlite:${plain.path}").use { conn ->
+            conn.createStatement().use { s ->
+                s.executeQuery("SELECT COUNT(*) FROM sqlite_master WHERE name LIKE 'gtfs_%'").use { rs -> assertEquals(0, rs.getInt(1)) }
+                s.executeQuery("SELECT COUNT(*) FROM meta WHERE key = 'gtfs_ids'").use { rs -> assertEquals(0, rs.getInt(1)) }
+            }
+        }
+
+        val db = tmp.root.resolve("rt.db")
+        generateTransit(tmp.root.resolve("feed.zip"), db, "mdb-1", monday, 7, gtfsIds = true)
+        DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->
+            fun query(sql: String): List<List<Any?>> = conn.createStatement().use { s ->
+                s.executeQuery(sql).use { rs -> buildList { while (rs.next()) add((1..rs.metaData.columnCount).map { rs.getObject(it) }) } }
+            }
+            assertEquals(listOf(listOf<Any?>("1")), query("SELECT value FROM meta WHERE key = 'gtfs_ids'"))
+            // T4 ha il servizio fuori dalla finestra e non e' in trip: nemmeno in gtfs_trip.
+            assertEquals(
+                listOf("T1", "T2", "T3"),
+                query("SELECT g.trip_id FROM trip t JOIN gtfs_trip g ON g.id = t.id ORDER BY g.trip_id").map { it[0] },
+            )
+            assertEquals(listOf(listOf<Any?>(0)), query("SELECT COUNT(*) FROM gtfs_trip WHERE id NOT IN (SELECT id FROM trip)"))
+            // Ogni fermata con il suo stop_id, l'entrata (location_type 2) non c'e'.
+            assertEquals(
+                listOf(listOf("B", "Piazza"), listOf("S", "Stazione Centrale"), listOf("S1", "Stazione Centrale, binario 1")),
+                query("SELECT g.stop_id, s.name FROM stop s JOIN gtfs_stop g ON g.id = s.id ORDER BY g.stop_id"),
+            )
+        }
+    }
+
+    @Test
     fun `accessibilita' in sedia a rotelle di fermate e corse, null se non indicata`() {
         val accessible = feed + mapOf(
             "stops.txt" to """
@@ -335,6 +367,7 @@ class GenerateTransitTest {
             D,Latitudine rotta,abc,24.0300,0
             E,Longitudine vuota,56.0400,,0
             F,Nodo generico,56.0500,24.0500,3
+            G,Senza posizione,0.000000,0.000000,0
         """
         val db = tmp.root.resolve("stops.db")
         val feedWithStops = miniFeed(

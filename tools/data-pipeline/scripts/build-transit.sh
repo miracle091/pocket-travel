@@ -6,6 +6,8 @@
 # oggi) e la comprime con xz. Se il feed scaricato ha lo stesso sha256 di quello della voce gia'
 # pubblicata e la voce ha meno di TRANSIT_MAX_AGE_DAYS giorni, tiene la voce pubblicata (nessun
 # upload): la finestra di 90 giorni resta valida, e l'app non riscarica nulla.
+# Con la colonna url_rt la transit.db tiene gli id GTFS (gtfsIds nella voce) e la voce ha realtimeUrl e
+# realtimeSizeBytes (vedi realtime_fields).
 #
 # Uso:
 #   build-transit.sh <feedId> <version> <assetBaseUrl> <outputDir> [publishedIndexFile]
@@ -70,7 +72,9 @@ source "$SCRIPT_DIR/lib.sh"
 [[ "$FEED_ID" =~ ^[a-z0-9-]+$ ]] || { echo "feedId non valido: $FEED_ID" >&2; exit 1; }
 LINE="$(awk -F'\t' -v id="$FEED_ID" '$0 !~ /^#/ && $1 == id' "$TRANSIT_FEEDS")"
 [ -n "$LINE" ] || { echo "$FEED_ID non e' nella lista $TRANSIT_FEEDS" >&2; exit 1; }
-IFS=$'\t' read -r _ REGIONS NAME LICENSE ATTRIBUTION LICENSE_URL FEED_URL FIND_LATEST <<< "$LINE"
+# Tab -> \x1f come per STATS sotto: con IFS=tab le colonne vuote prima di url_rt si fonderebbero.
+IFS=$'\x1f' read -r _ REGIONS NAME LICENSE ATTRIBUTION LICENSE_URL FEED_URL FIND_LATEST REALTIME_URL <<< "${LINE//$'\t'/$'\x1f'}"
+[ -z "$REALTIME_URL" ] || [[ "$REALTIME_URL" == https://* ]] || { echo "-- $FEED_ID: url_rt non https: $REALTIME_URL" >&2; exit 1; }
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 FEED_ZIP="$WORKDIR/feed.zip"
@@ -153,6 +157,22 @@ download_feed() {
   fi
 }
 
+# Campi del tempo reale della voce (jq, su stdin): realtimeUrl e realtimeSizeBytes, il peso di un download del feed
+# (compresso, come lo scarica l'app) misurato adesso; l'app lo usa per non scaricare da sola i feed grandi su rete a
+# consumo. Senza url_rt i due campi si tolgono; se la misura fallisce resta solo l'indirizzo.
+realtime_fields() {
+  local size=""
+  if [ -n "$REALTIME_URL" ]; then
+    # Stesso Accept dell'app (HttpTransitRealtimeClient): Open Data Hub senza x-protobuf risponde in JSON.
+    size="$(curl -sSfL --compressed --max-time 120 -A "$PIPELINE_USER_AGENT" -H 'Accept: application/x-protobuf, application/octet-stream, */*' \
+      -o /dev/null -w '%{size_download}' "$REALTIME_URL")" || size=""
+    [ "${size:-0}" -gt 0 ] || { echo "::warning::$FEED_ID: feed del tempo reale non scaricato o vuoto ($REALTIME_URL)"; size=""; }
+  fi
+  jq -c --arg url "$REALTIME_URL" --arg size "$size" \
+    'del(.realtimeUrl, .realtimeSizeBytes)
+     | if $url == "" then . else .realtimeUrl = $url | (if $size == "" then . else .realtimeSizeBytes = ($size | tonumber) end) end'
+}
+
 PREFETCHED="${PREFETCH_DIR:+$PREFETCH_DIR/$FEED_ID.zip}"
 if [ "$DOWNLOAD_ONLY" = true ]; then
   download_feed
@@ -174,9 +194,11 @@ SOURCE_SHA="$(sha256sum "$FEED_ZIP" | cut -d' ' -f1)"
 # Voce gia' pubblicata: si tiene se il feed non e' cambiato ed e' abbastanza recente.
 if [ -n "$PUBLISHED_INDEX" ] && [ -s "$PUBLISHED_INDEX" ]; then
   PUBLISHED_ENTRY="$(jq -c --arg id "$FEED_ID" '.feeds[]? | select(.id == $id)' "$PUBLISHED_INDEX")"
-  # Non si tiene una voce con gli orari gia' finiti: la conversione decide se la rete e' scaduta.
+  # Non si tiene una voce con gli orari gia' finiti: la conversione decide se la rete e' scaduta. Nemmeno una voce senza
+  # gtfsIds per una rete che ora ha url_rt: la sua transit.db non ha gli id GTFS.
   if [ -n "$PUBLISHED_ENTRY" ] && [ "$(jq -r '.sourceSha256' <<< "$PUBLISHED_ENTRY")" = "$SOURCE_SHA" ] \
-    && [[ ! "$(jq -r '.validUntil' <<< "$PUBLISHED_ENTRY")" < "$(date -u +%Y-%m-%d)" ]]; then
+    && [[ ! "$(jq -r '.validUntil' <<< "$PUBLISHED_ENTRY")" < "$(date -u +%Y-%m-%d)" ]] \
+    && { [ -z "$REALTIME_URL" ] || [ "$(jq -r '.gtfsIds // false' <<< "$PUBLISHED_ENTRY")" = true ]; }; then
     PUBLISHED_DATE="$(jq -r '.version' <<< "$PUBLISHED_ENTRY" | cut -d. -f1-3 | tr . -)"
     AGE_DAYS=$(( ( $(date -u +%s) - $(date -u -d "$PUBLISHED_DATE" +%s) ) / 86400 ))
     if [ "$AGE_DAYS" -lt "$TRANSIT_MAX_AGE_DAYS" ]; then
@@ -184,7 +206,7 @@ if [ -n "$PUBLISHED_INDEX" ] && [ -s "$PUBLISHED_INDEX" ]; then
       # Nome, regioni e attribuzione dalla lista di oggi (possono cambiare senza ricostruire).
       jq -c --arg name "$NAME" --arg regions "$REGIONS" --arg license "$LICENSE" --arg attribution "$ATTRIBUTION" --arg licenseUrl "$LICENSE_URL" \
         '.name = $name | .regions = ($regions | split(",")) | .license = $license | .attribution = $attribution | .licenseUrl = $licenseUrl' \
-        <<< "$PUBLISHED_ENTRY" >> "$ENTRIES"
+        <<< "$PUBLISHED_ENTRY" | realtime_fields >> "$ENTRIES"
       exit 0
     fi
   fi
@@ -207,8 +229,10 @@ fi
 DB="$WORKDIR/transit.db"
 WINDOW_START="$(date -u +%Y-%m-%d)"
 echo "-- $FEED_ID: converto (finestra di $TRANSIT_WINDOW_DAYS giorni da $WINDOW_START)..."
+GTFS_IDS_ARG=""
+[ -z "$REALTIME_URL" ] || GTFS_IDS_ARG=" --gtfs-ids"
 STATS="$(cd "$REPO_ROOT" && ./gradlew -q :tools:data-pipeline:content:generateTransit \
-  --args="\"$(winpath "$FEED_ZIP")\" \"$(winpath "$DB")\" $FEED_ID $WINDOW_START $TRANSIT_WINDOW_DAYS" | tail -1)"
+  --args="\"$(winpath "$FEED_ZIP")\" \"$(winpath "$DB")\" $FEED_ID $WINDOW_START $TRANSIT_WINDOW_DAYS$GTFS_IDS_ARG" | tail -1)"
 # Tab -> \x1f prima di leggere: il tab e' uno spazio per IFS, due tab di fila (validUntil vuoto) ne valgono
 # uno e il bbox finirebbe in VALID_UNTIL.
 IFS=$'\x1f' read -r STOPS ROUTES TRIPS STOP_TIMES VALID_UNTIL BBOX <<< "${STATS//$'\t'/$'\x1f'}"
@@ -244,10 +268,11 @@ jq -c -n \
   --arg id "$FEED_ID" --arg name "$NAME" --arg regions "$REGIONS" --arg license "$LICENSE" \
   --arg attribution "$ATTRIBUTION" --arg licenseUrl "$LICENSE_URL" --arg version "$VERSION" \
   --arg sourceSha "$SOURCE_SHA" --arg validUntil "$VALID_UNTIL" --arg bbox "$BBOX" \
-  --argjson stops "$STOPS" --argjson routes "$ROUTES" \
+  --argjson stops "$STOPS" --argjson routes "$ROUTES" --argjson gtfsIds "$([ -n "$REALTIME_URL" ] && echo true || echo false)" \
   --argjson file "$(file_json "$ASSET" transit.db)" --argjson fileXz "$(file_json "$ASSET.xz" transit.db.xz)" \
   '{id: $id, name: $name, regions: ($regions | split(",")), license: $license, attribution: $attribution,
     licenseUrl: $licenseUrl, version: $version, sourceSha256: $sourceSha, validUntil: $validUntil,
-    bbox: ($bbox | split(",") | map(tonumber)), stops: $stops, routes: $routes, file: $file, fileXz: $fileXz}' \
-  >> "$ENTRIES"
+    bbox: ($bbox | split(",") | map(tonumber)), stops: $stops, routes: $routes, file: $file, fileXz: $fileXz}
+   | if $gtfsIds then .gtfsIds = true else . end' \
+  | realtime_fields >> "$ENTRIES"
 echo "-- $FEED_ID: $(stat -c %s "$OUTPUT_DIR/$ASSET.xz") byte xz"
