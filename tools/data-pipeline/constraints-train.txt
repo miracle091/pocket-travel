@@ -1,4 +1,4 @@
-# Versioni dello stack di training (run_train_nvidia.sh, train_auto.py, train_lora.py), verificate con
+# Versioni dello stack di training su NVIDIA (train_auto.py, train_lora.py), verificate con
 #   uv pip compile --python-version 3.12 --python-platform x86_64-manylinux_2_28 (e windows)
 # da "unsloth", "unsloth-zoo", "trl", "peft", "datasets", "bitsandbytes" e "wandb". Si usa con
 #   pip install -c tools/data-pipeline/constraints-train.txt unsloth unsloth-zoo trl peft datasets bitsandbytes wandb

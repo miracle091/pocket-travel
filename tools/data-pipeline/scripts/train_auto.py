@@ -1,8 +1,23 @@
 #!/usr/bin/env python3
 """Lancia train_lora.py adattandosi all'hardware presente (auto-switching).
 
-Uso: python train_auto.py [--dry-run] [opzioni di train_lora.py, es. --max-steps 30 --merge]
-Va eseguito col Python di un venv che abbia PyTorch (CUDA o ROCm).
+Uso: python train_auto.py [--dry-run] [--gpu N] [opzioni di train_lora.py]
+  es. python train_auto.py --max-steps 2   (prova veloce)
+      python train_auto.py --model Qwen/Qwen3.5-0.8B --dataset pocket_travel_sft.v10.it.jsonl \\
+          --epochs 1 --batch 2 --merge --out <cartella>   (ricetta dei modelli pubblicati)
+      python train_auto.py --4bit --model <modello piu' grande>   (QLoRA: meno VRAM)
+Va eseguito col Python di un venv che abbia PyTorch (CUDA o ROCm), su Windows, Linux o WSL; HF_TOKEN, se serve
+(modelli gated), va gia' impostato nell'ambiente.
+
+NVIDIA (CUDA): setup una tantum nel venv, dalla radice del repository (PyTorch CUDA incluso):
+  pip install -c tools/data-pipeline/constraints-train.txt unsloth unsloth-zoo trl peft datasets bitsandbytes wandb
+  (venv di uv, senza pip: uv pip install --python <venv>/bin/python -c ... con gli stessi pacchetti)
+Su Linux e WSL si lancia con python3 del venv (Ubuntu non ha python fuori da un venv). Su WSL il desktop di Windows
+occupa parte della VRAM: se supera il 10% di default, serve --max-vram-held 25. Il lucchetto della GPU
+(gpu_lock.py) e' quello di Windows anche da WSL: i lavori dei due lati si aspettano.
+Provato con GTX 1660 SUPER (6 GB, Turing): su Windows Unsloth fp32, Unsloth --4bit e peft; su WSL2 (Ubuntu,
+Python 3.12, torch cu130, constraints-train.txt) Unsloth fp32 sul Qwen3.5-0.8B: 2 passi piu' controllo a campione,
+~86 s/passo, 1,9 GiB di VRAM, 4,8 GB di RAM.
 
 Cosa decide, ad ogni lancio:
 - GPU: la discreta con piu' VRAM (l'iGPU AMD compare come device 0 e va evitata);
@@ -25,6 +40,7 @@ import os
 import platform
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -165,7 +181,9 @@ def main():
 
     info = probe()
     if not info["gpus"]:
-        sys.exit("Nessuna GPU visibile a PyTorch: niente training (installa PyTorch CUDA/ROCm o controlla i driver).")
+        driver = " nvidia-smi non trovato: driver NVIDIA assenti?" if info["cuda"] and not shutil.which("nvidia-smi") else ""
+        sys.exit("Nessuna GPU visibile a PyTorch: niente training (installa PyTorch CUDA/ROCm o controlla i driver)."
+                 + driver)
     vendor = "NVIDIA" if info["cuda"] else "AMD"
     candidates = [g for g in info["gpus"] if not g["integrated"]] or info["gpus"]
     gpu = next((g for g in info["gpus"] if g["index"] == a.gpu), None) if a.gpu is not None \

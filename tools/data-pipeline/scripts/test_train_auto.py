@@ -94,6 +94,13 @@ class MainTest(unittest.TestCase):
     def test_nessuna_gpu_si_ferma(self):
         _, called, _, code = run_main({"cuda": None, "hip": None, "gpus": []}, [])
         self.assertIn("Nessuna GPU", code)
+        self.assertNotIn("nvidia-smi", code)
+        self.assertEqual({}, called)
+
+    def test_pytorch_cuda_senza_driver_nvidia(self):
+        with mock.patch("shutil.which", return_value=None):
+            _, called, _, code = run_main({"cuda": "13.0", "hip": None, "gpus": []}, [])
+        self.assertIn("driver NVIDIA assenti", code)
         self.assertEqual({}, called)
 
     def test_indice_forzato_inesistente(self):

@@ -146,6 +146,19 @@ class GpuLockTest(unittest.TestCase):
             gpu_lock.main(["status"])
         self.assertIn("GPU occupata da eval_gguf.py (PID 77", out.getvalue())
 
+    def test_helper_con_pwsh_se_manca_powershell(self):
+        found = {"powershell.exe": None, "pwsh.exe": "/mnt/c/Program Files/PowerShell/7/pwsh.exe"}
+        os.environ.pop("POCKET_TRAVEL_GPU_LOCK_FILE")  # senza: il lucchetto e' quello vero, non quello dei test
+        with mock.patch.object(gpu_lock, "in_wsl", return_value=True), mock.patch("shutil.which", found.get), \
+                mock.patch("subprocess.Popen") as popen:
+            gpu_lock.windows_helper("try")
+        self.assertEqual(found["pwsh.exe"], popen.call_args.args[0][0])
+        found["powershell.exe"] = "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+        with mock.patch.object(gpu_lock, "in_wsl", return_value=True), mock.patch("shutil.which", found.get), \
+                mock.patch("subprocess.Popen") as popen:
+            gpu_lock.windows_helper("try")
+        self.assertEqual(found["powershell.exe"], popen.call_args.args[0][0])
+
     def test_describe(self):
         info = {"name": "train_auto.py", "pid": 42, "session": "abcdef1234", "since": 1000}
         self.assertEqual("train_auto.py (PID 42, sessione abcdef12, da 10 min)", gpu_lock.describe(info, now=1600))

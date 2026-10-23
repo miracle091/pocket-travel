@@ -11,10 +11,10 @@ non resta mai appeso. Chi lo tiene e' scritto in gpu-lock.json, accanto, per i m
 l'hook session-guard. Un processo che non lo trova libero aspetta e lo dice ogni 10 minuti.
 
 Vale anche tra WSL e Windows: un lavoro in WSL prende anche il lucchetto di Windows (%USERPROFILE%\\.cache\\
-pocket-travel\\gpu.lock) con un powershell.exe figlio, che blocca lo stesso byte di msvcrt (LockFile), scrive il
-gpu-lock.json di Windows con il proprio PID (quello che l'hook session-guard controlla) e lo tiene finche' il suo
-input resta aperto: quando il processo di WSL esce o muore, l'input si chiude e il blocco si scioglie. Senza
-powershell.exe (interop di WSL spenta) resta il solo lucchetto di Linux, con un avviso.
+pocket-travel\\gpu.lock) con un PowerShell figlio (powershell.exe, o pwsh.exe 7+ se manca), che blocca lo stesso
+byte di msvcrt (LockFile), scrive il gpu-lock.json di Windows con il proprio PID (quello che l'hook session-guard
+controlla) e lo tiene finche' il suo input resta aperto: quando il processo di WSL esce o muore, l'input si chiude e
+il blocco si scioglie. Senza nessuno dei due (interop di WSL spenta) resta il solo lucchetto di Linux, con un avviso.
 
 I figli di chi lo tiene (train_auto.py -> train_lora.py -> run_eval.py, eval_gguf.py -> llama-server)
 ereditano POCKET_TRAVEL_GPU_LOCK e non lo riprendono.
@@ -101,9 +101,10 @@ def in_wsl():
 
 
 def windows_helper(mode):
-    """powershell.exe con WINDOWS_HELPER ("wait" o "try"), o None fuori da WSL, senza interop o nei test
-    (POCKET_TRAVEL_GPU_LOCK_FILE: il lucchetto dei test non e' quello di Windows)."""
-    exe = shutil.which("powershell.exe")
+    """PowerShell di Windows con WINDOWS_HELPER ("wait" o "try"): powershell.exe (5.1, incluso in Windows) o, se manca,
+    pwsh.exe (PowerShell 7 o successivo). None fuori da WSL, senza interop o nei test (POCKET_TRAVEL_GPU_LOCK_FILE: il
+    lucchetto dei test non e' quello di Windows)."""
+    exe = shutil.which("powershell.exe") or shutil.which("pwsh.exe")
     if not in_wsl() or os.environ.get("POCKET_TRAVEL_GPU_LOCK_FILE") or not exe:
         return None
     script = WINDOWS_HELPER.replace("MODE", mode).replace("NOTICE", str(NOTICE_EVERY))
@@ -112,7 +113,7 @@ def windows_helper(mode):
 
 
 def read_header(proc):
-    """(percorso di gpu-lock.json di Windows visto da WSL, PID di powershell.exe) dalle prime due righe."""
+    """(percorso di gpu-lock.json di Windows visto da WSL, PID di PowerShell) dalle prime due righe."""
     win_lock = proc.stdout.readline().strip().removeprefix("PATH ")
     pid = int(proc.stdout.readline().strip().removeprefix("PID ") or 0)
     linux_lock = subprocess.run(["wslpath", "-u", win_lock], capture_output=True, text=True).stdout.strip()
@@ -172,7 +173,7 @@ class GpuLock:
         self.win = windows_helper("wait")
         if self.win is None:
             if in_wsl() and not os.environ.get("POCKET_TRAVEL_GPU_LOCK_FILE"):
-                print("[gpu] powershell.exe non trovato (interop di WSL spenta?): solo il lucchetto di WSL, "
+                print("[gpu] ne' powershell.exe ne' pwsh.exe trovati (interop di WSL spenta?): solo il lucchetto di WSL, "
                       "i lavori di Windows sulla stessa GPU non lo vedono", file=self.out, flush=True)
             return None
         self.win_info, self.win_pid = read_header(self.win)
@@ -187,7 +188,7 @@ class GpuLock:
         else:
             code = self.win.wait()
             self.release()
-            sys.exit(f"[gpu] powershell.exe uscito senza il lucchetto di Windows (codice {code})")
+            sys.exit(f"[gpu] PowerShell uscito senza il lucchetto di Windows (codice {code})")
         write_info(self.win_info, {**info, "pid": self.win_pid, "wsl_pid": os.getpid()})
         return waited
 
@@ -199,7 +200,7 @@ class GpuLock:
         if self.win:
             if (holder(self.win_info) or {}).get("pid") == self.win_pid:
                 self.win_info.unlink(missing_ok=True)
-            self.win.stdin.close()  # powershell.exe esce e il blocco di Windows si scioglie
+            self.win.stdin.close()  # PowerShell esce e il blocco di Windows si scioglie
             self.win.wait(timeout=30)
             self.win.stdout.close()
             self.win = None
