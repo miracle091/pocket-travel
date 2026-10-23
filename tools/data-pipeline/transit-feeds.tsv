@@ -103,7 +103,8 @@
 # TripUpdates: solo posizioni e avvisi, o SIRI), ACTV (nessun feed pubblicato con una licenza), Roma RSM e GTT Torino
 # (si aspetta la conferma scritta della licenza), Nizza Lignes d'Azur (dal 22 ottobre 2026 pomeriggio l'indirizzo
 # https://ara-api.enroute.mobi/rla/gtfs/trip-updates risponde 501 "Partner doesn't have the required Gtfs connector" e
-# transport.data.gouv.fr segna la risorsa come non disponibile: si rimette in url_rt quando torna a rispondere).
+# transport.data.gouv.fr segna la risorsa come non disponibile, ancora cosi' all'ultimo controllo del 2026-10-23: si
+# rimette in url_rt quando torna a rispondere).
 #
 # id	regioni	nome	licenza	attribuzione	pagina_licenza	url_feed	cerca_ultimo	url_rt
 mdb-992	lettonia	Autobus nazionali (ATD)	CC0-1.0	Valsts SIA Autotransporta direkcija (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/eng/dataset/atd-gtfs
