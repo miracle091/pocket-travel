@@ -330,7 +330,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   cambiati solo i consigli, finché sono stati scaricati da meno di 7 giorni (`TRAVEL_ADVICE_MAX_AGE_DAYS`) e nessun paese
   ha cambiato livello di rischio o avvisi regionali; un cambio di rischio pubblica subito e lascia un `::warning::` nel
   job, un cambio di Wikivoyage pubblica subito con i consigli freschi.
-- **Dataset SFT (v9-v10)**: `scripts/generate_sft.py --lang it|en` genera il dataset dei due modelli linguistici con le
+- **Dataset SFT**: `scripts/generate_sft.py --lang it|en` genera il dataset dei due modelli linguistici con le
   stesse fonti, la stessa composizione e gli stessi tipi di domanda. Con `--vaccinations` aggiunge domande sui
   vaccini, con il riassunto che l'app inserisce nel contesto dell'assistente. Con `--nearby <quota>` (per esempio 0.03)
   aggiunge esempi con i blocchi "Punti di interesse entro…" e "Prossime partenze…" che l'app mette nel contesto per le
@@ -364,8 +364,19 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   (paesi) o alle sezioni che la trattano (città), invece che con la stessa probabilità per tutte. Di default
   (`--clear-questions`) restano fuori le domande che una sezione di un'altra categoria soddisfa altrettanto ("Quali
   informazioni pratiche mi servono…") e le domande sui vaccini tra quelle sulla salute: nell'app portano nel contesto il
-  riassunto delle vaccinazioni, quindi sono domande di Vaccinazioni. I file di output sono
-  `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v10 con
+  riassunto delle vaccinazioni, quindi sono domande di Vaccinazioni. Con `--guides-db` e `--guide-sections` (default)
+  entrano anche domande sulle sezioni della guida generale (`_general`: salute, documenti, visti, truffe, denaro,
+  telefono). Le domande sui punti vicini usano anche sinonimi e bisogni ("Dove compro delle medicine qui vicino?"), non
+  solo la parola dell'etichetta del blocco; i rifiuti delle città hanno a volte nel contesto la sezione di una categoria
+  vicina che non risponde (Come arrivare per gli spostamenti in città, Dove dormire per Dove mangiare). Di default
+  (`--external-questions`) entrano rifiuti sulle domande di servizio degli alloggi di WebFAQ (CC BY 4.0: check-in,
+  animali, parcheggio dell'hotel, che le guide non coprono) e domande fuori tema di MKQA (CC BY 3.0) nelle due lingue,
+  sempre solo le domande (`scripts/external_questions.py`, cache in `data/sft/raw/`). Con `--retrieval-rows <n>` e
+  `--retrieval-cache <cartella>` aggiunge circa n righe con il contesto che la ricerca dell'app sceglie davvero
+  (`scripts/sft_retrieval.py`, che usa `eval_retrieval.py` sui `guides.db` e `cities.db` pubblicati), su città fuori
+  dalle regioni di test e da quelle misurate da `eval_retrieval.py`. Le note di `ATTRIBUTION` sono nella lingua del
+  dataset. I file di output sono
+  `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v11 con
   `--nearby`, `--distances`, `--cities-db`, `--emergency`, le domande in stile utente, `--city-daily-life`,
   `--balanced-negatives` o `--clear-questions` (i default), v9 senza nessuna di queste,
   oppure quella data con `--version`; un v9 che esiste già (lo usano i training) si sovrascrive solo con
@@ -373,7 +384,10 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   (`generate_eval_set.py`, `generate_eval_set_en.py`) hanno in fondo le righe `pos_near`/`neg_near` e
   `pos_dep`/`neg_dep` sugli stessi blocchi, con domande, nomi e seme diversi da quelli del training, e con
   `--cities-db` (solo le regioni di test) `pos_wiki`/`neg_wiki` su storia e clima; le righe
-  precedenti restano identiche. `scripts/translate_dataset.py` traduce
+  precedenti restano identiche. In coda, con `"set": "v11"` e semi propri, altre righe per i gruppi piccoli: 100
+  `neg_city` con domande nuove e casi difficili, 106 `pos_near` e 30 `neg_near` con sinonimi che il training non ha, e
+  nel test inglese righe con la domanda in italiano (`"question_lang": "it"`). I contesti dei rifiuti delle città non
+  hanno sezioni che trattano la categoria chiesta, come nel training. `scripts/translate_dataset.py` traduce
   con MarianMT (`opus-mt-tc-big`, CC BY 4.0) le sezioni assenti o molto più brevi in una lingua; scarta le
   traduzioni con numeri diversi dall'originale, toglie le parentesi rimaste vuote (MarianMT perde i caratteri di altri
   alfabeti, come i nomi cinesi o arabi tra parentesi) e conserva le frasi tradotte in una cache. Le tabelle per lingua
@@ -391,7 +405,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   `scripts/generate-sft.sh [--new | --old] --data <cartella>` fa tutto in sequenza per le due lingue: dataset, test
   estesi e audit `--strict`, dal dump più recente in `<cartella>/dumps/` e dai `guides*.db`, `cities*.db` e
   riassunti delle vaccinazioni pubblicati nella stessa cartella (lo schema è nell'intestazione dello script). `--new` (il
-  default) è la ricetta v10; `--old` quella del v9, scritta come `v9-rigenerato` per non sostituire il v9 dei training.
+  default) è la ricetta v11; `--old` quella del v9, scritta come `v9-rigenerato` per non sostituire il v9 dei training.
 - **Fonti del dataset SFT**: i titoli delle pagine di ogni regione stanno in `sft-sources.tsv` (`-` = pagina che non
   esiste). Le righe mancanti si cercano via API durante `generate_sft_dataset.py --dump-dir`; un errore di rete non
   diventa `-`, così la volta dopo si riprova, e `--recheck-missing` cerca di nuovo tutte le pagine date per inesistenti.

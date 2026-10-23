@@ -16,6 +16,7 @@ from pathlib import Path
 
 import generate_eval_set
 import generate_eval_set_en
+import generate_sft
 import generate_sft_dataset as it
 import generate_sft_dataset_en as en
 from generate_sft import (GUIDE_LICENSES, GUIDE_QUESTIONS, LANGS, OTHER, QUICK_FACT_WIKIDATA, guide_source,
@@ -150,6 +151,44 @@ class QuickFactFieldsTest(unittest.TestCase):
             _, fields = it.load_quick_facts(path, en.QUICK_FACT_QUESTIONS)["giappone"]
         self.assertEqual(fields, {"Capital": "Capital: Tokyo", "Currency": "Currency: yen (JPY)",
                                   "Calling code": "Calling code: +81", "Driving side": "Driving side: left"})
+
+
+class GeneralGuideTest(unittest.TestCase):
+    """Guida generale (_general): solo Wikivoyage nella lingua del dataset e non tradotta, domande fuori dalle serie di
+    eval_retrieval.py, sezione in testa al contesto e risposta dalle sue frasi."""
+
+    def test_load_general_guide(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "guides.db"
+            with closing(sqlite3.connect(path)) as db:
+                db.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT, translated INTEGER)")
+                db.executemany("INSERT INTO guide_sections VALUES (?,?,?,?,?,?)", [
+                    ("_general", "SALUTE", "Jet lag: Recover", "Recovery takes about a day per time zone.", "https://en.wikivoyage.org/wiki/Jet_lag", 0),
+                    ("_general", "SALUTE", "Jet lag: Recupero", "Tradotta.", "https://en.wikivoyage.org/wiki/Jet_lag", 1),
+                    ("_general", "SALUTE", "Jet lag: Recupero da jet lag", "Si recupera un'ora al giorno.", "https://it.wikivoyage.org/wiki/Jet_lag", 0),
+                    ("giappone", "SALUTE", "Stay healthy", "Tap water is safe.", "https://en.wikivoyage.org/wiki/Japan", 0)])
+                db.commit()
+            self.assertEqual([s[1] for s in generate_sft.load_general_guide(path, "en")], ["Jet lag: Recover"])
+            self.assertEqual([s[1] for s in generate_sft.load_general_guide(path, "it")], ["Jet lag: Recupero da jet lag"])
+            self.assertNotIn("_general", load_guide_sections(path, "en"))  # non tra le sezioni delle regioni
+
+    def test_domande_fuori_dalle_misure(self):
+        import eval_retrieval
+        for lang in ("it", "en"):
+            measured = {q.lower() for q, _ in eval_retrieval.GENERAL_Q[lang]}
+            asked = [q for qs in generate_sft.GENERAL_GUIDE_QUESTIONS[lang].values() for q in qs]
+            self.assertFalse({q.lower() for q in asked} & measured, lang)
+            self.assertEqual(len(asked), len(set(asked)), lang)
+
+    def test_sezione_in_testa_e_risposta_dalle_sue_frasi(self):
+        sec = ("SALUTE", "Jet lag: Recover", "Recovery from jet lag takes about one day per time zone crossed. Drink water.",
+               "https://en.wikivoyage.org/wiki/Jet_lag")
+        answer_for = generate_sft.make_answer_for(generate_sft.LANGS["en"])
+        for seed in range(10):
+            context, answer = generate_sft.general_guide_example(random.Random(seed), sec, "How long does jet lag last?",
+                                                                 ["The beaches are crowded in August."], answer_for)
+            self.assertTrue(context.startswith(sec[2]))
+            self.assertIn("one day per time zone", answer)
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ ricerca dei binari di llama.cpp.
 """
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -140,9 +141,39 @@ def context_report(rows):
 
 
 def question_of(row):
-    """La domanda della riga (dopo "DOMANDA: " o "QUESTION: ")."""
+    """La domanda della riga (dopo "DOMANDA: " o "QUESTION: "; senza, tutto il prompt)."""
     content = row["messages"][0]["content"]
-    return content.rsplit("QUESTION: " if content.startswith(EN_PROMPT) else "DOMANDA: ", 1)[1]
+    return content.rsplit("QUESTION: " if content.startswith(EN_PROMPT) else "DOMANDA: ", 1)[-1]
+
+
+def dataset_lang(row):
+    """Lingua del dataset della riga ("it" o "en"), dal prompt: e' la lingua attesa della risposta."""
+    return "en" if row["messages"][0]["content"].startswith(EN_PROMPT) else "it"
+
+
+# Parole frequenti di una sola delle due lingue, per text_lang. Escluse quelle di entrambe ("a", "in", "no", "come",
+# "i", "all"). Le elisioni italiane ("dell'", "c'", "dov'") restano parole a se' dopo la divisione sull'apostrofo.
+IT_WORDS = frozenset("il lo la gli le l di del dello della dei degli delle dell da dal dalla dall nel nella nei nelle nell "
+                     "al alla ai alle che e è non per un una uno sono si ci c con su sul sulla tra fra cosa dove dov quando "
+                     "quale quali qual quanto quanti quanta perché posso serve servono bisogna ho ha hanno essere ma o anche "
+                     "più mi ti cui questo questa devo qualcosa conviene meglio".split())
+EN_WORDS = frozenset("the of and is are was be to for with what where when which who how can could should do does did "
+                     "there it its you your my me we this that these those at on from by any about have has need an or "
+                     "not if than".split())
+
+
+def text_lang(text):
+    """Lingua del testo, "it" o "en", secondo le parole frequenti di IT_WORDS ed EN_WORDS; None se si equivalgono (testo
+    senza parole frequenti, solo nomi o numeri). Nessuna dipendenza: basta a distinguere italiano e inglese su una frase."""
+    words = re.findall(r"[^\W\d_]+", text.lower())
+    it, en = sum(w in IT_WORDS for w in words), sum(w in EN_WORDS for w in words)
+    return "it" if it > en else "en" if en > it else None
+
+
+def question_lang(row):
+    """Lingua della domanda della riga: il campo "question_lang" se c'e', altrimenti text_lang della domanda; se il
+    rilevamento non decide, la lingua del dataset."""
+    return row.get("question_lang") or text_lang(question_of(row)) or dataset_lang(row)
 
 
 def load_test_rows(extended, dataset=None):
@@ -178,13 +209,53 @@ def pct(rows, i):
     return 100 * sum(x[i] for x in rows) / len(rows) if rows else 0.0
 
 
+def kind_line(kind, rs):
+    """Riga del rapporto del test esteso per un tipo di riga."""
+    return f"{kind}: {len(rs)} righe | rifiuta {pct(rs, 0):.1f}%" + (" (atteso 0%)" if kind.startswith("pos") else " (atteso 100%)")
+
+
 def print_report(stats, test, held_out, extended):
     if extended:
         print(f"test esteso: {len(test)} righe (domande fuori dai template di training)")
         for kind, rs in sorted(stats.items()):
-            print(f"{kind}: {len(rs)} righe | rifiuta {pct(rs, 0):.1f}%" + (" (atteso 0%)" if kind.startswith("pos") else " (atteso 100%)"))
+            print(kind_line(kind, rs))
         return
     pos, neg = stats.get("pos", []), stats.get("neg", [])
     print(f"test: {len(test)} righe, {len(held_out)} regioni | pos {len(pos)} neg {len(neg)}")
     print(f"POS: rifiuto sbagliato {pct(pos, 0):.1f}% | inizio uguale all'atteso {pct(pos, 1):.1f}%")
     print(f"NEG: rifiuta {pct(neg, 0):.1f}% | tema del rifiuto giusto {pct(neg, 1):.1f}%")
+
+
+def print_lang_report(by_lang, wrong_lang, stats):
+    """Test esteso per lingua della domanda: by_lang (lingua -> stats come in score), poi le risposte nella lingua
+    sbagliata (wrong_lang: tipo di riga -> risposte non nella lingua del dataset) sul totale del tipo in stats."""
+    for lang, lang_stats in sorted(by_lang.items()):
+        print(f"domande {lang}: {sum(len(rs) for rs in lang_stats.values())} righe")
+        for kind, rs in sorted(lang_stats.items()):
+            print(kind_line(kind, rs))
+    wrong = [f"{kind} {n}/{len(stats[kind])}" for kind, n in sorted(wrong_lang.items()) if n]
+    print("risposte nella lingua sbagliata (non quella del dataset): " + (", ".join(wrong) if wrong else "nessuna"))
+
+
+def print_app_sampling_report(rows, low=0.2, high=0.8):
+    """Rapporto di eval_gguf.py --app-sampling. rows: dict con kind, question_lang, question, greedy (la risposta greedy
+    e' un rifiuto), p_refusal e, con --samples, sampled_refusals e samples. Per tipo di riga e per lingua della domanda:
+    rifiuti greedy, rifiuti attesi nell'app (media di p_refusal) e rifiuti osservati nei campioni; poi le righe con
+    p_refusal tra low e high, quelle in cui l'app a volte risponde e a volte rifiuta."""
+    groups = {}
+    for r in rows:
+        groups.setdefault(("tipo", r["kind"]), []).append(r)
+        groups.setdefault(("domande " + r["question_lang"], r["kind"]), []).append(r)
+    print("campionamento dell'app: rifiuto atteso = media sulle righe della probabilita' che la risposta cominci con il rifiuto")
+    for (group, kind), rs in sorted(groups.items(), key=lambda item: (item[0][0] != "tipo", item[0])):
+        line = (f"{group} {kind}: {len(rs)} righe | rifiuta greedy {100 * sum(r['greedy'] for r in rs) / len(rs):.1f}% | "
+                f"atteso app {100 * sum(r['p_refusal'] for r in rs) / len(rs):.1f}%")
+        if "samples" in rs[0]:
+            line += (f" | campionato {100 * sum(r['sampled_refusals'] for r in rs) / sum(r['samples'] for r in rs):.1f}% "
+                     f"({sum(r['samples'] for r in rs)} risposte)")
+        print(line)
+    uncertain = sorted((r for r in rows if low <= r["p_refusal"] <= high), key=lambda r: (r["kind"], r["p_refusal"]))
+    print(f"righe incerte (p del rifiuto tra {low} e {high}): {len(uncertain)}")
+    for r in uncertain:
+        print(f"  {r['kind']} {r['question_lang']} p={r['p_refusal']:.2f} greedy {'rifiuta' if r['greedy'] else 'risponde'} | "
+              f"{r['question']}")

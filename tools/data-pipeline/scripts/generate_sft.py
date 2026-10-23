@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera il dataset SFT v10 (v9 con --user-style-questions 0, --no-city-daily-life, --no-balanced-negatives,
+"""Genera il dataset SFT v11 (v9 con --user-style-questions 0, --no-city-daily-life, --no-balanced-negatives,
 --no-clear-questions, --no-guide-sections e senza le altre opzioni nuove) in italiano o in inglese con lo stesso metodo, cosi' i due dataset restano equivalenti:
 stesse fonti (Wikivoyage IT ed EN dello stesso dump, Wikipedia IT o EN per le categorie deboli, fatti rapidi e note), stessa
 composizione per categoria, stessi tipi di domanda, stesso rapporto di rifiuti. Cambiano solo le tabelle della lingua
@@ -27,7 +27,12 @@ hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA
   (--guide-sections) anche i campi dei Fatti rapidi da Wikidata e le sezioni che i dump non danno (consigli di
   travel.gc.ca e FCDO, Sleep e Talk dei paesi), al massimo GUIDE_SECTIONS_MAX per categoria;
 - con --nearby, domande su cosa c'e' qui vicino e sulle prossime partenze con i blocchi di contesto dell'app
-  (sft_nearby.py, dati sintetici), per una quota del dataset finale;
+  (sft_nearby.py, dati sintetici; le prime il doppio delle seconde), per una quota del dataset finale;
+- con --guides-db e --guide-sections, domande sulle sezioni della guida generale (GENERAL_GUIDE_QUESTIONS);
+- rifiuti delle citta' anche difficili (hard_refusal_sections): una sezione di una categoria vicina che non risponde;
+- note di ATTRIBUTION nella lingua del dataset (localized_attribution);
+- di default (--external-questions) rifiuti sui servizi degli alloggi (domande di WebFAQ) e domande fuori tema di MKQA;
+- con --retrieval-rows, righe con il contesto della ricerca vera dell'app (sft_retrieval.py);
 - con --distances (e --cities), domande sulla distanza tra due citta' con le sezioni di entrambe nel contesto: la
   frase della guida con i km o il tempo di viaggio, o il rifiuto quando le guide non li riportano;
 - con --cities-db, Storia e Clima delle citta' da Wikipedia (sezioni STORIA e CLIMA dei cities.db pubblicati): domande
@@ -42,13 +47,13 @@ Fuori dal training le regioni di test e quelle la cui pagina (IT o EN) e' la pag
 appartiene (es. figi-occidentali ha la pagina "Figi"/"Fiji" di figi-lau): restano nel file solo le regioni di test.
 
 Uso: python generate_sft.py --lang it|en --dump-dir <cartella dei dump> [--cities 4500] [--guides-db <db>] [--nearby 0.03]
-     [--distances 0.02] [--cities-db <cities.db> ...] [--wikipedia-cities 1500] [--emergency 0.01] [--user-style-questions 0.2] [--version v10] [--seed 42]
+     [--distances 0.02] [--cities-db <cities.db> ...] [--wikipedia-cities 1500] [--emergency 0.01] [--user-style-questions 0.2] [--version v11] [--seed 42]
 --cities-db: i cities.db pubblicati della lingua del dataset (cities.db per l'italiano, cities-en.db per l'inglese), uno
 per regione; la regione e' il nome del file fino al primo "--" (<regionId>--<versione>--cities.db, come gli asset delle
 release) oppure si scrive <regionId>=<file>.
 Output in data/sft/: pocket_travel_sft.<versione>.<lang>.jsonl, ATTRIBUTION.<versione>.<lang>.tsv ed EXCLUDED.<versione>.<lang>.tsv
 (le fonti e le sezioni rimaste fuori e perche', vedi write_excluded di generate_sft_dataset.py); traduzioni in cache in
-raw/translations.<src>-<tgt>.jsonl. Senza --version: v10 con --nearby, --distances, --cities-db, --emergency,
+raw/translations.<src>-<tgt>.jsonl. Senza --version: v11 con --nearby, --distances, --cities-db, --emergency,
 --user-style-questions diverso da 0, --city-daily-life, --balanced-negatives, --clear-questions o --guide-sections con
 --guides-db (i default), altrimenti v9; il v9, che
 usano i training, si sovrascrive solo dando
@@ -68,9 +73,11 @@ from pathlib import Path
 
 import audit_sft
 import city_population
+import external_questions
 import generate_sft_dataset as it
 import generate_sft_dataset_en as en
 import sft_nearby
+import sft_retrieval
 import travel_questions
 import wiki_dump
 from eval_common import TEST_REGIONS
@@ -511,14 +518,14 @@ def all_keywords(L):
     return {**L["keywords"], **L["wiki_keywords"]}
 
 
-def make_answer_for(L):
+def make_answer_for(L, legacy=False):
     """answer_for di una lingua: frasi della sezione piu' vicine alla domanda; "" se nessuna ha una parola chiave della
-    categoria o della domanda."""
+    categoria o della domanda. [legacy] come in pick_answer di generate_sft_dataset.py."""
     keywords, split, stop = all_keywords(L), L["split"], L["stopwords"]
 
     def answer_for(context, body, q, cat, name):
         words = [w for w in re.findall(r"\w+", q) if w.lower() not in stop]
-        answer = it.pick_answer(context, body, " ".join(words), cat, name, keywords, split)
+        answer = it.pick_answer(context, body, " ".join(words), cat, name, keywords, split, legacy)
         stems = {w.lower()[:5] for w in words if len(w) >= 4} - {w[:5] for w in re.findall(r"\w{4,}", name.lower())}
         low = answer.lower()
         return answer if it.covers(cat, low, keywords) or any(s in low for s in stems) else ""
@@ -754,8 +761,8 @@ def load_guide_sections(guides_db, lang):
     """{regionId: [(categoria, corpo, sourceUrl, tradotta)]} delle sezioni di [guides_db] che i dump non danno: fonti di
     GUIDE_LICENSES e categorie GUIDE_ONLY_CATS di Wikivoyage nella lingua [lang]; fuori le "#for-nationality=", i Fatti
     rapidi (a parte, load_quick_facts), le sezioni tradotte da translate_guides.py (guides.db non dice con quale
-    modello, che ATTRIBUTION dovrebbe dichiarare) e la guida generale "_general", che entra nel dataset solo dopo
-    il rilascio dell'app che la cerca."""
+    modello, che ATTRIBUTION dovrebbe dichiarare) e la guida generale "_general", che ha domande sue
+    (load_general_guide, GENERAL_GUIDE_QUESTIONS)."""
     out = {}
     with closing(sqlite3.connect(guides_db)) as db:
         has_translated = any(col[1] == "translated" for col in db.execute("PRAGMA table_info(guide_sections)"))
@@ -795,6 +802,224 @@ def select_guide_sections(sections, rng, test_regions, cap=GUIDE_SECTIONS_MAX):
         else:
             kept.setdefault(rid, []).append(sec)
     return kept, dropped
+
+
+# Rifiuti difficili delle citta' (dataset v11): nel contesto una sezione di una categoria vicina a quella chiesta, che
+# non risponde. Senza, il confine tra risposta e rifiuto lo tracciavano le sole parole chiave: rifiuti TRASPORTI con le
+# sezioni Come arrivare (In treno, In aereo) 0 su 328 in italiano, e il modello rispondeva sugli spostamenti in citta' con
+# il treno per arrivarci. Come arrivare vale se non parla di spostamenti dentro la citta' (CITY_MOVE_WORDS), anche se
+# nomina treni e aerei; Dove dormire per Dove mangiare se non tratta il cibo (gia' fuori da [bodies] altrimenti).
+HARD_REFUSAL_SHARE = 0.5
+HARD_REFUSAL_NEAR = {"TRASPORTI": "ARRIVARE", "CIBO_BEVANDE": "ALLOGGIO"}
+CITY_MOVE_WORDS = {"it": ("autobus", "metro", "tram", "taxi", "bici", "a piedi", "noleggi", "filobus", "funicolar", "navett",
+                          "pullman", "parchegg", "sposta", "girare", "muover", "linea", "linee", "bigliett", "auto"),
+                   "en": (" bus", "metro", "tram", "taxi", "bike", "bicycl", "on foot", "walk", "rent", "shuttle", "parking",
+                          "get around", "subway", "cab", "line", "ticket", " car", "drive", "driving")}
+
+
+def hard_refusal_sections(cat, secs, bodies, lang):
+    """Le sezioni di una citta' ([secs]: [(categoria, corpo)]) per un rifiuto difficile sulla categoria [cat]: quelle della
+    categoria di HARD_REFUSAL_NEAR che non rispondono (Come arrivare senza CITY_MOVE_WORDS; per le altre, solo quelle gia'
+    in [bodies], cioe' che non trattano [cat])."""
+    near = HARD_REFUSAL_NEAR.get(cat)
+    if cat == "TRASPORTI":
+        return [b for c, b in secs if c == near and not it.keyword_rx(CITY_MOVE_WORDS[lang]).search(b.lower())]
+    return [b for c, b in secs if c == near and b in bodies]
+
+
+# Guida generale (sezioni "_general" di guides.db, con --guide-sections e --guides-db): pagine tematiche di Wikivoyage
+# (salute, documenti, visti, truffe, denaro, telefono) che l'app mette nel contesto per le domande non legate a un paese,
+# in testa quando battono le sezioni della guida aperta. Domande per titolo di sezione, diverse da quelle generali di
+# eval_retrieval.py (GENERAL_Q), che misurano ricerca e modello insieme.
+GENERAL_GUIDE_REGION = "_general"
+GENERAL_GUIDE_QUESTIONS = {
+    "it": {
+        "Assicurazione di viaggio: Panoramica": ["A cosa serve un'assicurazione di viaggio?"],
+        "Assicurazione di viaggio: Cose che potrebbero essere coperte": ["Quali spese rimborsa un'assicurazione di viaggio?",
+                                                                       "L'assicurazione di viaggio rimborsa un volo cancellato?"],
+        "Assicurazione di viaggio: Acquisti": ["Quando conviene stipulare l'assicurazione di viaggio?"],
+        "Assicurazione di viaggio: Rivendicare": ["Come si chiede un rimborso all'assicurazione di viaggio?"],
+        "Borseggiatori: Fattori di rischio": ["Dove agiscono piu' spesso i borseggiatori?"],
+        "Borseggiatori: Tecniche di borseggio": ["Quali trucchi usano i borseggiatori?"],
+        "Borseggiatori: Proteggersi": ["Come si porta il denaro per non farselo rubare?"],
+        "Documenti: Nei Paesi europei": ["Basta la carta d'identita' per viaggiare in Europa?"],
+        "Documenti: Nel mondo": ["Per quali viaggi serve il passaporto?"],
+        "Documenti: Nazionalità doppia": ["Con la doppia cittadinanza quale passaporto uso?"],
+        "Documenti: In caso di emergenza": ["Ho smarrito la carta d'identita' durante il viaggio: cosa devo fare?"],
+        "Documenti: Veicoli": ["Che documenti servono per portare l'auto all'estero?"],
+        "Documenti: Animali": ["Cosa serve per viaggiare con il cane all'estero?"],
+        "Jet lag: Cause e gravità del jet lag": ["Perche' viene il jet lag?", "Da cosa dipende il jet lag?"],
+        "Jet lag: Prepararsi all'attraversamento dei fusi orari": ["Come ci si prepara a un volo che attraversa molti fusi orari?"],
+        "Jet lag: Recupero da jet lag": ["Quanto dura il jet lag?"],
+        "Mal di montagna: Panoramica": ["Che cos'e' il mal di montagna?"],
+        "Mal di montagna: Sintomi": ["Come capisco se ho il mal di montagna?"],
+        "Mal di montagna: Malattie in quota": ["Quali malattie puo' causare l'alta quota?"],
+        "Mal di montagna: Prevenzione": ["Come si sale in quota senza stare male?"],
+        "Mal di montagna: Trattamento": ["Come si cura il mal di montagna?"],
+        "Salute: Prima di andare": ["Cosa fare per la salute prima di partire per un viaggio?"],
+        "Salute: Durante il viaggio": ["Come si resta in salute durante un viaggio?"],
+        "Salute: Cosa fare se ci si ammala o si subisce un infortunio": ["Cosa fare se ci si ammala in viaggio?"],
+        "Strumenti di pagamento: Contanti": ["Quanti contanti portare in viaggio?"],
+        "Strumenti di pagamento: Carte bancarie": ["Le carte bancarie funzionano all'estero?"],
+        "Strumenti di pagamento: Traveller's cheque": ["Cosa sono i traveller's cheque?"],
+        "Strumenti di pagamento: Trasportare o inviare denaro oltre i confini nazionali": ["Quanto denaro si puo' portare oltre confine?"],
+        "Telefono cellulare: Nozioni di base sul telefono cellulare": ["Il mio cellulare funziona all'estero?"],
+        "Telefono cellulare: Se portate il vostro telefono": ["Conviene comprare una SIM locale in viaggio?", "Come funziona il roaming all'estero?"],
+        "Telefono cellulare: Noleggiare o acquistare un telefono all'estero": ["Si puo' noleggiare un telefono all'estero?"],
+        "Telefono cellulare: Telefoni satellitari": ["A cosa servono i telefoni satellitari?"],
+        "Telefono cellulare: Acquistare un caricabatterie USB": ["Che caricabatterie serve per il telefono in viaggio?"],
+        "Telefono cellulare: Sicurezza": ["Come proteggo il telefono dai furti in viaggio?"],
+        "Truffe comuni: Evitare le truffe": ["Come si evitano le truffe ai turisti?"],
+        "Truffe comuni: Persone del posto \"servizievoli\"": ["Perche' diffidare degli sconosciuti troppo gentili in viaggio?"],
+        "Truffe comuni: Truffa da parte delle autorità": ["Come funzionano le truffe dei finti agenti?"],
+        "Truffe comuni: Sovrapprezzi": ["Come evito di pagare troppo come turista?"],
+        "Truffe comuni: Furto": ["Come rubano ai turisti?"],
+        "Truffe comuni: Truffe dei taxi": ["Come si evitano le fregature dei tassisti?"],
+        "Truffe comuni: Truffe che riguardano cibo e bevande": ["Quali truffe ci sono nei locali per turisti?"],
+        "Truffe comuni: Truffe sugli alloggi": ["Come riconosco una truffa sugli alloggi?"],
+        "Truffe comuni: Truffe sulla connessione": ["Quali truffe ci sono con il wifi pubblico?"],
+        "Visto d'ingresso: Avete bisogno di un visto?": ["Come so se mi serve un visto?"],
+        "Visto d'ingresso: Tasse per il visto": ["Quanto costa un visto?"],
+        "Visto d'ingresso: Tipi di visto": ["Che tipi di visto esistono?"],
+        "Visto d'ingresso: Ingresso senza visto": ["In quali casi si entra senza visto?"],
+        "Visto d'ingresso: Ottenere il visto in anticipo": ["Come si richiede un visto prima di partire?"],
+        "Visto d'ingresso: Transito": ["Serve il visto per uno scalo?"],
+        "Visto d'ingresso: Prolungare la permanenza oltre il visto": ["Si puo' prolungare un visto?"],
+        "Visto d'ingresso: Visto di uscita": ["Cos'e' un visto di uscita?"],
+        "Visto d'ingresso: Registrazione": ["Bisogna registrarsi alla polizia con il visto?"],
+    },
+    "en": {
+        "Altitude sickness: Understand": ["What is altitude sickness?"],
+        "Altitude sickness: Effects of altitude": ["How does high altitude affect the body?"],
+        "Altitude sickness: Illnesses at altitude": ["Which illnesses can high altitude cause?"],
+        "Altitude sickness: Prevention": ["How fast should I climb to stay well at altitude?"],
+        "Altitude sickness: Treatment": ["How is altitude sickness treated?"],
+        "Common scams: Avoiding scams": ["How can tourists avoid scams?"],
+        "Common scams: \"Helpful\" locals": ["Why should I be wary of overly friendly strangers?"],
+        "Common scams: Authority scams": ["How do fake officer scams work?"],
+        "Common scams: Overcharging": ["How do I avoid being overcharged as a tourist?"],
+        "Common scams: Theft": ["How do thieves target tourists?"],
+        "Common scams: Taxi scams": ["How do I avoid being ripped off by taxi drivers?"],
+        "Common scams: Food and beverage scams": ["What scams happen in tourist bars and restaurants?"],
+        "Common scams: Lodging scams": ["How do I spot an accommodation scam?"],
+        "Common scams: Dating scams": ["What are dating scams when travelling?"],
+        "Jet lag: Understand": ["Why do we get jet lag?"],
+        "Jet lag: Prepare": ["How do I prepare for a flight across many time zones?"],
+        "Jet lag: Cope": ["How do I cope with jet lag during the trip?"],
+        "Jet lag: Recover": ["How long does jet lag last?"],
+        "Mobile phones: Mobile phone basics": ["Will my mobile phone work abroad?"],
+        "Mobile phones: Bring your phone": ["Should I buy a local SIM card when travelling?", "How does roaming work abroad?"],
+        "Mobile phones: Renting or purchasing a phone abroad": ["Can I rent a phone abroad?"],
+        "Mobile phones: Satellite phones": ["What are satellite phones for?"],
+        "Mobile phones: Purchasing a USB charger": ["What charger do I need for my phone when travelling?"],
+        "Mobile phones: Stay safe": ["How do I keep my phone safe from theft when travelling?"],
+        "Money: Exchange rates": ["How do exchange rates work for travellers?"],
+        "Money: Cash": ["How much cash should I carry when travelling?"],
+        "Money: ATMs": ["Is it safe to use ATMs abroad?"],
+        "Money: Debit, credit and prepaid cards": ["Do bank cards work abroad?"],
+        "Money: Card costs": ["What fees do cards charge abroad?"],
+        "Money: Cheques": ["What are traveller's cheques?"],
+        "Money: Mobile payments": ["Can I pay with my phone abroad?"],
+        "Money: Carrying or sending money across borders": ["How much money can I take across a border?"],
+        "Money: Getting money in an emergency": ["How can I get money in an emergency abroad?"],
+        "Passport: Types of passports issued": ["What types of passports are there?"],
+        "Passport: Where and how to apply": ["How do I apply for a passport?"],
+        "Passport: What if I lose it while travelling?": ["I lost my passport during the trip, what now?"],
+        "Passport: Expiry dates": ["Can I travel with a passport that expires soon?"],
+        "Pickpockets: Risk factors": ["Where are pickpockets most active?"],
+        "Pickpockets: Pickpocket techniques": ["What tricks do pickpockets use?"],
+        "Pickpockets: Protecting yourself": ["How do I keep my wallet safe from pickpockets?"],
+        "Stay healthy: Before you go": ["What should I do for my health before a trip?"],
+        "Stay healthy: During your trip": ["How do I stay healthy while travelling?"],
+        "Stay healthy: What to do if you get sick or injured": ["What should I do if I get sick while travelling?"],
+        "Tipping: Understand": ["How does tipping work in different countries?"],
+        "Tipping: Services for which tipping might be customary": ["Who should I tip when travelling?"],
+        "Travel insurance: Understand": ["What is travel insurance for?"],
+        "Travel insurance: Things that can be covered": ["Which costs can travel insurance reimburse?"],
+        "Travel insurance: Buy": ["Where can I buy travel insurance?"],
+        "Travel insurance: Claim": ["How do I make a travel insurance claim?"],
+        "Visa: Do you need a visa?": ["How do I know if I need a visa?"],
+        "Visa: Visa fees": ["How much does a visa cost?"],
+        "Visa: Classes of visas": ["What kinds of visas are there?"],
+        "Visa: Entry without a visa": ["When can I enter a country without a visa?"],
+        "Visa: Obtaining the visa in advance": ["How do I apply for a visa before I leave?"],
+        "Visa: Transit": ["Do I need a visa for a layover?"],
+        "Visa: Overstaying": ["Can I extend my visa?"],
+        "Visa: Exit visas": ["What is an exit visa?"],
+        "Visa: Foreigner registration": ["Do foreigners have to register with the police?"],
+    },
+}
+
+
+def load_general_guide(guides_db, lang):
+    """[(categoria, titolo, corpo, sourceUrl)] della guida generale di [guides_db]: solo Wikivoyage nella lingua [lang],
+    non tradotta."""
+    with closing(sqlite3.connect(guides_db)) as db:
+        has_translated = any(col[1] == "translated" for col in db.execute("PRAGMA table_info(guide_sections)"))
+        rows = db.execute("SELECT category, title, body, sourceUrl FROM guide_sections WHERE regionId = ? "
+                          f"{'AND IFNULL(translated, 0) = 0' if has_translated else ''} ORDER BY rowid",
+                          (GENERAL_GUIDE_REGION,)).fetchall()
+    return [r for r in rows if guide_source(r[3], lang) == "CC BY-SA 4.0"]
+
+
+def general_guide_example(rng, sec, q, others, answer_for):
+    """(contesto, risposta) di una domanda sulla sezione [sec] della guida generale: la sezione in testa, come la mette
+    l'app quando batte quelle della guida aperta, e dopo 0-1 sezioni di [others] (una regione qualunque) nello spazio
+    rimasto; None se la risposta e' troppo corta. Le frasi della risposta si scelgono con le parole della domanda e del
+    titolo della sezione ("Jet lag: Recover"): "jet lag" ha parole troppo corte per contare (pick_answer)."""
+    cat, title, body, _ = sec
+    context = it.make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1]))), q, ordered=True)
+    answer = answer_for(context, body, f"{q} {title}", cat, "")
+    return (context, answer) if len(answer) >= 40 else None
+
+
+# Domande da dataset esterni (external_questions.py): al massimo FAQ_REFUSALS_MAX rifiuti sui servizi e MKQA_OFF_TOPIC
+# domande di MKQA tra le fuori tema (che restano --off-topic dei negativi: MKQA ne cambia la varieta', non il numero)
+FAQ_REFUSALS_MAX = 400
+MKQA_OFF_TOPIC = 500
+
+
+# Radici in piu' di CIBO_BEVANDE (dataset v11): specialita' e dolci. Senza, una sezione come "Dolci tipici sono la torta
+# Titano..." (San Marino) non dava risposte, e la domanda sui piatti tipici aveva solo rifiuti. Fuori da KEYWORDS di
+# generate_sft_dataset*.py, che i test estesi usano per scegliere le sezioni.
+FOOD_KEYWORDS = {"it": ["dolc", "specialit", "tipic", "assaggi"], "en": ["dessert", "specialit", "typical", "pastr", "sweets"]}
+
+
+def with_food_keywords(L, lang):
+    """Le tabelle della lingua [lang] con FOOD_KEYWORDS tra le radici di CIBO_BEVANDE."""
+    return {**L, "keywords": {**L["keywords"], "CIBO_BEVANDE": L["keywords"]["CIBO_BEVANDE"] + FOOD_KEYWORDS[lang]}}
+
+
+# Note di ATTRIBUTION nella lingua del dataset (le scrivono in italiano anche altri moduli: travel_questions.py,
+# ALPACA_LICENSE): testi fissi e, per quelli con un nome o una data, (espressione, sostituzione).
+ATTRIBUTION_EN = {
+    "CC BY-SA 4.0 (testo delle pagine elencate sopra)": "CC BY-SA 4.0 (text of the pages listed above)",
+    "fonti per riga nel file: Travel.gc.ca e gov.uk (Open Government Licence), Wikipedia e Wikivoyage (CC BY-SA 4.0), Wikidata (CC0)":
+        "sources per row in the file: Travel.gc.ca and gov.uk (Open Government Licence), Wikipedia and Wikivoyage (CC BY-SA 4.0), "
+        "Wikidata (CC0)",
+    it.ALPACA_LICENSE: "CC BY-NC 4.0 (original Stanford Alpaca data; the copy declares CC BY 4.0)",
+    "fatti rapidi: Wikidata (capitale, valuta, prefisso, lato di guida e dove manca Wikivoyage)":
+        "quick facts: Wikidata (capital, currency, calling code, driving side, and where Wikivoyage has none)",
+    "vaccinazioni: Travel.gc.ca (Governo del Canada)": "vaccinations: Travel.gc.ca (Government of Canada)",
+    "vaccinazioni: TravelHealthPro (UKHSA / NaTHNaC)": "vaccinations: TravelHealthPro (UKHSA / NaTHNaC)",
+    "numeri di emergenza": "emergency numbers",
+    "guida generale": "general guide",
+}
+ATTRIBUTION_EN_PATTERNS = [(re.compile(r"^dump (\S+) del (\S+)$"), r"dump \1 of \2"),
+                           (re.compile(r"^domande di viaggio \((.+), da (.+)\)$"), r"travel questions (\1, from \2)")]
+
+
+def localized_attribution(rows, lang):
+    """[rows] di ATTRIBUTION ((regionId, nome, url, licenza)) con le note in inglese per il dataset inglese."""
+    if lang != "en":
+        return rows
+
+    def tr(text):
+        text = ATTRIBUTION_EN.get(text, text)
+        for rx, repl in ATTRIBUTION_EN_PATTERNS:
+            text = rx.sub(repl, text)
+        return text
+    return [(rid, tr(name), url, tr(lic)) for rid, name, url, lic in rows]
 
 
 def main():
@@ -843,19 +1068,27 @@ def main():
                     help="con --guides-db, anche le sezioni che i dump non danno (consigli di travel.gc.ca e FCDO, Sleep e "
                          "Talk dei paesi; al massimo GUIDE_SECTIONS_MAX per categoria) e i campi Wikidata dei Fatti rapidi "
                          "(--no-guide-sections: come il v9)")
-    ap.add_argument("--version", help="versione nel nome dei file di output (default: v10 con --nearby, --distances, "
+    ap.add_argument("--version", help="versione nel nome dei file di output (default: v11 con --nearby, --distances, "
                                       "--cities-db, --emergency, --user-style-questions diverso da 0, --city-daily-life, "
                                       "--balanced-negatives, --clear-questions o --guide-sections con --guides-db, "
                                       "altrimenti v9); serve per sovrascrivere un v9 che esiste gia'")
+    ap.add_argument("--external-questions", action=argparse.BooleanOptionalAction, default=True,
+                    help="rifiuti sui servizi di un alloggio con le domande di WebFAQ e domande fuori tema di MKQA "
+                         "(external_questions.py; cache in raw/, la prima volta serve la rete)")
+    ap.add_argument("--retrieval-rows", type=int, default=0,
+                    help="righe (circa) con il contesto della ricerca vera dell'app (sft_retrieval.py; richiede --retrieval-cache)")
+    ap.add_argument("--retrieval-cache", type=Path, help="cartella per guides.db e cities.db pubblicati scaricati da --retrieval-rows")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
     if a.distances and not a.cities:
         ap.error("--distances richiede --cities")
+    if a.retrieval_rows and not a.retrieval_cache:
+        ap.error("--retrieval-rows richiede --retrieval-cache")
     if not all(0 <= q < 1 for q in (a.distances, a.nearby, a.emergency)):  # quote del dataset finale: 1 darebbe /0
         ap.error("--distances, --nearby ed --emergency sono quote: tra 0 e 1 escluso")
     if missing := [p for _, p in map(city_db_region, a.cities_db or []) if not Path(p).is_file()]:
         ap.error(f"--cities-db: file inesistenti: {', '.join(map(str, missing))}")
-    version = a.version or ("v10" if a.nearby or a.distances or a.cities_db or a.emergency or a.user_style_questions
+    version = a.version or ("v11" if a.nearby or a.distances or a.cities_db or a.emergency or a.user_style_questions
                             or a.city_daily_life or a.balanced_negatives or a.clear_questions
                             or (a.guide_sections and a.guides_db) else "v9")
     if version == "v9" and not a.version and (it.OUT / f"pocket_travel_sft.v9.{a.lang}.jsonl").exists():
@@ -866,6 +1099,7 @@ def main():
         LANGS.update({k: with_guide_sections(v, k) for k, v in LANGS.items()})
     if a.clear_questions:  # dopo with_guide_sections: filtra anche le sue domande
         LANGS.update({k: with_clear_questions(v) for k, v in LANGS.items()})
+    LANGS.update({k: with_food_keywords(v, k) for k, v in LANGS.items()})
     L, lang, other = LANGS[a.lang], a.lang, OTHER[a.lang]
     rng = random.Random(a.seed)
     (it.OUT / "raw").mkdir(parents=True, exist_ok=True)
@@ -1069,8 +1303,21 @@ def main():
         pool = oth.get(cat) if rng.random() < a.other_lang else None
         return rng.choice(pool or own[cat]).format(r=name)
 
+    # Domande da dataset esterni (--external-questions, external_questions.py): rifiuti sui servizi (WebFAQ, sotto) e
+    # domande fuori tema di cultura generale nelle due lingue (MKQA), una quota delle quali entra tra le fuori tema
+    faq, mkqa = [], []
+    if a.external_questions:
+        phase("domande esterne", "WebFAQ e MKQA")
+        try:
+            faq = external_questions.load_faq_refusals(it.OUT / "raw", lang)
+            mkqa = external_questions.load_mkqa_off_topic(it.OUT / "raw")
+        except Exception as e:  # senza, lo stesso seme darebbe un altro file con lo stesso nome
+            sys.exit(f"domande di WebFAQ e MKQA non disponibili ({e}): riprova con la rete, o usa --no-external-questions")
+        attribution.extend(external_questions.ATTRIBUTION[lang])
+    mkqa_rng, own = random.Random(a.seed + 1), 0 if lang == "it" else 1
+    mkqa_questions = [pair[1 - own if mkqa_rng.random() < a.other_lang else own] for pair in mkqa[:MKQA_OFF_TOPIC]]
     off_topic_pool = L["off_topic_train"] + [q for qs in it.fetch_off_topic(L["off_topic_sources"], keywords, L["travel_stems"]).values()
-                                             for q in qs]
+                                             for q in qs] + mkqa_questions
     off_topic_uses = Counter()
 
     def off_topic_question():
@@ -1187,7 +1434,13 @@ def main():
                 if a.city_daily_life:  # come nei paesi: niente sezioni che trattano la categoria (le radici di VITA_QUOTIDIANA
                     # delle citta', "ospedal", "uffici postal", stanno anche in Salute o Come restare in contatto)
                     bodies = [b for b in bodies if not covers(cat, b) and not it.covers(cat, b, LANGS[other]["keywords"])]
-                context = bodies and it.make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))), q, name)
+                hard = hard_refusal_sections(cat, secs, bodies, lang)
+                if hard and rng.random() < HARD_REFUSAL_SHARE:
+                    rest = [b for b in bodies if b != hard[0]]
+                    chosen = hard[:1] + rng.sample(rest, min(len(rest), rng.randint(0, 2)))
+                else:
+                    chosen = rng.sample(bodies, min(len(bodies), rng.randint(1, 3)))
+                context = chosen and it.make_context(rng, chosen, q, name)
                 if context and (context, q) not in seen:
                     seen.add((context, q))
                     rows.append(row("neg", rid, cat, context, q, refusal(L["topic"][cat]))); city_neg += 1
@@ -1239,6 +1492,25 @@ def main():
                     continue
                 seen.add((context, q))
                 rows.append(row("pos", rid, "NOTE", context, q, answer)); note_pos += 1
+    # Guida generale (--guide-sections con --guides-db): le domande di GENERAL_GUIDE_QUESTIONS sulle sue sezioni
+    general_pos = 0
+    if a.guides_db and a.guide_sections:
+        general_secs = load_general_guide(a.guides_db, lang)
+        rids, asked = [r for r in data if r not in TEST_REGIONS], GENERAL_GUIDE_QUESTIONS[lang]
+        for sec in general_secs:
+            cat, title, body, url = sec
+            for q in asked.get(title, []):
+                for _ in range(2):  # con e senza una sezione della guida aperta dopo
+                    others = [b for c, b, _ in data[rng.choice(rids)][1] if not covers(cat, b)]
+                    example = general_guide_example(rng, sec, q, others, answer_for)
+                    if example and (example[0], q) not in seen:
+                        seen.add((example[0], q))
+                        rows.append(row("pos", GENERAL_GUIDE_REGION, cat, example[0], q, example[1])); general_pos += 1
+        for url in dict.fromkeys(s[3] for s in general_secs if s[1] in asked):
+            attribution.append((GENERAL_GUIDE_REGION, "guida generale", url, "CC BY-SA 4.0"))
+        if missing := sorted(set(asked) - {s[1] for s in general_secs}):  # titoli cambiati nella guida pubblicata
+            print(f"ATTENZIONE: sezioni della guida generale non trovate: {', '.join(missing)}", file=sys.stderr)
+        print(f"guida generale: {len(general_secs)} sezioni, positivi {general_pos}")
     # Vaccinazioni: riassunto del viaggio (dalla nazionalita' al paese della regione, come nell'app) piu' 0-2 sezioni
     # della guida; rifiuto per la stessa domanda quando il contesto ha solo sezioni che non parlano di vaccini.
     vacc_pos = vacc_neg = 0
@@ -1353,7 +1625,7 @@ def main():
         rids, tries = [r for r in data if r not in TEST_REGIONS], 0
         while sum(near.values()) < target and tries < target * 5:
             tries += 1
-            cat = ("VICINO", "PARTENZE")[tries % 2]
+            cat = ("VICINO", "VICINO", "PARTENZE")[tries % 3]  # VICINO il doppio: sinonimi e categorie in piu' (ASK)
             make = sft_nearby.poi_example if cat == "VICINO" else sft_nearby.transit_example
             block, q, ans, kind = make(rng, lang, refusal)
             rid = rng.choice(rids)
@@ -1389,6 +1661,38 @@ def main():
                                 "content/src/main/resources/emergency-numbers.tsv",
                                 "fonti per riga nel file: Travel.gc.ca e gov.uk (Open Government Licence), Wikipedia e Wikivoyage (CC BY-SA 4.0), Wikidata (CC0)"))
         print(f"emergenze: {len(pools['pos'])} regioni con numeri, {len(pools['neg'])} senza; positivi {emergency['pos']}, rifiuti {emergency['neg']}")
+    # Rifiuti sui servizi di un alloggio che le guide non coprono (check-in, animali, parcheggio dell'hotel: domande di
+    # WebFAQ), con le sezioni di una regione qualunque nel contesto; categoria OFF, come le domande fuori tema. Seme a
+    # parte, come le righe della ricerca qui sotto: le righe di prima non cambiano.
+    faq_neg = 0
+    if faq:
+        faq_rng, rids = random.Random(a.seed + 2), [r for r in data if r not in TEST_REGIONS]
+        for q in faq[:FAQ_REFUSALS_MAX]:
+            rid = faq_rng.choice(rids)
+            name, secs, _ = data[rid]
+            bodies = [b for _, b, _ in secs]
+            context = it.make_context(faq_rng, faq_rng.sample(bodies, min(len(bodies), faq_rng.randint(1, 3))), q, name)
+            if (context, q) not in seen:
+                seen.add((context, q))
+                rows.append(row("neg", rid, "OFF", context, q, L["refusal"](L["off_topic_topic"], faq_rng.choice(L["tails"]))))
+                faq_neg += 1
+        print(f"rifiuti sui servizi (WebFAQ): {faq_neg}")
+    # Righe con il contesto della ricerca vera dell'app (--retrieval-rows, sft_retrieval.py), sui giri di frase che il
+    # modello rifiutava con la sezione giusta nel contesto
+    retrieval = Counter()
+    if a.retrieval_rows:
+        phase("ricerca vera", f"{a.retrieval_rows} righe")
+        sft_retrieval.gs.LANGS = LANGS  # le tabelle di main(), con le radici di FOOD_KEYWORDS (il modulo ha il suo import)
+        ret_rng = random.Random(a.seed + 3)
+        ret_rows, ret_attribution = sft_retrieval.retrieval_rows(
+            lang, a.retrieval_rows, ret_rng, a.retrieval_cache, refusal=lambda topic: L["refusal"](topic, ret_rng.choice(L["tails"])))
+        for r in ret_rows:
+            key = (r["messages"][0]["content"], r["messages"][1]["content"])
+            if key not in seen:
+                seen.add(key)
+                rows.append(r); retrieval[r["kind"]] += 1
+        attribution.extend(ret_attribution)
+        print(f"ricerca vera: positivi {retrieval['pos']}, rifiuti {retrieval['neg']}")
     rows, dropped = drop_audit_errors(rows, lang)
     excluded.extend(dropped)
     print(f"righe con errori dell'audit: tolte {len(dropped)}")
@@ -1409,12 +1713,13 @@ def main():
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
     with open(attr_out, "w", encoding="utf-8") as f:
         f.write("regionId\tdisplayName\tsourceUrl\tlicense\n")
-        for rid, name, url, lic in attribution:
+        for rid, name, url, lic in localized_attribution(attribution, lang):
             f.write(f"{rid}\t{name}\t{url}\t{lic}\n")
     print(f"regioni con testo: {len(data)}; sezioni tradotte {other}->{lang}: {n_tr['sezioni']}, "
           f"paragrafi Wikipedia tradotti: {n_tr['wikipedia']}, originali di Wikipedia EN: {n_tr['wikipedia_en']}")
     print(f"positivi={pos} negativi={neg} citta' positivi={city_pos} negativi={city_neg} "
-          f"fatti rapidi {quick_pos}/{quick_neg} note {note_pos} vaccinazioni {vacc_pos}/{vacc_neg} "
+          f"fatti rapidi {quick_pos}/{quick_neg} note {note_pos} guida generale {general_pos} vaccinazioni {vacc_pos}/{vacc_neg} "
+          f"servizi {faq_neg} ricerca vera {retrieval['pos']}/{retrieval['neg']} "
           f"distanze {dist['pos']}/{dist['neg']} vicino {near['VICINO', 'pos']}/{near['VICINO', 'neg']} partenze {near['PARTENZE', 'pos']}/{near['PARTENZE', 'neg']} totale={len(rows)} "
           f"(rifiuti {sum(r['kind'] == 'neg' for r in rows) / max(len(rows), 1):.1%}, tradotte {sum(r['translated'] for r in rows)})")
     cats, refs = Counter(r["category"] for r in rows), Counter(r["category"] for r in rows if r["kind"] == "neg")

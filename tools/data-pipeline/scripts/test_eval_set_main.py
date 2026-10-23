@@ -81,7 +81,9 @@ class EvalSetMainTest(unittest.TestCase):
         kinds = Counter(r["kind"] for r in rows)
         for kind in ("pos_para", "neg_para", "neg_empty", "neg_off"):
             self.assertGreater(kinds[kind], 0, kind)
-        self.assertEqual({"messages", "kind", "region", "category"}, {k for r in rows for k in r} - {"dump"})
+        self.assertEqual({"messages", "kind", "region", "category"}, {k for r in rows for k in r} - {"dump", "set", "question_lang"})
+        tail = [r.get("set") for r in rows]  # le righe in piu' stanno tutte in coda, dopo quelle di prima
+        self.assertEqual(tail, sorted(tail, key=lambda s: s is not None))
         for r in rows:
             user, answer = (m["content"] for m in r["messages"])
             self.assertEqual(["user", "assistant"], [m["role"] for m in r["messages"]])
@@ -114,6 +116,16 @@ class EvalSetMainTest(unittest.TestCase):
         self.assertTrue(all(r["messages"][0]["content"].startswith("You are an offline travel guide.") for r in rows))
         for r in rows:
             self.assertNotIn("DOMANDA", r["messages"][0]["content"])
+        # righe con la domanda in italiano, in coda: domanda delle liste italiane, risposta inglese
+        italian = [r for r in rows if r.get("question_lang") == "it"]
+        self.assertTrue(italian)
+        italian_questions = {q for qs in generate_eval_set.PARA.values() for q in qs}
+        for r in italian:
+            self.assertEqual(r["set"], "v11")
+            self.assertTrue(any(question_of(r).startswith(q.split("{r}")[0]) for q in italian_questions)
+                            or r["kind"].endswith("_city"), question_of(r))
+            if r["kind"].startswith("neg"):
+                self.assertTrue(r["messages"][1]["content"].startswith(REFUSAL_EN))
         _, second = self.run_main(generate_eval_set_en, "eval_extended.en.jsonl")
         self.assertEqual(first, second)
 
@@ -132,6 +144,59 @@ class EvalSetMainTest(unittest.TestCase):
         with self.assertRaises(SystemExit) as ctx:
             self.run_main(generate_eval_set_en, "eval_extended.en.jsonl")
         self.assertIn("canada", str(ctx.exception))
+
+
+class CityRefusalsTest(unittest.TestCase):
+    """Rifiuti neg_city: contesto senza sezioni che trattano la categoria chiesta (radici italiane o inglesi), come nel
+    training, e righe in piu' con un seme proprio."""
+    SECS = [("ARRIVARE", "Si arriva con il treno regionale dalla stazione centrale in un'ora di viaggio."),
+            ("COSA_VEDERE", "Il castello domina la piazza principale e ospita un piccolo museo civico."),
+            ("ALLOGGIO", "La pensione del paese ha camere semplici e una colazione abbondante."),
+            ("COSA_VEDERE", "In bici si gira tutta la zona, molto adatta alle biciclette.")]
+
+    def row(self, kind, rid, cat, context, q, answer):
+        return {"messages": [{"role": "user", "content": g.on_device_prompt(context, q)}, {"role": "assistant", "content": answer}],
+                "kind": kind, "region": rid, "category": cat}
+
+    def test_contesto_senza_la_categoria_chiesta(self):
+        import random
+        for seed in range(40):
+            context = generate_eval_set.refusal_context(random.Random(seed), random.Random(seed + 1), self.SECS, "TRASPORTI",
+                                                        "Come giro per Sigmaringen senza auto?", "Sigmaringen")
+            self.assertIsNotNone(context)
+            self.assertNotIn("bici", context)  # "In bici" tratta gli spostamenti: fuori anche se la sezione e' Cosa vedere
+            self.assertNotIn("treno", context)
+        # nessuna sezione utile: niente riga
+        self.assertIsNone(generate_eval_set.refusal_context(random.Random(1), random.Random(2), self.SECS[:1], "TRASPORTI", "q", "X"))
+
+    def test_righe_in_piu_con_casi_difficili(self):
+        cities = [(f"Citta{i}", self.SECS[1:3]) for i in range(30)]
+        pools = [("it", generate_eval_set.PARA_CITY_EXTRA["it"]), ("en", generate_eval_set.PARA_CITY_EXTRA["en"])]
+        with contextlib.redirect_stdout(io.StringIO()):
+            rows = generate_eval_set.city_extra_refusals(cities, pools, lambda t: t, self.row, lambda cat: REFUSAL + " " + cat, n=20)
+            again = generate_eval_set.city_extra_refusals(cities, pools, lambda t: t, self.row, lambda cat: REFUSAL + " " + cat, n=20)
+        self.assertEqual(rows, again)
+        self.assertEqual(len(rows), 20)
+        self.assertEqual(Counter(r["question_lang"] for r in rows), {"it": 10, "en": 10})
+        for r in rows:
+            self.assertEqual((r["kind"], r["set"]), ("neg_city", "v11"))
+            self.assertNotIn(r["category"], ("COSA_VEDERE", "ALLOGGIO"))  # la citta' ha quelle sezioni
+            context = r["messages"][0]["content"].split("CONTESTO: ")[1].rsplit("\n\nDOMANDA: ", 1)[0]
+            self.assertFalse(generate_eval_set.treats(r["category"], context))
+        # CIBO_BEVANDE con la sezione Dove dormire (che non parla di cibo) nel contesto
+        food = [r for r in rows if r["category"] == "CIBO_BEVANDE"]
+        self.assertTrue(food and all("pensione" in r["messages"][0]["content"] for r in food))
+
+    def test_risposta_attesa_senza_annuncio(self):
+        body = "Qui di seguito i link per il cambio:\n▸ Mance\nIl cameriere riceve 1 o 2 euro al giorno, il facchino 1 euro."
+        legacy = g.pick_answer(body, body, "prezzi", "ACQUISTI", "Germania", legacy=True)
+        self.assertTrue(legacy.startswith("Qui di seguito"))
+        self.assertEqual(generate_eval_set.expected_answer(legacy, body, body, "prezzi", "ACQUISTI", "Germania"),
+                         "Il cameriere riceve 1 o 2 euro al giorno, il facchino 1 euro.")
+        only_intro = "Qui di seguito i link per conoscere l'attuale cambio con le principali monete mondiali:"
+        self.assertIsNone(generate_eval_set.expected_answer(only_intro, only_intro, only_intro, "moneta", "ACQUISTI", "Emirati"))
+        kept = "La valuta e' l'euro, che si usa ovunque nel paese da molti anni."
+        self.assertEqual(generate_eval_set.expected_answer(kept, kept, kept, "moneta", "ACQUISTI", "Malta"), kept)
 
 
 if __name__ == "__main__":

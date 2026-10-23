@@ -82,12 +82,16 @@ CITY_HEADING_TO_CATEGORY = {
 }
 CITY_QUESTIONS_EN_EXTRA = {  # disgiunte da PARA_CITY_EN di generate_eval_set_en.py
     "ARRIVARE": ["What is the best way to get to {r}?", "How do I travel to {r}?"],
-    "TRASPORTI": ["Can I walk around {r}?", "Is there public transport in {r}?"],
+    "TRASPORTI": ["Can I walk around {r}?", "Is there public transport in {r}?", "Can I get around {r} without a car?"],
     "COSA_VEDERE": ["What can I visit in {r}?", "What shouldn't I miss in {r}?"],
-    "CIBO_BEVANDE": ["Where can I have a good meal in {r}?", "What restaurants are there in {r}?"],
-    "ALLOGGIO": ["Where can I sleep in {r}?", "Are there hotels in {r}?"],
+    "CIBO_BEVANDE": ["Where can I have a good meal in {r}?", "What restaurants are there in {r}?", "Where can I have dinner in {r}?",
+                     "Where should I go for dinner in {r}?"],
+    "ALLOGGIO": ["Where can I sleep in {r}?", "Are there hotels in {r}?", "Where can I spend the night in {r}?",
+                 "What kind of place to stay can I find in {r}?"],
     "SICUREZZA": ["Is it safe to visit {r}?", "What should I watch out for in {r}?"],
-    "CONNETTIVITA": ["Is there internet access in {r}?", "Where can I connect to the internet in {r}?"],
+    # "connection" sempre con internet o dati: da sola vale anche come coincidenza di treni e aerei
+    "CONNETTIVITA": ["Is there internet access in {r}?", "Where can I connect to the internet in {r}?",
+                     "How can I get an internet connection in {r}?", "Where can I get a mobile data connection in {r}?"],
     "SHOPPING": ["Where can I buy souvenirs in {r}?", "What are the best shops in {r}?"],
 }
 CITY_QUESTIONS = {c: CITY_QUESTIONS_EN[c] + CITY_QUESTIONS_EN_EXTRA[c] for c in CITY_QUESTIONS_EN}
@@ -217,12 +221,12 @@ def with_article(name):
     return f"the {name}" if name in THE_NAMES or re.search(r"\b(Islands|Republic|Kingdom|States|Emirates)$", name) else name
 
 
-def answer_for(context, body, q, cat, name):
+def answer_for(context, body, q, cat, name, legacy=False):
     """pick_answer con le parole vuote tolte dalla domanda e la divisione in frasi inglese; "" se nessuna frase scelta
     contiene una parola chiave della categoria o una radice della domanda (pick_answer ripiega allora sulla prima frase
-    del contesto, spesso fuori tema: es. "newspapers" -> una frase sulla corrente elettrica)."""
+    del contesto, spesso fuori tema: es. "newspapers" -> una frase sulla corrente elettrica). [legacy] come in pick_answer."""
     words = [w for w in re.findall(r"\w+", q) if w.lower() not in STOPWORDS]
-    answer = pick_answer(context, body, " ".join(words), cat, name, KEYWORDS, SENTENCE_END)
+    answer = pick_answer(context, body, " ".join(words), cat, name, KEYWORDS, SENTENCE_END, legacy)
     stems = {w.lower()[:5] for w in words if len(w) >= 4} - {w[:5] for w in re.findall(r"\w{4,}", name.lower())}
     low = answer.lower()
     return answer if covers(cat, low, KEYWORDS) or any(s in low for s in stems) else ""

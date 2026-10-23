@@ -214,7 +214,10 @@ class EvalSetTest(unittest.TestCase):
     def test_domande_diverse_dal_training_e_che_attivano_il_blocco(self):
         for lang in ("it", "en"):
             near, dep = generate_eval_set.NEAR_QUESTIONS[lang], generate_eval_set.DEP_QUESTIONS[lang]
+            extra = generate_eval_set.NEAR_QUESTIONS_EXTRA[lang]
             self.assertLessEqual(set(near), set(ASK[lang]))
+            self.assertEqual(set(extra), set(ASK[lang]))  # le righe in piu' chiedono ogni categoria del training
+            near = {c: near.get(c, []) + extra[c] for c in extra}
             for key in ("mode", "line"):
                 self.assertEqual(set(dep[key]), set(TRANSIT_ASK[lang][key]), key)
             train = [q for qs, *_ in ASK[lang].values() for q in qs] + _transit_questions(TRANSIT_ASK[lang])
@@ -265,6 +268,26 @@ class EvalSetTest(unittest.TestCase):
                 for fact in re.findall(r"\d+ m\b|\d\d:\d\d|\d+ min", answer):
                     self.assertIn(fact, context, f"{answer}\n{context}")
             self.assertEqual(no_block, 8)  # 4 senza posizione + 4 senza fermate
+
+    def test_righe_in_piu_solo_qui_vicino(self):
+        for lang in ("it", "en"):
+            def row(kind, rid, cat, context, q, answer):
+                return {"kind": kind, "question": q, "answer": answer}
+            rows = generate_eval_set.nearby_rows(lang, self.GUIDES[lang], row, refusal(lang), generate_eval_set.NEAR_EXTRA_QUOTAS,
+                                                 generate_eval_set.NEAR_QUESTIONS_EXTRA, generate_eval_set.NEAR_EXTRA_SEED)
+            self.assertEqual({k: sum(r["kind"] == k for r in rows) for k in ("pos_near", "neg_near")}, {"pos_near": 106, "neg_near": 30})
+            self.assertEqual(len(rows), 136)
+            extra = {q for qs in generate_eval_set.NEAR_QUESTIONS_EXTRA[lang].values() for q in qs}
+            self.assertTrue(all(r["question"] in extra for r in rows))
+
+    def test_sinonimi_del_training_nei_rifiuti_e_nelle_risposte(self):
+        # le domande con un sinonimo (non la parola dell'etichetta) danno anche rifiuti "blocco senza la categoria"
+        rng, seen = random.Random(3), set()
+        for _ in range(4000):
+            block, q, answer, kind = poi_example(rng, "it", refusal("it"))
+            if q == "C'è una guardia medica qui vicino?":
+                seen.add((kind, block is None))
+        self.assertEqual(seen, {("pos", False), ("neg", False), ("neg", True)})
 
 
 if __name__ == "__main__":

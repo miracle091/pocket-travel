@@ -283,6 +283,64 @@ class ReportTest(unittest.TestCase):
             eval_common.print_report({}, [], set(), False)
 
 
+class LangTest(unittest.TestCase):
+    def test_lingua_dalle_parole_frequenti(self):
+        self.assertEqual("it", eval_common.text_lang("Dov'è l'ospedale più vicino a Roma?"))
+        self.assertEqual("it", eval_common.text_lang("Il contesto non contiene informazioni sugli alberghi."))
+        self.assertEqual("en", eval_common.text_lang("Where is the nearest hospital in Rome?"))
+        self.assertEqual("en", eval_common.text_lang("How do I stay connected in Antartide?"))  # nome italiano, frase inglese
+        self.assertIsNone(eval_common.text_lang("Roma, 17:30"))
+        self.assertIsNone(eval_common.text_lang(""))
+
+    def test_lingua_della_domanda_campo_rilevamento_e_ripiego(self):
+        self.assertEqual("en", eval_common.question_lang(row("pos", "What should I eat in Canada?")))
+        self.assertEqual("it", eval_common.question_lang(row("pos", "Cosa si mangia in Canada?", lang="en")))
+        self.assertEqual("it", eval_common.question_lang(row("pos", "Canada?")))  # indecisa: lingua del dataset
+        self.assertEqual("en", eval_common.question_lang(row("pos", "Canada?", lang="en")))
+        self.assertEqual("en", eval_common.question_lang({**row("pos", "Cosa si mangia?"), "question_lang": "en"}))
+        self.assertEqual("en", eval_common.dataset_lang(row("pos", lang="en")))
+        self.assertEqual("it", eval_common.dataset_lang(row("pos")))
+
+    def test_rapporto_per_lingua_e_lingua_sbagliata(self):
+        stats = {"pos_a": [(False, True)] * 3, "neg_b": [(True, True)]}
+        by_lang = {"it": {"pos_a": [(False, True)] * 2, "neg_b": [(True, True)]}, "en": {"pos_a": [(False, True)]}}
+        out = io.StringIO()
+        with redirect_stdout(out):
+            eval_common.print_lang_report(by_lang, {"pos_a": 1, "neg_b": 0}, stats)
+            eval_common.print_lang_report(by_lang, {"pos_a": 0}, stats)
+        text = out.getvalue()
+        self.assertIn("domande en: 1 righe\npos_a: 1 righe | rifiuta 0.0% (atteso 0%)\ndomande it: 3 righe\n", text)
+        self.assertIn("neg_b: 1 righe | rifiuta 100.0% (atteso 100%)", text)
+        self.assertIn("risposte nella lingua sbagliata (non quella del dataset): pos_a 1/3\n", text)
+        self.assertIn("risposte nella lingua sbagliata (non quella del dataset): nessuna\n", text)
+
+    def test_rapporto_del_campionamento_dell_app(self):
+        rows = [{"kind": "neg_city", "question_lang": "it", "question": "D1?", "greedy": True, "p_refusal": 0.9},
+                {"kind": "neg_city", "question_lang": "en", "question": "Q2?", "greedy": False, "p_refusal": 0.3},
+                {"kind": "pos_near", "question_lang": "it", "question": "D3?", "greedy": False, "p_refusal": 0.0}]
+        out = io.StringIO()
+        with redirect_stdout(out):
+            eval_common.print_app_sampling_report(rows)
+        text = out.getvalue()
+        self.assertIn("tipo neg_city: 2 righe | rifiuta greedy 50.0% | atteso app 60.0%\n", text)
+        self.assertIn("tipo pos_near: 1 righe | rifiuta greedy 0.0% | atteso app 0.0%\n", text)
+        self.assertIn("domande en neg_city: 1 righe | rifiuta greedy 0.0% | atteso app 30.0%\n", text)
+        self.assertLess(text.index("tipo pos_near"), text.index("domande en"))  # prima i tipi, poi le lingue
+        self.assertIn("righe incerte (p del rifiuto tra 0.2 e 0.8): 1\n  neg_city en p=0.30 greedy risponde | Q2?", text)
+        self.assertNotIn("campionato", text)
+
+    def test_rapporto_con_i_campioni(self):
+        rows = [{"kind": "neg_city", "question_lang": "it", "question": "D?", "greedy": True, "p_refusal": 0.5,
+                 "samples": 10, "sampled_refusals": 4},
+                {"kind": "neg_city", "question_lang": "it", "question": "E?", "greedy": True, "p_refusal": 1.0,
+                 "samples": 10, "sampled_refusals": 10}]
+        out = io.StringIO()
+        with redirect_stdout(out):
+            eval_common.print_app_sampling_report(rows)
+        self.assertIn("tipo neg_city: 2 righe | rifiuta greedy 100.0% | atteso app 75.0% | campionato 70.0% (20 risposte)",
+                      out.getvalue())
+
+
 class LoadTestRowsTest(unittest.TestCase):
     def test_base_filtra_le_regioni_di_test_ed_esteso_le_prende_tutte(self):
         with tempfile.TemporaryDirectory() as tmp:

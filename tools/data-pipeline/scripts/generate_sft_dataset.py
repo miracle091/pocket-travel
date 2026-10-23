@@ -45,7 +45,7 @@ import wiki_dump
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent / "data" / "sft"
-UA = {"User-Agent": "pocket-travel-sft/0.10 (https://github.com/miracle091/pocket-travel)"}
+UA = {"User-Agent": "pocket-travel-sft/0.11 (https://github.com/miracle091/pocket-travel)"}
 # Con --dump-dir: titolo della pagina di ogni fonte per regione (regionId, fonte, titolo), versionato cosi'
 # che dump + questo file bastino a rifare lo stesso dataset. Le regioni nuove si risolvono via API e si
 # aggiungono qui.
@@ -224,12 +224,17 @@ CITY_HEADING_TO_CATEGORY = {
     "dove mangiare": "CIBO_BEVANDE", "dove alloggiare": "ALLOGGIO", "sicurezza": "SICUREZZA",
     "come restare in contatto": "CONNETTIVITA", "acquisti": "SHOPPING",
 }
+# Con le domande su cena, sistemazioni e spostamenti senza auto (dataset v11): senza, il modello rifiutava "Qualche posto
+# dove cenare a X?" anche con la sezione Dove mangiare nel contesto.
 CITY_QUESTIONS = {
     "ARRIVARE": ["Come arrivo a {r}?", "Come si raggiunge {r}?", "Qual e' il modo migliore per arrivare a {r}?", "C'e' un aeroporto vicino a {r}?"],
-    "TRASPORTI": ["Come mi sposto a {r}?", "Come funzionano i mezzi pubblici a {r}?", "Conviene girare {r} a piedi?"],
+    "TRASPORTI": ["Come mi sposto a {r}?", "Come funzionano i mezzi pubblici a {r}?", "Conviene girare {r} a piedi?",
+                  "Si puo' girare {r} senza macchina?", "Come mi muovo a {r} se non ho l'auto?", "Ci si sposta bene a piedi o in bici a {r}?"],
     "COSA_VEDERE": ["Cosa vedere a {r}?", "Quali sono le attrazioni principali di {r}?", "Cosa non perdere a {r}?"],
-    "CIBO_BEVANDE": ["Dove si mangia a {r}?", "Dove posso mangiare bene a {r}?", "Consigli per mangiare a {r}?"],
-    "ALLOGGIO": ["Dove dormire a {r}?", "Dove posso alloggiare a {r}?", "Ci sono alberghi o ostelli a {r}?"],
+    "CIBO_BEVANDE": ["Dove si mangia a {r}?", "Dove posso mangiare bene a {r}?", "Consigli per mangiare a {r}?",
+                     "Dove posso cenare a {r}?", "Dove vado a cena stasera a {r}?", "Dove si pranza bene a {r}?"],
+    "ALLOGGIO": ["Dove dormire a {r}?", "Dove posso alloggiare a {r}?", "Ci sono alberghi o ostelli a {r}?",
+                 "Che sistemazioni offre {r}?", "Dove posso pernottare a {r}?", "Cerco una sistemazione per la notte a {r}: cosa c'e'?"],
     "SICUREZZA": ["{r} e' una citta' sicura?", "Ci sono zone da evitare a {r}?", "A cosa fare attenzione a {r}?"],
     "CONNETTIVITA": ["C'e' il wifi a {r}?", "Come trovo internet a {r}?", "Dove trovo una connessione a {r}?"],
     "SHOPPING": ["Dove fare shopping a {r}?", "Cosa comprare a {r}?", "Ci sono mercati a {r}?"],
@@ -239,7 +244,7 @@ CITY_QUESTIONS_EN = {
     "TRASPORTI": ["How do I get around {r}?", "How does public transport work in {r}?"],
     "COSA_VEDERE": ["What should I see in {r}?", "What are the main sights in {r}?"],
     "CIBO_BEVANDE": ["Where can I eat in {r}?", "Any food tips for {r}?"],
-    "ALLOGGIO": ["Where should I stay in {r}?", "Are there hostels in {r}?"],
+    "ALLOGGIO": ["Where should I stay in {r}?", "Are there hotels or hostels in {r}?"],
     "SICUREZZA": ["Is {r} safe?", "Are there areas to avoid in {r}?"],
     "CONNETTIVITA": ["Is there wifi in {r}?", "How do I get online in {r}?"],
     "SHOPPING": ["Where can I shop in {r}?", "What should I buy in {r}?"],
@@ -443,16 +448,38 @@ def make_context(rng, bodies, question="", name="", max_chars=MAX_CONTEXT, order
             remaining -= len(part) + 2
     return "\n\n".join(out)[:max_chars]
 
-def pick_answer(context, body, question, cat, name, keywords=KEYWORDS, split=SENTENCE_END):
-    """Fino a 3 frasi del corpo presenti per intero nel contesto: quelle piu' vicine alla domanda
-    (parole in comune, escluso il nome della regione) o alla categoria; in ordine di testo. Solo frasi
-    pertinenti (punteggio > 0) se ce ne sono, senza link, e al massimo MAX_ANSWER caratteri in tutto. Frasi di righe
-    diverse (voci di elenco, sottosezioni) separate da un a capo come nella guida, quelle della stessa riga da uno spazio."""
+def intro_lines(body):
+    """I numeri delle righe di [body] che finiscono annunciando un elenco che non c'e': l'ultima frase finisce con ":" e
+    la riga dopo non e' una voce di elenco "•" (es. "Qui di seguito i link per conoscere l'attuale cambio...:", rimasta
+    senza i link dopo la pulizia del testo, seguita da un sottotitolo o da un altro paragrafo)."""
+    lines = body.splitlines()
+    nonempty = [n for n, line in enumerate(lines) if line.strip()]
+    return {n for k, n in enumerate(nonempty) if lines[n].rstrip().endswith(":")
+            and (k + 1 == len(nonempty) or not lines[nonempty[k + 1]].strip().startswith("• "))}
+
+
+def intro_sentences(body, split=SENTENCE_END):
+    """Le frasi di line_sentences che annunciano un elenco assente: l'ultima frase delle righe di intro_lines."""
+    intros = intro_lines(body)
+    return {(n, x) for n, x in line_sentences(body, split) if n in intros and x.endswith(":")}
+
+
+def pick_answer(context, body, question, cat, name, keywords=KEYWORDS, split=SENTENCE_END, legacy=False):
+    """Fino a 3 frasi del corpo presenti per intero nel contesto: quelle piu' vicine alla domanda (parole in comune,
+    escluso il nome della regione) o alla categoria, a parita' quelle con piu' sue radici; in ordine di testo. Solo frasi pertinenti
+    (punteggio > 0) se ce ne sono, senza link, senza le frasi che annunciano un elenco assente (intro_sentences), e al
+    massimo MAX_ANSWER caratteri in tutto. Frasi di righe diverse (voci di elenco, sottosezioni) separate da un a capo
+    come nella guida, quelle della stessa riga da uno spazio. Con [legacy] la scelta del dataset v10 (categoria contata
+    una volta sola, righe di annuncio comprese), che i test estesi tengono per le righe gia' misurate."""
     stems = {w[:5] for w in re.findall(r"\w{4,}", question.lower())} - {w[:5] for w in re.findall(r"\w{4,}", name.lower())}
+    intros = set() if legacy else intro_sentences(body, split)
     cand = [(i, n, x) for i, (n, x) in enumerate(line_sentences(body, split))
-            if x in context and not URL.search(x) and len(x) <= MAX_ANSWER]  # frasi-elenco lunghissime: fuori
+            if x in context and not URL.search(x) and len(x) <= MAX_ANSWER and (n, x) not in intros]  # frasi-elenco lunghissime: fuori
     score = lambda x: 2 * sum(st in x.lower() for st in stems) + covers(cat, x, keywords)
-    ranked = sorted(cand, key=lambda t: (-score(t[2]), t[0]))
+    # a parita' di punteggio, prima le frasi con piu' radici della categoria: le parole della domanda restano il criterio
+    # principale ("origini romane" non deve perdere contro una frase sul Sacro Romano Impero piena di radici di Storia)
+    hits = (lambda x: 0) if legacy else (lambda x: len(keyword_hits(cat, x, keywords)))
+    ranked = sorted(cand, key=lambda t: (-score(t[2]), -hits(t[2]), t[0]))
     best = [t for t in ranked if score(t[2]) > 0][:3] or ranked[:1]
     while len(best) > 1 and sum(len(x) + 1 for _, _, x in best) > MAX_ANSWER:
         best.pop()  # toglie la meno pertinente
