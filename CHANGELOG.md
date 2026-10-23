@@ -6,6 +6,8 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ## [Non rilasciato]
 
+## [0.12.0] - 2026-10-23
+
 ### Aggiunto
 - Mezzi pubblici: con la rete, il riquadro di una fermata mostra accanto all'orario il ritardo ("+3 min"), l'anticipo ("2 min in anticipo") o "Soppressa", dal feed in tempo reale dell'ente, e sotto le partenze "In tempo reale, aggiornato alle 14:05" con il pulsante "Aggiorna i ritardi". I ritardi si riscaricano da soli finché il riquadro resta aperto, mai con l'app in background: ogni minuto per i feed piccoli, più di rado per i grandi (un minuto ogni mezzo MB, al massimo 7: Berlino, 2,25 MB, ogni 4 minuti e mezzo), il doppio su rete a consumo, dove i feed oltre 1 MB si scaricano solo con "Aggiorna i ritardi", che ne dice il peso. Da soli si scaricano solo i feed delle reti con una partenza nell'ora successiva, e dopo un quarto d'ora con il riquadro aperto senza tocchi l'aggiornamento automatico si ferma ("Aggiornamento automatico dei ritardi in pausa") finché non si tocca "Aggiorna i ritardi". Una corsa in ritardo partita fino a un'ora prima secondo l'orario resta tra le partenze, all'ora prevista. Le partenze successive mostrano l'orario programmato con il ritardo o l'anticipo accanto ("10:50 +3", "11:20 −2") o "soppressa". Un feed che l'ente non aggiorna più non passa per tempo reale: conta l'ora scritta nel feed, e "aggiornato alle" mostra quella. Senza rete le partenze sono quelle dell'orario, come prima. Il feed arriva direttamente dal sito dell'ente, che vede l'indirizzo IP del dispositivo, senza server del progetto. Reti: treni suburbani Renfe, treni SNCF, Autolinee Toscane, Bordeaux, Tolosa, autobus della Corsica, Berlino e Brandeburgo, Zagabria, BART, Boston, Sofia, Calgary e Alto Adige; arrivano con il prossimo aggiornamento degli orari della regione.
 - Mezzi pubblici: orari dell'Alto Adige (autobus, treni e funivie STA, da Open Data Hub, CC0).
@@ -541,7 +543,8 @@ Prima baseline documentata: nessuna versione precedente pubblicata da cui deriva
 - Attribuzione mancante a schermo per OpenStreetMap e link sorgente mancante per le citazioni Wikivoyage.
 - Inizializzazione di WorkManager con Hilt, che impediva l'esecuzione di qualunque download in background.
 
-[Non rilasciato]: https://github.com/miracle091/pocket-travel/compare/v0.11.0...HEAD
+[Non rilasciato]: https://github.com/miracle091/pocket-travel/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/miracle091/pocket-travel/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/miracle091/pocket-travel/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/miracle091/pocket-travel/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/miracle091/pocket-travel/compare/v0.8.0...v0.9.0
