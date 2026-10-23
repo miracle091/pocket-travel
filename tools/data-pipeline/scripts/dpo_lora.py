@@ -143,7 +143,8 @@ def main():
     data = [p for items in pairs.values() for p in items]
     random.Random(42).shuffle(data)
 
-    bf16 = torch.cuda.is_bf16_supported()
+    # bf16 nativo solo con capability >= 8, come train_lora.py: su Turing is_bf16_supported() e' vero ma emulato (lento)
+    bf16 = torch.cuda.is_bf16_supported() and torch.cuda.get_device_capability()[0] >= 8
     dtype = torch.bfloat16 if bf16 else torch.float16
     # Modello di partenza: il modello base del run con la sua LoRA fusa. Non la cartella merged: Unsloth 2026.9.7 (quello
     # dei modelli v10) la salva per Qwen3.5 con nomi annidati (model.language_model.language_model.language_model.*), che

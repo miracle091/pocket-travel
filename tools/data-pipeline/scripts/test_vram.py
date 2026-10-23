@@ -51,6 +51,11 @@ class HeldProcessesTest(unittest.TestCase):
 
 
 class CheckTest(unittest.TestCase):
+    def setUp(self):  # senza la misura di nvidia-smi: conta la memoria libera del runtime
+        patcher = mock.patch.object(vram, "nvidia_used_gib", return_value=None)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_linux_sotto_soglia_non_esce(self):
         with mock.patch("platform.system", return_value="Linux"), mock.patch.object(vram, "held_processes", return_value=[]):
             self.assertIsNone(vram.check(8.0, 7.5, 10))  # occupata il 6,25%
@@ -93,6 +98,32 @@ class CheckTest(unittest.TestCase):
     def test_windows_senza_processi_parte(self):
         with mock.patch("platform.system", return_value="Windows"), mock.patch.object(vram, "held_processes", return_value=[]):
             self.assertIsNone(vram.check(8.0, 0.0, 10))
+
+
+class NvidiaUsedTest(unittest.TestCase):
+    def used(self, out, label="GPU 0 (NVIDIA GeForce GTX 1660 SUPER)"):
+        with mock.patch("shutil.which", return_value="/usr/bin/nvidia-smi"), \
+                mock.patch("subprocess.run", return_value=completed(out)):
+            return vram.nvidia_used_gib(label)
+
+    def test_una_gpu_con_il_nome_nell_etichetta(self):
+        self.assertEqual(0.5, self.used("NVIDIA GeForce GTX 1660 SUPER, 512\n"))
+
+    def test_nome_diverso_o_piu_gpu_niente_misura(self):
+        self.assertIsNone(self.used("NVIDIA GeForce RTX 3060, 512\n"))
+        self.assertIsNone(self.used("NVIDIA GeForce GTX 1660 SUPER, 512\nNVIDIA GeForce GTX 1660 SUPER, 100\n"))
+        self.assertIsNone(self.used("NVIDIA GeForce GTX 1660 SUPER, [N/A]\n"))
+
+    def test_senza_nvidia_smi(self):
+        with mock.patch("shutil.which", return_value=None), mock.patch("subprocess.run") as run:
+            self.assertIsNone(vram.nvidia_used_gib("GPU"))
+        run.assert_not_called()
+
+    def test_check_su_linux_usa_nvidia_smi_e_non_il_contesto_del_runtime(self):
+        # Il runtime dice 1 GiB occupato su 6 (17%, con il contesto CUDA di chi misura), nvidia-smi 0,44 GiB (7%)
+        with mock.patch("platform.system", return_value="Linux"), mock.patch.object(vram, "held_processes", return_value=[]), \
+                mock.patch.object(vram, "nvidia_used_gib", return_value=0.44):
+            self.assertIsNone(vram.check(6.0, 5.0, 10, "GPU 0 (NVIDIA GeForce GTX 1660 SUPER)"))
 
 
 LIST_DEVICES = """Available devices:

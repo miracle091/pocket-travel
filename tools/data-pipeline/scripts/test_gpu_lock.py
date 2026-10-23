@@ -105,6 +105,47 @@ class GpuLockTest(unittest.TestCase):
         lock.assert_not_called()
         monitor.assert_called_once_with("convert_gguf")
 
+    def fake_helper(self, *lines):
+        """Al posto di powershell.exe: le righe di WINDOWS_HELPER, poi aspetta che stdin si chiuda."""
+        win_lock = Path(self.tmp.name) / "windows" / "gpu.lock"
+        win_lock.parent.mkdir(exist_ok=True)
+        script = (f"import sys; print('PATH {win_lock.as_posix()}'); print('PID 4242'); "
+                  + "".join(f"print('{line}'); " for line in lines) + "sys.stdout.flush(); sys.stdin.read()")
+        proc = subprocess.Popen([sys.executable, "-c", script], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        self.addCleanup(proc.stdout.close)
+        wslpath = mock.patch("gpu_lock.subprocess.run", return_value=mock.Mock(stdout=str(win_lock)))
+        wslpath.start()
+        self.addCleanup(wslpath.stop)
+        return proc, win_lock.with_name("gpu-lock.json")
+
+    def test_da_wsl_tiene_anche_il_lucchetto_di_windows(self):
+        proc, win_info = self.fake_helper("WAIT", "LOCKED")
+        out = io.StringIO()
+        with mock.patch.object(gpu_lock, "windows_helper", return_value=proc):
+            lock = gpu_lock.GpuLock("train_auto.py", out=out).acquire()
+        self.assertIn("GPU occupata su Windows", out.getvalue())
+        self.assertIn("GPU libera: train_auto.py parte", out.getvalue())
+        # gpu-lock.json di Windows con il PID di powershell.exe, quello che l'hook session-guard controlla
+        self.assertEqual((4242, os.getpid()), (gpu_lock.holder(win_info)["pid"], gpu_lock.holder(win_info)["wsl_pid"]))
+        lock.release()
+        self.assertFalse(win_info.exists())
+        self.assertEqual(0, proc.wait(timeout=30))  # stdin chiuso: il blocco di Windows si scioglie
+
+    def test_helper_uscito_senza_lucchetto(self):
+        proc, _ = self.fake_helper()
+        proc.stdin.close()
+        with mock.patch.object(gpu_lock, "windows_helper", return_value=proc), self.assertRaises(SystemExit) as ctx:
+            gpu_lock.GpuLock("eval", out=io.StringIO()).acquire()
+        self.assertIn("senza il lucchetto di Windows", str(ctx.exception))
+
+    def test_status_da_wsl_legge_il_lucchetto_di_windows(self):
+        proc, win_info = self.fake_helper("BUSY")
+        win_info.write_text('{"name": "eval_gguf.py", "pid": 77, "since": 0}', encoding="utf-8")
+        proc.stdin.close()
+        with mock.patch.object(gpu_lock, "windows_helper", return_value=proc), redirect_stdout(io.StringIO()) as out:
+            gpu_lock.main(["status"])
+        self.assertIn("GPU occupata da eval_gguf.py (PID 77", out.getvalue())
+
     def test_describe(self):
         info = {"name": "train_auto.py", "pid": 42, "session": "abcdef1234", "since": 1000}
         self.assertEqual("train_auto.py (PID 42, sessione abcdef12, da 10 min)", gpu_lock.describe(info, now=1600))

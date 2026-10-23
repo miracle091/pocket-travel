@@ -10,8 +10,11 @@ flock su Linux): lo libera il sistema quando il processo finisce, anche se muore
 non resta mai appeso. Chi lo tiene e' scritto in gpu-lock.json, accanto, per i messaggi di attesa e per
 l'hook session-guard. Un processo che non lo trova libero aspetta e lo dice ogni 10 minuti.
 
-Vale tra i processi dello stesso sistema: un lavoro in WSL e uno di Windows sulla stessa GPU non si vedono (il
-blocco di Linux e quello di Windows non si parlano), quindi su un PC si lanciano tutti da Windows o tutti da WSL.
+Vale anche tra WSL e Windows: un lavoro in WSL prende anche il lucchetto di Windows (%USERPROFILE%\\.cache\\
+pocket-travel\\gpu.lock) con un powershell.exe figlio, che blocca lo stesso byte di msvcrt (LockFile), scrive il
+gpu-lock.json di Windows con il proprio PID (quello che l'hook session-guard controlla) e lo tiene finche' il suo
+input resta aperto: quando il processo di WSL esce o muore, l'input si chiude e il blocco si scioglie. Senza
+powershell.exe (interop di WSL spenta) resta il solo lucchetto di Linux, con un avviso.
 
 I figli di chi lo tiene (train_auto.py -> train_lora.py -> run_eval.py, eval_gguf.py -> llama-server)
 ereditano POCKET_TRAVEL_GPU_LOCK e non lo riprendono.
@@ -26,6 +29,8 @@ Variabili per i test: POCKET_TRAVEL_GPU_LOCK_FILE (percorso del lucchetto).
 import atexit
 import json
 import os
+import platform
+import shutil
 import subprocess
 import sys
 import time
@@ -61,12 +66,63 @@ def _try_lock(fd):
         return False
 
 
-def holder():
+def holder(path=None):
     """Chi tiene il lucchetto secondo gpu-lock.json (dict), o None; puo' essere vecchio se il lucchetto e' libero."""
     try:
-        return json.loads(info_path().read_text(encoding="utf-8"))
+        return json.loads((path or info_path()).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+
+
+# Lucchetto di Windows tenuto da WSL. Righe in uscita: "PATH <gpu.lock>", "PID <pid>", poi "WAIT" a ogni
+# messaggio di attesa (subito e ogni NOTICE_EVERY secondi), "LOCKED" quando lo tiene, "BUSY" in modalita' try.
+WINDOWS_HELPER = r"""
+$p = Join-Path $env:USERPROFILE '.cache\pocket-travel\gpu.lock'
+New-Item -ItemType Directory -Force (Split-Path $p) | Out-Null
+$f = [IO.File]::Open($p, 'OpenOrCreate', 'ReadWrite', 'ReadWrite')
+if ($f.Length -eq 0) { $f.WriteByte(0); $f.Flush() }
+"PATH $p"; "PID $PID"
+$n = 0
+while ($true) {
+    try { $f.Lock(0, 1); break } catch { }
+    if ('MODE' -eq 'try') { 'BUSY'; exit }
+    if ($n % (NOTICE / 5) -eq 0) { 'WAIT' }
+    $n++; Start-Sleep 5
+}
+'LOCKED'
+if ('MODE' -eq 'try') { exit }
+[Console]::In.ReadToEnd() | Out-Null
+$f.Close()
+"""
+
+
+def in_wsl():
+    return "microsoft" in platform.release().lower()
+
+
+def windows_helper(mode):
+    """powershell.exe con WINDOWS_HELPER ("wait" o "try"), o None fuori da WSL, senza interop o nei test
+    (POCKET_TRAVEL_GPU_LOCK_FILE: il lucchetto dei test non e' quello di Windows)."""
+    exe = shutil.which("powershell.exe")
+    if not in_wsl() or os.environ.get("POCKET_TRAVEL_GPU_LOCK_FILE") or not exe:
+        return None
+    script = WINDOWS_HELPER.replace("MODE", mode).replace("NOTICE", str(NOTICE_EVERY))
+    return subprocess.Popen([exe, "-NoProfile", "-NonInteractive", "-Command", script], stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
+
+
+def read_header(proc):
+    """(percorso di gpu-lock.json di Windows visto da WSL, PID di powershell.exe) dalle prime due righe."""
+    win_lock = proc.stdout.readline().strip().removeprefix("PATH ")
+    pid = int(proc.stdout.readline().strip().removeprefix("PID ") or 0)
+    linux_lock = subprocess.run(["wslpath", "-u", win_lock], capture_output=True, text=True).stdout.strip()
+    return Path(linux_lock).with_name("gpu-lock.json"), pid
+
+
+def write_info(path, info):
+    tmp = path.with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(info), encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def describe(info, now=None):
@@ -82,7 +138,7 @@ class GpuLock:
 
     def __init__(self, name, out=sys.stderr, sleep=time.sleep, clock=time.monotonic):
         self.name, self.out, self.sleep, self.clock = name, out, sleep, clock
-        self.fd = None
+        self.fd = self.win = None
 
     def acquire(self, poll=5):
         path = lock_path()
@@ -102,20 +158,51 @@ class GpuLock:
             self.sleep(poll)
         info = {"name": self.name, "pid": os.getpid(), "since": time.time(),
                 "session": os.environ.get("CLAUDE_CODE_SESSION_ID", ""), "command": " ".join(sys.argv)[:300]}
-        tmp = info_path().with_suffix(f".{os.getpid()}.tmp")
-        tmp.write_text(json.dumps(info), encoding="utf-8")
-        os.replace(tmp, info_path())
+        write_info(info_path(), info)
+        win_waited = self.acquire_windows(info)
+        waited = win_waited if waited is None else waited
         os.environ[HELD_ENV] = str(os.getpid())
         if waited is not None:
             print(f"[gpu] GPU libera: {self.name} parte dopo {int((self.clock() - waited) // 60)} min di attesa",
                   file=self.out, flush=True)
         return self
 
+    def acquire_windows(self, info):
+        """Da WSL, anche il lucchetto di Windows (WINDOWS_HELPER); ritorna l'istante d'inizio dell'attesa, o None."""
+        self.win = windows_helper("wait")
+        if self.win is None:
+            if in_wsl() and not os.environ.get("POCKET_TRAVEL_GPU_LOCK_FILE"):
+                print("[gpu] powershell.exe non trovato (interop di WSL spenta?): solo il lucchetto di WSL, "
+                      "i lavori di Windows sulla stessa GPU non lo vedono", file=self.out, flush=True)
+            return None
+        self.win_info, self.win_pid = read_header(self.win)
+        waited = None
+        for line in self.win.stdout:
+            if line.strip() == "LOCKED":
+                break
+            if line.strip() == "WAIT":
+                waited = self.clock() if waited is None else waited
+                print(f"[gpu] GPU occupata su Windows da {describe(holder(self.win_info))}: {self.name} aspetta che si "
+                      f"liberi (in attesa da {int((self.clock() - waited) // 60)} min)", file=self.out, flush=True)
+        else:
+            code = self.win.wait()
+            self.release()
+            sys.exit(f"[gpu] powershell.exe uscito senza il lucchetto di Windows (codice {code})")
+        write_info(self.win_info, {**info, "pid": self.win_pid, "wsl_pid": os.getpid()})
+        return waited
+
     def release(self):
         if self.fd is None:
             return
         if (holder() or {}).get("pid") == os.getpid():
             info_path().unlink(missing_ok=True)
+        if self.win:
+            if (holder(self.win_info) or {}).get("pid") == self.win_pid:
+                self.win_info.unlink(missing_ok=True)
+            self.win.stdin.close()  # powershell.exe esce e il blocco di Windows si scioglie
+            self.win.wait(timeout=30)
+            self.win.stdout.close()
+            self.win = None
         os.close(self.fd)  # chiudere il file scioglie il blocco
         self.fd = None
         if os.environ.get(HELD_ENV) == str(os.getpid()):
@@ -133,6 +220,15 @@ def gpu_job(name, gpu=True):
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if argv[:1] == ["status"]:
+        win = windows_helper("try")
+        if win:  # da WSL conta il lucchetto di Windows, preso da tutti i lavori del PC
+            win_info, _ = read_header(win)
+            busy = win.stdout.readline().strip() == "BUSY"
+            win.stdin.close()
+            win.wait()
+            win.stdout.close()
+            print(f"GPU occupata da {describe(holder(win_info))}" if busy else "GPU libera")
+            return 0
         path = lock_path()
         if not path.exists():
             print("GPU libera")
