@@ -14,6 +14,8 @@
 # Conditions": uso per ogni scopo, chi ridistribuisce indica limiti e garanzie) senza Lake County,
 # che dichiara i suoi dati "not for use by third parties". Restano ammesse, con basi piu' deboli,
 # Colorado (solo un disclaimer), Estonia e Messico.
+# Uruguay: una sola fonte (IDE, Licencia de Datos Abiertos), divisa da Overture nei 19 dipartimenti
+# (uy/<dipartimento>/regionwide, rilascio 2026-10-21.0); le righe hanno la stessa attribuzione.
 #
 # attribuzione: testo per la schermata Licenze; {anno} e {data} li riempie il workflow con la data
 # del rilascio Overture usato.
@@ -451,4 +453,22 @@ US	us/ny/city_of_new_york	LicenseRef-Proprietary	allow	NYC Open Data, Address Po
 US	us/or/statewide	LicenseRef-Proprietary	allow	Oregon 9-1-1 Public Safety Answering Points (PSAP), Oregon Department of Emergency Management (OEM), Oregon Department of Administrative Services (DAS)
 US	us/pa/lackawanna	PDDL-1.0	allow	City of Scranton GIS (Lackawanna County) (cortesia; PDDL 1.0)
 US	us/wi/waupaca	CC-BY-4.0	allow	Waupaca County, Wisconsin; CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
-UY	uy/countrywide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/ar/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/ca/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/cl/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/co/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/du/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/fd/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/fs/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/la/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/ma/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/mo/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/pa/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/rn/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/ro/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/rv/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/sa/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/sj/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/so/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/ta/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
+UY	uy/tt/regionwide	LicenseRef-Proprietary	allow	Infraestructura de Datos Espaciales (IDE) - Presidencia de la República, Direcciones geográficas del Uruguay; Licencia de Datos Abiertos - Uruguay; modificado
