@@ -7,16 +7,22 @@ minuto una riga "[hw]" sullo stderr del lavoro, quindi nel suo log, e un avviso 
 valore passa la soglia (ALERTS). All'uscita, i massimi.
 
 Fonti, senza dipendenze nuove; un valore che una fonte non da' resta vuoto:
-- Windows, GPU AMD: ADL del driver (atiadlxx.dll) per temperatura del chip, punto piu' caldo, memoria,
-  consumo della scheda, attivita', ventola e frequenza; contatori di Windows per la VRAM usata e per quella
-  condivisa, cioe' la VRAM che trabocca nella RAM. Sui Ryzen con grafica integrata ADL da' anche il consumo
-  del processore.
-- Linux, GPU AMD: hwmon di amdgpu in /sys (temperature, consumo, ventola, VRAM, GTT = memoria traboccata);
-  CPU da /proc e dalla temperatura di k10temp o coretemp.
-- GPU NVIDIA, su tutti e due: nvidia-smi.
-- Temperatura della CPU su Windows: solo da LibreHardwareMonitor con il web server acceso (Options -> Remote
-  Web Server), letto da POCKET_TRAVEL_LHM_URL (default http://127.0.0.1:8085), con l'autenticazione del server
-  in POCKET_TRAVEL_LHM_USER e POCKET_TRAVEL_LHM_PASSWORD. Windows non la da' ai programmi senza un driver.
+- Windows, GPU AMD: ADL del driver (atiadlxx.dll) per temperatura del chip, punto piu' caldo, memoria, VRM
+  (il piu' caldo dei regolatori), consumo della scheda, attivita', ventola (giri e %) e frequenza; contatori di
+  Windows per la VRAM usata e per quella condivisa, cioe' la VRAM che trabocca nella RAM. Sui Ryzen con grafica
+  integrata ADL da' anche il consumo del processore.
+- Linux, GPU AMD: hwmon di amdgpu in /sys (temperature, consumo, ventola in giri e in % dal comando pwm1, VRAM,
+  GTT = memoria traboccata); CPU da /proc e dalla temperatura di k10temp o coretemp.
+- GPU NVIDIA, su tutti e due: nvidia-smi (temperatura, consumo, attivita', VRAM, frequenza, ventola in %, e i
+  rallentamenti decisi dal driver per temperatura o consumo, con un avviso per quelli da temperatura).
+- Windows, LibreHardwareMonitor con il web server acceso (Options -> Remote Web Server), letto da
+  POCKET_TRAVEL_LHM_URL (default http://127.0.0.1:8085), con l'autenticazione del server in POCKET_TRAVEL_LHM_USER
+  e POCKET_TRAVEL_LHM_PASSWORD: temperatura della CPU (Windows non la da' ai programmi senza un driver), ventola
+  della CPU e del case dal chip della scheda madre, e i valori della GPU che le fonti sopra non danno (con le
+  NVIDIA il punto piu' caldo, la memoria e i giri di ogni ventola, da NvAPI; con le AMD i VRM). Le fonti sopra hanno
+  la precedenza. Le ventole della GPU una per una arrivano solo da qui: nvidia-smi e NVML danno la velocita' voluta,
+  uguale per tutte, e amdgpu e ADL una sola ventola; con piu' ventole un avviso dice quando una e' ferma e le altre
+  girano. Temperatura dei VRM: solo AMD (ADL o LHM); amdgpu su Linux e i driver NVIDIA non la danno.
 
 Uso:
   python hw_monitor.py                    # una riga ogni 5 secondi, fino a Ctrl+C
@@ -39,8 +45,9 @@ import urllib.request
 from pathlib import Path
 
 HELD_ENV = "POCKET_TRAVEL_HW_MONITOR"
-FIELDS = ["time", "gpu_c", "gpu_hotspot_c", "gpu_mem_c", "gpu_w", "gpu_busy_pct", "gpu_fan_rpm", "gpu_clock_mhz",
-          "vram_used_mb", "vram_shared_mb", "vram_total_mb", "cpu_pct", "cpu_w", "cpu_c", "ram_used_mb", "ram_total_mb",
+FIELDS = ["time", "gpu_c", "gpu_hotspot_c", "gpu_mem_c", "gpu_vrm_c", "gpu_w", "gpu_busy_pct", "gpu_fan_rpm",
+          "gpu_fan_pct", "gpu_fans_rpm", "gpu_clock_mhz", "gpu_throttle", "vram_used_mb", "vram_shared_mb",
+          "vram_total_mb", "cpu_pct", "cpu_w", "cpu_c", "cpu_fan_rpm", "case_fan_rpm", "ram_used_mb", "ram_total_mb",
           "gpu_jobs"]
 USER_AGENT = "pocket-travel-hw_monitor/1 (https://github.com/miracle091/pocket-travel)"
 JOB_VRAM = 2**30  # un processo con almeno 1 GiB di VRAM e' un lavoro sulla GPU (il desktop e i browser ne usano meno)
@@ -66,7 +73,13 @@ ALERTS = [
     ("gpu_hotspot_c", lambda s: (s.get("gpu_hotspot_c") or 0) >= 100, "punto piu' caldo della GPU a {gpu_hotspot_c} °C"),
     ("gpu_c", lambda s: (s.get("gpu_c") or 0) >= 90, "GPU a {gpu_c} °C"),
     ("gpu_mem_c", lambda s: (s.get("gpu_mem_c") or 0) >= 100, "memoria della GPU a {gpu_mem_c} °C"),
+    # VRM: limiti tipici dei regolatori di tensione 110-125 °C
+    ("gpu_vrm_c", lambda s: (s.get("gpu_vrm_c") or 0) >= 105, "VRM della GPU a {gpu_vrm_c} °C"),
+    ("gpu_fans_rpm", lambda s: _fan_stopped(s), "una ventola della GPU e' ferma mentre le altre girano "
+                                               "({gpu_fans_rpm} RPM): guasta o staccata"),
     ("cpu_c", lambda s: (s.get("cpu_c") or 0) >= 90, "CPU a {cpu_c} °C"),
+    ("gpu_throttle", lambda s: "temperatura" in (s.get("gpu_throttle") or ""),
+     "GPU rallentata dal driver per la temperatura ({gpu_c} °C): raffreddamento insufficiente o ventole ferme"),
     ("vram_spill", _vram_spill, "VRAM piena, {vram_shared_mb} MB traboccati nella RAM: il lavoro rallenta molto e "
                                 "con due lavori sulla GPU il PC puo' bloccarsi (un altro processo usa la GPU?)"),
     ("ram", lambda s: bool(s.get("ram_total_mb")) and (s.get("ram_used_mb") or 0) >= 0.95 * s["ram_total_mb"],
@@ -194,8 +207,12 @@ class _Windows:
         s = {}
         if self.adl and self.dgpu is not None:
             g = self._pmlog(self.adl, self.dgpu) or {}
-            s.update(gpu_c=g.get(8), gpu_hotspot_c=g.get(27), gpu_mem_c=g.get(9), gpu_w=g.get(73),
-                     gpu_busy_pct=g.get(19), gpu_fan_rpm=g.get(14), gpu_clock_mhz=g.get(1), vram_total_mb=self.vram_total)
+            # VRM: PMLOG_TEMPERATURE_VRVDDC, VRMVDD, VRSOC, VRMVDD0, VRMVDD1 (adl_defines.h), il piu' caldo
+            vrm = [g[i] for i in (10, 11, 24, 25, 26) if g.get(i)]
+            s.update(gpu_c=g.get(8), gpu_hotspot_c=g.get(27), gpu_mem_c=g.get(9), gpu_vrm_c=max(vrm, default=None),
+                     gpu_w=g.get(73),
+                     gpu_busy_pct=g.get(19), gpu_fan_rpm=g.get(14), gpu_fan_pct=g.get(15), gpu_clock_mhz=g.get(1),
+                     vram_total_mb=self.vram_total)
         if self.adl and self.apu is not None:
             s["cpu_w"] = (self._pmlog(self.adl, self.apu) or {}).get(23)
         if self.pdh:
@@ -302,6 +319,8 @@ class _Linux:
             s.update(gpu_c=self._labelled(h, ["edge"]), gpu_hotspot_c=self._labelled(h, ["junction"]),
                      gpu_mem_c=self._labelled(h, ["mem"]), gpu_w=_num(power, 10**6),
                      gpu_fan_rpm=_num(_read(h / "fan1_input")), gpu_clock_mhz=_num(_read(h / "freq1_input"), 10**6))
+            pwm = _num(_read(h / "pwm1"))  # comando della ventola, 0-255
+            s["gpu_fan_pct"] = None if pwm is None else round(pwm * 100 / 255)
         if self.cpu_hwmon:
             s["cpu_c"] = self._labelled(self.cpu_hwmon, ["Tctl", "Tdie", "Package id 0"])
         stat = (_read(self.root / "proc/stat") or "").splitlines()
@@ -339,19 +358,36 @@ class _Linux:
 
 # ---------------------------------------------------------------- fonti comuni
 
+# Motivi di rallentamento di nvidia-smi che dicono qualcosa sul raffreddamento o sull'alimentazione (non l'inattivita')
+NVIDIA_THROTTLE = [("hw_thermal_slowdown", "temperatura"), ("sw_thermal_slowdown", "temperatura"),
+                   ("hw_power_brake_slowdown", "consumo"), ("sw_power_cap", "consumo")]
+
+
 def nvidia_sample():
     """Valori di nvidia-smi per la prima GPU NVIDIA, o {}."""
     exe = shutil.which("nvidia-smi")
     if not exe:
         return {}
-    keys = ["gpu_c", "gpu_w", "gpu_busy_pct", "vram_used_mb", "vram_total_mb", "gpu_clock_mhz"]
+    keys = ["gpu_c", "gpu_w", "gpu_busy_pct", "vram_used_mb", "vram_total_mb", "gpu_clock_mhz", "gpu_fan_pct"]
     try:
         out = subprocess.run([exe, "--query-gpu=temperature.gpu,power.draw,utilization.gpu,memory.used,memory.total,"
-                              "clocks.gr", "--format=csv,noheader,nounits"], capture_output=True, text=True, timeout=10).stdout
+                              "clocks.gr,fan.speed", "--format=csv,noheader,nounits"],
+                             capture_output=True, text=True, timeout=10).stdout
     except (OSError, subprocess.SubprocessError):
         return {}
     first = out.splitlines()[0].split(",") if out.strip() else []
     s = {k: round(float(v)) for k, v in zip(keys, first) if re.fullmatch(r"\s*[\d.]+\s*", v)}
+    # Rallentamenti decisi dal driver, in una richiesta a parte: i driver vecchi chiamano questi campi
+    # clocks_throttle_reasons e rifiutano tutta la richiesta se ne manca uno
+    try:
+        out = subprocess.run([exe, "--query-gpu=" + ",".join(f"clocks_event_reasons.{r}" for r, _ in NVIDIA_THROTTLE),
+                              "--format=csv,noheader"], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        out = ""
+    flags = out.splitlines()[0].split(",") if out.strip() else []
+    if len(flags) == len(NVIDIA_THROTTLE):
+        causes = dict.fromkeys(cause for (_, cause), flag in zip(NVIDIA_THROTTLE, flags) if flag.strip() == "Active")
+        s["gpu_throttle"] = "+".join(causes)
     try:
         apps = subprocess.run([exe, "--query-compute-apps=pid,used_memory,process_name", "--format=csv,noheader,nounits"],
                               capture_output=True, text=True, timeout=10).stdout
@@ -368,8 +404,10 @@ def nvidia_sample():
     return s
 
 
-def lhm_cpu_temp(fetch=None):
-    """Temperatura della CPU dal web server di LibreHardwareMonitor, o None se non risponde."""
+def lhm_sample(fetch=None):
+    """Valori dal web server di LibreHardwareMonitor (dict, vuoto se non ha i sensori), o None se non risponde:
+    temperatura e ventola della CPU, ventole del case (la piu' veloce), e della GPU punto piu' caldo, memoria, VRM
+    (AMD) e ventole, anche una per una (NVIDIA: sensori NvAPI di LHM, che nvidia-smi non da')."""
     url = os.environ.get("POCKET_TRAVEL_LHM_URL", "http://127.0.0.1:8085").rstrip("/") + "/data.json"
     if fetch is None:
         def fetch():
@@ -384,25 +422,45 @@ def lhm_cpu_temp(fetch=None):
         tree = fetch()
     except (OSError, ValueError):
         return None
-    temps = []
+    sensors = []  # (SensorId, Text, valore)
 
     def walk(node):
-        sid = str(node.get("SensorId", ""))
-        if re.match(r"/(amd|intel)cpu/\d+/temperature/", sid):
-            match = re.match(r"\s*(-?\d+(?:[.,]\d+)?)", str(node.get("Value", "")))
-            if match:
-                temps.append((node.get("Text", ""), float(match.group(1).replace(",", "."))))
+        match = re.match(r"\s*(-?\d+(?:[.,]\d+)?)", str(node.get("Value", "")))
+        if node.get("SensorId") and match:
+            sensors.append((str(node["SensorId"]), str(node.get("Text", "")), float(match.group(1).replace(",", "."))))
         for child in node.get("Children", []):
             walk(child)
 
     walk(tree)
+
+    def pick(id_pattern, text=""):
+        return [v for sid, name, v in sensors if re.match(id_pattern, sid) and text in name]
+
+    s = {}
+    cpu = r"/(amd|intel)cpu/\d+/temperature/"
     # Tctl e' la temperatura con cui le CPU AMD si regolano (quella che mostrano le schede madri); poi il
     # pacchetto degli Intel, poi le singole Tdie dei CCD
-    for pattern in ("Tctl", "Package", "Tdie", ""):
-        values = [t for name, t in temps if pattern in name]
+    temps = next((t for t in (pick(cpu, p) for p in ("Tctl", "Package", "Tdie", "")) if t), [])
+    board_fans = r"/lpc/[^/]+/\d+/fan/"  # chip della scheda madre
+    gpu = r"/gpu-(nvidia|amd|intel)/\d+/"
+    # Ventole della GPU una per una: con le NVIDIA LHM le legge da NvAPI ("GPU Fan 1", "GPU Fan 2"...), giri misurati;
+    # nvidia-smi da' solo la velocita' voluta, uguale per tutte. Conta la scheda con piu' ventole (l'iGPU non ne ha).
+    by_card = {}
+    for sid, _, v in sensors:
+        if match := re.match(gpu + "fan/", sid):
+            by_card.setdefault(sid[:match.end() - len("fan/")], []).append(round(v))
+    gpu_fans = max(by_card.values(), key=len, default=[])
+    for key, values in (("cpu_c", temps), ("cpu_fan_rpm", pick(board_fans, "CPU")),
+                        ("case_fan_rpm", [v for sid, name, v in sensors if re.match(board_fans, sid) and "CPU" not in name]),
+                        ("gpu_hotspot_c", pick(gpu + "temperature/", "Hot Spot")),
+                        ("gpu_mem_c", pick(gpu + "temperature/", "Memory")),
+                        ("gpu_vrm_c", pick(gpu + "temperature/", "GPU VR ")),  # AMD: "GPU VR VDDC", "GPU VR SoC"...
+                        ("gpu_fan_rpm", gpu_fans), ("gpu_fan_pct", pick(gpu + "control/", "Fan"))):
         if values:
-            return round(max(values))
-    return None
+            s[key] = round(max(values))
+    if len(gpu_fans) > 1:
+        s["gpu_fans_rpm"] = "/".join(map(str, gpu_fans))
+    return s
 
 
 class Reader:
@@ -425,14 +483,32 @@ class Reader:
             pass
         if s["gpu_c"] is None:
             s.update({k: v for k, v in nvidia_sample().items() if v is not None})
-        if self.lhm and s["cpu_c"] is None:
-            s["cpu_c"] = lhm_cpu_temp()
-            self.lhm = s["cpu_c"] is not None  # server spento: non lo si richiede a ogni campione
+        if self.lhm:
+            extra = lhm_sample()
+            self.lhm = extra is not None  # server spento: non lo si richiede a ogni campione
+            s.update({k: v for k, v in (extra or {}).items() if s.get(k) is None})  # le altre fonti hanno la precedenza
         return s
 
 
 def _gb(mb):
     return f"{mb / 1024:.1f}".replace(".", ",")
+
+
+def fan(rpm, pct=None):
+    """"ventola 1200 RPM (30%)" o, con piu' ventole ("1200/1180"), "ventole 1200/1180 RPM (30%)", con le parti che
+    ci sono; "" senza nessun valore."""
+    parts = ([f"{rpm} RPM"] if rpm is not None else []) + ([f"{pct}%"] if pct is not None else [])
+    if not parts:
+        return ""
+    name = "ventole " if "/" in str(rpm) else "ventola "
+    return name + (f"{parts[0]} ({parts[1]})" if len(parts) == 2 else parts[0])
+
+
+def _fan_stopped(s):
+    """Una ventola della GPU ferma mentre le altre girano: guasta o staccata (con il fermo a bassa temperatura si
+    fermano tutte insieme)."""
+    fans = [int(f) for f in str(s.get("gpu_fans_rpm") or "").split("/") if f]
+    return len(fans) > 1 and min(fans) == 0 and max(fans) > 0
 
 
 def line(s):
@@ -441,11 +517,14 @@ def line(s):
     if s.get("gpu_c") is not None or s.get("gpu_busy_pct") is not None:
         gpu = ["GPU"]
         if s.get("gpu_c") is not None:
-            extra = [f"{name} {s[k]} °C" for name, k in (("punto piu' caldo", "gpu_hotspot_c"), ("memoria", "gpu_mem_c"))
+            extra = [f"{name} {s[k]} °C" for name, k in (("punto piu' caldo", "gpu_hotspot_c"), ("memoria", "gpu_mem_c"),
+                                                          ("VRM", "gpu_vrm_c"))
                      if s.get(k) is not None]
             gpu.append(f"{s['gpu_c']} °C" + (f" ({', '.join(extra)})" if extra else ""))
         gpu += [f"{s['gpu_w']} W"] if s.get("gpu_w") is not None else []
         gpu += [f"{s['gpu_busy_pct']}%"] if s.get("gpu_busy_pct") is not None else []
+        gpu += [f for f in [fan(s.get("gpu_fans_rpm") or s.get("gpu_fan_rpm"), s.get("gpu_fan_pct"))] if f]
+        gpu += [f"rallentata ({s['gpu_throttle'].replace('+', ', ')})"] if s.get("gpu_throttle") else []
         parts.append(" ".join(gpu))
     if s.get("vram_used_mb") is not None:
         vram = f"VRAM {_gb(s['vram_used_mb'])}" + (f"/{_gb(s['vram_total_mb'])} GB" if s.get("vram_total_mb") else " GB")
@@ -453,8 +532,11 @@ def line(s):
             vram += f" (+{_gb(s['vram_shared_mb'])} GB condivisa)"
         parts.append(vram)
     cpu = [f"{s[k]}{unit}" for k, unit in (("cpu_pct", "%"), ("cpu_w", " W"), ("cpu_c", " °C")) if s.get(k) is not None]
+    cpu += [fan(s.get("cpu_fan_rpm"))] if s.get("cpu_fan_rpm") is not None else []
     if cpu:
         parts.append("CPU " + " ".join(cpu))
+    if s.get("case_fan_rpm") is not None:
+        parts.append(f"case {fan(s['case_fan_rpm'])}")
     if s.get("ram_used_mb") is not None and s.get("ram_total_mb"):
         parts.append(f"RAM {_gb(s['ram_used_mb'])}/{_gb(s['ram_total_mb'])} GB")
     return " · ".join(parts) or "nessun sensore disponibile"

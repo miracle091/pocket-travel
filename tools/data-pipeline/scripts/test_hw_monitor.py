@@ -33,6 +33,7 @@ class LinuxTest(unittest.TestCase):
                 f"{card}/hwmon/hwmon3/temp2_label": "junction", f"{card}/hwmon/hwmon3/temp2_input": "84000",
                 f"{card}/hwmon/hwmon3/temp3_label": "mem", f"{card}/hwmon/hwmon3/temp3_input": "78000",
                 f"{card}/hwmon/hwmon3/power1_average": "195000000", f"{card}/hwmon/hwmon3/fan1_input": "1800",
+                f"{card}/hwmon/hwmon3/pwm1": "128",
                 "sys/class/drm/card0/device/mem_info_vram_total": str(2**29),  # grafica integrata: scartata
                 "sys/class/hwmon/hwmon1/name": "k10temp", "sys/class/hwmon/hwmon1/temp1_label": "Tctl",
                 "sys/class/hwmon/hwmon1/temp1_input": "71250",
@@ -50,7 +51,7 @@ class LinuxTest(unittest.TestCase):
             reader.sample()
             write(root, "proc/stat", "cpu  200 0 200 900 0 0 0 0 0 0\n")  # 200 occupati su 300
             s = reader.sample()
-        self.assertEqual(dict(gpu_c=61, gpu_hotspot_c=84, gpu_mem_c=78, gpu_w=195, gpu_fan_rpm=1800, gpu_busy_pct=97,
+        self.assertEqual(dict(gpu_c=61, gpu_hotspot_c=84, gpu_mem_c=78, gpu_w=195, gpu_fan_rpm=1800, gpu_fan_pct=50, gpu_busy_pct=97,
                               vram_used_mb=6144, vram_total_mb=12288, vram_shared_mb=1024, cpu_c=71, cpu_pct=67,
                               ram_used_mb=48000, ram_total_mb=64000, gpu_jobs=2,
                               gpu_job_list="python3 (PID 100, 6,0 GB), llama-server (PID 200, 2,0 GB)"),
@@ -80,12 +81,30 @@ TREE = {"Text": "Sensor", "Children": [{"Text": "PC", "Children": [
 
 class LhmTest(unittest.TestCase):
     def test_preferisce_tctl_e_ignora_la_gpu(self):
-        self.assertEqual(68, hw_monitor.lhm_cpu_temp(fetch=lambda: TREE))
+        self.assertEqual(dict(cpu_c=68, gpu_hotspot_c=90), hw_monitor.lhm_sample(fetch=lambda: TREE))
+
+    def test_ventole_vrm_e_nvidia(self):
+        def sensor(sid, text, value):
+            return {"SensorId": sid, "Text": text, "Value": value}
+
+        tree = {"Children": [
+            sensor("/lpc/it8689e/0/fan/0", "CPU Fan", "529 RPM"), sensor("/lpc/it8689e/0/fan/1", "System Fan #1", "739 RPM"),
+            sensor("/lpc/it8689e/0/fan/2", "System Fan #2", "0 RPM"),
+            sensor("/gpu-amd/0/temperature/0", "GPU Core", "40,0 °C"),  # grafica integrata, senza ventole
+            sensor("/gpu-nvidia/0/temperature/2", "GPU Hot Spot", "50,2 °C"),
+            sensor("/gpu-nvidia/0/temperature/3", "GPU Memory Junction", "62,0 °C"),
+            sensor("/gpu-nvidia/0/fan/1", "GPU Fan 1", "1200 RPM"), sensor("/gpu-nvidia/0/fan/2", "GPU Fan 2", "0 RPM"),
+            sensor("/gpu-nvidia/0/control/1", "GPU Fan 1", "30,0 %"),
+            sensor("/gpu-amd/1/temperature/4", "GPU VR SoC", "71,0 °C"),
+            sensor("/gpu-amd/1/temperature/2", "GPU VR VDDC", "78,0 °C")]}
+        self.assertEqual(dict(cpu_fan_rpm=529, case_fan_rpm=739, gpu_hotspot_c=50, gpu_mem_c=62, gpu_vrm_c=78,
+                              gpu_fan_rpm=1200, gpu_fan_pct=30, gpu_fans_rpm="1200/0"),
+                         hw_monitor.lhm_sample(fetch=lambda: tree))
 
     def test_server_spento(self):
         def fetch():
             raise OSError("connection refused")
-        self.assertIsNone(hw_monitor.lhm_cpu_temp(fetch=fetch))
+        self.assertIsNone(hw_monitor.lhm_sample(fetch=fetch))
 
     def test_autenticazione_dalle_variabili(self):
         seen = {}
@@ -103,27 +122,35 @@ class LhmTest(unittest.TestCase):
 
         with mock.patch.dict(os.environ, {"POCKET_TRAVEL_LHM_USER": "io", "POCKET_TRAVEL_LHM_PASSWORD": "segreta"}), \
                 mock.patch("urllib.request.urlopen", urlopen):
-            self.assertIsNone(hw_monitor.lhm_cpu_temp())
+            self.assertEqual({}, hw_monitor.lhm_sample())
         self.assertEqual("Basic aW86c2VncmV0YQ==", seen["Authorization"])
         self.assertIn("pocket-travel-hw_monitor", seen["User-agent"])
 
 
 class NvidiaTest(unittest.TestCase):
     def test_prima_gpu_e_processi(self):
-        gpu = SimpleNamespace(stdout="65, 180.52, 99, 7000, 8192, 1900\n71, 20.0, 0, 10, 8192, 300\n")
+        gpu = SimpleNamespace(stdout="65.50, 180.52, 99, 7000, 8192, 1900, 45\n71, 20.0, 0, 10, 8192, 300, 30\n")
+        throttle = SimpleNamespace(stdout="Active, Not Active, Not Active, Active\nNot Active, Not Active, Not Active, Not Active\n")
         apps = SimpleNamespace(stdout="1234, 6000, /usr/bin/python3\n99, 300, Xorg\n")
-        with mock.patch("shutil.which", return_value="nvidia-smi"), mock.patch("subprocess.run", side_effect=[gpu, apps]):
-            self.assertEqual(dict(gpu_c=65, gpu_w=181, gpu_busy_pct=99, vram_used_mb=7000, vram_total_mb=8192,
-                                  gpu_clock_mhz=1900, gpu_jobs=1, gpu_job_list="python3 (PID 1234, 5,9 GB)"),
+        with mock.patch("shutil.which", return_value="nvidia-smi"), \
+                mock.patch("subprocess.run", side_effect=[gpu, throttle, apps]):
+            self.assertEqual(dict(gpu_c=66, gpu_w=181, gpu_busy_pct=99, vram_used_mb=7000, vram_total_mb=8192,
+                                  gpu_clock_mhz=1900, gpu_fan_pct=45, gpu_throttle="temperatura+consumo", gpu_jobs=1,
+                                  gpu_job_list="python3 (PID 1234, 5,9 GB)"),
                              hw_monitor.nvidia_sample())
 
     def test_assente_o_valori_non_numerici(self):
         with mock.patch("shutil.which", return_value=None):
             self.assertEqual({}, hw_monitor.nvidia_sample())
-        out = SimpleNamespace(stdout="65, [N/A], 99, 7000, 8192, 1900\n")
+        out = SimpleNamespace(stdout="65, [N/A], 99, 7000, 8192, 1900, [N/A]\n")
+        # driver vecchio: i campi clocks_event_reasons non esistono e nvidia-smi non risponde con i valori
+        old = SimpleNamespace(stdout='Field "clocks_event_reasons.hw_thermal_slowdown" is not a valid field to query.\n')
         with mock.patch("shutil.which", return_value="nvidia-smi"), \
-                mock.patch("subprocess.run", side_effect=[out, SimpleNamespace(stdout="")]):
-            self.assertNotIn("gpu_w", hw_monitor.nvidia_sample())
+                mock.patch("subprocess.run", side_effect=[out, old, SimpleNamespace(stdout="")]):
+            s = hw_monitor.nvidia_sample()
+        self.assertNotIn("gpu_w", s)
+        self.assertNotIn("gpu_fan_pct", s)
+        self.assertNotIn("gpu_throttle", s)
 
 
 class LineTest(unittest.TestCase):
@@ -133,6 +160,14 @@ class LineTest(unittest.TestCase):
                  ram_total_mb=63078)
         self.assertEqual("GPU 46 °C (punto piu' caldo 65 °C, memoria 64 °C) 200 W 99% · VRAM 6,7/12,0 GB "
                          "(+0,3 GB condivisa) · CPU 18% 58 W 70 °C · RAM 14,2/61,6 GB", hw_monitor.line(s))
+
+    def test_ventole_vrm_e_rallentamento(self):
+        s = dict(gpu_c=80, gpu_vrm_c=95, gpu_w=120, gpu_busy_pct=100, gpu_fan_rpm=1200, gpu_fans_rpm="1200/1180",
+                 gpu_fan_pct=60, gpu_throttle="temperatura+consumo", cpu_pct=20, cpu_c=60, cpu_fan_rpm=900,
+                 case_fan_rpm=739)
+        self.assertEqual("GPU 80 °C (VRM 95 °C) 120 W 100% ventole 1200/1180 RPM (60%) rallentata (temperatura, consumo)"
+                         " · CPU 20% 60 °C ventola 900 RPM · case ventola 739 RPM", hw_monitor.line(s))
+        self.assertEqual("GPU 40 °C ventola 30%", hw_monitor.line(dict(gpu_c=40, gpu_fan_pct=30)))
 
     def test_parziale_e_vuota(self):
         self.assertEqual("CPU 5% · RAM 1,0/2,0 GB", hw_monitor.line(dict(cpu_pct=5, ram_used_mb=1024, ram_total_mb=2048)))
@@ -175,6 +210,19 @@ class MonitorTest(unittest.TestCase):
         # una riga a 0 e una a 70 (report_every 60)
         self.assertEqual(2, sum(1 for l in text.splitlines() if l.startswith("[hw] VRAM")))
         self.assertEqual(103, monitor.max["gpu_hotspot_c"])
+
+    def test_avvisi_di_ventole_vrm_e_rallentamento(self):
+        samples = [dict(gpu_fans_rpm="1200/0", gpu_vrm_c=106, gpu_c=88, gpu_throttle="temperatura"),
+                   dict(gpu_fans_rpm="0/0", gpu_vrm_c=90, gpu_throttle="consumo")]  # fermo a bassa temperatura: tutte
+        with tempfile.TemporaryDirectory() as tmp:
+            out = io.StringIO()
+            monitor = hw_monitor.Monitor("prova", path=Path(tmp) / "hw.csv", out=out, reader=FakeReader(samples))
+            monitor.tick(0)
+            monitor.tick(10)
+        text = out.getvalue()
+        self.assertEqual(1, text.count("una ventola della GPU e' ferma mentre le altre girano (1200/0 RPM)"))
+        self.assertEqual(1, text.count("VRM della GPU a 106 °C"))
+        self.assertEqual(1, text.count("GPU rallentata dal driver per la temperatura (88 °C)"))
 
     def test_figlio_di_un_processo_monitorato(self):
         with mock.patch.dict(os.environ, {hw_monitor.HELD_ENV: "1"}), mock.patch.object(hw_monitor, "Monitor") as m:
