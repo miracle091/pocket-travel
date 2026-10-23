@@ -412,7 +412,13 @@ POI_SCOPE=""
 POI_BORDER_RULE=2
 find_border() {
   BORDER_CHECKED=true
-  if [ -n "$REGION_ISO" ] && BORDER_RELATION="$(python3 "$SCRIPT_DIR/country_border.py" --iso "$REGION_ISO" --name "$REGION_TITLE" --out "$WORKDIR/confine.geojson" \
+  if [ "$REGION_ISO" = "ic" ] || [ "$REGION_ISO" = "bq" ]; then
+    # Canarie (IC, codice riservato in ISO 3166-1) e Bonaire, Sint Eustatius e Saba (BQ): nessun confine, i rettangoli
+    # non toccano terre di altri paesi. La relazione ES-CN segue la costa e lascerebbe fuori moli e mare: 90 POI su
+    # 36.326 (terminal dei traghetti, porti, marine, Museo Atlantico, aree marine protette), nessuno di un altro paese.
+    # Le isole BQ in OSM sono municipalita' dei Paesi Bassi (BQ-BO, BQ-SE, BQ-SA, country_code nl), non nazioni.
+    echo "-- confine OSM: nessuno per $REGION_ID (codice $REGION_ISO), punti di interesse sul solo rettangolo"
+  elif [ -n "$REGION_ISO" ] && BORDER_RELATION="$(python3 "$SCRIPT_DIR/country_border.py" --iso "$REGION_ISO" --name "$REGION_TITLE" --out "$WORKDIR/confine.geojson" \
       ${REGION_GROUP:+--subdivision "--bbox=$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT"} \
       --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT")"; then
     BORDER_FILE="$WORKDIR/confine.geojson"
