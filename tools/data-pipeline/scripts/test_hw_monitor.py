@@ -127,6 +127,31 @@ class LhmTest(unittest.TestCase):
         self.assertEqual("Basic aW86c2VncmV0YQ==", seen["Authorization"])
         self.assertIn("pocket-travel-hw_monitor", seen["User-agent"])
 
+    def test_variabili_di_windows_da_wsl(self):
+        user = SimpleNamespace(stdout="\r\nHKEY_CURRENT_USER\\Environment\r\n    POCKET_TRAVEL_LHM_URL    REG_SZ    "
+                                      "http://127.0.0.1:9000  \r\n\r\n")
+        missing = SimpleNamespace(stdout="")
+        system = SimpleNamespace(stdout="\r\nHKEY_LOCAL_MACHINE\\...\r\n    POCKET_TRAVEL_LHM_USER    REG_EXPAND_SZ    io\r\n")
+        with mock.patch.dict(os.environ, {"POCKET_TRAVEL_LHM_PASSWORD": "di WSL"}), \
+                mock.patch.dict(hw_monitor._windows_env, clear=True), \
+                mock.patch.object(hw_monitor, "in_wsl", return_value=True), \
+                mock.patch("shutil.which", return_value="/mnt/c/Windows/System32/reg.exe"), \
+                mock.patch("subprocess.run", side_effect=[user, missing, system]) as run:
+            for name in ("POCKET_TRAVEL_LHM_URL", "POCKET_TRAVEL_LHM_USER"):
+                os.environ.pop(name, None)
+            self.assertEqual("http://127.0.0.1:9000", hw_monitor.lhm_setting("POCKET_TRAVEL_LHM_URL"))  # utente
+            self.assertEqual("io", hw_monitor.lhm_setting("POCKET_TRAVEL_LHM_USER"))  # di sistema, dopo l'utente
+            self.assertEqual("di WSL", hw_monitor.lhm_setting("POCKET_TRAVEL_LHM_PASSWORD"))  # WSL ha la precedenza
+            self.assertEqual("io", hw_monitor.lhm_setting("POCKET_TRAVEL_LHM_USER"))  # letta una volta sola
+        self.assertEqual(3, run.call_count)
+        self.assertEqual(["/mnt/c/Windows/System32/reg.exe", "query", "HKCU\\Environment", "/v", "POCKET_TRAVEL_LHM_URL"],
+                         run.call_args_list[0].args[0])
+        with mock.patch.dict(os.environ), mock.patch.object(hw_monitor, "in_wsl", return_value=False), \
+                mock.patch("subprocess.run") as run:
+            os.environ.pop("POCKET_TRAVEL_LHM_USER", None)
+            self.assertIsNone(hw_monitor.lhm_setting("POCKET_TRAVEL_LHM_USER"))  # fuori da WSL solo l'ambiente
+        run.assert_not_called()
+
     def test_da_wsl_con_curl_exe_e_password_su_stdin(self):
         done = SimpleNamespace(returncode=0, stdout=json.dumps(TREE))
         with mock.patch.dict(os.environ, {"POCKET_TRAVEL_LHM_USER": "io", "POCKET_TRAVEL_LHM_PASSWORD": "segreta"}), \
@@ -175,19 +200,21 @@ class LineTest(unittest.TestCase):
         s = dict(gpu_c=46, gpu_hotspot_c=65, gpu_mem_c=64, gpu_w=200, gpu_busy_pct=99, vram_used_mb=6860,
                  vram_total_mb=12272, vram_shared_mb=300, cpu_pct=18, cpu_w=58, cpu_c=70, ram_used_mb=14540,
                  ram_total_mb=63078)
-        self.assertEqual("GPU 46 °C (punto piu' caldo 65 °C, memoria 64 °C) 200 W 99% · VRAM 6,7/12,0 GB "
-                         "(+0,3 GB condivisa) · CPU 18% 58 W 70 °C · RAM 14,2/61,6 GB", hw_monitor.line(s))
+        self.assertEqual("GPU 46/65 °C mem 64 °C 200 W 99% | VRAM 6,7/12,0 GB +0,3 in RAM | CPU 18% 58 W 70 °C | "
+                         "RAM 14,2/61,6 GB", hw_monitor.line(s))
 
     def test_ventole_vrm_e_rallentamento(self):
         s = dict(gpu_c=80, gpu_vrm_c=95, gpu_w=120, gpu_busy_pct=100, gpu_fan_rpm=1200, gpu_fans_rpm="1200/1180",
                  gpu_fan_pct=60, gpu_throttle="temperatura+consumo", cpu_pct=20, cpu_c=60, cpu_fan_rpm=900,
                  case_fan_rpm=739)
-        self.assertEqual("GPU 80 °C (VRM 95 °C) 120 W 100% ventole 1200/1180 RPM (60%) rallentata (temperatura, consumo)"
-                         " · CPU 20% 60 °C ventola 900 RPM · case ventola 739 RPM", hw_monitor.line(s))
-        self.assertEqual("GPU 40 °C ventola 30%", hw_monitor.line(dict(gpu_c=40, gpu_fan_pct=30)))
+        self.assertEqual("GPU 80 °C VRM 95 °C 120 W 100% fan 1200/1180 RPM 60% rallentata: temperatura+consumo | "
+                         "CPU 20% 60 °C fan 900 RPM | case fan 739 RPM", hw_monitor.line(s))
+        self.assertEqual("GPU 40 °C fan 30%", hw_monitor.line(dict(gpu_c=40, gpu_fan_pct=30)))
+        # VRAM traboccata sotto i 52 MB: "+0,0 in RAM" non dice nulla e non compare
+        self.assertEqual("VRAM 0,6/6,0 GB", hw_monitor.line(dict(vram_used_mb=600, vram_total_mb=6144, vram_shared_mb=40)))
 
     def test_parziale_e_vuota(self):
-        self.assertEqual("CPU 5% · RAM 1,0/2,0 GB", hw_monitor.line(dict(cpu_pct=5, ram_used_mb=1024, ram_total_mb=2048)))
+        self.assertEqual("CPU 5% | RAM 1,0/2,0 GB", hw_monitor.line(dict(cpu_pct=5, ram_used_mb=1024, ram_total_mb=2048)))
         self.assertEqual("nessun sensore disponibile", hw_monitor.line({}))
 
 

@@ -16,8 +16,8 @@ Fonti, senza dipendenze nuove; un valore che una fonte non da' resta vuoto:
 - GPU NVIDIA, su tutti e due: nvidia-smi (temperatura, consumo, attivita', VRAM, frequenza, ventola in %, e i
   rallentamenti decisi dal driver per temperatura o consumo, con un avviso per quelli da temperatura).
 - Windows e WSL, LibreHardwareMonitor di Windows con il web server acceso (Options -> Remote Web Server; da WSL
-  con curl.exe di Windows, perche' il firewall di Windows blocca le connessioni da WSL; le variabili sotto vanno
-  impostate in WSL o passate con WSLENV), letto da
+  con curl.exe di Windows, perche' il firewall di Windows blocca le connessioni da WSL; le variabili sotto, se
+  mancano in WSL, si leggono da quelle di Windows, dell'utente o di sistema, nel registro), letto da
   POCKET_TRAVEL_LHM_URL (default http://127.0.0.1:8085), con l'autenticazione del server in POCKET_TRAVEL_LHM_USER
   e POCKET_TRAVEL_LHM_PASSWORD: temperatura della CPU (Windows non la da' ai programmi senza un driver), ventola
   della CPU e del case dal chip della scheda madre, e i valori della GPU che le fonti sopra non danno (con le
@@ -411,18 +411,49 @@ def in_wsl():
     return "microsoft" in platform.release().lower()
 
 
+WINDOWS_ENV_KEYS = [r"HKCU\Environment", r"HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment"]
+_windows_env = {}  # letta una volta per processo
+
+
+def windows_env(name):
+    """Variabile d'ambiente di Windows (dell'utente, poi di sistema) letta dal registro con reg.exe, o None.
+    Da WSL: WSL non eredita le variabili di Windows, salvo quelle elencate in WSLENV."""
+    reg = shutil.which("reg.exe")
+    if not reg:
+        return None
+    for key in WINDOWS_ENV_KEYS:
+        try:
+            out = subprocess.run([reg, "query", key, "/v", name], capture_output=True, text=True, errors="replace",
+                                 timeout=10).stdout
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if match := re.search(rf"^\s+{re.escape(name)}\s+REG_(?:EXPAND_)?SZ\s+(.*?)\s*$", out, re.M | re.I):
+            return match.group(1)
+    return None
+
+
+def lhm_setting(name):
+    """Impostazione di LHM dall'ambiente; da WSL, se manca, quella impostata su Windows (windows_env)."""
+    value = os.environ.get(name)
+    if value is None and in_wsl():
+        if name not in _windows_env:
+            _windows_env[name] = windows_env(name)
+        value = _windows_env[name]
+    return value
+
+
 def lhm_sample(fetch=None):
     """Valori dal web server di LibreHardwareMonitor (dict, vuoto se non ha i sensori), o None se non risponde:
     temperatura e ventola della CPU, ventole del case (la piu' veloce), e della GPU punto piu' caldo, memoria, VRM
     (AMD) e ventole, anche una per una (NVIDIA: sensori NvAPI di LHM, che nvidia-smi non da')."""
-    url = os.environ.get("POCKET_TRAVEL_LHM_URL", "http://127.0.0.1:8085").rstrip("/") + "/data.json"
+    url = (lhm_setting("POCKET_TRAVEL_LHM_URL") or "http://127.0.0.1:8085").rstrip("/") + "/data.json"
     curl = shutil.which("curl.exe") if fetch is None and in_wsl() else None
     if curl:
         # Da WSL il firewall di Windows blocca le connessioni verso Windows (anche al gateway), e 127.0.0.1 di WSL non
         # e' quello di Windows: curl.exe e' un processo di Windows e lo raggiunge. Utente e password nella
         # configurazione su stdin (-K -), non tra gli argomenti, che gli altri processi possono leggere.
         def fetch():
-            user, password = os.environ.get("POCKET_TRAVEL_LHM_USER"), os.environ.get("POCKET_TRAVEL_LHM_PASSWORD")
+            user, password = lhm_setting("POCKET_TRAVEL_LHM_USER"), lhm_setting("POCKET_TRAVEL_LHM_PASSWORD")
             quoted = f"{user}:{password or ''}".replace("\\", "\\\\").replace('"', '\\"')
             config = f'user = "{quoted}"\n' if user else ""
             out = subprocess.run([curl, "-s", "-f", "-m", "3", "-A", USER_AGENT, "-K", "-", url], input=config,
@@ -433,7 +464,7 @@ def lhm_sample(fetch=None):
     elif fetch is None:
         def fetch():
             request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-            user, password = os.environ.get("POCKET_TRAVEL_LHM_USER"), os.environ.get("POCKET_TRAVEL_LHM_PASSWORD")
+            user, password = lhm_setting("POCKET_TRAVEL_LHM_USER"), lhm_setting("POCKET_TRAVEL_LHM_PASSWORD")
             if user:
                 token = base64.b64encode(f"{user}:{password or ''}".encode()).decode()
                 request.add_header("Authorization", f"Basic {token}")
@@ -516,13 +547,9 @@ def _gb(mb):
 
 
 def fan(rpm, pct=None):
-    """"ventola 1200 RPM (30%)" o, con piu' ventole ("1200/1180"), "ventole 1200/1180 RPM (30%)", con le parti che
-    ci sono; "" senza nessun valore."""
+    """"fan 1200 RPM 30%" (con piu' ventole "fan 1200/1180 RPM 30%"), con le parti che ci sono; "" senza valori."""
     parts = ([f"{rpm} RPM"] if rpm is not None else []) + ([f"{pct}%"] if pct is not None else [])
-    if not parts:
-        return ""
-    name = "ventole " if "/" in str(rpm) else "ventola "
-    return name + (f"{parts[0]} ({parts[1]})" if len(parts) == 2 else parts[0])
+    return "fan " + " ".join(parts) if parts else ""
 
 
 def _fan_stopped(s):
@@ -533,24 +560,26 @@ def _fan_stopped(s):
 
 
 def line(s):
-    """Riga leggibile di un campione; le parti senza valore non compaiono."""
+    """Riga compatta di un campione, gruppi separati da " | "; le parti senza valore non compaiono. Esempio:
+    GPU 38/49 °C mem 62 °C VRM 78 °C 120 W 99% fan 1200/1180 RPM 60% | VRAM 5,8/6,0 GB +0,3 in RAM |
+    CPU 20% 58 °C fan 722 RPM | case fan 813 RPM | RAM 4,8/11,7 GB
+    (38/49 °C: temperatura della GPU e del punto piu' caldo)."""
     parts = []
     if s.get("gpu_c") is not None or s.get("gpu_busy_pct") is not None:
         gpu = ["GPU"]
         if s.get("gpu_c") is not None:
-            extra = [f"{name} {s[k]} °C" for name, k in (("punto piu' caldo", "gpu_hotspot_c"), ("memoria", "gpu_mem_c"),
-                                                          ("VRM", "gpu_vrm_c"))
-                     if s.get(k) is not None]
-            gpu.append(f"{s['gpu_c']} °C" + (f" ({', '.join(extra)})" if extra else ""))
+            hot = f"/{s['gpu_hotspot_c']}" if s.get("gpu_hotspot_c") is not None else ""
+            gpu.append(f"{s['gpu_c']}{hot} °C")
+        gpu += [f"{name} {s[k]} °C" for name, k in (("mem", "gpu_mem_c"), ("VRM", "gpu_vrm_c")) if s.get(k) is not None]
         gpu += [f"{s['gpu_w']} W"] if s.get("gpu_w") is not None else []
         gpu += [f"{s['gpu_busy_pct']}%"] if s.get("gpu_busy_pct") is not None else []
         gpu += [f for f in [fan(s.get("gpu_fans_rpm") or s.get("gpu_fan_rpm"), s.get("gpu_fan_pct"))] if f]
-        gpu += [f"rallentata ({s['gpu_throttle'].replace('+', ', ')})"] if s.get("gpu_throttle") else []
+        gpu += [f"rallentata: {s['gpu_throttle']}"] if s.get("gpu_throttle") else []
         parts.append(" ".join(gpu))
     if s.get("vram_used_mb") is not None:
         vram = f"VRAM {_gb(s['vram_used_mb'])}" + (f"/{_gb(s['vram_total_mb'])} GB" if s.get("vram_total_mb") else " GB")
-        if s.get("vram_shared_mb"):
-            vram += f" (+{_gb(s['vram_shared_mb'])} GB condivisa)"
+        if _gb(s.get("vram_shared_mb") or 0) != "0,0":
+            vram += f" +{_gb(s['vram_shared_mb'])} in RAM"
         parts.append(vram)
     cpu = [f"{s[k]}{unit}" for k, unit in (("cpu_pct", "%"), ("cpu_w", " W"), ("cpu_c", " °C")) if s.get(k) is not None]
     cpu += [fan(s.get("cpu_fan_rpm"))] if s.get("cpu_fan_rpm") is not None else []
@@ -560,7 +589,7 @@ def line(s):
         parts.append(f"case {fan(s['case_fan_rpm'])}")
     if s.get("ram_used_mb") is not None and s.get("ram_total_mb"):
         parts.append(f"RAM {_gb(s['ram_used_mb'])}/{_gb(s['ram_total_mb'])} GB")
-    return " · ".join(parts) or "nessun sensore disponibile"
+    return " | ".join(parts) or "nessun sensore disponibile"
 
 
 class Monitor:
