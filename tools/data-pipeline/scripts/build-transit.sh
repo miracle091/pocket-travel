@@ -28,6 +28,8 @@
 #                              al posto di un nuovo download; se manca, il feed si scarica qui
 #   TRANSIT_DEADLINE           ora (secondi Unix) oltre la quale nessun download continua (la imposta transit.sh dal
 #                              timeout del job); se manca, nessun limite di tempo totale
+#   TRANSIT_UNREACHABLE        file degli host che non hanno risposto a nessun tentativo, uno per riga: il download da
+#                              un host elencato si salta, uno che non risponde si aggiunge; se manca, nessun elenco
 #
 # Codici d'uscita: 0 rete pronta (nuova o riusata), 3 orari scaduti (nessuna corsa nei prossimi TRANSIT_WINDOW_DAYS
 # giorni e ultimo giorno del feed gia' passato: la rete va tra le "Non incluse", con una riga in
@@ -125,6 +127,16 @@ download_feed() {
     PYTHON_BIN="$(command -v python3 || command -v python)"
     "$PYTHON_BIN" "$SCRIPT_DIR/${FEED_URL#script:}" --out "$FEED_ZIP" --user-agent "$PIPELINE_USER_AGENT" && ok=true
   fi
+  # Host senza nessuna connessione in tutti i tentativi di una rete (TRANSIT_UNREACHABLE, uno per riga, scritto da
+  # questa funzione): le altre reti dello stesso host e il nuovo tentativo nella conversione non lo riprovano nello
+  # stesso job (5 reti su srvcarto.regione.liguria.it costavano circa 30 minuti ciascuna, due volte).
+  FEED_HOST="${FEED_URL#*://}"
+  FEED_HOST="${FEED_HOST%%/*}"
+  if [ -n "${TRANSIT_UNREACHABLE:-}" ] && [[ "$FEED_URL" != script:* ]] && grep -qxF "$FEED_HOST" "$TRANSIT_UNREACHABLE" 2>/dev/null; then
+    echo "-- $FEED_ID: $FEED_HOST non risponde in questo job, download saltato" >&2
+    exit 1
+  fi
+  connected=false
   # --compressed: rata.digitraffic.fi (treni finlandesi) risponde 406 senza Accept-Encoding.
   for attempt in 1 2 3; do
     [[ "$FEED_URL" == script:* ]] && break
@@ -138,12 +150,19 @@ download_feed() {
       [ "$LEFT" -ge 60 ] || { echo "-- $FEED_ID: tempo del job finito, download saltato" >&2; exit 1; }
       CAP=(timeout "$LEFT")
     fi
-    if "${CAP[@]}" curl -sSfL --compressed --retry 3 --retry-delay 5 "${LIMITS[@]}" -A "$PIPELINE_USER_AGENT" -o "$FEED_ZIP" "$FEED_URL"; then
+    # --connect-timeout: senza, un host che non risponde tiene ogni tentativo per circa 135 s (12 tentativi a rete).
+    # http_code 000: nessuna risposta, nemmeno un errore HTTP.
+    if code="$("${CAP[@]}" curl -sSfL --compressed --retry 3 --retry-delay 5 --connect-timeout 30 "${LIMITS[@]}" \
+        -A "$PIPELINE_USER_AGENT" -w '%{http_code}' -o "$FEED_ZIP" "$FEED_URL")"; then
       ok=true
       break
     fi
+    [ "${code:-000}" = 000 ] || connected=true
     [ "$attempt" -lt 3 ] && sleep $((attempt * 20))
   done
+  if [ "$ok" != true ] && [ "$connected" = false ] && [ -n "${TRANSIT_UNREACHABLE:-}" ] && [[ "$FEED_URL" != script:* ]]; then
+    echo "$FEED_HOST" >> "$TRANSIT_UNREACHABLE"
+  fi
   [ "$ok" = true ] || { echo "-- $FEED_ID: feed non scaricato" >&2; exit 1; }
   if [ -n "$INNER_ZIP" ]; then
     unzip -p "$FEED_ZIP" "$INNER_ZIP" > "$WORKDIR/inner.zip" || { echo "-- $FEED_ID: $INNER_ZIP non e' nello zip" >&2; exit 1; }

@@ -41,6 +41,9 @@ DONE_LIST="$LOG_DIR/done.txt"
 mkdir -p "$PREFETCH_DIR" "$LOG_DIR"
 : > "$DONE_LIST"
 export TRANSIT_PREFETCH_DIR="$PREFETCH_DIR"
+# Host che non hanno risposto a nessun tentativo: build-transit.sh non li riprova per le altre reti del job.
+export TRANSIT_UNREACHABLE="$LOG_DIR/unreachable-hosts.txt"
+: > "$TRANSIT_UNREACHABLE"
 # Nessun download oltre questo momento: dall'inizio del job (JOB_START, o da ora fuori da Actions) il suo timeout
 # (TRANSIT_JOB_MINUTES, come timeout-minutes del job) meno 20 minuti per la conversione delle ultime reti, l'upload e
 # l'indice (l'ultima conversione, at-toscana, dura ~1 minuto).
