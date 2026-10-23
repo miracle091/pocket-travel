@@ -219,6 +219,12 @@ capo-verde	wp_cibo	Cucina capoverdiana
 capo-verde	wp_conn	-
 capo-verde	wp_usi	-
 capo-verde	wp_vita	-
+ceuta	en	Ceuta
+ceuta	it	Ceuta
+ceuta	wp_cibo	-
+ceuta	wp_conn	-
+ceuta	wp_usi	-
+ceuta	wp_vita	-
 ciad	en	Chad
 ciad	it	Ciad
 ciad	wp_cibo	Cucina ciadiana
@@ -1113,6 +1119,12 @@ mayotte	wp_cibo	-
 mayotte	wp_conn	-
 mayotte	wp_usi	-
 mayotte	wp_vita	-
+melilla	en	Melilla
+melilla	it	Melilla
+melilla	wp_cibo	-
+melilla	wp_conn	-
+melilla	wp_usi	-
+melilla	wp_vita	-
 messico	en	Mexico
 messico	it	Messico
 messico	wp_cibo	Cucina messicana

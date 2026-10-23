@@ -85,6 +85,8 @@ fun flagRes(countryCode: String): Int? = when (countryCode.lowercase()) {
     "dm" -> R.drawable.ic_flag_dm
     "do" -> R.drawable.ic_flag_do
     "dz" -> R.drawable.ic_flag_dz
+    // Ceuta e Melilla (EA, codice riservato in ISO 3166-1): la bandiera della Spagna, non hanno una bandiera comune.
+    "ea" -> R.drawable.ic_flag_es
     "ec" -> R.drawable.ic_flag_ec
     "ee" -> R.drawable.ic_flag_ee
     "eg" -> R.drawable.ic_flag_eg

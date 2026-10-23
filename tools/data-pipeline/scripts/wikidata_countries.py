@@ -14,8 +14,8 @@ senza l'ora legale), emergency (numeri), plugs (lettere A-N delle prese), voltag
 
 Una regione eredita i dati del paese del suo flagCode (ottavo campo di regions.sh). Le regioni che sono una parte del
 paese (flagCode condiviso con altre regioni: stati USA, province di Canada e Cina, Russia europea, Francia
-metropolitana, Bonaire e Sint Eustatius e Saba; o le Canarie, flagCode "ic", codice riservato che su Wikidata non e'
-un paese e che eredita dalla Spagna) prendono capitale e fusi dall'elemento della loro pagina Wikivoyage EN (titolo
+metropolitana, Bonaire e Sint Eustatius e Saba, Ceuta e Melilla; o le Canarie, flagCode "ic", codice riservato che su
+Wikidata non e' un paese e che eredita dalla Spagna, come "ea" di Ceuta e Melilla) prendono capitale e fusi dall'elemento della loro pagina Wikivoyage EN (titolo
 di regions.sh), se li ha: senza una capitale propria restano senza capitale, senza fusi propri prendono quelli del
 paese; gli altri campi restano quelli del paese. Il paese di un flagCode e' l'elemento con quel
 codice ISO 3166-1 alpha-2 (P297) senza data di fine (P576); se sono piu' d'uno, quello col Q-id piu' basso.
@@ -56,7 +56,7 @@ DEADLINE_SECONDS = 15 * 60
 SEP = "; "
 
 # flagCode che non sono un paese su Wikidata -> paese da cui ereditano.
-PAESE_DEL_FLAG = {"ic": "es"}
+PAESE_DEL_FLAG = {"ic": "es", "ea": "es"}
 GUIDA = {"Q14565199": "right", "Q11920728": "left"}
 # Lettere delle norme senza alias "Type X" su Wikidata (nomi in minuscolo). BS 546 copre le prese D (5 A) e M (15 A).
 PRESE = {

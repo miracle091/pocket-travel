@@ -63,6 +63,7 @@ dk	NONE		NONE		0			F6+F7	2026-10-03
 dm	FROM_RISK	12	GT12H		0			F6+F7	2026-10-03
 do	FROM_LIST	12	GT12H	br	0	Solo per chi arriva dagli stati brasiliani di Minas Gerais, Espirito Santo, San Paolo e Rio de Janeiro	Only for arrivals from the Brazilian states of Minas Gerais, Espirito Santo, Sao Paulo and Rio de Janeiro	F6+F7	2026-10-03
 dz	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03
+ea	NONE		NONE		0			F6+F7	2026-10-23
 ec	FROM_LIST	12	GT12H	br,cd,ug	0	Elenco proprio dell'Ecuador; una fonte non cita il Brasile, che per prudenza resta nell'elenco. Dal 28 agosto 2025 non serve più a chi arriva da Peru, Colombia e Bolivia	Ecuador's own list; one source does not mention Brazil, which is kept on the list to be safe. Since 28 August 2025 arrivals from Peru, Colombia and Bolivia no longer need it	F6+F7	2026-10-04
 ee	NONE		NONE		0			F6+F7	2026-10-03
 eg	FROM_RISK	9	GT12H		0			F6+F7	2026-10-03

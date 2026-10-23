@@ -106,6 +106,11 @@ ALL_REGIONS=(
   # Canarie a parte: il bbox della Spagna non arriva cosi' a sud. "ic" e' il codice ISO riservato
   # alle Canarie: nome ("Isole Canarie", "Canary Islands") e bandiera propri invece di una seconda "Spagna".
   "isole-canarie|Isole Canarie (Spagna)|-18.20|27.60|-13.30|29.45|Canary_Islands|ic|||Europa"
+  # Ceuta e Melilla, citta' autonome spagnole in Africa, fuori dal bbox della Spagna: "ea" e' il loro codice ISO
+  # riservato, gruppo come Bonaire e Sint Eustatius e Saba (con "es" e senza gruppo l'app le chiamerebbe "Spagna").
+  # Confine ed estratti Geofabrik sono quelli della Spagna (build-region.sh).
+  "ceuta|Ceuta (Spagna)|-5.43|35.86|-5.27|35.93|Ceuta|ea|Ceuta e Melilla|Ceuta|Europa"
+  "melilla|Melilla (Spagna)|-2.98|35.25|-2.90|35.34|Melilla|ea|Ceuta e Melilla|Melilla|Europa"
   # La Russia non ha un unico bbox rettangolare sensato: il territorio attraverserebbe
   # l'antimeridiano (dalla Kaliningrad a ~19E fino alla Chukotka oltre i -169W) e ha l'exclave di
   # Kaliningrad non contigua col resto del paese. Come per gli Stati Uniti (vedi sopra), e' spezzata

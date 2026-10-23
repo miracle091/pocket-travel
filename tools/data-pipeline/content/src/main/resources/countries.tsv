@@ -49,6 +49,7 @@ canada-terranova-e-labrador	ca	St. John's	St. John's	CAD	dollaro canadese	Canadi
 canada-territori-del-nord-ovest	ca	Yellowknife	Yellowknife	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-07:00	911	A, B	120
 canada-yukon	ca	Whitehorse	Whitehorse	CAD	dollaro canadese	Canadian dollar	right	+1	francese; inglese	French; English	UTC-07:00	911	A, B	120
 capo-verde	cv	Praia	Praia	CVE	escudo capoverdiano	Cape Verdean escudo	right	+238	portoghese; creolo capoverdiano	Portuguese; Cape Verdean Creole	UTC-01:00	130; 131; 132	C, F	220
+ceuta	es	Ceuta	Ceuta	EUR	euro	euro	right	+34	spagnolo	Spanish	UTC+01:00	112; 061; 091	C, F	230
 ciad	td	N’Djamena	N'Djamena	XAF	franco CFA dell'Africa centrale	Central African CFA franc	right	+235	francese; arabo	French; Arabic	UTC+01:00	17; 18; 2251-4242	C, D, E, F	220
 cile	cl	Santiago del Cile	Santiago	CLP	peso cileno	Chilean peso	right	+56	spagnolo	Spanish	UTC-06:00; UTC-04:00; UTC-03:00	133; 130; 131; 132; 134	C, L	220
 cina-anhui	cn	Hefei	Hefei	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
@@ -198,6 +199,7 @@ martinica	mq	Fort-de-France	Fort-de-France	EUR	euro	euro	right	+596	francese	Fre
 mauritania	mr	Nouakchott	Nouakchott	MRU	Ouguiya mauritana	Mauritanian ouguiya	right	+222	francese; arabo	French; Arabic	UTC+00:00	117; 118; 101	C	220
 mauritius	mu	Port Louis	Port Louis	MUR	Rupia mauriziana	Mauritian rupee	left	+230	francese; inglese	French; English	UTC+04:00	112; 114; 999; 995; 115	C, G	230
 mayotte	yt	Mamoudzou	Mamoudzou	EUR	euro	euro	right	+262	francese; maorese; Bushi	French; Maore; Bushi	UTC+03:00	112	C, E	230
+melilla	es	Melilla	Melilla	EUR	euro	euro	right	+34	spagnolo	Spanish	UTC+01:00	112; 061; 091	C, F	230
 messico	mx	Città del Messico	Mexico City	MXN	peso messicano	peso	right	+52	spagnolo; nahuatl; maya yucateco	Spanish; Nahuatl; Yucatec Maya	UTC-08:00; UTC-07:00; UTC-06:00; UTC-05:00	911	A, B	127
 micronesia	fm	Palikir	Palikir	USD	dollaro degli Stati Uniti	United States dollar	right	+691	inglese	English	UTC+10:00; UTC+11:00	911; 111	A, B	120
 moldavia	md	Chișinău	Chișinău	MDL	leu moldavo	Moldovan leu	right	+373	romeno	Romanian	UTC+02:00	112	C, F	220

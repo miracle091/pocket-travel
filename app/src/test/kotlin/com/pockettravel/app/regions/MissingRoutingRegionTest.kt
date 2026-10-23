@@ -119,6 +119,20 @@ class MissingRoutingRegionTest {
     }
 
     @Test
+    fun `un punto di Tenerife o di Ceuta va alle Canarie o a Ceuta anche con la Spagna nel catalogo`() {
+        // I confini dicono "es", ma il rettangolo della Spagna non contiene ne' le Canarie ne' Ceuta: la regione con un
+        // codice che non e' un paese ISO ("ic", "ea") che le contiene viene prima della regione spagnola piu' vicina.
+        val spagna = region("spagna", -9.39, 35.95, 3.04, 43.75, "es")
+        val canarie = region("isole-canarie", -18.20, 27.60, -13.30, 29.45, "ic")
+        val ceuta = region("ceuta", -5.43, 35.86, -5.27, 35.93, "ea")
+        val tenerife = RoutePoint(28.3, -16.5)
+        val puertoCeuta = RoutePoint(35.89, -5.31)
+        val catalogo = listOf(spagna, canarie, ceuta)
+
+        assertEquals(listOf(canarie, ceuta), missingRoutingRegions(catalogo, emptySet(), listOf(tenerife, puertoCeuta), { "es" }))
+    }
+
+    @Test
     fun `un punto in nessuna regione del catalogo si salta`() {
         val newYork = RoutePoint(40.7, -74.0)
 

@@ -385,6 +385,9 @@ LAT_END="$(floor5 "$MAX_LAT")"
 # Nazione della regione (flagCode di regions.sh): con quella si scartano gli estratti Geofabrik dei paesi confinanti
 # che il bbox contiene, e si taglia sul confine. Vuoto se la regione non e' nell'elenco: si usa solo il bbox.
 REGION_ISO="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ _ flag _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "$flag" && break; done || true)"
+# Ceuta e Melilla (EA, codice riservato in ISO 3166-1): confine ed estratti Geofabrik (foglie "ceuta" e "melilla")
+# della Spagna; il loro rettangolo comprende anche un po' di Marocco.
+[ "$REGION_ISO" != "ea" ] || REGION_ISO=es
 # Titolo Wikivoyage della regione: nome con cui si cercano i territori che per Nominatim non sono nazioni.
 REGION_TITLE="$(source "$SCRIPT_DIR/regions.sh" && for spec in "${ALL_REGIONS[@]}"; do IFS='|' read -r id _ _ _ _ _ title _ <<< "$spec"; [ "$id" = "$REGION_ID" ] && echo "${title//_/ }" && break; done || true)"
 # groupName di regions.sh: non vuoto per le regioni che sono parte di una nazione (stati USA, province).

@@ -57,11 +57,11 @@ internal fun missingRoutingRegions(
 /**
  * La regione senza rete stradale da scaricare per [point], nel paese [country] secondo i confini veri; null se e' gia'
  * coperto ([covering]) o nessuna regione fa al caso. Fra quelle del paese che lo contengono, la piu' piccola (l'Italia
- * contiene San Marino, gli Stati Uniti sono divisi in stati). Se nessun rettangolo del suo paese lo contiene (i rettangoli
- * del catalogo sono approssimati: la penisola dei Curi e' Lituania ma fuori dal suo), la regione del paese col rettangolo
- * piu' vicino; se il paese non ha regioni col suo codice, fra quelle che lo contengono con un codice che non e' un paese
- * ISO (le Canarie hanno "ic", i confini dicono "es"). Mai il rettangolo di un altro paese: quello della Svezia copre
- * mezzo Baltico, quello dell'Italia l'Austria del sud.
+ * contiene San Marino, gli Stati Uniti sono divisi in stati). Se nessun rettangolo del suo paese lo contiene, fra quelle
+ * che lo contengono con un codice che non e' un paese ISO (le Canarie hanno "ic", Ceuta e Melilla "ea", i confini dicono
+ * "es"); se non ce ne sono, la regione del paese col rettangolo piu' vicino (i rettangoli del catalogo sono
+ * approssimati: la penisola dei Curi e' Lituania ma fuori dal suo). Mai il rettangolo di un altro paese: quello della
+ * Svezia copre mezzo Baltico, quello dell'Italia l'Austria del sud.
  */
 private fun regionToDownload(
     regions: List<RegionManifestEntry>,
@@ -71,11 +71,9 @@ private fun regionToDownload(
     covering: List<RegionManifestEntry>,
 ): RegionManifestEntry? {
     val ofCountry = regions.filter { it.countryCode == country }
-    val candidates = when {
-        ofCountry.isEmpty() -> regions.filter { it.contains(point) && it.countryCode?.uppercase() !in ISO_COUNTRIES }
-        ofCountry.any { it.contains(point) } -> ofCountry.filter { it.contains(point) }
-        else -> listOfNotNull(ofCountry.minByOrNull { it.distance(point) })
-    }
+    val candidates = ofCountry.filter { it.contains(point) }
+        .ifEmpty { regions.filter { it.contains(point) && it.countryCode?.uppercase() !in ISO_COUNTRIES } }
+        .ifEmpty { listOfNotNull(ofCountry.minByOrNull { it.distance(point) }) }
     if (candidates.any { it in covering }) return null
     return candidates.filter { it.regionId !in installedRoutingIds }.minByOrNull { it.area() }
 }

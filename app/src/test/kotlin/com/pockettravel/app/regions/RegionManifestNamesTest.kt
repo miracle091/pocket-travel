@@ -78,6 +78,22 @@ class RegionManifestNamesTest {
     }
 
     @Test
+    fun `Ceuta e Melilla hanno il nome del gruppo dal codice riservato EA, non "Spagna"`() {
+        val ceuta = entry.copy(
+            regionId = "ceuta",
+            displayName = "Ceuta (Spagna)",
+            countryCode = "ea",
+            groupName = "Ceuta e Melilla",
+            groupLabel = "Ceuta",
+        )
+
+        assertEquals("Ceuta e Melilla - Ceuta", ceuta.localizedNames(Locale.ITALIAN).displayName)
+        assertEquals("Ceuta e Melilla", ceuta.localizedNames(Locale.ITALIAN).groupName)
+        // Il nome inglese del CLDR per EA.
+        assertEquals("Ceuta & Melilla - Ceuta", ceuta.localizedNames(Locale.ENGLISH).displayName)
+    }
+
+    @Test
     fun `senza il nome inglese dell'etichetta anche l'inglese usa quella del catalogo`() {
         assertEquals("France - Bretagna", brittany.copy(groupLabelEn = null).localizedNames(Locale.ENGLISH).displayName)
     }

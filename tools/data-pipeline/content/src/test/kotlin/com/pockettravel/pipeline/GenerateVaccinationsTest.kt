@@ -12,8 +12,8 @@ import java.util.Locale
 
 class GenerateVaccinationsTest {
 
-    // Codici ISO che Locale.getISOCountries() non ha: Kosovo e Isole Canarie (come il flagCode delle regioni).
-    private val isoExceptions = setOf("xk", "ic")
+    // Codici ISO che Locale.getISOCountries() non ha: Kosovo, Isole Canarie, Ceuta e Melilla (come il flagCode delle regioni).
+    private val isoExceptions = setOf("xk", "ic", "ea")
     private val validIso: Set<String> = Locale.getISOCountries().map { it.lowercase() }.toSet() + isoExceptions
 
     private val polioCategories = setOf("WPV1_CVDPV1_CVDPV3", "CVDPV2", "PREVIOUSLY_INFECTED")

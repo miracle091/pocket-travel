@@ -7,3 +7,6 @@ nella pagina indice di `assemble-site.sh`. Per aggiornarle a una versione piu' r
   tar -xzf /tmp/flag-icons.tgz -C /tmp
   cp /tmp/package/flags/4x3/??.svg .   # solo i codici ISO a 2 lettere, non le bandiere regionali/sovranazionali
   cp /tmp/package/LICENSE .
+
+`ea.svg` (Ceuta e Melilla, codice riservato in ISO 3166-1 e senza una bandiera comune) e' una copia di `es.svg`: flag-icons
+non la ha, e il comando sopra non la tocca.
