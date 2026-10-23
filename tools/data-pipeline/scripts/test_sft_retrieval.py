@@ -148,7 +148,8 @@ class RowsTest(unittest.TestCase):
             self.assertEqual((r["kind"], r["region"], r["translated"]), ("pos", "citta:Siviglia", False))
             body = next(b for _, c, _, b, _ in SEVILLE if c == cat)
             q = user["content"].split("DOMANDA: ")[1]
-            top, stems = er.search(er.build_db(self.cache / "guides.db", "spagna", SEVILLE), "spagna", q, ["Siviglia"], "it", True)
+            with contextlib.closing(er.build_db(self.cache / "guides.db", "spagna", SEVILLE)) as db:
+                top, stems = er.search(db, "spagna", q, ["Siviglia"], "it", True)
             self.assertEqual(user["content"], gs.LANGS["it"]["prompt"](er.select_context([s["body"] for s in top], stems), q))
             self.assertGreaterEqual(len(assistant["content"]), sr.MIN_ANSWER)
             self.assertTrue(all(line in body for line in assistant["content"].split("\n")))
