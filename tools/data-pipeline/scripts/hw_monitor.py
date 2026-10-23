@@ -15,7 +15,9 @@ Fonti, senza dipendenze nuove; un valore che una fonte non da' resta vuoto:
   GTT = memoria traboccata); CPU da /proc e dalla temperatura di k10temp o coretemp.
 - GPU NVIDIA, su tutti e due: nvidia-smi (temperatura, consumo, attivita', VRAM, frequenza, ventola in %, e i
   rallentamenti decisi dal driver per temperatura o consumo, con un avviso per quelli da temperatura).
-- Windows, LibreHardwareMonitor con il web server acceso (Options -> Remote Web Server), letto da
+- Windows e WSL, LibreHardwareMonitor di Windows con il web server acceso (Options -> Remote Web Server; da WSL
+  con curl.exe di Windows, perche' il firewall di Windows blocca le connessioni da WSL; le variabili sotto vanno
+  impostate in WSL o passate con WSLENV), letto da
   POCKET_TRAVEL_LHM_URL (default http://127.0.0.1:8085), con l'autenticazione del server in POCKET_TRAVEL_LHM_USER
   e POCKET_TRAVEL_LHM_PASSWORD: temperatura della CPU (Windows non la da' ai programmi senza un driver), ventola
   della CPU e del case dal chip della scheda madre, e i valori della GPU che le fonti sopra non danno (con le
@@ -35,6 +37,7 @@ import base64
 import csv
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -404,12 +407,30 @@ def nvidia_sample():
     return s
 
 
+def in_wsl():
+    return "microsoft" in platform.release().lower()
+
+
 def lhm_sample(fetch=None):
     """Valori dal web server di LibreHardwareMonitor (dict, vuoto se non ha i sensori), o None se non risponde:
     temperatura e ventola della CPU, ventole del case (la piu' veloce), e della GPU punto piu' caldo, memoria, VRM
     (AMD) e ventole, anche una per una (NVIDIA: sensori NvAPI di LHM, che nvidia-smi non da')."""
     url = os.environ.get("POCKET_TRAVEL_LHM_URL", "http://127.0.0.1:8085").rstrip("/") + "/data.json"
-    if fetch is None:
+    curl = shutil.which("curl.exe") if fetch is None and in_wsl() else None
+    if curl:
+        # Da WSL il firewall di Windows blocca le connessioni verso Windows (anche al gateway), e 127.0.0.1 di WSL non
+        # e' quello di Windows: curl.exe e' un processo di Windows e lo raggiunge. Utente e password nella
+        # configurazione su stdin (-K -), non tra gli argomenti, che gli altri processi possono leggere.
+        def fetch():
+            user, password = os.environ.get("POCKET_TRAVEL_LHM_USER"), os.environ.get("POCKET_TRAVEL_LHM_PASSWORD")
+            quoted = f"{user}:{password or ''}".replace("\\", "\\\\").replace('"', '\\"')
+            config = f'user = "{quoted}"\n' if user else ""
+            out = subprocess.run([curl, "-s", "-f", "-m", "3", "-A", USER_AGENT, "-K", "-", url], input=config,
+                                 capture_output=True, text=True, encoding="utf-8", timeout=10)
+            if out.returncode != 0:
+                raise OSError(f"curl.exe: codice {out.returncode}")
+            return json.loads(out.stdout)
+    elif fetch is None:
         def fetch():
             request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
             user, password = os.environ.get("POCKET_TRAVEL_LHM_USER"), os.environ.get("POCKET_TRAVEL_LHM_PASSWORD")
@@ -420,7 +441,7 @@ def lhm_sample(fetch=None):
                 return json.load(r)
     try:
         tree = fetch()
-    except (OSError, ValueError):
+    except (OSError, ValueError, subprocess.SubprocessError):
         return None
     sensors = []  # (SensorId, Text, valore)
 
@@ -472,7 +493,7 @@ class Reader:
             self.os_reader = _Windows() if os.name == "nt" else _Linux()
         except Exception:  # una fonte rotta non deve fermare il lavoro monitorato
             self.os_reader = None
-        self.lhm = os.name == "nt"
+        self.lhm = os.name == "nt" or in_wsl()  # da WSL, LHM di Windows con curl.exe (lhm_sample)
 
     def sample(self):
         s = dict.fromkeys(FIELDS)

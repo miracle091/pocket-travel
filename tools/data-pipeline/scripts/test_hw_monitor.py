@@ -6,6 +6,7 @@ Uso: python test_hw_monitor.py
 """
 import csv
 import io
+import json
 import os
 import tempfile
 import unittest
@@ -121,10 +122,26 @@ class LhmTest(unittest.TestCase):
             return Response(b'{"Children": []}')
 
         with mock.patch.dict(os.environ, {"POCKET_TRAVEL_LHM_USER": "io", "POCKET_TRAVEL_LHM_PASSWORD": "segreta"}), \
-                mock.patch("urllib.request.urlopen", urlopen):
+                mock.patch.object(hw_monitor, "in_wsl", return_value=False), mock.patch("urllib.request.urlopen", urlopen):
             self.assertEqual({}, hw_monitor.lhm_sample())
         self.assertEqual("Basic aW86c2VncmV0YQ==", seen["Authorization"])
         self.assertIn("pocket-travel-hw_monitor", seen["User-agent"])
+
+    def test_da_wsl_con_curl_exe_e_password_su_stdin(self):
+        done = SimpleNamespace(returncode=0, stdout=json.dumps(TREE))
+        with mock.patch.dict(os.environ, {"POCKET_TRAVEL_LHM_USER": "io", "POCKET_TRAVEL_LHM_PASSWORD": "segreta"}), \
+                mock.patch.object(hw_monitor, "in_wsl", return_value=True), \
+                mock.patch("shutil.which", return_value="/mnt/c/Windows/System32/curl.exe"), \
+                mock.patch("subprocess.run", return_value=done) as run:
+            self.assertEqual(68, hw_monitor.lhm_sample()["cpu_c"])
+        args, kwargs = run.call_args
+        self.assertEqual("/mnt/c/Windows/System32/curl.exe", args[0][0])
+        self.assertEqual("http://127.0.0.1:8085/data.json", args[0][-1])
+        self.assertNotIn("segreta", " ".join(args[0]))
+        self.assertEqual('user = "io:segreta"\n', kwargs["input"])
+        with mock.patch.object(hw_monitor, "in_wsl", return_value=True), mock.patch("shutil.which", return_value="curl.exe"), \
+                mock.patch("subprocess.run", return_value=SimpleNamespace(returncode=7, stdout="")):
+            self.assertIsNone(hw_monitor.lhm_sample())  # server spento: curl.exe esce con 7
 
 
 class NvidiaTest(unittest.TestCase):
