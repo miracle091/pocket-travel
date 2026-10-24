@@ -147,6 +147,10 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Paese di cui l'utente ha il passaporto | nazionalità | nationality |
 | Schermata con lo spazio occupato dai contenuti | Spazio di archiviazione | Storage |
 | Schermata in Altro con gli aggiornamenti di app, nazioni, guide e modello IA | Aggiornamenti | Updates |
+| Pulsante che scarica la versione nuova dell'app (con la dimensione) | Aggiorna | Update |
+| Pulsante che installa l'aggiornamento dell'app scaricato | Installa | Install |
+| Permesso di sistema per installare gli aggiornamenti dell'app (nome di Android) | Installa app sconosciute | Install unknown apps |
+| Rete che Android segna come a consumo (dati mobili, hotspot di un altro telefono) | rete a consumo | metered connection |
 | Punti di interesse tolti per mancanza di spazio, da scaricare di nuovo | punti di interesse da riscaricare | points of interest to download again |
 | Livello di una vaccinazione non obbligatoria (altrove "consigliato" resta) | raccomandata | recommended |
 | Scalo aereo nelle regole delle vaccinazioni | scalo | stopover |
