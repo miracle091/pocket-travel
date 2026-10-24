@@ -52,10 +52,10 @@ class CatalogPreferencesDeviceTest {
     ).toByteArray()
 
     private class RecordingPublishedAtStore : PublishedAtStore {
-        val kept = mutableListOf<String>()
+        val kept = mutableListOf<Set<String>>()
         override fun last(kind: String): Long? = null
         override fun save(kind: String, publishedAt: Long) = Unit
-        override fun forgetAllExcept(kept: String) {
+        override fun forgetAllExcept(kept: Set<String>) {
             this.kept += kept
         }
     }
@@ -142,8 +142,8 @@ class CatalogPreferencesDeviceTest {
 
         prefs.applySaved()
         prefs.applySaved()
-        // Resta sempre app-status.json, che viene dal progetto e non dal catalogo.
-        assertEquals(listOf(ManifestSignatureVerifier.APP_STATUS_KIND), store.kept)
+        // Restano sempre app-status.json e online-models.json, che vengono dal progetto e non dal catalogo.
+        assertEquals(listOf(ManifestSignatureVerifier.PROJECT_KINDS), store.kept)
     }
 
     @Test

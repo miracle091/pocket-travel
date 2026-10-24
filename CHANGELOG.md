@@ -6,10 +6,15 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ## [Non rilasciato]
 
+### Aggiunto
+- Assistente IA online: i modelli proposti per ogni servizio vengono da un elenco firmato che l'app scarica all'apertura dell'assistente con il motore Online, così l'elenco cambia senza aggiornare l'app; senza rete vale l'ultimo scaricato o quello incluso nell'app. Accanto a ogni modello compare il costo stimato di 100 domande ("Circa 0,04 USD ogni 100 domande"). Con la chiave salvata l'app chiede al servizio i modelli dell'account e nasconde quelli che l'account non può usare.
+
 ### Modificato
+- Assistente IA online, modelli nuovi: ChatGPT `gpt-6-luna` (Automatico, al posto di `gpt-4o-mini`, che OpenAI spegne il 14 gennaio 2027), Gemini `gemini-3.8-flash` (Automatico) e `gemini-4-argon` (Più capace, al posto di `gemini-2.5-pro`, riservato da Google a chi lo usava già), Claude `claude-haiku-5-5` e `claude-sonnet-5-5`. Una scelta salvata di un modello che non è più nell'elenco resta come "Altro modello".
 - Assistente IA sul dispositivo: al caricamento del modello l'app sceglie da sola il formato della domanda. I modelli con formato ChatML (gli Addestrati sulle guide e gli Ufficiali Qwen) ricevono lo stesso testo dell'addestramento, come prima; gli altri ricevono il formato scritto nel file del modello, invece di un ChatML che non conoscono. Se il formato scritto nel file non si riesce a usare, l'app ripiega sul formato che llama.cpp riconosce dal file (Gemma, Llama 3, Mistral e gli altri formati noti) e, se nemmeno llama.cpp lo riconosce, su ChatML. La scelta si legge nel logcat ("Chat format").
 
 ### Corretto
+- Assistente IA online: la temperatura non si manda ai modelli che la rifiutano con un errore (Claude dalla 4.7, i GPT dalla 5) o che non la usano più (Gemini dalla 3.6), anche quando il nome è scritto a mano in "Altro modello".
 - Singolare dove il numero vale 1: "1 di 1 rete selezionata" nei Contenuti della regione, "Da 1 mese di età in su" e "Non richiesta sotto 1 mese di età" nelle vaccinazioni; in inglese anche "Limit of 1 photo reached" nei Documenti.
 
 ## [0.12.0] - 2026-10-23

@@ -95,12 +95,14 @@ Il modello gira sul dispositivo e nessun dato ne esce. Le conversazioni si salva
 
 L'assistente usa un servizio di IA con la chiave API personale dell'utente, che resta cifrata sul dispositivo. La domanda va al servizio **senza la guida scaricata** e l'uso si paga sull'account del servizio. Nell'app si sceglie il servizio, si incolla la chiave e si tocca **Salva la chiave**; **Crea la chiave su …** apre la pagina giusta.
 
+I modelli proposti per ogni servizio, con il costo stimato di 100 domande, vengono da un elenco firmato che l'app scarica all'apertura dell'assistente con il motore Online: l'elenco cambia senza aggiornare l'app. Con la chiave salvata l'app nasconde i modelli che l'account non può usare. Modelli attuali:
+
 | Servizio | Modello automatico | Più capace |
 |---|---|---|
-| [ChatGPT (OpenAI)](https://platform.openai.com/api-keys) | `gpt-4o-mini` | `gpt-5.6-terra` |
+| [ChatGPT (OpenAI)](https://platform.openai.com/api-keys) | `gpt-6-luna` | `gpt-5.6-terra` |
 | [Mistral AI](https://console.mistral.ai/api-keys) | `mistral-small-latest` | `mistral-large-latest` |
-| [Gemini (Google)](https://aistudio.google.com/apikey) | `gemini-flash-latest` | `gemini-2.5-pro` |
-| [Claude (Anthropic)](https://console.anthropic.com/settings/keys) | `claude-haiku-4-5` | `claude-sonnet-4-6` |
+| [Gemini (Google)](https://aistudio.google.com/apikey) | `gemini-3.8-flash` | `gemini-4-argon` |
+| [Claude (Anthropic)](https://console.anthropic.com/settings/keys) | `claude-haiku-5-5` | `claude-sonnet-5-5` |
 
 ## Schermate
 
@@ -127,7 +129,7 @@ L'assistente usa un servizio di IA con la chiave API personale dell'utente, che 
   <sub>Percorso tra nazioni con la rete stradale mancante e Contenuti di una nazione</sub>
   <br/><br/>
   <img src="docs/images/notes.png" width="260" alt="Documenti con il selettore Documenti e Note, sulle note di viaggio" />
-  <img src="docs/images/ai.png" width="260" alt="Assistente IA online: scelta del servizio (ChatGPT, Mistral AI, Gemini, Claude) e del modello" />
+  <img src="docs/images/ai.png" width="260" alt="Assistente IA online: scelta del servizio (ChatGPT, Mistral AI, Gemini, Claude) e del modello, con il costo stimato di 100 domande" />
   <br/>
   <sub>Note di viaggio e scelta del servizio per l'assistente IA online</sub>
 </div>

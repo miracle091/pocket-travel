@@ -94,12 +94,14 @@ The model runs on the device and no data leaves it. Conversations are saved in t
 
 The assistant uses an AI service with the user's own API key, which stays encrypted on the device. The question goes to the service **without the downloaded guide** and usage is billed to the user's account with the service. In the app, choose the service, paste the key and tap **Save key**; **Create the key on …** opens the right page.
 
+The models offered for each service, with the estimated cost of 100 questions, come from a signed list that the app downloads when the assistant opens with the Online engine: the list changes without updating the app. With the saved key the app hides the models the account cannot use. Current models:
+
 | Service | Automatic model | More capable |
 |---|---|---|
-| [ChatGPT (OpenAI)](https://platform.openai.com/api-keys) | `gpt-4o-mini` | `gpt-5.6-terra` |
+| [ChatGPT (OpenAI)](https://platform.openai.com/api-keys) | `gpt-6-luna` | `gpt-5.6-terra` |
 | [Mistral AI](https://console.mistral.ai/api-keys) | `mistral-small-latest` | `mistral-large-latest` |
-| [Gemini (Google)](https://aistudio.google.com/apikey) | `gemini-flash-latest` | `gemini-2.5-pro` |
-| [Claude (Anthropic)](https://console.anthropic.com/settings/keys) | `claude-haiku-4-5` | `claude-sonnet-4-6` |
+| [Gemini (Google)](https://aistudio.google.com/apikey) | `gemini-3.8-flash` | `gemini-4-argon` |
+| [Claude (Anthropic)](https://console.anthropic.com/settings/keys) | `claude-haiku-5-5` | `claude-sonnet-5-5` |
 
 ## Screenshots
 
@@ -126,7 +128,7 @@ The assistant uses an AI service with the user's own API key, which stays encryp
   <sub>A route across countries with missing road networks, and a country's content</sub>
   <br/><br/>
   <img src="docs/images/notes.png" width="260" alt="Documents with the Documents and Notes selector, on the travel notes" />
-  <img src="docs/images/ai.png" width="260" alt="Online AI assistant: choice of service (ChatGPT, Mistral AI, Gemini, Claude) and model" />
+  <img src="docs/images/ai.png" width="260" alt="Online AI assistant: choice of service (ChatGPT, Mistral AI, Gemini, Claude) and model, with the estimated cost of 100 questions" />
   <br/>
   <sub>Travel notes and the service choice for the online AI assistant</sub>
 </div>

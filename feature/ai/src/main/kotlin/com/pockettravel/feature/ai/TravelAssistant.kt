@@ -89,6 +89,7 @@ class TravelAssistant @Inject constructor(
     private val noteRepository: NoteRepository,
     private val engine: OnDeviceLlmEngine,
     private val onlineLlmClient: OnlineLlmClient,
+    private val onlineModelCatalog: OnlineModelCatalog,
     private val aiSettingsStore: AiSettingsStore,
     private val nationalityPreferences: NationalityPreferences,
     private val regionRepository: RegionRepository,
@@ -359,11 +360,14 @@ class TravelAssistant @Inject constructor(
 
     private suspend fun askOnline(question: String, language: String): AssistantAnswer {
         val apiKey = aiSettingsStore.apiKey() ?: error("Nessuna chiave API online configurata")
+        val provider = aiSettingsStore.onlineProvider()
+        val model = onlineModelCatalog.modelFor(provider, aiSettingsStore.onlineModelSetting(provider))
         val text = onlineLlmClient.generate(
-            baseUrl = aiSettingsStore.baseUrl(),
+            baseUrl = provider.baseUrl,
             apiKey = apiKey,
-            model = aiSettingsStore.model(),
+            model = model,
             prompt = OnlinePromptTemplates.onlinePrompt(question, language),
+            sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
         )
         return AssistantAnswer(text = text, sourceCitations = emptyList(), showOfficialSourceBanner = false)
     }

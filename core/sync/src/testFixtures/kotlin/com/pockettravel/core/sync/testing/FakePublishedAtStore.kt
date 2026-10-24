@@ -7,7 +7,7 @@ class FakePublishedAtStore(private val values: MutableMap<String, Long> = mutabl
     override fun save(kind: String, publishedAt: Long) {
         values[kind] = publishedAt
     }
-    override fun forgetAllExcept(kept: String) {
-        values.keys.retainAll(setOf(kept))
+    override fun forgetAllExcept(kept: Set<String>) {
+        values.keys.retainAll(kept)
     }
 }

@@ -38,7 +38,7 @@ class DefaultCatalogPreferences @Inject constructor(
 
     override fun applySaved() {
         if (prefs.getBoolean(KEY_FORGET_PENDING, false)) {
-            publishedAtStore.forgetAllExcept(ManifestSignatureVerifier.APP_STATUS_KIND)
+            publishedAtStore.forgetAllExcept(ManifestSignatureVerifier.PROJECT_KINDS)
             prefs.edit(commit = true) { remove(KEY_FORGET_PENDING) }
         }
         // Un indirizzo salvato non valido (non succede: si salva solo dopo la prova) non deve bloccare l'avvio.

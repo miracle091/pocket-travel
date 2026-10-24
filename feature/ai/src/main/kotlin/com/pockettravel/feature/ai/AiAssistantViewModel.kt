@@ -11,6 +11,7 @@ import com.pockettravel.core.data.crypto.HistoryReader
 import com.pockettravel.core.data.crypto.HistoryUnreadableException
 import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.sync.AppStatusClient
+import com.pockettravel.core.sync.OnlineModelEntry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -43,6 +44,9 @@ data class AiUiState(
     val onlineModelSetting: String = "",
     // Modello in uso per ogni servizio, per la riga "Modello: ..." sotto il suo nome.
     val onlineModels: Map<OnlineProvider, String> = emptyMap(),
+    // Modelli proposti per il servizio corrente (OnlineModelCatalog), Automatico per primo, senza quelli che la
+    // chiave salvata non vede (OnlineModelAvailability).
+    val onlineModelOptions: List<OnlineModelEntry> = emptyList(),
     val apiKeyInput: String = "",
     val benchmarkResult: BenchmarkResult? = null,
     val isBenchmarking: Boolean = false,
@@ -103,7 +107,12 @@ class AiAssistantViewModel @Inject constructor(
     private val conversation: AssistantConversation,
     private val conversationRepository: ConversationRepository,
     private val historyAvailability: HistoryAvailability,
+    private val onlineModelCatalog: OnlineModelCatalog,
+    private val onlineModelAvailability: OnlineModelAvailability,
 ) : ViewModel() {
+
+    // Nomi dei modelli che la chiave salvata vede, per servizio; assente = non letti (si mostrano tutti).
+    private val availableOnlineModels = MutableStateFlow<Map<OnlineProvider, Set<String>>>(emptyMap())
 
     private val _uiState = MutableStateFlow(
         AiUiState(
@@ -125,7 +134,6 @@ class AiAssistantViewModel @Inject constructor(
             isApiKeyConfigured = aiSettingsStore.hasApiKey(),
             onlineProvider = aiSettingsStore.onlineProvider(),
             onlineModelSetting = aiSettingsStore.onlineModelSetting(),
-            onlineModels = OnlineProvider.entries.associateWith { aiSettingsStore.onlineModel(it) },
             benchmarkResult = aiSettingsStore.benchmarkResult(aiSettingsStore.selectedModelId()),
             allBenchmarkResults = aiSettingsStore.allBenchmarkResults(),
         ),
@@ -133,6 +141,15 @@ class AiAssistantViewModel @Inject constructor(
     val uiState: StateFlow<AiUiState> = _uiState.asStateFlow()
 
     init {
+        // Elenco dei modelli online: quello pubblicato sostituisce quello dell'APK appena scaricato.
+        viewModelScope.launch {
+            onlineModelCatalog.list.collect { updateOnlineModels() }
+        }
+        refreshOnlineModels()
+        viewModelScope.launch {
+            availableOnlineModels.collect { updateOnlineModels() }
+        }
+        checkOnlineModelAvailability()
         // Il modello scaricato o eliminato da fuori (worker di download, pulizia dei file) aggiorna anche
         // isModelDownloaded, non solo la lista: letto una volta sola in costruzione resterebbe vecchio.
         viewModelScope.launch {
@@ -209,6 +226,8 @@ class AiAssistantViewModel @Inject constructor(
         cancelAsk()
         aiSettingsStore.setEngineMode(mode)
         _uiState.update { it.copy(mode = mode, answer = null, askedQuestion = null, errorMessage = null) }
+        refreshOnlineModels()
+        checkOnlineModelAvailability()
     }
 
     fun onQuestionChanged(value: String) {
@@ -223,28 +242,78 @@ class AiAssistantViewModel @Inject constructor(
         val key = _uiState.value.apiKeyInput.trim()
         if (key.isBlank()) return
         aiSettingsStore.setApiKey(key)
+        availableOnlineModels.update { it - aiSettingsStore.onlineProvider() }
         _uiState.update { it.copy(isApiKeyConfigured = true, apiKeyInput = "") }
+        checkOnlineModelAvailability()
     }
 
     /** Cambiare servizio cancella la chiave salvata (vedi AiSettingsStore.setOnlineProvider). */
     fun onProviderSelected(provider: OnlineProvider) {
         cancelAsk()
         aiSettingsStore.setOnlineProvider(provider)
+        // La chiave e' stata cancellata: i modelli visti con quella non valgono piu'.
+        if (!aiSettingsStore.hasApiKey()) availableOnlineModels.value = emptyMap()
         _uiState.update {
             it.copy(onlineProvider = provider, onlineModelSetting = aiSettingsStore.onlineModelSetting(provider), isApiKeyConfigured = aiSettingsStore.hasApiKey(), answer = null)
         }
+        updateOnlineModels()
     }
 
-    /** Modello del servizio online: "" = Automatico, altrimenti il nome (il piu' capace o uno scritto a mano). */
+    /** Modello del servizio online: "" = Automatico, altrimenti il nome (uno dell'elenco o uno scritto a mano). */
     fun onOnlineModelChanged(setting: String) {
         val provider = _uiState.value.onlineProvider
         aiSettingsStore.setOnlineModelSetting(provider, setting)
-        _uiState.update { it.copy(onlineModelSetting = setting, onlineModels = it.onlineModels + (provider to aiSettingsStore.onlineModel(provider))) }
+        _uiState.update { it.copy(onlineModelSetting = setting) }
+        updateOnlineModels()
+    }
+
+    // Solo con il motore Online, l'unico che usa l'elenco.
+    private fun refreshOnlineModels() {
+        if (_uiState.value.mode != AiEngineMode.ONLINE) return
+        viewModelScope.launch {
+            try {
+                onlineModelCatalog.refresh()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                // Senza rete o con un file non valido resta l'elenco attuale.
+            }
+        }
+    }
+
+    // Con il motore Online e una chiave salvata: quali modelli proposti il suo account vede davvero. Con il motore
+    // sul dispositivo la chiave non si manda, nemmeno per l'elenco.
+    private fun checkOnlineModelAvailability() {
+        if (_uiState.value.mode != AiEngineMode.ONLINE) return
+        val provider = aiSettingsStore.onlineProvider()
+        val apiKey = aiSettingsStore.apiKey()?.takeIf { it.isNotBlank() } ?: return
+        viewModelScope.launch {
+            val available = try {
+                onlineModelAvailability.availableModels(provider, apiKey)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                return@launch
+            }
+            // Chiave tolta o cambiata nel frattempo: quei modelli valgono per un altro account.
+            if (aiSettingsStore.onlineProvider() != provider || aiSettingsStore.apiKey() != apiKey) return@launch
+            availableOnlineModels.update { it + (provider to available) }
+        }
+    }
+
+    private fun updateOnlineModels() {
+        _uiState.update { state ->
+            state.copy(
+                onlineModels = OnlineProvider.entries.associateWith { onlineModelCatalog.modelFor(it, aiSettingsStore.onlineModelSetting(it)) },
+                onlineModelOptions = visibleModels(onlineModelCatalog.models(state.onlineProvider), availableOnlineModels.value[state.onlineProvider]),
+            )
+        }
     }
 
     fun clearApiKey() {
         cancelAsk()
         aiSettingsStore.clearApiKey()
+        availableOnlineModels.value = emptyMap()
         _uiState.update { it.copy(isApiKeyConfigured = false, answer = null) }
     }
 

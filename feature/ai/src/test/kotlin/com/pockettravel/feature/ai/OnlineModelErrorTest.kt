@@ -31,7 +31,7 @@ class OnlineModelErrorTest {
     fun tearDown() = server.shutdown()
 
     private fun generate(): String = runBlocking {
-        client.generate(server.url("/v1").toString(), apiKey = "test-key", model = "modello-inesistente", prompt = "ciao")
+        client.generate(server.url("/v1").toString(), apiKey = "test-key", model = "modello-inesistente", prompt = "ciao", sendTemperature = true)
     }
 
     private fun errorOf(response: MockResponse): Exception {
@@ -94,7 +94,7 @@ class OnlineModelErrorTest {
         // Nessuna risposta per 10 s: senza call.cancel() il job annullato resterebbe bloccato nell'attesa.
         server.enqueue(MockResponse().setBody("""{"choices":[]}""").setHeadersDelay(10, TimeUnit.SECONDS))
         val job = launch(Dispatchers.Default) {
-            client.generate(server.url("/v1").toString(), apiKey = "test-key", model = "m", prompt = "ciao")
+            client.generate(server.url("/v1").toString(), apiKey = "test-key", model = "m", prompt = "ciao", sendTemperature = true)
         }
         server.takeRequest()
         val start = System.currentTimeMillis()

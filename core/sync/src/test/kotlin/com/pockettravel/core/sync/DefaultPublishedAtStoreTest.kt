@@ -26,17 +26,19 @@ class DefaultPublishedAtStoreTest {
     }
 
     @Test
-    fun `forgetAllExcept tiene solo il file indicato`() {
+    fun `forgetAllExcept tiene solo i file indicati`() {
         val store = DefaultPublishedAtStore(InMemoryPreferencesFactory())
         store.save("manifest.json", 1L)
         store.save("transit.json", 2L)
         store.save("app-status.json", 3L)
+        store.save("online-models.json", 4L)
 
-        store.forgetAllExcept("app-status.json")
+        store.forgetAllExcept(setOf("app-status.json", "online-models.json"))
 
         assertNull(store.last("manifest.json"))
         assertNull(store.last("transit.json"))
         assertEquals(3L, store.last("app-status.json"))
+        assertEquals(4L, store.last("online-models.json"))
     }
 
     @Test

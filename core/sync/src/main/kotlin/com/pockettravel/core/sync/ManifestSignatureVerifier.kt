@@ -43,7 +43,7 @@ internal fun verifyManifestSignature(publicKeyBase64: String, content: ByteArray
 }
 
 /**
- * Controlla la firma di manifest.json, transit.json, address-grid.json e app-status.json prima che vengano
+ * Controlla la firma di manifest.json, transit.json, address-grid.json, app-status.json e online-models.json prima che vengano
  * interpretati: accanto a ogni file il sito pubblica `<stesso url>.sig`, scaricata con lo stesso OkHttpClient e
  * ammessa solo sugli host di [SyncConfig.ALLOWED_MANIFEST_HOSTS]. Con un catalogo di debug
  * (BuildConfig.MANIFEST_URL_OVERRIDE, solo debug) non si verifica nulla, cosi' un server locale continua a funzionare.
@@ -86,16 +86,18 @@ class ManifestSignatureVerifier @Inject constructor(
     // Nome del file nell'url (manifest.json, ...): chiave dell'ultimo publishedAt accettato.
     // app-status.json del progetto ha un posto solo suo: un file di un altro catalogo con lo stesso nome non lo
     // tocca, altrimenti una data molto avanti bloccherebbe per sempre gli avvisi di aggiornamento.
+    // Lo stesso vale per online-models.json.
     private fun fileKind(url: String): String {
         val name = URI(url).path.substringAfterLast('/')
-        return if (name == APP_STATUS_KIND && url != SyncConfig.APP_STATUS_URL) "catalog:$name" else name
+        return if (name in PROJECT_KINDS && url !in PROJECT_URLS) "catalog:$name" else name
     }
 
     private fun enabled(): Boolean = BuildConfig.MANIFEST_URL_OVERRIDE.isEmpty()
 
-    // app-status.json viene sempre dal progetto (versioni dell'app e dei modelli), anche con un altro catalogo.
+    // app-status.json (versioni dell'app e dei modelli) e online-models.json vengono sempre dal progetto,
+    // anche con un altro catalogo.
     private fun publicKeyFor(url: String): String =
-        if (url == SyncConfig.APP_STATUS_URL) SyncConfig.OFFICIAL_PUBLIC_KEY else SyncConfig.MANIFEST_PUBLIC_KEY
+        if (url in PROJECT_URLS) SyncConfig.OFFICIAL_PUBLIC_KEY else SyncConfig.MANIFEST_PUBLIC_KEY
 
     private suspend fun fetchSignature(url: String): ByteArray = withContext(ioDispatcher) {
         val host = URI(url).host
@@ -115,5 +117,10 @@ class ManifestSignatureVerifier @Inject constructor(
     internal companion object {
         /** Chiave di app-status.json nel PublishedAtStore: resta anche al cambio di catalogo. */
         const val APP_STATUS_KIND = "app-status.json"
+        const val ONLINE_MODELS_KIND = "online-models.json"
+
+        /** File che vengono sempre dal progetto, firmati con la sua chiave, qualunque sia il catalogo. */
+        val PROJECT_KINDS = setOf(APP_STATUS_KIND, ONLINE_MODELS_KIND)
+        private val PROJECT_URLS = setOf(SyncConfig.APP_STATUS_URL, SyncConfig.ONLINE_MODELS_URL)
     }
 }

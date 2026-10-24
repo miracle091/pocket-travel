@@ -64,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.pluralStringResource
@@ -85,6 +86,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pockettravel.core.sync.ONLINE_MODEL_ROLE_AUTO
+import com.pockettravel.core.sync.OnlineModelEntry
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.DownloadProgressIndicator
@@ -94,6 +97,8 @@ import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.isOnCellularNetwork
+import java.text.NumberFormat
+import java.util.Currency
 import javax.crypto.Cipher
 
 @Composable
@@ -915,7 +920,7 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
     val provider = uiState.onlineProvider
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
         Text(stringResource(R.string.ai_api_key_intro), style = MaterialTheme.typography.bodyLarge)
-        // Servizio: uno dei quattro, ognuno col suo modello (OnlineProvider).
+        // Servizio: uno dei quattro (OnlineProvider), con il modello in uso (OnlineModelCatalog).
         Text(
             stringResource(R.string.ai_provider_title),
             style = MaterialTheme.typography.titleSmall,
@@ -927,7 +932,7 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
                 ListItem(
                     leadingContent = { RadioButton(selected = candidate == provider, onClick = null) },
                     supportingContent = {
-                        Text(stringResource(R.string.ai_provider_model, uiState.onlineModels[candidate] ?: candidate.autoModel))
+                        uiState.onlineModels[candidate]?.let { Text(stringResource(R.string.ai_provider_model, it)) }
                     },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.selectable(selected = candidate == provider, role = Role.RadioButton) {
@@ -937,7 +942,12 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
                 )
             }
         }
-        OnlineModelChoice(provider = provider, setting = uiState.onlineModelSetting, onSettingChanged = actions.onOnlineModelChanged)
+        OnlineModelChoice(
+            provider = provider,
+            options = uiState.onlineModelOptions,
+            setting = uiState.onlineModelSetting,
+            onSettingChanged = actions.onOnlineModelChanged,
+        )
         TextButton(onClick = { uriHandler.openUri(provider.keyPageUrl) }) {
             Text(stringResource(R.string.ai_provider_get_key, provider.displayName))
             Spacer(modifier = Modifier.width(Spacing.s))
@@ -975,17 +985,20 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
     }
 }
 
-// Modello del servizio: Automatico (consigliato, vedi OnlineProvider.autoModel), il piu' capace, o un
-// altro scritto a mano. Ognuno con una riga che spiega la differenza.
+// Modello del servizio: Automatico (consigliato), gli altri dell'elenco (OnlineModelCatalog) o uno scritto a
+// mano. Ognuno con una riga che spiega la differenza e, per quelli dell'elenco, il costo stimato.
 @Composable
-private fun OnlineModelChoice(provider: OnlineProvider, setting: String, onSettingChanged: (String) -> Unit) {
-    // "Altro" resta selezionato mentre si scrive, anche col campo ancora vuoto.
-    var otherSelected by rememberSaveable(provider) { mutableStateOf(setting.isNotBlank() && setting != provider.capableModel) }
-    val choice = when {
-        otherSelected -> 2
-        setting == provider.capableModel -> 1
-        else -> 0
-    }
+private fun OnlineModelChoice(
+    provider: OnlineProvider,
+    options: List<OnlineModelEntry>,
+    setting: String,
+    onSettingChanged: (String) -> Unit,
+) {
+    val listed = options.filter { it.role != ONLINE_MODEL_ROLE_AUTO }
+    // "Altro" resta selezionato mentre si scrive, anche col campo ancora vuoto; vale anche per una scelta salvata
+    // che non e' (o non e' piu') tra i modelli mostrati, tolta dall'elenco o nascosta dopo la lettura di /models.
+    var otherSelected by rememberSaveable(provider) { mutableStateOf(false) }
+    val showOther = otherSelected || (setting.isNotBlank() && listed.none { it.id == setting.trim() })
     Text(
         stringResource(R.string.ai_online_model_title),
         style = MaterialTheme.typography.titleSmall,
@@ -993,23 +1006,29 @@ private fun OnlineModelChoice(provider: OnlineProvider, setting: String, onSetti
         modifier = Modifier.semantics { heading() },
     )
     Column(modifier = Modifier.selectableGroup()) {
+        options.firstOrNull { it.role == ONLINE_MODEL_ROLE_AUTO }?.let { auto ->
+            ModelChoiceRow(
+                selected = !showOther && setting.isBlank(),
+                title = stringResource(R.string.ai_online_model_auto),
+                description = stringResource(R.string.ai_online_model_auto_desc, auto.id),
+                cost = costText(auto),
+            ) { otherSelected = false; onSettingChanged("") }
+        }
+        listed.forEach { model ->
+            ModelChoiceRow(
+                selected = !showOther && setting.trim() == model.id,
+                title = stringResource(R.string.ai_online_model_capable, model.id),
+                description = stringResource(R.string.ai_online_model_capable_desc),
+                cost = costText(model),
+            ) { otherSelected = false; onSettingChanged(model.id) }
+        }
         ModelChoiceRow(
-            selected = choice == 0,
-            title = stringResource(R.string.ai_online_model_auto),
-            description = stringResource(R.string.ai_online_model_auto_desc, provider.autoModel),
-        ) { otherSelected = false; onSettingChanged("") }
-        ModelChoiceRow(
-            selected = choice == 1,
-            title = stringResource(R.string.ai_online_model_capable, provider.capableModel),
-            description = stringResource(R.string.ai_online_model_capable_desc),
-        ) { otherSelected = false; onSettingChanged(provider.capableModel) }
-        ModelChoiceRow(
-            selected = choice == 2,
+            selected = showOther,
             title = stringResource(R.string.ai_online_model_other),
             description = stringResource(R.string.ai_online_model_other_desc),
-        ) { otherSelected = true; if (setting == provider.capableModel) onSettingChanged("") }
+        ) { otherSelected = true; if (listed.any { it.id == setting }) onSettingChanged("") }
     }
-    if (choice == 2) {
+    if (showOther) {
         OutlinedTextField(
             value = setting,
             onValueChange = onSettingChanged,
@@ -1020,11 +1039,33 @@ private fun OnlineModelChoice(provider: OnlineProvider, setting: String, onSetti
     }
 }
 
+// Costo stimato di 100 domande in dollari, nel formato della lingua dell'app.
 @Composable
-private fun ModelChoiceRow(selected: Boolean, title: String, description: String, onClick: () -> Unit) {
+private fun costText(model: OnlineModelEntry): String {
+    val usd = model.usdPer100Questions()
+    val format = NumberFormat.getCurrencyInstance(LocalConfiguration.current.locales[0]).apply {
+        currency = Currency.getInstance("USD")
+        maximumFractionDigits = 2
+    }
+    return if (usd < MIN_SHOWN_COST) {
+        stringResource(R.string.ai_online_model_cost_below, format.format(MIN_SHOWN_COST))
+    } else {
+        stringResource(R.string.ai_online_model_cost, format.format(usd))
+    }
+}
+
+private const val MIN_SHOWN_COST = 0.01
+
+@Composable
+private fun ModelChoiceRow(selected: Boolean, title: String, description: String, cost: String? = null, onClick: () -> Unit) {
     ListItem(
         leadingContent = { RadioButton(selected = selected, onClick = null) },
-        supportingContent = { Text(description) },
+        supportingContent = {
+            Column {
+                Text(description)
+                if (cost != null) Text(cost, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
+        },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
         content = { Text(title) },

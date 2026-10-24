@@ -40,8 +40,30 @@ class SupportsTemperatureTest {
     }
 
     @Test
-    fun `il modello automatico di ogni servizio accetta la temperatura, quello capace di ChatGPT no`() {
-        OnlineProvider.entries.forEach { assertTrue(it.name, supportsTemperature(it.autoModel)) }
-        assertEquals(false, supportsTemperature(OnlineProvider.CHATGPT.capableModel))
+    fun `GPT-6, Claude dalla 4-7 e Gemini dalla 3-6 non accettano la temperatura`() {
+        assertFalse(supportsTemperature("gpt-6-luna"))
+        assertFalse(supportsTemperature("claude-opus-4-7"))
+        assertFalse(supportsTemperature("claude-haiku-5-5"))
+        assertFalse(supportsTemperature("claude-sonnet-5-5-20261001"))
+        assertFalse(supportsTemperature("gemini-3.6-flash"))
+        assertFalse(supportsTemperature("gemini-4-argon"))
+        assertFalse(supportsTemperature("claude-opus-4-10"))
+        assertFalse(supportsTemperature("claude-opus-10"))
+        assertFalse(supportsTemperature("gemini-3.10-flash"))
+        assertFalse(supportsTemperature("gemini-10-pro"))
+    }
+
+    @Test
+    fun `Claude fino alla 4-6, Claude 3 e Gemini fino alla 3-5 accettano la temperatura`() {
+        assertTrue(supportsTemperature("claude-sonnet-4-6"))
+        assertTrue(supportsTemperature("claude-3-5-sonnet"))
+        assertTrue(supportsTemperature("gemini-2.5-pro"))
+        assertTrue(supportsTemperature("gemini-3.5-flash"))
+    }
+
+    @Test
+    fun `nell'elenco incluso nell'APK la temperatura coincide con la regola sul nome`() {
+        val list = bundledOnlineModels()
+        list.providers.values.flatten().forEach { assertEquals(it.id, supportsTemperature(it.id), it.temperature) }
     }
 }

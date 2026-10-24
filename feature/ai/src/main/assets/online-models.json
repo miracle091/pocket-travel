@@ -1,0 +1,20 @@
+{
+  "providers": {
+    "CHATGPT": [
+      { "id": "gpt-6-luna", "role": "auto", "temperature": false, "inputUsdPerMTok": 0.10, "outputUsdPerMTok": 0.50 },
+      { "id": "gpt-5.6-terra", "role": "capable", "temperature": false, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 12.00 }
+    ],
+    "MISTRAL": [
+      { "id": "mistral-small-latest", "role": "auto", "temperature": true, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.60 },
+      { "id": "mistral-large-latest", "role": "capable", "temperature": true, "inputUsdPerMTok": 0.50, "outputUsdPerMTok": 1.50 }
+    ],
+    "GEMINI": [
+      { "id": "gemini-3.8-flash", "role": "auto", "temperature": false, "inputUsdPerMTok": 0.75, "outputUsdPerMTok": 3.75 },
+      { "id": "gemini-4-argon", "role": "capable", "temperature": false, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 10.00 }
+    ],
+    "CLAUDE": [
+      { "id": "claude-haiku-5-5", "role": "auto", "temperature": false, "inputUsdPerMTok": 0.10, "outputUsdPerMTok": 0.50 },
+      { "id": "claude-sonnet-5-5", "role": "capable", "temperature": false, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 10.00 }
+    ]
+  }
+}

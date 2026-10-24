@@ -76,6 +76,8 @@
     <string name="ai_online_model_auto_desc">Un modello veloce ed economico, aggiornato automaticamente: adatto alle risposte brevi di viaggio. Attualmente: %1$s</string>
     <string name="ai_online_model_capable">Più capace: %1$s</string>
     <string name="ai_online_model_capable_desc">Risposte più accurate alle domande complesse. Il modello costa di più e può essere più lento</string>
+    <string name="ai_online_model_cost">Circa %1$s ogni 100 domande</string>
+    <string name="ai_online_model_cost_below">Meno di %1$s ogni 100 domande</string>
     <string name="ai_online_model_other">Altro modello</string>
     <string name="ai_online_model_other_desc">Inserisci il nome esatto di un altro modello del servizio</string>
     <string name="ai_online_model_label">Nome del modello</string>

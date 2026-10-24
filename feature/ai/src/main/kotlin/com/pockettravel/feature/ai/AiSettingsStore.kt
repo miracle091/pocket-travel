@@ -73,21 +73,13 @@ class AiSettingsStore(
         prefs.edit { putString(KEY_PROVIDER, provider.name) }
     }
 
-    fun baseUrl(): String = onlineProvider().baseUrl
-
     /** Scelta salvata per [provider] (ricordata per ogni servizio): "" = Automatico, altrimenti il nome del modello. */
     fun onlineModelSetting(provider: OnlineProvider = onlineProvider()): String =
         prefs.getString(KEY_MODEL_PREFIX + provider.name, null).orEmpty()
 
-    /** Modello da usare per [provider]: quello scelto, o [OnlineProvider.autoModel] con Automatico. */
-    fun onlineModel(provider: OnlineProvider = onlineProvider()): String =
-        onlineModelSetting(provider).trim().ifEmpty { provider.autoModel }
-
     fun setOnlineModelSetting(provider: OnlineProvider, setting: String) {
         prefs.edit { putString(KEY_MODEL_PREFIX + provider.name, setting) }
     }
-
-    fun model(): String = onlineModel()
 
     // Un solo modello sul dispositivo installabile alla volta (vedi LlmModelManager.selectAndDownload):
     // questo e' l'id del modello scelto dall'utente in LlmModelCatalog.ALL, non necessariamente

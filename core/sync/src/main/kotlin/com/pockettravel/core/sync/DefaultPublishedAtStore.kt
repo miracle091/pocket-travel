@@ -14,7 +14,7 @@ class DefaultPublishedAtStore @Inject constructor(preferences: PreferencesFactor
     override fun save(kind: String, publishedAt: Long) = prefs.edit { putLong(kind, publishedAt) }
 
     // commit: subito dopo il cambio di catalogo l'app si riavvia, e una scrittura asincrona andrebbe persa.
-    override fun forgetAllExcept(kept: String) = prefs.edit(commit = true) {
-        prefs.all.keys.filter { it != kept }.forEach { remove(it) }
+    override fun forgetAllExcept(kept: Set<String>) = prefs.edit(commit = true) {
+        prefs.all.keys.filter { it !in kept }.forEach { remove(it) }
     }
 }

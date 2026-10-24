@@ -55,16 +55,16 @@ class AiSettingsStoreTest {
     }
 
     @Test
-    fun `il modello online e' per servizio e Automatico usa quello predefinito`() {
+    fun `il modello online e' per servizio, vuoto vale Automatico`() {
         val store = newStore()
-        assertEquals(OnlineProvider.CHATGPT.autoModel, store.onlineModel())
+        assertEquals("", store.onlineModelSetting())
 
         store.setOnlineModelSetting(OnlineProvider.CHATGPT, " gpt-x ")
         store.setOnlineModelSetting(OnlineProvider.MISTRAL, "mistral-y")
 
-        assertEquals("gpt-x", store.onlineModel(OnlineProvider.CHATGPT))
-        assertEquals("mistral-y", store.onlineModel(OnlineProvider.MISTRAL))
-        assertEquals(OnlineProvider.GEMINI.autoModel, store.onlineModel(OnlineProvider.GEMINI))
+        assertEquals(" gpt-x ", store.onlineModelSetting(OnlineProvider.CHATGPT))
+        assertEquals("mistral-y", store.onlineModelSetting(OnlineProvider.MISTRAL))
+        assertEquals("", store.onlineModelSetting(OnlineProvider.GEMINI))
         assertEquals(" gpt-x ", raw.getString("online_model_CHATGPT", null))
     }
 

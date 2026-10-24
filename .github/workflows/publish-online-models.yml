@@ -1,0 +1,69 @@
+name: Publish online models
+
+# Pubblica online-models.json, l'elenco dei modelli proposti per i servizi online dell'assistente
+# (core:sync/OnlineModelList), sulla release fissa "app-status", accanto ad app-status.json: l'app lo
+# scarica all'apertura dell'assistente con il motore Online, cosi' l'elenco cambia senza rilasciare l'app.
+# La fonte e' feature/ai/src/main/assets/online-models.json, scritta a mano e inclusa anche nell'APK come
+# elenco di riserva. Parte a ogni push su main che la modifica; workflow_dispatch la ripubblica.
+# Prima della firma aggiunge publishedAt (secondi Unix): l'app rifiuta un file piu' vecchio dell'ultimo
+# accettato (core:sync/PublishedAtStore).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - feature/ai/src/main/assets/online-models.json
+  workflow_dispatch:
+
+# Minimo a livello di workflow: contents: write solo al job che pubblica.
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    # Gruppo proprio: due push ravvicinati pubblicano in ordine. Non quello di publish-apk.yml, dove un job in
+    # attesa ne annullerebbe un altro (resta in coda un solo job per gruppo); l'asset e' diverso da app-status.json.
+    concurrency:
+      group: publish-online-models
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Controlla, firma e pubblica online-models.json
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/retry.sh
+          SOURCE="feature/ai/src/main/assets/online-models.json"
+          OUT="$RUNNER_TEMP/online-models.json"
+          # Le stesse regole di OnlineModelList.validate (core:sync): un file che l'app rifiuterebbe non si pubblica.
+          jq -e '
+            (.providers | type == "object" and length > 0)
+            and all(.providers[];
+              type == "array"
+              and ([.[] | select(.role == "auto")] | length == 1)
+              and ([.[].id] | length == (unique | length))
+              and all(.[];
+                (.id | type == "string" and test("\\A[A-Za-z0-9._:-]+\\z"))
+                and (.role == "auto" or .role == "capable")
+                and (.temperature | type == "boolean")
+                and (.inputUsdPerMTok | type == "number" and . >= 0)
+                and (.outputUsdPerMTok | type == "number" and . >= 0)))
+          ' "$SOURCE" > /dev/null || { echo "::error::$SOURCE non valido" >&2; exit 1; }
+          # Un publishedAt scritto nella fonte non conta: vale sempre l'ora di questa pubblicazione.
+          jq --argjson publishedAt "$(date +%s)" '{publishedAt: $publishedAt} + del(.publishedAt)' "$SOURCE" > "$OUT"
+          bash .github/scripts/sign-files.sh "$OUT"
+          ensure_release app-status \
+            "Stato app" \
+            "app-status.json: versione corrente dell'app e dei modelli IA sul dispositivo, letti da core:sync/AppUpdateCheckWorker e feature:ai/LlmModelUpdateCheckWorker. Non e' una release software."
+          retry gh release upload app-status "$OUT" "$OUT.sig" --repo "${{ github.repository }}" --clobber

@@ -31,12 +31,13 @@ class OnlineLlmClient @Inject constructor(
     private val json: Json,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
-    suspend fun generate(baseUrl: String, apiKey: String, model: String, prompt: String): String =
+    /** [sendTemperature]: false per i modelli che rifiutano una temperatura impostata (OnlineModelCatalog.sendsTemperature). */
+    suspend fun generate(baseUrl: String, apiKey: String, model: String, prompt: String, sendTemperature: Boolean): String =
         withContext(ioDispatcher) {
             val requestBody = OpenAiChatRequest(
                 model = model,
                 messages = listOf(OpenAiChatMessage(role = "user", content = prompt)),
-                temperature = TEMPERATURE.takeIf { supportsTemperature(model) },
+                temperature = TEMPERATURE.takeIf { sendTemperature },
             )
             val request = Request.Builder()
                 .url("${baseUrl.trimEnd('/')}/chat/completions")
@@ -45,8 +46,10 @@ class OnlineLlmClient @Inject constructor(
                 .build()
 
             // Risposta non in streaming: il server non manda nulla finche' non ha finito, e i 10 s di
-            // default di OkHttp non bastano ai modelli piu' lenti.
-            okHttpClient.newBuilder().readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS).build()
+            // default di OkHttp non bastano ai modelli piu' lenti. Senza redirect: un 307/308 rimanderebbe la
+            // domanda (e un'intestazione con la chiave diversa da Authorization) a un altro indirizzo.
+            okHttpClient.newBuilder().readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .followRedirects(false).followSslRedirects(false).build()
                 .newCall(request).await().use { response ->
                 val responseBody = response.body.string()
                 if (!response.isSuccessful) {

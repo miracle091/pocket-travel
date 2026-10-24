@@ -105,6 +105,7 @@ calcolata sui byte esatti del file:
 | `address-grid.json` | `https://miracle091.github.io/pocket-travel/address-grid.json` (+ `.sig`) |
 | `transit.json` | `https://miracle091.github.io/pocket-travel/transit.json` (+ `.sig`) |
 | `app-status.json` | `https://github.com/miracle091/pocket-travel/releases/download/app-status/app-status.json` (+ `.sig`) |
+| `online-models.json` | `https://github.com/miracle091/pocket-travel/releases/download/app-status/online-models.json` (+ `.sig`) |
 
 La firma si fa nel workflow (`.github/scripts/sign-files.sh`) con la chiave privata del secret
 `MANIFEST_SIGNING_KEY`, solo nel passo che la usa; se il secret manca il job fallisce, per non pubblicare
@@ -123,6 +124,14 @@ file non firmati.
 - lancio manuale con `resign_app_status`: lo ricostruisce dal tag della versione rilasciata, con le stesse
   regole del rilascio per le impronte, e lo firma.
 
+`online-models.json` è l'elenco dei modelli proposti per i servizi del motore Online, con i prezzi per la stima
+del costo. Si scrive a mano in `feature/ai/src/main/assets/online-models.json`, che resta nell'APK come elenco di
+riserva; `publish-online-models.yml` lo controlla, aggiunge `publishedAt`, lo firma e lo pubblica sulla release
+`app-status` a ogni push su `main` che lo modifica. Per ogni servizio (`CHATGPT`, `MISTRAL`, `GEMINI`, `CLAUDE`):
+un solo modello con `"role": "auto"` (l'opzione Automatico), gli altri con `"capable"`; `"temperature": false` per
+i modelli che rifiutano una temperatura impostata o non la usano più; prezzi in dollari per milione di token. Come
+`app-status.json`, resta quello del progetto anche con il catalogo di un fork.
+
 Impostazione della chiave (una volta sola; la chiave privata non va mai committata):
 
 ```bash
@@ -134,7 +143,7 @@ openssl ec -in key.pem -pubout -outform DER | base64 -w0
 gh secret set MANIFEST_SIGNING_KEY < key.pem
 ```
 
-Senza ricompilare l'app, il catalogo di un fork si usa da **Altro → Impostazioni → Catalogo**: si inseriscono l'indirizzo di `manifest.json` (solo https) e la chiave pubblica in base64. L'app scarica `manifest.json` e la sua firma, li verifica e solo allora salva il catalogo e si riavvia. I file del catalogo devono stare sull'host di `manifest.json` o su `github.com` (asset delle release). `app-status.json` resta quello del progetto, verificato con la chiave del progetto.
+Senza ricompilare l'app, il catalogo di un fork si usa da **Altro → Impostazioni → Catalogo**: si inseriscono l'indirizzo di `manifest.json` (solo https) e la chiave pubblica in base64. L'app scarica `manifest.json` e la sua firma, li verifica e solo allora salva il catalogo e si riavvia. I file del catalogo devono stare sull'host di `manifest.json` o su `github.com` (asset delle release). `app-status.json` e `online-models.json` restano quelli del progetto, verificati con la chiave del progetto.
 
 Per controllare a mano un file scaricato:
 

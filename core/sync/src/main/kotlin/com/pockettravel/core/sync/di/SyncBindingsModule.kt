@@ -8,7 +8,9 @@ import com.pockettravel.core.sync.HttpAppStatusClient
 import com.pockettravel.core.sync.HttpAddressGridClient
 import com.pockettravel.core.sync.HttpManifestClient
 import com.pockettravel.core.sync.HttpTransitClient
+import com.pockettravel.core.sync.HttpOnlineModelsClient
 import com.pockettravel.core.sync.ManifestClient
+import com.pockettravel.core.sync.OnlineModelsClient
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.TransitClient
 import com.pockettravel.core.sync.WorkManagerRegionSyncScheduler
@@ -36,6 +38,9 @@ abstract class SyncBindingsModule {
 
     @Binds
     abstract fun bindAppStatusClient(impl: HttpAppStatusClient): AppStatusClient
+
+    @Binds
+    abstract fun bindOnlineModelsClient(impl: HttpOnlineModelsClient): OnlineModelsClient
 
     @Binds
     abstract fun bindCatalogPreferences(impl: DefaultCatalogPreferences): CatalogPreferences
