@@ -23,7 +23,9 @@ sull'indice o con un indice ritoccato.
    Overpass (filtro_overpass) e il cui punto (punto: il nodo, il centro del rettangolo come "out center" di
    Overpass se cade nell'area, altrimenti un punto sull'oggetto) cade nel bbox si scrive un <node>, o una
    <way>/<relation> con quel punto come <center>. Le relazioni che osmium export non assembla (non multipolygon ne'
-   boundary) prendono il centro dai loro membri (relazioni_non_aree). Con --border si scrive solo un oggetto con il
+   boundary) prendono il centro dai loro membri (relazioni_non_aree). Le multipolygon e boundary che nessun estratto
+   assembla come area, perche' stanno in piu' estratti regionali e in ciascuno hanno solo una parte delle vie (Picos de
+   Europa, Fuji-Hakone-Izu), si assemblano dall'unione degli estratti ridotti (esporta_relazioni_spezzate). Con --border si scrive solo un oggetto con il
    punto dentro il confine (Confine); con --sibling, solo se il punto spetta alla regione e non a una sorella (vince).
 
 Esce con codice 1 se qualcosa non va (download, osmium): build-region.sh ripiega allora su Overpass.
@@ -533,17 +535,19 @@ def punto_relazione(rid, nodes, ways, relations, seen=None):
 
 
 def relazioni_non_aree(clipped, tmp, nome):
-    """[(id, tag, lon, lat)] delle relazioni del filtro che osmium export non assembla come aree, perche' non sono
-    multipolygon o boundary (Ponte di Rialto type=building, Palmeral di Elche type=collection, Museo di storia
-    naturale di Parigi type=site): Overpass le restituisce con "out center", qui con il punto di un loro membro
-    (punto_relazione)."""
+    """([(id, tag, lon, lat)], {id}) delle relazioni del filtro in clipped. Le prime sono quelle che osmium export non
+    assembla come aree, perche' non sono multipolygon o boundary (Ponte di Rialto type=building, Palmeral di Elche
+    type=collection, Museo di storia naturale di Parigi type=site): Overpass le restituisce con "out center", qui con il
+    punto di un loro membro (punto_relazione). Le seconde sono le multipolygon e boundary, che osmium export assembla
+    solo se l'estratto ha tutte le loro vie (relazioni_spezzate)."""
     rels = os.path.join(tmp, f"{nome}-relazioni.opl")
     subprocess.run(["osmium", "cat", "--overwrite", "--no-progress", "-t", "relation", clipped,
                     "-f", "opl,add_metadata=false", "-o", rels], check=True)
-    candidates = [rid for rid, (tags, _) in leggi_opl(rels)[2].items()
-                  if tags.get("type") not in ("multipolygon", "boundary") and filtro_overpass("relation", tags)]
+    del_filtro = {rid: tags for rid, (tags, _) in leggi_opl(rels)[2].items() if filtro_overpass("relation", tags)}
+    ad_area = {rid for rid, tags in del_filtro.items() if tags.get("type") in ("multipolygon", "boundary")}
+    candidates = [rid for rid in del_filtro if rid not in ad_area]
     if not candidates:
-        return []
+        return [], ad_area
     ids = os.path.join(tmp, f"{nome}-relazioni.txt")
     with open(ids, "w", encoding="utf-8") as f:
         f.writelines(f"r{rid}\n" for rid in candidates)
@@ -560,7 +564,38 @@ def relazioni_non_aree(clipped, tmp, nome):
         point = punto_relazione(rid, nodes, ways, relations)
         if point:
             out.append((rid, relations[rid][0], *point))
-    return out
+    return out, ad_area
+
+
+AREA_DI_RELAZIONE = re.compile(r'"@type":\s*"relation",\s*"@id":\s*(\d+)')
+
+
+def relazioni_esportate(path):
+    """Id delle relazioni che osmium export ha scritto come aree nel geojsonseq path."""
+    with open(path, encoding="utf-8") as lines:
+        return {int(m.group(1)) for line in lines if (m := AREA_DI_RELAZIONE.search(line))}
+
+
+def esporta_relazioni_spezzate(ids, estratti, tmp):
+    """Percorso del geojsonseq delle aree delle relazioni ids (parchi nazionali, aree protette) assemblate sull'unione
+    degli estratti ridotti. Un parco che sta in piu' estratti regionali di Geofabrik (Picos de Europa in Asturie,
+    Cantabria e Castiglia e Leon; Fuji-Hakone-Izu in piu' prefetture) ha in ognuno solo le vie che ci cadono: da solo
+    nessuno ne assembla l'area, mentre Overpass la dava intera."""
+    unione = os.path.join(tmp, "unione.osm.pbf")
+    subprocess.run(["osmium", "merge", "--overwrite", "--no-progress", *estratti, "-o", unione], check=True)
+    elenco = os.path.join(tmp, "spezzate.txt")
+    with open(elenco, "w", encoding="utf-8") as f:
+        f.writelines(f"r{rid}\n" for rid in sorted(ids))
+    complete = os.path.join(tmp, "spezzate.osm.pbf")
+    # Codice 1: membri che nessun estratto ha (relazioni figlie fuori dal filtro); l'area si assembla comunque o no.
+    result = subprocess.run(["osmium", "getid", "--overwrite", "--no-progress", "-r", "-i", elenco, unione, "-o", complete])
+    if result.returncode not in (0, 1) or not os.path.exists(complete):
+        raise subprocess.CalledProcessError(result.returncode, result.args)
+    os.remove(unione)
+    source = os.path.join(tmp, "spezzate.geojsonseq")
+    subprocess.run(["osmium", "export", "--overwrite", "--no-progress", "-f", "geojsonseq",
+                    "-x", "print_record_separator=false", "-a", "type,id", complete, "-o", source], check=True)
+    return source
 
 
 def distanza_dal_centro(lon, lat, bbox):
@@ -715,9 +750,10 @@ def main():
     print(f"-- geofabrik: {len(extracts)} estratti per il bbox: {' '.join(cid for cid, _ in extracts)}", flush=True)
 
     with tempfile.TemporaryDirectory() as tmp:
-        sources, relazioni = [], []
+        sources, relazioni, ridotti, ad_area, esportate = [], [], [], set(), set()
         for cid, url in extracts:
             reduced = estratto_ridotto(cid, url, args.cache, args.user_agent)
+            ridotti.append(reduced)
             # Prima il ritaglio sul bbox: San Marino esporterebbe altrimenti tutto il nord-est d'Italia. "types=any":
             # complete anche le relazioni non multipolygon che escono dal bbox (parchi nazionali type=boundary, siti
             # type=site), come le vede Overpass; l'estratto ridotto ha solo le relazioni dei POI, niente confini.
@@ -736,7 +772,14 @@ def main():
             subprocess.run(["osmium", "export", "--overwrite", "--no-progress", "-f", "geojsonseq",
                             "-x", "print_record_separator=false", "-a", "type,id", clipped, "-o", source], check=True)
             sources.append(source)
-            relazioni += relazioni_non_aree(clipped, tmp, nome_file(cid))
+            non_aree, aree = relazioni_non_aree(clipped, tmp, nome_file(cid))
+            relazioni += non_aree
+            ad_area |= aree
+            esportate |= relazioni_esportate(source)
+        spezzate = ad_area - esportate
+        if spezzate and len(ridotti) > 1:
+            print(f"-- geofabrik: {len(spezzate)} relazioni senza area negli estratti, le assemblo dall'unione", flush=True)
+            sources.append(esporta_relazioni_spezzate(spezzate, ridotti, tmp))
         confine = None
         if args.border:
             with open(args.border, encoding="utf-8") as f:

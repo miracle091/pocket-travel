@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Test di geofabrik_pois.py sulla logica pura (scelta degli estratti, filtro, XML): niente rete, niente osmium.
+"""Test di geofabrik_pois.py sulla logica pura (scelta degli estratti, filtro, XML): niente rete; osmium serve solo
+ai test di RelazioniSpezzateTest, che senza si saltano.
 
 Uso: python test_geofabrik_pois.py
 """
@@ -8,6 +9,8 @@ import json
 import math
 import os
 import random
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -325,6 +328,59 @@ class RelazioniNonAreeTest(unittest.TestCase):
         relations = {1: ({}, [("r", 2)]), 2: ({}, [("r", 1), ("n", 5)])}
 
         self.assertEqual(geofabrik_pois.punto_relazione(1, {5: (1.0, 2.0)}, {}, relations), (1.0, 2.0))
+
+
+def estratto_osm(path, nodi, vie, membri):
+    """Scrive in path un estratto minimo (pbf): nodi {id: (lon, lat)}, vie {id: [nodi]} e la relazione 1, un'area protetta
+    di classe 2 con i membri indicati (anche vie che l'estratto non ha, come in un estratto regionale di Geofabrik)."""
+    xml = ["<osm version='0.6'>"]
+    xml += [f'<node id="{i}" version="1" lon="{x}" lat="{y}"/>' for i, (x, y) in sorted(nodi.items())]
+    xml += [f'<way id="{i}" version="1">' + "".join(f'<nd ref="{n}"/>' for n in refs) + "</way>" for i, refs in sorted(vie.items())]
+    xml.append('<relation id="1" version="1">' + "".join(f'<member type="way" ref="{w}" role="outer"/>' for w in membri) +
+               '<tag k="type" v="boundary"/><tag k="boundary" v="protected_area"/><tag k="protect_class" v="2"/>'
+               '<tag k="leisure" v="nature_reserve"/><tag k="name" v="Parco spezzato"/></relation>')
+    xml.append("</osm>")
+    with open(path + ".xml", "w", encoding="utf-8") as f:
+        f.write(os.linesep.join(xml))
+    subprocess.run(["osmium", "cat", "--overwrite", "--no-progress", path + ".xml", "-o", path], check=True)
+
+
+@unittest.skipUnless(shutil.which("osmium"), "osmium non installato")
+class RelazioniSpezzateTest(unittest.TestCase):
+    """Un parco nazionale che sta in piu' estratti regionali (Picos de Europa in Asturie, Cantabria e Castiglia e Leon,
+    Fuji-Hakone-Izu in piu' prefetture) ha in ognuno solo una parte delle vie: da solo ogni estratto non ne assembla
+    l'area."""
+
+    def test_area_assemblata_dall_unione_degli_estratti(self):
+        angoli = {1: (0.0, 0.0), 2: (2.0, 0.0), 3: (2.0, 2.0), 4: (0.0, 2.0)}
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b = os.path.join(tmp, "a.osm.pbf"), os.path.join(tmp, "b.osm.pbf")
+            estratto_osm(a, {i: angoli[i] for i in (1, 2, 3)}, {10: [1, 2], 11: [2, 3]}, [10, 11, 12, 13])
+            estratto_osm(b, {i: angoli[i] for i in (3, 4, 1)}, {12: [3, 4], 13: [4, 1]}, [10, 11, 12, 13])
+            for estratto in (a, b):
+                esportato = os.path.join(tmp, "solo.geojsonseq")
+                subprocess.run(["osmium", "export", "--overwrite", "--no-progress", "-f", "geojsonseq", "-x",
+                                "print_record_separator=false", "-a", "type,id", estratto, "-o", esportato], check=True)
+                self.assertEqual(geofabrik_pois.relazioni_esportate(esportato), set())
+
+            source = geofabrik_pois.esporta_relazioni_spezzate({1}, [a, b], tmp)
+
+            self.assertEqual(geofabrik_pois.relazioni_esportate(source), {1})
+            with open(source, encoding="utf-8") as f:
+                aree = [json.loads(line.strip()) for line in f if line.strip()]
+            area = next(x for x in aree if x["properties"]["@type"] == "relation")
+            self.assertIn(area["geometry"]["type"], ("Polygon", "MultiPolygon"))
+            self.assertEqual(geofabrik_pois.centro(area["geometry"]), (1.0, 1.0))
+
+    def test_relazioni_esportate_come_aree_di_relazione(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "a.geojsonseq")
+            with open(path, "w", encoding="utf-8") as f:
+                for tipo, oid in (("relation", 7), ("way", 8)):
+                    json.dump({"type": "Feature", "geometry": None, "properties": {"@type": tipo, "@id": oid}}, f)
+                    f.write(os.linesep)
+
+            self.assertEqual(geofabrik_pois.relazioni_esportate(path), {7})
 
 
 class ScriviXmlTest(unittest.TestCase):
