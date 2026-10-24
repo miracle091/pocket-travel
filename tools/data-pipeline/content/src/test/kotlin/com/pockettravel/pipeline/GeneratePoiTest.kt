@@ -398,6 +398,22 @@ class GeneratePoiTest {
     }
 
     @Test
+    fun `una chiave prima che non da' un POI pubblicato lascia il posto alla successiva`() {
+        val keys = listOf("amenity", "shop", "tourism", "leisure", "historic", "boundary", "place")
+        // New York Botanical Garden e Parco della pace di Hiroshima: tourism=yes accanto a leisure=garden/park.
+        val giardino = node(1, mapOf("tourism" to "yes", "leisure" to "garden", "name" to "New York Botanical Garden"))
+        // Piazza dei Miracoli: area protetta di classe 98 (non un parco nazionale) accanto a place=square.
+        val piazza = node(2, mapOf("boundary" to "protected_area", "protect_class" to "98", "place" to "square", "name" to "Piazza dei Miracoli"))
+        // Nessuna chiave da' un POI pubblicato: resta la prima, come prima (non pubblicata).
+        val niente = node(3, mapOf("tourism" to "yes", "boundary" to "protected_area", "name" to "Area"))
+
+        assertEquals(
+            listOf("leisure=garden", "place=square", "tourism=yes"),
+            readOsm(giardino + piazza + niente, keys).map { it.osmTag },
+        )
+    }
+
+    @Test
     fun `nome, entita' XML e caratteri unicode si conservano`() {
         val pois = readOsm(
             """<node id="1" lat="35.0" lon="135.0"><tag k="amenity" v="restaurant"/><tag k="name" v="Pane &amp; Vino &#x1F355; &#26481;&#20140; &quot;Il Gatto&quot;"/></node>""",

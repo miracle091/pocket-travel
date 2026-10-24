@@ -149,8 +149,15 @@ data class Poi(
     val capacityDisabled: Int? = null,
 )
 
+// Vince la prima chiave dell'elenco che da' un POI pubblicato: tourism=yes accanto a leisure=garden, o un'area
+// protetta non di classe 2 accanto a place=square, altrimenti nasconderebbero il giardino o la piazza. Se nessuna
+// lo da', resta la prima chiave presente (POI non pubblicato).
 private fun poiFrom(tags: Map<String, String>, lat: Double, lon: Double, poiTagKeys: List<String>): Poi? {
-    val tagKey = poiTagKeys.firstOrNull { tags.containsKey(it) } ?: return null
+    val candidates = poiTagKeys.asSequence().filter { tags.containsKey(it) }.mapNotNull { poiFromKey(tags, lat, lon, it) }
+    return candidates.firstOrNull { poiPackageOf(it.name, it.category, it.osmTag) != null } ?: candidates.firstOrNull()
+}
+
+private fun poiFromKey(tags: Map<String, String>, lat: Double, lon: Double, tagKey: String): Poi? {
     // Le aree protette di classe 2 sono parchi nazionali (Fuji-Hakone-Izu), anche senza boundary=national_park.
     val tagValue = tags.getValue(tagKey)
         .let { if (tagKey == "boundary" && it == "protected_area" && tags["protect_class"] == "2") "national_park" else it }

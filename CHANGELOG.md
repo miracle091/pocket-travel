@@ -16,6 +16,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 ### Corretto
 - Assistente IA online: la temperatura non si manda ai modelli che la rifiutano con un errore (Claude dalla 4.7, i GPT dalla 5) o che non la usano più (Gemini dalla 3.6), anche quando il nome è scritto a mano in "Altro modello".
 - Singolare dove il numero vale 1: "1 di 1 rete selezionata" nei Contenuti della regione, "Da 1 mese di età in su" e "Non richiesta sotto 1 mese di età" nelle vaccinazioni; in inglese anche "Limit of 1 photo reached" nei Documenti.
+- Punti di interesse con un tag generico accanto a quello che li descrive: non mancano più dalla mappa, per esempio il New York Botanical Garden, il Parco della pace di Hiroshima e piazza dei Miracoli a Pisa. Arrivano con il prossimo aggiornamento dei punti di interesse della regione, senza aggiornare l'app.
 - Punti di interesse quando gli estratti di Geofabrik non sono usabili e i dati vengono da Overpass: anche questi si tagliano sul confine e si dividono tra le regioni della Russia, quindi le vie e le aree a cavallo del confine e i punti delle sovrapposizioni russe non compaiono più in due regioni. Il punto usato è il centro del rettangolo dell'oggetto, quindi la regione si rigenera dagli estratti alla generazione successiva.
 
 ## [0.12.0] - 2026-10-23
