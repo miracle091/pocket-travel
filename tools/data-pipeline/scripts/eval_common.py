@@ -146,6 +146,13 @@ def question_of(row):
     return content.rsplit("QUESTION: " if content.startswith(EN_PROMPT) else "DOMANDA: ", 1)[-1]
 
 
+def context_of(row):
+    """Il contesto della riga (tra "CONTESTO: " e l'ultimo "\\n\\nDOMANDA: ", o le etichette inglesi)."""
+    content = row["messages"][0]["content"]
+    start, end = ("CONTEXT: ", "\n\nQUESTION: ") if content.startswith(EN_PROMPT) else ("CONTESTO: ", "\n\nDOMANDA: ")
+    return content.split(start, 1)[-1].rsplit(end, 1)[0]
+
+
 def dataset_lang(row):
     """Lingua del dataset della riga ("it" o "en"), dal prompt: e' la lingua attesa della risposta."""
     return "en" if row["messages"][0]["content"].startswith(EN_PROMPT) else "it"
@@ -193,6 +200,76 @@ def score(stats, row, got):
     # scelte a caso da generate_sft_dataset.py, confrontarla abbasserebbe la metrica a ~25%)
     same = got[:60] == want[:60] if row["kind"].startswith("pos") else got.split(":")[0] == want.split(":")[0]
     stats.setdefault(row["kind"], []).append((got.startswith(refusal_prefix(row)), same))
+
+
+# Controlli deterministici sulle istruzioni del prompt, senza giudice LLM: il training e' estrattivo, quindi la fedelta'
+# al contesto si misura confrontando le frasi della risposta con il contesto.
+MAX_ANSWER_CHARS = 450  # MAX_ANSWER di generate_sft_dataset.py: nessuna risposta attesa del dataset e' piu' lunga
+ADHERENT_SHARE = 0.8  # parole di 5+ lettere della risposta che devono essere nel contesto per "aderente"
+_BULLETS = re.compile(r"[•▸*\-–]+\s")
+
+
+def _normalized(text):
+    """Minuscolo, apostrofo tipografico come quello dritto, senza segni di elenco, spazi e a capo ridotti a uno spazio."""
+    return " ".join(_BULLETS.sub(" ", text.lower().replace("’", "'")).split())
+
+
+def _sentences(text):
+    """Frasi della risposta: divise dopo . ! ? e agli a capo (voci di elenco), senza la punteggiatura finale."""
+    parts = re.split(r"(?<=[.!?])\s+|\n+", text)
+    return [s for s in (_normalized(p).strip(" .!?;:") for p in parts) if s]
+
+
+def context_fidelity(got, context, kind):
+    """"literal" se ogni frase della risposta (normalizzata) e' nel contesto; altrimenti "adherent" se ci sono tutti i
+    numeri e i nomi propri (righe _near e _dep: risposte scritte con un modello di frase, VICINO e PARTENZE, anche
+    quando una riga negativa risponde invece di rifiutare) o almeno ADHERENT_SHARE delle parole di 5+ lettere (gli altri
+    tipi); "out" altrimenti, da leggere a mano."""
+    norm_context = _normalized(context)
+    if all(s in norm_context for s in _sentences(got)):
+        return "literal"
+    if kind.endswith(("_near", "_dep")):
+        numbers = re.findall(r"\d+(?:[.,:/]\d+)*", got)
+        # nomi propri: parole maiuscole di almeno due lettere non all'inizio della frase ("I" inglese escluso)
+        names = [w for s in re.split(r"(?<=[.!?:])\s+|\n+", got) for w in re.findall(r"[^\W\d_][\w'’-]*", s)[1:]
+                 if w[0].isupper() and len(w) > 1]
+        return "adherent" if all(x in context for x in numbers + names) else "out"
+    words = re.findall(r"[^\W\d_]{5,}", got.lower())
+    context_words = set(re.findall(r"[^\W\d_]{5,}", context.lower()))
+    return "adherent" if not words or sum(w in context_words for w in words) >= ADHERENT_SHARE * len(words) else "out"
+
+
+def instruction_checks(row, got):
+    """Controlli sulle istruzioni del prompt per la risposta got alla riga row: "fidelity" (context_fidelity; None se la
+    risposta e' un rifiuto), "too_long" (oltre MAX_ANSWER_CHARS), "wrong_lang" (text_lang decide per l'altra lingua del
+    dataset) e "think_start" (la risposta comincia con un blocco <think>, che i modelli senza thinking non scrivono)."""
+    answer_lang = text_lang(got)
+    return {"fidelity": None if got.startswith(refusal_prefix(row)) else context_fidelity(got, context_of(row), row["kind"]),
+            "too_long": len(got) > MAX_ANSWER_CHARS, "wrong_lang": answer_lang not in (None, dataset_lang(row)),
+            "think_start": got.lstrip().startswith("<think>")}
+
+
+def print_instruction_report(rows):
+    """Rapporto dei controlli sulle istruzioni. rows: dict con kind, question_lang, question, got e i campi di
+    instruction_checks. Per tipo di riga e per lingua della domanda: risposte non rifiutate letterali, aderenti e fuori
+    dal contesto, poi oltre MAX_ANSWER_CHARS, nella lingua sbagliata e con <think> iniziale; poi le risposte fuori."""
+    groups = {}
+    for r in rows:
+        groups.setdefault(("tipo", r["kind"]), []).append(r)
+        groups.setdefault(("domande " + r["question_lang"], r["kind"]), []).append(r)
+    print(f"controlli sulle istruzioni: fedelta' al contesto delle risposte non rifiutate (letterale / aderente / fuori), "
+          f"oltre {MAX_ANSWER_CHARS} caratteri, lingua sbagliata, <think> iniziale")
+    for (group, kind), rs in sorted(groups.items(), key=lambda item: (item[0][0] != "tipo", item[0])):
+        answered = [r for r in rs if r["fidelity"]]
+        share = {f: 100 * sum(r["fidelity"] == f for r in answered) / len(answered) if answered else 0.0 for f in ("literal", "adherent")}
+        print(f"{group} {kind}: {len(rs)} righe, {len(answered)} risposte | letterale {share['literal']:.1f}% "
+              f"aderente {share['adherent']:.1f}% fuori {sum(r['fidelity'] == 'out' for r in answered)} | "
+              f"oltre {MAX_ANSWER_CHARS}: {sum(r['too_long'] for r in rs)} | lingua sbagliata: {sum(r['wrong_lang'] for r in rs)} | "
+              f"<think>: {sum(r['think_start'] for r in rs)}")
+    out = [r for r in rows if r["fidelity"] == "out"]
+    print(f"risposte fuori dal contesto: {len(out)}")
+    for r in out:
+        print(f"  {r['kind']} {r['question_lang']} | {r['question']} | {r['got'][:200]}")
 
 
 def refusal_summary(stats):

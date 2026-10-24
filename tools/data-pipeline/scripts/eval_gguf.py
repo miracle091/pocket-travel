@@ -13,6 +13,9 @@ anche N risposte campionate per riga (semi 0..N-1) per controllare quella probab
   python eval_gguf.py <file .gguf> --llama-cpp <cartella> --extended --app-sampling [--samples 20 --kinds pos_near neg_city]
 Con --contexts il modello risponde con il contesto prodotto dalla ricerca vera (ricerca e modello insieme): per lingua,
 serie e variante della ricerca, rifiuti con la sezione attesa nel contesto (del modello) e senza (della ricerca).
+Dopo le metriche dei rifiuti, i controlli sulle istruzioni (instruction_checks di eval_common.py), anche nei campi di
+--answers: fedelta' al contesto, risposte oltre 450 caratteri, lingua, <think> iniziale; eval_answers.py li rifa' su
+risposte gia' salvate.
 Stesse regioni di test di train_lora.py (TEST_REGIONS in eval_common.py) e stesse metriche di eval_behavior.py; decodifica
 greedy (temperature 0, top-k 1). Il modello si carica una volta sola in llama-server e ogni riga e' una
 richiesta /completion. Il prompt e' lo stesso ChatML "grezzo" (chatml_prompt di eval_common.py) che
@@ -34,9 +37,9 @@ from gguf import GGUFReader
 
 import gpu_lock
 import vram
-from eval_common import (ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, dataset_lang, find_llama_bin, is_refusal, llama_env,
-                         load_test_rows, on_device_prompt, print_app_sampling_report, print_lang_report, print_report, question_lang,
-                         question_of, refusal_prefix, refusal_summary, score, text_lang, uses_empty_think)
+from eval_common import (ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, instruction_checks, is_refusal,
+                         llama_env, load_test_rows, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
+                         print_report, question_lang, question_of, refusal_prefix, refusal_summary, score, text_lang, uses_empty_think)
 from status import Progress, phase
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -188,6 +191,7 @@ stats = {}  # tipo di riga -> [(ha rifiutato, risposta ok)]
 by_lang = {}  # lingua della domanda -> stats
 wrong_lang = {}  # tipo di riga -> risposte non nella lingua del dataset
 app_rows = []  # con --app-sampling: righe di print_app_sampling_report
+instruction_rows = []  # righe di print_instruction_report
 answers = open(a.answers, "w", encoding="utf-8", buffering=1) if a.answers else None  # a righe: resta anche se llama crasha
 phase("eval GGUF", f"{a.model.name}, {len(test)} righe {'(test esteso)' if a.extended else ''}")
 server, url = start_server()
@@ -204,7 +208,10 @@ try:
         score(stats, r, got)
         langs = {"question_lang": question_lang(r), "answer_lang": text_lang(got)}
         score(by_lang.setdefault(langs["question_lang"], {}), r, got)
-        wrong_lang[r["kind"]] = wrong_lang.get(r["kind"], 0) + (langs["answer_lang"] not in (None, dataset_lang(r)))
+        checks = instruction_checks(r, got)
+        wrong_lang[r["kind"]] = wrong_lang.get(r["kind"], 0) + checks["wrong_lang"]
+        instruction_rows.append({"kind": r["kind"], "question_lang": langs["question_lang"], "question": question_of(r).strip(),
+                                 "got": got, **checks})
         app = app_refusal(url, r) if a.app_sampling else {}
         if app:
             app_rows.append({"kind": r["kind"], "question_lang": langs["question_lang"], "question": question_of(r).strip(),
@@ -213,12 +220,13 @@ try:
         if answers:
             answers.write(json.dumps({"kind": r["kind"], "region": r["region"], "category": r.get("category"),
                                       "question": question_of(r).strip(), "want": r["messages"][1]["content"], "got": got,
-                                      "truncated": truncated, **langs, **app}, ensure_ascii=False) + "\n")
+                                      "truncated": truncated, **langs, **checks, **app}, ensure_ascii=False) + "\n")
 finally:
     server.kill()
 
 print_report(stats, test, held_out, a.extended)
 if a.extended:
     print_lang_report(by_lang, wrong_lang, stats)
+print_instruction_report(instruction_rows)
 if app_rows:
     print_app_sampling_report(app_rows)

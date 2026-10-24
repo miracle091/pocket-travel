@@ -3,7 +3,8 @@
 
 Uso: HIP_VISIBLE_DEVICES=<gpu> python eval_behavior.py [<cartella merged>]
 Metriche: sui positivi, rifiuti sbagliati e risposta con lo stesso inizio dell'atteso;
-sui negativi, quanti rifiutano e quanti danno la risposta identica (rifiuto sul tema giusto).
+sui negativi, quanti rifiutano e quanti danno la risposta identica (rifiuto sul tema giusto); poi i controlli sulle
+istruzioni (instruction_checks di eval_common.py: fedelta' al contesto, lunghezza, lingua, <think> iniziale).
 Il test qui non scarta le righe oltre --max-len di train_lora.py: le regioni sono le stesse,
 le righe possono essere qualcuna in piu'.
 """
@@ -19,8 +20,8 @@ from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForImageText
 
 import gpu_lock
 import vram
-from eval_common import (ANSWER_TOKENS, SFT_DIR, chat_prompt_and_answer, load_test_rows, print_report, question_of, refusal_prefix, refusal_summary,
-                         run_dataset, score)
+from eval_common import (ANSWER_TOKENS, SFT_DIR, chat_prompt_and_answer, instruction_checks, load_test_rows, print_instruction_report, print_report,
+                         question_lang, question_of, refusal_prefix, refusal_summary, run_dataset, score)
 from status import Progress, phase
 
 ap = argparse.ArgumentParser()
@@ -60,6 +61,7 @@ phase("eval", f"{len(test)} righe {'(test esteso)' if a.extended else '(test bas
 progress = Progress("eval", len(test), "riga", every=30)
 
 stats = {}  # tipo di riga -> [(ha rifiutato, risposta ok)]
+instruction_rows = []  # righe di print_instruction_report
 for i in range(0, len(test), a.batch):
     batch = test[i:i + a.batch]
     enc = tok([chat_prompt_and_answer(tok, r["messages"][:1])[0] for r in batch], add_special_tokens=False,
@@ -69,8 +71,11 @@ for i in range(0, len(test), a.batch):
     for r, o in zip(batch, out):
         got = tok.decode(o[enc["input_ids"].shape[1]:], skip_special_tokens=True).strip()
         score(stats, r, got)
+        instruction_rows.append({"kind": r["kind"], "question_lang": question_lang(r), "question": question_of(r).strip(), "got": got,
+                                 **instruction_checks(r, got)})
         if a.errors and r["kind"].startswith("pos") and got.startswith(refusal_prefix(r)):
             print("RIFIUTO SBAGLIATO", r["category"], "|", question_of(r))
     progress.update(i + len(batch), refusal_summary(stats))
 
 print_report(stats, test, held_out, a.extended)
+print_instruction_report(instruction_rows)

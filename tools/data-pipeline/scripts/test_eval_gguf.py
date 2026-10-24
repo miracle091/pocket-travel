@@ -142,7 +142,8 @@ class EvalGgufTest(unittest.TestCase):
         self.assertEqual(2, len(lines))
         self.assertEqual({"kind": "pos", "region": "canada", "category": "SALUTE", "question": "Domanda 0?",
                           "want": "Risposta 0.", "got": "Risposta 0.", "truncated": False, "question_lang": "it",
-                          "answer_lang": None}, lines[0])
+                          "answer_lang": None, "fidelity": "out", "too_long": False, "wrong_lang": False, "think_start": False},
+                         lines[0])  # "fuori": la riga di prova non ha il contesto con la risposta
         self.assertTrue(lines[1]["truncated"])  # llama-server fermo al limite di token
 
     def test_esteso_per_lingua_della_domanda(self):
@@ -161,6 +162,11 @@ class EvalGgufTest(unittest.TestCase):
         self.assertIn("domande en: 3 righe\nneg_city: 2 righe | rifiuta 50.0% (atteso 100%)\npos_para: 1 righe | rifiuta 0.0% (atteso 0%)\n"
                       "domande it: 1 righe\npos_para: 1 righe | rifiuta 0.0% (atteso 0%)\n", out)
         self.assertIn("risposte nella lingua sbagliata (non quella del dataset): neg_city 1/2, pos_para 1/2\n", out)
+        # poi i controlli sulle istruzioni, con la stessa lingua sbagliata; le righe di prova non hanno un contesto con
+        # le risposte, quindi le tre risposte non rifiutate sono "fuori"
+        self.assertIn("tipo neg_city: 2 righe, 1 risposte | letterale 0.0% aderente 0.0% fuori 1 | oltre 450: 0 | "
+                      "lingua sbagliata: 1 | <think>: 0\n", out)
+        self.assertIn("risposte fuori dal contesto: 3\n", out)
         lines = [json.loads(l) for l in answers.read_text(encoding="utf-8").splitlines()]
         self.assertEqual([("it", "it"), ("en", "en"), ("en", "it"), ("en", "en")],
                          [(l["question_lang"], l["answer_lang"]) for l in lines])

@@ -342,6 +342,72 @@ class LangTest(unittest.TestCase):
                       out.getvalue())
 
 
+def context_row(kind, context, question="Cosa vedere?", lang="it"):
+    """Riga con il prompt vero dell'app (on_device_prompt), per i controlli sul contesto."""
+    return {"kind": kind, "region": "canada", "messages": [{"role": "user", "content": on_device_prompt(context, question, lang)},
+                                                           {"role": "assistant", "content": "A"}]}
+
+
+CONTEXT = ("▸ Cosa vedere\nIl Museo Reale si trova in centro. L’ingresso costa 12 euro.\n"
+           "• Torre CN — aperta tutti i giorni\n\nDOMANDA: non e' la domanda")
+
+
+class InstructionChecksTest(unittest.TestCase):
+    def test_contesto_della_riga_anche_con_etichetta_ripetuta_e_in_inglese(self):
+        self.assertEqual(CONTEXT, eval_common.context_of(context_row("pos_para", CONTEXT)))
+        self.assertEqual("Big museum.", eval_common.context_of(context_row("pos_para", "Big museum.", "What?", "en")))
+
+    def test_letterale_con_maiuscole_apostrofi_ed_elenchi_diversi(self):
+        got = "il museo reale si trova in centro. L'ingresso costa 12 euro!\n- Torre CN — aperta tutti i giorni"
+        self.assertEqual("literal", eval_common.context_fidelity(got, eval_common.context_of(context_row("pos_para", CONTEXT)), "pos_para"))
+
+    def test_aderente_con_almeno_l_80_per_cento_delle_parole_lunghe(self):
+        context = eval_common.context_of(context_row("pos_para", CONTEXT))
+        self.assertEqual("adherent", eval_common.context_fidelity("Il Museo Reale costa poco, si trova in centro.", context, "pos_para"))
+        self.assertEqual("out", eval_common.context_fidelity("Il Colosseo e il Pantheon sono bellissimi.", context, "pos_para"))
+
+    def test_vicino_e_partenze_con_numeri_e_nomi_del_contesto(self):
+        context = "Luoghi vicini: Chapel Car Park (26 m), Victoria Road (82 m).\nPartenze: 15:13 (in 2 min) Tram 8"
+        good = "Entro 150 m dalla tua posizione i più vicini sono Chapel Car Park (26 m) e Victoria Road (82 m)."
+        self.assertEqual("out", eval_common.context_fidelity(good, context, "pos_near"))  # 150 non e' nel contesto
+        self.assertEqual("adherent", eval_common.context_fidelity(good.replace("Entro 150 m", "Vicino"), context, "pos_near"))
+        self.assertEqual("out", eval_common.context_fidelity("Vicino c'e' Mill Car Park (66 m).", context, "pos_near"))
+        self.assertEqual("adherent", eval_common.context_fidelity("The next one is line 8 at 15:13 (in 2 min).", context, "neg_dep"))
+        self.assertEqual("adherent", eval_common.context_fidelity("Sorry, I can't tell: Tram 8 at 15:13.", context, "pos_dep"))  # "I" non e' un nome
+
+    def test_controlli_della_risposta(self):
+        r = context_row("pos_para", CONTEXT)
+        self.assertEqual({"fidelity": "literal", "too_long": False, "wrong_lang": False, "think_start": False},
+                         eval_common.instruction_checks(r, "Il Museo Reale si trova in centro."))
+        self.assertIsNone(eval_common.instruction_checks(r, eval_common.REFUSAL + " sui musei: altrove")["fidelity"])
+        self.assertTrue(eval_common.instruction_checks(r, "x " * 226)["too_long"])
+        self.assertFalse(eval_common.instruction_checks(r, "x" * eval_common.MAX_ANSWER_CHARS)["too_long"])
+        self.assertTrue(eval_common.instruction_checks(r, "The museum is in the centre and it is open.")["wrong_lang"])
+        self.assertTrue(eval_common.instruction_checks(r, "  <think>\n\n</think>\n\nIl Museo Reale")["think_start"])
+
+    def test_soglia_della_lunghezza_come_il_dataset(self):
+        source = (Path(__file__).parent / "generate_sft_dataset.py").read_text(encoding="utf-8")
+        self.assertIn(f"MAX_ANSWER = {eval_common.MAX_ANSWER_CHARS}\n", source)
+
+    def test_rapporto_dei_controlli(self):
+        def checked(kind, lang, fidelity, **flags):
+            return {"kind": kind, "question_lang": lang, "question": "D?", "got": "Risposta inventata", "fidelity": fidelity,
+                    "too_long": False, "wrong_lang": False, "think_start": False, **flags}
+        rows = [checked("pos_para", "it", "literal"), checked("pos_para", "en", "out", too_long=True),
+                checked("neg_city", "it", None, think_start=True), checked("neg_city", "it", None, wrong_lang=True)]
+        out = io.StringIO()
+        with redirect_stdout(out):
+            eval_common.print_instruction_report(rows)
+        text = out.getvalue()
+        self.assertIn("tipo pos_para: 2 righe, 2 risposte | letterale 50.0% aderente 0.0% fuori 1 | oltre 450: 1 | "
+                      "lingua sbagliata: 0 | <think>: 0\n", text)
+        self.assertIn("tipo neg_city: 2 righe, 0 risposte | letterale 0.0% aderente 0.0% fuori 0 | oltre 450: 0 | "
+                      "lingua sbagliata: 1 | <think>: 1\n", text)
+        self.assertIn("domande en pos_para: 1 righe, 1 risposte | letterale 0.0%", text)
+        self.assertLess(text.index("tipo pos_para"), text.index("domande en"))
+        self.assertIn("risposte fuori dal contesto: 1\n  pos_para en | D? | Risposta inventata\n", text)
+
+
 class LoadTestRowsTest(unittest.TestCase):
     def test_base_filtra_le_regioni_di_test_ed_esteso_le_prende_tutte(self):
         with tempfile.TemporaryDirectory() as tmp:
