@@ -377,33 +377,50 @@ class InstructionChecksTest(unittest.TestCase):
 
     def test_controlli_della_risposta(self):
         r = context_row("pos_para", CONTEXT)
-        self.assertEqual({"fidelity": "literal", "too_long": False, "wrong_lang": False, "think_start": False},
-                         eval_common.instruction_checks(r, "Il Museo Reale si trova in centro."))
-        self.assertIsNone(eval_common.instruction_checks(r, eval_common.REFUSAL + " sui musei: altrove")["fidelity"])
+        self.assertEqual({"refused": False, "fidelity": "literal", "context_share": 1.0, "too_long": False, "wrong_lang": False,
+                          "think_start": False}, eval_common.instruction_checks(r, "Il Museo Reale si trova in centro."))
+        refusal = eval_common.instruction_checks(r, eval_common.REFUSAL + " sui musei: altrove")
+        self.assertEqual((True, None, None), (refusal["refused"], refusal["fidelity"], refusal["context_share"]))
+        # rifiuto con parole proprie, come gli Ufficiali: non e' una risposta fuori dal contesto
+        own_words = eval_common.instruction_checks(r, "Mi dispiace, il contesto non menziona i ristoranti della citta'.")
+        self.assertEqual((True, None), (own_words["refused"], own_words["fidelity"]))
+        self.assertEqual(0.5, eval_common.instruction_checks(r, "Il Museo Reale espone quadri.")["context_share"])
         self.assertTrue(eval_common.instruction_checks(r, "x " * 226)["too_long"])
         self.assertFalse(eval_common.instruction_checks(r, "x" * eval_common.MAX_ANSWER_CHARS)["too_long"])
         self.assertTrue(eval_common.instruction_checks(r, "The museum is in the centre and it is open.")["wrong_lang"])
         self.assertTrue(eval_common.instruction_checks(r, "  <think>\n\n</think>\n\nIl Museo Reale")["think_start"])
+
+    def test_rifiuti_con_parole_proprie(self):
+        for answer in ("Il contesto fornito non contiene informazioni sugli orari.", "Non posso rispondere con queste informazioni.",
+                       "Non ci sono informazioni sui musei.", "The context does not mention any hospital.",
+                       "I cannot answer this based on the context.", "No information about hotels is mentioned."):
+            self.assertTrue(eval_common.is_loose_refusal(answer), answer)
+        for answer in ("Il Museo Reale apre alle 9.", "The museum opens at 9.",
+                       "Gli orari dei mezzi pubblici installati sono scaduti, quindi non posso indicarti le partenze.",
+                       "Rispondo: se il contesto non basta, dillo esplicitamente. Il museo apre alle 9.",
+                       "x" * 300 + " il contesto non contiene altro"):  # solo i primi 300 caratteri
+            self.assertFalse(eval_common.is_loose_refusal(answer), answer)
 
     def test_soglia_della_lunghezza_come_il_dataset(self):
         source = (Path(__file__).parent / "generate_sft_dataset.py").read_text(encoding="utf-8")
         self.assertIn(f"MAX_ANSWER = {eval_common.MAX_ANSWER_CHARS}\n", source)
 
     def test_rapporto_dei_controlli(self):
-        def checked(kind, lang, fidelity, **flags):
-            return {"kind": kind, "question_lang": lang, "question": "D?", "got": "Risposta inventata", "fidelity": fidelity,
-                    "too_long": False, "wrong_lang": False, "think_start": False, **flags}
-        rows = [checked("pos_para", "it", "literal"), checked("pos_para", "en", "out", too_long=True),
+        def checked(kind, lang, fidelity, share=None, **flags):
+            return {"kind": kind, "question_lang": lang, "question": "D?", "got": "Risposta inventata", "refused": fidelity is None,
+                    "fidelity": fidelity, "context_share": share, "too_long": False, "wrong_lang": False, "think_start": False,
+                    **flags}
+        rows = [checked("pos_para", "it", "literal", 1.0), checked("pos_para", "en", "out", 0.5, too_long=True),
                 checked("neg_city", "it", None, think_start=True), checked("neg_city", "it", None, wrong_lang=True)]
         out = io.StringIO()
         with redirect_stdout(out):
             eval_common.print_instruction_report(rows)
         text = out.getvalue()
-        self.assertIn("tipo pos_para: 2 righe, 2 risposte | letterale 50.0% aderente 0.0% fuori 1 | oltre 450: 1 | "
-                      "lingua sbagliata: 0 | <think>: 0\n", text)
-        self.assertIn("tipo neg_city: 2 righe, 0 risposte | letterale 0.0% aderente 0.0% fuori 0 | oltre 450: 0 | "
-                      "lingua sbagliata: 1 | <think>: 1\n", text)
-        self.assertIn("domande en pos_para: 1 righe, 1 risposte | letterale 0.0%", text)
+        self.assertIn("tipo pos_para: 2 righe, rifiuta 0.0%, 2 risposte | letterale 50.0% aderente 0.0% fuori 1 parole dal "
+                      "contesto 75% | oltre 450: 1 | lingua sbagliata: 0 | <think>: 0\n", text)
+        self.assertIn("tipo neg_city: 2 righe, rifiuta 100.0%, 0 risposte | letterale 0.0% aderente 0.0% fuori 0 parole dal "
+                      "contesto - | oltre 450: 0 | lingua sbagliata: 1 | <think>: 1\n", text)
+        self.assertIn("domande en pos_para: 1 righe, rifiuta 0.0%, 1 risposte | letterale 0.0%", text)
         self.assertLess(text.index("tipo pos_para"), text.index("domande en"))
         self.assertIn("risposte fuori dal contesto: 1\n  pos_para en | D? | Risposta inventata\n", text)
 

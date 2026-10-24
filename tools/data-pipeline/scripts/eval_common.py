@@ -234,36 +234,86 @@ def context_fidelity(got, context, kind):
         names = [w for s in re.split(r"(?<=[.!?:])\s+|\n+", got) for w in re.findall(r"[^\W\d_][\w'’-]*", s)[1:]
                  if w[0].isupper() and len(w) > 1]
         return "adherent" if all(x in context for x in numbers + names) else "out"
+    share = context_word_share(got, context)
+    return "adherent" if share is None or share >= ADHERENT_SHARE else "out"
+
+
+def context_word_share(got, context):
+    """Quota delle parole di 5+ lettere della risposta che sono nel contesto (None senza parole lunghe): misura continua
+    della fedelta', utile per i modelli che parafrasano invece di copiare (gli Ufficiali)."""
     words = re.findall(r"[^\W\d_]{5,}", got.lower())
     context_words = set(re.findall(r"[^\W\d_]{5,}", context.lower()))
-    return "adherent" if not words or sum(w in context_words for w in words) >= ADHERENT_SHARE * len(words) else "out"
+    return sum(w in context_words for w in words) / len(words) if words else None
+
+
+# Rifiuti scritti con parole proprie (i modelli Ufficiali non usano la frase di rifiuto del training): qualsiasi
+# "il contesto non lo dice" riconoscibile, in italiano o in inglese. E' il criterio con cui le model card del v10
+# confrontano i nostri modelli con gli Ufficiali.
+LOOSE_REFUSAL = re.compile("|".join([
+    r"\bnon (posso|riesco a) (rispondere|fornire|dare|indicare)",
+    r"\bnon (contiene|fornisce|menziona|specifica|riporta|indica|include|dice|cita|parla)",
+    r"\bnon (è|e'|sono) (stat[oaie] )?(menzionat|indicat|specificat|present|riportat|disponibil|fornit|elencat)",
+    r"\b(non ci sono|nessuna) informazion",
+    r"\bnon ho (accesso|informazioni|dati)",
+    r"\binformazioni non (disponibili|presenti)",
+    r"\bnon (basta|è sufficiente)",
+    r"\b(does|do) not (contain|provide|mention|specify|include|say|state|list|cover|give)",
+    r"\bdoesn't (contain|provide|mention|specify|include|say|state|list|cover|give)",
+    r"\bno (specific |relevant )?information\b",
+    r"\b(is|are) not (mentioned|specified|provided|listed|available|included|stated)",
+    r"\b(cannot|can't|can not|unable to) (answer|provide|determine|find)",
+    r"\b(is|isn't|is not) (not )?enough\b",
+    r"\bno .{0,40}\b(is|are) (listed|mentioned)",
+    r"\bno .{0,60}\bmentioned\b",
+    r"\b(unrelated|not related) to the (provided )?context",
+    r"\b(cannot|can't|unable to) (calculate|help|tell)",
+]), re.I)
+# Da togliere prima del confronto: l'eco dell'istruzione del prompt e la risposta attesa sugli orari scaduti, che dice
+# "non posso indicarti le partenze" ma e' una risposta giusta.
+_NOT_REFUSAL = re.compile(r"se il contesto non basta, dillo[^.]*\.?|if the context is not enough, say so[^.]*\.?"
+                          r"|[^.]*(expired|scadut)[^.]*\.?", re.I)
+
+
+def is_loose_refusal(answer):
+    """La risposta, nei primi 300 caratteri, dice che il contesto non basta (LOOSE_REFUSAL), con parole qualsiasi."""
+    return bool(LOOSE_REFUSAL.search(_NOT_REFUSAL.sub("", answer[:300])))
 
 
 def instruction_checks(row, got):
-    """Controlli sulle istruzioni del prompt per la risposta got alla riga row: "fidelity" (context_fidelity; None se la
-    risposta e' un rifiuto), "too_long" (oltre MAX_ANSWER_CHARS), "wrong_lang" (text_lang decide per l'altra lingua del
-    dataset) e "think_start" (la risposta comincia con un blocco <think>, che i modelli senza thinking non scrivono)."""
+    """Controlli sulle istruzioni del prompt per la risposta got alla riga row: "refused" (la frase di rifiuto del
+    training o un rifiuto con parole proprie, is_loose_refusal), "fidelity" (context_fidelity) e "context_share"
+    (context_word_share), None tutti e due per i rifiuti, "too_long" (oltre MAX_ANSWER_CHARS), "wrong_lang" (text_lang decide per l'altra lingua del dataset) e "think_start"
+    (la risposta comincia con un blocco <think>, che i modelli senza thinking non scrivono)."""
     answer_lang = text_lang(got)
-    return {"fidelity": None if got.startswith(refusal_prefix(row)) else context_fidelity(got, context_of(row), row["kind"]),
+    refused = got.startswith(refusal_prefix(row)) or is_loose_refusal(got)
+    context = context_of(row)
+    return {"refused": refused, "fidelity": None if refused else context_fidelity(got, context, row["kind"]),
+            "context_share": None if refused else context_word_share(got, context),
             "too_long": len(got) > MAX_ANSWER_CHARS, "wrong_lang": answer_lang not in (None, dataset_lang(row)),
             "think_start": got.lstrip().startswith("<think>")}
 
 
 def print_instruction_report(rows):
     """Rapporto dei controlli sulle istruzioni. rows: dict con kind, question_lang, question, got e i campi di
-    instruction_checks. Per tipo di riga e per lingua della domanda: risposte non rifiutate letterali, aderenti e fuori
-    dal contesto, poi oltre MAX_ANSWER_CHARS, nella lingua sbagliata e con <think> iniziale; poi le risposte fuori."""
+    instruction_checks. Per tipo di riga e per lingua della domanda: rifiuti (anche con parole proprie, lo stesso
+    criterio per i nostri modelli e per gli Ufficiali), risposte non rifiutate letterali, aderenti e fuori dal contesto,
+    media delle parole lunghe prese dal contesto (context_share), poi oltre MAX_ANSWER_CHARS, nella lingua sbagliata e
+    con <think> iniziale; poi le risposte fuori."""
     groups = {}
     for r in rows:
         groups.setdefault(("tipo", r["kind"]), []).append(r)
         groups.setdefault(("domande " + r["question_lang"], r["kind"]), []).append(r)
-    print(f"controlli sulle istruzioni: fedelta' al contesto delle risposte non rifiutate (letterale / aderente / fuori), "
-          f"oltre {MAX_ANSWER_CHARS} caratteri, lingua sbagliata, <think> iniziale")
+    print(f"controlli sulle istruzioni: rifiuti anche con parole proprie, fedelta' al contesto delle risposte non rifiutate "
+          f"(letterale / aderente / fuori, parole dal contesto), oltre {MAX_ANSWER_CHARS} caratteri, lingua sbagliata, "
+          f"<think> iniziale")
     for (group, kind), rs in sorted(groups.items(), key=lambda item: (item[0][0] != "tipo", item[0])):
         answered = [r for r in rs if r["fidelity"]]
         share = {f: 100 * sum(r["fidelity"] == f for r in answered) / len(answered) if answered else 0.0 for f in ("literal", "adherent")}
-        print(f"{group} {kind}: {len(rs)} righe, {len(answered)} risposte | letterale {share['literal']:.1f}% "
-              f"aderente {share['adherent']:.1f}% fuori {sum(r['fidelity'] == 'out' for r in answered)} | "
+        shares = [r["context_share"] for r in answered if r["context_share"] is not None]
+        words = f"{100 * sum(shares) / len(shares):.0f}%" if shares else "-"
+        print(f"{group} {kind}: {len(rs)} righe, rifiuta {100 * sum(r['refused'] for r in rs) / len(rs):.1f}%, "
+              f"{len(answered)} risposte | letterale {share['literal']:.1f}% "
+              f"aderente {share['adherent']:.1f}% fuori {sum(r['fidelity'] == 'out' for r in answered)} parole dal contesto {words} | "
               f"oltre {MAX_ANSWER_CHARS}: {sum(r['too_long'] for r in rs)} | lingua sbagliata: {sum(r['wrong_lang'] for r in rs)} | "
               f"<think>: {sum(r['think_start'] for r in rs)}")
     out = [r for r in rows if r["fidelity"] == "out"]
