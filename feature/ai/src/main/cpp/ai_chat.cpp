@@ -39,9 +39,12 @@ static llama_context                    * g_context;
 static common_batch                       g_batch;
 static common_chat_templates_ptr          g_chat_templates;
 static bool                               g_chat_template_supports_thinking;
-// Formato dei prompt, scelto in prepare_impl (choose_jinja_template): false = formatter CHATML di llama.cpp, true =
-// template jinja del GGUF.
-static bool                               g_use_jinja;
+// Formato dei prompt (choose_chat_format): formatter CHATML di llama.cpp, template jinja del GGUF, o formatter di
+// llama.cpp per il template del GGUF (src/llama-chat.cpp, che riconosce ChatML, Gemma, Llama 3, Mistral...).
+enum class ChatFormat { CHATML, JINJA, BUILTIN };
+static ChatFormat                         g_chat_format;
+// Ripiego se jinja fallisce: BUILTIN se llama.cpp riconosce il template, altrimenti CHATML.
+static ChatFormat                         g_fallback_format;
 static common_sampler                   * g_sampler;
 
 // Copiata e rilasciata subito: se dopo qualcosa lancia, la stringa JNI non resta trattenuta. Vuota se manca la memoria
@@ -203,9 +206,9 @@ constexpr const char *ROLE_USER         = "user";
 constexpr const char *ROLE_ASSISTANT    = "assistant";
 constexpr const char *EMPTY_THINK       = "<think>\n\n</think>\n\n";
 
-// Formatter CHATML scritto nel codice di llama.cpp (src/llama-chat.cpp): lo stesso testo del training, e lo stesso
-// che riproducono gli script di conversione e valutazione.
-static std::string apply_chatml(const std::vector<common_chat_msg> &msgs, const bool add_ass) {
+// Formatter scritto nel codice di llama.cpp (src/llama-chat.cpp): "chatml" per CHATML, lo stesso testo del training e
+// degli script di conversione e valutazione, oppure il template del GGUF, di cui llama.cpp riconosce il formato.
+static std::string apply_builtin(const char *tmpl, const std::vector<common_chat_msg> &msgs, const bool add_ass) {
     std::vector<llama_chat_message> chat;
     size_t size = 64;
     for (const auto &msg : msgs) {
@@ -213,24 +216,27 @@ static std::string apply_chatml(const std::vector<common_chat_msg> &msgs, const 
         size += msg.role.size() + msg.content.size() + 32;
     }
     std::string text(size, '\0');
-    int32_t n = llama_chat_apply_template("chatml", chat.data(), chat.size(), add_ass, text.data(), (int32_t) text.size());
+    int32_t n = llama_chat_apply_template(tmpl, chat.data(), chat.size(), add_ass, text.data(), (int32_t) text.size());
     if (n > (int32_t) text.size()) {
         text.resize(n);
-        n = llama_chat_apply_template("chatml", chat.data(), chat.size(), add_ass, text.data(), (int32_t) text.size());
+        n = llama_chat_apply_template(tmpl, chat.data(), chat.size(), add_ass, text.data(), (int32_t) text.size());
     }
-    if (n < 0) throw std::runtime_error("chatml formatter failed");
+    if (n < 0) throw std::runtime_error("chat template not recognized by llama.cpp");
     text.resize(n);
     return text;
 }
 
-// Testo della conversazione nel formato scelto. Con CHATML, blocco <think> vuoto dopo l'apertura del turno assistente
-// per i template con enable_thinking (vedi prepare_impl): quei modelli sono addestrati (enable_thinking=False) con il
-// blocco nel prefisso del turno assistente. I modelli addestrati senza thinking (text_only.py) hanno un ChatML senza
-// enable_thinking e non lo ricevono. Con jinja il blocco lo scrive il template stesso, con enable_thinking=false;
-// force_pure_content chiede solo il testo, senza il parser delle risposte, che su template insoliti puo' fallire.
-static std::string format_messages(const std::vector<common_chat_msg> &msgs, const bool add_ass, const bool use_jinja) {
-    if (!use_jinja) {
-        std::string text = apply_chatml(msgs, add_ass);
+// Testo della conversazione nel formato dato. Con i formatter di llama.cpp, blocco <think> vuoto dopo l'apertura del
+// turno assistente per i template con enable_thinking (vedi prepare_impl): quei modelli sono addestrati
+// (enable_thinking=False) con il blocco nel prefisso del turno assistente. I modelli addestrati senza thinking
+// (text_only.py) hanno un ChatML senza enable_thinking e non lo ricevono. Con jinja il blocco lo scrive il template
+// stesso, con enable_thinking=false; force_pure_content chiede solo il testo, senza il parser delle risposte, che su
+// template insoliti puo' fallire.
+static std::string format_messages(const std::vector<common_chat_msg> &msgs, const bool add_ass, const ChatFormat format) {
+    if (format != ChatFormat::JINJA) {
+        const char *tmpl = format == ChatFormat::CHATML ? "chatml" : llama_model_chat_template(g_model, nullptr);
+        if (tmpl == nullptr) throw std::runtime_error("no chat template in the model");
+        std::string text = apply_builtin(tmpl, msgs, add_ass);
         if (add_ass && g_chat_template_supports_thinking) text += EMPTY_THINK;
         return text;
     }
@@ -245,16 +251,32 @@ static std::string format_messages(const std::vector<common_chat_msg> &msgs, con
 
 // Il nuovo messaggio formattato in coda a quelli di past, come common_chat_format_single (che pero' non passa
 // enable_thinking al template): la differenza tra la conversazione con e senza il messaggio.
-static std::string format_new_message(const std::vector<common_chat_msg> &past, const common_chat_msg &new_msg) {
+static std::string format_new_message_as(const std::vector<common_chat_msg> &past, const common_chat_msg &new_msg,
+                                         const ChatFormat format) {
     const bool add_ass = new_msg.role == ROLE_USER;
-    const std::string past_text = past.empty() ? "" : format_messages(past, false, g_use_jinja);
+    const std::string past_text = past.empty() ? "" : format_messages(past, false, format);
     std::vector<common_chat_msg> msgs(past);
     msgs.push_back(new_msg);
-    const std::string text = format_messages(msgs, add_ass, g_use_jinja);
+    const std::string text = format_messages(msgs, add_ass, format);
     // Come common_chat_format_single: se il testo prima finisce con un a capo, lo si conserva.
     std::string formatted = add_ass && !past_text.empty() && past_text.back() == '\n' ? "\n" : "";
     formatted += text.substr(std::min(past_text.size(), text.size()));
     return formatted;
+}
+
+// Se il template jinja, che ha formattato la conversazione di prova, fallisce su un messaggio vero (un ramo del
+// template che la prova non tocca), si passa al ripiego per il resto della vita del modello: il messaggio va al modello
+// invece di far fallire la domanda.
+static std::string format_new_message(const std::vector<common_chat_msg> &past, const common_chat_msg &new_msg) {
+    if (g_chat_format == ChatFormat::JINJA) {
+        try {
+            return format_new_message_as(past, new_msg, ChatFormat::JINJA);
+        } catch (const std::exception &e) {
+            LOGw("Chat format: jinja failed on a message (%s), switching to the fallback", e.what());
+            g_chat_format = g_fallback_format;
+        }
+    }
+    return format_new_message_as(past, new_msg, g_chat_format);
 }
 
 static std::string without_empty_think(std::string text) {
@@ -263,11 +285,21 @@ static std::string without_empty_think(std::string text) {
     return text;
 }
 
+static const char *chat_format_name(const ChatFormat format) {
+    switch (format) {
+        case ChatFormat::CHATML: return "CHATML";
+        case ChatFormat::JINJA: return "GGUF template (jinja)";
+        case ChatFormat::BUILTIN: return "llama.cpp formatter for the GGUF template";
+    }
+    return "?";
+}
+
 // Formato dei prompt per il modello caricato. Una conversazione di prova formattata con il formatter CHATML e con il
 // template jinja del GGUF: se i testi coincidono (a parte il blocco <think> vuoto) il modello e' ChatML (i nostri e gli
 // Ufficiali Qwen) e resta su CHATML, lo stesso testo del training; altrimenti si usa il template del GGUF. Se jinja non
-// riesce a formattare la prova si lancia: un modello non ChatML con CHATML riceverebbe un prompt sbagliato senza errori.
-static bool choose_jinja_template() {
+// legge il template (jinja_parsed false) o non formatta la prova, si ripiega sul formatter di llama.cpp per il template
+// del GGUF; se llama.cpp non lo riconosce, su CHATML, il formato piu' diffuso, con un avviso nel log.
+static ChatFormat choose_chat_format(const bool jinja_parsed) {
     const auto msg = [](const char *role, const char *content) {
         common_chat_msg m;
         m.role = role;
@@ -276,17 +308,31 @@ static bool choose_jinja_template() {
     };
     const std::vector<common_chat_msg> probe = {
             msg(ROLE_USER, "Domanda di prova"), msg(ROLE_ASSISTANT, "Risposta di prova"), msg(ROLE_USER, "Seconda domanda")};
-    const std::string chatml = format_messages(probe, true, false);
-    std::string jinja;
     try {
-        jinja = format_messages(probe, true, true);
-    } catch (const std::exception &e) {
-        throw std::runtime_error(std::string("chat template not usable with jinja: ") + e.what());
+        format_messages(probe, true, ChatFormat::BUILTIN);
+        g_fallback_format = ChatFormat::BUILTIN;
+    } catch (const std::exception &) {
+        g_fallback_format = ChatFormat::CHATML;
     }
-    const bool use_jinja = without_empty_think(chatml) != without_empty_think(jinja);
-    LOGi("Chat format: %s", use_jinja ? "GGUF template (jinja)"
-                                      : g_chat_template_supports_thinking ? "CHATML with empty <think> block" : "CHATML");
-    return use_jinja;
+    ChatFormat format = g_fallback_format;
+    bool jinja_failed = !jinja_parsed;
+    if (jinja_parsed) {
+        try {
+            const std::string jinja = format_messages(probe, true, ChatFormat::JINJA);
+            const std::string chatml = format_messages(probe, true, ChatFormat::CHATML);
+            format = without_empty_think(chatml) == without_empty_think(jinja) ? ChatFormat::CHATML : ChatFormat::JINJA;
+        } catch (const std::exception &e) {
+            LOGw("Chat format: jinja cannot format the GGUF template (%s), using the fallback", e.what());
+            jinja_failed = true;
+        }
+    }
+    if (jinja_failed && g_fallback_format == ChatFormat::CHATML) {
+        LOGw("Chat format: template unknown to jinja and llama.cpp, CHATML is a guess");
+    }
+    LOGi("Chat format: %s%s (fallback: %s)", chat_format_name(format),
+         format != ChatFormat::JINJA && g_chat_template_supports_thinking ? " with empty <think> block" : "",
+         chat_format_name(g_fallback_format));
+    return format;
 }
 
 // top_k/top_p passati da Kotlin (OnDeviceLlmEngine): il riferimento Arm usa solo i default di
@@ -296,7 +342,16 @@ static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads) {
     if (!context) { return 1; }
     g_context = context;
     g_batch = common_batch(context);
-    g_chat_templates = common_chat_templates_init(g_model, "");
+    // Un template che jinja non legge (sintassi non supportata) non blocca il modello: si tiene un template ChatML,
+    // che conta solo per sapere che il GGUF ha un template, e choose_chat_format ripiega sul formatter di llama.cpp.
+    bool jinja_parsed = true;
+    try {
+        g_chat_templates = common_chat_templates_init(g_model, "");
+    } catch (const std::exception &e) {
+        LOGw("Chat format: jinja cannot parse the GGUF template (%s)", e.what());
+        g_chat_templates = common_chat_templates_init(g_model, "chatml");
+        jinja_parsed = false;
+    }
     // Blocco <think> vuoto (format_messages) solo se il template del GGUF ha la variabile enable_thinking
     // (Qwen3.5): e' la stessa regola del training, che applica il template con enable_thinking=False, e degli
     // script di conversione e valutazione. common_chat_templates_support_enable_thinking qui non va bene: dice
@@ -305,7 +360,7 @@ static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads) {
     const char *chat_template = llama_model_chat_template(g_model, nullptr);
     g_chat_template_supports_thinking = chat_template != nullptr && std::strstr(chat_template, "enable_thinking") != nullptr;
     // Senza template nel GGUF il prompt va al modello cosi' com'e' (process_user_prompt_impl).
-    g_use_jinja = common_chat_templates_was_explicit(g_chat_templates.get()) && choose_jinja_template();
+    g_chat_format = common_chat_templates_was_explicit(g_chat_templates.get()) ? choose_chat_format(jinja_parsed) : ChatFormat::CHATML;
     g_top_k = top_k;
     g_top_p = top_p;
     g_sampler = new_sampler(DEFAULT_SAMPLER_TEMP, top_k, top_p);
@@ -557,7 +612,7 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
 
     // Apertura del turno utente (prima del contenuto) e suffisso del template (dopo: chiusura del turno utente e
     // apertura del turno assistente, think vuoto compreso), cercati attorno al contenuto: valgono per ChatML e per
-    // i template jinja. Molti template jinja tolgono gli spazi ai bordi del contenuto (trim): con jinja lo si cerca
+    // gli altri template. Molti template tolgono gli spazi ai bordi del contenuto (trim): fuori da CHATML lo si cerca
     // prima cosi', altrimenti un a capo iniziale del prompt verrebbe trovato nell'apertura e tagliato con il contenuto.
     std::string user_open;
     size_t suffix_pos = std::string::npos;
@@ -565,7 +620,8 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
         const size_t first = user_prompt.find_first_not_of(" \t\r\n");
         const size_t last = user_prompt.find_last_not_of(" \t\r\n");
         const std::string trimmed = first == std::string::npos ? user_prompt : user_prompt.substr(first, last - first + 1);
-        for (const std::string &content : {g_use_jinja ? trimmed : user_prompt, g_use_jinja ? user_prompt : trimmed}) {
+        const bool trim_first = g_chat_format != ChatFormat::CHATML;
+        for (const std::string &content : {trim_first ? trimmed : user_prompt, trim_first ? user_prompt : trimmed}) {
             const size_t pos = content.empty() ? std::string::npos : formatted_user_prompt.rfind(content);
             if (pos != std::string::npos) {
                 user_open = formatted_user_prompt.substr(0, pos);
@@ -942,13 +998,21 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_contextUs
     return result;
 }
 
-// Formato dei prompt scelto al caricamento del modello (choose_jinja_template), per le prove sul dispositivo:
-// "none" (GGUF senza template), "chatml", "chatml-think" (con il blocco <think> vuoto) o "jinja".
+// Formato dei prompt in uso (choose_chat_format, format_new_message), per le prove sul dispositivo: "none" (GGUF senza
+// template), "jinja", "chatml" o "builtin" (formatter di llama.cpp per il template del GGUF), questi ultimi due con
+// "-think" quando ricevono il blocco <think> vuoto.
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_chatFormatNative(JNIEnv *env, jobject /*unused*/) {
-    const char *format = !g_chat_templates || !common_chat_templates_was_explicit(g_chat_templates.get()) ? "none"
-            : g_use_jinja ? "jinja" : g_chat_template_supports_thinking ? "chatml-think" : "chatml";
+    const bool think = g_chat_template_supports_thinking;
+    const char *format = "none";
+    if (g_chat_templates && common_chat_templates_was_explicit(g_chat_templates.get())) {
+        switch (g_chat_format) {
+            case ChatFormat::JINJA: format = "jinja"; break;
+            case ChatFormat::CHATML: format = think ? "chatml-think" : "chatml"; break;
+            case ChatFormat::BUILTIN: format = think ? "builtin-think" : "builtin"; break;
+        }
+    }
     return env->NewStringUTF(format);  // ASCII
 }
 

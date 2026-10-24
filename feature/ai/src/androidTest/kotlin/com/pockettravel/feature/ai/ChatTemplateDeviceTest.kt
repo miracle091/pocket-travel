@@ -84,10 +84,42 @@ class ChatTemplateDeviceTest {
     // llama.cpp formatterebbe Gemma anche senza jinja, ma non e' ChatML: deve usare il template del GGUF.
     @Test
     fun modelloNonChatmlPassaDaJinja() = runBlocking {
-        assertFormat(GEMMA_FILE, "jinja", "<start_of_turn>user\n$PROMPT<end_of_turn>\n<start_of_turn>model\n")
+        assertFormat(GEMMA_FILE, "jinja", GEMMA_TEXT)
         val answer = engine.sendUserPrompt(PROMPT, SHORT_ANSWER).toList().joinToString("")
         Log.i(TAG, "risposta: $answer")
         assertTrue("risposta vuota", answer.isNotBlank())
+    }
+
+    // I template rotti sono quello di Gemma sostituito con gguf_new_metadata.py di llama.cpp (--chat-template-file).
+    // {% if %}<start_of_turn>user: sintassi che jinja non legge, con i marcatori di Gemma: formatter di llama.cpp per Gemma.
+    @Test
+    fun templateCheJinjaNonLeggeRipiegaSuLlamaCpp() = runBlocking {
+        assertFormat("gemma-tmpl-badparse.gguf", "builtin", GEMMA_TEXT)
+        assertTrue("risposta vuota", engine.sendUserPrompt(PROMPT, SHORT_ANSWER).toList().joinToString("").isNotBlank())
+    }
+
+    // {{ raise_exception('prova') }}<start_of_turn>: jinja lo legge ma non formatta la conversazione di prova.
+    @Test
+    fun templateCheJinjaNonFormattaRipiegaSuLlamaCpp() = runBlocking {
+        assertFormat("gemma-tmpl-badrender.gguf", "builtin", GEMMA_TEXT)
+    }
+
+    // {{ raise_exception('prova') }} senza marcatori: nemmeno llama.cpp lo riconosce, resta CHATML.
+    @Test
+    fun templateSconosciutoRipiegaSuChatml() = runBlocking {
+        assertFormat("gemma-tmpl-unknown.gguf", "chatml", chatml(PROMPT))
+    }
+
+    // Il template di Gemma preceduto da {%- if 'DOMANDA' in messages[-1]['content'] %}{{ raise_exception('prova') }}
+    // {%- endif %}, quindi con un errore solo quando la domanda contiene "DOMANDA": la prova passa (jinja), il primo
+    // messaggio vero fallisce e si passa al formatter di llama.cpp, senza far fallire la domanda.
+    @Test
+    fun jinjaCheFallisceSuUnMessaggioPassaAlRipiego() = runBlocking {
+        load("gemma-tmpl-late.gguf")
+        assertEquals("jinja", engine.chatFormat())
+        assertEquals(GEMMA_TEXT, engine.formatPrompt(PROMPT))
+        assertEquals("builtin", engine.chatFormat())
+        assertTrue("risposta vuota", engine.sendUserPrompt(PROMPT, SHORT_ANSWER).toList().joinToString("").isNotBlank())
     }
 
     // Il taglio dei prompt troppo lunghi tiene apertura e suffisso del template anche con jinja.
@@ -117,6 +149,7 @@ class ChatTemplateDeviceTest {
                 "Serve il passaporto valido per tutta la durata del soggiorno.",
             QUESTION,
         )
+        val GEMMA_TEXT = "<start_of_turn>user\n$PROMPT<end_of_turn>\n<start_of_turn>model\n"
 
         fun chatml(user: String) = "<|im_start|>user\n$user<|im_end|>\n<|im_start|>assistant\n"
     }

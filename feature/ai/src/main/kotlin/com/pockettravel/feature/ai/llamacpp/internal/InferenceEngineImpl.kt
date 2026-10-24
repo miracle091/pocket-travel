@@ -248,7 +248,7 @@ internal class InferenceEngineImpl private constructor(
             resetConversationNative()
         }
 
-    /** "none", "chatml", "chatml-think" o "jinja" (choose_jinja_template in ai_chat.cpp). */
+    /** "none", "jinja", "chatml" o "builtin", gli ultimi due anche con "-think" (chatFormatNative in ai_chat.cpp). */
     internal suspend fun chatFormat(): String =
         withContext(llamaDispatcher) {
             check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
