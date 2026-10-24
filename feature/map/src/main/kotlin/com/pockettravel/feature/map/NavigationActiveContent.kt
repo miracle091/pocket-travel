@@ -2,6 +2,7 @@ package com.pockettravel.feature.map
 
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.runtime.mutableIntStateOf
 import java.time.ZoneId
 import java.time.LocalDateTime
 import android.text.format.DateFormat
@@ -98,7 +99,7 @@ internal fun ActiveNavigationContent(
     // con il GPS che oscilla attorno ai 10 m la stessa svolta tornerebbe "Ora" piu' volte.
     val context = LocalContext.current
     val turnNow = progress.distanceToNextMeters < NOW_METERS && progress.nextInstruction.type != TurnType.ARRIVE
-    var lastVibratedIndex by remember(route) { mutableStateOf(-1) }
+    var lastVibratedIndex by remember(route) { mutableIntStateOf(-1) }
     LaunchedEffect(progress.nextInstructionIndex, turnNow) {
         if (turnNow && routeProfile == RouteProfile.WALK && walkingHaptics && progress.nextInstructionIndex != lastVibratedIndex) {
             lastVibratedIndex = progress.nextInstructionIndex

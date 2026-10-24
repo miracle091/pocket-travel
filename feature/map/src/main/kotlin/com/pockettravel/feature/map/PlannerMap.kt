@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.viewinterop.AndroidView
@@ -59,6 +60,7 @@ internal fun PlannerMap(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current.density
     MapLibreInitializer.ensureInitialized(context)
     val mapView = rememberMapViewWithLifecycle()
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -161,7 +163,7 @@ internal fun PlannerMap(
             when {
                 framed.size >= 2 -> {
                     val bounds = LatLngBounds.Builder().apply { framed.forEach { include(LatLng(it.latitude, it.longitude)) } }.build()
-                    val margin = 64 * context.resources.displayMetrics.density
+                    val margin = 64 * density
                     map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, margin.toInt(), topPaddingPx.toInt() + margin.toInt(), margin.toInt(), bottomPaddingPx.toInt() + margin.toInt()))
                 }
                 framed.size == 1 -> map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(framed[0].latitude, framed[0].longitude), SINGLE_POINT_ZOOM))

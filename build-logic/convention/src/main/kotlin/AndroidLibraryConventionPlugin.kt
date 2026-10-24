@@ -28,6 +28,9 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                     )
                 }
             }
+            lint {
+                lintConfig = rootProject.file(ProjectConventions.LINT_CONFIG)
+            }
         }
         configureKotlinJvmTarget()
         pluginManager.apply(DetektConventionPlugin::class.java)

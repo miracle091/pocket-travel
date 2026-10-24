@@ -30,7 +30,10 @@
     <string name="regions_replaced_choose">Choose the regions</string>
     <string name="regions_replaced_delete">Delete</string>
     <string name="regions_packages">Content for %1$s</string>
-    <string name="transit_networks_selected">%1$d of %2$d networks selected</string>
+    <plurals name="transit_networks_selected">
+        <item quantity="one">%1$d of %2$d network selected</item>
+        <item quantity="other">%1$d of %2$d networks selected</item>
+    </plurals>
     <string name="transit_networks_near">Networks within 50 km of the last known location are selected</string>
     <string name="transit_networks_nearest">No network within 50 km of the last known location: the nearest one is selected</string>
     <string name="transit_networks_all">Location unknown or in another country: all networks are selected. Deselect the ones not needed</string>

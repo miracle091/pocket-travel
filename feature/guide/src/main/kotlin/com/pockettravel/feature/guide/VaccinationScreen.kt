@@ -845,8 +845,8 @@ private fun VaccinationItem.detailTexts(): List<String> = buildList {
     val minAge = minAgeMonths
     if (minAge != null) {
         when {
-            ageNote == AgeNote.BELOW_AGE -> add(stringResource(R.string.vacc_below_age, minAge))
-            ageNote == AgeNote.FROM_AGE || reason == VaccinationReason.HAJJ_UMRAH -> add(stringResource(R.string.vacc_min_age, minAge))
+            ageNote == AgeNote.BELOW_AGE -> add(pluralStringResource(R.plurals.vacc_below_age, minAge, minAge))
+            ageNote == AgeNote.FROM_AGE || reason == VaccinationReason.HAJJ_UMRAH -> add(pluralStringResource(R.plurals.vacc_min_age, minAge, minAge))
         }
     }
 }

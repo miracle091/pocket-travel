@@ -12,6 +12,9 @@ internal object ProjectConventions {
     const val MIN_SDK = 26
     const val TARGET_SDK = 36
     val JAVA_VERSION = JavaVersion.VERSION_17
+
+    // Configurazione di Android Lint comune a tutti i moduli, relativa alla radice del progetto.
+    const val LINT_CONFIG = "config/lint/lint.xml"
 }
 
 internal val Project.libs: VersionCatalog

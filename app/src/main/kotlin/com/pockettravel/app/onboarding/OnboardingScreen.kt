@@ -121,7 +121,7 @@ fun OnboardingScreen(onComplete: () -> Unit, viewModel: OnboardingViewModel = hi
             AnimatedContent(
                 targetState = step,
                 transitionSpec = { stepTransition(forward = targetState > initialState) },
-                modifier = Modifier.weight(1f).then(swipeBetweenSteps(goNext, goBack, isLastStep)),
+                modifier = Modifier.weight(1f).swipeBetweenSteps(goNext, goBack, isLastStep),
                 label = "onboardingStep",
             ) { current ->
                 when (current) {
@@ -171,12 +171,12 @@ private fun NotificationPermissionOnLastStep(isLastStep: Boolean) {
 // pulsante), verso destra come "Indietro". Stesse azioni dei pulsanti, quindi anche i controlli sui passi obbligatori
 // e l'avvio dei download; un elemento del passo che scorre in orizzontale consuma il gesto per primo.
 @Composable
-private fun swipeBetweenSteps(goNext: () -> Unit, goBack: () -> Unit, isLastStep: Boolean): Modifier {
+private fun Modifier.swipeBetweenSteps(goNext: () -> Unit, goBack: () -> Unit, isLastStep: Boolean): Modifier {
     val currentGoNext by rememberUpdatedState(goNext)
     val currentGoBack by rememberUpdatedState(goBack)
     val currentIsLastStep by rememberUpdatedState(isLastStep)
     val swipeThreshold = with(LocalDensity.current) { SWIPE_THRESHOLD.toPx() }
-    return Modifier.pointerInput(Unit) {
+    return pointerInput(Unit) {
         var total = 0f
         detectHorizontalDragGestures(
             onDragStart = { total = 0f },

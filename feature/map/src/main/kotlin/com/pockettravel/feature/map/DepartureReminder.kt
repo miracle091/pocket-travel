@@ -12,6 +12,7 @@ import android.content.SharedPreferences
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.edit
 import com.pockettravel.core.ui.R as UiR
 import java.time.Duration
 import java.time.LocalDateTime
@@ -90,7 +91,9 @@ internal object DepartureReminder {
         }
     }
 
-    @SuppressLint("ScheduleExactAlarm")
+    // Sveglia esatta senza permesso: fino ad Android 11 non serve; da Android 12 solo se canScheduleExactAlarms(),
+    // altrimenti una sveglia non esatta. Lint non riconosce il controllo unito alla versione.
+    @SuppressLint("ScheduleExactAlarm", "MissingPermission")
     private fun setAlarm(context: Context, triggerAt: Long, destinationName: String) {
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
         val intent = Intent(context, DepartureReminderReceiver::class.java).putExtra(DepartureReminderReceiver.KEY_DESTINATION, destinationName)
@@ -116,7 +119,7 @@ internal class DepartureReminderStore(private val prefs: SharedPreferences) {
     class Saved(val triggerAt: Long, val destination: String)
 
     fun save(triggerAt: Long, destination: String) {
-        prefs.edit().putLong(KEY_TRIGGER_AT, triggerAt).putString(KEY_DESTINATION, destination).apply()
+        prefs.edit { putLong(KEY_TRIGGER_AT, triggerAt).putString(KEY_DESTINATION, destination) }
     }
 
     /** L'avviso salvato; null se non c'e'. */
@@ -125,7 +128,7 @@ internal class DepartureReminderStore(private val prefs: SharedPreferences) {
         return Saved(triggerAt, prefs.getString(KEY_DESTINATION, null).orEmpty())
     }
 
-    fun clear() = prefs.edit().clear().apply()
+    fun clear() = prefs.edit { clear() }
 
     companion object {
         const val PREFS = "navigation_departure_reminder"

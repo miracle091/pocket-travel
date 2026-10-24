@@ -1,4 +1,4 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="it">
     <string name="map_filters_only_accessible">Solo posti accessibili</string>
     <string name="map_filters_only_accessible_body">Posti segnati come accessibili in sedia a rotelle, anche in parte, bagni accessibili e parcheggi per disabili</string>
     <string name="usage_mode_walk">A piedi</string>
@@ -14,6 +14,7 @@
     <string name="map_legend_open">Filtri della mappa</string>
     <plurals name="map_filters_open_hidden">
         <item quantity="one">Filtri della mappa, %d categoria nascosta</item>
+        <item quantity="many">Filtri della mappa, %d categorie nascoste</item>
         <item quantity="other">Filtri della mappa, %d categorie nascoste</item>
     </plurals>
     <string name="map_filters_group_show">Mostra tutti</string>
@@ -233,10 +234,12 @@
     <string name="transit_later_cancelled">soppressa</string>
     <plurals name="transit_delay_spoken">
         <item quantity="one">in ritardo di %1$d minuto</item>
+        <item quantity="many">in ritardo di %1$d minuti</item>
         <item quantity="other">in ritardo di %1$d minuti</item>
     </plurals>
     <plurals name="transit_early_spoken">
         <item quantity="one">%1$d minuto in anticipo</item>
+        <item quantity="many">%1$d minuti in anticipo</item>
         <item quantity="other">%1$d minuti in anticipo</item>
     </plurals>
     <string name="transit_realtime_updated">In tempo reale, aggiornato alle %1$s</string>
@@ -247,6 +250,7 @@
     <string name="transit_realtime_refresh_size">Aggiorna i ritardi (%1$s)</string>
     <plurals name="transit_in_minutes_spoken">
         <item quantity="one">tra %1$d minuto</item>
+        <item quantity="many">tra %1$d minuti</item>
         <item quantity="other">tra %1$d minuti</item>
     </plurals>
     <string name="transit_departure_description">Linea %1$s, %2$s, direzione %3$s, orario %4$s, %5$s</string>
@@ -271,7 +275,8 @@
     <string name="planner_no_location">Segnale GPS assente: attiva il GPS o scegli un punto di partenza</string>
     <string name="planner_no_routing_data">Il calcolo del percorso richiede la rete stradale di questa regione (si scarica una sola volta e resta sul dispositivo)</string>
     <string name="planner_start">Avvia</string>
-    <string name="planner_preview_only">Partenza da un luogo scelto: si vede solo il percorso. La navigazione passo passo parte dalla tua posizione</string>
+    <!-- "passo passo" è la locuzione italiana, non una parola ripetuta per errore. -->
+    <string name="planner_preview_only" tools:ignore="Typos">Partenza da un luogo scelto: si vede solo il percorso. La navigazione passo passo parte dalla tua posizione</string>
     <string name="planner_steps">Svolte</string>
     <string name="planner_search_start">Scegli la partenza</string>
     <string name="planner_back">Indietro</string>
@@ -297,11 +302,13 @@
     <string name="planner_leave_now_on_time">Parti adesso</string>
     <plurals name="planner_leave_in">
         <item quantity="one">Parti tra %d minuto</item>
+        <item quantity="many">Parti tra %d minuti</item>
         <item quantity="other">Parti tra %d minuti</item>
     </plurals>
     <string name="navigation_on_time">In orario, arrivo: %1$s</string>
     <plurals name="navigation_late">
         <item quantity="one">%d minuto di ritardo</item>
+        <item quantity="many">%d minuti di ritardo</item>
         <item quantity="other">%d minuti di ritardo</item>
     </plurals>
     <string name="navigation_arrived_at">Destinazione raggiunta: %1$s</string>

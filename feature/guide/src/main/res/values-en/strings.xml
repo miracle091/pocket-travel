@@ -157,8 +157,14 @@
     <string name="vacc_polio_dose_any">%1$s dose, with a certificate</string>
     <string name="vacc_polio_vaccine_bopv_or_ipv">bOPV or IPV</string>
     <string name="vacc_polio_vaccine_ipv">IPV</string>
-    <string name="vacc_min_age">From %1$d months of age</string>
-    <string name="vacc_below_age">Not required under %1$d months of age</string>
+    <plurals name="vacc_min_age">
+        <item quantity="one">From %1$d month of age</item>
+        <item quantity="other">From %1$d months of age</item>
+    </plurals>
+    <plurals name="vacc_below_age">
+        <item quantity="one">Not required under %1$d month of age</item>
+        <item quantity="other">Not required under %1$d months of age</item>
+    </plurals>
     <plurals name="vacc_days_before">
         <item quantity="one">At least %1$d day before departure</item>
         <item quantity="other">At least %1$d days before departure</item>

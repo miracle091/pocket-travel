@@ -17,6 +17,9 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                 sourceCompatibility = ProjectConventions.JAVA_VERSION
                 targetCompatibility = ProjectConventions.JAVA_VERSION
             }
+            lint {
+                lintConfig = rootProject.file(ProjectConventions.LINT_CONFIG)
+            }
         }
         configureKotlinJvmTarget()
         pluginManager.apply(DetektConventionPlugin::class.java)

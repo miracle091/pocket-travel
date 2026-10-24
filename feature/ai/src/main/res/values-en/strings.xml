@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="ai_title">AI assistant</string>
     <string name="ai_mode_on_device">On device</string>
     <string name="ai_mode_online">Online</string>
@@ -52,7 +52,8 @@
     <string name="ai_benchmark_run">Run benchmark</string>
     <string name="ai_benchmark_running">Benchmark running…</string>
     <string name="ai_benchmark_compare">Compare models</string>
-    <string name="ai_benchmark_result">%1$d words/s · quality %2$d/100</string>
+    <!-- Numero seguito da un'unità di misura ("parole/s", "bit"), uguale al singolare e al plurale. -->
+    <string name="ai_benchmark_result" tools:ignore="PluralsCandidate">%1$d words/s · quality %2$d/100</string>
     <string name="ai_benchmark_load_time">%1$s · load time %2$.1f s</string>
     <string name="ai_benchmark_dialog_title">Tested models</string>
     <string name="ai_benchmark_none">No model tested yet</string>
@@ -104,7 +105,10 @@
     <string name="ai_taskmgr_yes">Yes</string>
     <string name="ai_taskmgr_no">No</string>
     <string name="ai_taskmgr_cpu">Process CPU</string>
-    <string name="ai_taskmgr_cpu_value">%1$.0f%% of one core · %2$d cores</string>
+    <plurals name="ai_taskmgr_cpu_value">
+        <item quantity="one">%1$.0f%% of one core · %2$d core</item>
+        <item quantity="other">%1$.0f%% of one core · %2$d cores</item>
+    </plurals>
     <string name="ai_taskmgr_threads">Threads</string>
     <string name="ai_taskmgr_behaviour">Behavior</string>
     <string name="ai_taskmgr_conversation">Conversation</string>
@@ -115,7 +119,10 @@
     <string name="ai_taskmgr_conversation_turns">Turns (in the model context)</string>
     <string name="ai_taskmgr_conversation_tokens">Tokens read and written by the model</string>
     <string name="ai_taskmgr_conversation_threshold">Compaction threshold</string>
-    <string name="ai_taskmgr_conversation_threshold_value">%1$d tokens, %2$d to go</string>
+    <plurals name="ai_taskmgr_conversation_threshold_value">
+        <item quantity="one">%1$d tokens, %2$d to go</item>
+        <item quantity="other">%1$d tokens, %2$d to go</item>
+    </plurals>
     <string name="ai_taskmgr_conversation_compactions">Compactions</string>
     <string name="ai_taskmgr_conversation_duration">Duration</string>
     <string name="ai_taskmgr_conversation_since_last">Since the last turn</string>
@@ -135,7 +142,10 @@
     <string name="ai_taskmgr_prompt_tokens">Prompt tokens</string>
     <string name="ai_taskmgr_generated">Generated tokens</string>
     <string name="ai_taskmgr_context_used">Context used</string>
-    <string name="ai_taskmgr_context_used_value">%1$d of %2$d tokens (%3$d%%)</string>
+    <plurals name="ai_taskmgr_context_used_value">
+        <item quantity="one">%1$d of %2$d token (%3$d%%)</item>
+        <item quantity="other">%1$d of %2$d tokens (%3$d%%)</item>
+    </plurals>
     <string name="ai_taskmgr_first_token">Time to first token</string>
     <string name="ai_taskmgr_total_time">Total time</string>
     <string name="ai_taskmgr_speed">Speed</string>

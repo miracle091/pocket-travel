@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="it">
     <string name="sources_title">Fonti ufficiali</string>
     <string name="sources_external">Siti ufficiali esterni all\'app: richiedono una connessione a internet</string>
     <string name="sources_national">Del tuo paese (%1$s)</string>

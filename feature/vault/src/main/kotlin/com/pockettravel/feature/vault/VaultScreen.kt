@@ -75,6 +75,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -748,7 +749,7 @@ private fun PassportEditDialog(
                         if (photoFileNames.size < MAX_PHOTOS_PER_DOCUMENT) {
                             stringResource(R.string.vault_add_photo)
                         } else {
-                            stringResource(R.string.vault_photo_limit, MAX_PHOTOS_PER_DOCUMENT)
+                            pluralStringResource(R.plurals.vault_photo_limit, MAX_PHOTOS_PER_DOCUMENT, MAX_PHOTOS_PER_DOCUMENT)
                         },
                     )
                 }

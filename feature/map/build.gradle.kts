@@ -13,6 +13,12 @@ android {
         // BuildConfig.DEBUG: il percorso nel log solo in debug, per la simulazione GPS sull'emulatore.
         buildConfig = true
     }
+
+    // Timber arriva solo come dipendenza transitiva di MapLibre, insieme al suo controllo lint:
+    // il progetto usa android.util.Log ovunque, quindi "usa Timber" non si applica.
+    lint {
+        disable += "LogNotTimber"
+    }
 }
 
 dependencies {

@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="it">
     <string name="ai_title">Assistente IA</string>
     <string name="ai_mode_on_device">Sul dispositivo</string>
     <string name="ai_mode_online">Online</string>
@@ -52,7 +52,8 @@
     <string name="ai_benchmark_run">Esegui il benchmark</string>
     <string name="ai_benchmark_running">Benchmark in corso…</string>
     <string name="ai_benchmark_compare">Confronta i modelli</string>
-    <string name="ai_benchmark_result">%1$d parole/s · qualità %2$d/100</string>
+    <!-- Numero seguito da un'unità di misura ("parole/s", "bit"), uguale al singolare e al plurale. -->
+    <string name="ai_benchmark_result" tools:ignore="PluralsCandidate">%1$d parole/s · qualità %2$d/100</string>
     <string name="ai_benchmark_load_time">%1$s · caricamento %2$.1f s</string>
     <string name="ai_benchmark_dialog_title">Modelli provati</string>
     <string name="ai_benchmark_none">Nessun modello ancora provato</string>
@@ -104,7 +105,11 @@
     <string name="ai_taskmgr_yes">Sì</string>
     <string name="ai_taskmgr_no">No</string>
     <string name="ai_taskmgr_cpu">CPU del processo</string>
-    <string name="ai_taskmgr_cpu_value">%1$.0f%% di un core · %2$d core</string>
+    <plurals name="ai_taskmgr_cpu_value">
+        <item quantity="one">%1$.0f%% di un core · %2$d core</item>
+        <item quantity="many">%1$.0f%% di un core · %2$d core</item>
+        <item quantity="other">%1$.0f%% di un core · %2$d core</item>
+    </plurals>
     <string name="ai_taskmgr_threads">Thread</string>
     <string name="ai_taskmgr_behaviour">Comportamento</string>
     <string name="ai_taskmgr_conversation">Conversazione</string>
@@ -115,7 +120,11 @@
     <string name="ai_taskmgr_conversation_turns">Turni (nel contesto del modello)</string>
     <string name="ai_taskmgr_conversation_tokens">Token letti e scritti dal modello</string>
     <string name="ai_taskmgr_conversation_threshold">Soglia di compattazione</string>
-    <string name="ai_taskmgr_conversation_threshold_value">%1$d token, ne mancano %2$d</string>
+    <plurals name="ai_taskmgr_conversation_threshold_value">
+        <item quantity="one">%1$d token, ne manca %2$d</item>
+        <item quantity="many">%1$d token, ne mancano %2$d</item>
+        <item quantity="other">%1$d token, ne mancano %2$d</item>
+    </plurals>
     <string name="ai_taskmgr_conversation_compactions">Compattazioni</string>
     <string name="ai_taskmgr_conversation_duration">Durata</string>
     <string name="ai_taskmgr_conversation_since_last">Dall\'ultimo turno</string>
@@ -135,7 +144,11 @@
     <string name="ai_taskmgr_prompt_tokens">Token del prompt</string>
     <string name="ai_taskmgr_generated">Token generati</string>
     <string name="ai_taskmgr_context_used">Contesto occupato</string>
-    <string name="ai_taskmgr_context_used_value">%1$d su %2$d token (%3$d%%)</string>
+    <plurals name="ai_taskmgr_context_used_value">
+        <item quantity="one">%1$d su %2$d token (%3$d%%)</item>
+        <item quantity="many">%1$d su %2$d token (%3$d%%)</item>
+        <item quantity="other">%1$d su %2$d token (%3$d%%)</item>
+    </plurals>
     <string name="ai_taskmgr_first_token">Tempo al primo token</string>
     <string name="ai_taskmgr_total_time">Durata totale</string>
     <string name="ai_taskmgr_speed">Velocità</string>
@@ -147,7 +160,8 @@
     <string name="ai_taskmgr_cpu_backend">Variante CPU di llama.cpp</string>
     <string name="ai_taskmgr_cpu_extensions">Estensioni della CPU</string>
     <string name="ai_taskmgr_cpu_extensions_none">Nessuna tra SVE, SVE2 e SME</string>
-    <string name="ai_taskmgr_cpu_sve_bits">vettori SVE a %1$d bit</string>
+    <!-- Numero seguito da un'unità di misura ("parole/s", "bit"), uguale al singolare e al plurale. -->
+    <string name="ai_taskmgr_cpu_sve_bits" tools:ignore="PluralsCandidate">vettori SVE a %1$d bit</string>
     <string name="ai_taskmgr_cpu_loaded">Variante caricata</string>
     <string name="ai_taskmgr_cpu_not_initialized">Libreria non ancora caricata</string>
     <string name="ai_taskmgr_cpu_loaded_auto">%1$s, scelta automatica</string>
@@ -161,6 +175,7 @@
     <string name="ai_sources_hide">Nascondi le fonti</string>
     <plurals name="ai_sources_count">
         <item quantity="one">Fonte (%d)</item>
+        <item quantity="many">Fonti (%d)</item>
         <item quantity="other">Fonti (%d)</item>
     </plurals>
     <!-- Conversazioni e cronologia (solo motore Sul dispositivo) -->
@@ -191,6 +206,7 @@
     <string name="ai_history_delete_failed">Eliminazione non riuscita. Riprova</string>
     <plurals name="ai_history_saved_count">
         <item quantity="one">Cronologia: %d conversazione</item>
+        <item quantity="many">Cronologia: %d conversazioni</item>
         <item quantity="other">Cronologia: %d conversazioni</item>
     </plurals>
 </resources>

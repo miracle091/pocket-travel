@@ -1,5 +1,6 @@
 package com.pockettravel.core.data.db
 
+import android.annotation.SuppressLint
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.pockettravel.core.data.POI_TO_REDOWNLOAD_VERSION
@@ -523,6 +524,9 @@ internal fun poiConversionNeedsBytes(db: SupportSQLiteDatabase): Long {
     return 2 * estimate + CONVERSION_MARGIN_BYTES
 }
 
+// Spazio libero ora, senza la cache che il sistema potrebbe liberare: nella migrazione non c'e' un Context per
+// StorageManager.allocateBytes.
+@SuppressLint("UsableSpace")
 private fun freeSpaceOf(db: SupportSQLiteDatabase): Long {
     val file = db.path?.takeIf { it != ":memory:" }?.let(::File)
     return file?.absoluteFile?.parentFile?.usableSpace ?: Long.MAX_VALUE

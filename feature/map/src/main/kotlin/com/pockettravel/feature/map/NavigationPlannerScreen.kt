@@ -1,5 +1,7 @@
 package com.pockettravel.feature.map
 
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.window.DialogProperties
 import android.Manifest
 import android.content.pm.PackageManager
@@ -334,7 +336,7 @@ internal fun NavigationPlannerContent(
         }
     }
     // Altezza del riquadro in alto: la mappa inquadra il percorso nello spazio libero sotto.
-    var overlayHeightPx by remember { mutableStateOf(0) }
+    var overlayHeightPx by remember { mutableIntStateOf(0) }
     val ready = state.preview as? PlannerPreview.Ready
     BottomSheetScaffold(
         scaffoldState = sheetState,
@@ -377,7 +379,7 @@ internal fun NavigationPlannerContent(
                 mapRegions,
                 ready?.route,
                 overlayHeightPx.toFloat(),
-                (if (to == null) RECENTS_PEEK_HEIGHT.value else ROUTE_PEEK_HEIGHT_DP) * LocalContext.current.resources.displayMetrics.density,
+                (if (to == null) RECENTS_PEEK_HEIGHT.value else ROUTE_PEEK_HEIGHT_DP) * LocalDensity.current.density,
                 Modifier.fillMaxSize(),
             )
             Column(modifier = Modifier.fillMaxWidth().onSizeChanged { overlayHeightPx = it.height }) {

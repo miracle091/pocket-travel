@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.edit
 
 /** Flag "visto" dei suggerimenti contestuali, nelle preferenze locali (nessun dato personale). */
 object ContextualHints {
@@ -37,9 +38,9 @@ object ContextualHints {
 
     internal fun isSeen(prefs: SharedPreferences, hintId: String): Boolean = prefs.getBoolean(hintId, false)
 
-    internal fun markSeen(prefs: SharedPreferences, hintId: String) = prefs.edit().putBoolean(hintId, true).apply()
+    internal fun markSeen(prefs: SharedPreferences, hintId: String) = prefs.edit { putBoolean(hintId, true) }
 
-    internal fun reset(prefs: SharedPreferences) = prefs.edit().clear().apply()
+    internal fun reset(prefs: SharedPreferences) = prefs.edit { clear() }
 }
 
 /**

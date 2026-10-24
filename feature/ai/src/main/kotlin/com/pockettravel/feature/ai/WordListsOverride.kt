@@ -2,6 +2,7 @@ package com.pockettravel.feature.ai
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import androidx.core.content.edit
 import com.pockettravel.core.data.PreferencesFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -29,7 +30,7 @@ class WordListsOverride(
     fun enabled(): Boolean = !isDebuggable || prefs.getBoolean(KEY, true)
 
     fun save(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY, enabled).apply()
+        prefs.edit { putBoolean(KEY, enabled) }
     }
 
     private companion object {

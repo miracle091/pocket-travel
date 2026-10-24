@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="it">
     <string name="app_name">Pocket Travel</string>
 
     <!-- Elenco regioni -->
@@ -30,7 +30,11 @@
     <string name="regions_replaced_choose">Scegli le regioni</string>
     <string name="regions_replaced_delete">Elimina</string>
     <string name="regions_packages">Contenuti (%1$s)</string>
-    <string name="transit_networks_selected">%1$d di %2$d reti selezionate</string>
+    <plurals name="transit_networks_selected">
+        <item quantity="one">%1$d di %2$d rete selezionata</item>
+        <item quantity="many">%1$d di %2$d reti selezionate</item>
+        <item quantity="other">%1$d di %2$d reti selezionate</item>
+    </plurals>
     <string name="transit_networks_near">Selezionate le reti entro 50 km dall\'ultima posizione nota</string>
     <string name="transit_networks_nearest">Nessuna rete entro 50 km dall\'ultima posizione nota: selezionata la più vicina</string>
     <string name="transit_networks_all">Posizione non nota o in un\'altra nazione: selezionate tutte le reti. Deseleziona quelle non necessarie</string>
@@ -107,6 +111,7 @@
     <string name="world_map_not_available">Questa nazione non è ancora disponibile nel catalogo</string>
     <plurals name="continent_count">
         <item quantity="one">%1$d nazione</item>
+        <item quantity="many">%1$d nazioni</item>
         <item quantity="other">%1$d nazioni</item>
     </plurals>
     <string name="continent_expanded">aperto</string>
@@ -123,6 +128,7 @@
     <string name="more_updates_subtitle">App, nazioni, guide e modello IA</string>
     <plurals name="updates_available_count">
         <item quantity="one">%1$d aggiornamento disponibile</item>
+        <item quantity="many">%1$d aggiornamenti disponibili</item>
         <item quantity="other">%1$d aggiornamenti disponibili</item>
     </plurals>
     <string name="updates_up_to_date">Tutto aggiornato</string>
@@ -295,6 +301,7 @@
     <string name="onboarding_region_downloading">Download in corso…</string>
     <plurals name="onboarding_region_summary">
         <item quantity="one">%1$d nazione, %2$s. Il download continua in background</item>
+        <item quantity="many">%1$d nazioni, %2$s. Il download continua in background</item>
         <item quantity="other">%1$d nazioni, %2$s. Il download continua in background</item>
     </plurals>
     <string name="onboarding_accessible">In sedia a rotelle</string>
@@ -307,6 +314,7 @@
     <string name="onboarding_ready_countries_none">Nessun download avviato: le nazioni si aggiungono dalla scheda Nazioni</string>
     <plurals name="onboarding_ready_countries_started">
         <item quantity="one">%1$d nazione in download in background</item>
+        <item quantity="many">%1$d nazioni in download in background</item>
         <item quantity="other">%1$d nazioni in download in background</item>
     </plurals>
     <string name="onboarding_ready_ai_title">Assistente IA</string>
@@ -324,6 +332,7 @@
     <string name="onboarding_start">Inizia</string>
     <plurals name="country_region_count">
         <item quantity="one">%d regione</item>
+        <item quantity="many">%d regioni</item>
         <item quantity="other">%d regioni</item>
     </plurals>
     <string name="settings_title">Impostazioni</string>

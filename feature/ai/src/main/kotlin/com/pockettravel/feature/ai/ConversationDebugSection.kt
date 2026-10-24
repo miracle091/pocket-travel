@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import java.time.Instant
 import java.time.ZoneId
@@ -30,7 +31,8 @@ internal fun ConversationSection(info: ConversationDebugInfo?, runtime: LlmRunti
         stringResource(R.string.ai_taskmgr_conversation_threshold),
         context?.let {
             val threshold = compactionThreshold(it.contextSize)
-            stringResource(R.string.ai_taskmgr_conversation_threshold_value, threshold, maxOf(0, threshold - it.usedTokens))
+            val remaining = maxOf(0, threshold - it.usedTokens)
+            pluralStringResource(R.plurals.ai_taskmgr_conversation_threshold_value, remaining, threshold, remaining)
         } ?: NOT_AVAILABLE,
     )
     MetricRow(stringResource(R.string.ai_taskmgr_conversation_compactions), "0")

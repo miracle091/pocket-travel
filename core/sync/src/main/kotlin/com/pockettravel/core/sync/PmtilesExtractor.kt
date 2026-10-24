@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import android.annotation.SuppressLint
 import ch.poole.geo.pmtiles.Hilbert
 import ch.poole.geo.pmtiles.HttpUrlConnectionChannel
 import ch.poole.geo.pmtiles.Reader
@@ -111,8 +112,11 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
                         throw error
                     } catch (error: Exception) {
                         if (error === interruption) throw error
-                        // Disco pieno: l'estrazione completa riscaricherebbe tutte le tile per fallire uguale.
-                        if (error is IOException && (error.message.orEmpty().contains("ENOSPC") || directory.usableSpace < LOW_SPACE_BYTES)) throw error
+                        // Disco pieno: l'estrazione completa riscaricherebbe tutte le tile per fallire uguale. Conta lo
+                        // spazio libero reale dopo l'errore di scrittura, non quello che il sistema potrebbe liberare.
+                        @SuppressLint("UsableSpace")
+                        val lowSpace = directory.usableSpace < LOW_SPACE_BYTES
+                        if (error is IOException && (error.message.orEmpty().contains("ENOSPC") || lowSpace)) throw error
                         // altrimenti ripiego sull'estrazione completa qui sotto
                     }
                 }

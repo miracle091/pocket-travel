@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -86,7 +87,7 @@ private fun ResourcesSection(snapshot: LlmTaskSnapshot) {
     MetricRow(stringResource(R.string.ai_taskmgr_low_memory), stringResource(if (snapshot.lowMemory) R.string.ai_taskmgr_yes else R.string.ai_taskmgr_no))
     MetricRow(
         stringResource(R.string.ai_taskmgr_cpu),
-        stringResource(R.string.ai_taskmgr_cpu_value, snapshot.cpuPercent, snapshot.cpuCores),
+        pluralStringResource(R.plurals.ai_taskmgr_cpu_value, snapshot.cpuCores, snapshot.cpuPercent, snapshot.cpuCores),
     )
     MetricRow(stringResource(R.string.ai_taskmgr_threads), snapshot.threadCount?.toString() ?: NOT_AVAILABLE)
 }
@@ -108,7 +109,13 @@ private fun BehaviourSection(runtime: LlmRuntimeStats) {
     MetricRow(
         stringResource(R.string.ai_taskmgr_context_used),
         context?.let {
-            stringResource(R.string.ai_taskmgr_context_used_value, it.usedTokens, it.contextSize, it.usedTokens * PERCENT_INT / it.contextSize)
+            pluralStringResource(
+                R.plurals.ai_taskmgr_context_used_value,
+                it.contextSize,
+                it.usedTokens,
+                it.contextSize,
+                it.usedTokens * PERCENT_INT / it.contextSize,
+            )
         } ?: NOT_AVAILABLE,
     )
     MetricRow(stringResource(R.string.ai_taskmgr_first_token), last.timeToFirstTokenMs?.let { seconds(it) } ?: NOT_AVAILABLE)

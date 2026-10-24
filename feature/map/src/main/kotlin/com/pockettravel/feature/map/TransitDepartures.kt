@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
@@ -194,10 +195,10 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
     // Ora della rete nel formato del dispositivo (24 h o AM/PM, anche per TalkBack). Il formatter va in UTC: minuteOfDay e'
     // gia' un orario locale della rete e non va spostato col fuso del dispositivo; GTFS supera le 24 h dopo mezzanotte.
     val context = LocalContext.current
-    val (clock, laterTexts) = remember(departure.minuteOfDay, departure.later, context) {
+    val res = LocalResources.current
+    val (clock, laterTexts) = remember(departure.minuteOfDay, departure.later, context, res) {
         val format = DateFormat.getTimeFormat(context).apply { timeZone = TimeZone.getTimeZone("UTC") }
         fun clockOf(minute: Int) = format.format(Date(Math.floorMod(minute, MINUTES_PER_DAY) * MILLIS_PER_MINUTE))
-        val res = context.resources
         clockOf(departure.minuteOfDay) to laterTexts(
             departure.later,
             ::clockOf,

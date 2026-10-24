@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="it">
     <!-- Descrizioni delle fonti ufficiali (OfficialSource.kt). -->
     <string name="source_desc_advice_documents">Sicurezza, documenti e ingresso paese per paese</string>
     <string name="source_desc_register">Registrazione del viaggio, per essere reperibili in caso di emergenza</string>

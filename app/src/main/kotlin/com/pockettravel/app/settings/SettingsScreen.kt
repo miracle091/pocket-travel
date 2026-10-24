@@ -1,6 +1,5 @@
 package com.pockettravel.app.settings
 
-import android.net.Uri
 import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -37,6 +36,7 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
@@ -121,7 +121,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
             SettingsItem(
                 ImageVector.vectorResource(UiR.drawable.ms_cloud),
                 stringResource(R.string.settings_catalog),
-                viewModel.customCatalog?.let { stringResource(R.string.settings_catalog_custom, Uri.parse(it.manifestUrl).host.orEmpty()) }
+                viewModel.customCatalog?.let { stringResource(R.string.settings_catalog_custom, it.manifestUrl.toUri().host.orEmpty()) }
                     ?: stringResource(R.string.settings_catalog_official),
             ) { showCatalog = true }
         }

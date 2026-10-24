@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="it">
     <string name="vault_title">Documenti</string>
     <string name="vault_type_passport">Passaporto</string>
     <string name="vault_type_ticket">Biglietto</string>
@@ -49,7 +49,11 @@
     <string name="vault_ticket_date">Data e ora: %1$s</string>
     <string name="vault_lock">Blocca i documenti</string>
     <string name="vault_add_photo">Aggiungi una foto</string>
-    <string name="vault_photo_limit">Limite di %1$d foto raggiunto</string>
+    <plurals name="vault_photo_limit">
+        <item quantity="one">Limite di %1$d foto raggiunto</item>
+        <item quantity="many">Limite di %1$d foto raggiunto</item>
+        <item quantity="other">Limite di %1$d foto raggiunto</item>
+    </plurals>
     <string name="vault_save">Salva</string>
     <string name="vault_cancel">Annulla</string>
     <string name="vault_camera_ok">Documento inquadrato correttamente</string>

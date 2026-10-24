@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -19,6 +20,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.createBitmap
 import com.pockettravel.core.ui.R as UiR
 import dagger.hilt.android.AndroidEntryPoint
 import java.text.NumberFormat
@@ -71,8 +73,11 @@ class NavigationService : Service() {
         }
         // Entro 5 secondi da startForegroundService: prima di tutto il resto.
         val first = session.snapshot.value?.let(::render) ?: NotificationText(title = applicationContext.getString(R.string.navigation_waiting_fix))
+        // Il tipo del servizio esiste da Android 10: ServiceCompat lo ignora sulle versioni precedenti.
+        @SuppressLint("InlinedApi")
+        val serviceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
         try {
-            ServiceCompat.startForeground(this, NOTIFICATION_ID, build(first), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, build(first), serviceType)
         } catch (error: Exception) {
             // Da 14 il tipo posizione richiede il permesso di posizione (SecurityException); da 12 non si parte da
             // sfondo. Senza servizio la navigazione continua con l'app aperta.
@@ -168,7 +173,7 @@ class NavigationService : Service() {
     // La freccia della navigazione (stesse icone) in bianco su un cerchio scuro: leggibile con il tema chiaro e scuro.
     private fun turnIcon(type: TurnType): Bitmap = turnIcons.getOrPut(type) {
         val size = (LARGE_ICON_DP * resources.displayMetrics.density).toInt()
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(size, size)
         val canvas = Canvas(bitmap)
         canvas.drawCircle(size / 2f, size / 2f, size / 2f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ICON_BACKGROUND })
         ContextCompat.getDrawable(this, turnIconRes(type))?.mutate()?.let { arrow ->

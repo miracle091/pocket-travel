@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="it">
     <string name="app_update_required_for_download">Aggiorna l\'app per scaricare questi dati, che usano un formato più recente</string>
     <string name="sync_download_channel">Download</string>
     <string name="sync_download_cancel">Annulla</string>

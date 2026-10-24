@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="it">
     <string name="guide_load_error">Impossibile caricare la guida per questa regione</string>
     <string name="guide_empty_title">Nessun contenuto della guida disponibile</string>
     <string name="guide_empty_subtitle">Nessuna sezione della guida ancora pubblicata per questa regione</string>
@@ -43,28 +43,34 @@
     <string name="guide_city_population_millions">%1$s milioni di abitanti</string>
     <plurals name="guide_cities_count">
         <item quantity="one">%d guida</item>
+        <item quantity="many">%d guide</item>
         <item quantity="other">%d guide</item>
     </plurals>
     <string name="guide_city_empty_title">Nessun contenuto della guida disponibile per questa città</string>
     <string name="guide_city_load_error">Impossibile caricare la guida per questa città</string>
     <plurals name="quick_facts_train">
         <item quantity="one">treno (%d stazione)</item>
+        <item quantity="many">treno (%d stazioni)</item>
         <item quantity="other">treno (%d stazioni)</item>
     </plurals>
     <plurals name="quick_facts_metro">
         <item quantity="one">metropolitana (%d stazione)</item>
+        <item quantity="many">metropolitana (%d stazioni)</item>
         <item quantity="other">metropolitana (%d stazioni)</item>
     </plurals>
     <plurals name="quick_facts_bus">
         <item quantity="one">autobus (%d autostazione)</item>
+        <item quantity="many">autobus (%d autostazioni)</item>
         <item quantity="other">autobus (%d autostazioni)</item>
     </plurals>
     <plurals name="quick_facts_ferry">
         <item quantity="one">traghetto (%d porto)</item>
+        <item quantity="many">traghetto (%d porti)</item>
         <item quantity="other">traghetto (%d porti)</item>
     </plurals>
     <plurals name="quick_facts_airport">
         <item quantity="one">aereo (%d aeroporto)</item>
+        <item quantity="many">aereo (%d aeroporti)</item>
         <item quantity="other">aereo (%d aeroporti)</item>
     </plurals>
     <string name="emergency_embassies_title">Ambasciate e consolati del tuo paese (%1$s)</string>
@@ -137,6 +143,7 @@
     <string name="vacc_reason_from_list">Arrivo da un paese per cui la destinazione richiede il certificato (%1$s)</string>
     <plurals name="vacc_reason_stopover">
         <item quantity="one">Scalo di %1$d ora (%2$s)</item>
+        <item quantity="many">Scalo di %1$d ore (%2$s)</item>
         <item quantity="other">Scalo di %1$d ore (%2$s)</item>
     </plurals>
     <string name="vacc_reason_stopover_unknown">Scalo di durata non indicata o superiore a 12 ore (%1$s)</string>
@@ -157,14 +164,24 @@
     <string name="vacc_polio_dose_any">Dose di %1$s, con certificato</string>
     <string name="vacc_polio_vaccine_bopv_or_ipv">bOPV o IPV</string>
     <string name="vacc_polio_vaccine_ipv">IPV</string>
-    <string name="vacc_min_age">Da %1$d mesi di età in su</string>
-    <string name="vacc_below_age">Non richiesta sotto i %1$d mesi di età</string>
+    <plurals name="vacc_min_age">
+        <item quantity="one">Da %1$d mese di età in su</item>
+        <item quantity="many">Da %1$d mesi di età in su</item>
+        <item quantity="other">Da %1$d mesi di età in su</item>
+    </plurals>
+    <plurals name="vacc_below_age">
+        <item quantity="one">Non richiesta sotto %1$d mese di età</item>
+        <item quantity="many">Non richiesta sotto i %1$d mesi di età</item>
+        <item quantity="other">Non richiesta sotto i %1$d mesi di età</item>
+    </plurals>
     <plurals name="vacc_days_before">
         <item quantity="one">Almeno %1$d giorno prima della partenza</item>
+        <item quantity="many">Almeno %1$d giorni prima della partenza</item>
         <item quantity="other">Almeno %1$d giorni prima della partenza</item>
     </plurals>
     <plurals name="vacc_validity_years">
         <item quantity="one">Validità: %1$d anno</item>
+        <item quantity="many">Validità: %1$d anni</item>
         <item quantity="other">Validità: %1$d anni</item>
     </plurals>
     <string name="vacc_sources">Fonti</string>

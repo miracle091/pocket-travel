@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
@@ -251,7 +252,7 @@ private fun TransitNetworksToggle(selected: Int, total: Int, expanded: Boolean, 
             .padding(start = Spacing.xl)
             .clickable(onClickLabel = actionLabel, role = Role.Button, onClick = onToggle)
             .semantics(mergeDescendants = true) { stateDescription = stateText },
-        content = { Text(stringResource(R.string.transit_networks_selected, selected, total)) },
+        content = { Text(pluralStringResource(R.plurals.transit_networks_selected, total, selected, total)) },
     )
 }
 

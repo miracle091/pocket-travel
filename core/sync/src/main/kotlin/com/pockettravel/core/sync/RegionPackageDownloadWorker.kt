@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -56,6 +57,8 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
             // ferma a schermo spento. Gli aggiornamenti dopo il primo sono asincroni e al massimo uno al secondo.
             val notification = RegionDownloadNotification(applicationContext)
             val throttle = UpdateThrottle()
+            // Il tipo del servizio esiste da Android 10: WorkManager lo ignora sulle versioni precedenti.
+            @SuppressLint("InlinedApi")
             fun foregroundInfo(phase: DownloadPhase) = ForegroundInfo(
                 notification.notificationId(entry.regionId),
                 notification.build(id, entry.displayName, kinds, phase),

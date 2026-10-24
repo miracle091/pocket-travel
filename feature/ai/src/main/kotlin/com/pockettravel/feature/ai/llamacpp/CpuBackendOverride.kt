@@ -1,9 +1,9 @@
 package com.pockettravel.feature.ai.llamacpp
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
+import androidx.core.content.edit
 import java.io.File
 
 /**
@@ -35,11 +35,10 @@ object CpuBackendOverride {
     fun save(context: Context, fileName: String?) = save(prefs(context), fileName)
 
     // commit e non apply: subito dopo il task manager riavvia il processo, e una scrittura asincrona andrebbe persa.
-    @SuppressLint("ApplySharedPref")
     fun save(prefs: SharedPreferences, fileName: String?) {
-        val editor = prefs.edit()
-        if (fileName == null) editor.remove(KEY) else editor.putString(KEY, fileName)
-        editor.commit()
+        prefs.edit(commit = true) {
+            if (fileName == null) remove(KEY) else putString(KEY, fileName)
+        }
     }
 
     /** Percorso della variante da caricare all'init, se scelta e ancora presente nell'APK; altrimenti null. */

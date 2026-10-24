@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Configurazione di Android Lint comune a tutti i moduli Android (convention plugin di build-logic). Solo i
+     controlli che non si applicano al progetto, ciascuno con il motivo. -->
+<lint>
+    <!-- La release contiene solo arm64-v8a (i telefoni); x86_64 c'è solo nel debug, per l'emulatore dei test
+         strumentati. I Chromebook x86_64 non sono tra i dispositivi supportati. -->
+    <issue id="ChromeOsAbiSupport" severity="ignore" />
+
+    <!-- L'app si distribuisce come APK su GitHub, non come bundle di Google Play: nessuna divisione per lingua
+         (il bundle dell'app la disattiva comunque), quindi nessuna lingua da scaricare con Play Core. -->
+    <issue id="AppBundleLocaleChanges" severity="ignore" />
+
+    <!-- Bandiere di westnordost/flags-vector-drawables-android: i percorsi lunghi sono gli stemmi disegnati
+         dalla fonte. Accorciarli cambierebbe il disegno; le bandiere si mostrano piccole, in un cerchio. -->
+    <issue id="VectorPath">
+        <ignore path="**/res/drawable/ic_flag_*.xml" />
+    </issue>
+</lint>

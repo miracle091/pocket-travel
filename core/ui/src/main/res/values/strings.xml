@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="it">
     <string name="back">Indietro</string>
     <string name="hint_dismiss">Chiudi</string>
     <string name="confirm_delete">Elimina</string>
