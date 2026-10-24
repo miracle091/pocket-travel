@@ -21,11 +21,13 @@ def uses_empty_think(chat_template):
     return chat_template is not None and "enable_thinking" in chat_template
 
 
-def chatml_prompt(user, empty_think=False):
+def chatml_prompt(user, empty_think=False, system=None):
     """Prompt a turno singolo come lo manda l'app: il formatter CHATML di llama.cpp (src/llama-chat.cpp, che
     ai_chat.cpp usa per i modelli con template ChatML) per il turno utente e l'apertura del turno assistente, piu' il blocco <think>
-    vuoto che ai_chat.cpp aggiunge quando uses_empty_think() vale per il template del modello."""
-    return f"<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n" + (EMPTY_THINK if empty_think else "")
+    vuoto che ai_chat.cpp aggiunge quando uses_empty_think() vale per il template del modello. Con system, prima un turno
+    system nello stesso formato (l'app oggi non lo manda: serve a misurarlo)."""
+    system_turn = f"<|im_start|>system\n{system}<|im_end|>\n" if system else ""
+    return f"{system_turn}<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n" + (EMPTY_THINK if empty_think else "")
 
 
 def chatml_answer(answer):

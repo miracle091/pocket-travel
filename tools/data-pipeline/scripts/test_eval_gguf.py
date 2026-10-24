@@ -133,6 +133,11 @@ class EvalGgufTest(unittest.TestCase):
         self.run_script("--empty-think", replies=["R."], rows=rows)
         self.assertIn("<think>", self.prompts[0]["prompt"])
 
+    def test_turno_system_prima_del_turno_utente(self):
+        self.run_script("--system", "Rispondi solo dal contesto.", replies=["R."], rows=[row("pos", "D?", "R.")])
+        self.assertTrue(self.prompts[0]["prompt"].startswith("<|im_start|>system\nRispondi solo dal contesto.<|im_end|>\n"
+                                                             "<|im_start|>user\nD?<|im_end|>\n"))
+
     def test_limit_e_answers(self):
         rows = [row("pos", f"Q: Domanda {i}?\n\nDOMANDA: Domanda {i}?", f"Risposta {i}.") for i in range(5)]
         answers = self.tmp / "answers.jsonl"

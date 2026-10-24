@@ -133,6 +133,11 @@ class ChatmlTest(unittest.TestCase):
     def test_prompt_uguale_al_formatter_di_llama_cpp(self):
         self.assertEqual(eval_common.chatml_prompt(self.user["content"]), llama_chatml([self.user], add_ass=True))
 
+    def test_prompt_con_turno_system_uguale_al_formatter_di_llama_cpp(self):
+        system = {"role": "system", "content": "Rispondi solo dal contesto."}
+        self.assertEqual(eval_common.chatml_prompt(self.user["content"], system=system["content"]),
+                         llama_chatml([system, self.user], add_ass=True))
+
     def test_prompt_e_risposta_uguali_al_formatter_di_llama_cpp(self):
         self.assertEqual(eval_common.chatml_prompt(self.user["content"]) + eval_common.chatml_answer(self.assistant["content"]),
                          llama_chatml([self.user, self.assistant], add_ass=False))

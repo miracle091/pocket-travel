@@ -15,7 +15,8 @@ Con --contexts il modello risponde con il contesto prodotto dalla ricerca vera (
 serie e variante della ricerca, rifiuti con la sezione attesa nel contesto (del modello) e senza (della ricerca).
 Dopo le metriche dei rifiuti, i controlli sulle istruzioni (instruction_checks di eval_common.py), anche nei campi di
 --answers: fedelta' al contesto, risposte oltre 450 caratteri, lingua, <think> iniziale; eval_answers.py li rifa' su
-risposte gia' salvate.
+risposte gia' salvate. Con --system "<testo>" il prompt ha prima un turno system (l'app non lo manda): serve a misurare
+un prompt di sistema, per esempio sugli Ufficiali, con le stesse domande.
 Stesse regioni di test di train_lora.py (TEST_REGIONS in eval_common.py) e stesse metriche di eval_behavior.py; decodifica
 greedy (temperature 0, top-k 1). Il modello si carica una volta sola in llama-server e ogni riga e' una
 richiesta /completion. Il prompt e' lo stesso ChatML "grezzo" (chatml_prompt di eval_common.py) che
@@ -64,6 +65,8 @@ ap.add_argument("--app-sampling", action="store_true",
                 help="anche la probabilita' del rifiuto con il campionamento dell'app (temperatura 0,3, top-k 10, top-p 0,95, min-p 0,05)")
 ap.add_argument("--samples", type=int, default=0, help="con --app-sampling: anche N risposte campionate per riga, per controllo")
 ap.add_argument("--kinds", nargs="+", help="solo le righe di questi tipi (es. pos_near neg_city)")
+ap.add_argument("--system", help="turno system prima del turno utente, nel formato CHATML (l'app oggi non lo manda: per "
+                                 "misurare un prompt di sistema, per esempio sugli Ufficiali)")
 a = ap.parse_args()
 if a.contexts and (a.app_sampling or a.kinds):
     ap.error("--app-sampling e --kinds valgono per le righe di test, non con --contexts")
@@ -133,7 +136,7 @@ def post(url, path, body):
 
 def ask(url, content):
     """(risposta, troncata): troncata se llama-server si e' fermato al limite di token (stop_type "limit")."""
-    reply = post(url, "/completion", {"prompt": chatml_prompt(content, empty_think), "n_predict": ANSWER_TOKENS, "temperature": 0,
+    reply = post(url, "/completion", {"prompt": chatml_prompt(content, empty_think, a.system), "n_predict": ANSWER_TOKENS, "temperature": 0,
                                       "top_k": 1, "cache_prompt": False})
     return reply["content"].strip(), reply.get("stop_type") == "limit"
 
@@ -150,7 +153,7 @@ def app_refusal(url, row):
     prefix = refusal_prefix(row)
     if prefix not in refusal_tokens:
         refusal_tokens[prefix] = post(url, "/tokenize", {"content": prefix})["tokens"]
-    tokens, prompt = refusal_tokens[prefix], chatml_prompt(row["messages"][0]["content"], empty_think)
+    tokens, prompt = refusal_tokens[prefix], chatml_prompt(row["messages"][0]["content"], empty_think, a.system)
     p = 1.0
     for i, token in enumerate(tokens):
         reply = post(url, "/completion", {"prompt": [prompt, *tokens[:i]], "n_predict": 1, "n_probs": APP_SAMPLING["top_k"],
