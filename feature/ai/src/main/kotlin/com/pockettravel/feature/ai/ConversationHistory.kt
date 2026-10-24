@@ -8,6 +8,7 @@ import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -220,8 +221,9 @@ private fun ConversationList(conversations: List<SavedConversation>, actions: Hi
         items(conversations, key = { it.id }) { conversation ->
             var menuExpanded by remember { mutableStateOf(false) }
             val date = dateFormat.format(Instant.ofEpochMilli(conversation.updatedAt).atZone(ZoneId.systemDefault()))
+            // Spaziature della voce di elenco classica (8 dp sopra e sotto, menu a 16 dp dal titolo, voce centrata): i
+            // valori predefiniti di questo ListItem le cambiano. Il pulsante del menu misura qui 40 dp, non 48.
             ListItem(
-                headlineContent = { Text(conversation.summary.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
                 supportingContent = {
                     Text(
                         stringResource(R.string.ai_history_item_details, conversation.summary.regionName, date),
@@ -229,7 +231,7 @@ private fun ConversationList(conversations: List<SavedConversation>, actions: Hi
                     )
                 },
                 trailingContent = {
-                    Box {
+                    Box(modifier = Modifier.padding(start = 8.dp)) {
                         IconButton(onClick = { menuExpanded = true }) {
                             Icon(AppIcons.MoreVert, contentDescription = stringResource(R.string.ai_more_actions))
                         }
@@ -243,7 +245,11 @@ private fun ConversationList(conversations: List<SavedConversation>, actions: Hi
                     }
                 },
                 modifier = Modifier.clickable(onClickLabel = stringResource(R.string.ai_history_resume)) { actions.onResume(conversation.id) },
-            )
+                verticalAlignment = Alignment.CenterVertically,
+                contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 20.dp, bottom = 8.dp),
+            ) {
+                Text(conversation.summary.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
     toDelete?.let { conversation ->
