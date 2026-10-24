@@ -155,6 +155,17 @@ def context_of(row):
     return content.split(start, 1)[-1].rsplit(end, 1)[0]
 
 
+def knowledge_turns(content):
+    """(turno system, turno utente) del prompt dell'app nel formato di Qwen-Agent (KNOWLEDGE_TEMPLATE_EN e
+    KNOWLEDGE_SNIPPET_EN in qwen_agent/agents/assistant.py): il contesto nel turno system sotto "# Knowledge Base", nel
+    turno utente le istruzioni e la domanda. Per misurarlo sui modelli Ufficiali; l'app manda tutto nel turno utente."""
+    start, end = ("CONTEXT: ", "\n\nQUESTION: ") if content.startswith(EN_PROMPT) else ("CONTESTO: ", "\n\nDOMANDA: ")
+    head, rest = content.split(start, 1)
+    context, question = rest.rsplit(end, 1)
+    system = f"# Knowledge Base\n\n## The content from travel guide:\n\n```\n{context}\n```"
+    return system, f"{head.rstrip()}\n\n{end.strip()} {question}"
+
+
 def dataset_lang(row):
     """Lingua del dataset della riga ("it" o "en"), dal prompt: e' la lingua attesa della risposta."""
     return "en" if row["messages"][0]["content"].startswith(EN_PROMPT) else "it"

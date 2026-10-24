@@ -16,7 +16,8 @@ serie e variante della ricerca, rifiuti con la sezione attesa nel contesto (del 
 Dopo le metriche dei rifiuti, i controlli sulle istruzioni (instruction_checks di eval_common.py), anche nei campi di
 --answers: fedelta' al contesto, risposte oltre 450 caratteri, lingua, <think> iniziale; eval_answers.py li rifa' su
 risposte gia' salvate. Con --system "<testo>" il prompt ha prima un turno system (l'app non lo manda): serve a misurare
-un prompt di sistema, per esempio sugli Ufficiali, con le stesse domande.
+un prompt di sistema, per esempio sugli Ufficiali, con le stesse domande. Con --knowledge-system il contesto va invece
+nel turno system nel formato di Qwen-Agent ("# Knowledge Base"), e nel turno utente restano istruzioni e domanda.
 Stesse regioni di test di train_lora.py (TEST_REGIONS in eval_common.py) e stesse metriche di eval_behavior.py; decodifica
 greedy (temperature 0, top-k 1). Il modello si carica una volta sola in llama-server e ogni riga e' una
 richiesta /completion. Il prompt e' lo stesso ChatML "grezzo" (chatml_prompt di eval_common.py) che
@@ -39,7 +40,7 @@ from gguf import GGUFReader
 import gpu_lock
 import vram
 from eval_common import (ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, instruction_checks, is_refusal,
-                         llama_env, load_test_rows, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
+                         knowledge_turns, llama_env, load_test_rows, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
                          print_report, question_lang, question_of, refusal_prefix, refusal_summary, score, text_lang, uses_empty_think)
 from status import Progress, phase
 
@@ -67,11 +68,16 @@ ap.add_argument("--samples", type=int, default=0, help="con --app-sampling: anch
 ap.add_argument("--kinds", nargs="+", help="solo le righe di questi tipi (es. pos_near neg_city)")
 ap.add_argument("--system", help="turno system prima del turno utente, nel formato CHATML (l'app oggi non lo manda: per "
                                  "misurare un prompt di sistema, per esempio sugli Ufficiali)")
+ap.add_argument("--knowledge-system", action="store_true",
+                help="il contesto nel turno system nel formato di Qwen-Agent (\"# Knowledge Base\"), istruzioni e domanda nel "
+                     "turno utente: per misurarlo sugli Ufficiali (knowledge_turns di eval_common.py)")
 a = ap.parse_args()
 if a.contexts and (a.app_sampling or a.kinds):
     ap.error("--app-sampling e --kinds valgono per le righe di test, non con --contexts")
 if a.samples and not a.app_sampling:
     ap.error("--samples serve con --app-sampling")
+if a.system and a.knowledge_system:
+    ap.error("--system e --knowledge-system mettono tutti e due il turno system: uno solo")
 gpu_lock.gpu_job("eval_gguf.py", gpu=a.gpu_layers > 0)
 
 # Come ai_chat.cpp: i template con enable_thinking (Qwen3.5 del v10) ricevono il blocco <think> vuoto che il training
@@ -134,9 +140,17 @@ def post(url, path, body):
         return json.load(r)
 
 
+def prompt_of(content):
+    """Il prompt ChatML per il testo del turno utente dell'app, con il turno system di --system o --knowledge-system."""
+    if a.knowledge_system:
+        system, user = knowledge_turns(content)
+        return chatml_prompt(user, empty_think, system)
+    return chatml_prompt(content, empty_think, a.system)
+
+
 def ask(url, content):
     """(risposta, troncata): troncata se llama-server si e' fermato al limite di token (stop_type "limit")."""
-    reply = post(url, "/completion", {"prompt": chatml_prompt(content, empty_think, a.system), "n_predict": ANSWER_TOKENS, "temperature": 0,
+    reply = post(url, "/completion", {"prompt": prompt_of(content), "n_predict": ANSWER_TOKENS, "temperature": 0,
                                       "top_k": 1, "cache_prompt": False})
     return reply["content"].strip(), reply.get("stop_type") == "limit"
 
@@ -153,7 +167,7 @@ def app_refusal(url, row):
     prefix = refusal_prefix(row)
     if prefix not in refusal_tokens:
         refusal_tokens[prefix] = post(url, "/tokenize", {"content": prefix})["tokens"]
-    tokens, prompt = refusal_tokens[prefix], chatml_prompt(row["messages"][0]["content"], empty_think, a.system)
+    tokens, prompt = refusal_tokens[prefix], prompt_of(row["messages"][0]["content"])
     p = 1.0
     for i, token in enumerate(tokens):
         reply = post(url, "/completion", {"prompt": [prompt, *tokens[:i]], "n_predict": 1, "n_probs": APP_SAMPLING["top_k"],

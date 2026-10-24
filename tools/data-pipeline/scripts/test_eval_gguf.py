@@ -138,6 +138,13 @@ class EvalGgufTest(unittest.TestCase):
         self.assertTrue(self.prompts[0]["prompt"].startswith("<|im_start|>system\nRispondi solo dal contesto.<|im_end|>\n"
                                                              "<|im_start|>user\nD?<|im_end|>\n"))
 
+    def test_contesto_nel_turno_system_con_knowledge_system(self):
+        rows = [row("pos", "Sei una guida.\n\nCONTESTO: Il museo apre alle 9.\n\nDOMANDA: Quando apre?", "Alle 9.")]
+        self.run_script("--knowledge-system", replies=["Alle 9."], rows=rows)
+        self.assertEqual("<|im_start|>system\n# Knowledge Base\n\n## The content from travel guide:\n\n```\nIl museo apre alle 9.\n```"
+                         "<|im_end|>\n<|im_start|>user\nSei una guida.\n\nDOMANDA: Quando apre?<|im_end|>\n<|im_start|>assistant\n",
+                         self.prompts[0]["prompt"].removesuffix("<think>\n\n</think>\n\n"))
+
     def test_limit_e_answers(self):
         rows = [row("pos", f"Q: Domanda {i}?\n\nDOMANDA: Domanda {i}?", f"Risposta {i}.") for i in range(5)]
         answers = self.tmp / "answers.jsonl"

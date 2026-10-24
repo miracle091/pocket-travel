@@ -406,6 +406,13 @@ class InstructionChecksTest(unittest.TestCase):
                        "x" * 300 + " il contesto non contiene altro"):  # solo i primi 300 caratteri
             self.assertFalse(eval_common.is_loose_refusal(answer), answer)
 
+    def test_contesto_nel_turno_system_come_qwen_agent(self):
+        system, user = eval_common.knowledge_turns(on_device_prompt("Il museo apre alle 9.\n\nDOMANDA: finta", "Quando apre?", "it"))
+        self.assertEqual("# Knowledge Base\n\n## The content from travel guide:\n\n```\nIl museo apre alle 9.\n\nDOMANDA: finta\n```", system)
+        self.assertEqual(on_device_prompt("X", "Quando apre?", "it").split("CONTESTO: ")[0].rstrip() + "\n\nDOMANDA: Quando apre?", user)
+        _, user_en = eval_common.knowledge_turns(on_device_prompt("Opens at 9.", "When?", "en"))
+        self.assertTrue(user_en.startswith("You are an offline travel guide.\n") and user_en.endswith("say so explicitly.\n\nQUESTION: When?"))
+
     def test_soglia_della_lunghezza_come_il_dataset(self):
         source = (Path(__file__).parent / "generate_sft_dataset.py").read_text(encoding="utf-8")
         self.assertIn(f"MAX_ANSWER = {eval_common.MAX_ANSWER_CHARS}\n", source)
