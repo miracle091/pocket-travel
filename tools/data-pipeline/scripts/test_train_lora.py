@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Test della scelta del checkpoint da riprendere e del merge a piena precisione in train_lora.py. Lo script gira a livello di modulo e importa
+"""Test della scelta del checkpoint da riprendere, del merge a piena precisione, dell'arresto a loss non finita e della
+compilazione a blocchi di Unsloth spenta in train_lora.py. Lo script gira a livello di modulo e importa
 torch, quindi la funzione si estrae dal sorgente senza eseguirlo.
 
 Uso: python test_train_lora.py
 """
 import ast
+import math
 import sys
 import tempfile
 import types
@@ -97,6 +99,42 @@ class MergeFullPrecisionTest(unittest.TestCase):
     def test_si_ferma_se_mancano_pesi(self):
         with self.assertRaises(SystemExit):
             merge_with_fakes(missing_keys=["model.layers.0.mlp.up_proj.weight"])
+
+
+def stop_on_non_finite():
+    """StopOnNonFinite e non_finite_metric estratte dal sorgente, con un TrainerCallback finto."""
+    nodes = [n for n in ast.parse(SOURCE).body
+             if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name in ("non_finite_metric", "StopOnNonFinite")]
+    namespace = {"math": math, "sys": sys, "TrainerCallback": object}
+    exec(compile(ast.Module(nodes, []), "train_lora.py", "exec"), namespace)
+    return namespace["StopOnNonFinite"]()
+
+
+class StopOnNonFiniteTest(unittest.TestCase):
+    ARGS = types.SimpleNamespace(output_dir="run")
+    STATE = types.SimpleNamespace(global_step=7)
+
+    def test_loss_e_gradiente_finiti_continuano(self):
+        stop_on_non_finite().on_log(self.ARGS, self.STATE, None, logs={"loss": 0.62, "grad_norm": 1.08, "learning_rate": 2e-4})
+        stop_on_non_finite().on_log(self.ARGS, self.STATE, None, logs={"eval_loss": 0.35})
+        stop_on_non_finite().on_log(self.ARGS, self.STATE, None, logs=None)
+
+    def test_si_ferma_a_loss_gradiente_o_eval_non_finiti(self):
+        # Loss 0 con grad_norm NaN: la loss da sola sembrerebbe buona
+        for logs in ({"loss": 0.0, "grad_norm": float("nan")}, {"loss": float("inf")}, {"eval_loss": float("nan")}):
+            with self.subTest(logs=logs), self.assertRaises(SystemExit) as stop:
+                stop_on_non_finite().on_log(self.ARGS, self.STATE, None, logs=logs)
+            self.assertIn("passo 7", str(stop.exception.code))
+
+
+class UnslothBlockCompileTest(unittest.TestCase):
+    def test_spenta_prima_di_importare_unsloth(self):
+        # In cima allo script, prima di Unsloth e del caricamento del modello, anche quando lo si lancia senza train_auto.py
+        body = ast.parse(SOURCE).body
+        setdefault = next(i for i, n in enumerate(body) if "UNSLOTH_BLOCK_COMPILE" in ast.unparse(n))
+        first_import = next(i for i, n in enumerate(body) if "import unsloth" in ast.unparse(n))
+        self.assertLess(setdefault, first_import)
+        self.assertEqual("os.environ.setdefault('UNSLOTH_BLOCK_COMPILE', '0')", ast.unparse(body[setdefault]))
 
 
 if __name__ == "__main__":

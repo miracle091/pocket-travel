@@ -34,6 +34,7 @@ import argparse
 import gc
 import hashlib
 import json
+import math
 import os
 import random
 import shutil
@@ -47,6 +48,11 @@ import gpu_lock
 from status import Progress, phase
 from text_only import CHATML, check_chat_format, check_loaded_embeddings, check_no_vision, text_only_base
 
+# Unsloth 2026.10.8 compila ogni blocco del modello come una regione di torch.compile: sul Qwen3.5 con ROCm su Windows
+# la prima loss esce enorme e dal secondo passo loss 0 e gradiente NaN (peft puro e senza compilazione: gradiente ~1).
+# Unsloth la legge al caricamento del modello: impostata qui vale anche senza train_auto.py. Una variabile gia'
+# impostata resta, per riprovare la compilazione con una versione nuova.
+os.environ.setdefault("UNSLOTH_BLOCK_COMPILE", "0")
 try:
     import unsloth  # noqa: F401  patch di compatibilita' Windows/ROCm (torch senza distributed), serve anche senza --unsloth
 except ImportError:
@@ -68,6 +74,15 @@ def last_complete_checkpoint(out):
     meta' da un'interruzione durante il salvataggio non si riprende. None se non ce ne sono."""
     done = [c for c in Path(out).glob("checkpoint-*") if c.name[11:].isdigit() and (c / "trainer_state.json").is_file()]
     return str(max(done, key=lambda c: int(c.name[11:]))) if done else None
+
+
+def non_finite_metric(logs):
+    """La prima metrica del log del Trainer (loss, grad_norm, eval_loss) che non e' un numero finito, o None."""
+    for key in ("loss", "grad_norm", "eval_loss"):
+        value = logs.get(key)
+        if value is not None and not math.isfinite(float(value)):
+            return key
+    return None
 
 
 LORA = dict(r=16, lora_alpha=32, lora_dropout=0.0,
@@ -155,6 +170,15 @@ class StatusLine(TrainerCallback):
             parts.append(f"eval {float(self.eval_loss):.3f}".replace(".", ","))
         return " · ".join(parts)
 
+class StopOnNonFinite(TrainerCallback):
+    """Ferma lo script alla prima loss o gradiente NaN/inf: da li' i pesi non si recuperano, e senza controllo il
+    training andrebbe avanti per ore. Uscita con errore, senza salvare LoRA ne' merge."""
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        key = non_finite_metric(logs or {})
+        if key:
+            sys.exit(f"{key} non finito al passo {state.global_step}: training fermato. I checkpoint in {args.output_dir} "
+                     "hanno pesi non validi: cancella la cartella prima di rilanciare.")
+
 class WeightedCollator:
     """Toglie 'weight' (scalare per riga) prima del collator standard, che sa impaginare solo i
     campi del tokenizer, poi lo riattacca come tensore: evita di far passare un campo extra dentro
@@ -241,7 +265,7 @@ length_grouping = {} if a.no_group_by_length else (
 trainer = WeightedTrainer(
     model=model, train_dataset=train_ds.select_columns(cols), eval_dataset=test_ds.select_columns(cols),
     data_collator=WeightedCollator(DataCollatorForSeq2Seq(tok, padding=True, label_pad_token_id=-100)),
-    callbacks=[FreeCacheAfterEval(), StatusLine()],
+    callbacks=[FreeCacheAfterEval(), StatusLine(), StopOnNonFinite()],
     args=TrainingArguments(
         bf16=BF16, fp16=not BF16 and not FP32, per_device_train_batch_size=a.batch, gradient_accumulation_steps=16 // a.batch,
         # eval con lo stesso batch del training: il default (8) con vocabolari grandi (Qwen3.5 ~248k token)
