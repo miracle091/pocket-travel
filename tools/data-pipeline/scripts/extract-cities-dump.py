@@ -33,6 +33,18 @@ def city_parents(text):
     return {wiki_dump.norm_title(m.group(2)) for m in QUICKBAR_FIELD.finditer(text[:4000])}
 
 
+def city_region_ids(text, region_id_by_title):
+    """regionId delle regioni della citta' dal suo {{QuickbarCity}}: quelle di Regione, Stato federato o Territorio se
+    ce ne sono, altrimenti quella dello Stato. Tenerife (Stato Spagna, Regione Isole Canarie) va alle Canarie e non
+    anche alla Spagna, Funchal a Madeira e non al Portogallo continentale."""
+    by_field = {}
+    for m in QUICKBAR_FIELD.finditer(text[:4000]):
+        region_id = region_id_by_title.get(wiki_dump.norm_title(m.group(2)))
+        if region_id:
+            by_field.setdefault(m.group(1) == "Stato", set()).add(region_id)
+    return by_field.get(False) or by_field.get(True, set())
+
+
 def main():
     if len(sys.argv) != 4:
         print(f"Uso: {sys.argv[0]} <cartella del dump> <regioni.tsv> <outDir>", file=sys.stderr)
@@ -41,7 +53,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     rows = [line.split("\t") for line in regions_tsv.read_text(encoding="utf-8").splitlines() if line.strip()]
-    region_id_by_title = {wiki_dump.norm_title(title): region_id for region_id, title in rows if title}
+    region_id_by_title = wiki_dump.region_ids_by_title(rows)
 
     files, counts = {}, {}
     try:
@@ -51,7 +63,7 @@ def main():
             parents = city_parents(text)
             if not parents:
                 continue
-            region_ids = {region_id_by_title[p] for p in parents if p in region_id_by_title}
+            region_ids = city_region_ids(text, region_id_by_title)
             for region_id in region_ids:
                 if region_id not in files:
                     files[region_id] = open(out_dir / f"{region_id}.cities.jsonl", "w", encoding="utf-8")

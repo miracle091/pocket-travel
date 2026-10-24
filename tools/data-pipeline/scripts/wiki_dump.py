@@ -39,6 +39,16 @@ def norm_title(title):
     return t[:1].upper() + t[1:]
 
 
+def region_ids_by_title(rows):
+    """{titolo normalizzato: regionId} dalle righe (regionId, titolo) di regions.sh. Con due regioni sulla stessa pagina
+    vale la prima: le Isole Lau hanno la pagina delle Figi, come le Isole occidentali che vengono prima."""
+    out = {}
+    for region_id, title in rows:
+        if title:
+            out.setdefault(norm_title(title), region_id)
+    return out
+
+
 def _pages(stream):
     """(titolo, testo, destinazione del redirect o None) per le pagine del namespace 0."""
     root = None

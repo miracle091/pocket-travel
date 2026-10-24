@@ -69,6 +69,14 @@ class CityParentsTest(unittest.TestCase):
     def test_quickbar_senza_luoghi_da_insieme_vuoto(self):
         self.assertEqual(set(), extract_it.city_parents("{{QuickbarCity\n| Abitanti = 10\n}}"))
 
+    def test_regione_della_citta_dal_campo_piu_specifico(self):
+        ids = {"Spagna": "spagna", "Isole Canarie": "isole-canarie"}
+        tenerife = "{{QuickbarCity\n| Stato = [[Spagna]]\n| Regione = [[Isole Canarie]]\n}}"
+        madrid = "{{QuickbarCity\n| Stato = [[Spagna]]\n| Regione = [[Comunità di Madrid]]\n}}"
+        self.assertEqual({"isole-canarie"}, extract_it.city_region_ids(tenerife, ids))
+        self.assertEqual({"spagna"}, extract_it.city_region_ids(madrid, ids))
+        self.assertEqual(set(), extract_it.city_region_ids("{{QuickbarCity\n| Stato = [[Francia]]\n}}", ids))
+
     def test_quickbar_case_insensitive_con_spazi(self):
         self.assertEqual({"Texas"}, extract_it.city_parents("  {{ quickbarcity\n| Stato federato = [[Texas#Citta]]\n}}"))
 
@@ -76,9 +84,20 @@ class CityParentsTest(unittest.TestCase):
 class RegionsOfTest(unittest.TestCase):
     ids = {"Emilia-Romagna": "emilia", "Italy": "italia"}
 
-    def test_risale_la_catena_fino_a_tutte_le_regioni(self):
+    def test_risale_la_catena_fino_alla_regione_piu_vicina(self):
         parent = {"Rimini": "Rimini (province)", "Rimini (province)": "Emilia-Romagna", "Emilia-Romagna": "Italy"}
-        self.assertEqual({"emilia", "italia"}, extract_en.regions_of("Rimini", parent, self.ids))
+        self.assertEqual({"emilia"}, extract_en.regions_of("Rimini", parent, self.ids))
+        self.assertEqual({"italia"}, extract_en.regions_of("Bari", {"Bari": "Apulia", "Apulia": "Italy"}, self.ids))
+
+    def test_citta_di_un_isola_solo_nella_regione_dell_isola(self):
+        ids = {"Madeira": "portogallo-madeira", "Portugal": "portogallo"}
+        parent = {"Funchal": "Madeira", "Madeira": "Portugal"}
+        self.assertEqual({"portogallo-madeira"}, extract_en.regions_of("Funchal", parent, ids))
+        self.assertEqual({"portogallo"}, extract_en.regions_of("Lisbon", {"Lisbon": "Portugal"}, ids))
+
+    def test_due_regioni_con_la_stessa_pagina_vale_la_prima(self):
+        rows = [("figi-occidentali", "Fiji"), ("figi-lau", "Fiji"), ("vuota", "")]
+        self.assertEqual({"Fiji": "figi-occidentali"}, extract_en.wiki_dump.region_ids_by_title(rows))
 
     def test_catena_senza_regioni_note(self):
         self.assertEqual(set(), extract_en.regions_of("A", {"A": "B", "B": "C"}, self.ids))

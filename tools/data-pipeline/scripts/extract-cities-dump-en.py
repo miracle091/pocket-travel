@@ -28,18 +28,18 @@ MAX_DEPTH = 12
 
 
 def regions_of(title, parent, region_id_by_title):
-    """regionId di tutte le regioni passate risalendo isPartOf da title (es. uno stato USA e gli Stati
-    Uniti interi, come extract-cities-dump.py con Stato e Stato federato)."""
-    found, seen = set(), set()
+    """regionId della regione piu' vicina risalendo isPartOf da title, come set (vuoto se nessuna): Tenerife va alle
+    Canarie e non anche alla Spagna, Funchal a Madeira e non al Portogallo continentale."""
+    seen = set()
     current = title
     for _ in range(MAX_DEPTH):
         current = parent.get(current)
         if current is None or current in seen:
             break
         if current in region_id_by_title:
-            found.add(region_id_by_title[current])
+            return {region_id_by_title[current]}
         seen.add(current)
-    return found
+    return set()
 
 
 def main():
@@ -50,7 +50,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     rows = [line.split("\t") for line in regions_tsv.read_text(encoding="utf-8").splitlines() if line.strip()]
-    region_id_by_title = {wiki_dump.norm_title(title): region_id for region_id, title in rows if title}
+    region_id_by_title = wiki_dump.region_ids_by_title(rows)
 
     parent, cities, redirects = {}, set(), {}
     for title, text, redirect in wiki_dump.iter_pages(dump_path):
