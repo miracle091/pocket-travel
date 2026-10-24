@@ -6,7 +6,7 @@
   HF_HOME/pocket-travel-text-only/, la prima volta, e la controlla tensore per tensore contro l'originale: training,
   merge e GGUF non caricano ne' salvano piu' la torre visiva.
 - Thinking: CHATML sostituisce il chat template del modello. E' il testo che manda ai_chat.cpp (formatter CHATML di
-  llama.cpp, use_jinja=false), senza blocchi <think> ne' la variabile enable_thinking: il template salvato con il LoRA
+  llama.cpp, scelto perche' questo template da' lo stesso testo), senza blocchi <think> ne' la variabile enable_thinking: il template salvato con il LoRA
   e i pesi fusi finisce nel GGUF, e app, convert_gguf.py ed eval_gguf.py, che aggiungono il blocco <think> vuoto solo
   ai template con enable_thinking, non lo aggiungono.
 """

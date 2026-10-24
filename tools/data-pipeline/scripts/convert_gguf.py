@@ -16,9 +16,9 @@ il clone di conversione, con i suoi file compilati, vive fuori dal repo, solo su
 
 Il tokenizer e il chat template sono quelli della cartella merged (lo stesso ChatML del training):
 convert_hf_to_gguf.py li legge da tokenizer_config.json/chat_template.jinja e li scrive nei metadata
-del GGUF. Nota per chi tocca ai_chat.cpp: OnDeviceLlmEngine non li usa a runtime (chat_add_and_format
-chiama common_chat_format_single con use_jinja=false, quindi passa dal formatter CHATML hardcoded di
-llama.cpp — src/llama-chat.cpp — non dal chat_template scritto qui nel file). Il formatter non inserisce il blocco
+del GGUF. Nota per chi tocca ai_chat.cpp: al caricamento l'app formatta una conversazione di prova con il
+chat_template scritto qui (jinja) e con il formatter CHATML di llama.cpp (src/llama-chat.cpp); se i testi
+coincidono, a parte il blocco <think>, usa il formatter, altrimenti il template. Il formatter non inserisce il blocco
 "<think>\n\n</think>\n\n" che il training assume nel turno assistente: lo aggiunge ai_chat.cpp quando il
 template supporta enable_thinking (Qwen3/Qwen3.5), e la calibrazione dell'imatrix qui fa lo stesso.
 """

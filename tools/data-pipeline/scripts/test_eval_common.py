@@ -138,7 +138,8 @@ class ChatmlTest(unittest.TestCase):
                          llama_chatml([self.user, self.assistant], add_ass=False))
 
     def test_blocco_think_uguale_a_quello_di_ai_chat_cpp(self):
-        block = re.search(r'formatted \+= "(<think>[^"]*)";', AI_CHAT).group(1).replace("\\n", "\n")
+        block = re.search(r'EMPTY_THINK\s*=\s*"(<think>[^"]*)";', AI_CHAT).group(1).replace("\\n", "\n")
+        self.assertIn("text += EMPTY_THINK;", AI_CHAT)
         self.assertEqual(EMPTY_THINK, block)
         self.assertEqual(eval_common.chatml_prompt("D", empty_think=True), llama_chatml([{"role": "user", "content": "D"}], True) + block)
 

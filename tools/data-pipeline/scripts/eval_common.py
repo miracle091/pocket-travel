@@ -22,8 +22,8 @@ def uses_empty_think(chat_template):
 
 
 def chatml_prompt(user, empty_think=False):
-    """Prompt a turno singolo come lo manda l'app: il formatter CHATML di llama.cpp (src/llama-chat.cpp, chiamato
-    da ai_chat.cpp con use_jinja=false) per il turno utente e l'apertura del turno assistente, piu' il blocco <think>
+    """Prompt a turno singolo come lo manda l'app: il formatter CHATML di llama.cpp (src/llama-chat.cpp, che
+    ai_chat.cpp usa per i modelli con template ChatML) per il turno utente e l'apertura del turno assistente, piu' il blocco <think>
     vuoto che ai_chat.cpp aggiunge quando uses_empty_think() vale per il template del modello."""
     return f"<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n" + (EMPTY_THINK if empty_think else "")
 

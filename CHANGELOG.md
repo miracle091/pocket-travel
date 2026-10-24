@@ -6,6 +6,9 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ## [Non rilasciato]
 
+### Modificato
+- Assistente IA sul dispositivo: al caricamento del modello l'app sceglie da sola il formato della domanda. I modelli con formato ChatML (gli Addestrati sulle guide e gli Ufficiali Qwen) ricevono lo stesso testo dell'addestramento, come prima; gli altri ricevono il formato scritto nel file del modello, invece di un ChatML che non conoscono. Un modello il cui formato non si riesce a leggere non si carica e mostra un errore. La scelta si legge nel logcat ("Chat format").
+
 ## [0.12.0] - 2026-10-23
 
 ### Aggiunto

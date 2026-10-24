@@ -18,8 +18,8 @@ greedy (temperature 0, top-k 1). Il modello si carica una volta sola in llama-se
 richiesta /completion. Il prompt e' lo stesso ChatML "grezzo" (chatml_prompt di eval_common.py) che
 OnDeviceLlmEngine/ai_chat.cpp costruisce a runtime (un solo turno utente, nessun turno system — vedi
 chat_add_and_format/reset_long_term_states in ai_chat.cpp), non il chat_template jinja scritto nel GGUF
-da convert_gguf.py: l'app non lo usa (common_chat_format_single e' chiamato con use_jinja=false, quindi
-passa dal formatter CHATML hardcoded di llama.cpp). /completion non applica template: il prompt passato
+da convert_gguf.py: per i modelli ChatML l'app usa il formatter CHATML di llama.cpp (il template jinja serve
+solo al controllo del formato al caricamento e ai modelli non ChatML). /completion non applica template: il prompt passato
 e' esattamente quello che finisce nel modello.
 """
 import argparse

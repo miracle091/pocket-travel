@@ -39,6 +39,9 @@ static llama_context                    * g_context;
 static common_batch                       g_batch;
 static common_chat_templates_ptr          g_chat_templates;
 static bool                               g_chat_template_supports_thinking;
+// Formato dei prompt, scelto in prepare_impl (choose_jinja_template): false = formatter CHATML di llama.cpp, true =
+// template jinja del GGUF.
+static bool                               g_use_jinja;
 static common_sampler                   * g_sampler;
 
 // Copiata e rilasciata subito: se dopo qualcosa lancia, la stringa JNI non resta trattenuta. Vuota se manca la memoria
@@ -196,6 +199,96 @@ static common_sampler *new_sampler(float temp, int32_t top_k, float top_p, const
     return common_sampler_init(g_model, sparams);
 }
 
+constexpr const char *ROLE_USER         = "user";
+constexpr const char *ROLE_ASSISTANT    = "assistant";
+constexpr const char *EMPTY_THINK       = "<think>\n\n</think>\n\n";
+
+// Formatter CHATML scritto nel codice di llama.cpp (src/llama-chat.cpp): lo stesso testo del training, e lo stesso
+// che riproducono gli script di conversione e valutazione.
+static std::string apply_chatml(const std::vector<common_chat_msg> &msgs, const bool add_ass) {
+    std::vector<llama_chat_message> chat;
+    size_t size = 64;
+    for (const auto &msg : msgs) {
+        chat.push_back({msg.role.c_str(), msg.content.c_str()});
+        size += msg.role.size() + msg.content.size() + 32;
+    }
+    std::string text(size, '\0');
+    int32_t n = llama_chat_apply_template("chatml", chat.data(), chat.size(), add_ass, text.data(), (int32_t) text.size());
+    if (n > (int32_t) text.size()) {
+        text.resize(n);
+        n = llama_chat_apply_template("chatml", chat.data(), chat.size(), add_ass, text.data(), (int32_t) text.size());
+    }
+    if (n < 0) throw std::runtime_error("chatml formatter failed");
+    text.resize(n);
+    return text;
+}
+
+// Testo della conversazione nel formato scelto. Con CHATML, blocco <think> vuoto dopo l'apertura del turno assistente
+// per i template con enable_thinking (vedi prepare_impl): quei modelli sono addestrati (enable_thinking=False) con il
+// blocco nel prefisso del turno assistente. I modelli addestrati senza thinking (text_only.py) hanno un ChatML senza
+// enable_thinking e non lo ricevono. Con jinja il blocco lo scrive il template stesso, con enable_thinking=false;
+// force_pure_content chiede solo il testo, senza il parser delle risposte, che su template insoliti puo' fallire.
+static std::string format_messages(const std::vector<common_chat_msg> &msgs, const bool add_ass, const bool use_jinja) {
+    if (!use_jinja) {
+        std::string text = apply_chatml(msgs, add_ass);
+        if (add_ass && g_chat_template_supports_thinking) text += EMPTY_THINK;
+        return text;
+    }
+    common_chat_templates_inputs inputs;
+    inputs.messages = msgs;
+    inputs.add_generation_prompt = add_ass;
+    inputs.use_jinja = true;
+    inputs.enable_thinking = false;
+    inputs.force_pure_content = true;
+    return common_chat_templates_apply(g_chat_templates.get(), inputs).prompt.str();
+}
+
+// Il nuovo messaggio formattato in coda a quelli di past, come common_chat_format_single (che pero' non passa
+// enable_thinking al template): la differenza tra la conversazione con e senza il messaggio.
+static std::string format_new_message(const std::vector<common_chat_msg> &past, const common_chat_msg &new_msg) {
+    const bool add_ass = new_msg.role == ROLE_USER;
+    const std::string past_text = past.empty() ? "" : format_messages(past, false, g_use_jinja);
+    std::vector<common_chat_msg> msgs(past);
+    msgs.push_back(new_msg);
+    const std::string text = format_messages(msgs, add_ass, g_use_jinja);
+    // Come common_chat_format_single: se il testo prima finisce con un a capo, lo si conserva.
+    std::string formatted = add_ass && !past_text.empty() && past_text.back() == '\n' ? "\n" : "";
+    formatted += text.substr(std::min(past_text.size(), text.size()));
+    return formatted;
+}
+
+static std::string without_empty_think(std::string text) {
+    const std::string block = EMPTY_THINK;
+    for (size_t pos; (pos = text.find(block)) != std::string::npos;) text.erase(pos, block.size());
+    return text;
+}
+
+// Formato dei prompt per il modello caricato. Una conversazione di prova formattata con il formatter CHATML e con il
+// template jinja del GGUF: se i testi coincidono (a parte il blocco <think> vuoto) il modello e' ChatML (i nostri e gli
+// Ufficiali Qwen) e resta su CHATML, lo stesso testo del training; altrimenti si usa il template del GGUF. Se jinja non
+// riesce a formattare la prova si lancia: un modello non ChatML con CHATML riceverebbe un prompt sbagliato senza errori.
+static bool choose_jinja_template() {
+    const auto msg = [](const char *role, const char *content) {
+        common_chat_msg m;
+        m.role = role;
+        m.content = content;
+        return m;
+    };
+    const std::vector<common_chat_msg> probe = {
+            msg(ROLE_USER, "Domanda di prova"), msg(ROLE_ASSISTANT, "Risposta di prova"), msg(ROLE_USER, "Seconda domanda")};
+    const std::string chatml = format_messages(probe, true, false);
+    std::string jinja;
+    try {
+        jinja = format_messages(probe, true, true);
+    } catch (const std::exception &e) {
+        throw std::runtime_error(std::string("chat template not usable with jinja: ") + e.what());
+    }
+    const bool use_jinja = without_empty_think(chatml) != without_empty_think(jinja);
+    LOGi("Chat format: %s", use_jinja ? "GGUF template (jinja)"
+                                      : g_chat_template_supports_thinking ? "CHATML with empty <think> block" : "CHATML");
+    return use_jinja;
+}
+
 // top_k/top_p passati da Kotlin (OnDeviceLlmEngine): il riferimento Arm usa solo i default di
 // common_params_sampling, qui il campionamento lo sceglie il chiamante.
 static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads) {
@@ -204,13 +297,15 @@ static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads) {
     g_context = context;
     g_batch = common_batch(context);
     g_chat_templates = common_chat_templates_init(g_model, "");
-    // Blocco <think> vuoto (chat_add_and_format) solo se il template del GGUF ha la variabile enable_thinking
+    // Blocco <think> vuoto (format_messages) solo se il template del GGUF ha la variabile enable_thinking
     // (Qwen3.5): e' la stessa regola del training, che applica il template con enable_thinking=False, e degli
     // script di conversione e valutazione. common_chat_templates_support_enable_thinking qui non va bene: dice
     // si' anche al template di Qwen3-4B-Instruct-2507, che gestisce i blocchi <think> ma non ha la variabile;
     // con il blocco in un prompt mai visto in training quel modello chiude subito il turno (risposta vuota).
     const char *chat_template = llama_model_chat_template(g_model, nullptr);
     g_chat_template_supports_thinking = chat_template != nullptr && std::strstr(chat_template, "enable_thinking") != nullptr;
+    // Senza template nel GGUF il prompt va al modello cosi' com'e' (process_user_prompt_impl).
+    g_use_jinja = common_chat_templates_was_explicit(g_chat_templates.get()) && choose_jinja_template();
     g_top_k = top_k;
     g_top_p = top_p;
     g_sampler = new_sampler(DEFAULT_SAMPLER_TEMP, top_k, top_p);
@@ -229,9 +324,6 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_systemInf
  * - chat management
  * - position tracking
  */
-constexpr const char *ROLE_USER         = "user";
-constexpr const char *ROLE_ASSISTANT    = "assistant";
-
 static std::vector<common_chat_msg> chat_msgs;
 static llama_pos system_prompt_position;
 static llama_pos current_position;
@@ -281,17 +373,8 @@ static std::string chat_add_and_format(const std::string &role, const std::strin
     common_chat_msg new_msg;
     new_msg.role = role;
     new_msg.content = content;
-    const bool add_ass = role == ROLE_USER;
-    auto formatted = common_chat_format_single(
-            g_chat_templates.get(), chat_msgs, new_msg, add_ass, /* use_jinja */ false);
+    auto formatted = format_new_message(chat_msgs, new_msg);
     chat_msgs.push_back(new_msg);
-    // Il formatter CHATML hardcoded (use_jinja=false) non inserisce mai un blocco "think": lo si forza
-    // vuoto qui, dopo l'apertura del turno assistente, per i template con enable_thinking (vedi prepare_impl), perche'
-    // quei modelli sono addestrati (enable_thinking=False) con il blocco nel prefisso del turno assistente. I modelli
-    // addestrati senza thinking (text_only.py) hanno un ChatML senza enable_thinking e non lo ricevono.
-    if (add_ass && g_chat_template_supports_thinking) {
-        formatted += "<think>\n\n</think>\n\n";
-    }
     // Solo in verbose: il testo contiene domanda, contesto e note dell'utente, da non lasciare nel logcat.
     LOGv("%s: Formatted and added %s message: \n%s\n", __func__, role.c_str(), formatted.c_str());
     return formatted;
@@ -472,24 +555,40 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
         LOGv("token: `%s`\t -> `%d`", common_token_to_piece(g_context, id).c_str(), id);
     }
 
+    // Apertura del turno utente (prima del contenuto) e suffisso del template (dopo: chiusura del turno utente e
+    // apertura del turno assistente, think vuoto compreso), cercati attorno al contenuto: valgono per ChatML e per
+    // i template jinja. Molti template jinja tolgono gli spazi ai bordi del contenuto (trim): con jinja lo si cerca
+    // prima cosi', altrimenti un a capo iniziale del prompt verrebbe trovato nell'apertura e tagliato con il contenuto.
+    std::string user_open;
+    size_t suffix_pos = std::string::npos;
+    if (has_chat_template) {
+        const size_t first = user_prompt.find_first_not_of(" \t\r\n");
+        const size_t last = user_prompt.find_last_not_of(" \t\r\n");
+        const std::string trimmed = first == std::string::npos ? user_prompt : user_prompt.substr(first, last - first + 1);
+        for (const std::string &content : {g_use_jinja ? trimmed : user_prompt, g_use_jinja ? user_prompt : trimmed}) {
+            const size_t pos = content.empty() ? std::string::npos : formatted_user_prompt.rfind(content);
+            if (pos != std::string::npos) {
+                user_open = formatted_user_prompt.substr(0, pos);
+                suffix_pos = pos + content.size();
+                break;
+            }
+        }
+    }
+
     // Il prompt utente non deve superare il contesto rimasto: se serve si tronca. Il budget
     // tiene conto dei token gia' occupati da current_position (system prompt/turni precedenti),
     // non solo della dimensione assoluta del contesto.
     const int max_new_tokens = std::max(0, DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM - current_position);
     if ((int) user_tokens.size() > max_new_tokens) {
-        // Tagliare in coda butterebbe l'apertura del turno assistente (<|im_start|>assistant, think
-        // vuoto compreso) e il modello risponderebbe in modo incoerente. Si taglia invece l'inizio
-        // del contenuto utente, tenendo l'apertura del turno utente e il suffisso del template
-        // (dall'ultimo <|im_start|>assistant in poi), tokenizzati a parte: i token speciali fanno da
-        // confine, quindi la tokenizzazione separata coincide con quella del prompt intero.
-        // Funziona solo col formato ChatML (use_jinja=false, l'unico usato qui): altrimenti errore.
-        const std::string user_open = "<|im_start|>user\n";
-        const size_t suffix_pos = has_chat_template ? formatted_user_prompt.rfind("<|im_start|>assistant") : std::string::npos;
+        // Tagliare in coda butterebbe l'apertura del turno assistente e il modello risponderebbe in modo
+        // incoerente. Si taglia invece l'inizio del contenuto utente, tenendo l'apertura del turno utente e il
+        // suffisso del template, tokenizzati a parte: i token speciali fanno da confine, quindi la tokenizzazione
+        // separata coincide con quella del prompt intero. Senza contenuto riconoscibile nel testo: errore.
         if (suffix_pos == std::string::npos) {
             LOGe("%s: User prompt too long and no assistant-turn marker to preserve!", __func__);
             return reject_user_prompt(3);
         }
-        const bool has_open = formatted_user_prompt.compare(0, user_open.size(), user_open) == 0 && suffix_pos >= user_open.size();
+        const bool has_open = !user_open.empty();
         auto head_tokens = common_tokenize(g_context, formatted_user_prompt.substr(0, suffix_pos), true, true);
         auto suffix_tokens = common_tokenize(g_context, formatted_user_prompt.substr(suffix_pos), false, true);
         llama_tokens open_tokens;
@@ -518,11 +617,11 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     // Lo shift del contesto (shift_context) scarta la meta' piu' vecchia dei token dopo
     // system_prompt_position, che qui e' sempre 0 (nessun system prompt): scarterebbe anche
     // l'apertura del turno utente, lasciando un prompt che inizia a meta' del contesto RAG. Sul
-    // primo turno si preserva almeno l'apertura (<|im_start|>user\n, BOS compreso se c'e'), se i
+    // primo turno si preserva almeno l'apertura (<|im_start|>user\n con ChatML, BOS compreso se c'e'), se i
     // token del prompt la ricalcano. Non si protegge l'intero prompt: riempie quasi tutto il
     // contesto e allo shift non resterebbe nulla da scartare.
-    if (has_chat_template && current_position == 0) {
-        const auto open_tokens = common_tokenize(g_context, "<|im_start|>user\n", true, true);
+    if (!user_open.empty() && current_position == 0) {
+        const auto open_tokens = common_tokenize(g_context, user_open, true, true);
         if (!open_tokens.empty() && open_tokens.size() < user_tokens.size() &&
             std::equal(open_tokens.begin(), open_tokens.end(), user_tokens.begin())) {
             system_prompt_position = (llama_pos) open_tokens.size();
@@ -841,6 +940,40 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_contextUs
     if (result == nullptr) return nullptr;  // OutOfMemoryError gia' pendente in Java
     env->SetIntArrayRegion(result, 0, count, values);
     return result;
+}
+
+// Formato dei prompt scelto al caricamento del modello (choose_jinja_template), per le prove sul dispositivo:
+// "none" (GGUF senza template), "chatml", "chatml-think" (con il blocco <think> vuoto) o "jinja".
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_chatFormatNative(JNIEnv *env, jobject /*unused*/) {
+    const char *format = !g_chat_templates || !common_chat_templates_was_explicit(g_chat_templates.get()) ? "none"
+            : g_use_jinja ? "jinja" : g_chat_template_supports_thinking ? "chatml-think" : "chatml";
+    return env->NewStringUTF(format);  // ASCII
+}
+
+// Testo che processUserPrompt manderebbe al modello per questo prompt come primo turno, senza toccare conversazione e
+// cache: per le prove sul dispositivo che lo confrontano con il testo del training. null se la formattazione lancia.
+static jstring format_prompt_impl(JNIEnv *env, jstring juser_prompt) {
+    common_chat_msg msg;
+    msg.role = ROLE_USER;
+    msg.content = jstring_to_utf8(env, juser_prompt);
+    if (env->ExceptionCheck()) return nullptr;  // OutOfMemoryError da GetStringChars
+    const std::string text = common_chat_templates_was_explicit(g_chat_templates.get()) ? format_new_message({}, msg) : msg.content;
+    std::vector<jchar> utf16;
+    utf8_to_utf16(text, utf16, true);
+    return env->NewString(utf16.data(), (jsize) utf16.size());
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_formatPromptNative(JNIEnv *env, jobject /*unused*/, jstring juser_prompt) {
+    try {
+        return format_prompt_impl(env, juser_prompt);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        return nullptr;
+    }
 }
 
 // Nome del file della variante CPU di ggml (libggml-cpu-*.so) caricata nel processo, per il task manager

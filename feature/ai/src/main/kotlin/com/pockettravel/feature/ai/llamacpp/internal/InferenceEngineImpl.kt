@@ -125,6 +125,12 @@ internal class InferenceEngineImpl private constructor(
     @FastNative
     private external fun cpuFeaturesNative(): IntArray?
 
+    // Solo per le prove sul dispositivo (ChatTemplateDeviceTest): formato dei prompt scelto al caricamento del modello
+    // e testo che il modello riceverebbe per un prompt come primo turno.
+    private external fun chatFormatNative(): String
+
+    private external fun formatPromptNative(userPrompt: String): String?
+
     private external fun unload()
 
     private external fun shutdown()
@@ -240,6 +246,19 @@ internal class InferenceEngineImpl private constructor(
                 "Cannot reset conversation in ${_state.value.javaClass.simpleName}!"
             }
             resetConversationNative()
+        }
+
+    /** "none", "chatml", "chatml-think" o "jinja" (choose_jinja_template in ai_chat.cpp). */
+    internal suspend fun chatFormat(): String =
+        withContext(llamaDispatcher) {
+            check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
+            chatFormatNative()
+        }
+
+    internal suspend fun formatPrompt(message: String): String =
+        withContext(llamaDispatcher) {
+            check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
+            checkNotNull(formatPromptNative(message)) { "Chat template failed" }
         }
 
     override suspend fun setGrammar(grammar: String) =
