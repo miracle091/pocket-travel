@@ -3,6 +3,10 @@
 
 Uso: geofabrik_pois.py --bbox=minLon,minLat,maxLon,maxLat [--iso=XX] [--border confine.geojson] --out poi.osm.xml --cache DIR
      [--id ID --sibling ID:minLon,minLat,maxLon,maxLat ...] [--user-agent UA] [--index FILE]
+     geofabrik_pois.py --bbox=... [--border confine.geojson] [--id ID --sibling ...] --out poi.osm.xml --overpass chunk.osm.xml ...
+
+Con --overpass (ripiego di build-region.sh quando gli estratti non sono usabili) filtra i file XML di Overpass con le
+stesse regole del punto 3 sotto, sul nodo o sul <center> (filtra_overpass), senza leggere Geofabrik.
 
 L'indice index-v1.json viene scaricato una volta in --cache e riusato dalle regioni successive; --index (opzione
 manuale, build-region.sh non la passa) usa invece un indice locale: utile per provare lo script senza rete
@@ -36,6 +40,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from xml.etree import ElementTree
 from xml.sax.saxutils import quoteattr
 
 INDEX_URL = "https://download.geofabrik.de/index-v1.json"
@@ -628,12 +633,52 @@ def scrivi_xml(sources, bbox, out, relazioni=(), confine=None, sorelle=(), regio
     return len(seen)
 
 
+def filtra_overpass(paths, bbox, out, confine=None, sorelle=(), regione=None):
+    """Ripiego Overpass: gli oggetti dei file XML di Overpass (chunk di build-region.sh, "out center") nel bbox, con il
+    punto dentro il confine e che spettano alla regione (vince), una volta sola, in out; ritorna quanti. Il punto e' il
+    nodo o il <center> della way o della relazione: per un'area a C o una via aperta non e' quello di punto(), quindi
+    build-region.sh non scrive borderRule e scope e la run dopo rigenera i POI dagli estratti Geofabrik."""
+    minx, miny, maxx, maxy = bbox
+    seen, fuori, ceduti = set(), set(), set()
+    with open(out, "w", encoding="utf-8") as xml:
+        xml.write('<?xml version="1.0" encoding="UTF-8"?>\n<osm version="0.6" generator="geofabrik_pois.py">\n')
+        for path in paths:
+            for elem in ElementTree.parse(path).getroot():
+                if elem.tag not in ("node", "way", "relation") or (elem.tag, elem.get("id")) in seen:
+                    continue
+                at = elem if elem.tag == "node" else elem.find("center")
+                if at is None:
+                    continue
+                lon, lat = float(at.get("lon")), float(at.get("lat"))
+                key = (elem.tag, elem.get("id"))
+                if not (minx <= lon <= maxx and miny <= lat <= maxy):
+                    continue
+                if confine and not confine.dentro(lon, lat):
+                    fuori.add(key)
+                    continue
+                if sorelle and not vince(lon, lat, regione, bbox, sorelle):
+                    ceduti.add(key)
+                    continue
+                seen.add(key)
+                elem.tail = "\n"
+                xml.write(ElementTree.tostring(elem, encoding="unicode"))
+        xml.write("</osm>\n")
+    if confine:
+        print(f"-- overpass: {len(fuori - seen)} oggetti fuori dal confine scartati", flush=True)
+    if sorelle:
+        print(f"-- overpass: {len(ceduti - seen)} oggetti ceduti alle regioni sorelle", flush=True)
+    return len(seen)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--bbox", required=True, help="minLon,minLat,maxLon,maxLat")
     parser.add_argument("--iso", help="codice ISO 3166-1 alpha-2 della nazione della regione: se qualche estratto candidato e' suo, si scartano quelli di altri paesi")
     parser.add_argument("--out", required=True)
-    parser.add_argument("--cache", required=True, help="cartella degli estratti ridotti, condivisa dalle regioni del job")
+    parser.add_argument("--cache", help="cartella degli estratti ridotti, condivisa dalle regioni del job")
+    parser.add_argument("--overpass", action="append", default=[], metavar="FILE",
+                        help="ripiego Overpass (ripetibile): filtra questi file XML di Overpass con bbox, --border e "
+                             "--sibling (filtra_overpass) invece di leggere gli estratti Geofabrik")
     parser.add_argument("--user-agent", default="PocketTravel-pipeline")
     parser.add_argument("--border", help="confine della nazione (Feature GeoJSON di country_border.py): i POI fuori si scartano")
     parser.add_argument("--id", help="id della regione, per --sibling")
@@ -646,6 +691,16 @@ def main():
     sorelle = [(sid, tuple(float(v) for v in b.split(","))) for sid, b in (s.split(":", 1) for s in args.sibling)]
     if sorelle and not args.id:
         parser.error("--sibling richiede --id")
+    if args.overpass:
+        confine = None
+        if args.border:
+            with open(args.border, encoding="utf-8") as f:
+                confine = Confine(json.load(f))
+        count = filtra_overpass(args.overpass, bbox, args.out, confine, sorelle, args.id)
+        print(f"-- overpass: {count} oggetti POI in {args.out}", flush=True)
+        return
+    if not args.cache:
+        parser.error("--cache serve senza --overpass")
     os.makedirs(args.cache, exist_ok=True)
 
     index_path = args.index or os.path.join(args.cache, "index-v1.json")

@@ -748,11 +748,11 @@ fetch_overpass_chunk() {
 [ -n "$BORDER_CHECKED" ] || find_border
 
 GEOFABRIK_XML=""
+SIBLING_ARGS=()
+for sibling in $POI_SCOPE; do [ "${sibling%%:*}" = "$REGION_ID" ] || SIBLING_ARGS+=(--sibling "$sibling"); done
+[ -z "$POI_SCOPE" ] || SIBLING_ARGS+=(--id "$REGION_ID")
 if [ "${GEOFABRIK_POI:-true}" = "true" ] && command -v osmium >/dev/null; then
   echo "-- POI dagli estratti Geofabrik..."
-  SIBLING_ARGS=()
-  for sibling in $POI_SCOPE; do [ "${sibling%%:*}" = "$REGION_ID" ] || SIBLING_ARGS+=(--sibling "$sibling"); done
-  [ -z "$POI_SCOPE" ] || SIBLING_ARGS+=(--id "$REGION_ID")
   if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --iso="$REGION_ISO" ${BORDER_FILE:+--border "$BORDER_FILE"} "${SIBLING_ARGS[@]}" \
     --out "$WORKDIR/poi-geofabrik.osm.xml" --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT"; then
     GEOFABRIK_XML="$WORKDIR/poi-geofabrik.osm.xml"
@@ -836,6 +836,21 @@ if [ "$FAILED_CHUNKS" -gt 0 ] && [ -n "${PUBLISHED_POI_URL:-}" ]; then
 elif [ "$FAILED_CHUNKS" -gt 0 ]; then
   echo "-- attenzione: $FAILED_CHUNKS/$chunkIndex chunk falliti, alcuni POI di $REGION_ID mancheranno"
 fi
+# Ripiego Overpass: l'area della nazione nella query tiene anche le vie e le aree a cavallo del confine e nessuna
+# regola divide le sorelle russe. geofabrik_pois.py --overpass applica confine e sorelle sul nodo o sul <center>;
+# borderRule e scope restano fuori dalla voce (sezione 4), quindi la run dopo rigenera i POI da Geofabrik.
+OVERPASS_FILTERED=false
+if [ -z "$GEOFABRIK_XML" ] && { [ -n "$BORDER_FILE" ] || [ -n "$POI_SCOPE" ]; }; then
+  OVERPASS_ARGS=()
+  for f in "${POI_XML_FILES[@]}"; do OVERPASS_ARGS+=(--overpass "$f"); done
+  if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" ${BORDER_FILE:+--border "$BORDER_FILE"} \
+    "${SIBLING_ARGS[@]}" "${OVERPASS_ARGS[@]}" --out "$WORKDIR/poi-overpass.osm.xml"; then
+    POI_XML_FILES=("$WORKDIR/poi-overpass.osm.xml")
+    OVERPASS_FILTERED=true
+  else
+    echo "::warning::POI Overpass di $REGION_ID non filtrati sul confine e sulle sorelle (errore sopra)"
+  fi
+fi
 
 # --- 4. poi.db e poi-extra.db, via il tool Kotlin generatePoi ------------------------------------
 # poi.db: i POI che la mappa mostra. poi-extra.db: quelli scaricabili a parte (fontanelle, tavoli da
@@ -874,7 +889,8 @@ if [ -n "$BORDER_FILE" ]; then
     POI_BORDER_RULE_JSON="$POI_BORDER_RULE"
   fi
 fi
-# Le sorelle le applica solo geofabrik_pois.py: con Overpass la voce resta senza, e la run dopo rigenera i POI.
+# Le sorelle le applica geofabrik_pois.py, sul punto dell'oggetto solo con gli estratti: con Overpass (punto dal
+# <center>) la voce resta senza, e la run dopo rigenera i POI.
 POI_SCOPE_JSON=null
 if [ -n "$GEOFABRIK_XML" ] && [ -n "$POI_SCOPE" ]; then
   POI_SCOPE_JSON="$(jq -n --arg scope "$POI_SCOPE" '$scope')"
@@ -882,10 +898,10 @@ fi
 # Primo pacchetto tagliato su questo confine: quello pubblicato aveva anche i POI dei paesi o degli stati vicini (Oman:
 # due terzi negli Emirati; Virginia Occidentale: tre quarti negli stati vicini), quindi il confronto con la meta'
 # scarterebbe il risultato giusto. Lo stesso per il primo pacchetto con altre sorelle, se geofabrik_pois.py le ha
-# applicate: le regioni russe cedono fino a tre quarti dei POI pubblicati, che stavano anche nelle sorelle (Nord europeo
+# applicate (sugli estratti o sui chunk Overpass): le regioni russe cedono fino a tre quarti dei POI pubblicati, che stavano anche nelle sorelle (Nord europeo
 # 25% tenuti, Volga 35%, misura del 2026-10-19). Resta il controllo sul risultato vuoto.
 if [ "$POI_BORDER" = true ] && { [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.borderRelation // ""' 2>/dev/null || true)" != "$BORDER_RELATION" ] \
-  || { [ -n "$GEOFABRIK_XML" ] && [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.scope // ""' 2>/dev/null || true)" != "$POI_SCOPE" ]; }; }; then
+  || { { [ -n "$GEOFABRIK_XML" ] || [ "$OVERPASS_FILTERED" = true ]; } && [ "$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.scope // ""' 2>/dev/null || true)" != "$POI_SCOPE" ]; }; }; then
   PUBLISHED_POI_COUNT=""
   PUBLISHED_POI_URL=""
 fi

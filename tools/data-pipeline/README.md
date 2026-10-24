@@ -93,6 +93,23 @@ funziona solo su Linux si veda subito.
   `Emulator client has not yet been configured`, `cannnot unmap ptr`;
 - `if-no-files-found: warn` e `digest-mismatch: error`: parametri delle action stampati nel log, non avvisi.
 
+## Punti di interesse e confine
+
+`build-region.sh` prende i POI dagli estratti Geofabrik con `scripts/geofabrik_pois.py` e li taglia sul confine
+completo di OpenStreetMap della nazione o della suddivisione (`scripts/country_border.py`). Ogni oggetto ha un solo
+punto sull'oggetto e sta nella regione il cui confine lo contiene. Le regioni russe hanno il confine della Russia e
+rettangoli sovrapposti: un punto in più rettangoli va alla regione con il centro del rettangolo più vicino
+(`--sibling`, campo `poi.scope` del catalogo).
+
+- Se gli estratti non sono usabili, i POI vengono da Overpass, tile per tile. `geofabrik_pois.py --overpass` applica
+  confine e sorelle sul nodo o sul `<center>` di Overpass, che per le vie aperte e le aree a C non è il punto
+  sull'oggetto. La voce resta quindi senza `poi.borderRule` e `poi.scope`, e la run successiva rigenera i POI dagli
+  estratti.
+- I rettangoli non attraversano il meridiano di 180°. Le terre oltre il meridiano di una nazione con una sola regione
+  non sono in nessuna regione: Chatham e Kermadec (Nuova Zelanda), Attu e Shemya (Alaska), la punta della Čukotka e
+  l'isola di Wrangel (Russia), le Phoenix occidentali (Kiribati). Figi e Kiribati sono divise in due regioni per
+  questo motivo. `scripts/bbox_audit.py` elenca le terre di ogni confine fuori da tutti i rettangoli.
+
 ## Firma dei file JSON
 
 I JSON che l'app scarica sono firmati con ECDSA P-256 e SHA-256 (supportati da `java.security` su

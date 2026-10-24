@@ -527,6 +527,52 @@ class SorelleTest(unittest.TestCase):
         self.assertIn("1 oggetti ceduti alle regioni sorelle", stdout.getvalue())
 
 
+class FiltraOverpassTest(unittest.TestCase):
+    CHUNK_1 = ('<?xml version="1.0" encoding="UTF-8"?><osm version="0.6"><note>dati OSM</note>'
+               '<node id="1" lat="0.5" lon="0.5"><tag k="amenity" v="cafe"/><tag k="name" v="Caf&#233; &amp; Bar"/></node>'
+               '<node id="2" lat="0.5" lon="1.5"><tag k="amenity" v="cafe"/></node>'
+               '<way id="3"><center lat="0.5" lon="0.9"/><tag k="amenity" v="parking"/></way>'
+               '<way id="4"><tag k="amenity" v="parking"/></way>'
+               '<relation id="5"><center lat="0.5" lon="0.95"/><tag k="tourism" v="museum"/></relation>'
+               '<node id="6" lat="5" lon="5"><tag k="amenity" v="cafe"/></node></osm>')
+    # Secondo chunk: la way 3 a cavallo dei due chunk torna, e il nodo 7 sta nella sovrapposizione con la sorella.
+    CHUNK_2 = ('<?xml version="1.0" encoding="UTF-8"?><osm version="0.6">'
+               '<way id="3"><center lat="0.5" lon="0.9"/><tag k="amenity" v="parking"/></way>'
+               '<node id="7" lat="0.5" lon="1.95"><tag k="amenity" v="cafe"/></node></osm>')
+
+    def filtra(self, **kwargs):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for i, text in enumerate((self.CHUNK_1, self.CHUNK_2)):
+                paths.append(os.path.join(tmp, f"chunk-{i}.osm.xml"))
+                with open(paths[-1], "w", encoding="utf-8") as f:
+                    f.write(text)
+            out = os.path.join(tmp, "out.osm.xml")
+            with mock.patch("sys.stdout", new_callable=io.StringIO) as stdout:
+                count = geofabrik_pois.filtra_overpass(paths, (0, 0, 2, 1), out, **kwargs)
+            root = ElementTree.parse(out).getroot()
+        return count, [(e.tag, e.get("id")) for e in root], root, stdout.getvalue()
+
+    def test_bbox_e_un_oggetto_una_volta_sola(self):
+        count, ids, root, _ = self.filtra()
+        # Il nodo 6 e' fuori dal bbox, la way 4 non ha <center>, la nota non e' un oggetto.
+        self.assertEqual(ids, [("node", "1"), ("node", "2"), ("way", "3"), ("relation", "5"), ("node", "7")])
+        self.assertEqual(count, 5)
+        self.assertEqual(root.find("node/tag[@k='name']").get("v"), "Café & Bar")
+        self.assertEqual(root.find("way/center").get("lon"), "0.9")
+
+    def test_confine_e_sorelle(self):
+        # Confine: il quadrato da 0 a 1 di longitudine (il nodo 2 resta fuori); la sorella "b" (1-3) prende il nodo 7
+        # e lascia la way 3 e la relazione 5, piu' vicine al centro di "a".
+        confine = geofabrik_pois.Confine({"type": "Polygon", "coordinates": [anello(0, 0, 1, 1)]})
+        _, ids, _, stdout = self.filtra(confine=confine)
+        self.assertEqual(ids, [("node", "1"), ("way", "3"), ("relation", "5")])
+        self.assertIn("2 oggetti fuori dal confine scartati", stdout)
+        _, ids, _, stdout = self.filtra(sorelle=[("b", (1, 0, 3, 1))], regione="a")
+        self.assertEqual(ids, [("node", "1"), ("node", "2"), ("way", "3"), ("relation", "5")])
+        self.assertIn("1 oggetti ceduti alle regioni sorelle", stdout)
+
+
 class FileDatatoTest(unittest.TestCase):
     def test_il_piu_recente_della_cartella(self):
         listing = (b'<a href="iceland-260929.osm.pbf">x</a><a href="iceland-260930.osm.pbf">x</a>'
