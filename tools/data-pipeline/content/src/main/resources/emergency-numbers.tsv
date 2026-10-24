@@ -17,6 +17,7 @@ argentina	911	911	107	100	CA+WD	107 = ambulanza a Buenos Aires
 armenia	112	102	103	101	CA+WP/WD	
 aruba	911	100	911	911	CA+WP+WD	
 australia	000	000	000	000	CA+WP/WD	
+australia-lord-howe	000	000	000	000	CA+WP/WD	
 austria	112	133	144	122	CA	
 azerbaigian		102	103	101	CA+WP/WD	
 bahamas	911	911	911	911	CA+WP	
@@ -57,6 +58,8 @@ capo-verde		132	130	131	CA+WP/WD
 ceuta	112	112	112	112	WP/WD	
 ciad		2020	1212	1212	FCDO+CA	WP+WD 17/18
 cile		133	131	132	CA+WP/WD	
+cile-isola-di-pasqua		133	131	132	CA+WP/WD	
+cile-juan-fernandez		133	131	132	CA+WP/WD	
 cina-anhui		110	120	119	CA+WP/WD	
 cina-chongqing		110	120	119	CA+WP/WD	
 cina-fujian		110	120	119	CA+WP/WD	
@@ -105,6 +108,7 @@ curacao		911	912	911	CA+WP/WD
 danimarca	112	112	112	112	CA+WP/WD	
 dominica	999	999	999	999	CA+WP/WD	
 ecuador	911	911	911	911	WP+WD	
+ecuador-galapagos	911	911	911	911	WP+WD	
 egitto		122	123	180	FCDO+WP+WD	CA 112/113/110
 el-salvador	911	911	132	913	WP+WD	
 emirati-arabi-uniti		999	998	997	CA	
@@ -148,6 +152,8 @@ guatemala		110	122	122	FCDO+WP	ambulanza e pompieri anche 123
 guinea					FCDO	nessun servizio di emergenza; CA 122/1717
 guinea-bissau		117	1313	1313	FCDO+CA	WD 121/119/180
 guinea-equatoriale		113	112	115	CA+WD	
+guinea-equatoriale-annobon		113	112	115	CA+WD	
+guinea-equatoriale-bioko		113	112	115	CA+WD	
 guyana		911	913	912	CA+WP/WD	
 guyana-francese	112	17	15	18	CA+WP+WD	
 haiti		114	116	115	CA+WP+WD	
@@ -236,6 +242,8 @@ peru	911	105	116	116	CA+WP+WD	ambulanza: CA 116, WD 106/117
 polinesia-francese	112	17	15	18	CA+WP+WD	
 polonia	112	112	112	112	CA+WP/WD	
 portogallo	112	112	112	112	CA+WP/WD	
+portogallo-azzorre	112	112	112	112	CA+WP/WD	
+portogallo-madeira	112	112	112	112	CA+WP/WD	
 portorico	911	911	911	911	CA+WP/WD	
 qatar	999	999	999	999	CA+WP/WD	
 regno-unito	999	999	999	999	CA+WP/WD	

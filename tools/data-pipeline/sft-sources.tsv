@@ -73,6 +73,12 @@ australia	wp_cibo	Cucina australiana
 australia	wp_conn	-
 australia	wp_usi	Cultura dell'Australia
 australia	wp_vita	-
+australia-lord-howe	en	Lord Howe Island
+australia-lord-howe	it	-
+australia-lord-howe	wp_cibo	-
+australia-lord-howe	wp_conn	-
+australia-lord-howe	wp_usi	-
+australia-lord-howe	wp_vita	-
 austria	en	Austria
 austria	it	Austria
 austria	wp_cibo	Cucina austriaca
@@ -237,6 +243,18 @@ cile	wp_cibo	Cucina cilena
 cile	wp_conn	-
 cile	wp_usi	-
 cile	wp_vita	-
+cile-isola-di-pasqua	en	Easter Island
+cile-isola-di-pasqua	it	Isola di Pasqua
+cile-isola-di-pasqua	wp_cibo	-
+cile-isola-di-pasqua	wp_conn	-
+cile-isola-di-pasqua	wp_usi	-
+cile-isola-di-pasqua	wp_vita	-
+cile-juan-fernandez	en	Juan Fernández Islands
+cile-juan-fernandez	it	Isole Juan Fernández
+cile-juan-fernandez	wp_cibo	-
+cile-juan-fernandez	wp_conn	-
+cile-juan-fernandez	wp_usi	-
+cile-juan-fernandez	wp_vita	-
 cina-anhui	en	Anhui
 cina-anhui	it	Anhui
 cina-anhui	wp_cibo	Cucina dell'Anhui
@@ -525,6 +543,12 @@ ecuador	wp_cibo	Cucina ecuadoriana
 ecuador	wp_conn	-
 ecuador	wp_usi	-
 ecuador	wp_vita	-
+ecuador-galapagos	en	Galapagos Islands
+ecuador-galapagos	it	Galápagos
+ecuador-galapagos	wp_cibo	-
+ecuador-galapagos	wp_conn	-
+ecuador-galapagos	wp_usi	-
+ecuador-galapagos	wp_vita	-
 egitto	en	Egypt
 egitto	it	Egitto
 egitto	wp_cibo	Cucina egiziana
@@ -783,6 +807,18 @@ guinea-equatoriale	wp_cibo	Cucina equatoguineana
 guinea-equatoriale	wp_conn	-
 guinea-equatoriale	wp_usi	-
 guinea-equatoriale	wp_vita	-
+guinea-equatoriale-annobon	en	Annobón
+guinea-equatoriale-annobon	it	Annobón
+guinea-equatoriale-annobon	wp_cibo	-
+guinea-equatoriale-annobon	wp_conn	-
+guinea-equatoriale-annobon	wp_usi	-
+guinea-equatoriale-annobon	wp_vita	-
+guinea-equatoriale-bioko	en	Bioko
+guinea-equatoriale-bioko	it	Isola di Bioko
+guinea-equatoriale-bioko	wp_cibo	-
+guinea-equatoriale-bioko	wp_conn	-
+guinea-equatoriale-bioko	wp_usi	-
+guinea-equatoriale-bioko	wp_vita	-
 guyana	en	Guyana
 guyana	it	Guyana
 guyana	wp_cibo	-
@@ -1311,6 +1347,18 @@ portogallo	wp_cibo	Cucina portoghese
 portogallo	wp_conn	-
 portogallo	wp_usi	-
 portogallo	wp_vita	-
+portogallo-azzorre	en	Azores
+portogallo-azzorre	it	Azzorre
+portogallo-azzorre	wp_cibo	Cucina portoghese
+portogallo-azzorre	wp_conn	-
+portogallo-azzorre	wp_usi	-
+portogallo-azzorre	wp_vita	-
+portogallo-madeira	en	Madeira
+portogallo-madeira	it	Madera
+portogallo-madeira	wp_cibo	Cucina portoghese
+portogallo-madeira	wp_conn	-
+portogallo-madeira	wp_usi	-
+portogallo-madeira	wp_vita	-
 portorico	en	Puerto Rico
 portorico	it	Porto Rico
 portorico	wp_cibo	Cucina portoricana

@@ -435,6 +435,26 @@ class MergeManifestsTest {
     }
 
     @Test
+    fun `il nome inglese esplicito vince sul titolo Wikivoyage della nazione intera`() {
+        val rows = listOf(
+            listOf("colombia", "Sud America", "co", "Colombia", "Continentale", "Colombia", "Mainland"),
+            listOf("colombia-san-andres", "Sud America", "co", "Colombia", "San Andres e Providencia", "San_Andres_and_Providencia", ""),
+            listOf("figi-occidentali", "Oceania", "fj", "Figi", "Isole occidentali", "Fiji", "Western islands (Viti Levu, Vanua Levu)"),
+            listOf("italia", "Europa", "it", "", "", "Italy", ""),
+        )
+
+        assertEquals(
+            mapOf(
+                "colombia" to "Mainland",
+                "colombia-san-andres" to "San Andres and Providencia",
+                // Verbatim: englishLabelOf toglierebbe la parte tra parentesi.
+                "figi-occidentali" to "Western islands (Viti Levu, Vanua Levu)",
+            ),
+            groupLabelsEnOf(rows),
+        )
+    }
+
+    @Test
     fun `una regione sostituita il cui gruppo non e' definito resta e non entra in replacedRegions`() {
         val merged = JSONObject(
             mergeManifestJson(

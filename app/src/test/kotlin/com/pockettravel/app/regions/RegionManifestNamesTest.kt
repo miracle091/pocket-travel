@@ -94,6 +94,29 @@ class RegionManifestNamesTest {
     }
 
     @Test
+    fun `il Portogallo continentale e le Azzorre stanno nel gruppo del Portogallo`() {
+        val mainland = entry.copy(
+            regionId = "portogallo",
+            displayName = "Portogallo - Continentale",
+            countryCode = "pt",
+            groupName = "Portogallo",
+            groupLabel = "Continentale",
+            groupLabelEn = "Mainland",
+        )
+        val azores = mainland.copy(
+            regionId = "portogallo-azzorre",
+            displayName = "Portogallo - Azzorre",
+            groupLabel = "Azzorre",
+            groupLabelEn = "Azores",
+        )
+
+        assertEquals("Portogallo - Continentale", mainland.localizedNames(Locale.ITALIAN).displayName)
+        assertEquals("Portugal - Mainland", mainland.localizedNames(Locale.ENGLISH).displayName)
+        assertEquals("Portugal - Azores", azores.localizedNames(Locale.ENGLISH).displayName)
+        assertEquals("Portugal", azores.localizedNames(Locale.ENGLISH).groupName)
+    }
+
+    @Test
     fun `senza il nome inglese dell'etichetta anche l'inglese usa quella del catalogo`() {
         assertEquals("France - Bretagna", brittany.copy(groupLabelEn = null).localizedNames(Locale.ENGLISH).displayName)
     }

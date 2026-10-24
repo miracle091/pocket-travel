@@ -55,8 +55,10 @@ source "$SCRIPT_DIR/regions.sh"
 CONTINENTS_TSV="$(mktemp)"
 for spec in "${ALL_REGIONS[@]}"; do
   IFS='|' read -r regionId _ _ _ _ _ wikiTitle flagCode groupName groupLabel continent <<< "$spec"
-  # Il titolo Wikivoyage EN da' il nome inglese delle regioni di un paese diviso (groupLabelEn).
-  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$regionId" "$continent" "$flagCode" "$groupName" "$groupLabel" "$wikiTitle" >> "$CONTINENTS_TSV"
+  # Il titolo Wikivoyage EN da' il nome inglese delle regioni di un paese diviso (groupLabelEn), GROUP_LABELS_EN per
+  # quelle con la pagina della nazione intera.
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$regionId" "$continent" "$flagCode" "$groupName" "$groupLabel" "$wikiTitle" \
+    "${GROUP_LABELS_EN[$regionId]:-}" >> "$CONTINENTS_TSV"
 done
 # Regioni divise in regioni piu' piccole (REPLACED_REGIONS): l'app propone le nuove a chi ha la vecchia.
 REPLACED_TSV="$(mktemp)"

@@ -249,7 +249,7 @@ const val POLIO_STALE_DAYS = 120L
  * voci di febbre gialla per la destinazione, restano le regole d'ingresso del paese. Le fonti descrivono le aree
  * solo a parole, senza confini: l'elenco va rivisto quando cambiano le regioni o le aree.
  */
-val YF_RISK_FREE_REGIONS = setOf("colombia-san-andres")
+val YF_RISK_FREE_REGIONS = setOf("colombia-san-andres", "ecuador-galapagos")
 
 /** Nome leggibile delle sigle delle fonti usate nei dati (stesse sigle dei file della pipeline), in inglese con [en]. */
 fun vaccinationSourceName(code: String, en: Boolean = false): String = when (code) {

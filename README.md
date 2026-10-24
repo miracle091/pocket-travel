@@ -61,7 +61,7 @@ L'app segnala le nuove versioni con una notifica; le novità sono nel [CHANGELOG
 | 🔐 | **Documenti e note** | Passaporto e biglietti cifrati, sbloccabili con impronta o volto; note di viaggio cifrate |
 | 🏛️ | **Fonti ufficiali** | Ministero degli esteri del proprio paese, OMS e CDC |
 
-Le 358 regioni sono aggiornate ogni settimana e i loro contenuti si scaricano separatamente; la mappa leggera e la rete stradale solo auto occupano circa il 40% in meno. Interfaccia, guide e assistente sono in italiano e in inglese.
+Le 366 regioni sono aggiornate ogni settimana e i loro contenuti si scaricano separatamente; la mappa leggera e la rete stradale solo auto occupano circa il 40% in meno. Interfaccia, guide e assistente sono in italiano e in inglese.
 
 ## Perché Pocket Travel
 

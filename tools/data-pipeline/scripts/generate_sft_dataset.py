@@ -35,7 +35,7 @@ si tengono solo i piu' pertinenti (WP_MAX_PARAGRAPHS): lunghi come una sezione W
 enciclopedica troncata a 2000 caratteri.
 """
 import argparse, functools, html, json, os, random, re, subprocess, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 from eval_common import TEST_REGIONS
@@ -615,11 +615,21 @@ def parse_vs(raw):
 
 def vs_codes(regions):
     """regionId -> codice ISO3 della pagina VS. Solo regioni con bandiera propria (non condivisa con altre
-    regioni, non in un gruppo): altrimenti la pagina del paese non descriverebbe la regione."""
+    regioni, non in un gruppo), o la regione principale di un paese con gli arcipelaghi a parte ("colombia" accanto a
+    "colombia-san-andres": le altre del paese hanno il suo regionId come prefisso): altrimenti la pagina del paese non
+    descriverebbe la regione."""
     rows = [r.split("|") for r in re.findall(r'^\s*"([^"]+\|[^"]+)"\s*$', (HERE / "regions.sh").read_text(encoding="utf-8"), re.M)]
-    flags = Counter(f[7] for f in rows if len(f) > 8)
+    rows = [f for f in rows if len(f) > 8]
+    by_flag = defaultdict(list)
+    for f in rows:
+        by_flag[f[7]].append(f[0])
+
+    def whole_country(f):
+        others = [r for r in by_flag[f[7]] if r != f[0]]
+        return all(r.startswith(f[0] + "-") for r in others) if others else not f[8]
+
     iso3 = {n["Codice-2"].lower(): n["Codice-3"] for n in json.loads(get(f"{VS_BASE}/schede_paese/lista_nazioni.json"))}
-    return {f[0]: iso3[f[7]] for f in rows if len(f) > 8 and flags[f[7]] == 1 and not f[8] and f[7] in iso3}
+    return {f[0]: iso3[f[7]] for f in rows if f[7] in iso3 and whole_country(f)}
 
 def load_regions():
     src = (HERE / "regions.sh").read_text(encoding="utf-8")

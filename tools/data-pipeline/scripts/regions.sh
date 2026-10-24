@@ -88,7 +88,13 @@ ALL_REGIONS=(
   "norvegia|Norvegia|4.45|57.97|31.29|71.21|Norway|no|||Europa"
   "paesi-bassi|Paesi Bassi|3.31|50.79|7.26|53.58|Netherlands|nl|||Europa"
   "polonia|Polonia|14.06|48.98|24.15|54.86|Poland|pl|||Europa"
-  "portogallo|Portogallo|-9.54|36.84|-6.17|42.29|Portugal|pt|||Europa"
+  # Arcipelaghi lontani dalla nazione (Azzorre e Madeira; piu' sotto Galapagos, Isola di Pasqua e Juan Fernandez, Bioko
+  # e Annobon, Lord Howe): una regione ciascuno nel gruppo del paese, come San Andres e Providencia per la
+  # Colombia, invece di un rettangolo della nazione steso sull'oceano. Ogni nazione ha la regione principale
+  # ("Continentale") con il regionId di prima, le isole un regionId con il suo prefisso.
+  "portogallo|Portogallo - Continentale|-9.54|36.84|-6.17|42.29|Portugal|pt|Portogallo|Continentale|Europa"
+  "portogallo-azzorre|Portogallo - Azzorre|-31.29|36.91|-24.99|39.75|Azores|pt|Portogallo|Azzorre|Europa"
+  "portogallo-madeira|Portogallo - Madeira e Selvagge|-17.29|30.01|-15.83|33.15|Madeira|pt|Portogallo|Madeira e Selvagge|Europa"
   "regno-unito|Regno Unito|-8.65|49.86|1.80|60.88|United_Kingdom|gb|||Europa"
   "repubblica-ceca|Repubblica Ceca|12.07|48.55|18.86|51.12|Czech_Republic|cz|||Europa"
   "romania|Romania|20.21|43.59|29.72|48.28|Romania|ro|||Europa"
@@ -225,7 +231,9 @@ ALL_REGIONS=(
   "congo|Repubblica del Congo|11.08|-5.04|18.66|3.73|Republic_of_the_Congo|cg|||Africa"
   "gibuti|Gibuti|41.65|10.89|43.46|12.75|Djibouti|dj|||Africa"
   "egitto|Egitto|24.62|21.97|36.92|31.70|Egypt|eg|||Africa"
-  "guinea-equatoriale|Guinea Equatoriale|9.28|0.86|11.42|2.37|Equatorial_Guinea|gq|||Africa"
+  "guinea-equatoriale|Guinea Equatoriale - Continentale (Río Muni)|9.28|0.86|11.42|2.37|Equatorial_Guinea|gq|Guinea Equatoriale|Continentale (Río Muni)|Africa"
+  "guinea-equatoriale-bioko|Guinea Equatoriale - Bioko|8.39|3.19|8.96|3.81|Bioko|gq|Guinea Equatoriale|Bioko|Africa"
+  "guinea-equatoriale-annobon|Guinea Equatoriale - Annobón|5.59|-1.49|5.68|-1.38|Annobón|gq|Guinea Equatoriale|Annobón|Africa"
   "eritrea|Eritrea|36.31|12.35|43.17|18.04|Eritrea|er|||Africa"
   "eswatini|Eswatini|30.68|-27.32|32.13|-25.72|Eswatini|sz|||Africa"
   "etiopia|Etiopia|32.95|3.37|48.00|14.97|Ethiopia|et|||Africa"
@@ -243,7 +251,9 @@ ALL_REGIONS=(
   "malawi|Malawi|32.65|-17.15|35.94|-9.22|Malawi|mw|||Africa"
   "mali|Mali|-12.27|10.09|4.27|25.03|Mali|ml|||Africa"
   "mauritania|Mauritania|-17.06|14.61|-4.83|27.40|Mauritania|mr|||Africa"
-  "mauritius|Mauritius|57.30|-20.55|63.50|-19.90|Mauritius|mu|||Africa"
+  # Il rettangolo di Mauritius arriva fino a Rodrigues. Agalega, 1.000 km a nord, resta fuori: in OpenStreetMap non ha
+  # punti di interesse (solo villaggi, pista e moli), e generatePoi non pubblica un pacchetto vuoto.
+  "mauritius|Mauritius|57.30|-20.55|63.52|-19.64|Mauritius|mu|||Africa"
   "marocco|Marocco|-13.20|27.66|-0.98|35.93|Morocco|ma|||Africa"
   "mozambico|Mozambico|30.18|-26.89|40.88|-10.31|Mozambique|mz|||Africa"
   "namibia|Namibia|11.68|-29.05|25.27|-16.94|Namibia|na|||Africa"
@@ -373,10 +383,14 @@ ALL_REGIONS=(
   "argentina|Argentina|-73.59|-55.26|-53.62|-21.77|Argentina|ar|||Sud America"
   "bolivia|Bolivia|-69.65|-22.92|-57.44|-9.65|Bolivia|bo|||Sud America"
   "brasile|Brasile|-73.99|-33.78|-28.85|5.31|Brazil|br|||Sud America"
-  "cile|Cile|-75.75|-56.55|-66.40|-17.50|Chile|cl|||Sud America"
+  # L'Isola di Pasqua e' in Polinesia, ma resta nel gruppo e nel continente del Cile (vedi Hawaii piu' sopra).
+  "cile|Cile - Continentale|-75.75|-56.55|-66.40|-17.50|Chile|cl|Cile|Continentale|Sud America"
+  "cile-isola-di-pasqua|Cile - Isola di Pasqua|-109.47|-27.22|-109.21|-27.03|Easter_Island|cl|Cile|Isola di Pasqua|Sud America"
+  "cile-juan-fernandez|Cile - Juan Fernández|-80.86|-33.84|-78.75|-33.58|Juan_Fernández_Islands|cl|Cile|Juan Fernández|Sud America"
   "colombia|Colombia - Continentale|-79.05|-4.30|-66.84|12.50|Colombia|co|Colombia|Continentale|Sud America"
   "colombia-san-andres|Colombia - San Andres e Providencia|-81.80|12.15|-81.35|13.53|San_Andres_and_Providencia|co|Colombia|San Andres e Providencia|Sud America"
-  "ecuador|Ecuador|-81.04|-5.04|-75.18|1.46|Ecuador|ec|||Sud America"
+  "ecuador|Ecuador - Continentale|-81.04|-5.04|-75.18|1.46|Ecuador|ec|Ecuador|Continentale|Sud America"
+  "ecuador-galapagos|Ecuador - Galápagos|-92.23|-1.63|-89.02|1.90|Galapagos_Islands|ec|Ecuador|Galápagos|Sud America"
   "guyana|Guyana|-61.41|1.15|-56.46|8.55|Guyana|gy|||Sud America"
   "paraguay|Paraguay|-62.70|-27.63|-54.24|-19.26|Paraguay|py|||Sud America"
   "peru|Peru|-81.41|-18.36|-68.63|-0.01|Peru|pe|||Sud America"
@@ -385,7 +399,8 @@ ALL_REGIONS=(
   "venezuela|Venezuela|-73.38|0.62|-59.75|12.23|Venezuela|ve|||Sud America"
   "guyana-francese|Guyana Francese (Francia)|-54.60|2.11|-51.62|5.78|French_Guiana|gf|||Sud America"
   "isole-falkland|Isole Falkland (Regno Unito)|-61.36|-52.96|-57.70|-50.99|Falkland_Islands|fk|||Sud America"
-  "australia|Australia|112.89|-43.67|153.66|-9.20|Australia|au|||Oceania"
+  "australia|Australia - Continentale e Tasmania|112.89|-43.67|153.66|-9.20|Australia|au|Australia|Continentale e Tasmania|Oceania"
+  "australia-lord-howe|Australia - Lord Howe|159.01|-31.78|159.28|-31.49|Lord_Howe_Island|au|Australia|Lord Howe|Oceania"
   "nuova-zelanda|Nuova Zelanda|166.41|-47.36|178.59|-34.11|New_Zealand|nz|||Oceania"
   # Figi e Kiribati attraversano davvero l'antimeridiano: sono spezzate in due region con lo stesso flag, stesso schema usato
   # sopra per Russia/Stati Uniti. Restano senza region, come la punta della Chukotka, le terre oltre l'antimeridiano di
@@ -446,4 +461,21 @@ REPLACED_REGIONS=(
   "russia-europea|Russia"
   "cina|Cina"
   "francia|Francia"
+)
+
+# Nome inglese di groupLabel (groupLabelEn, mostrato dall'app in inglese) dove il titolo della pagina Wikivoyage, che
+# vale per le altre regioni di un gruppo ("Azores", "North Carolina"), non basta: le regioni con la pagina della
+# nazione intera (darebbero "Colombia - Colombia" o due "Fiji - Fiji") e Madeira, la cui pagina non ha le Selvagge.
+declare -gA GROUP_LABELS_EN=(
+  [portogallo]="Mainland"
+  [portogallo-madeira]="Madeira and Savage Islands"
+  [guinea-equatoriale]="Mainland (Río Muni)"
+  [cile]="Mainland"
+  [colombia]="Mainland"
+  [ecuador]="Mainland"
+  [australia]="Mainland and Tasmania"
+  [figi-occidentali]="Western islands (Viti Levu, Vanua Levu)"
+  [figi-lau]="Lau Islands"
+  [kiribati-gilbert]="Gilbert Islands"
+  [kiribati-line]="Line Islands"
 )

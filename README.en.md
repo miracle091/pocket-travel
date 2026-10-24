@@ -62,7 +62,7 @@ The app announces new versions with a notification; the changes are in the [CHAN
 | 🔐 | **Documents and notes** | Encrypted passport and tickets, unlocked with fingerprint or face; encrypted travel notes |
 | 🏛️ | **Official sources** | Foreign ministry of the user's country, WHO and CDC |
 
-The 358 regions are updated every week and their content is downloaded separately; the light map and the car-only road network take about 40% less space. Interface, guides and assistant are in Italian and English.
+The 366 regions are updated every week and their content is downloaded separately; the light map and the car-only road network take about 40% less space. Interface, guides and assistant are in Italian and English.
 
 ## Why Pocket Travel?
 

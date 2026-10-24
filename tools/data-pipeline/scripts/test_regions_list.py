@@ -60,6 +60,13 @@ class RealRegionsTest(unittest.TestCase):
         for old, _ in replaced:
             self.assertNotIn(old, ids)
 
+    def test_nomi_inglesi_espliciti_solo_per_regioni_con_gruppo(self):
+        block = REGIONS_SH.read_text(encoding="utf-8").split("GROUP_LABELS_EN=(", 1)[1].split("\n)", 1)[0]
+        labels = dict(re.findall(r'^\s*\[([a-z0-9-]+)\]="([^"]+)"$', block, re.M))
+        grouped = {r[0] for r in self.full if r[8]}
+        self.assertTrue(labels)
+        self.assertEqual([], sorted(set(labels) - grouped))
+
     def test_load_regions_legge_tutte_quelle_complete(self):
         self.assertEqual([(r[0], r[1], r[6]) for r in real_rows() if len(r) >= 7], g.load_regions())
 
@@ -107,6 +114,20 @@ class ReadersTest(unittest.TestCase):
             codes = g.vs_codes([])
         # Texas e Ohio condividono "us" e hanno un gruppo; "zz" non e' nell'elenco di Viaggiare Sicuri
         self.assertEqual({"italia": "ITA", "san-marino": "SMR"}, codes)
+
+    def test_vs_codes_per_la_regione_principale_di_un_paese_con_gli_arcipelaghi_a_parte(self):
+        (self.here / "regions.sh").write_text('''REGIONS=(
+  "portogallo|Portogallo - Continentale|-9.54|36.84|-6.17|42.29|Portugal|pt|Portogallo|Continentale|Europa"
+  "portogallo-azzorre|Portogallo - Azzorre|-31.29|36.91|-24.99|39.75|Azores|pt|Portogallo|Azzorre|Europa"
+  "figi-occidentali|Figi - Isole occidentali|176.97|-20.70|180.00|-12.42|Fiji|fj|Figi|Isole occidentali|Oceania"
+  "figi-lau|Figi - Isole Lau|-180.00|-21.05|-178.00|-15.59|Fiji|fj|Figi|Isole Lau|Oceania"
+)
+''', encoding="utf-8")
+        nations = [{"Codice-2": "PT", "Codice-3": "PRT"}, {"Codice-2": "FJ", "Codice-3": "FJI"}]
+        with mock.patch.object(g, "get", return_value=json.dumps(nations)):
+            codes = g.vs_codes([])
+        # Le Azzorre sono una parte del Portogallo; le due regioni delle Figi sono tutte e due una parte.
+        self.assertEqual({"portogallo": "PRT"}, codes)
 
 
 if __name__ == "__main__":

@@ -317,6 +317,16 @@ class VaccinationEngineTest {
     }
 
     @Test
+    fun `le Galapagos sono fuori dall'area della febbre gialla dell'Ecuador`() {
+        val ecuador = data.copy(yfRisk = data.yfRisk + risk("ec", partial = true))
+
+        val mainland = evaluate(Trip(departure = "it", destination = "ec", destinationRegion = "ecuador"), ecuador)
+        assertTrue(mainland.items.any { it.vaccine == Vaccine.YELLOW_FEVER && it.reason == VaccinationReason.YF_DESTINATION_RISK })
+        val galapagos = evaluate(Trip(departure = "it", destination = "ec", destinationRegion = "ecuador-galapagos"), ecuador)
+        assertTrue(galapagos.items.none { it.vaccine == Vaccine.YELLOW_FEVER && it.reason == VaccinationReason.YF_DESTINATION_RISK })
+    }
+
+    @Test
     fun `scalo di durata non indicata conta anche per la soglia delle 24 ore`() {
         // "piu' di 12 ore" nella schermata arriva al motore come durata non indicata
         val result = evaluate(Trip(departure = "it", destination = "tz", transits = listOf(TripLeg("ke", transitHours = null, leftAirport = false))))

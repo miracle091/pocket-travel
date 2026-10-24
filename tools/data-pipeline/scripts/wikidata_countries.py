@@ -150,6 +150,19 @@ CORREZIONI = {
     # Le due regioni di Kiribati hanno la pagina Wikivoyage del paese intero.
     "kiribati-gilbert": {"timezones": "UTC+12:00"},
     "kiribati-line": {"capital_it": "", "capital_en": "", "timezones": "UTC+14:00"},
+    # Arcipelaghi lontani: senza fusi propri su Wikidata prenderebbero tutti quelli del paese, e le regioni continentali
+    # (con la pagina della nazione) anche quelli delle isole. Bioko, Annobon, Isola di Pasqua e Juan Fernandez non hanno
+    # una capitale su Wikidata.
+    "portogallo": {"timezones": "UTC+00:00"},
+    "cile": {"timezones": "UTC-04:00; UTC-03:00"},
+    "ecuador": {"timezones": "UTC-05:00"},
+    "portogallo-azzorre": {"timezones": "UTC-01:00"},
+    "portogallo-madeira": {"timezones": "UTC+00:00"},
+    "cile-isola-di-pasqua": {"timezones": "UTC-06:00", "capital_it": "Hanga Roa", "capital_en": "Hanga Roa"},
+    "cile-juan-fernandez": {"timezones": "UTC-04:00", "capital_it": "San Juan Bautista", "capital_en": "San Juan Bautista"},
+    "australia-lord-howe": {"timezones": "UTC+10:30"},
+    "guinea-equatoriale-bioko": {"capital_it": "Malabo", "capital_en": "Malabo"},
+    "guinea-equatoriale-annobon": {"capital_it": "San Antonio de Palé", "capital_en": "San Antonio de Palé"},
     "cina-pechino": {"capital_it": "Pechino", "capital_en": "Beijing"},
     "cina-shanghai": {"capital_it": "", "capital_en": ""},
     "cina-tianjin": {"capital_it": "", "capital_en": ""},

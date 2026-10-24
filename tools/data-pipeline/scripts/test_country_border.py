@@ -147,6 +147,18 @@ class SuddivisioneTest(unittest.TestCase):
                 mock.patch.object(country_border.time, "sleep"):
             self.assertIsNone(country_border.confine_suddivisione("cn", "Hubei", HUBEI_BBOX, cache, "test"))
 
+    def test_contorno_dell_arcipelago_e_zona_marittima_scartati_vale_la_provincia(self):
+        bbox = (-92.23, -1.63, -89.02, 1.90)
+        arcipelago = {**stato(7283808, "EC-W", -1.41, 1.68, -92.01, -89.24), "category": "place", "type": "archipelago"}
+        marittima = {**stato(1, "EC-W", -1.7, 1.9, -92.3, -89.0), "category": "boundary", "type": "maritime"}
+        provincia = {**stato(1628150, "EC-W", -1.61, 1.88, -92.21, -89.04), "category": "boundary", "type": "administrative"}
+        with tempfile.TemporaryDirectory() as cache, \
+                mock.patch.object(country_border, "cerca", side_effect=[[arcipelago, marittima], [provincia]]), \
+                mock.patch.object(country_border.time, "sleep"):
+            found = country_border.confine_suddivisione("ec", "Galapagos Islands", bbox, cache, "test")
+
+        self.assertEqual(found[0], 1628150)
+
     def test_titolo_senza_la_parte_tra_parentesi(self):
         georgia = stato(161957, "US-GA", 30.36, 35.0, -85.61, -80.84)
         with tempfile.TemporaryDirectory() as cache, \

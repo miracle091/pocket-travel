@@ -78,6 +78,11 @@ def nazione(result, iso):
 
 
 def suddivisione(result, iso, bbox):
+    # Non il contorno di un'isola o di un arcipelago (segue la costa: fuori porti, moli e siti d'immersione, come i 90
+    # POI delle Canarie) ne' un confine marittimo: per "Galapagos Islands" Nominatim da' prima l'arcipelago, per
+    # "Easter Island" la zona marittima. Allora vale la provincia, o il confine della nazione.
+    if result.get("type") in ("island", "islet", "archipelago", "maritime"):
+        return False
     address = result.get("address") or {}
     code = address.get("ISO3166-2-lvl4") or address.get("ISO3166-2-lvl3") or ""
     if not code.upper().startswith(f"{iso.upper()}-") or len(result.get("boundingbox") or []) != 4:

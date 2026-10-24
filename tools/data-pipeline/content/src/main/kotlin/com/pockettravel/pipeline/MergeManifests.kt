@@ -27,7 +27,7 @@ import java.io.File
  * groups (regionId -> groupName, groupLabel, da regions.sh) finisce nei campi "groupName" e
  * "groupLabel": l'app raccoglie sotto un'unica voce le regioni dello stesso paese (es. gli stati USA).
  * groupLabelsEn (regionId -> nome inglese della regione nel gruppo, dal titolo della pagina di Wikivoyage
- * inglese, vedi [englishLabelOf]) finisce in "groupLabelEn": l'app lo mostra quando e' in inglese.
+ * inglese o da GROUP_LABELS_EN di regions.sh, vedi [groupLabelsEnOf]) finisce in "groupLabelEn": l'app lo mostra quando e' in inglese.
  * replacedRegions (regionId di una regione tolta -> groupName delle regioni che la sostituiscono): la regione
  * tolta resta finche' tutte le regioni del gruppo sono in `manifest.json`, poi sparisce e finisce nel campo
  * "replacedRegions", con cui l'app propone le regioni nuove a chi ha ancora installata quella vecchia.
@@ -168,9 +168,17 @@ internal fun convertV1Region(region: JSONObject): JSONObject {
     return converted
 }
 
+/**
+ * Nome inglese delle regioni con un gruppo, dalle righe di --continents: il settimo campo (GROUP_LABELS_EN di
+ * regions.sh, per le regioni con la pagina Wikivoyage della nazione intera) se c'e', altrimenti il titolo della pagina.
+ */
+internal fun groupLabelsEnOf(rows: List<List<String>>): Map<String, String> =
+    rows.filter { it.size >= 6 && it[3].isNotBlank() && it[5].isNotBlank() }
+        .associate { it[0] to (it.getOrNull(6)?.ifBlank { null } ?: englishLabelOf(it[5])) }
+
 fun main(args: Array<String>) {
     // Opzioni in testa: --continents <file.tsv> (righe "regionId<TAB>continente<TAB>codicePaese<TAB>
-    // groupName<TAB>groupLabel<TAB>titolo Wikivoyage EN") e --replaced <file.tsv> (righe "regionId tolta<TAB>groupName").
+    // groupName<TAB>groupLabel<TAB>titolo Wikivoyage EN[<TAB>nome inglese]") e --replaced <file.tsv> (righe "regionId tolta<TAB>groupName").
     var continentsFile: File? = null
     var replacedFile: File? = null
     var mapSourceUrl: String? = null
@@ -193,7 +201,7 @@ fun main(args: Array<String>) {
     val continents = rows.filter { it.size >= 2 }.associate { it[0] to it[1] }
     val countryCodes = rows.filter { it.size >= 3 && it[2].isNotBlank() }.associate { it[0] to it[2] }
     val groups = rows.filter { it.size >= 5 && it[3].isNotBlank() }.associate { it[0] to (it[3] to it[4]) }
-    val groupLabelsEn = rows.filter { it.size >= 6 && it[3].isNotBlank() && it[5].isNotBlank() }.associate { it[0] to englishLabelOf(it[5]) }
+    val groupLabelsEn = groupLabelsEnOf(rows)
     val replaced = replacedFile?.readLines()?.filter { it.isNotBlank() }?.map { it.split('\t') }
         ?.filter { it.size >= 2 }?.associate { it[0] to it[1] }.orEmpty()
     val outputFile = File(rest[0])

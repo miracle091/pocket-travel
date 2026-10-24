@@ -12,6 +12,7 @@ argentina	ar	Buenos Aires	Buenos Aires	ARS	peso argentino	Argentine convertible 
 armenia	am	Erevan	Yerevan	AMD	dram armeno	Armenian dram	right	+374	armeno	Armenian	UTC+04:00	112; 101; 102; 103	C, F	220
 aruba	aw	Oranjestad	Oranjestad	AWG	Fiorino arubano	Aruban florin	right	+297	olandese; lingua papiamento	Dutch; Papiamento	UTC-04:00	911	A, B, F	127
 australia	au	Canberra	Canberra	AUD	dollaro australiano	Australian dollar	left	+61	inglese	English	UTC+08:00; UTC+09:30; UTC+10:00	000	I	230
+australia-lord-howe	au			AUD	dollaro australiano	Australian dollar	left	+61	inglese	English	UTC+10:30	000	I	230
 austria	at	Vienna	Vienna	EUR	euro	euro	right	+43	tedesco; Austrian Sign Language	German; Austrian Sign Language	UTC+01:00	112; 122; 133; 144; 123; 120; 140	C, F	230
 azerbaigian	az	Baku	Baku	AZN	Manat azero	Azerbaijani manat	right	+994	azero; Azerbaijani Sign Language	Azerbaijani; Azerbaijani Sign Language	UTC+04:00	112; 101; 102; 103	C, F	220
 bahamas	bs	Nassau	Nassau	BSD	dollaro delle Bahamas	Bahamian dollar	left	+1 242	inglese	English	UTC-05:00	919	A, B	120
@@ -51,7 +52,9 @@ canada-yukon	ca	Whitehorse	Whitehorse	CAD	dollaro canadese	Canadian dollar	right
 capo-verde	cv	Praia	Praia	CVE	escudo capoverdiano	Cape Verdean escudo	right	+238	portoghese; creolo capoverdiano	Portuguese; Cape Verdean Creole	UTC-01:00	130; 131; 132	C, F	220
 ceuta	es	Ceuta	Ceuta	EUR	euro	euro	right	+34	spagnolo	Spanish	UTC+01:00	112; 061; 091	C, F	230
 ciad	td	N’Djamena	N'Djamena	XAF	franco CFA dell'Africa centrale	Central African CFA franc	right	+235	francese; arabo	French; Arabic	UTC+01:00	17; 18; 2251-4242	C, D, E, F	220
-cile	cl	Santiago del Cile	Santiago	CLP	peso cileno	Chilean peso	right	+56	spagnolo	Spanish	UTC-06:00; UTC-04:00; UTC-03:00	133; 130; 131; 132; 134	C, L	220
+cile	cl	Santiago del Cile	Santiago	CLP	peso cileno	Chilean peso	right	+56	spagnolo	Spanish	UTC-04:00; UTC-03:00	133; 130; 131; 132; 134	C, L	220
+cile-isola-di-pasqua	cl	Hanga Roa	Hanga Roa	CLP	peso cileno	Chilean peso	right	+56	spagnolo	Spanish	UTC-06:00	133; 130; 131; 132; 134	C, L	220
+cile-juan-fernandez	cl	San Juan Bautista	San Juan Bautista	CLP	peso cileno	Chilean peso	right	+56	spagnolo	Spanish	UTC-04:00	133; 130; 131; 132; 134	C, L	220
 cina-anhui	cn	Hefei	Hefei	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
 cina-chongqing	cn			CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
 cina-fujian	cn	Fuzhou	Fuzhou	CNY	renminbi	renminbi	right	+86	cinese mandarino	Mandarin Chinese	UTC+08:00	119; 110; 120	A, C, I	220
@@ -99,7 +102,8 @@ cuba	cu	L'Avana	Havana	CUP	peso cubano	Cuban peso	right	+53	spagnolo	Spanish	UTC
 curacao	cw	Willemstad	Willemstad	XCG	fiorino caraibico	Caribbean guilder	right	+599 9	inglese; olandese; lingua papiamento	English; Dutch; Papiamento	UTC-04:00	911	A, B	120
 danimarca	dk	Copenaghen	Copenhagen	DKK	corona danese	Danish krone	right	+45	danese	Danish	UTC+01:00	112	C, E, F, K	230
 dominica	dm	Roseau	Roseau	XCD	dollaro dei Caraibi Orientali	Eastern Caribbean dollar	left	+1 767	inglese	English	UTC-04:00	999	D, G	230
-ecuador	ec	Quito	Quito	USD	dollaro degli Stati Uniti	United States dollar	right	+593	spagnolo; lingua shuar; Kichwa	Spanish; Shuar; Northern Quichua	UTC-06:00; UTC-05:00	911; 101; 102; 131	A, B	120
+ecuador	ec	Quito	Quito	USD	dollaro degli Stati Uniti	United States dollar	right	+593	spagnolo; lingua shuar; Kichwa	Spanish; Shuar; Northern Quichua	UTC-05:00	911; 101; 102; 131	A, B	120
+ecuador-galapagos	ec	Puerto Baquerizo Moreno	Puerto Baquerizo Moreno	USD	dollaro degli Stati Uniti	United States dollar	right	+593	spagnolo; lingua shuar; Kichwa	Spanish; Shuar; Northern Quichua	UTC-06:00	911; 101; 102; 131	A, B	120
 egitto	eg	Il Cairo	Cairo	EGP	sterlina egiziana	Egyptian pound	right	+20	arabo	Arabic	UTC+02:00	122; 123; 180	C, F	220
 el-salvador	sv	San Salvador	San Salvador	USD	dollaro degli Stati Uniti; bitcoin	United States dollar; Bitcoin	right	+503	spagnolo	Spanish	UTC-06:00	911; 913	A, B	115
 emirati-arabi-uniti	ae	Abu Dhabi	Abu Dhabi	AED	Dirham degli Emirati Arabi Uniti	United Arab Emirates dirham	right	+971	arabo	Arabic	UTC+04:00	112; 999; 997; 998	C, D, G	220
@@ -143,6 +147,8 @@ guatemala	gt	Città del Guatemala	Guatemala City	GTQ	Quetzal guatemalteco	quetza
 guinea	gn	Conakry	Conakry	GNF	Franco guineano	Guinean franc	right	+224	francese	French	UTC+00:00	117; 18; 442-020	C, F, K	220
 guinea-bissau	gw	Bissau	Bissau	XOF	franco CFA UEMOA	West African CFA franc	right	+245	portoghese	Portuguese	UTC+00:00	112; 119; 180; 121	C	220
 guinea-equatoriale	gq	Ciudad de la Paz	Ciudad de la Paz	XAF	franco CFA dell'Africa centrale	Central African CFA franc	right	+240	francese; spagnolo; portoghese	French; Spanish; Portuguese	UTC+01:00	112; 114; 113; 115	C, E	220
+guinea-equatoriale-annobon	gq	San Antonio de Palé	San Antonio de Palé	XAF	franco CFA dell'Africa centrale	Central African CFA franc	right	+240	francese; spagnolo; portoghese	French; Spanish; Portuguese	UTC+01:00	112; 114; 113; 115	C, E	220
+guinea-equatoriale-bioko	gq	Malabo	Malabo	XAF	franco CFA dell'Africa centrale	Central African CFA franc	right	+240	francese; spagnolo; portoghese	French; Spanish; Portuguese	UTC+01:00	112; 114; 113; 115	C, E	220
 guyana	gy	Georgetown	Georgetown	GYD	Dollaro della Guyana	Guyanese dollar	left	+592	inglese	English	UTC-04:00	911; 999; 912; 913	A, B, D, G	240
 guyana-francese	gf	Caienna	Cayenne	EUR	euro	euro	right	+594	francese; lingua creola della Guyana francese	French; Guianan Creole	UTC-03:00		C, D, E	220
 haiti	ht	Port-au-Prince	Port-au-Prince	HTG	gourde haitiano	gourde	right	+509	francese; creolo haitiano	French; Haitian Creole	UTC-05:00	114; 115; 116; 122	A, B	110
@@ -230,7 +236,9 @@ paraguay	py	Asunción	Asunción	PYG	guaraní paraguaiano	Paraguayan guaraní	rig
 peru	pe	Lima	Lima	PEN	sol peruviano	Peruvian sol	right	+51	spagnolo; aymara; quechua	Spanish; Aymara; Quechua	UTC-05:00	911; 106; 111; 117; 116; 105	A, B, C	220
 polinesia-francese	pf	Papeete	Papeete	XPF	Franco CFP	CFP Franc	right	+689	francese	French	UTC-10:00	112	C, E	230
 polonia	pl	Varsavia	Warsaw	PLN	złoty	złoty	right	+48	polacco	Polish	UTC+01:00	112; 999; 997; 998; 986	C, E	230
-portogallo	pt	Lisbona	Lisbon	EUR	euro	euro	right	+351	portoghese	Portuguese	UTC-01:00; UTC+00:00	112	C, F	230
+portogallo	pt	Lisbona	Lisbon	EUR	euro	euro	right	+351	portoghese	Portuguese	UTC+00:00	112	C, F	230
+portogallo-azzorre	pt	Angra do Heroísmo; Ponta Delgada; Horta	Angra do Heroísmo; Ponta Delgada; Horta	EUR	euro	euro	right	+351	portoghese	Portuguese	UTC-01:00	112	C, F	230
+portogallo-madeira	pt	Funchal	Funchal	EUR	euro	euro	right	+351	portoghese	Portuguese	UTC+00:00	112	C, F	230
 portorico	pr	San Juan	San Juan	USD	dollaro degli Stati Uniti	United States dollar	right	+1 787; +1 939	spagnolo; inglese	Spanish; English	UTC-04:00	911	A, B	120
 qatar	qa	Doha	Doha	QAR	riyal qatariota	Qatari riyal	right	+974	arabo	Arabic	UTC+03:00	112; 999	D, G	240
 regno-unito	gb	Londra	London	GBP	sterlina britannica	pound sterling	left	+44	inglese	English	UTC+00:00	112; 999	G	230

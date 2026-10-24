@@ -42,6 +42,13 @@ class CountryGuidesTest {
     }
 
     @Test
+    fun `un arcipelago lontano cerca nella sua regione, la nazione in tutte`() {
+        assertEquals(listOf("portogallo-azzorre"), namedPlace("Cosa vedere alle Azzorre?", "italia", "it")?.regionIds)
+        assertEquals(listOf("cile-isola-di-pasqua"), namedPlace("Is it safe on Easter Island?", "italia", "en")?.regionIds)
+        assertEquals(countryRegions.getValue("pt").split(' '), namedPlace("Serve il visto per il Portogallo?", "italia", "it")?.regionIds)
+    }
+
+    @Test
     fun `una regione di una nazione divisa vince sul nome di nazione che contiene, e i nomi ambigui restano nella regione aperta`() {
         assertEquals(listOf("stati-uniti-nuovo-messico"), namedPlace("Is it safe in New Mexico?", "italia", "en")?.regionIds)
         assertNull(namedPlace("Is it safe in New Mexico?", "stati-uniti-texas", "en"))

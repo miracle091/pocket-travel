@@ -133,6 +133,15 @@ class MissingRoutingRegionTest {
     }
 
     @Test
+    fun `un punto delle Azzorre va alla regione delle Azzorre, non al Portogallo continentale`() {
+        val portogallo = region("portogallo", -9.54, 36.84, -6.17, 42.29, "pt")
+        val azzorre = region("portogallo-azzorre", -31.29, 36.91, -24.99, 39.75, "pt")
+        val pontaDelgada = RoutePoint(37.74, -25.67)
+
+        assertEquals(listOf(azzorre), missingRoutingRegions(listOf(portogallo, azzorre), emptySet(), listOf(pontaDelgada), { "pt" }))
+    }
+
+    @Test
     fun `un punto in nessuna regione del catalogo si salta`() {
         val newYork = RoutePoint(40.7, -74.0)
 

@@ -1133,6 +1133,8 @@ def main():
     test_en = {t for r in TEST_REGIONS if (t := title_of(r, "en"))}
     in_test_en = lambda t: t in test_en or bool(en.cities_en.regions_of(t, parent_en, {x: x for x in test_en}))
     regions, skipped, excluded, wiki_title_of = [], [], [], {}
+    by_flag = flag_regions()
+    flag_of = {r: f for f, ids in by_flag.items() for r in ids}
     for rid, name_it, wiki_title in it.load_regions():
         wiki_title_of[rid] = wiki_title
         t_it, t_en = title_of(rid, "it"), title_of(rid, "en")
@@ -1142,8 +1144,13 @@ def main():
             excluded.append((rid, "-", "-", "regione-di-test"))
             continue
         name_en = en.with_article(en.display_name(t_en or wiki_title))
-        # "Stati Uniti - Hawaii" -> "Hawaii": nelle domande il nome che scriverebbe un utente, come in inglese
-        regions.append((rid, name_it.rsplit(" - ", 1)[-1] if lang == "it" else name_en, t_it, t_en))
+        # "Stati Uniti - Hawaii" -> "Hawaii": nelle domande il nome che scriverebbe un utente, come in inglese. La regione
+        # principale di una nazione con le isole a parte ("Portogallo - Continentale": le altre regioni della bandiera hanno
+        # il suo regionId come prefisso, come in vs_codes) ha la pagina della nazione: il suo nome e' quello della nazione.
+        others = [o for o in by_flag.get(flag_of.get(rid), []) if o != rid]
+        main = bool(others) and all(o.startswith(f"{rid}-") for o in others)
+        name = name_it.split(" - ", 1)[0] if main else name_it.rsplit(" - ", 1)[-1]
+        regions.append((rid, name if lang == "it" else name_en, t_it, t_en))
     print(f"regioni escluse perche' dentro una regione di test: {', '.join(skipped)}")
     regions, shared = drop_shared_pages(regions)
     excluded.extend((rid, src, "-", "pagina-condivisa") for rid, src in shared)
