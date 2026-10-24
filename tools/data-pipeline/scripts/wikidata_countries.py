@@ -132,7 +132,9 @@ CORREZIONI = {
     "mq": {"languages_it": "francese", "languages_en": "French"},
     "uy": {"languages_it": "spagnolo", "languages_en": "Spanish"},
     "sj": {"capital_it": "Longyearbyen", "capital_en": "Longyearbyen", "calling_code": "+47"},
-    "cx": {"calling_code": "+61"},
+    # Christmas e Montserrat senza fuso orario su Wikidata (P421 tolto, ottobre 2026).
+    "cx": {"calling_code": "+61", "timezones": "UTC+07:00"},
+    "ms": {"timezones": "UTC-04:00"},
     "cc": {"calling_code": "+61 8 9162"},
     "nf": {"calling_code": "+672 3"},
     "cw": {"calling_code": "+599 9"},
@@ -421,6 +423,14 @@ def main():
     parser.add_argument("--out", required=True)
     parser.add_argument("--user-agent", default=USER_AGENT)
     args = parser.parse_args()
+    try:
+        ZoneInfo("Asia/Hovd")
+    except ZoneInfoNotFoundError:
+        # Senza il database dei fusi (Python per Windows senza il pacchetto tzdata) i fusi IANA non si leggono e il TSV
+        # perderebbe in silenzio quelli di Mongolia, Isola di Natale e altri.
+        print("ERRORE: database dei fusi orari assente: installare tzdata (pip install tzdata) o usare Linux/WSL",
+              file=sys.stderr)
+        return 1
     wikidata_missions._deadline = time.monotonic() + DEADLINE_SECONDS
     try:
         rows = raccogli(regioni(REGIONS_SH.read_text(encoding="utf-8")), args.user_agent)

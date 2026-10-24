@@ -246,9 +246,20 @@ class NormalizzazioniTest(unittest.TestCase):
 class MainTest(unittest.TestCase):
     def esegui(self, rows):
         out = os.path.join(tempfile.mkdtemp(), "countries.tsv")
+        # Il database dei fusi c'e' (su Windows senza tzdata il controllo all'avvio fermerebbe main).
         with mock.patch.object(wikidata_countries, "raccogli", return_value=rows), \
+                mock.patch.object(wikidata_countries, "ZoneInfo"), \
                 mock.patch.object(sys, "argv", ["wikidata_countries.py", "--out", out]), mock.patch("sys.stderr"):
             return wikidata_countries.main(), out
+
+    def test_senza_database_dei_fusi_esce_con_1_senza_interrogare_wikidata(self):
+        out = os.path.join(tempfile.mkdtemp(), "countries.tsv")
+        with mock.patch.object(wikidata_countries, "ZoneInfo", side_effect=wikidata_countries.ZoneInfoNotFoundError), \
+                mock.patch.object(wikidata_countries, "raccogli") as raccogli, \
+                mock.patch.object(sys, "argv", ["wikidata_countries.py", "--out", out]), mock.patch("sys.stderr"):
+            self.assertEqual(wikidata_countries.main(), 1)
+        raccogli.assert_not_called()
+        self.assertFalse(os.path.exists(out))
 
     def test_scrittura_atomica(self):
         codice, out = self.esegui([["r%d" % i, "it", "Roma", "Rome"] + [""] * 11 for i in range(wikidata_countries.MIN_ROWS)])
