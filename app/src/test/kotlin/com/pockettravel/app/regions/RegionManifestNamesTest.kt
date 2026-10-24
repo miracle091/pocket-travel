@@ -78,7 +78,7 @@ class RegionManifestNamesTest {
     }
 
     @Test
-    fun `Ceuta e Melilla hanno il nome del gruppo dal codice riservato EA, non "Spagna"`() {
+    fun `Ceuta e Melilla hanno il nome del gruppo dal codice riservato EA, non Spagna`() {
         val ceuta = entry.copy(
             regionId = "ceuta",
             displayName = "Ceuta (Spagna)",
