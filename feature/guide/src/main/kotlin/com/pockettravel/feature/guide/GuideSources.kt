@@ -22,8 +22,9 @@ import com.pockettravel.core.data.guideSourceSiteOf
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
 
-// Riquadro finale con le pagine Wikivoyage (e Wikipedia, per Storia e Clima delle citta'; travel.gc.ca e gov.uk per i
-// consigli di viaggio dei Governi del Canada e del Regno Unito) da cui vengono le sezioni mostrate: titolo della pagina
+// Riquadro finale con le pagine Wikivoyage (e Wikipedia, per Storia e Clima delle citta' e per cucina, tradizioni e
+// media delle guide; travel.gc.ca e gov.uk per i consigli di viaggio dei Governi del Canada e del Regno Unito) da cui
+// vengono le sezioni mostrate: titolo della pagina
 // (dall'URL, o il nome della fonte per i link senza /wiki/) e sito, ognuna apribile; accanto al sito "tradotta
 // automaticamente" per le pagine in translatedUrls. La licenza sta nella schermata Licenze.
 @Composable

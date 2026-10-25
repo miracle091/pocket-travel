@@ -41,6 +41,10 @@
 # file> per l'italiana; GUIDES_TRANSLATE_SECONDS e' il tempo massimo di traduzione della passata. Senza o se qualcosa
 # non riesce, guide come prima.
 #
+# In tutte e due le guide, dalla voce di Wikipedia della regione nella stessa lingua (sezione 2d, CC BY-SA 4.0): le
+# sezioni Cucina, Tradizioni, Mezzi di comunicazione e Telecomunicazioni, nelle categorie Cibo, Usi e costumi, Vita
+# quotidiana e Connettivita', con la voce tra le fonti.
+#
 # GUIDES_PAGE_CACHE=<cartella>, la stessa nelle due passate della stessa run: la passata "en" vi lascia le pagine
 # Wikivoyage italiane e inglesi che scarica, e quella italiana le riusa invece di chiederle di nuovo a Wikimedia.
 #
@@ -309,6 +313,20 @@ if [ "$LANG_CODE" = "en" ]; then
     || { rm -f "$EMERGENCY_HTML"; echo "::warning::pagina dei recapiti di emergenza di travel.gc.ca non scaricata" >&2; }
 fi
 
+# --- 2d. Sezioni della voce di Wikipedia di ogni regione -----------------------------------------------
+# Cucina, Tradizioni, Mezzi di comunicazione e Telecomunicazioni dalla voce di Wikipedia nella lingua della guida, trovata
+# dall'elemento Wikidata della pagina di Wikivoyage EN (country_wikipedia.py). Mai fatale: le regioni la cui voce non si
+# legge tengono le sezioni di Wikipedia pubblicate (CountryWikipedia.kt).
+WIKIPEDIA_REGIONS_TSV="$WORKDIR/wikipedia-regions.tsv"
+WIKIPEDIA_JSONL="$WORKDIR/wikipedia.jsonl"
+: > "$WIKIPEDIA_REGIONS_TSV"
+for spec in "${ALL_REGIONS[@]}"; do
+  IFS='|' read -r regionId _ _ _ _ _ wikiTitle _ <<< "$spec"
+  printf '%s\t%s\n' "$regionId" "${wikiTitle//_/ }" >> "$WIKIPEDIA_REGIONS_TSV"
+done
+python3 "$SCRIPT_DIR/country_wikipedia.py" "$LANG_CODE" "$WIKIPEDIA_REGIONS_TSV" "$WIKIPEDIA_JSONL" \
+  || echo "::warning::sezioni di Wikipedia non scaricate, restano quelle pubblicate" >&2
+
 # --- 3. guides.db ---------------------------------------------------------------------------------
 GUIDES_DB="$OUTPUT_DIR/guides.db"
 rm -f "$GUIDES_DB"
@@ -344,7 +362,7 @@ if [ -n "${TRANSLATE_CACHE_DIR:-}" ]; then
     echo "::warning::guida semplice non generata, niente traduzioni in questa run" >&2
   fi
 fi
-GUIDES_ARGS="--general-guide \"$(winpath "$GENERAL_GUIDE_TSV")\" $GUIDES_ARGS"
+GUIDES_ARGS="--general-guide \"$(winpath "$GENERAL_GUIDE_TSV")\" --wikipedia \"$(winpath "$WIKIPEDIA_JSONL")\" $GUIDES_ARGS"
 [ -s "$MISSIONS_TSV" ] && GUIDES_ARGS="--missions \"$(winpath "$MISSIONS_TSV")\" $GUIDES_ARGS"
 [ -n "$ADVICE_TSV" ] && GUIDES_ARGS="--travel-advice \"$(winpath "$ADVICE_TSV")\" $GUIDES_ARGS"
 [ -s "${EMERGENCY_HTML:-}" ] && GUIDES_ARGS="--emergency-centre \"$(winpath "$EMERGENCY_HTML")\" $GUIDES_ARGS"

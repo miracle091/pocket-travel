@@ -41,6 +41,24 @@ class CleanWikitextTest {
     }
 
     @Test
+    fun `nihongo di Wikipedia lascia il testo, senza kanji ne' romaji`() {
+        assertEquals("Il folclore giapponese è antico.", cleanBody("Il {{Nihongo|'''folclore giapponese'''|民間伝承|minkan denshō|{{lett|tra la gente}}}} è antico."))
+        assertEquals("The torii gate.", cleanBody("The {{nihongo||鳥居|torii}} gate."))
+    }
+
+    @Test
+    fun `apostrofo e traslitterazione dei template di Wikipedia restano nel testo`() {
+        assertEquals("Il 3 marzo l'Hinamatsuri.", cleanBody("Il 3 marzo l{{'}}''[[Hinamatsuri]]''."))
+        assertEquals("Sweets are known as wagashi.", cleanBody("Sweets are known as {{transliteration|ja|wagashi}}."))
+    }
+
+    @Test
+    fun `link con testo dentro un template e dominio con il punto`() {
+        assertEquals("Dailies Jutarnji list and 24sata.", cleanBody("Dailies {{lang|hr|[[Jutarnji list]]}} and {{lang|hr|[[24sata (Croatia)|24sata]]}}."))
+        assertEquals("The domain is .gi, the code +350.", cleanBody("The domain is [[.gi]], the code +350."))
+    }
+
+    @Test
     fun `le misure dei template di Wikipedia restano nel testo con la loro unita'`() {
         assertEquals("Tra 15 and 25 °C, 641 mm di pioggia, 105.4 km².", cleanBody("Tra {{cvt|15|and|25|°C|°F}}, {{convert|641|mm|in|1}} di pioggia, {{convert|105.4|km2|sqmi|abbr=on}}."))
         assertEquals("Massima 32 °C.", cleanBody("Massima {{cvt|32|C}}."))

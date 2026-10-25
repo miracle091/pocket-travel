@@ -221,6 +221,17 @@ class DatabaseTest(unittest.TestCase):
         self.assertEqual([{"owner": "a", "category": "SALUTE",
                            "sections": [{"title": "Salute (Governo del Canada)", "body": "IT:Malaria occurs.", "sourceUrl": gc}]}], lines)
 
+    def test_main_guide_le_sezioni_di_wikipedia_non_si_traducono(self):
+        with tempfile.TemporaryDirectory() as d:
+            it = self._db(d, "it.db", "guide_sections", "regionId", [("a", "SALUTE", "Salute", "Bere acqua.", "https://it.wikivoyage.org/wiki/A", None)])
+            en = self._db(d, "en.db", "guide_sections", "regionId", [("a", "CIBO_BEVANDE", "Cuisine", "Rice is the staple.", "https://en.wikipedia.org/wiki/A", None)])
+            overlay = Path(d) / "tradotte.jsonl"
+            # anche con il confronto delle sezioni di Wikivoyage acceso: CIBO_BEVANDE, assente in italiano, non si traduce
+            with mock.patch.object(tg, "WIKIVOYAGE_SECTIONS", True), \
+                    mock.patch.object(tg, "Ct2Translator", side_effect=AssertionError("modello caricato")):
+                tg.main(["guides", str(it), str(en), str(overlay), "--cache-dir", d, "--model-dir", d])
+            self.assertEqual("", overlay.read_text(encoding="utf-8"))
+
     def test_main_guide_inglesi_dall_italiano_spente_senza_caricare_il_modello(self):
         with tempfile.TemporaryDirectory() as d:
             en = self._db(d, "en.db", "guide_sections", "regionId", [("a", "SALUTE", "Health", "Little.", "https://en.wikivoyage.org/wiki/A", None)])

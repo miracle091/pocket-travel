@@ -289,6 +289,17 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   Le versioni dell'app che non conoscono le due categorie le saltano all'import. Mai fatale: un errore di rete lascia
   le città senza le due sezioni. Il tempo è limitato a 20 minuti per shard e lingua (`MAX_SECONDS`); l'Italia in
   italiano, ~2.700 città, ne richiede circa 4, in inglese circa uno.
+- **Sezioni di Wikipedia delle guide**: `scripts/country_wikipedia.py`, lanciato da `build-guides.sh` per ogni lingua,
+  trova allo stesso modo la voce di Wikipedia di ogni regione (dalla pagina di Wikivoyage EN di `regions.sh`) e ne
+  prende le sezioni Gastronomia o Cucina, Tradizioni e Festività, Media o Mezzi di comunicazione, Telecomunicazioni o
+  Comunicazioni (in inglese Cuisine, Traditions, Holidays e Festivals, Media, Telecommunications o Communications).
+  `generateGuides --wikipedia` (`CountryWikipedia.kt`) le pulisce come le guide e le aggiunge in fondo alla guida, in
+  ogni caso, nelle categorie `CIBO_BEVANDE`, `USI_COSTUMI`, `VITA_QUOTIDIANA` e `CONNETTIVITA`, con la voce come
+  `sourceUrl`: le app che già mostrano le fonti di Wikipedia le vedono senza aggiornamento. Una sezione che pulita
+  resta sotto i 200 caratteri (di solito il solo rimando alla voce a parte) si scarta, una lunga si ferma all'ultimo
+  paragrafo entro 4.000 caratteri. Mai fatale: le regioni la cui voce non si legge tengono le sezioni di Wikipedia
+  del `guides.db` pubblicato. Con le voci di ottobre 2026 escono circa 250 sezioni di 160 regioni in italiano e 390 di 250
+  regioni in inglese.
 - **Misura della scelta del contesto**: `scripts/eval_retrieval.py` replica in Python la scelta del contesto di
   `TravelAssistant.kt` e `FtsRanking.kt` (BM25, città nominata nella domanda, paragrafi del contesto) e la misura sulle
   guide pubblicate di alcune regioni, con Storia e Clima da Wikipedia se i `cities.db` pubblicati non li hanno ancora,

@@ -132,7 +132,8 @@ private fun italianMeasure(params: List<String>): String {
 }
 
 private fun resolveTemplate(inner: String): String? {
-    val parts = inner.split('|')
+    // Le | dentro un link non separano i parametri: {{lang|hr|[[24sata (Croatia)|24sata]]}}.
+    val parts = listingParamSplitRegex.split(inner)
     val name = parts.first().trim()
     val lower = name.lowercase()
     if (lower in keptTemplateNames) return null
@@ -140,8 +141,13 @@ private fun resolveTemplate(inner: String): String? {
     val params = parts.drop(1).map { it.trim() }
     return when {
         lower in textTemplateNames -> first.substringAfter('=', first)
+        // {{Nihongo|testo|kanji|romaji}} delle voci di Wikipedia sul Giappone: il testo, o il romaji se il testo e' vuoto.
+        lower == "nihongo" -> first.ifEmpty { params.getOrNull(2).orEmpty() }
         // {{lang|fr|Vieux-Port}} (il testo e' l'ultimo parametro senza nome) e {{lang-fr|Vieux-Port}} (il primo)
-        lower == "lang" -> params.lastOrNull { '=' !in it }.orEmpty()
+        // {{transliteration|ja|wagashi}} di Wikipedia EN: come {{lang}}, il testo e' l'ultimo.
+        lower == "lang" || lower == "transliteration" || lower == "translit" -> params.lastOrNull { '=' !in it }.orEmpty()
+        // {{'}} di Wikipedia IT: l'apostrofo davanti al corsivo ("l{{'}}''Hinamatsuri''").
+        name == "'" -> "'"
         lower.startsWith("lang-") -> first
         // Valute ({{EUR|5}}, {{ALL|500}}): "5 EUR", altrimenti resterebbe "almeno ." nel testo.
         currencyTemplateRegex.matches(name) && first.isNotEmpty() && first.first().isDigit() -> "$first $name"
@@ -225,8 +231,9 @@ private fun resolveLinks(text: String): String {
 // spazi stretti ("25 \u00A0km"): la sequenza diventa uno spazio solo, senza interruzione se ce n'era uno.
 private val repeatedSpacesRegex = Regex("""(?<=\S)[ \t\u00A0\u202F\u2009]{2,}|(?<=\S)\t""")
 // Spazi rimasti prima della punteggiatura, anche quelli senza interruzione che la tipografia francese mette prima dei
-// due punti (i consigli del Canada: "Durante il soggiorno :"). Non dopo "•" o "▸": "• , la strada" resta com'e'.
-private val spaceBeforePunctuationRegex = Regex("""(?<![•▸])[ \u00A0\u202F\u2009]+([,.;:!?)])""")
+// due punti (i consigli del Canada: "Durante il soggiorno :"). Non dopo "•" o "▸": "• , la strada" resta com'e'. Non
+// prima di un punto attaccato a una lettera: "il dominio e' .gi" non diventa "e'.gi".
+private val spaceBeforePunctuationRegex = Regex("""(?<![•▸])[ \u00A0\u202F\u2009]+([,;:!?)]|\.(?!\p{L}))""")
 private val spaceAfterOpenParenRegex = Regex("""\([ \u00A0\u202F\u2009]+""")
 // Spazio a larghezza zero, trattino facoltativo, giunzione e BOM: invisibili, pesano 2-3 byte e rompono la ricerca
 // ("gaz\u00ADpacho" non trova "gazpacho"). Non i segni di direzione (U+200E/F), che servono al testo arabo.
@@ -600,10 +607,15 @@ fun main(rawArgs: Array<String>) {
     // Ottawa per le sezioni dei canadesi (emergencyCentreContacts).
     val emergencyIndex = withoutGeneralGuide.indexOf("--emergency-centre")
     val emergencyHtml = if (emergencyIndex >= 0) withoutGeneralGuide.getOrNull(emergencyIndex + 1)?.let(::File) else null
-    val args = if (emergencyIndex >= 0) withoutGeneralGuide.take(emergencyIndex) + withoutGeneralGuide.drop(emergencyIndex + 2) else withoutGeneralGuide
+    val withoutEmergency = if (emergencyIndex >= 0) withoutGeneralGuide.take(emergencyIndex) + withoutGeneralGuide.drop(emergencyIndex + 2) else withoutGeneralGuide
+    // --wikipedia <jsonl>: sezioni della voce di Wikipedia di ogni regione (country_wikipedia.py, CountryWikipedia.kt).
+    val wikipediaIndex = withoutEmergency.indexOf("--wikipedia")
+    val wikipediaJsonl = if (wikipediaIndex >= 0) withoutEmergency.getOrNull(wikipediaIndex + 1)?.let(::File) else null
+    val args = if (wikipediaIndex >= 0) withoutEmergency.take(wikipediaIndex) + withoutEmergency.drop(wikipediaIndex + 2) else withoutEmergency
     require(args.size in 2..3) {
         "Uso: generateGuides [--lang en] [--missions <missioni.tsv>] [--translated <tradotte.jsonl>] [--travel-advice <consigli.tsv>] " +
-            "[--general-guide <guida-generale.tsv>] [--emergency-centre <pagina.html>] <regioni.tsv> <output guides.db> [guides.db pubblicato]"
+            "[--general-guide <guida-generale.tsv>] [--emergency-centre <pagina.html>] [--wikipedia <voci.jsonl>] " +
+            "<regioni.tsv> <output guides.db> [guides.db pubblicato]"
     }
     val outputDb = File(args[1])
     val publishedDb = args.getOrNull(2)?.let(::File)?.takeIf { it.exists() }
@@ -631,6 +643,13 @@ fun main(rawArgs: Array<String>) {
         }
     }.withTranslations(translated) { regionId -> publishedDb?.let { readRegionGuide(it, regionId) }?.sections.orEmpty() }
         .let { guides -> advice?.let { guides.withTravelAdvice(it) } ?: guides }
+        .let { guides ->
+            // Senza il file (script non riuscito) tutte le regioni tengono le sezioni di Wikipedia pubblicate.
+            wikipediaJsonl?.let { file ->
+                val fresh = file.takeIf { it.exists() }?.let { parseCountryWikipedia(it.readText(), english) }.orEmpty()
+                guides.withWikipedia(fresh) { regionId -> publishedDb?.let { readRegionGuide(it, regionId) }?.sections.orEmpty() }
+            } ?: guides
+        }
         .plus(listOfNotNull(generalGuideTsv?.takeIf { it.exists() }?.let { tsv -> readGeneralGuide(tsv, publishedDb?.let { readRegionGuide(it, GENERAL_GUIDE_REGION_ID) }?.sections.orEmpty()) }))
 
     outputDb.delete()
@@ -727,9 +746,9 @@ private fun readRegionGuide(db: File, regionId: String): RegionGuide? =
             var sourceUrl: String? = null
             val sections = mutableListOf<GuideSectionRow>()
             while (rs.next()) {
-                // Le tradotte hanno l'url della pagina inglese: ognuna tiene il proprio.
+                // Le tradotte hanno l'url della pagina inglese, quelle di Wikipedia della voce: ognuna tiene il proprio.
                 sections += GuideSectionRow(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getInt(5) != 0)
-                if (rs.getInt(5) == 0) sourceUrl = rs.getString(4)
+                if (rs.getInt(5) == 0 && !isWikipediaUrl(rs.getString(4))) sourceUrl = rs.getString(4)
             }
             (sourceUrl ?: sections.firstOrNull()?.sourceUrl)?.let { RegionGuide(regionId, it, sections) }
         }

@@ -33,16 +33,27 @@ MAX_SECONDS = 20 * 60
 def sections(text, names):
     """Wikitext delle sezioni [names] della voce, ognuna come "== Titolo ==" seguito dal suo testo (sottosezioni
     comprese, fino al titolo successivo dello stesso livello o superiore), nell'ordine di [names]. Se un titolo compare
-    piu' volte vale quello di livello piu' alto (la Storia della citta', non quella di una chiesa piu' in basso)."""
+    piu' volte vale quello di livello piu' alto (la Storia della citta', non quella di una chiesa piu' in basso). Una
+    sezione scelta dentro un'altra scelta ("=== Gastronomia ===" sotto "== Tradizioni ==") esce solo come sezione sua."""
     heads = [(m.start(), m.end(), len(m.group(1)), m.group(2)) for m in HEADING.finditer(text)]
-    out = []
+    spans = {}
     for name in names:
         found = [(level, i) for i, (_, _, level, title) in enumerate(heads) if title.lower() == name]
-        if not found:
+        if found:
+            level, i = min(found)
+            spans[name] = (i, heads[i][1], next((h[0] for h in heads[i + 1:] if h[2] <= level), len(text)))
+    out = []
+    for name in names:
+        if name not in spans:
             continue
-        level, i = min(found)
-        stop = next((h[0] for h in heads[i + 1:] if h[2] <= level), len(text))
-        body = text[heads[i][1]:stop].strip()
+        i, start, stop = spans[name]
+        inner = sorted((heads[j][0], end) for j, _, end in spans.values() if start < heads[j][0] < stop)
+        body, position = "", start
+        for inner_start, inner_end in inner:
+            if inner_start >= position:
+                body += text[position:inner_start]
+                position = inner_end
+        body = (body + text[position:stop]).strip()
         if body:
             out.append(f"== {heads[i][3]} ==\n{body}")
     return "\n".join(out)
@@ -50,15 +61,15 @@ def sections(text, names):
 
 def _expired(deadline, what, left):
     if deadline is not None and time.monotonic() > deadline:
-        print(f"-- Wikipedia: tempo esaurito, {left} {what} non scaricati (restano senza Storia e Clima)", file=sys.stderr)
+        print(f"-- Wikipedia: tempo esaurito, {left} {what} non scaricati (restano senza le sezioni di Wikipedia)", file=sys.stderr)
         return True
     return False
 
 
-def wikipedia_titles(titles, lang, deadline=None):
-    """{titolo Wikivoyage: titolo della voce di Wikipedia [lang]} dal sitelink dell'elemento Wikidata collegato. Dopo
-    [deadline] (time.monotonic()) non inizia altri lotti."""
-    item_of = city_population.wikibase_items(titles, lang, deadline)
+def wikipedia_titles(titles, lang, deadline=None, voyage_lang=None):
+    """{titolo Wikivoyage: titolo della voce di Wikipedia [lang]} dal sitelink dell'elemento Wikidata collegato alle
+    pagine di Wikivoyage [voyage_lang] (default [lang]). Dopo [deadline] (time.monotonic()) non inizia altri lotti."""
+    item_of = city_population.wikibase_items(titles, voyage_lang or lang, deadline)
     ids = sorted(set(item_of.values()))
     title_of_item = {}
     for i in range(0, len(ids), city_population.BATCH):
@@ -79,9 +90,11 @@ def wikipedia_titles(titles, lang, deadline=None):
     return {t: title_of_item[q] for t, q in item_of.items() if q in title_of_item}
 
 
-def wikipedia_sections(titles, lang, deadline=None):
-    """{titolo della voce: wikitext di Storia e Clima} per le voci di Wikipedia [lang] in [titles] che ne hanno; tiene
-    solo le sezioni, non le voci intere. Dopo [deadline] (time.monotonic()) non inizia altri lotti."""
+def wikipedia_sections(titles, lang, deadline=None, names=None, keep_empty=False):
+    """{titolo della voce: wikitext delle sezioni [names] (default Storia e Clima, SECTIONS)} per le voci di Wikipedia
+    [lang] in [titles] che ne hanno, con [keep_empty] anche le voci lette senza sezioni (testo vuoto); tiene solo le
+    sezioni, non le voci intere. Dopo [deadline] (time.monotonic()) non inizia altri lotti."""
+    names = names or SECTIONS[lang]
     titles = sorted(set(titles))
     out = {}
     for i in range(0, len(titles), CONTENT_BATCH):
@@ -98,7 +111,8 @@ def wikipedia_sections(titles, lang, deadline=None):
                 break
             for page in data.get("query", {}).get("pages", []):
                 if revisions := page.get("revisions"):
-                    if text := sections(revisions[0]["slots"]["main"]["content"], SECTIONS[lang]):
+                    text = sections(revisions[0]["slots"]["main"]["content"], names)
+                    if text or keep_empty:
                         out[page["title"]] = text
             if "continue" not in data:
                 break

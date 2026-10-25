@@ -45,6 +45,12 @@ class SectionsTest(unittest.TestCase):
     def test_titoli_in_maiuscolo_e_con_spazi(self):
         self.assertEqual("== History ==\nRoman.", city_wikipedia.sections("==  History  ==\nRoman.", ("history",)))
 
+    def test_sezione_scelta_dentro_un_altra_esce_solo_come_sezione_sua(self):
+        voce = "== Tradizioni ==\nUsanze.\n=== Galateo ===\nInchini.\n=== Gastronomia ===\nSushi.\n=== Feste ===\nMatsuri.\n== Sport ==\nx"
+        self.assertEqual(
+            "== Tradizioni ==\nUsanze.\n=== Galateo ===\nInchini.\n=== Feste ===\nMatsuri.\n== Gastronomia ==\nSushi.",
+            city_wikipedia.sections(voce, ("tradizioni", "gastronomia")))
+
 
 class WikipediaTitlesTest(unittest.TestCase):
     def test_sitelink_della_voce_dall_elemento_della_pagina_wikivoyage(self):
@@ -55,6 +61,14 @@ class WikipediaTitlesTest(unittest.TestCase):
                 mock.patch("city_wikipedia.time.sleep"):
             self.assertEqual({"Rimini": "Rimini"}, city_wikipedia.wikipedia_titles(["Rimini", "Borgo"], "it"))
         self.assertIn("sitefilter=itwiki", get.call_args[0][0])
+
+    def test_pagine_wikivoyage_di_un_altra_lingua(self):
+        with mock.patch("city_wikipedia.city_population.wikibase_items", return_value={"Japan": "Q17"}) as items, \
+                mock.patch("city_wikipedia.city_population._get",
+                           return_value={"entities": {"Q17": {"sitelinks": {"itwiki": {"title": "Giappone"}}}}}), \
+                mock.patch("city_wikipedia.time.sleep"):
+            self.assertEqual({"Japan": "Giappone"}, city_wikipedia.wikipedia_titles(["Japan"], "it", voyage_lang="en"))
+        self.assertEqual("en", items.call_args[0][1])
 
 
 class DeadlineTitlesTest(unittest.TestCase):
@@ -85,6 +99,14 @@ class WikipediaSectionsTest(unittest.TestCase):
         self.assertEqual("== Clima ==\nMite.", result["Roma"])
         self.assertIn("rvcontinue=2%7Cx", get.call_args_list[1][0][0])
 
+    def test_sezioni_scelte_e_voci_senza_sezioni_con_keep_empty(self):
+        def page(title, text):
+            return {"title": title, "revisions": [{"slots": {"main": {"content": text}}}]}
+        response = {"query": {"pages": [page("Giappone", VOCE + "== Gastronomia ==\nSushi."), page("Borgo", "Niente.")]}}
+        with mock.patch("city_wikipedia.city_population._get", return_value=response), \
+                mock.patch("city_wikipedia.time.sleep"):
+            result = city_wikipedia.wikipedia_sections(["Giappone", "Borgo"], "it", names=("gastronomia",), keep_empty=True)
+        self.assertEqual({"Giappone": "== Gastronomia ==\nSushi.", "Borgo": ""}, result)
 
     def test_dopo_la_scadenza_non_inizia_altri_lotti(self):
         titles = [f"Citta {i}" for i in range(city_wikipedia.CONTENT_BATCH + 1)]

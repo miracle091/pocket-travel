@@ -271,6 +271,8 @@ def main(argv=None):
     own_lang = "it" if source_lang == "en" else "en"
     table, owner_column = ("guide_sections", "regionId") if args.kind == "guides" else ("city_sections", "city")
     own_rows, source_rows = read_rows(args.own_db, table, owner_column), read_rows(args.source_db, table, owner_column)
+    if args.kind == "guides":  # le sezioni di Wikipedia delle guide vengono dalla voce nella lingua della guida, mai tradotte
+        source_rows = [r for r in source_rows if ".wikipedia.org/" not in r[4]]
     # sezioni il cui url e' nella lingua sbagliata (la pagina inglese usata per la guida italiana senza sezioni) non valgono
     source = group(source_rows, drop_url_prefix=f"https://{own_lang}.")
     owners = {r[0] for r in own_rows}
