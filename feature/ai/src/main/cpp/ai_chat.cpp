@@ -550,6 +550,11 @@ static int decode_tokens_in_batches(
 static std::string jstring_to_utf8(JNIEnv *env, jstring str) {
     const jchar *chars = env->GetStringChars(str, nullptr);
     if (!chars) { return {}; }
+    // Rilasciati anche se la stringa lancia bad_alloc a meta'.
+    struct Release {
+        JNIEnv *env; jstring str; const jchar *chars;
+        ~Release() { env->ReleaseStringChars(str, chars); }
+    } release{env, str, chars};
     const jsize len = env->GetStringLength(str);
     std::string utf8;
     utf8.reserve(len);
@@ -577,7 +582,6 @@ static std::string jstring_to_utf8(JNIEnv *env, jstring str) {
             utf8 += (char) (0x80 | (cp & 0x3F));
         }
     }
-    env->ReleaseStringChars(str, chars);
     return utf8;
 }
 
@@ -801,6 +805,17 @@ static size_t utf8_to_utf16(const std::string &utf8, std::vector<jchar> &utf16, 
     return i;
 }
 
+// Accoda a `cache` il testo di un token e converte in `utf16` i caratteri completi, che toglie dalla cache e restituisce
+// in UTF-8. Un carattere spezzato tra due token resta in cache (al massimo 3 byte) fino al token successivo; i byte non
+// validi diventano U+FFFD subito, quindi la cache non cresce oltre quei 3 byte.
+static std::string take_complete_chars(std::string &cache, const std::string &piece, std::vector<jchar> &utf16) {
+    cache += piece;
+    const size_t consumed = utf8_to_utf16(cache, utf16);
+    std::string complete = cache.substr(0, consumed);
+    cache.erase(0, consumed);
+    return complete;
+}
+
 static jstring generate_next_token_impl(JNIEnv *env) {
     // Generazione illimitata grazie allo shift del contesto. Se lo shift non e' possibile la generazione si
     // ferma qui, come a n_predict (la risposta resta troncata ma la cache e le posizioni coerenti).
@@ -843,17 +858,12 @@ static jstring generate_next_token_impl(JNIEnv *env) {
     }
 
     // If not EOG, convert to text
-    auto new_token_chars = common_token_to_piece(g_context, new_token_id);
-    cached_token_chars += new_token_chars;
-
-    // Restituisce una stringa Java da UTF-8 valido. Un carattere spezzato tra due token resta in cache
-    // (al massimo 3 byte) fino al token successivo; i byte non validi diventano U+FFFD subito, quindi
-    // la cache non cresce oltre quei 3 byte.
+    // Restituisce una stringa Java da UTF-8 valido, senza il carattere spezzato che resta in cache.
+    const auto new_token_chars = common_token_to_piece(g_context, new_token_id);
     std::vector<jchar> utf16;
-    const size_t consumed = utf8_to_utf16(cached_token_chars, utf16);
-    LOGv("id: %d,\tcached: `%s`,\tnew: `%s`,\tconsumed: %d", new_token_id, cached_token_chars.c_str(), new_token_chars.c_str(), (int) consumed);
-    assistant_ss.write(cached_token_chars.data(), (std::streamsize) consumed);
-    cached_token_chars.erase(0, consumed);
+    const std::string complete = take_complete_chars(cached_token_chars, new_token_chars, utf16);
+    LOGv("id: %d,\tnew: `%s`,\tcomplete: `%s`,\tcached: %d bytes", new_token_id, new_token_chars.c_str(), complete.c_str(), (int) cached_token_chars.size());
+    assistant_ss << complete;
     return env->NewString(utf16.data(), (jsize) utf16.size());
 }
 
@@ -1034,6 +1044,35 @@ JNIEXPORT jstring JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_formatPromptNative(JNIEnv *env, jobject /*unused*/, jstring juser_prompt) {
     try {
         return format_prompt_impl(env, juser_prompt);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        return nullptr;
+    }
+}
+
+// Per le prove sul dispositivo (Utf8DeviceTest): il testo convertito come un prompt (jstring_to_utf8), tokenizzato senza
+// token speciali (common_tokenize) e ritrasformato in testo come una risposta, un token alla volta con take_complete_chars. Con max_tokens sotto i token
+// del testo si ferma li', come una generazione interrotta (cancelGeneration scarta il carattere spezzato in cache);
+// altrimenti converte anche quel che resta in cache, che deve essere vuota. Non tocca conversazione e cache del modello.
+static jstring stream_tokens_impl(JNIEnv *env, jstring jtext, jint max_tokens) {
+    const std::string text = jstring_to_utf8(env, jtext);
+    if (env->ExceptionCheck()) return nullptr;  // OutOfMemoryError da GetStringChars
+    const auto tokens = common_tokenize(g_context, text, false, false);
+    const size_t count = std::min(tokens.size(), (size_t) std::max(0, (int) max_tokens));
+    std::string cache;
+    std::vector<jchar> utf16;
+    for (size_t i = 0; i < count; ++i) {
+        take_complete_chars(cache, common_token_to_piece(g_context, tokens[i]), utf16);
+    }
+    if (count == tokens.size()) utf8_to_utf16(cache, utf16, true);
+    return env->NewString(utf16.data(), (jsize) utf16.size());
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_streamTokensNative(JNIEnv *env, jobject /*unused*/, jstring jtext, jint max_tokens) {
+    try {
+        return stream_tokens_impl(env, jtext, max_tokens);
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
         return nullptr;

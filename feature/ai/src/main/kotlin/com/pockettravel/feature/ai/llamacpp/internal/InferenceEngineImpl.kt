@@ -131,6 +131,10 @@ internal class InferenceEngineImpl private constructor(
 
     private external fun formatPromptNative(userPrompt: String): String?
 
+    // Solo per le prove sul dispositivo (Utf8DeviceTest): il testo tokenizzato come un prompt e ritrasformato in testo
+    // come una risposta, fermandosi dopo maxTokens token.
+    private external fun streamTokensNative(text: String, maxTokens: Int): String?
+
     private external fun unload()
 
     private external fun shutdown()
@@ -259,6 +263,12 @@ internal class InferenceEngineImpl private constructor(
         withContext(llamaDispatcher) {
             check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
             checkNotNull(formatPromptNative(message)) { "Chat template failed" }
+        }
+
+    internal suspend fun streamTokens(text: String, maxTokens: Int): String =
+        withContext(llamaDispatcher) {
+            check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
+            checkNotNull(streamTokensNative(text, maxTokens)) { "Tokenization failed" }
         }
 
     override suspend fun setGrammar(grammar: String) =
