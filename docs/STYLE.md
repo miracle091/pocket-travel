@@ -95,6 +95,8 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Gruppi della lista dei modelli: come li pubblicano gli autori, addestrati dal progetto | Ufficiali, Addestrati sulle guide | Official, Trained on the guides |
 | Chiave personale per il motore Online | chiave API | API key |
 | Fornitore del motore Online (ChatGPT, Mistral...) | servizio | service |
+| Interruttore che lascia mandare le foto al motore Online | Invia le foto al servizio | Send photos to the service |
+| Dati EXIF della foto (data, luogo, modello del telefono), tolti prima dell'invio | dati della foto (mai "EXIF" nell'interfaccia) | photo details |
 | Telefono o tablet dell'utente | dispositivo | device |
 | Colori presi dal sistema (colore dinamico, da Android 12) al posto di quelli dell'app | colori del sistema | system colors |
 | Dove si trova l'utente | posizione | location |
