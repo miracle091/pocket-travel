@@ -82,6 +82,16 @@ SELECTED=san-marino bash .github/scripts/publish-regions/build-shard.sh
 Il job `windows-scripts` di Android CI esegue i test Python e una di queste prove su Windows, perché uno script che
 funziona solo su Linux si veda subito.
 
+Il job `llm-smoke` di Android CI ("Modello vero con llama.cpp") gira quando cambiano le patch di llama.cpp, il commit
+del submodule o gli script della prova: `.github/scripts/llm-smoke.sh` compila `llama-server` per la CPU dalla copia
+patchata del submodule, come il build dell'app, e `scripts/llm_smoke.py` controlla poche risposte fisse del modello più
+piccolo del catalogo dei modelli (risposta attesa, rifiuto, nessun `<think>`, grammatica della categoria). In locale
+serve `cmake` nel PATH (su Windows anche Visual Studio con il C++) e il file del modello:
+
+```bash
+bash .github/scripts/llm-smoke.sh <file .gguf>
+```
+
 **Rumore noto nei log.** Messaggi che non dipendono dal progetto e non vanno inseguiti:
 
 - `DeprecationWarning: Buffer() is deprecated` (Node, nel job `publish`): da `actions/download-artifact` 8.0.2,

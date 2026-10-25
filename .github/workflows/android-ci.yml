@@ -207,6 +207,109 @@ jobs:
             bash .github/scripts/publish-regions/plan-shards.sh
           grep -q '^shard0=.' "$RUNNER_TEMP/plan-output.txt"
 
+  # Prova con un modello vero: llama-server per la CPU dal llama.cpp con le patch di third-party/patches/llama-cpp, e
+  # poche risposte fisse del modello piu' piccolo del catalogo dei modelli (llm-smoke.sh, llm_smoke.py). Formato del
+  # prompt, rifiuto, assenza di <think> e grammatica della categoria altrimenti si provano solo sull'emulatore, a mano.
+  # Non prova il codice JNI dell'app. Gira solo quando cambiano le patch, il commit del submodule o gli script della
+  # prova: negli altri casi il job finisce dopo il checkout.
+  llm-smoke:
+    name: Modello vero con llama.cpp
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CCACHE_DIR: /home/runner/.cache/ccache
+      CCACHE_MAXSIZE: 300M
+      # Il compilatore e' quello dell'immagine: con "content" una nuova immagine con lo stesso gcc non svuota la cache.
+      CCACHE_COMPILERCHECK: content
+      # Il modello piu' piccolo del catalogo dei modelli (LlmModelCatalog.kt), addestrato sulle guide in italiano come
+      # le righe di llm_smoke.py.
+      LLM_SMOKE_MODEL: pt-qwen3.5-0.8b
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Base: il commit di partenza della pull request o quello prima del push. Senza base (branch nuovo, push forzato su
+      # un commit non piu' scaricabile) la prova gira. Gira anche quando cambia questo workflow o la lettura del catalogo
+      # dei modelli (resolve_ai_models.py), da cui dipende il job.
+      - name: Patch di llama.cpp o script della prova cambiati
+        id: changes
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          run=true
+          if [ -n "$BASE" ] && [ "$BASE" != 0000000000000000000000000000000000000000 ] \
+            && git fetch --no-tags --depth=1 origin "$BASE"; then
+            git diff --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed.txt"
+            grep -qE '^(third-party/patches/llama-cpp/|third-party/llama-cpp$|tools/data-pipeline/scripts/(eval_common|eval_retrieval|llm_smoke|resolve_ai_models)\.py$|\.github/scripts/llm-smoke\.sh$|\.github/workflows/android-ci\.yml$)' \
+              "$RUNNER_TEMP/changed.txt" || run=false
+          fi
+          echo "run=$run" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Submodule di llama.cpp, ccache e modello da usare
+        if: steps.changes.outputs.run == 'true'
+        id: model
+        run: |
+          set -euo pipefail
+          git submodule update --init --depth 1 third-party/llama-cpp
+          sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache
+          echo "LLAMA_COMMIT=$(git rev-parse HEAD:third-party/llama-cpp)" >> "$GITHUB_ENV"
+          python3 - >> "$GITHUB_OUTPUT" <<'EOF'
+          import os, sys
+          sys.path.insert(0, "tools/data-pipeline/scripts")
+          from resolve_ai_models import catalog_models
+          source = open("feature/ai/src/main/kotlin/com/pockettravel/feature/ai/LlmModelCatalog.kt", encoding="utf-8").read()
+          m = next(m for m in catalog_models(source) if m["modelId"] == os.environ["LLM_SMOKE_MODEL"])
+          print(f"url={m['url']}\nsha256={m['sha256']}\nfile={m['modelVersion']}")
+          EOF
+
+      # Prefisso diverso da ccache-llama- del job "build": il restore-keys di quel job non deve trovare gli oggetti di gcc.
+      - name: Cache di ccache per llama.cpp su Linux
+        if: steps.changes.outputs.run == 'true'
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /home/runner/.cache/ccache
+          key: ccache-linux-llama-${{ env.LLAMA_COMMIT }}-${{ hashFiles('third-party/patches/llama-cpp/**', '.github/scripts/llm-smoke.sh') }}
+          restore-keys: ccache-linux-llama-
+
+      # Chiave = sha256 del catalogo dei modelli: un modello ricaricato con un'altra impronta si riscarica. Salvata subito
+      # dopo il download, non a fine job: anche una prova che fallisce (una patch rotta) lascia il modello in cache.
+      - name: Cache del modello
+        if: steps.changes.outputs.run == 'true'
+        id: model-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /home/runner/.cache/llm-smoke
+          key: llm-smoke-model-${{ steps.model.outputs.sha256 }}
+
+      - name: Scarica il modello
+        if: steps.changes.outputs.run == 'true' && steps.model-cache.outputs.cache-hit != 'true'
+        env:
+          URL: ${{ steps.model.outputs.url }}
+          SHA256: ${{ steps.model.outputs.sha256 }}
+          FILE: /home/runner/.cache/llm-smoke/${{ steps.model.outputs.file }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$FILE")"
+          curl -sSfL --retry 5 --retry-all-errors --retry-delay 10 -o "$FILE" "$URL"
+          echo "$SHA256  $FILE" | sha256sum -c -
+
+      - name: Salva il modello in cache
+        if: steps.changes.outputs.run == 'true' && steps.model-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /home/runner/.cache/llm-smoke
+          key: llm-smoke-model-${{ steps.model.outputs.sha256 }}
+
+      - name: Build di llama.cpp e risposte del modello
+        if: steps.changes.outputs.run == 'true'
+        env:
+          FILE: /home/runner/.cache/llm-smoke/${{ steps.model.outputs.file }}
+        run: bash .github/scripts/llm-smoke.sh "$FILE"
+
   # Test su emulatore (Compose, percorsi di navigazione, migrazioni Room, installazione dei pacchetti), in parallelo al job
   # "build". Quelli che chiedono file sul dispositivo (modello GGUF, segmenti .rd5) qui si saltano da soli (assumeTrue).
   device-tests:
