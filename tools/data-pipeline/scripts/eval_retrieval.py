@@ -871,7 +871,8 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
 # - "refusal": il prompt dell'app con la candidata come contesto, 1 - P(inizio del rifiuto addestrato), cioe' quanto il
 #   modello si aspetta di poter rispondere con quella sezione (ha senso per i modelli addestrati sulle guide).
 # Della candidata entrano i paragrafi con piu' radici della domanda, fino a RERANK["snippet"] caratteri (relevant_paragraphs).
-RERANK = {"scorer": None, "mode": "replace", "candidates": 10, "general": 2, "snippet": 600, "scoring": "yesno", "blend": 0.5}
+RERANK = {"scorer": None, "mode": "replace", "candidates": 10, "general": 2, "snippet": 600, "scoring": "yesno", "blend": 0.5,
+          "add_first": None}
 RERANK_PROMPT = {
     "it": "Domanda di un viaggiatore: {q}\n\nSezione della guida ({place}):\n{text}\n\n"
           "La sezione contiene la risposta alla domanda? Rispondi solo sì o no.",
@@ -901,7 +902,8 @@ def rerank_prompt(question, section, stems, lang):
 
 def reranked(question, app, candidates, stems, lang):
     """Le sezioni del contesto con il riordino: "replace" le MAX_SECTIONS candidate col punteggio piu' alto (a parita',
-    l'ordine della ricerca); "add" quelle dell'app piu' la migliore candidata se manca, in coda, come fts+emb1; "blend" le
+    l'ordine della ricerca); "add" quelle dell'app piu' la migliore candidata se manca, in coda come fts+emb1 o in testa se
+    il suo punteggio arriva a RERANK["add_first"]; "blend" le
     prime MAX_SECTIONS della fusione dei ranghi (rrf) tra l'ordine della ricerca, con peso RERANK["blend"], e quello del
     riordino, che regge meglio un giudice rumoroso."""
     if not candidates:
@@ -915,7 +917,11 @@ def reranked(question, app, candidates, stems, lang):
     if RERANK["mode"] == "blend":
         return rrf([candidates, [candidates[i] for i in order]], [RERANK["blend"], 1 - RERANK["blend"]])[:MAX_SECTIONS]
     best = candidates[order[0]]
-    return app + [best] if all(best is not s for s in app) else app
+    if any(best is s for s in app):
+        return app
+    # In coda la quarta sezione viene spesso tagliata dal limite del contesto: con un punteggio sicuro va in testa.
+    first = RERANK["add_first"] is not None and scores[order[0]] >= RERANK["add_first"]
+    return [best] + app if first else app + [best]
 
 
 class RerankScorer:
@@ -1430,6 +1436,9 @@ def main():
                     help="replace: le 3 col punteggio piu' alto; add: le sezioni di oggi piu' la migliore se manca; blend: "
                          "fusione dei ranghi tra la ricerca e il riordino")
     ap.add_argument("--rerank-blend", type=float, default=RERANK["blend"], help="con --rerank-mode blend: peso della ricerca")
+    ap.add_argument("--rerank-add-first", type=float, metavar="SOGLIA",
+                    help="con --rerank-mode add: la candidata aggiunta va in testa invece che in coda se il punteggio arriva a SOGLIA")
+    ap.add_argument("--rerank-snippet", type=int, default=RERANK["snippet"], help="caratteri della candidata nel prompt del riordino")
     ap.add_argument("--rerank-candidates", type=int, default=RERANK["candidates"], help="candidate dalla ricerca di oggi")
     ap.add_argument("--rerank-general", type=int, default=RERANK["general"], help="pagine della guida generale in piu' tra le candidate")
     ap.add_argument("--rerank-scoring", choices=["yesno", "refusal"], default=RERANK["scoring"],
@@ -1454,7 +1463,7 @@ def main():
         import gpu_lock
         gpu_lock.gpu_job("eval_retrieval.py", gpu=a.gpu_layers > 0)
         RERANK.update(mode=a.rerank_mode, candidates=a.rerank_candidates, general=a.rerank_general,
-                      scoring=a.rerank_scoring, blend=a.rerank_blend)
+                      scoring=a.rerank_scoring, blend=a.rerank_blend, add_first=a.rerank_add_first, snippet=a.rerank_snippet)
         a.cache.mkdir(parents=True, exist_ok=True)
         RERANK["scorer"] = RerankScorer(a.rerank, a.llama_cpp, a.gpu_layers, a.device,
                                         a.cache / f"rerank-{a.rerank.stem}-{a.lang}-{RERANK['snippet']}.json")

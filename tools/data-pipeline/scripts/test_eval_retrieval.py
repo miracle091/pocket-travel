@@ -268,6 +268,30 @@ class SearchTest(unittest.TestCase):
         # La migliore candidata e' gia' tra quelle di oggi o in coda, mai al posto di una di oggi.
         self.assertLessEqual(len(top), len(today) + 1)
 
+    def test_riordino_aggiunta_in_testa_con_punteggio_sicuro(self):
+        guides = Path(self.tmp.name) / "treni.db"
+        g = sqlite3.connect(guides)
+        g.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
+        # Quattro sezioni con "treni": oggi entrano le tre che lo ripetono di piu', non quella dei biglietti.
+        g.executemany("INSERT INTO guide_sections VALUES (?,?,?,?,?)", [
+            ("italia", "TRASPORTI", "Come muoversi", "Treni treni treni regionali.", "u"),
+            ("italia", "ARRIVARE", "Come arrivare", "Treni treni internazionali.", "u"),
+            ("italia", "COSA_VEDERE", "Cosa vedere", "Treni treni storici e musei.", "u"),
+            ("italia", "ACQUISTI", "Valuta e acquisti", "I biglietti dei treni si pagano con la carta.", "u"),
+        ])
+        g.commit()
+        g.close()
+        db = ev.build_db(guides, "italia", [])
+        question = "Come pago i treni?"
+        runs = {}
+        for name, score, threshold in (("coda", 0.9, None), ("testa", 0.9, 0.8), ("incerta", 0.7, 0.8)):
+            with self.rerank_with({"biglietti": score}, mode="add", candidates=10, general=0, add_first=threshold):
+                runs[name] = [s["category"] for s in ev.search(db, "italia", question, [])[0]]
+        db.close()
+        self.assertEqual(runs["coda"][-1], "ACQUISTI")
+        self.assertEqual(runs["testa"], ["ACQUISTI"] + runs["coda"][:-1])
+        self.assertEqual(runs["incerta"], runs["coda"])
+
     def test_riordino_fuso_con_la_ricerca(self):
         # Peso 1 alla ricerca: l'ordine di oggi; peso 0: quello del riordino, come "replace".
         question = "Treni e alberghi a Rimini?"
