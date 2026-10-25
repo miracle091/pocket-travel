@@ -18,21 +18,26 @@ Errori (con --strict il codice di uscita e' 1 se ce n'e' almeno uno):
 
 Avvisi e statistiche: quota di rifiuti (totale e per categoria), righe per categoria e per regione, domande e risposte piu'
 ripetute, domande oltre il limite, risposte con piu' di 3 frasi o nella lingua sbagliata (euristica prudente sulle parole
-funzione), righe con stessa domanda e stessa risposta ma contesto diverso, kind incoerente con la risposta e, con --eval,
-righe di training con la stessa domanda e regione, o lo stesso contesto, di una riga del test esteso.
+funzione), risposte che cominciano con un rimando (pronome o connettivo) a una frase rimasta fuori dallo stesso
+paragrafo del contesto, righe con stessa domanda e stessa risposta ma contesto diverso, kind incoerente con la risposta e, con --eval,
+righe di training con la stessa domanda e regione, o lo stesso contesto, di una riga del test esteso. Con
+--retrieval-cache, le righe di training con una domanda quasi uguale (Jaccard delle parole >= NEAR_JACCARD) a una
+domanda delle serie di eval_retrieval.py sulla stessa regione: quelle serie misurano la ricerca su regioni di
+training, quindi una domanda ripetuta nel dataset ne falserebbe la misura dopo il training.
 
 --out scrive le righe originali (mai riscritte) senza quelle con errori, senza i duplicati (resta la prima) e con al
 massimo --max-question-repeats righe per la stessa domanda (senza l'opzione: OFF_TOPIC_MAX_USES per la categoria OFF,
 nessun limite per le altre).
 
 Uso: python audit_sft.py <dataset.jsonl> [--lang it|en] [--eval <eval_extended.jsonl>] [--out <pulito.jsonl>]
-     [--max-question-repeats N] [--strict]
+     [--max-question-repeats N] [--strict] [--retrieval-cache <cartella di eval_retrieval.py>]
 """
 import argparse
 import json
 import re
 import statistics
 import sys
+import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -237,6 +242,68 @@ def leakage(rows, eval_rows):
     return same_q, same_ctx
 
 
+NEAR_JACCARD = 0.8
+# Inizi di risposta che rimandano alla frase prima ("Tuttavia, ...", "They were ..."): senza quella frase la risposta non
+# sta in piedi da sola. "There" ed "It" impersonali ("There are", "It is") sono quasi sempre frasi autonome: non contano.
+DANGLING_STARTS = {
+    "it": re.compile(r"^(Inoltre|Anche|Questo|Questa|Questi|Queste|Tuttavia|Però|Ciò|Esso|Essa|Essi|Infatti|Quindi|Lì|Qui)\b"),
+    "en": re.compile(r"^(Also|However|This|These|Those|They|Moreover|Furthermore|Additionally|Therefore|Thus|He|She)\b"
+                     r"|^It (?!is\b|was\b|'s\b)"),
+}
+
+
+def dangling_reference(context, answer, lang):
+    """True se [answer] comincia con un rimando e, nello stesso paragrafo di [context], prima della risposta c'e' una
+    frase intera rimasta fuori."""
+    if not DANGLING_STARTS[lang].match(answer):
+        return False
+    start = context.find(answer[:60])
+    if start <= 0:
+        return False
+    before = context[context.rfind("\n", 0, start) + 1:start].strip()
+    return len(before) >= 20 and bool(re.search(r"[.!?:]$", before))
+
+
+def question_words(question):
+    """Parole della domanda in minuscolo e senza accenti, per il confronto tra domande quasi uguali."""
+    folded = unicodedata.normalize("NFD", question.lower())
+    return frozenset(re.findall(r"\w+", "".join(ch for ch in folded if unicodedata.category(ch) != "Mn")))
+
+
+def near_measured(rows, measured):
+    """[(riga, domanda di training, domanda della serie)] con Jaccard delle parole >= NEAR_JACCARD a una domanda di
+    [measured] ({regione: [domande]}) sulla stessa regione."""
+    by_region = {r: [(q, question_words(q)) for q in qs] for r, qs in measured.items()}
+    out = []
+    for i, row in rows:
+        candidates = by_region.get(row.get("region"))
+        if not candidates:
+            continue
+        q = parse_row(row)[1]
+        words = question_words(q)
+        for other, other_words in candidates:
+            union = len(words | other_words)
+            if union and len(words & other_words) / union >= NEAR_JACCARD:
+                out.append((i, q, other))
+                break
+    return out
+
+
+def measured_questions(cache, lang):
+    """{regione del dataset: [domande]} di tutte le serie di eval_retrieval.py (stesse citta' e schemi), dai dati in
+    [cache]: le domande su una citta' sotto "citta:<nome>", come le righe delle citta' del dataset, le altre sotto la regione."""
+    import random
+    import eval_retrieval as ev
+    out = defaultdict(list)
+    for series in ("direct", "reworded", "dev", "dev2", "other-lang", "control"):
+        rng, pick = random.Random(7), random.Random(8)
+        for region in ev.DEFAULT_REGIONS:
+            plan = ev.make_plan(region, ev.city_rows_of(cache, region, True, lang), rng, pick, ev.questions_of(lang, series))
+            for _, _, city, q, _ in plan:
+                out[f"citta:{city}" if city else region].append(q)
+    return out
+
+
 def spread(counter):
     """"min/mediana/max" dei conteggi."""
     v = list(counter.values())
@@ -252,7 +319,7 @@ def lines_of(indexes, n=3):
     return ", ".join(str(i + 1) for i in indexes[:n]) + (", ..." if len(indexes) > n else "")
 
 
-def report(path, entries, lang, max_repeats, eval_rows=None):
+def report(path, entries, lang, max_repeats, eval_rows=None, measured=None):
     """Stampa il rapporto; ritorna (numero di righe con errori, righe da togliere per motivo)."""
     errors, drops = find_drops(entries, lang, max_repeats)
     rows = [(i, row) for i, (_, row) in enumerate(entries) if row is not None and "malformata" not in errors[i]]
@@ -295,6 +362,9 @@ def report(path, entries, lang, max_repeats, eval_rows=None):
 
     long_ = [i for i, _, _, _, a in parsed if count_sentences(a, lang) > 3]
     print(f"risposte con piu' di 3 frasi: {len(long_)}" + (f" (righe {lines_of(long_)})" if long_ else ""))
+    dangling = [i for i, row, c, _, a in parsed if row["kind"] == "pos" and dangling_reference(c, a, lang)]
+    print(f"risposte che cominciano con un rimando alla frase prima, rimasta fuori: {len(dangling)}"
+          + (f" (righe {lines_of(dangling)})" if dangling else ""))
     wrong = [i for i, _, _, _, a in parsed if wrong_language(a, lang)]
     print(f"risposte forse nella lingua sbagliata: {len(wrong)}" + (f" (righe {lines_of(wrong)})" if wrong else ""))
     pairs = defaultdict(set)
@@ -311,6 +381,11 @@ def report(path, entries, lang, max_repeats, eval_rows=None):
         same_q, same_ctx = leakage([row for _, row in rows], eval_rows)
         print(f"test esteso: {len(eval_rows)} righe | training con stessa domanda e regione: {same_q}, stesso contesto: {same_ctx}")
 
+    if measured is not None:
+        near = near_measured(rows, measured)
+        print(f"domande quasi uguali a quelle delle serie di eval_retrieval.py (stessa regione): {len(near)}"
+              + (" | " + "; ".join(f"riga {i + 1}: {short(q, 40)} ~ {short(o, 40)}" for i, q, o in near[:3]) if near else ""))
+
     removed = Counter(d for d in drops if d)
     return len(bad), removed
 
@@ -323,11 +398,14 @@ def main():
     ap.add_argument("--out", type=Path, help="scrive qui il dataset pulito")
     ap.add_argument("--max-question-repeats", type=int, help="righe al massimo per la stessa domanda nel file pulito")
     ap.add_argument("--strict", action="store_true", help="codice di uscita 1 se ci sono errori")
+    ap.add_argument("--retrieval-cache", type=Path,
+                    help="cartella dei dati di eval_retrieval.py: avvisa delle domande quasi uguali a quelle delle sue serie")
     a = ap.parse_args()
     entries = load(a.dataset)
     lang = a.lang or guess_lang(a.dataset, entries)
     eval_rows = [r for _, r in load(a.eval) if r is not None] if a.eval else None
-    n_bad, removed = report(a.dataset, entries, lang, a.max_question_repeats, eval_rows)
+    measured = measured_questions(a.retrieval_cache, lang) if a.retrieval_cache else None
+    n_bad, removed = report(a.dataset, entries, lang, a.max_question_repeats, eval_rows, measured)
     if a.out:
         drops = find_drops(entries, lang, a.max_question_repeats)[1]
         with open(a.out, "w", encoding="utf-8", newline="\n") as f:

@@ -421,8 +421,12 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   sempre solo le domande (`scripts/external_questions.py`, cache in `data/sft/raw/`). Con `--retrieval-rows <n>` e
   `--retrieval-cache <cartella>` aggiunge circa n righe con il contesto che la ricerca dell'app sceglie davvero
   (`scripts/sft_retrieval.py`, che usa `eval_retrieval.py` sui `guides.db` e `cities.db` pubblicati), su città fuori
-  dalle regioni di test e da quelle misurate da `eval_retrieval.py`. Le note di `ATTRIBUTION` sono nella lingua del
-  dataset. I file di output sono
+  dalle regioni di test e da quelle misurate da `eval_retrieval.py`. Con `--retrieval-cache` il generatore toglie
+  anche le righe con una domanda quasi uguale a una delle serie di `eval_retrieval.py` sulla stessa regione o città
+  (motivo `serie-di-misura` nell'elenco delle esclusioni), così il confronto dei modelli su quelle serie dopo il
+  training resta pulito. Toglie sempre le risposte che cominciano con un rimando ("Tuttavia", "Questo", "They",
+  "However"…) a una frase rimasta fuori dallo stesso paragrafo (motivo `risposta-con-rimando`): da sole non stanno in
+  piedi. Le note di `ATTRIBUTION` sono nella lingua del dataset. I file di output sono
   `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v11 con
   `--nearby`, `--distances`, `--cities-db`, `--emergency`, le domande in stile utente, `--city-daily-life`,
   `--balanced-negatives` o `--clear-questions` (i default), v9 senza nessuna di queste,
@@ -443,10 +447,11 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   Ogni generatore scrive anche `EXCLUDED[.<versione>].<lang>.tsv`: per regione, fonte e categoria, cosa è rimasto
   fuori e perché (regione di test, pagina assente, pagina senza sezioni utili, markup residuo, sezione che non tratta la
   sua categoria, nessuna risposta estratta); il riepilogo per fonte e motivo si stampa a fine generazione.
-  `scripts/audit_sft.py <dataset.jsonl> [--eval <test esteso>] [--out <pulito.jsonl>] [--strict]` controlla un dataset
-  prima del training: righe malformate, contesti o risposte oltre i limiti, risposte positive con frasi che non sono nel
-  contesto, markup residuo, sottoregioni delle regioni di test, duplicati, righe che ripetono il test esteso; stampa
-  anche quota di rifiuti, righe per categoria e regione e domande più ripetute. Con `--out` scrive una copia senza le
+  `scripts/audit_sft.py <dataset.jsonl> [--eval <test esteso>] [--out <pulito.jsonl>] [--strict] [--retrieval-cache <cartella>]`
+  controlla un dataset prima del training: righe malformate, contesti o risposte oltre i limiti, risposte positive con
+  frasi che non sono nel contesto, markup residuo, sottoregioni delle regioni di test, duplicati, righe che ripetono il
+  test esteso e, con `--retrieval-cache` (i dati scaricati da `eval_retrieval.py`), domande quasi uguali a quelle delle
+  sue serie; stampa anche quota di rifiuti, righe per categoria e regione e domande più ripetute. Con `--out` scrive una copia senza le
   righe con errori e senza i duplicati.
   Nelle risposte estratte dalle guide, frasi di righe diverse (voci di elenco, sottosezioni) restano su righe diverse.
   `scripts/generate-sft.sh [--new | --v12 | --old] --data <cartella>` fa tutto in sequenza per le due lingue: dataset,

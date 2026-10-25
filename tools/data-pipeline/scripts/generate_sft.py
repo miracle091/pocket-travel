@@ -410,6 +410,31 @@ def drop_audit_errors(rows, lang):
     return kept, dropped
 
 
+def drop_dangling_answers(rows, lang):
+    """([rows] senza le righe positive la cui risposta comincia con un rimando a una frase rimasta fuori dallo stesso
+    paragrafo del contesto (audit_sft.dangling_reference: "Tuttavia, ...", "They were ..."), [(regionId, "riga",
+    categoria, "risposta-con-rimando")]): senza la frase prima la risposta non sta in piedi da sola."""
+    kept, dropped = [], []
+    for r in rows:
+        if r["kind"] == "pos" and audit_sft.dangling_reference(*audit_sft.parse_row(r)[::2], lang):
+            dropped.append((r["region"], "riga", r["category"], "risposta-con-rimando"))
+        else:
+            kept.append(r)
+    return kept, dropped
+
+
+def drop_measured_questions(rows, cache, lang):
+    """([rows] senza le righe con una domanda quasi uguale a una delle serie di eval_retrieval.py sulla stessa regione o
+    citta' (audit_sft.near_measured), [(regionId, "riga", categoria, "serie-di-misura")]): le serie misurano ricerca e
+    modello su regioni di training, e una loro domanda nel dataset falserebbe il confronto dopo il training. Scarica in
+    [cache] guide e citta' delle regioni delle serie, come eval_retrieval.py."""
+    import eval_retrieval
+    eval_retrieval.fetch_data(eval_retrieval.DEFAULT_REGIONS, cache, lang)
+    near = {i for i, _, _ in audit_sft.near_measured(list(enumerate(rows)), audit_sft.measured_questions(cache, lang))}
+    dropped = [(rows[i]["region"], "riga", rows[i]["category"], "serie-di-misura") for i in sorted(near)]
+    return [r for i, r in enumerate(rows) if i not in near], dropped
+
+
 def question_of(content, prompt):
     """La domanda di un prompt costruito con [prompt] (on_device_prompt di una lingua)."""
     probe = prompt("\x00", "\x01")
@@ -1741,6 +1766,13 @@ def main():
     rows, dropped = drop_audit_errors(rows, lang)
     excluded.extend(dropped)
     print(f"righe con errori dell'audit: tolte {len(dropped)}")
+    rows, dropped = drop_dangling_answers(rows, lang)
+    excluded.extend(dropped)
+    print(f"risposte che cominciano con un rimando alla frase prima, rimasta fuori: tolte {len(dropped)}")
+    if a.retrieval_cache:
+        rows, dropped = drop_measured_questions(rows, a.retrieval_cache, lang)
+        excluded.extend(dropped)
+        print(f"righe con una domanda delle serie di eval_retrieval.py: tolte {len(dropped)}")
     capped = cap_repeats(rows, L["prompt"])
     print(f"stessa domanda e risposta oltre {SAME_ANSWER_MAX} volte: tolte {len(rows) - len(capped)} righe")
     rows = capped

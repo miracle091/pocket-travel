@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Test di cap_repeats (generate_sft.py): al massimo SAME_ANSWER_MAX righe positive con la stessa domanda e la stessa
 risposta (cambia solo il contesto); i rifiuti non si toccano. Test di drop_audit_errors: fuori le righe che audit_sft.py
-segna come errori.
+segna come errori. Test di drop_measured_questions: fuori le righe con una domanda delle serie di eval_retrieval.py.
 
 Uso: python test_sft_repeats.py
 """
 import unittest
+from pathlib import Path
+from unittest import mock
 
 import generate_sft
 
@@ -35,6 +37,26 @@ class CapRepeatsTest(unittest.TestCase):
         kept, dropped = generate_sft.drop_audit_errors([good, markup, invented], "it")
         self.assertEqual(kept, [good])
         self.assertEqual([d[3] for d in dropped], ["audit-markup-residuo", "audit-non-estrattiva"])
+
+    def test_risposte_con_un_rimando_alla_frase_rimasta_fuori_tolte(self):
+        context = "Orvieto viene sommersa dai turisti ogni giorno. Quindi conviene arrivare presto."
+        dangling = make("it", context, "Quando visitare Orvieto?", "Quindi conviene arrivare presto.")
+        whole = make("it", context, "Quando visitare Orvieto?", context)
+        refusal = make("it", context, "Dove dormire?", "Quindi il contesto non basta.", kind="neg")
+        kept, dropped = generate_sft.drop_dangling_answers([dangling, whole, refusal], "it")
+        self.assertEqual(kept, [whole, refusal])
+        self.assertEqual([d[3] for d in dropped], ["risposta-con-rimando"])
+
+    def test_righe_con_una_domanda_delle_serie_di_misura_tolte(self):
+        same = {**make("it", "Alberghi in centro.", "Dove dormire a Maratona?", "Alberghi in centro."), "region": "citta:Maratona"}
+        other = {**make("it", "Alberghi in centro.", "Dove dormire a Corinto?", "Alberghi in centro."), "region": "citta:Corinto"}
+        measured = {"citta:Maratona": ["Dove dormire a Maratona?"], "grecia": ["Serve il visto?"]}
+        with mock.patch("eval_retrieval.fetch_data") as fetch, mock.patch.object(generate_sft.audit_sft, "measured_questions",
+                                                                                return_value=measured):
+            kept, dropped = generate_sft.drop_measured_questions([same, other], Path("cache"), "it")
+        fetch.assert_called_once()
+        self.assertEqual(kept, [other])
+        self.assertEqual(dropped, [("citta:Maratona", "riga", same["category"], "serie-di-misura")])
 
     def test_domanda_dal_prompt(self):
         prompt = generate_sft.LANGS["it"]["prompt"]

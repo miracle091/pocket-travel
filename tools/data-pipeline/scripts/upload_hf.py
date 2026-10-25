@@ -325,7 +325,9 @@ def main():
     from huggingface_hub import HfApi
     api = HfApi(token=token)
     api.create_repo(a.repo, private=not a.public, exist_ok=True)
-    api.upload_folder(repo_id=a.repo, folder_path=str(a.folder), ignore_patterns=["training_args.bin"])
+    # Anche in sottocartelle e checkpoint, se per errore si carica la cartella del run invece di <run>/merged.
+    api.upload_folder(repo_id=a.repo, folder_path=str(a.folder),
+                      ignore_patterns=["training_args.bin", "**/training_args.bin", "checkpoint-*/**"])
     api.upload_file(repo_id=a.repo, path_or_fileobj=card.encode("utf-8"), path_in_repo="README.md")
     if attribution.exists() and not attribution_in_folder:  # se era in a.folder, upload_folder l'ha gia' caricato
         api.upload_file(repo_id=a.repo, path_or_fileobj=str(attribution), path_in_repo="ATTRIBUTION.tsv")

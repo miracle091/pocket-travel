@@ -389,5 +389,31 @@ class GuessLangTest(unittest.TestCase):
         self.assertIsNone(audit_sft.prompt_lang("Altro prompt"))
 
 
+class DanglingReferenceTest(unittest.TestCase):
+    def test_rimando_alla_frase_rimasta_fuori(self):
+        context = "Mangiare e' importante per i samoani. Portano spesso il cibo in viaggio.\nIl cibo non e' piccante."
+        self.assertTrue(audit_sft.dangling_reference(
+            "Eating is an important part of Samoan life. They often take food with them.", "They often take food with them.", "en"))
+        # Frase autonoma o all'inizio del paragrafo: niente avviso
+        self.assertFalse(audit_sft.dangling_reference(context, "Il cibo non e' piccante.", "it"))
+        self.assertFalse(audit_sft.dangling_reference("There are buses.\nThey run daily.", "They run daily.", "en"))
+        self.assertFalse(audit_sft.dangling_reference("Buses are frequent. It is easy to move.", "It is easy to move.", "en"))
+        self.assertTrue(audit_sft.dangling_reference(
+            "Orvieto viene sommersa da turisti ogni giorno. Quindi conviene arrivare presto.", "Quindi conviene arrivare presto.", "it"))
+
+
+class NearMeasuredTest(unittest.TestCase):
+    def test_domande_quasi_uguali_a_quelle_delle_serie_di_misura(self):
+        rows = [(0, make("Alberghi in centro.", "Dove dormire a Rimini?", "Alberghi in centro.", region="italia")),
+                (1, make("Alberghi in centro.", "Dove si può dormire a Rimini?", "Alberghi in centro.", region="italia")),
+                (2, make("Alberghi in centro.", "Dove dormire a Rimini?", "Alberghi in centro.", region="grecia")),
+                (3, make("Treni ogni ora.", "Come arrivo a Rimini in treno?", "Treni ogni ora.", region="italia"))]
+        measured = {"italia": ["Dove dormire a Rìmini?"]}
+        near = audit_sft.near_measured(rows, measured)
+        # La stessa domanda (accenti a parte) sulla stessa regione si'; un'altra regione o un'altra domanda no.
+        self.assertEqual([i for i, _, _ in near], [0])
+        self.assertEqual(audit_sft.near_measured(rows, {}), [])
+
+
 if __name__ == "__main__":
     unittest.main()
