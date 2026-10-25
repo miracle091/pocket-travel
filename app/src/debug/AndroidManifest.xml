@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Solo debug: permette http verso il server locale del manifest alternativo (vedi core/sync build.gradle.kts). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:networkSecurityConfig="@xml/network_security_config_debug" />
+    <application android:networkSecurityConfig="@xml/network_security_config_debug">
+        <!-- Solo debug: provoca crash JVM, nativi e per memoria da adb (vedi DebugCrashReceiver). -->
+        <receiver
+            android:name=".crash.DebugCrashReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+    </application>
 </manifest>

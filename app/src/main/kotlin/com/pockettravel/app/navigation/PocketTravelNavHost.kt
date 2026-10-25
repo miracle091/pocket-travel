@@ -59,6 +59,7 @@ import androidx.navigation.toRoute
 import androidx.window.core.layout.WindowSizeClass
 import com.pockettravel.app.R
 import com.pockettravel.app.browser.InAppBrowserScreen
+import com.pockettravel.app.crash.CrashContext
 import com.pockettravel.app.licenses.LicenseScreen
 import com.pockettravel.app.licenses.LicensesScreen
 import com.pockettravel.app.settings.SettingsScreen
@@ -123,6 +124,10 @@ fun PocketTravelNavHost(
     var initialRegionOpened by rememberSaveable { mutableStateOf(false) }
 
     val currentDestination = navController.currentBackStackEntryAsState().value?.destination
+    // Nome della schermata per il rapporto di una chiusura inattesa: la rotta senza i valori degli argomenti.
+    LaunchedEffect(currentDestination) {
+        CrashContext.screen = currentDestination?.route?.substringBefore('/')?.substringBefore('?')?.substringAfterLast('.')
+    }
     val currentTopLevel = TopLevelDestination.entries.firstOrNull { currentDestination?.hasRoute(it.route::class) == true }
     val adaptiveInfo = currentWindowAdaptiveInfoV2()
     val isExpanded = adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)

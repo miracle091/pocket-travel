@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.pockettravel.app.crash.CrashReporter
 import com.pockettravel.app.settings.AppLanguage
 import com.pockettravel.core.data.AppInitializer
 import com.pockettravel.core.sync.CatalogPreferences
@@ -30,8 +31,12 @@ class PocketTravelApp : Application(), Configuration.Provider {
     // Catalogo scelto nelle Impostazioni, se diverso da quello del progetto.
     @Inject lateinit var catalogPreferences: CatalogPreferences
 
+    // Rapporti sulle chiusure inattese: il gestore delle eccezioni parte per primo.
+    @Inject lateinit var crashReporter: CrashReporter
+
     override fun onCreate() {
         super.onCreate()
+        crashReporter.install()
         // Prima di ogni worker e di ogni AppInitializer, che leggono il catalogo da SyncConfig.
         catalogPreferences.applySaved()
         initializers.forEach { it.onAppCreate() }

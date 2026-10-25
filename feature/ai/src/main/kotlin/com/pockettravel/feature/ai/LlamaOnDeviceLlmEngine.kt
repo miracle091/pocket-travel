@@ -40,6 +40,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
 ) : OnDeviceLlmEngine {
     private val mutex = Mutex()
     private val engine: InferenceEngine by lazy { InferenceEngineImpl.getInstance(context) }
+    private val breadcrumb = LoadedModelBreadcrumb.forContext(context)
 
     // File del modello oggi in memoria (null se nessuno): senza, dopo un cambio di modello scelto
     // il motore resterebbe sul precedente, perche' isModelLoaded non dice quale sia.
@@ -129,6 +130,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
 
     suspend fun releaseWithoutLock() {
         loadedModelPath = null
+        breadcrumb.clear()
         _stats.update { it.copy(loadedModelId = null) }
         val state = engine.state.value
         // cleanUp() lancia IllegalStateException fuori da ModelReady/Error (es. nessun modello
@@ -158,6 +160,9 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
         val path = modelManager.modelFile(definition).absolutePath
         val loadStart = System.nanoTime()
         _isLoadingModel.value = true
+        // Prima del caricamento: una chiusura per memoria avviene spesso proprio qui.
+        breadcrumb.write(LoadedModelBreadcrumb.Entry(definition.id, definition.minRamTier, deviceAiCapability.ramTier()))
+        var loaded = false
         try {
             engine.loadModel(
                 path,
@@ -165,7 +170,10 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
                 topP = TOP_P,
                 nThreads = deviceAiCapability.inferenceThreadCount(),
             )
+            loaded = true
         } finally {
+            // Caricamento fallito: nessun modello in memoria, la traccia non vale piu'.
+            if (!loaded) breadcrumb.clear()
             _isLoadingModel.value = false
         }
         loadedModelPath = path

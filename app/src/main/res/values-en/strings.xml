@@ -350,4 +350,9 @@
     <string name="settings_walking_haptics">Vibration when walking</string>
     <string name="settings_walking_haptics_subtitle">A light vibration at each turn and two on arrival, to follow navigation without looking at the screen</string>
     <string name="regions_offline_installed">Catalog unreachable: only the countries already downloaded are shown</string>
+    <string name="crash_notice_title">The app closed unexpectedly</string>
+    <string name="crash_notice_share">Share the report</string>
+    <string name="crash_notice_github">Report on GitHub</string>
+    <string name="crash_notice_close">Close</string>
+    <string name="crash_notice_smaller_model">The %1$s model needs more RAM than this device has. Download %2$s</string>
 </resources>

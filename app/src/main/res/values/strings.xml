@@ -360,4 +360,9 @@
     <string name="settings_walking_haptics">Vibrazione a piedi</string>
     <string name="settings_walking_haptics_subtitle">Una vibrazione leggera a ogni svolta e due all\'arrivo, per seguire la navigazione senza guardare lo schermo</string>
     <string name="regions_offline_installed">Catalogo non raggiungibile: sono mostrate solo le nazioni già scaricate</string>
+    <string name="crash_notice_title">L\'app si è chiusa in modo inatteso</string>
+    <string name="crash_notice_share">Condividi il rapporto</string>
+    <string name="crash_notice_github">Apri una segnalazione su GitHub</string>
+    <string name="crash_notice_close">Chiudi</string>
+    <string name="crash_notice_smaller_model">Il modello %1$s richiede più RAM di questo dispositivo. Scarica %2$s</string>
 </resources>
