@@ -439,10 +439,11 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   anche quota di rifiuti, righe per categoria e regione e domande più ripetute. Con `--out` scrive una copia senza le
   righe con errori e senza i duplicati.
   Nelle risposte estratte dalle guide, frasi di righe diverse (voci di elenco, sottosezioni) restano su righe diverse.
-  `scripts/generate-sft.sh [--new | --old] --data <cartella>` fa tutto in sequenza per le due lingue: dataset, test
-  estesi e audit `--strict`, dal dump più recente in `<cartella>/dumps/` e dai `guides*.db`, `cities*.db` e
+  `scripts/generate-sft.sh [--new | --v12 | --old] --data <cartella>` fa tutto in sequenza per le due lingue: dataset,
+  test estesi e audit `--strict`, dal dump più recente in `<cartella>/dumps/` e dai `guides*.db`, `cities*.db` e
   riassunti delle vaccinazioni pubblicati nella stessa cartella (lo schema è nell'intestazione dello script). `--new` (il
-  default) è la ricetta v11; `--old` quella del v9, scritta come `v9-rigenerato` per non sostituire il v9 dei training.
+  default) è la ricetta v11; `--v12` aggiunge le sezioni di Wikipedia delle guide (`--guide-wikipedia`); `--old` è
+  quella del v9, scritta come `v9-rigenerato` per non sostituire il v9 dei training.
 - **Fonti del dataset SFT**: i titoli delle pagine di ogni regione stanno in `sft-sources.tsv` (`-` = pagina che non
   esiste). Le righe mancanti si cercano via API durante `generate_sft_dataset.py --dump-dir`; un errore di rete non
   diventa `-`, così la volta dopo si riprova, e `--recheck-missing` cerca di nuovo tutte le pagine date per inesistenti.

@@ -2,11 +2,14 @@
 # Genera il dataset SFT dell'assistente (generate_sft.py) in italiano e inglese, i test estesi (generate_eval_set*.py) e
 # ne controlla la qualita' (audit_sft.py --strict). Solo il dataset: nessun training.
 #
-# Uso: generate-sft.sh [--new | --old] --data <cartella> [--lang it|en] [--version <nome>] [--dump-dir <cartella>] [--no-eval]
+# Uso: generate-sft.sh [--new | --v12 | --old] --data <cartella> [--lang it|en] [--version <nome>] [--dump-dir <cartella>]
+#                      [--no-eval]
 #   --new   (default) la ricetta nuova (v11): citta', citta' vicine e partenze, distanze, Storia e Clima delle citta',
 #           numeri di emergenza, domande in stile utente, VITA_QUOTIDIANA delle citta', rifiuti in proporzione ai
 #           positivi, niente domande ambigue, sezioni nuove, guida generale e campi Wikidata delle guide pubblicate (gli
 #           ultimi cinque di default in generate_sft.py)
+#   --v12   la ricetta nuova piu' le sezioni di Wikipedia delle guide pubblicate (cucina, tradizioni e feste, media,
+#           telecomunicazioni: --guide-wikipedia)
 #   --old   la ricetta vecchia (v9): citta', fatti rapidi, note e vaccinazioni, senza le opzioni nuove. Le fonti sono
 #           cambiate da allora, quindi il file non e' identico al v9 dei training: si chiama v9-rigenerato e non
 #           sostituisce pocket_travel_sft.v9.*.jsonl (per farlo, --version v9)
@@ -17,7 +20,7 @@
 #             vaccinations.jsonl      riassunti di VaccinationSummaryExport
 #             retrieval-cache/        guides.db e cities.db scaricati da generate_sft.py --retrieval-rows (dal catalogo pubblicato)
 #   --lang      una sola lingua (default: it ed en)
-#   --version   nome nel file di output (default: v11 con --new, v9-rigenerato con --old)
+#   --version   nome nel file di output (default: v11 con --new, v12 con --v12, v9-rigenerato con --old)
 #   --dump-dir  un dump preciso invece del piu' recente in <data>/dumps
 #   --no-eval   senza rigenerare i test estesi (l'audit usa quelli che ci sono)
 # Output in tools/data-pipeline/data/sft/; log in <data>/generate-sft.<versione>.<lang>.log.
@@ -29,7 +32,7 @@ usage() { sed -n '2,/^set /{/^#/p}' "$0" >&2; exit 1; }
 RECIPE="" DATA="" LANGS="it en" VERSION="" DUMP="" EVAL=1
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --new|--old) [ -z "$RECIPE" ] || usage; RECIPE="${1#--}" ;;
+    --new|--v12|--old) [ -z "$RECIPE" ] || usage; RECIPE="${1#--}" ;;
     --data) DATA="${2:?}"; shift ;;
     --lang) LANGS="${2:?}"; shift ;;
     --version) VERSION="${2:?}"; shift ;;
@@ -55,7 +58,7 @@ if [ -z "$DUMP" ]; then
     | sort | tail -1)"
   [ -n "$DUMP" ] || { echo "nessun dump in $DATA/dumps: lancia download-wikimedia-dumps.sh $DATA/dumps" >&2; exit 1; }
 fi
-VERSION="${VERSION:-$([ "$RECIPE" = new ] && echo v11 || echo v9-rigenerato)}"
+case "$RECIPE" in new) VERSION="${VERSION:-v11}" ;; v12) VERSION="${VERSION:-v12}" ;; *) VERSION="${VERSION:-v9-rigenerato}" ;; esac
 echo "ricetta $RECIPE, versione $VERSION, dump $DUMP"
 
 # l'ultimo file che corrisponde a [pattern] in [dir], errore se non ce n'e'
@@ -73,9 +76,10 @@ for lang in $LANGS; do
   [ -e "${cities[0]}" ] || { echo "nessun cities db per $lang in $DATA" >&2; exit 1; }
   args=(--lang "$lang" --dump-dir "$DUMP" --cities 4500 --guides-db "$guides" --vaccinations "$DATA/vaccinations.jsonl"
         --version "$VERSION")
-  if [ "$RECIPE" = new ]; then
+  if [ "$RECIPE" != old ]; then
     args+=(--nearby 0.045 --distances 0.02 --emergency 0.01 --cities-db "${cities[@]}" --retrieval-rows 600
            --retrieval-cache "$DATA/retrieval-cache")
+    [ "$RECIPE" = new ] || args+=(--guide-wikipedia)
   else
     args+=(--user-style-questions 0 --no-city-daily-life --no-balanced-negatives --no-clear-questions --no-guide-sections)
   fi
