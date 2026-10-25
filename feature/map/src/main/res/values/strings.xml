@@ -75,6 +75,11 @@
     <string name="poi_type_park">Parco</string>
     <string name="poi_type_garden">Giardino</string>
     <string name="poi_type_nature_reserve">Riserva naturale</string>
+    <string name="poi_type_national_park">Parco nazionale</string>
+    <string name="poi_type_peak">Cima</string>
+    <string name="poi_type_mountain_range">Catena montuosa</string>
+    <string name="poi_type_bridge">Ponte</string>
+    <string name="poi_type_square">Piazza</string>
     <string name="poi_type_monastery">Monastero</string>
     <string name="poi_type_place_of_worship">Luogo di culto</string>
     <string name="poi_type_fountain">Fontana</string>

@@ -74,6 +74,11 @@
     <string name="poi_type_park">Park</string>
     <string name="poi_type_garden">Garden</string>
     <string name="poi_type_nature_reserve">Nature reserve</string>
+    <string name="poi_type_national_park">National park</string>
+    <string name="poi_type_peak">Peak</string>
+    <string name="poi_type_mountain_range">Mountain range</string>
+    <string name="poi_type_bridge">Bridge</string>
+    <string name="poi_type_square">Square</string>
     <string name="poi_type_monastery">Monastery</string>
     <string name="poi_type_place_of_worship">Place of worship</string>
     <string name="poi_type_fountain">Fountain</string>
