@@ -1,6 +1,9 @@
 package com.pockettravel.feature.ai
 
+import android.app.Activity
 import android.content.Context
+import android.view.WindowManager
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,6 +20,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.core.ui.PocketTravelTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -180,5 +185,31 @@ class AiAssistantContentDeviceTest {
         compose.onNodeWithText(context.getString(R.string.ai_api_key_save)).performScrollTo().performClick()
 
         assertEquals(1, saved)
+    }
+
+    // Con la chiave in chiaro la finestra e' protetta (niente screenshot ne' miniatura delle app recenti), poi non piu'.
+    @Test
+    fun visibleApiKeyProtectsTheWindow() {
+        var activity: Activity? = null
+        compose.setContent {
+            activity = LocalActivity.current
+            PocketTravelTheme(dynamicColor = false) {
+                AiAssistantContent(
+                    uiState = readyState().copy(mode = AiEngineMode.ONLINE, isModelDownloaded = false, apiKeyInput = "chiave-di-prova"),
+                    actions = noOpActions,
+                    onOpenOfficialSource = {},
+                )
+            }
+        }
+        val secure = { (checkNotNull(activity).window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) != 0 }
+
+        compose.waitForIdle()
+        assertFalse(secure())
+        compose.onNodeWithContentDescription(context.getString(R.string.ai_api_key_show)).performScrollTo().performClick()
+        compose.waitForIdle()
+        assertTrue(secure())
+        compose.onNodeWithContentDescription(context.getString(R.string.ai_api_key_hide)).performClick()
+        compose.waitForIdle()
+        assertFalse(secure())
     }
 }

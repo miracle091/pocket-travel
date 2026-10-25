@@ -916,6 +916,8 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
 @Composable
 private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
     var isKeyVisible by rememberSaveable { mutableStateOf(false) }
+    // Con la chiave in chiaro niente screenshot, condivisione dello schermo ne' miniatura delle app recenti.
+    SecureWindow(enabled = isKeyVisible)
     val uriHandler = LocalUriHandler.current
     val provider = uiState.onlineProvider
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
