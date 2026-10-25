@@ -109,6 +109,13 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Azione che installa un modello o i contenuti ricevuti come file | Importa da file | Import from file |
 | File ricevuto che non corrisponde a niente del catalogo | Questo file non è nel catalogo di Pocket Travel | This file is not in the Pocket Travel catalog |
 | File ricevuto alterato o incompleto (sha256 diverso) | File danneggiato: chiedi di inviarlo di nuovo | Damaged file: ask for it to be sent again |
+| Parola della lingua del posto spiegata da una voce di Wikipedia | termine locale (nel foglio: Da Wikipedia) | local term (in the sheet: From Wikipedia) |
+| Pulsanti della lettura ad alta voce della risposta | Ascolta, Ferma | Listen, Stop |
+| Voce di Pocket Travel nel menù del testo selezionato e in Condividi | Chiedi all'assistente | Ask the assistant |
+| Widget della schermata Home | Emergenza, Scorciatoie | Emergency, Shortcuts |
+| Foglio al lancio dopo una chiusura inattesa | L'app si è chiusa in modo inatteso, con Condividi il rapporto e Apri una segnalazione su GitHub | The app closed unexpectedly, with Share the report and Report on GitHub |
+| Proposta dopo una chiusura per memoria | Il modello %1$s richiede più RAM di questo dispositivo. Scarica %2$s | The %1$s model needs more RAM than this device has. Download %2$s |
+| Errori del motore Online | Credito del servizio esaurito. Ricarica l'account su %1$s; Servizio occupato. Riprova tra poco | The service credit has run out. Top up your account on %1$s; The service is busy. Try again shortly |
 | Telefono o tablet dell'utente | dispositivo | device |
 | Colori presi dal sistema (colore dinamico, da Android 12) al posto di quelli dell'app | colori del sistema | system colors |
 | Dove si trova l'utente | posizione | location |
