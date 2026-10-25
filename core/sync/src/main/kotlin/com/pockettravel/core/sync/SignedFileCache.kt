@@ -34,6 +34,7 @@ class SignedFileCache internal constructor(
     private val ioDispatcher: CoroutineDispatcher,
 ) {
     private val lock = Mutex()
+    private var othersForgotten = false
 
     @Inject constructor(
         @ApplicationContext context: Context,
@@ -54,7 +55,11 @@ class SignedFileCache internal constructor(
         parse: (ByteArray) -> T,
     ): T = lock.withLock {
         // Una lettura alla volta: due chiamate insieme (worker e schermate) non scrivono la stessa copia.
-        val saved = withContext(ioDispatcher) { load(url) }
+        val saved = withContext(ioDispatcher) {
+            if (!othersForgotten) forgetOthers()
+            othersForgotten = true
+            load(url)
+        }
         val response = download(url, saved?.etag, httpError, emptyBody)
         if (response != null) accept(url, response, parse) else reuse(url, checkNotNull(saved), httpError, emptyBody, parse)
     }
@@ -138,6 +143,13 @@ class SignedFileCache internal constructor(
         listOf("json", "sig", "etag").forEach { file(url, it).delete() }
     }
 
+    // Copie dei cataloghi usati prima: il catalogo cambia solo al riavvio dell'app, quindi basta una pulizia per processo.
+    // Restano le copie del catalogo in uso e dei due file del progetto, che valgono con qualunque catalogo.
+    private fun forgetOthers() {
+        val keep = listOf(SyncConfig.MANIFEST_URL, SyncConfig.APP_STATUS_URL, SyncConfig.ONLINE_MODELS_URL).map(::key).toSet()
+        dir.listFiles().orEmpty().filter { it.name.substringBefore('.') !in keep }.forEach(File::delete)
+    }
+
     // Prima in un file a parte e poi rinominato: un'interruzione non lascia una copia troncata.
     private fun write(target: File, bytes: ByteArray) {
         dir.mkdirs()
@@ -151,10 +163,9 @@ class SignedFileCache internal constructor(
 
     // Nome del file dall'hash dell'URL: niente caratteri dell'indirizzo nel nome, lunghezza fissa, copie separate per
     // ogni catalogo.
-    private fun file(url: String, extension: String): File {
-        val key = MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
-        return File(dir, "$key.$extension")
-    }
+    private fun file(url: String, extension: String): File = File(dir, "${key(url)}.$extension")
+
+    private fun key(url: String): String = MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
 
     private class Saved(val body: ByteArray, val etag: String, val signature: ByteArray?)
 

@@ -154,6 +154,24 @@ class SignedFileCacheTest {
     }
 
     @Test
+    fun `copie di un catalogo usato prima cancellate alla prima lettura, le altre restano`() {
+        fetch()
+        val current = dir.listFiles().orEmpty().map(File::getName).toSet()
+        // Copia di un catalogo usato prima.
+        val old = File(dir, "${"0".repeat(64)}.json")
+        // Una copia di app-status.json, del progetto con qualunque catalogo: il nome e' l'hash del suo indirizzo.
+        val appStatus = File(dir, java.security.MessageDigest.getInstance("SHA-256").digest(SyncConfig.APP_STATUS_URL.toByteArray())
+            .joinToString("") { "%02x".format(it) } + ".json").apply { writeText("{}") }
+        old.writeText("{}")
+        // Un processo nuovo dopo il riavvio: nuova istanza della cache.
+        runBlocking {
+            SignedFileCache(dir, client, ManifestSignatureVerifier(client, FakePublishedAtStore(), Dispatchers.IO), Dispatchers.IO)
+                .fetch(url, httpError = { throw IOException("HTTP $it") }, emptyBody = { throw IOException("vuoto") }) { it }
+        }
+        assertEquals(current + appStatus.name, dir.listFiles().orEmpty().map(File::getName).toSet())
+    }
+
+    @Test
     fun `ETag che non si puo' rimandare non salvato, il controllo dopo scarica per intero`() {
         etag = "\"é\""
         fetch()
