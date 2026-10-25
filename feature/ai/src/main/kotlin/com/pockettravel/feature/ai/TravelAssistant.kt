@@ -134,7 +134,10 @@ class TravelAssistant @Inject constructor(
         val destination = regulatedMatch?.let { search.country?.code ?: regionRepository.installed(regionId)?.countryCode }
         // Con la rete (o un'ultima risposta ancora valida), le previsioni per le domande di previsione, in entrambi i motori.
         val forecast = forecastSections.forQuestion(
-            ForecastQuery(regionId, question, previousQuestion, modelGroups, cities, cityNames, search.country != null, language),
+            ForecastQuery(
+                regionId, question, previousQuestion, modelGroups, cities, cityNames, search.country != null, language,
+                usePosition = mode == AiEngineMode.ON_DEVICE,
+            ),
         )
 
         val withSource = { answer: AssistantAnswer ->

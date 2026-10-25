@@ -2,4 +2,17 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Input vocale dell'assistente: l'audio va solo al riconoscitore sul dispositivo, non si salva. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <application>
+        <!-- "Invia a un altro telefono": condivide il GGUF scaricato in sola lettura. -->
+        <provider
+            android:name="com.pockettravel.feature.ai.ModelFileProvider"
+            android:authorities="${applicationId}.modelfiles"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/model_file_paths" />
+        </provider>
+    </application>
 </manifest>

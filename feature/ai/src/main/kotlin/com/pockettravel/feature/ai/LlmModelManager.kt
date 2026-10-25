@@ -2,6 +2,7 @@ package com.pockettravel.feature.ai
 
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
+import java.io.InputStream
 
 class ModelIntegrityException(message: String) : Exception(message)
 
@@ -43,6 +44,20 @@ interface LlmModelManager {
         currentlyInstalled: LlmModelDefinition?,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     )
+
+    /**
+     * Installa come un download finito il modello letto da [source] (file ricevuto da un altro telefono): copia nello
+     * staging calcolando l'sha256, lo confronta con [candidates] e restituisce il modello riconosciuto.
+     * [sizeBytes] è la dimensione dichiarata dalla sorgente (0 se ignota), [displayName] il nome del file.
+     * Lancia [ModelNoSpaceException] prima della copia, [ModelIntegrityException] per un file danneggiato e
+     * [ModelUnknownFileException] per un file fuori dal catalogo; in questi casi non resta nulla su disco.
+     */
+    suspend fun importModel(
+        source: InputStream,
+        displayName: String?,
+        sizeBytes: Long,
+        candidates: List<LlmModelDefinition>,
+    ): LlmModelDefinition
 
     /** sha256 del file installato di [definition], null se non e' scaricato. */
     suspend fun installedSha256(definition: LlmModelDefinition): String?

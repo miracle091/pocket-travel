@@ -4,6 +4,7 @@ import com.pockettravel.feature.ai.LlmModelDefinition
 import com.pockettravel.feature.ai.LlmModelManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
+import java.io.InputStream
 
 /** Gestore dei modelli in memoria per i test JVM: nessun file su disco, lo stato dei modelli scaricati si imposta a mano. */
 class FakeLlmModelManager(initial: Set<String> = emptySet()) : LlmModelManager {
@@ -45,6 +46,27 @@ class FakeLlmModelManager(initial: Set<String> = emptySet()) : LlmModelManager {
     ) {
         if (currentlyInstalled != null && currentlyInstalled.id != newDefinition.id) delete(currentlyInstalled)
         download(newDefinition, onProgress)
+    }
+
+    /** Se non nullo, [importModel] restituisce questo modello senza leggere la sorgente. */
+    var importResult: LlmModelDefinition? = null
+
+    /** Se non nullo, [importModel] lo lancia. */
+    var importFailure: Throwable? = null
+
+    val imported = mutableListOf<String>()
+
+    override suspend fun importModel(
+        source: InputStream,
+        displayName: String?,
+        sizeBytes: Long,
+        candidates: List<LlmModelDefinition>,
+    ): LlmModelDefinition {
+        importFailure?.let { throw it }
+        val definition = requireNotNull(importResult) { "importResult non impostato" }
+        imported += definition.id
+        downloadedModelIds.value += definition.id
+        return definition
     }
 
     override suspend fun installedSha256(definition: LlmModelDefinition): String? =

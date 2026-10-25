@@ -24,7 +24,10 @@ import kotlin.math.roundToInt
 internal fun isForecastQuestion(question: String, modelGroups: Set<String> = emptySet()): Boolean =
     "METEO" in questionGroups(question) + modelGroups
 
-/** Cosa serve a [ForecastSections] dalla domanda: [namesCountry] se la domanda nomina una nazione. */
+/**
+ * Cosa serve a [ForecastSections] dalla domanda: [namesCountry] se la domanda nomina una nazione; [usePosition] solo sul
+ * dispositivo, perche' con i modelli online il nome della citta' vicina all'utente arriverebbe al servizio.
+ */
 internal class ForecastQuery(
     val regionId: String,
     val question: String,
@@ -34,11 +37,12 @@ internal class ForecastQuery(
     val cityNames: List<String>,
     val namesCountry: Boolean,
     val language: String,
+    val usePosition: Boolean,
 )
 
 /**
  * Per una domanda di previsione (isForecastQuestion), le previsioni della citta' nominata nella domanda o, in ordine:
- * la piu' vicina alla posizione dell'utente, la capitale della regione (o la prima citta' principale), la citta'
+ * la piu' vicina alla posizione dell'utente (solo sul dispositivo), la capitale della regione (o la prima citta' principale), la citta'
  * delle domande precedenti. Null per le altre domande, se la domanda nomina una nazione (le citta' della regione
  * non c'entrano), senza codice paese o senza previsioni (ForecastProvider). Il blocco dice la citta' usata.
  */
@@ -57,7 +61,7 @@ class ForecastSections @Inject constructor(
         }
         val city = countryCode?.let {
             query.cities.firstOrNull()
-                ?: nearestCity(query.regionId, query.cityNames)
+                ?: (if (query.usePosition) nearestCity(query.regionId, query.cityNames) else null)
                 ?: mainCity(query.regionId)
                 ?: query.previousQuestion?.let { previous -> namedCities(previous, query.cityNames, query.language).firstOrNull() }
         }

@@ -24,6 +24,9 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.IOException
+import java.io.InputStream
 import javax.crypto.Cipher
 import javax.inject.Inject
 
@@ -60,6 +63,8 @@ data class AiUiState(
     val streamingText: String = "",
     val answer: AssistantAnswer? = null,
     val askedQuestion: String? = null,
+    // Riquadro di emergenza della domanda in fondo (askedQuestion): mostrato prima della risposta, null se non serve.
+    val emergencyCard: EmergencyCardState? = null,
     @StringRes val errorMessage: Int? = null,
     // Turni della conversazione aperta prima di quello in fondo (askedQuestion e answer).
     val earlierTurns: List<ShownTurn> = emptyList(),
@@ -73,6 +78,9 @@ data class AiUiState(
     val showsSavedContent: Boolean = false,
     // Conversazioni nella cronologia, per "Elimina la cronologia" nelle Impostazioni.
     val savedConversations: Int = 0,
+    // "Importa da file" in corso, e il suo ultimo errore (mostrato sotto il pulsante).
+    val isImportingModel: Boolean = false,
+    @StringRes val importError: Int? = null,
 )
 
 /** Un turno gia' concluso della conversazione mostrata. */
@@ -109,6 +117,7 @@ class AiAssistantViewModel @Inject constructor(
     private val historyAvailability: HistoryAvailability,
     private val onlineModelCatalog: OnlineModelCatalog,
     private val onlineModelAvailability: OnlineModelAvailability,
+    private val emergencyCards: EmergencyCardProvider,
 ) : ViewModel() {
 
     // Nomi dei modelli che la chiave salvata vede, per servizio; assente = non letti (si mostrano tutti).
@@ -225,7 +234,7 @@ class AiAssistantViewModel @Inject constructor(
     fun onModeChanged(mode: AiEngineMode) {
         cancelAsk()
         aiSettingsStore.setEngineMode(mode)
-        _uiState.update { it.copy(mode = mode, answer = null, askedQuestion = null, errorMessage = null) }
+        _uiState.update { it.copy(mode = mode, answer = null, askedQuestion = null, emergencyCard = null, errorMessage = null) }
         refreshOnlineModels()
         checkOnlineModelAvailability()
     }
@@ -395,7 +404,41 @@ class AiAssistantViewModel @Inject constructor(
         cancelAsk()
         viewModelScope.launch {
             engine.releaseAndDelete()
-            _uiState.update { it.copy(isModelDownloaded = false, answer = null, askedQuestion = null) }
+            _uiState.update { it.copy(isModelDownloaded = false, answer = null, askedQuestion = null, emergencyCard = null) }
+        }
+    }
+
+    /** File del modello installato, da condividere con "Invia a un altro telefono"; null se non è scaricato. */
+    fun sendableModelFile(definition: LlmModelDefinition): File? =
+        modelManager.modelFile(definition).takeIf { modelManager.isDownloaded(definition) }
+
+    /**
+     * "Importa da file": [open] apre il file scelto, [displayName] e [sizeBytes] (0 se ignota) vengono dal selettore.
+     * Un file riconosciuto si installa come dopo un download e diventa il modello scelto.
+     */
+    fun importModel(displayName: String?, sizeBytes: Long, open: () -> InputStream?) {
+        if (_uiState.value.isImportingModel) return
+        cancelAsk()
+        _uiState.update { it.copy(isImportingModel = true, importError = null) }
+        viewModelScope.launch {
+            try {
+                engine.release()
+                val input = open() ?: throw IOException("File non leggibile")
+                val candidates = LlmModelCatalog.ALL + _uiState.value.availableModels
+                val definition = modelManager.importModel(input, displayName, sizeBytes, candidates)
+                onModelSelected(definition.id)
+                _uiState.update { it.copy(isImportingModel = false) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                val message = when (error) {
+                    is ModelNoSpaceException -> R.string.ai_error_space
+                    is ModelIntegrityException -> R.string.ai_import_damaged
+                    is ModelUnknownFileException -> R.string.ai_import_unknown
+                    else -> R.string.ai_import_failed
+                }
+                _uiState.update { it.copy(isImportingModel = false, importError = message) }
+            }
         }
     }
 
@@ -419,6 +462,8 @@ class AiAssistantViewModel @Inject constructor(
         // Una conversazione ripresa resta nella sua regione, anche aperta dalla scheda IA di un'altra.
         val region = conversation.regionId ?: regionId
         askJob = viewModelScope.launch {
+            // Prima della ricerca e del modello: il numero da chiamare non aspetta la risposta.
+            val emergencyCard = emergencyCards.forQuestion(region, question)
             _uiState.update {
                 // Il turno concluso sale sopra la domanda nuova.
                 val done = it.askedQuestion?.let { asked -> it.answer?.let { answer -> ShownTurn(asked, answer) } }
@@ -427,6 +472,7 @@ class AiAssistantViewModel @Inject constructor(
                     errorMessage = null,
                     earlierTurns = it.earlierTurns + listOfNotNull(done),
                     askedQuestion = question,
+                    emergencyCard = emergencyCard,
                     question = "",
                     answer = null,
                     streamingText = "",
@@ -459,7 +505,7 @@ class AiAssistantViewModel @Inject constructor(
     /** Chiude la conversazione aperta (si archivia) e svuota la schermata per una nuova. */
     fun newConversation() {
         cancelAsk()
-        _uiState.update { it.copy(askedQuestion = null, answer = null, errorMessage = null) }
+        _uiState.update { it.copy(askedQuestion = null, emergencyCard = null, answer = null, errorMessage = null) }
     }
 
     /**
@@ -568,6 +614,7 @@ class AiAssistantViewModel @Inject constructor(
                     streamingText = "",
                     earlierTurns = shown.dropLast(1),
                     askedQuestion = shown.lastOrNull()?.askedQuestion,
+                    emergencyCard = null,
                     answer = shown.lastOrNull()?.answer,
                     errorMessage = null,
                     readOnlyRegion = conversation.readOnlyRegionName,

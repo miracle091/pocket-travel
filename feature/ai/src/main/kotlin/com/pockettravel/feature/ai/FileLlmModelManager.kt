@@ -6,9 +6,12 @@ import com.pockettravel.core.data.allocatableBytes
 import com.pockettravel.core.data.reserveSpace
 import com.pockettravel.feature.ai.di.AiModelsDir
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -34,6 +37,7 @@ class FileLlmModelManager @Inject constructor(
     // null nei test: lo spazio disponibile e' solo quello libero.
     private val storageManager: StorageManager? = null,
 ) : LlmModelManager {
+    private val importLock = Mutex()
     override fun modelFile(definition: LlmModelDefinition): File = File(modelsDir, definition.fileName)
     private fun partFile(definition: LlmModelDefinition): File = File(modelsDir, "${definition.fileName}.part")
 
@@ -78,16 +82,76 @@ class FileLlmModelManager @Inject constructor(
             deletePartFilesExcept(definition)
             downloadAndVerify(definition, onProgress)
         }
+        install(verified, definition, requireNotNull(definition.sha256).lowercase())
+    }
+
+    // Passaggio finale comune a download e importazione: sostituisce il file del modello con quello verificato.
+    private suspend fun install(verified: File, definition: LlmModelDefinition, sha256: String, deleteOthers: Boolean = false) {
         coordinator.withModelLock {
+            if (deleteOthers) {
+                LlmModelCatalog.ALL.filter { it.id != definition.id && isDownloaded(it) }.forEach { deleteWithoutLock(it) }
+            }
             withContext(ioDispatcher) {
                 // Prima del nuovo file: uno sha vecchio accanto a un modello nuovo farebbe credere installata la versione sbagliata.
                 shaFile(definition).delete()
                 check(verified.renameTo(modelFile(definition))) { "Impossibile installare il modello" }
-                shaFile(definition).writeText(requireNotNull(definition.sha256).lowercase())
+                shaFile(definition).writeText(sha256)
                 partShaFile(definition).delete()
             }
             _downloadedModelIds.value = scanDownloadedModelIds()
         }
+    }
+
+    override suspend fun importModel(
+        source: InputStream,
+        displayName: String?,
+        sizeBytes: Long,
+        candidates: List<LlmModelDefinition>,
+    ): LlmModelDefinition {
+        // Spazio per lo staging controllato prima di copiare, come per il download.
+        if (sizeBytes > 0 && availableStorageBytes() < sizeBytes) {
+            throw ModelNoSpaceException("Spazio insufficiente per importare il modello")
+        }
+        // Un'importazione alla volta: due copie nello stesso file di staging si mescolerebbero.
+        return importLock.withLock {
+            val staging = File(modelsDir, IMPORT_STAGING_NAME)
+            var installed = false
+            try {
+                val maxBytes = candidates.maxOfOrNull { it.sizeBytes } ?: 0L
+                val (sha256, copied) = withContext(ioDispatcher) {
+                    modelsDir.reserveSpace(storageManager, sizeBytes)
+                    copyWithSha256(source, staging, maxBytes)
+                }
+                val definition = classifyImport(sha256, copied, displayName, candidates).definitionOrThrow(sha256)
+                // Un solo modello installato alla volta, come in selectAndDownload.
+                install(staging, definition, sha256, deleteOthers = true)
+                installed = true
+                definition
+            } finally {
+                // Staging parziale, scartato o non installato: non deve restare su disco.
+                if (!installed) withContext(NonCancellable + ioDispatcher) { staging.delete() }
+            }
+        }
+    }
+
+    // Copia [input] in [target] e restituisce sha256 (minuscolo) e byte copiati; l'sha256 si calcola durante la copia.
+    // Oltre [maxBytes] (il modello piu' grande del catalogo) si ferma: il file non e' un modello e non deve riempire il disco.
+    private fun copyWithSha256(input: InputStream, target: File, maxBytes: Long): Pair<String, Long> {
+        val digest = MessageDigest.getInstance("SHA-256")
+        var total = 0L
+        input.use { stream ->
+            FileOutputStream(target).use { output ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                var read: Int
+                while (stream.read(buffer).also { read = it } != -1) {
+                    digest.update(buffer, 0, read)
+                    output.write(buffer, 0, read)
+                    total += read
+                    if (total > maxBytes) throw ModelUnknownFileException("File piu' grande di ogni modello del catalogo")
+                }
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it.toInt() and BYTE_MASK) } to total
     }
 
     /**
@@ -283,6 +347,7 @@ class FileLlmModelManager @Inject constructor(
     private companion object {
         const val PROGRESS_STEP_BYTES = 1_000_000L
         const val SHA256_HEX_LENGTH = 64
+        const val IMPORT_STAGING_NAME = "import.part"
     }
 }
 
@@ -291,3 +356,10 @@ private const val HTTP_RANGE_NOT_SATISFIABLE = 416
 private const val HTTP_REQUEST_TIMEOUT = 408
 private const val HTTP_TOO_MANY_REQUESTS = 429
 private val HTTP_CLIENT_ERRORS = 400..499
+
+// Il modello del catalogo per un file importato, o l'errore da mostrare: danneggiato o fuori dal catalogo.
+private fun ImportVerdict.definitionOrThrow(sha256: String): LlmModelDefinition = when (this) {
+    is ImportVerdict.Match -> definition
+    ImportVerdict.Damaged -> throw ModelIntegrityException("File del modello danneggiato: sha256 $sha256")
+    ImportVerdict.Unknown -> throw ModelUnknownFileException("File fuori dal catalogo dei modelli: sha256 $sha256")
+}

@@ -97,6 +97,8 @@ import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.isOnCellularNetwork
+import java.io.File
+import java.io.InputStream
 import java.text.NumberFormat
 import java.util.Currency
 import javax.crypto.Cipher
@@ -206,6 +208,8 @@ data class AiActions(
     val onNewConversation: () -> Unit = {},
     val onOpenHistory: () -> Unit = {},
     val onDeleteHistory: () -> Unit = {},
+    val onImportModel: (displayName: String?, sizeBytes: Long, open: () -> InputStream?) -> Unit = { _, _, _ -> },
+    val sendableModelFile: (LlmModelDefinition) -> File? = { null },
 )
 
 /** Le azioni della cronologia, dal ViewModel. */
@@ -236,6 +240,8 @@ private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
     onNewConversation = ::newConversation,
     onOpenHistory = ::openHistory,
     onDeleteHistory = ::deleteHistory,
+    onImportModel = ::importModel,
+    sendableModelFile = ::sendableModelFile,
 )
 
 @Composable
@@ -567,6 +573,7 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
             }
         }
         if (asked != null) QuestionBubble(asked)
+        uiState.emergencyCard?.let { EmergencyCard(it) }
         // Risposta: bolla a sinistra su superficie tonale; liveRegion perche' TalkBack annunci la
         // risposta (o l'errore) quando arriva, senza dover cercare dove e' comparsa. Non durante lo
         // streaming: ogni aggiornamento del testo parziale verrebbe riletto, la risposta si annuncia una
@@ -820,6 +827,37 @@ private fun ModelList(uiState: AiUiState, actions: AiActions) {
                 }
             }
         }
+        ImportModelButton(uiState, actions)
+    }
+}
+
+/** "Importa da file": il selettore dei documenti, poi la copia e il confronto con il catalogo. */
+@Composable
+private fun ImportModelButton(uiState: AiUiState, actions: AiActions) {
+    val context = LocalContext.current
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val (name, size) = queryDocument(context, uri)
+            actions.onImportModel(name, size) { context.contentResolver.openInputStream(uri) }
+        }
+    }
+    Column(modifier = Modifier.padding(top = Spacing.m)) {
+        TextButton(enabled = !uiState.isImportingModel, onClick = { picker.launch(arrayOf("*/*")) }) {
+            Icon(AppIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(Spacing.s))
+            Text(stringResource(R.string.ai_model_import))
+        }
+        if (uiState.isImportingModel) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs))
+        }
+        uiState.importError?.let {
+            Text(
+                text = stringResource(it),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
     }
 }
 
@@ -874,6 +912,11 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
                         Icon(AppIcons.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(Spacing.s))
                         Text(stringResource(R.string.ai_delete_model))
+                    }
+                    TextButton(onClick = { actions.sendableModelFile(definition)?.let { shareModelFile(context, it) } }) {
+                        Icon(AppIcons.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(Spacing.s))
+                        Text(stringResource(R.string.ai_model_send))
                     }
                 } else if (downloadProgress != null) {
                     Text(
