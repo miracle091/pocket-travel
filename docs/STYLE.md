@@ -102,6 +102,8 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Riquadro in cima alla risposta dell'assistente quando la domanda parla di un pericolo per la vita | riquadro di emergenza (titolo: Emergenza? Chiama subito) | emergency card (title: Emergency? Call now) |
 | Frase sotto ogni allerta | Informazioni non ufficiali e probabilmente non aggiornate: segui le direttive locali delle autorità | Not official and probably out of date: follow the instructions of the local authorities |
 | Fonte e ora delle allerte | Fonte: %1$s · aggiornate alle %2$s; senza rete: Ultime allerte scaricate alle %1$s | Source: %1$s · updated at %2$s; offline: Last alerts downloaded at %1$s |
+| Riquadro delle allerte senza allerte nella regione | Nessuna allerta in corso nella regione | No active alerts in this region |
+| Avviso nella guida quando il consiglio di viaggio è cambiato dopo il pacchetto | Consigli di viaggio aggiornati il %1$s, con il pulsante Apri | Travel advice updated on %1$s, with the Open button |
 | Allerta tradotta o riassunta dall'assistente | Riassunto dall'assistente, testo originale qui sotto | Summarized by the assistant, original text below |
 | Azione che condivide un modello o i contenuti di una regione con un altro telefono, senza internet | Invia a un altro telefono | Send to another phone |
 | Azione che installa un modello o i contenuti ricevuti come file | Importa da file | Import from file |
