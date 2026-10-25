@@ -40,6 +40,10 @@ ROWS = [
      "https://www.gov.uk/foreign-travel-advice/japan/entry-requirements#for-nationality=GB"),
     ("giappone", "DOGANE", "Entry and exit requirements (Government of Canada)", "Your Canadian passport must be valid.", GC + "#for-nationality=CA"),
     ("francia", "ALLOGGIO", "Dove alloggiare", "Gli alberghi sono cari.", "https://it.wikivoyage.org/wiki/Francia"),
+    # sezioni della voce di Wikipedia della regione (CountryWikipedia.kt): solo con --guide-wikipedia, nella lingua del dataset
+    ("francia", "CIBO_BEVANDE", "Gastronomia", "La zuppa di cipolle e' tipica.", "https://it.wikipedia.org/wiki/Francia"),
+    ("giappone", "VITA_QUOTIDIANA", "Media", "Newspapers are widely read.", "https://en.wikipedia.org/wiki/Japan"),
+    ("giappone", "USI_COSTUMI", "Holidays", "New Year is the main holiday.", "https://en.wikipedia.org/wiki/Japan"),  # mai
 ]
 
 
@@ -57,8 +61,16 @@ class LoadGuideSectionsTest(unittest.TestCase):
     def tearDown(self):
         self.dir.cleanup()
 
-    def bodies(self, lang):
-        return {rid: [b for _, b, _, _ in secs] for rid, secs in load_guide_sections(self.db, lang).items()}
+    def bodies(self, lang, wikipedia=False):
+        return {rid: [b for _, b, _, _ in secs] for rid, secs in load_guide_sections(self.db, lang, wikipedia).items()}
+
+    def test_wikipedia_solo_con_l_opzione_e_nella_lingua_del_dataset(self):
+        self.assertEqual(self.bodies("it", wikipedia=True)["francia"], ["Gli alberghi sono cari.", "La zuppa di cipolle e' tipica."])
+        self.assertNotIn("Newspapers are widely read.", self.bodies("it", wikipedia=True)["giappone"])
+        self.assertIn("Newspapers are widely read.", self.bodies("en", wikipedia=True)["giappone"])
+        self.assertNotIn("New Year is the main holiday.", self.bodies("en", wikipedia=True)["giappone"])  # feste fuori
+        self.assertEqual(generate_sft.WIKI_LICENSE, guide_source("https://it.wikipedia.org/wiki/Francia", "it"))
+        self.assertIsNone(guide_source("https://en.wikipedia.org/wiki/Japan", "it"))
 
     def test_english_dataset(self):
         # fuori anche le sezioni per i soli britannici (GB) e canadesi (CA)

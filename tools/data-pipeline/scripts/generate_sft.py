@@ -750,29 +750,38 @@ def with_guide_sections(L, lang):
             "keywords": {**L["keywords"], **GUIDE_KEYWORDS[lang]}}
 
 
+# Sezioni di Wikipedia delle guide sulle feste, in USI_COSTUMI nell'app ma fuori dal dataset: le domande di USI_COSTUMI
+# chiedono di usanze e buone maniere, e la risposta estrattiva prenderebbe una festa ("Quali sono le buone maniere in
+# Giappone?" -> i matsuri).
+WIKI_HOLIDAY_TITLES = {"festività", "festività nazionali", "festivals", "holidays", "public holidays", "holidays and festivals"}
+
+
 def guide_source(url, lang):
-    """La licenza di una sezione di guides.db per il dataset in [lang] ("CC BY-SA 4.0" per Wikivoyage nella lingua del
-    dataset), None per le fonti che non si usano."""
+    """La licenza di una sezione di guides.db per il dataset in [lang] ("CC BY-SA 4.0" per Wikivoyage e WIKI_LICENSE per
+    Wikipedia nella lingua del dataset), None per le fonti che non si usano."""
     host = urllib.parse.urlsplit(url).netloc
-    return GUIDE_LICENSES.get(host) or ("CC BY-SA 4.0" if host == f"{lang}.wikivoyage.org" else None)
+    return (GUIDE_LICENSES.get(host) or ("CC BY-SA 4.0" if host == f"{lang}.wikivoyage.org" else None)
+            or (WIKI_LICENSE if host == f"{lang}.wikipedia.org" else None))
 
 
-def load_guide_sections(guides_db, lang):
+def load_guide_sections(guides_db, lang, wikipedia=False):
     """{regionId: [(categoria, corpo, sourceUrl, tradotta)]} delle sezioni di [guides_db] che i dump non danno: fonti di
-    GUIDE_LICENSES e categorie GUIDE_ONLY_CATS di Wikivoyage nella lingua [lang]; fuori le "#for-nationality=", i Fatti
-    rapidi (a parte, load_quick_facts), le sezioni tradotte da translate_guides.py (guides.db non dice con quale
-    modello, che ATTRIBUTION dovrebbe dichiarare) e la guida generale "_general", che ha domande sue
-    (load_general_guide, GENERAL_GUIDE_QUESTIONS)."""
+    GUIDE_LICENSES e categorie GUIDE_ONLY_CATS di Wikivoyage nella lingua [lang], con [wikipedia] (--guide-wikipedia)
+    anche le sezioni della voce di Wikipedia della regione (cucina, tradizioni, media, telecomunicazioni: le sceglie la
+    pipeline delle guide, CountryWikipedia.kt); fuori le "#for-nationality=", i Fatti rapidi (a parte, load_quick_facts),
+    le sezioni tradotte da translate_guides.py (guides.db non dice con quale modello, che ATTRIBUTION dovrebbe
+    dichiarare) e la guida generale "_general", che ha domande sue (load_general_guide, GENERAL_GUIDE_QUESTIONS)."""
     out = {}
     with closing(sqlite3.connect(guides_db)) as db:
         has_translated = any(col[1] == "translated" for col in db.execute("PRAGMA table_info(guide_sections)"))
-        for rid, cat, body, url in db.execute(
-                "SELECT regionId, category, body, sourceUrl FROM guide_sections WHERE category != 'FATTI_RAPIDI' "
+        for rid, cat, title, body, url in db.execute(
+                "SELECT regionId, category, title, body, sourceUrl FROM guide_sections WHERE category != 'FATTI_RAPIDI' "
                 "AND regionId != '_general' "
                 f"AND instr(sourceUrl, '#for-nationality=') = 0 {'AND IFNULL(translated, 0) = 0' if has_translated else ''} "
                 "ORDER BY regionId, rowid"):
             source = guide_source(url, lang)
-            if source and (source in GUIDE_LICENSES.values() or cat in GUIDE_ONLY_CATS):
+            if source and (source in GUIDE_LICENSES.values() or cat in GUIDE_ONLY_CATS
+                           or (wikipedia and source == WIKI_LICENSE and title.lower() not in WIKI_HOLIDAY_TITLES)):
                 out.setdefault(rid, []).append((cat, body, url, False))
     return out
 
@@ -1068,7 +1077,10 @@ def main():
                     help="con --guides-db, anche le sezioni che i dump non danno (consigli di travel.gc.ca e FCDO, Sleep e "
                          "Talk dei paesi; al massimo GUIDE_SECTIONS_MAX per categoria) e i campi Wikidata dei Fatti rapidi "
                          "(--no-guide-sections: come il v9)")
-    ap.add_argument("--version", help="versione nel nome dei file di output (default: v11 con --nearby, --distances, "
+    ap.add_argument("--guide-wikipedia", action=argparse.BooleanOptionalAction, default=False,
+                    help="con --guide-sections, anche le sezioni di Wikipedia delle guide (cucina, tradizioni, media e "
+                         "telecomunicazioni della voce della regione), con la voce in ATTRIBUTION; dal dataset v12")
+    ap.add_argument("--version", help="versione nel nome dei file di output (default: v12 con --guide-wikipedia, v11 con --nearby, --distances, "
                                       "--cities-db, --emergency, --user-style-questions diverso da 0, --city-daily-life, "
                                       "--balanced-negatives, --clear-questions o --guide-sections con --guides-db, "
                                       "altrimenti v9); serve per sovrascrivere un v9 che esiste gia'")
@@ -1088,7 +1100,9 @@ def main():
         ap.error("--distances, --nearby ed --emergency sono quote: tra 0 e 1 escluso")
     if missing := [p for _, p in map(city_db_region, a.cities_db or []) if not Path(p).is_file()]:
         ap.error(f"--cities-db: file inesistenti: {', '.join(map(str, missing))}")
-    version = a.version or ("v11" if a.nearby or a.distances or a.cities_db or a.emergency or a.user_style_questions
+    if a.guide_wikipedia and not (a.guide_sections and a.guides_db):
+        ap.error("--guide-wikipedia richiede --guides-db e --guide-sections")
+    version = a.version or ("v12" if a.guide_wikipedia else "v11" if a.nearby or a.distances or a.cities_db or a.emergency or a.user_style_questions
                             or a.city_daily_life or a.balanced_negatives or a.clear_questions
                             or (a.guide_sections and a.guides_db) else "v9")
     if version == "v9" and not a.version and (it.OUT / f"pocket_travel_sft.v9.{a.lang}.jsonl").exists():
@@ -1268,7 +1282,7 @@ def main():
     if a.guides_db and a.guide_sections:
         names = {rid: name for rid, name, *_ in regions}
         guide_secs, dropped = select_guide_sections(
-            {r: s for r, s in load_guide_sections(a.guides_db, lang).items() if r in names}, rng, TEST_REGIONS)
+            {r: s for r, s in load_guide_sections(a.guides_db, lang, a.guide_wikipedia).items() if r in names}, rng, TEST_REGIONS)
         excluded.extend(dropped)
         for rid, gsecs in sorted(guide_secs.items()):
             name, secs, other_secs = data.get(rid, (names[rid], [], []))
