@@ -24,7 +24,10 @@ internal fun buildTaskReport(
     header.forEach { appendLine(it) }
     appendLine()
     appendLine("## samples")
-    appendLine("time,pss_mb,native_pss_mb,native_heap_mb,avail_ram_mb,low_memory,cpu_percent,threads,model,generating")
+    appendLine(
+        "time,pss_mb,native_pss_mb,native_heap_mb,avail_ram_mb,low_memory,cpu_percent,threads,model,generating," +
+            "thermal_status,thermal_headroom,battery_c,charging",
+    )
     samples.forEach { appendLine(sampleRow(it)) }
     appendLine()
     appendLine("## generations")
@@ -61,8 +64,41 @@ private fun sampleRow(sample: TimedSnapshot): String {
         time(sample.atMs), mb(s.totalPssBytes), s.nativePssBytes?.let(::mb) ?: "", mb(s.nativeHeapBytes),
         mb(s.systemAvailableRamBytes), s.lowMemory, String.format(Locale.ROOT, "%.0f", s.cpuPercent),
         s.threadCount ?: "", s.runtime.loadedModelId ?: "", s.runtime.isGenerating,
+        s.thermalStatus?.let(::thermalStatusName) ?: "", s.thermalHeadroom?.let { String.format(Locale.ROOT, "%.2f", it) } ?: "",
+        s.batteryCelsius?.let { String.format(Locale.ROOT, "%.1f", it) } ?: "", s.charging ?: "",
     ).joinToString(",")
 }
+
+// Nomi delle costanti PowerManager.THERMAL_STATUS_* (0 = NONE ... 6 = SHUTDOWN).
+private val THERMAL_STATUS_NAMES = listOf("none", "light", "moderate", "severe", "critical", "emergency", "shutdown")
+
+/** Nome inglese di uno stato PowerManager.THERMAL_STATUS_*, o il numero se il sistema ne aggiunge uno nuovo. */
+internal fun thermalStatusName(status: Int): String = THERMAL_STATUS_NAMES.getOrNull(status) ?: status.toString()
+
+/** Riga dell'intestazione con il SoC: produttore e modello (Android 12+), altrimenti Build.HARDWARE. */
+internal fun socHeader(manufacturer: String?, model: String?, hardware: String): String {
+    val known = listOf(manufacturer, model).filter { !it.isNullOrBlank() && it != "unknown" }
+    return "soc: " + (known.joinToString(" ").ifEmpty { "hardware=$hardware" })
+}
+
+/**
+ * Riga dell'intestazione con la frequenza massima dei core in MHz, a gruppi di core consecutivi uguali (i cluster):
+ * `cpu_max_mhz: 0-3=2000, 4-6=2800, 7=3300`; "unavailable" se il sistema non espone cpufreq (emulatore x86).
+ */
+internal fun cpuFrequencyHeader(maxKhz: List<Int?>): String {
+    if (maxKhz.all { it == null }) return "cpu_max_mhz: unavailable"
+    val groups = mutableListOf<Triple<Int, Int, Int?>>()
+    maxKhz.forEachIndexed { core, khz ->
+        val last = groups.lastOrNull()
+        if (last != null && last.third == khz) groups[groups.lastIndex] = last.copy(second = core) else groups += Triple(core, core, khz)
+    }
+    return groups.joinToString(", ", prefix = "cpu_max_mhz: ") { (first, last, khz) ->
+        val cores = if (first == last) "$first" else "$first-$last"
+        "$cores=${khz?.let { it / KHZ_PER_MHZ } ?: "?"}"
+    }
+}
+
+private const val KHZ_PER_MHZ = 1000
 
 private fun generationRow(g: GenerationStats): String = listOf(
     time(g.endedAtMs), g.modelId ?: "", g.context?.promptTokens ?: "", g.context?.generatedTokens ?: "",

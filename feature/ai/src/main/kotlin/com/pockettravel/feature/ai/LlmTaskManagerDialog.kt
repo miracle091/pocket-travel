@@ -21,6 +21,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -90,6 +91,17 @@ private fun ResourcesSection(snapshot: LlmTaskSnapshot) {
         pluralStringResource(R.plurals.ai_taskmgr_cpu_value, snapshot.cpuCores, snapshot.cpuPercent, snapshot.cpuCores),
     )
     MetricRow(stringResource(R.string.ai_taskmgr_threads), snapshot.threadCount?.toString() ?: NOT_AVAILABLE)
+    val states = stringArrayResource(R.array.ai_taskmgr_thermal_states)
+    MetricRow(
+        stringResource(R.string.ai_taskmgr_thermal),
+        snapshot.thermalStatus?.let { states.getOrNull(it) ?: it.toString() } ?: stringResource(R.string.ai_taskmgr_unavailable),
+    )
+    MetricRow(
+        stringResource(R.string.ai_taskmgr_battery),
+        snapshot.batteryCelsius?.let {
+            stringResource(if (snapshot.charging == true) R.string.ai_taskmgr_battery_charging else R.string.ai_taskmgr_battery_value, it)
+        } ?: stringResource(R.string.ai_taskmgr_unavailable),
+    )
 }
 
 @Composable

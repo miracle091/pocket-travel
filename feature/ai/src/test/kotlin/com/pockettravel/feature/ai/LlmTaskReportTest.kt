@@ -36,14 +36,19 @@ class LlmTaskReportTest {
         )
         val report = buildTaskReport(
             header = listOf("device: test"),
-            samples = listOf(TimedSnapshot(1_000L, snapshot(generating = true))),
+            samples = listOf(
+                TimedSnapshot(
+                    1_000L,
+                    snapshot(generating = true).copy(thermalStatus = 2, thermalHeadroom = 0.85f, batteryCelsius = 36.5f, charging = true),
+                ),
+            ),
             generations = listOf(generation),
             logcat = "I/llama: loaded\n",
         )
         val lines = report.lines()
 
         assertEquals("device: test", lines[1])
-        assertTrue("1970-01-01T00:00:01Z,1536.0,512.0,64.0,2048.0,false,312,41,qwen-0.8b,true" in lines)
+        assertTrue("1970-01-01T00:00:01Z,1536.0,512.0,64.0,2048.0,false,312,41,qwen-0.8b,true,moderate,0.85,36.5,true" in lines)
         assertTrue("1970-01-01T00:00:00Z,qwen-0.8b,900,21,921,4096,1000,2000,20.0,900.0" in lines)
         assertTrue(report.endsWith("## logcat\nI/llama: loaded\n"))
     }
@@ -93,6 +98,30 @@ class LlmTaskReportTest {
         val sample = TimedSnapshot(0L, snapshot(generating = false, nativePssBytes = null))
         val report = buildTaskReport(emptyList(), listOf(sample), emptyList(), "")
 
-        assertTrue("1970-01-01T00:00:00Z,1536.0,,64.0,2048.0,false,312,41,qwen-0.8b,false" in report.lines())
+        assertTrue("1970-01-01T00:00:00Z,1536.0,,64.0,2048.0,false,312,41,qwen-0.8b,false,,,," in report.lines())
+    }
+
+    @Test
+    fun `thermal status names and unknown values`() {
+        assertEquals("none", thermalStatusName(0))
+        assertEquals("shutdown", thermalStatusName(6))
+        assertEquals("9", thermalStatusName(9))
+    }
+
+    @Test
+    fun `soc header with the model or the hardware name`() {
+        assertEquals("soc: QTI SM8650", socHeader("QTI", "SM8650", "qcom"))
+        assertEquals("soc: hardware=ranchu", socHeader(null, null, "ranchu"))
+        assertEquals("soc: hardware=ranchu", socHeader("unknown", "unknown", "ranchu"))
+    }
+
+    @Test
+    fun `cpu frequency header groups the clusters`() {
+        assertEquals(
+            "cpu_max_mhz: 0-3=2016, 4-6=2803, 7=3302",
+            cpuFrequencyHeader(listOf(2016000, 2016000, 2016000, 2016000, 2803200, 2803200, 2803200, 3302400)),
+        )
+        assertEquals("cpu_max_mhz: unavailable", cpuFrequencyHeader(listOf(null, null)))
+        assertEquals("cpu_max_mhz: 0=1800, 1=?", cpuFrequencyHeader(listOf(1800000, null)))
     }
 }

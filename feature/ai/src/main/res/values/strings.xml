@@ -113,6 +113,19 @@
         <item quantity="other">%1$.0f%% di un core · %2$d core</item>
     </plurals>
     <string name="ai_taskmgr_threads">Thread</string>
+    <string name="ai_taskmgr_thermal">Stato termico</string>
+    <string-array name="ai_taskmgr_thermal_states">
+        <item>Normale</item>
+        <item>Lieve</item>
+        <item>Moderato</item>
+        <item>Grave</item>
+        <item>Critico</item>
+        <item>Emergenza</item>
+        <item>Spegnimento</item>
+    </string-array>
+    <string name="ai_taskmgr_battery">Batteria</string>
+    <string name="ai_taskmgr_battery_value">%1$.1f °C</string>
+    <string name="ai_taskmgr_battery_charging">%1$.1f °C, in carica</string>
     <string name="ai_taskmgr_behaviour">Comportamento</string>
     <string name="ai_taskmgr_conversation">Conversazione</string>
     <string name="ai_taskmgr_conversation_none">Nessuna conversazione aperta</string>

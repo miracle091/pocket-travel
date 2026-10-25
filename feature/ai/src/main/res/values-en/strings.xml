@@ -112,6 +112,19 @@
         <item quantity="other">%1$.0f%% of one core · %2$d cores</item>
     </plurals>
     <string name="ai_taskmgr_threads">Threads</string>
+    <string name="ai_taskmgr_thermal">Thermal status</string>
+    <string-array name="ai_taskmgr_thermal_states">
+        <item>Normal</item>
+        <item>Light</item>
+        <item>Moderate</item>
+        <item>Severe</item>
+        <item>Critical</item>
+        <item>Emergency</item>
+        <item>Shutdown</item>
+    </string-array>
+    <string name="ai_taskmgr_battery">Battery</string>
+    <string name="ai_taskmgr_battery_value">%1$.1f °C</string>
+    <string name="ai_taskmgr_battery_charging">%1$.1f °C, charging</string>
     <string name="ai_taskmgr_behaviour">Behavior</string>
     <string name="ai_taskmgr_conversation">Conversation</string>
     <string name="ai_taskmgr_conversation_none">No open conversation</string>

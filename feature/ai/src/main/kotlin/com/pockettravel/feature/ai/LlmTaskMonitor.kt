@@ -2,11 +2,16 @@ package com.pockettravel.feature.ai
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Debug
+import android.os.PowerManager
 import android.os.Process
 import android.os.SystemClock
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.IoDispatcher
@@ -37,6 +42,7 @@ import javax.inject.Singleton
 
 private const val SAMPLE_INTERVAL_MS = 1_000L
 private const val BYTES_PER_KB = 1024L
+private const val TENTHS_PER_DEGREE = 10f
 
 // Letture tenute per l'esportazione: 30 minuti a una lettura al secondo.
 private const val MAX_SAMPLES = 1_800
@@ -62,6 +68,12 @@ data class LlmTaskSnapshot(
     val runtime: LlmRuntimeStats,
     /** Variante CPU di llama.cpp ed estensioni della CPU; null finche' la libreria nativa non e' inizializzata. */
     val cpuBackend: CpuBackendInfo? = null,
+    /** PowerManager.THERMAL_STATUS_* (Android 10+): il telefono caldo rallenta la CPU e falsa le misure. */
+    val thermalStatus: Int? = null,
+    /** PowerManager.getThermalHeadroom (Android 11+): 1,0 = soglia di rallentamento raggiunta; null se non disponibile. */
+    val thermalHeadroom: Float? = null,
+    val batteryCelsius: Float? = null,
+    val charging: Boolean? = null,
 )
 
 /** Una lettura del task manager con l'ora (epoch ms) in cui e' stata presa. */
@@ -91,6 +103,7 @@ class LlmTaskMonitor @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : TaskMonitor {
     private val activityManager = context.getSystemService(ActivityManager::class.java)
+    private val powerManager = context.getSystemService(PowerManager::class.java)
     private val samples = ArrayDeque<TimedSnapshot>()
 
     /** Ultima lettura; la prima richiesta avvia la registrazione, che poi non si ferma piu'. */
@@ -121,6 +134,12 @@ class LlmTaskMonitor @Inject constructor(
             "app: ${context.packageName} $version",
             "device: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
             "cores: ${Runtime.getRuntime().availableProcessors()}",
+            socHeader(
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Build.SOC_MANUFACTURER else null,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Build.SOC_MODEL else null,
+                Build.HARDWARE,
+            ),
+            cpuFrequencyHeader(readMaxCpuFrequenciesKhz()),
             "exported: ${Instant.now()}",
             "model: ${runtime.loadedModelId ?: "none"}, load_ms: ${runtime.loadTimeMs ?: ""}",
             cpuBackendHeader(engine.cpuBackend.value, CpuBackendOverride.available(context)),
@@ -153,6 +172,7 @@ class LlmTaskMonitor @Inject constructor(
     private fun sample(cpu: Float): LlmTaskSnapshot {
         val processMemory = Debug.MemoryInfo().also { Debug.getMemoryInfo(it) }
         val systemMemory = ActivityManager.MemoryInfo().also { activityManager?.getMemoryInfo(it) }
+        val battery = readBattery()
         return LlmTaskSnapshot(
             models = LlmModelCatalog.ALL.filter { modelManager.isDownloaded(it) }
                 .map { ModelDiskUsage(it.fileName, modelManager.sizeOnDisk(it)) },
@@ -168,7 +188,31 @@ class LlmTaskMonitor @Inject constructor(
             threadCount = readThreadCount(),
             runtime = engine.stats.value,
             cpuBackend = engine.cpuBackend.value,
+            thermalStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) powerManager?.currentThermalStatus else null,
+            // Al piu' una chiamata al secondo (il passo di campionamento): piu' spesso il sistema risponde NaN.
+            thermalHeadroom = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                powerManager?.getThermalHeadroom(0)?.takeUnless { it.isNaN() }
+            } else {
+                null
+            },
+            batteryCelsius = battery?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
+                ?.takeIf { it != Int.MIN_VALUE }?.let { it / TENTHS_PER_DEGREE },
+            charging = battery?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1)?.takeIf { it >= 0 }?.let { it != 0 },
         )
+    }
+
+    // Intent "sticky": nessun ricevitore resta registrato, si legge l'ultimo stato della batteria.
+    private fun readBattery(): Intent? = ContextCompat.registerReceiver(
+        context, null, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED,
+    )
+
+    // cpuinfo_max_freq di ogni core in kHz, leggibile da tutte le app; null per i core senza cpufreq (emulatore x86).
+    private fun readMaxCpuFrequenciesKhz(): List<Int?> = (0 until Runtime.getRuntime().availableProcessors()).map { core ->
+        try {
+            File("/sys/devices/system/cpu/cpu$core/cpufreq/cpuinfo_max_freq").readText().trim().toIntOrNull()
+        } catch (_: IOException) {
+            null
+        }
     }
 
     private fun readThreadCount(): Int? = try {
