@@ -47,6 +47,13 @@ from xml.sax.saxutils import quoteattr
 
 INDEX_URL = "https://download.geofabrik.de/index-v1.json"
 
+# Inizio del nome delle relazioni type=associatedStreet che sono piazze: "Place des Vosges", "Piazza San Marco". In
+# Francia ogni via e ogni piazza e' una relazione, quasi tutte con wikidata (41.245 nell'Ile-de-France, 2.923 con un nome
+# di piazza): per questo il filtro chiede anche wikipedia (14). La stessa lista e' nella query di fetch_overpass_chunk
+# in build-region.sh.
+PREFISSI_DI_PIAZZA = ("Place", "Piazza", "Piazzale", "Plaza", "Platz", "Square", "Praça", "Plac", "Largo", "Campo")
+NOME_DI_PIAZZA = re.compile(rf"^({'|'.join(PREFISSI_DI_PIAZZA)}) ")
+
 # Stessi oggetti della query di fetch_overpass_chunk in build-region.sh, in sintassi di osmium tags-filter
 # (qui piu' larghi: il filtro esatto, con name, information e iata, e' filtro_overpass).
 TAGS_FILTER = [
@@ -58,6 +65,11 @@ TAGS_FILTER = [
     # Natura 2000) porterebbero nell'estratto ridotto tutti i nodi dei loro confini.
     "wr/historic", "wr/man_made=bridge", "wr/landuse=religious", "wr/boundary=national_park", "wr/protect_class=2",
     "nwr/place=square", "nw/railway=station,halt", "nwr/aeroway=aerodrome",
+    # Solo con wikidata (filtro_overpass), che tags-filter non sa unire a un'altra chiave: le biblioteche e le cime sono
+    # decine di migliaia, le vie pedonali come area (area=yes) si prendono dalle way con wikidata (sono centinaia di
+    # migliaia, contro milioni di vie pedonali), le relazioni di vie solo se il nome comincia come quello di una piazza.
+    "wr/amenity=library", "nwr/natural=peak,mountain_range", "w/wikidata", "r/highway=pedestrian", "r/type=site",
+    *[f"r/name={prefisso} *" for prefisso in PREFISSI_DI_PIAZZA],
 ]
 # Paesi che un estratto contiene ma l'indice non elenca: gcc-states ha anche l'Arabia Saudita, quello
 # dell'Irlanda l'Irlanda del Nord, quello della Malesia Singapore e Brunei.
@@ -82,8 +94,18 @@ WAY_AMENITY = {"parking", "bus_station", "hospital", "fire_station", "monastery"
 
 def filtro_overpass(kind, tags):
     """True se la query Overpass di build-region.sh restituirebbe l'oggetto (kind: node, way, relation). Ponti,
-    giardini, piazze, complessi religiosi e gli altri valori di historic solo con wikidata: famosi, non le migliaia
-    di ponticelli e giardinetti."""
+    giardini, piazze (anche pedonali e come relazione di vie), complessi religiosi, siti, biblioteche come area, catene
+    montuose e gli altri valori di historic solo con wikidata, le cime anche con wikipedia (in Italia 13.830 con wikidata,
+    3.566 con anche wikipedia): famosi, non le migliaia di ponticelli e giardinetti."""
+    if "name" in tags and "wikidata" in tags and (
+            tags.get("natural") == "mountain_range" or (tags.get("natural") == "peak" and "wikipedia" in tags) or
+            (kind in ("way", "relation") and tags.get("amenity") == "library") or
+            (kind == "way" and tags.get("highway") == "pedestrian" and tags.get("area") == "yes") or
+            (kind == "relation" and (
+                (tags.get("highway") == "pedestrian" and tags.get("type") == "multipolygon") or
+                tags.get("type") == "site" or
+                (tags.get("type") == "associatedStreet" and "wikipedia" in tags and NOME_DI_PIAZZA.match(tags["name"]))))):
+        return True
     if kind == "node" and any(k in tags for k in NODE_KEYS):
         return True
     if kind == "way" and (tags.get("amenity") in WAY_AMENITY or

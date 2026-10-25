@@ -666,9 +666,9 @@ ATTEMPTS=$(( ${#OVERPASS_ENDPOINTS[@]} * 2 ))
 # in GeneratePoi.kt non possono disallinearsi.
 POI_TAG_KEYS=(amenity shop tourism leisure historic)
 # Chiavi lette da generatePoi ma interrogate su Overpass solo con i filtri mirati di
-# fetch_overpass_chunk (stazioni, aeroporti, ponti, piazze, parchi nazionali): con la chiave intera
-# arriverebbero anche binari, passaggi a livello e segnali.
-POI_EXTRA_TAG_KEYS=(railway aeroway office man_made landuse boundary place)
+# fetch_overpass_chunk (stazioni, aeroporti, ponti, piazze, parchi nazionali, piazze pedonali, cime, siti): con la
+# chiave intera arriverebbero anche binari, passaggi a livello, segnali, strade e alberi.
+POI_EXTRA_TAG_KEYS=(railway aeroway office man_made landuse boundary place highway natural type)
 
 fmax() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0>b+0)?a:b }'; }
 fmin() { awk -v a="$1" -v b="$2" 'BEGIN { print (a+0<b+0)?a:b }'; }
@@ -712,6 +712,15 @@ fetch_overpass_chunk() {
   query="${query}wr[\"historic\"][\"name\"][\"wikidata\"]${bbox};wr[\"man_made\"=\"bridge\"][\"name\"][\"wikidata\"]${bbox};"
   query="${query}wr[\"landuse\"=\"religious\"][\"name\"][\"wikidata\"]${bbox};wr[\"leisure\"=\"garden\"][\"name\"][\"wikidata\"]${bbox};"
   query="${query}nwr[\"place\"=\"square\"][\"name\"][\"wikidata\"]${bbox};"
+  # Altri luoghi famosi, sempre solo con wikidata: piazze pedonali (area=yes o relazione multipoligono), relazioni di vie
+  # con un nome di piazza e anche wikipedia (PREFISSI_DI_PIAZZA in geofabrik_pois.py), siti monumentali (santuari di Nikko), biblioteche
+  # disegnate come aree, catene montuose e le cime che hanno anche wikipedia.
+  query="${query}way[\"highway\"=\"pedestrian\"][\"area\"=\"yes\"][\"name\"][\"wikidata\"]${bbox};"
+  query="${query}relation[\"highway\"=\"pedestrian\"][\"type\"=\"multipolygon\"][\"name\"][\"wikidata\"]${bbox};"
+  query="${query}relation[\"type\"=\"associatedStreet\"][\"name\"~\"^(Place|Piazza|Piazzale|Plaza|Platz|Square|Praça|Plac|Largo|Campo) \"][\"wikidata\"][\"wikipedia\"]${bbox};"
+  query="${query}relation[\"type\"=\"site\"][\"name\"][\"wikidata\"]${bbox};wr[\"amenity\"=\"library\"][\"name\"][\"wikidata\"]${bbox};"
+  query="${query}nwr[\"natural\"=\"mountain_range\"][\"name\"][\"wikidata\"]${bbox};"
+  query="${query}nwr[\"natural\"=\"peak\"][\"name\"][\"wikidata\"][\"wikipedia\"]${bbox};"
   # Trasporti: stazioni (treno e metro), autostazioni, aeroporti con codice IATA (niente aviosuperfici).
   query="${query}nw[\"railway\"~\"^(station|halt)$\"]${bbox};nwr[\"aeroway\"=\"aerodrome\"][\"iata\"]${bbox};"
   query="${query});out center;"

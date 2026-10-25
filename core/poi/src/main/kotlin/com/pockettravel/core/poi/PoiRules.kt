@@ -101,7 +101,7 @@ val SIGHT_CATEGORIES: Set<PoiCategory> = setOf(
 
 /**
  * Raggruppa il tag OSM grezzo di un POI (Poi.category/osmTag, uno dei tanti valori possibili di
- * amenity/shop/tourism/leisure/historic/railway/aeroway/office/man_made/landuse/boundary/place — vedi poiTagKeys in
+ * amenity/shop/tourism/leisure/historic/railway/aeroway/office/man_made/landuse/boundary/place/highway/natural/type — vedi poiTagKeys in
  * GeneratePoi.kt) in una manciata di
  * macro-categorie per la mappa (icona + filtro), con lo stesso criterio delle GuideCategory
  * delle guide testuali.
@@ -184,6 +184,11 @@ fun poiCategoryOf(category: String, osmTag: String): PoiCategory = when {
     osmTag == "boundary=national_park" -> PoiCategory.NATURA
     // Ponti e piazze famosi (ponte sul Bosforo, place des Vosges): solo quelli con wikidata.
     osmTag == "man_made=bridge" || osmTag == "place=square" -> PoiCategory.ATTRAZIONI
+    // Piazze pedonali (place de la Bastille) e vie con un nome di piazza (place des Vosges), solo con wikidata.
+    osmTag == "highway=pedestrian" || osmTag == "type=associatedStreet" -> PoiCategory.ATTRAZIONI
+    // Siti monumentali come relazione (santuari di Nikko) e catene montuose (Olimpo) con wikidata, cime anche con wikipedia.
+    osmTag == "type=site" -> PoiCategory.LUOGHI_STORICI
+    osmTag == "natural=peak" || osmTag == "natural=mountain_range" -> PoiCategory.NATURA
     osmTag.startsWith("historic=") -> PoiCategory.LUOGHI_STORICI
     // Villaggi turistici e residence (leisure=resort), capanne e love hotel: ci si dorme, non sono "Altro".
     category in accommodationValues || osmTag == "leisure=resort" || osmTag == "tourism=cabin" ||

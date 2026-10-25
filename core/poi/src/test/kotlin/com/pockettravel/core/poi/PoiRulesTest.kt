@@ -46,12 +46,17 @@ class PoiRulesTest {
     }
 
     @Test
-    fun `ponti, piazze, complessi religiosi e parchi nazionali famosi sono da vedere e sul pacchetto base`() {
+    fun `ponti, piazze, siti, cime, complessi religiosi e parchi nazionali famosi sono da vedere e sul pacchetto base`() {
         mapOf(
             "man_made=bridge" to PoiCategory.ATTRAZIONI,
             "place=square" to PoiCategory.ATTRAZIONI,
             "landuse=religious" to PoiCategory.LUOGHI_DI_CULTO,
             "boundary=national_park" to PoiCategory.NATURA,
+            "highway=pedestrian" to PoiCategory.ATTRAZIONI,
+            "type=associatedStreet" to PoiCategory.ATTRAZIONI,
+            "type=site" to PoiCategory.LUOGHI_STORICI,
+            "natural=peak" to PoiCategory.NATURA,
+            "natural=mountain_range" to PoiCategory.NATURA,
         ).forEach { (tag, category) ->
             assertEquals(tag, category, poiCategoryOf(tag.substringAfter("="), tag))
             assertEquals(tag, PoiPackage.BASE, poiPackageOf("Con un nome", tag.substringAfter("="), tag))

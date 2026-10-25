@@ -275,6 +275,44 @@ class FiltroOverpassTest(unittest.TestCase):
         self.assertTrue(f("node", {"place": "square", "name": "Place des Vosges", "wikidata": "Q898629"}))
         self.assertFalse(f("way", {"place": "square", "name": "Piazzetta"}))
 
+    def test_piazze_pedonali_siti_biblioteche_e_montagne_solo_con_wikidata(self):
+        f = geofabrik_pois.filtro_overpass
+        famoso = {"name": "Famoso", "wikidata": "Q1"}
+        # Piazza pedonale (place de la Bastille): area, non la strada pedonale disegnata come linea.
+        self.assertTrue(f("way", {"highway": "pedestrian", "area": "yes", **famoso}))
+        self.assertFalse(f("way", {"highway": "pedestrian", **famoso}))
+        self.assertTrue(f("relation", {"highway": "pedestrian", "type": "multipolygon", **famoso}))
+        self.assertFalse(f("relation", {"highway": "pedestrian", "type": "route", **famoso}))
+        self.assertFalse(f("way", {"highway": "pedestrian", "area": "yes", "name": "Senza wikidata"}))
+        # Relazioni di vie con un nome di piazza (place des Vosges): non tutte le vie.
+        vosges = {"type": "associatedStreet", "name": "Place des Vosges", "wikidata": "Q1", "wikipedia": "fr:Place des Vosges"}
+        self.assertTrue(f("relation", vosges))
+        self.assertTrue(f("relation", {**vosges, "name": "Piazza San Marco"}))
+        self.assertFalse(f("relation", {**vosges, "name": "Rue de Rivoli"}))
+        self.assertFalse(f("relation", {**vosges, "name": "Placette"}))
+        # Senza wikipedia sono le migliaia di piazze di paese con un elemento Wikidata.
+        self.assertFalse(f("relation", {k: v for k, v in vosges.items() if k != "wikipedia"}))
+        self.assertFalse(f("relation", {k: v for k, v in vosges.items() if k != "wikidata"}))
+        # Siti monumentali come relazione (santuari di Nikko).
+        self.assertTrue(f("relation", {"type": "site", **famoso}))
+        self.assertFalse(f("relation", {"type": "site", "name": "Senza wikidata"}))
+        self.assertFalse(f("way", {"type": "site", **famoso}))
+        # Biblioteche come area (Bibliotheca Alexandrina); come nodo c'erano gia'.
+        self.assertTrue(f("way", {"amenity": "library", **famoso}))
+        self.assertTrue(f("relation", {"amenity": "library", **famoso}))
+        self.assertFalse(f("way", {"amenity": "library", "name": "Biblioteca di quartiere"}))
+        # Catene montuose (Olimpo) con wikidata, cime anche con wikipedia; anche come nodo.
+        con_voce = {**famoso, "wikipedia": "it:Famoso"}
+        for natural, tags in (("mountain_range", famoso), ("peak", con_voce)):
+            for kind in ("node", "way", "relation"):
+                self.assertTrue(f(kind, {"natural": natural, **tags}), (natural, kind))
+            self.assertFalse(f("node", {"natural": natural, "name": "Senza wikidata"}), natural)
+        self.assertFalse(f("node", {"natural": "peak", **famoso}))
+        self.assertFalse(f("node", {"natural": "tree", **famoso}))
+        # Restano fuori di proposito: zona governativa (Zhongnanhai) e edificio universitario (Cocoon Tower).
+        self.assertFalse(f("way", {"landuse": "governmental", **famoso}))
+        self.assertFalse(f("way", {"building": "college", **famoso}))
+
 
 class RelazioniNonAreeTest(unittest.TestCase):
     def test_opl_e_punto_da_un_membro_anche_annidato(self):

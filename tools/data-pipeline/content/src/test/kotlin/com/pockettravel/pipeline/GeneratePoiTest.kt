@@ -1,5 +1,7 @@
 package com.pockettravel.pipeline
 
+import com.pockettravel.core.poi.PoiPackage
+import com.pockettravel.core.poi.poiPackageOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -410,6 +412,32 @@ class GeneratePoiTest {
         assertEquals(
             listOf("leisure=garden", "place=square", "tourism=yes"),
             readOsm(giardino + piazza + niente, keys).map { it.osmTag },
+        )
+    }
+
+    @Test
+    fun `piazze pedonali, vie di piazze, siti, cime e catene montuose con le chiavi nuove`() {
+        val keys = poiTagKeys + listOf("railway", "aeroway", "office", "man_made", "landuse", "boundary", "place", "highway", "natural", "type")
+        val bastille = node(1, mapOf("highway" to "pedestrian", "type" to "multipolygon", "name" to "Place de la Bastille"))
+        val vosges = node(2, mapOf("type" to "associatedStreet", "name" to "Place des Vosges"))
+        val nikko = node(3, mapOf("type" to "site", "name" to "Santuari e templi di Nikko"))
+        val olimpo = node(4, mapOf("natural" to "mountain_range", "name" to "Olimpo"))
+        val cima = node(5, mapOf("natural" to "peak", "name" to "Fuji"))
+        // Una cima con un belvedere resta un belvedere.
+        val belvedere = node(6, mapOf("tourism" to "viewpoint", "natural" to "peak", "name" to "Monte Baldo"))
+
+        val pois = readOsm(bastille + vosges + nikko + olimpo + cima + belvedere, keys)
+
+        assertEquals(
+            listOf(
+                "highway=pedestrian", "type=associatedStreet", "type=site", "natural=mountain_range", "natural=peak",
+                "tourism=viewpoint",
+            ),
+            pois.map { it.osmTag },
+        )
+        assertEquals(
+            List(6) { true },
+            pois.map { poiPackageOf(it.name, it.category, it.osmTag) == PoiPackage.BASE },
         )
     }
 
