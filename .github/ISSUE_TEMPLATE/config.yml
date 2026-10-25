@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Vulnerabilità di sicurezza
+    url: https://github.com/miracle091/pocket-travel/security/advisories/new
+    about: Le vulnerabilità si segnalano in privato. Report vulnerabilities privately.
+  - name: Come contribuire
+    url: https://github.com/miracle091/pocket-travel/blob/main/CONTRIBUTING.md
+    about: Regole per segnalazioni e pull request. Rules for reports and pull requests.

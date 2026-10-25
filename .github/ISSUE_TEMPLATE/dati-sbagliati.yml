@@ -1,0 +1,46 @@
+name: Dati sbagliati di una regione o di una guida
+description: Un punto, una strada, una guida o un numero sbagliati o mancanti. Wrong or missing data in a region or a guide.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        I dati vengono da OpenStreetMap, Wikivoyage e Wikipedia: una correzione fatta là arriva anche nell'app con l'aggiornamento successivo.
+        The data comes from OpenStreetMap, Wikivoyage and Wikipedia: a fix made there reaches the app with the next update.
+  - type: input
+    id: regione
+    attributes:
+      label: Nazione e regione
+      description: Country and region.
+      placeholder: "Italia - Nord-est"
+    validations:
+      required: true
+  - type: input
+    id: dove
+    attributes:
+      label: Guida, sezione o punto
+      description: Guide, section or point of interest.
+      placeholder: "Guida di Verona, Cosa vedere"
+    validations:
+      required: true
+  - type: textarea
+    id: errore
+    attributes:
+      label: Cosa è sbagliato
+      description: What is wrong, and what is correct.
+    validations:
+      required: true
+  - type: dropdown
+    id: fonte
+    attributes:
+      label: Fonte del dato corretto
+      description: Source of the correct data.
+      options:
+        - OpenStreetMap
+        - Wikivoyage
+        - Wikipedia
+        - Altro / Other
+  - type: input
+    id: collegamento
+    attributes:
+      label: Collegamento alla fonte
+      description: Link to the source.

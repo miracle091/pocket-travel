@@ -18,7 +18,7 @@ Errors in the content of guides and the map are fixed at the source (Wikivoyage,
 
 ## Issues and suggestions
 
-An [issue](https://github.com/miracle091/pocket-travel/issues/new) states the app version, the device with its Android version, the country and the app language, the steps to reproduce the bug and the expected result. Screenshots and logs (`adb logcat`) must not contain personal data, precise locations or API keys.
+An [issue](https://github.com/miracle091/pocket-travel/issues/new/choose) is opened with one of the forms (app problem, wrong data in a region or a guide, AI assistant, idea) and states the app version, the device with its Android version, the country and the app language, the steps to reproduce the bug and the expected result. Screenshots and logs (`adb logcat`) must not contain personal data, precise locations or API keys.
 
 A suggestion describes the travel use case first, then the solution. Large changes are discussed in an issue before writing code, keeping in mind the project's constraints: the app works offline, has no server of its own, collects no user data and is distributed only on GitHub.
 

@@ -1,0 +1,60 @@
+name: Problema nell'app
+description: Un errore o un comportamento sbagliato dell'app. A bug or wrong behavior in the app.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Nessun dato personale: niente posizioni precise, note, documenti, conversazioni con l'assistente o chiavi API.
+        No personal data: no precise locations, notes, documents, assistant chats or API keys.
+  - type: input
+    id: versione-app
+    attributes:
+      label: Versione dell'app
+      description: "Impostazioni di Android → App → Pocket Travel. App version: Android Settings → Apps → Pocket Travel."
+      placeholder: "0.12.0"
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Versione di Android
+      description: Android version.
+      placeholder: "15"
+    validations:
+      required: true
+  - type: input
+    id: dispositivo
+    attributes:
+      label: Dispositivo
+      description: Marca e modello. Device brand and model.
+      placeholder: "Google Pixel 8"
+  - type: input
+    id: schermata
+    attributes:
+      label: Schermata
+      description: Dove succede, con la nazione e la lingua dell'app. Where it happens, with the country and the app language.
+      placeholder: "Navigatore, Portogallo, italiano"
+  - type: textarea
+    id: passi
+    attributes:
+      label: Passi per riprodurre l'errore
+      description: Steps to reproduce.
+      placeholder: |
+        1. Apri ...
+        2. Tocca ...
+    validations:
+      required: true
+  - type: textarea
+    id: atteso
+    attributes:
+      label: Risultato atteso e risultato ottenuto
+      description: Expected and actual result.
+    validations:
+      required: true
+  - type: textarea
+    id: rapporto
+    attributes:
+      label: Rapporto dell'app
+      description: Il rapporto che l'app propone dopo una chiusura inattesa, se c'è. The report the app offers after an unexpected close, if any.
+      render: text

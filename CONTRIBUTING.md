@@ -18,7 +18,7 @@ Gli errori nei contenuti di guide e mappa si correggono alla fonte (Wikivoyage, 
 
 ## Segnalazioni e proposte
 
-Una [segnalazione](https://github.com/miracle091/pocket-travel/issues/new) indica la versione dell'app, il dispositivo con la versione di Android, la nazione e la lingua dell'app, i passi per riprodurre l'errore e il risultato atteso. Screenshot e log (`adb logcat`) non devono contenere dati personali, posizioni precise o chiavi API.
+Una [segnalazione](https://github.com/miracle091/pocket-travel/issues/new/choose) si apre con uno dei moduli (problema nell'app, dati sbagliati di una regione o di una guida, assistente IA, idea) e indica la versione dell'app, il dispositivo con la versione di Android, la nazione e la lingua dell'app, i passi per riprodurre l'errore e il risultato atteso. Screenshot e log (`adb logcat`) non devono contenere dati personali, posizioni precise o chiavi API.
 
 Una proposta descrive prima il caso d'uso in viaggio, poi la soluzione. Le modifiche grandi si discutono in una segnalazione prima di scrivere il codice, tenendo conto dei vincoli del progetto: l'app funziona offline, non ha un server proprio, non raccoglie dati sugli utenti ed è distribuita solo su GitHub.
 

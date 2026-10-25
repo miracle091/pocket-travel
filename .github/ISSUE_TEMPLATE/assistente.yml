@@ -1,0 +1,59 @@
+name: Assistente IA
+description: Una risposta sbagliata, inventata o in un'altra lingua. A wrong, made-up or wrong-language answer.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Nessun dato personale nella domanda o nella risposta, e mai la chiave API.
+        No personal data in the question or the answer, and never the API key.
+  - type: input
+    id: versione-app
+    attributes:
+      label: Versione dell'app
+      description: "Impostazioni di Android → App → Pocket Travel. App version: Android Settings → Apps → Pocket Travel."
+      placeholder: "0.12.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: motore
+    attributes:
+      label: Motore
+      description: Engine.
+      options:
+        - Sul dispositivo / On device
+        - Online
+    validations:
+      required: true
+  - type: input
+    id: modello
+    attributes:
+      label: Modello
+      description: Model.
+      placeholder: "Qwen3.5 2B addestrato sulle guide"
+    validations:
+      required: true
+  - type: input
+    id: regione
+    attributes:
+      label: Nazione e regione
+      description: Country and region.
+  - type: textarea
+    id: domanda
+    attributes:
+      label: Domanda
+      description: Question.
+    validations:
+      required: true
+  - type: textarea
+    id: risposta
+    attributes:
+      label: Risposta dell'assistente
+      description: Assistant's answer.
+    validations:
+      required: true
+  - type: textarea
+    id: attesa
+    attributes:
+      label: Risposta attesa
+      description: Expected answer, with the guide section that has it if you know it.

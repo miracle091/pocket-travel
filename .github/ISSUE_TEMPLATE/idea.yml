@@ -1,0 +1,26 @@
+name: Idea
+description: Una funzione nuova o un miglioramento. A new feature or an improvement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        L'app funziona offline, non ha un server proprio, non raccoglie dati sugli utenti ed è distribuita solo su GitHub.
+        The app works offline, has no server of its own, collects no user data and is distributed only on GitHub.
+  - type: textarea
+    id: caso
+    attributes:
+      label: Caso d'uso in viaggio
+      description: "Travel use case: what you need and when."
+    validations:
+      required: true
+  - type: textarea
+    id: soluzione
+    attributes:
+      label: Soluzione proposta
+      description: Proposed solution.
+  - type: textarea
+    id: alternative
+    attributes:
+      label: Alternative considerate
+      description: Alternatives considered.
