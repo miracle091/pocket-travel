@@ -1,4 +1,4 @@
-package com.pockettravel.feature.guide
+package com.pockettravel.core.data
 
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -23,8 +23,8 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.io.path.createTempDirectory
 
-// WeatherRepository: coordinate e risposta gia' salvate, e il download con un client che risponde al posto di Open-Meteo.
-class WeatherRepositoryTest {
+// OpenMeteoWeatherRepository: coordinate e risposta gia' salvate, e il download con un client che risponde al posto di Open-Meteo.
+class OpenMeteoWeatherRepositoryTest {
 
     private val dispatcher = StandardTestDispatcher()
     private val cacheDir = createTempDirectory("weather-repository-test").toFile()
@@ -32,7 +32,7 @@ class WeatherRepositoryTest {
     private val json = Json { ignoreUnknownKeys = true }
     private val clock = Clock.fixed(Instant.parse("2026-10-12T12:00:00Z"), ZoneOffset.UTC)
 
-    private fun newRepository() = WeatherRepository(cacheDir, files, OkHttpClient(), json, dispatcher, clock)
+    private fun newRepository() = OpenMeteoWeatherRepository(cacheDir, files, OkHttpClient(), json, dispatcher, clock)
 
     @After
     fun tearDown() {
@@ -118,7 +118,7 @@ class WeatherRepositoryTest {
         val file = staleCache("city|IT|Roma")
         val requests = mutableListOf<String>()
         val newer = forecastBody().replace("18.5", "21.0")
-        val repository = WeatherRepository(cacheDir, files, answering(200, newer, requests), json, dispatcher, clock)
+        val repository = OpenMeteoWeatherRepository(cacheDir, files, answering(200, newer, requests), json, dispatcher, clock)
 
         val result = repository.weather("city|IT|Roma") { 41.9 to 12.5 }
 
@@ -135,7 +135,7 @@ class WeatherRepositoryTest {
         val file = staleCache("city|IT|Roma")
         val saved = file.readText()
         val requests = mutableListOf<String>()
-        val repository = WeatherRepository(cacheDir, files, answering(503, "{}", requests), json, dispatcher, clock)
+        val repository = OpenMeteoWeatherRepository(cacheDir, files, answering(503, "{}", requests), json, dispatcher, clock)
 
         val result = repository.weather("city|IT|Roma") { 41.9 to 12.5 }
 
@@ -148,7 +148,7 @@ class WeatherRepositoryTest {
     fun `una risposta che non si legge non sostituisce quella salvata`() = runTest(dispatcher) {
         val file = staleCache("city|IT|Roma")
         val saved = file.readText()
-        val repository = WeatherRepository(cacheDir, files, answering(200, "{\"current\":", mutableListOf()), json, dispatcher, clock)
+        val repository = OpenMeteoWeatherRepository(cacheDir, files, answering(200, "{\"current\":", mutableListOf()), json, dispatcher, clock)
 
         val result = repository.weather("city|IT|Roma") { 41.9 to 12.5 }
 
@@ -160,7 +160,7 @@ class WeatherRepositoryTest {
     fun `con una risposta recente la rete non si interroga`() = runTest(dispatcher) {
         cacheFile("city|IT|Roma").apply { writeText(forecastBody()) }.setLastModified(clock.millis() - 1_000)
         val requests = mutableListOf<String>()
-        val repository = WeatherRepository(cacheDir, files, answering(200, forecastBody(), requests), json, dispatcher, clock)
+        val repository = OpenMeteoWeatherRepository(cacheDir, files, answering(200, forecastBody(), requests), json, dispatcher, clock)
 
         repository.weather("city|IT|Roma") { 41.9 to 12.5 }
 

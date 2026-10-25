@@ -1,4 +1,4 @@
-package com.pockettravel.feature.guide
+package com.pockettravel.core.data
 
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals

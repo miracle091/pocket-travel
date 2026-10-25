@@ -26,6 +26,8 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+    // Meteo da Open-Meteo (OpenMeteoWeatherRepository): il client HTTP e Json li fornisce core:sync (SyncModule).
+    implementation(libs.okhttp)
 
     // Flow nelle firme dei fake (FakeRegionRepository).
     testFixturesApi(libs.kotlinx.coroutines.android)

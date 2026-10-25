@@ -1,4 +1,4 @@
-package com.pockettravel.feature.guide
+package com.pockettravel.core.data
 
 import android.content.Context
 import androidx.core.content.edit
@@ -22,22 +22,19 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
-/** Meteo con l'ora in cui e' stato scaricato: senza rete il riquadro mostra l'ultimo salvato e da quando. */
-data class WeatherResult(val weather: Weather, val updatedAtMillis: Long)
-
 /**
  * Meteo da Open-Meteo (open-meteo.com, nessuna chiave, dati CC BY 4.0). L'ultima risposta di ogni luogo resta
  * in un file: senza rete, o se il servizio non risponde, il riquadro mostra quella finche' ha giorni non passati.
  * Le coordinate delle citta' (geocoding per nome e paese) restano nelle preferenze: non cambiano.
  */
-class WeatherRepository(
+class OpenMeteoWeatherRepository(
     private val cacheDir: File,
     preferencesFactory: PreferencesFactory,
     okHttpClient: OkHttpClient,
     private val json: Json,
     private val ioDispatcher: CoroutineDispatcher,
     private val clock: Clock,
-) {
+) : WeatherRepository {
     @Inject
     constructor(
         @ApplicationContext context: Context,
@@ -54,12 +51,7 @@ class WeatherRepository(
     // il meteo salvato (i timeout di connessione e lettura non limitano la chiamata intera).
     private val client = okHttpClient.newBuilder().callTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS).build()
 
-    /**
-     * Il meteo salvato come [cacheKey], aggiornato dalla rete quando [coordinates] le trova. Null senza rete e
-     * senza una risposta salvata ancora valida. Con una risposta di meno di [WEATHER_MIN_REFRESH_MILLIS] niente rete:
-     * ne' l'apertura della guida ne' il pulsante "Aggiorna" interrogano Open-Meteo piu' spesso di cosi'.
-     */
-    suspend fun weather(cacheKey: String, coordinates: suspend () -> Pair<Double, Double>?): WeatherResult? =
+    override suspend fun weather(cacheKey: String, coordinates: suspend () -> Pair<Double, Double>?): WeatherResult? =
         withContext(ioDispatcher) {
             val file = File(cacheDir, cacheKey.toFileName())
             val fresh = clock.millis() - file.lastModified() < WEATHER_MIN_REFRESH_MILLIS && cached(file) != null
@@ -87,8 +79,7 @@ class WeatherRepository(
             cached(file)
         }
 
-    /** Coordinate della citta' [city] nel paese [countryCode] (ISO alpha-2); null se il geocoding non la trova. */
-    suspend fun coordinatesOf(city: String, countryCode: String): Pair<Double, Double>? = withContext(ioDispatcher) {
+    override suspend fun coordinatesOf(city: String, countryCode: String): Pair<Double, Double>? = withContext(ioDispatcher) {
         val key = "${countryCode.uppercase(Locale.ROOT)}|$city"
         places.getString(key, null)?.split(',')?.let { (lat, lon) -> return@withContext lat.toDouble() to lon.toDouble() }
         val (name, result) = geocodingCandidates(city).firstNotNullOfOrNull { name ->
@@ -131,9 +122,6 @@ class WeatherRepository(
         const val CALL_TIMEOUT_SECONDS = 10L
     }
 }
-
-/** Intervallo minimo fra due richieste del meteo dello stesso luogo (il pulsante "Aggiorna" resta spento prima). */
-internal const val WEATHER_MIN_REFRESH_MILLIS = 10 * 60 * 1000L
 
 /**
  * I nomi da cercare per una citta' della guida, dal piu' preciso: il nome intero, poi senza le parentesi

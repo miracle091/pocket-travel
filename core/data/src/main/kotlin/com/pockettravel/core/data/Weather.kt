@@ -1,4 +1,4 @@
-package com.pockettravel.feature.guide
+package com.pockettravel.core.data
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

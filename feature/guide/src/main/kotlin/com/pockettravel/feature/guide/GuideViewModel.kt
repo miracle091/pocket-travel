@@ -17,6 +17,8 @@ import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.Poi
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.WeatherRepository
+import com.pockettravel.core.data.WeatherResult
 import com.pockettravel.core.data.isGuideSectionFor
 import com.pockettravel.core.poi.PoiCategory
 import dagger.hilt.android.lifecycle.HiltViewModel

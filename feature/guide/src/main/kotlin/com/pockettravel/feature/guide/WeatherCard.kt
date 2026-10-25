@@ -32,6 +32,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.pockettravel.core.data.WEATHER_MIN_REFRESH_MILLIS
+import com.pockettravel.core.data.Weather
+import com.pockettravel.core.data.WeatherCondition
+import com.pockettravel.core.data.WeatherDay
+import com.pockettravel.core.data.WeatherResult
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.InfoCardHeader
 import com.pockettravel.core.ui.PocketTravelTheme

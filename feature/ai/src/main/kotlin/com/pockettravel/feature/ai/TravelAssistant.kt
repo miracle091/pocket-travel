@@ -47,6 +47,7 @@ import com.pockettravel.core.ui.label
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withTimeoutOrNull
@@ -102,6 +103,7 @@ class TravelAssistant @Inject constructor(
     private val carRouteCalculator: CarRouteCalculator,
     @param:ApplicationContext private val context: Context,
     private val wordListsOverride: WordListsOverride,
+    private val forecastSections: ForecastSections,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) {
     /**
@@ -130,6 +132,10 @@ class TravelAssistant @Inject constructor(
         val regulatedMatch = sections.firstOrNull { !it.fromGeneralGuide && it.isRegulatedTopic() }
         // Per Viaggiare Sicuri il banner apre la pagina della nazione nominata nella domanda, o di quella della regione.
         val destination = regulatedMatch?.let { search.country?.code ?: regionRepository.installed(regionId)?.countryCode }
+        // Con la rete (o un'ultima risposta ancora valida), le previsioni per le domande di previsione, in entrambi i motori.
+        val forecast = forecastSections.forQuestion(
+            ForecastQuery(regionId, question, previousQuestion, modelGroups, cities, cityNames, search.country != null, language),
+        )
 
         val withSource = { answer: AssistantAnswer ->
             answer.copy(
@@ -146,6 +152,7 @@ class TravelAssistant @Inject constructor(
                 val plan = planOnDevice(
                     question,
                     listOfNotNull(
+                        forecast,
                         cityDistanceSection(regionId, cities, question, language),
                         vaccinationSection(regionId, question, language, search.country),
                         emergency,
@@ -162,7 +169,7 @@ class TravelAssistant @Inject constructor(
                 }
                 emit(AssistantProgress.Done(withSource(AssistantAnswer(text, plan.citations, showOfficialSourceBanner = false))))
             }
-            AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language))))
+            AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language, forecast))))
         }
         // Nomi da riconoscere, query e paragrafi da normalizzare: lavoro di CPU fuori dal main thread del chiamante.
     }.flowOn(defaultDispatcher)
@@ -358,7 +365,7 @@ class TravelAssistant @Inject constructor(
         )
     }
 
-    private suspend fun askOnline(question: String, language: String): AssistantAnswer {
+    private suspend fun askOnline(question: String, language: String, forecast: AssistantSection? = null): AssistantAnswer {
         val apiKey = aiSettingsStore.apiKey() ?: error("Nessuna chiave API online configurata")
         val provider = aiSettingsStore.onlineProvider()
         val model = onlineModelCatalog.modelFor(provider, aiSettingsStore.onlineModelSetting(provider))
@@ -366,10 +373,11 @@ class TravelAssistant @Inject constructor(
             baseUrl = provider.baseUrl,
             apiKey = apiKey,
             model = model,
-            prompt = OnlinePromptTemplates.onlinePrompt(question, language),
+            // Il template resta com'e': il blocco delle previsioni lo precede.
+            prompt = listOfNotNull(forecast?.body, OnlinePromptTemplates.onlinePrompt(question, language)).joinToString("\n\n"),
             sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
         )
-        return AssistantAnswer(text = text, sourceCitations = emptyList(), showOfficialSourceBanner = false)
+        return AssistantAnswer(text = text, sourceCitations = listOfNotNull(forecast?.citation), showOfficialSourceBanner = false)
     }
 
     private companion object {
@@ -382,6 +390,7 @@ class TravelAssistant @Inject constructor(
         // Il percorso in auto tra due citta' lontane puo' richiedere minuti sul dispositivo (Milano-Roma 45 s sull'emulatore):
         // oltre questo tempo l'assistente risponde con la sola distanza in linea d'aria.
         const val CAR_ROUTE_TIMEOUT_MILLIS = 30_000L
+        // Posizione per le previsioni "dove sono": come il riquadro meteo della guida (3 ore, POI entro ~5 km).
     }
 }
 

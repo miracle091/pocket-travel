@@ -5,11 +5,13 @@ import com.pockettravel.core.data.AndroidLastKnownPosition
 import com.pockettravel.core.data.AppInitializer
 import com.pockettravel.core.data.ConversationRetention
 import com.pockettravel.core.data.LastKnownPosition
+import com.pockettravel.core.data.OpenMeteoWeatherRepository
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RoomRegionRepository
 import com.pockettravel.core.data.SqliteAddressSearchRepository
 import com.pockettravel.core.data.SqliteTransitRepository
 import com.pockettravel.core.data.TransitRepository
+import com.pockettravel.core.data.WeatherRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -32,6 +34,9 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindLastKnownPosition(impl: AndroidLastKnownPosition): LastKnownPosition
+
+    @Binds
+    abstract fun bindWeatherRepository(impl: OpenMeteoWeatherRepository): WeatherRepository
 
     @Binds
     @IntoSet
