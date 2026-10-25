@@ -102,10 +102,10 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Riquadro in cima alla risposta dell'assistente quando la domanda parla di un pericolo per la vita | riquadro di emergenza (titolo: Emergenza? Chiama subito) | emergency card (title: Emergency? Call now) |
 | Frase sotto ogni allerta | Informazioni non ufficiali e probabilmente non aggiornate: segui le direttive locali delle autorità | Not official and probably out of date: follow the instructions of the local authorities |
 | Fonte e ora delle allerte | Fonte: %1$s · aggiornate alle %2$s; senza rete: Ultime allerte scaricate alle %1$s | Source: %1$s · updated at %2$s; offline: Last alerts downloaded at %1$s |
-| Allerta tradotta o riassunta dall'assistente | Riassunto dall'assistente, testo originale qui sotto | Summarised by the assistant, original text below |
+| Allerta tradotta o riassunta dall'assistente | Riassunto dall'assistente, testo originale qui sotto | Summarized by the assistant, original text below |
 | Azione che condivide un modello o i contenuti di una regione con un altro telefono, senza internet | Invia a un altro telefono | Send to another phone |
 | Azione che installa un modello o i contenuti ricevuti come file | Importa da file | Import from file |
-| File ricevuto che non corrisponde a niente del catalogo | Questo file non è nel catalogo di Pocket Travel | This file is not in the Pocket Travel catalogue |
+| File ricevuto che non corrisponde a niente del catalogo | Questo file non è nel catalogo di Pocket Travel | This file is not in the Pocket Travel catalog |
 | File ricevuto alterato o incompleto (sha256 diverso) | File danneggiato: chiedi di inviarlo di nuovo | Damaged file: ask for it to be sent again |
 | Telefono o tablet dell'utente | dispositivo | device |
 | Colori presi dal sistema (colore dinamico, da Android 12) al posto di quelli dell'app | colori del sistema | system colors |
