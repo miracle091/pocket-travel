@@ -43,7 +43,7 @@ ROWS = [
     # sezioni della voce di Wikipedia della regione (CountryWikipedia.kt): solo con --guide-wikipedia, nella lingua del dataset
     ("francia", "CIBO_BEVANDE", "Gastronomia", "La zuppa di cipolle e' tipica.", "https://it.wikipedia.org/wiki/Francia"),
     ("giappone", "VITA_QUOTIDIANA", "Media", "Newspapers are widely read.", "https://en.wikipedia.org/wiki/Japan"),
-    ("giappone", "USI_COSTUMI", "Holidays", "New Year is the main holiday.", "https://en.wikipedia.org/wiki/Japan"),  # mai
+    ("giappone", "USI_COSTUMI", "Holidays", "New Year is the main holiday.", "https://en.wikipedia.org/wiki/Japan"),
 ]
 
 
@@ -68,7 +68,9 @@ class LoadGuideSectionsTest(unittest.TestCase):
         self.assertEqual(self.bodies("it", wikipedia=True)["francia"], ["Gli alberghi sono cari.", "La zuppa di cipolle e' tipica."])
         self.assertNotIn("Newspapers are widely read.", self.bodies("it", wikipedia=True)["giappone"])
         self.assertIn("Newspapers are widely read.", self.bodies("en", wikipedia=True)["giappone"])
-        self.assertNotIn("New Year is the main holiday.", self.bodies("en", wikipedia=True)["giappone"])  # feste fuori
+        # le feste con la categoria loro, che ha domande sue
+        holidays = [s for s in load_guide_sections(self.db, "en", True)["giappone"] if s[1] == "New Year is the main holiday."]
+        self.assertEqual(generate_sft.HOLIDAY_CATEGORY, holidays[0][0])
         self.assertEqual(generate_sft.WIKI_LICENSE, guide_source("https://it.wikipedia.org/wiki/Francia", "it"))
         self.assertIsNone(guide_source("https://en.wikipedia.org/wiki/Japan", "it"))
 
@@ -128,10 +130,24 @@ class GuideQuestionsTest(unittest.TestCase):
         self.assertTrue(it.covers("FRASI_UTILI", "English is widely spoken in the cities.", L["keywords"]))
         self.assertTrue(it.covers("ALLOGGIO", "Hostels and campsites are cheap.", L["keywords"]))
 
+    def test_holiday_tables(self):
+        cat = generate_sft.HOLIDAY_CATEGORY
+        for lang in ("it", "en"):
+            L = generate_sft.with_guide_wikipedia(LANGS[lang], lang)
+            self.assertEqual(L["questions"][cat], generate_sft.HOLIDAY_QUESTIONS[lang])
+            self.assertEqual(L["other_questions"][cat], generate_sft.HOLIDAY_QUESTIONS[OTHER[lang]])
+            self.assertIn(cat, L["topic"])
+            self.assertNotIn(cat, LANGS[lang]["questions"])  # LANGS non cambia: solo con --guide-wikipedia (v12)
+        L = generate_sft.with_guide_wikipedia(LANGS["it"], "it")
+        self.assertTrue(it.covers(cat, "Il 3 marzo si celebra l'Hinamatsuri, la festa delle bambole.", L["keywords"]))
+        self.assertFalse(it.covers(cat, "Il treno per Kyoto parte ogni ora.", L["keywords"]))
+
     def test_questions_not_in_eval_sets(self):
         tables = [generate_eval_set.PARA, generate_eval_set.PARA_EN, generate_eval_set.PARA_CITY,
                   generate_eval_set_en.PARA, generate_eval_set_en.PARA_CITY_EN]
         held_out = {q for t in tables for qs in t.values() for q in ([qs] if isinstance(qs, str) else qs)}
+        self.assertFalse({q.lower() for qs in generate_sft.HOLIDAY_QUESTIONS.values() for q in qs}
+                         & {q.lower() for q in held_out})
         for lang, table in GUIDE_QUESTIONS.items():
             for qs in table.values():
                 self.assertFalse(set(qs) & held_out, lang)

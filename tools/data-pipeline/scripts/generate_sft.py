@@ -750,10 +750,30 @@ def with_guide_sections(L, lang):
             "keywords": {**L["keywords"], **GUIDE_KEYWORDS[lang]}}
 
 
-# Sezioni di Wikipedia delle guide sulle feste, in USI_COSTUMI nell'app ma fuori dal dataset: le domande di USI_COSTUMI
-# chiedono di usanze e buone maniere, e la risposta estrattiva prenderebbe una festa ("Quali sono le buone maniere in
-# Giappone?" -> i matsuri).
+# Sezioni di Wikipedia delle guide sulle feste: in USI_COSTUMI nell'app, nel dataset (--guide-wikipedia) la categoria
+# HOLIDAY_CATEGORY con domande sue. Con quelle di USI_COSTUMI, che chiedono di usanze e buone maniere, la risposta
+# estrattiva prenderebbe una festa ("Quali sono le buone maniere in Giappone?" -> i matsuri). Domande disgiunte da
+# PARA/PARA_CITY di generate_eval_set*.py.
 WIKI_HOLIDAY_TITLES = {"festività", "festività nazionali", "festivals", "holidays", "public holidays", "holidays and festivals"}
+HOLIDAY_CATEGORY = "FESTIVITA"
+HOLIDAY_QUESTIONS = {
+    "it": ["Quali feste si celebrano in {r}?", "Quali sono le festività principali in {r}?",
+           "Ci sono feste tradizionali da vedere in {r}?"],
+    "en": ["What holidays are celebrated in {r}?", "What are the main festivals in {r}?",
+           "Are there traditional festivals to see in {r}?"],
+}
+HOLIDAY_TOPIC = {"it": "sulle feste e sulle festività", "en": "about holidays and festivals"}
+HOLIDAY_KEYWORDS = {"it": ["fest", "celebr", "ricorrenz", "carneval", "capodanno", "natale", "pasqua"],
+                    "en": ["holiday", "festival", "celebrat", "carnival", "new year", "christmas", "easter"]}
+
+
+def with_guide_wikipedia(L, lang):
+    """Le tabelle della lingua [lang] con HOLIDAY_CATEGORY tra le domande dei paesi (anche quelle dell'altra lingua, per
+    --other-lang), il suo argomento nel rifiuto e le sue radici."""
+    return {**L, "questions": {**L["questions"], HOLIDAY_CATEGORY: HOLIDAY_QUESTIONS[lang]},
+            "other_questions": {**L["other_questions"], HOLIDAY_CATEGORY: HOLIDAY_QUESTIONS[OTHER[lang]]},
+            "topic": {**L["topic"], HOLIDAY_CATEGORY: HOLIDAY_TOPIC[lang]},
+            "keywords": {**L["keywords"], HOLIDAY_CATEGORY: HOLIDAY_KEYWORDS[lang]}}
 
 
 def guide_source(url, lang):
@@ -768,7 +788,7 @@ def load_guide_sections(guides_db, lang, wikipedia=False):
     """{regionId: [(categoria, corpo, sourceUrl, tradotta)]} delle sezioni di [guides_db] che i dump non danno: fonti di
     GUIDE_LICENSES e categorie GUIDE_ONLY_CATS di Wikivoyage nella lingua [lang], con [wikipedia] (--guide-wikipedia)
     anche le sezioni della voce di Wikipedia della regione (cucina, tradizioni, media, telecomunicazioni: le sceglie la
-    pipeline delle guide, CountryWikipedia.kt); fuori le "#for-nationality=", i Fatti rapidi (a parte, load_quick_facts),
+    pipeline delle guide, CountryWikipedia.kt; quelle sulle feste in HOLIDAY_CATEGORY); fuori le "#for-nationality=", i Fatti rapidi (a parte, load_quick_facts),
     le sezioni tradotte da translate_guides.py (guides.db non dice con quale modello, che ATTRIBUTION dovrebbe
     dichiarare) e la guida generale "_general", che ha domande sue (load_general_guide, GENERAL_GUIDE_QUESTIONS)."""
     out = {}
@@ -780,8 +800,9 @@ def load_guide_sections(guides_db, lang, wikipedia=False):
                 f"AND instr(sourceUrl, '#for-nationality=') = 0 {'AND IFNULL(translated, 0) = 0' if has_translated else ''} "
                 "ORDER BY regionId, rowid"):
             source = guide_source(url, lang)
-            if source and (source in GUIDE_LICENSES.values() or cat in GUIDE_ONLY_CATS
-                           or (wikipedia and source == WIKI_LICENSE and title.lower() not in WIKI_HOLIDAY_TITLES)):
+            if source and (source in GUIDE_LICENSES.values() or cat in GUIDE_ONLY_CATS or (wikipedia and source == WIKI_LICENSE)):
+                if source == WIKI_LICENSE and title.lower() in WIKI_HOLIDAY_TITLES:
+                    cat = HOLIDAY_CATEGORY
                 out.setdefault(rid, []).append((cat, body, url, False))
     return out
 
@@ -1079,7 +1100,8 @@ def main():
                          "(--no-guide-sections: come il v9)")
     ap.add_argument("--guide-wikipedia", action=argparse.BooleanOptionalAction, default=False,
                     help="con --guide-sections, anche le sezioni di Wikipedia delle guide (cucina, tradizioni, media e "
-                         "telecomunicazioni della voce della regione), con la voce in ATTRIBUTION; dal dataset v12")
+                         "telecomunicazioni della voce della regione; le feste con domande loro, HOLIDAY_QUESTIONS), con la "
+                         "voce in ATTRIBUTION; dal dataset v12")
     ap.add_argument("--version", help="versione nel nome dei file di output (default: v12 con --guide-wikipedia, v11 con --nearby, --distances, "
                                       "--cities-db, --emergency, --user-style-questions diverso da 0, --city-daily-life, "
                                       "--balanced-negatives, --clear-questions o --guide-sections con --guides-db, "
@@ -1111,6 +1133,8 @@ def main():
         LANGS.update({k: with_city_daily_life(v, k) for k, v in LANGS.items()})
     if a.guide_sections and a.guides_db:
         LANGS.update({k: with_guide_sections(v, k) for k, v in LANGS.items()})
+    if a.guide_wikipedia:
+        LANGS.update({k: with_guide_wikipedia(v, k) for k, v in LANGS.items()})
     if a.clear_questions:  # dopo with_guide_sections: filtra anche le sue domande
         LANGS.update({k: with_clear_questions(v) for k, v in LANGS.items()})
     LANGS.update({k: with_food_keywords(v, k) for k, v in LANGS.items()})
