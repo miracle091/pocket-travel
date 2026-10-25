@@ -242,7 +242,8 @@ class _Windows:
         C = self.C
         handle = self.k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
         if not handle:
-            return ""
+            # dwm e gli altri processi protetti non si aprono senza privilegi: il nome dall'elenco dei processi
+            return self._snapshot_name(pid)
         try:
             buf, size = C.create_unicode_buffer(1024), C.c_ulong(1024)
             if self.k32.QueryFullProcessImageNameW(handle, 0, buf, C.byref(size)):
@@ -250,6 +251,31 @@ class _Windows:
             return ""
         finally:
             self.k32.CloseHandle(handle)
+
+    def _snapshot_name(self, pid):
+        """Nome dell'eseguibile di [pid] (senza ".exe") dall'istantanea dei processi di Toolhelp, "" se non c'e'."""
+        C = self.C
+
+        class ProcessEntry(C.Structure):  # PROCESSENTRY32W
+            _fields_ = [("size", C.c_ulong), ("usage", C.c_ulong), ("pid", C.c_ulong), ("heap", C.c_size_t),
+                        ("module", C.c_ulong), ("threads", C.c_ulong), ("parent", C.c_ulong), ("priority", C.c_long),
+                        ("flags", C.c_ulong), ("exe", C.c_wchar * 260)]
+
+        self.k32.CreateToolhelp32Snapshot.restype = C.c_void_p
+        snapshot = self.k32.CreateToolhelp32Snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
+        if not snapshot or snapshot == C.c_void_p(-1).value:
+            return ""
+        try:
+            entry = ProcessEntry()
+            entry.size = C.sizeof(ProcessEntry)
+            ok = self.k32.Process32FirstW(C.c_void_p(snapshot), C.byref(entry))
+            while ok:
+                if entry.pid == pid:
+                    return Path(entry.exe).stem
+                ok = self.k32.Process32NextW(C.c_void_p(snapshot), C.byref(entry))
+            return ""
+        finally:
+            self.k32.CloseHandle(C.c_void_p(snapshot))
 
     def _cpu_ram(self):
         C = self.C
