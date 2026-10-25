@@ -61,6 +61,8 @@ private val categoryGuideWords = mapOf(
         "CONSIGLI" to "prepar*, recupe*, preven*, tratta*",
         "EMERGENZE" to "emerg*",
         "PERIODI" to "clima",
+        // Previsioni: finche' non arrivano nel contesto, la sezione del clima.
+        "METEO" to "clima",
     ),
     "en" to mapOf(
         "ALLOGGIO" to "sleep",
@@ -77,6 +79,7 @@ private val categoryGuideWords = mapOf(
         "CONSIGLI" to "prepar*, cope, recover*, prevent*, treat*",
         "EMERGENZE" to "lose, lost, stolen",
         "PERIODI" to "climate",
+        "METEO" to "climate",
     ),
 ).mapValues { (_, byCategory) ->
     byCategory.mapValues { (_, words) -> words.split(", ").map { if (' ' in it) "\"$it\"" else it } }
@@ -84,7 +87,18 @@ private val categoryGuideWords = mapOf(
 
 private const val SHORT_STEM_CHARS = 4
 
-/** I gruppi (categorie con il nome di GuideCategory, CONSIGLI, EMERGENZE, PERIODI) che le parole di [question] indicano. */
+// Previsioni del tempo ("Che tempo fa domani?", "Pioverà sabato?"): una parola di previsione, oppure una del clima
+// (CLIMA, o "che tempo" di PERIODI) insieme a un momento vicino. Da sole le parole del momento non bastano ("Cosa
+// vedere oggi?"). Il gruppo METEO prende il posto di CLIMA e PERIODI.
+private val forecastStems = "previs forecast".split(' ')
+private val nearTimeStems = ("oggi domani dopodomani stasera stanotte stamattina weekend= fine+settimana lunedi martedi " +
+    "mercoledi giovedi venerdi sabato domenica prossimi+giorni settimana+prossima questa+settimana today tomorrow " +
+    "tonight this+week next+week next+days monday tuesday wednesday thursday friday saturday sunday").split(' ')
+
+/**
+ * I gruppi (categorie con il nome di GuideCategory, CONSIGLI, EMERGENZE, PERIODI, METEO) che le parole di [question]
+ * indicano.
+ */
 internal fun questionGroups(question: String): Set<String> {
     val tokens = question.split(nonWord).filter { it.isNotEmpty() }.map(::folded)
     val text = tokens.joinToString(" ", prefix = " ", postfix = " ")
@@ -94,7 +108,10 @@ internal fun questionGroups(question: String): Set<String> {
         stem.length >= SHORT_STEM_CHARS -> tokens.any { it.startsWith(stem) }
         else -> tokens.any { it == stem || it == "${stem}s" }
     }
-    return categoryTriggers.filterValues { stems -> stems.any(::hit) }.keys
+    val groups = categoryTriggers.filterValues { stems -> stems.any(::hit) }.keys
+    val weather = "CLIMA" in groups || hit("che+tempo")
+    val forecast = forecastStems.any(::hit) || weather && nearTimeStems.any(::hit)
+    return if (forecast) groups - "CLIMA" - "PERIODI" + "METEO" else groups
 }
 
 /**

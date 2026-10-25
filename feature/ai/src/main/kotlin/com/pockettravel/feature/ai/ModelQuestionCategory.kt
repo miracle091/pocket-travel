@@ -47,7 +47,7 @@ internal fun modelCategoryGrammar(language: String): String =
     "root ::= " + modelCategoryLabels(language).joinToString(" | ") { "\"${it.name}\"" }
 
 /** Gruppi che, dalle liste o dal modello, fanno valere la domanda come domanda di storia o clima. */
-internal val HISTORY_CLIMATE_GROUPS = setOf("STORIA", "CLIMA", "PERIODI")
+internal val HISTORY_CLIMATE_GROUPS = setOf("STORIA", "CLIMA", "PERIODI", "METEO")
 
 /** Domanda di storia o clima per la ricerca: dalle sue parole, o (con le liste accese) dai gruppi delle liste o del modello. */
 internal fun isHistoryOrClimateSearch(question: String, wordLists: Boolean, modelGroups: Set<String>): Boolean =

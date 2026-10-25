@@ -53,6 +53,13 @@ class ReplicaTest(unittest.TestCase):
         for lang in ("it", "en"):
             block = text.split(f'"{lang}" to mapOf(')[1].split("),")[0]
             self.assertEqual(pairs(block), ev.CATEGORY_GUIDE_WORDS[lang])
+        stems = lambda name: "".join(re.findall(r'"([^"]*)"', text.split(f"private val {name} = ")[1].split(".split")[0]))
+        self.assertEqual(stems("forecastStems"), ev.FORECAST_STEMS)
+        self.assertEqual(stems("nearTimeStems"), ev.NEAR_TIME_STEMS)
+        # Previsioni separate dal clima, come CategoryWordsTest
+        self.assertEqual(ev.question_groups("Pioverà sabato a Lisbona?"), {"METEO"})
+        self.assertEqual(ev.question_groups("Che tempo trovo a Roma a Natale?"), {"PERIODI"})
+        self.assertEqual(ev.question_groups("Cosa vedere oggi a Roma?"), {"COSA_VEDERE"})
 
     def test_categorie_del_modello_come_l_app(self):
         kotlin = (Path(__file__).resolve().parents[3] / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/ModelQuestionCategory.kt")

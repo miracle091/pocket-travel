@@ -254,11 +254,11 @@ CATEGORY_GUIDE_WORDS = {
     "it": {"ALLOGGIO": "allogg*", "CIBO_BEVANDE": "mangi*, tavola", "COSA_VEDERE": "veder*", "ACQUISTI": "acqui*, valut*",
            "TRASPORTI": "arriv*, spost*", "DOGANE": "arriv*, dogan*", "SALUTE": "sanit*, salut*", "SICUREZZA": "sicur*",
            "CONNETTIVITA": "contat*", "STORIA": "stori*", "CLIMA": "clima",
-           "CONSIGLI": "prepar*, recupe*, preven*, tratta*", "EMERGENZE": "emerg*", "PERIODI": "clima"},
+           "CONSIGLI": "prepar*, recupe*, preven*, tratta*", "EMERGENZE": "emerg*", "PERIODI": "clima", "METEO": "clima"},
     "en": {"ALLOGGIO": "sleep", "CIBO_BEVANDE": "eat, drink", "COSA_VEDERE": "see", "ACQUISTI": "buy",
            "TRASPORTI": "get in, get around", "DOGANE": "get in, customs", "SALUTE": "health*", "SICUREZZA": "safe*",
            "CONNETTIVITA": "connect*", "STORIA": "history", "CLIMA": "climate",
-           "CONSIGLI": "prepar*, cope, recover*, prevent*, treat*", "EMERGENZE": "lose, lost, stolen", "PERIODI": "climate"},
+           "CONSIGLI": "prepar*, cope, recover*, prevent*, treat*", "EMERGENZE": "lose, lost, stolen", "PERIODI": "climate", "METEO": "climate"},
 }
 SHORT_STEM_CHARS = 4             # CategoryWords.SHORT_STEM_CHARS
 # Categoria scelta dal modello quando le liste non ne riconoscono nessuna (ModelQuestionCategory.kt): (nome, esempi, gruppo).
@@ -277,7 +277,13 @@ MODEL_CATEGORY_LABELS = {
            ("phone and internet", None, "CONNETTIVITA"), ("history", "past, foundation, wars", "STORIA"),
            ("climate", "weather, seasons, temperatures", "CLIMA"), ("travel in general", "jet lag, luggage, lost items", None)],
 }
-HISTORY_CLIMATE_GROUPS = {"STORIA", "CLIMA", "PERIODI"}  # ModelQuestionCategory.HISTORY_CLIMATE_GROUPS
+HISTORY_CLIMATE_GROUPS = {"STORIA", "CLIMA", "PERIODI", "METEO"}  # ModelQuestionCategory.HISTORY_CLIMATE_GROUPS
+# Previsioni del tempo (CategoryWords.forecastStems e nearTimeStems): una parola di previsione, o una del clima con un
+# momento vicino; METEO prende il posto di CLIMA e PERIODI.
+FORECAST_STEMS = "previs forecast"
+NEAR_TIME_STEMS = ("oggi domani dopodomani stasera stanotte stamattina weekend= fine+settimana lunedi martedi "
+                   "mercoledi giovedi venerdi sabato domenica prossimi+giorni settimana+prossima questa+settimana today tomorrow "
+                   "tonight this+week next+week next+days monday tuesday wednesday thursday friday saturday sunday")
 MODEL_CATEGORIES = {}  # domanda -> gruppo, da --model-categories
 MODEL_CATEGORY_MISSES = set()  # domande senza categoria dalle liste e assenti dal file di --model-categories
 
@@ -306,7 +312,11 @@ def question_groups(question):
         if stem.endswith("="):
             return any(t in (stem[:-1], stem[:-1] + "s") for t in tokens)
         return any(t.startswith(stem) if len(stem) >= SHORT_STEM_CHARS else t in (stem, stem + "s") for t in tokens)
-    return {cat for cat, stems in CATEGORY_TRIGGERS.items() if any(hit(s) for s in stems.split())}
+    groups = {cat for cat, stems in CATEGORY_TRIGGERS.items() if any(hit(s) for s in stems.split())}
+    weather = "CLIMA" in groups or hit("che+tempo")
+    if any(hit(s) for s in FORECAST_STEMS.split()) or weather and any(hit(s) for s in NEAR_TIME_STEMS.split()):
+        return groups - {"CLIMA", "PERIODI"} | {"METEO"}
+    return groups
 
 
 def with_category_words(fts, question, lang, extra_groups=()):

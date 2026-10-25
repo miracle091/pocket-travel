@@ -51,6 +51,25 @@ class CategoryWordsTest {
     }
 
     @Test
+    fun `previsioni del tempo separate dal clima`() {
+        listOf(
+            "Che tempo fa domani a Roma?", "Pioverà sabato a Lisbona?", "Previsioni per il weekend a Spalato",
+            "Fa caldo oggi a Siviglia?", "Nevica stanotte a Zermatt?", "Will it rain tomorrow in Porto?",
+            "What's the weather like this weekend in Athens?", "Weather forecast for Zagreb", "Is it cold tonight in Bern?",
+        ).forEach { assertEquals(it, setOf("METEO"), questionGroups(it)) }
+        listOf(
+            "Com'è il clima a Roma?", "Piove molto a novembre a Lisbona?", "Che tempo trovo a Roma a Natale?",
+            "When is the best time to go to Porto?", "Is it rainy in Athens in winter?",
+        ).forEach { assertFalse(it, "METEO" in questionGroups(it)) }
+        // Il momento da solo non e' una previsione.
+        assertEquals(setOf("COSA_VEDERE"), questionGroups("Cosa vedere oggi a Roma?"))
+        assertEquals(setOf("COSA_VEDERE"), questionGroups("What to see tomorrow in Lisbon?"))
+        // Le previsioni restano domande sul clima per la ricerca (sezione Clima, Wikipedia con il peso pieno).
+        assertTrue(isHistoryOrClimateSearch("Pioverà domani a Roma?", wordLists = true, modelGroups = emptySet()))
+        assertEquals("piov* OR clima", withCategoryWords("piov*", "Pioverà domani a Roma?", "it"))
+    }
+
+    @Test
     fun `aggiunge alla query le parole dei titoli nella lingua della guida`() {
         assertEquals("pernot* OR rimini OR allogg*", withCategoryWords("pernot* OR rimini", "Dove pernottare a Rimini?", "it"))
         assertEquals("\"get in\" OR \"get around\"", withCategoryWords("", "Come si arriva in treno?", "en"))
