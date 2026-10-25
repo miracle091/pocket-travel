@@ -2,15 +2,10 @@ package com.pockettravel.core.sync
 
 import android.os.SystemClock
 import android.util.Log
-import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.WorldMapStore
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,12 +13,10 @@ import javax.inject.Singleton
 // Singleton: la cache dei `manifest.json` recenti vale solo se tutti i ViewModel condividono la stessa istanza.
 @Singleton
 class HttpManifestClient @Inject constructor(
-    private val okHttpClient: OkHttpClient,
     private val json: Json,
     private val worldMapStore: WorldMapStore,
     private val appCompatibility: AppCompatibility,
-    private val signatureVerifier: ManifestSignatureVerifier,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val signedFileCache: SignedFileCache,
 ) : ManifestClient {
     private val recent = RecentFetch<RegionManifest>(SystemClock::elapsedRealtime)
 
@@ -31,28 +24,22 @@ class HttpManifestClient @Inject constructor(
 
     override suspend fun recentManifest(): RegionManifest = recent.get(RECENT_MANIFEST_MILLIS) { download() }.forLanguage()
 
-    private suspend fun download(): RegionManifest = withContext(ioDispatcher) {
-        val request = Request.Builder().url(SyncConfig.MANIFEST_URL).build()
-        okHttpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                // Errori temporanei del server: IOException, cosi' i worker riprovano.
-                if (isRetryableHttpStatus(response.code)) {
-                    throw IOException("manifest.json fetch failed: HTTP ${response.code}")
-                }
-                error("manifest.json fetch failed: HTTP ${response.code}")
-            }
-            val bodyBytes = response.body.bytes()
-            if (bodyBytes.isEmpty()) error("Empty manifest.json response")
-            // Prima di interpretarlo: un `manifest.json` con la firma sbagliata e' un fetch fallito (resta la cache).
-            signatureVerifier.verify(SyncConfig.MANIFEST_URL, bodyBytes)
-            val body = bodyBytes.decodeToString()
-            val parsed = json.decodeFromString(RegionManifest.serializer(), body)
-            sanitizeManifest(parsed) { what, error -> Log.w(TAG, "Voce del catalogo scartata: $what", error) }.also { manifest ->
-                // Ad ogni sync riuscita: feature/map legge solo WorldMapStore, non dipende da core/sync.
-                worldMapStore.save(manifest.worldMap?.url, manifest.worldMap?.maxZoom ?: worldMapStore.worldMapMaxZoom())
-                appCompatibility.update(manifest.minAppVersionCode)
-            }
-        }
+    // Prima di interpretarlo e salvarlo: un `manifest.json` con la firma sbagliata e' un fetch fallito (resta la cache).
+    private suspend fun download(): RegionManifest = signedFileCache.fetch(
+        SyncConfig.MANIFEST_URL,
+        httpError = { code ->
+            // Errori temporanei del server: IOException, cosi' i worker riprovano.
+            if (isRetryableHttpStatus(code)) throw IOException("manifest.json fetch failed: HTTP $code")
+            error("manifest.json fetch failed: HTTP $code")
+        },
+        emptyBody = { error("Empty manifest.json response") },
+    ) { bytes ->
+        val parsed = json.decodeFromString(RegionManifest.serializer(), bytes.decodeToString())
+        sanitizeManifest(parsed) { what, error -> Log.w(TAG, "Voce del catalogo scartata: $what", error) }
+    }.also { manifest ->
+        // Ad ogni sync riuscita: feature/map legge solo WorldMapStore, non dipende da core/sync.
+        worldMapStore.save(manifest.worldMap?.url, manifest.worldMap?.maxZoom ?: worldMapStore.worldMapMaxZoom())
+        appCompatibility.update(manifest.minAppVersionCode)
     }
 
     private companion object {

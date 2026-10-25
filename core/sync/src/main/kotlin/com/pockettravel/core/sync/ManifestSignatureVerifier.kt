@@ -55,10 +55,22 @@ class ManifestSignatureVerifier @Inject constructor(
     private val publishedAtStore: PublishedAtStore,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
-    /** Scarica `<url>.sig` e verifica [content]; IOException se il sito non risponde, [ManifestSignatureException] se la firma non va. */
-    suspend fun verify(url: String, content: ByteArray) {
+    /**
+     * Scarica `<url>.sig` e verifica [content]; IOException se il sito non risponde, [ManifestSignatureException] se la
+     * firma non va. Restituisce la firma verificata, null con un catalogo di debug (nessuna verifica).
+     */
+    suspend fun verify(url: String, content: ByteArray): ByteArray? {
+        if (!enabled()) return null
+        val signature = fetchSignature(url)
+        verifyManifestSignature(publicKeyFor(url), content, signature)
+        checkPublishedAt(publishedAtStore, fileKind(url), content)
+        return signature
+    }
+
+    /** Come [verify] con una firma gia' scaricata insieme a [content] (la copia di [SignedFileCache]): niente rete. */
+    fun verifyWith(url: String, content: ByteArray, signature: ByteArray) {
         if (!enabled()) return
-        verifyManifestSignature(publicKeyFor(url), content, fetchSignature(url))
+        verifyManifestSignature(publicKeyFor(url), content, signature)
         checkPublishedAt(publishedAtStore, fileKind(url), content)
     }
 
