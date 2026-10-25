@@ -249,6 +249,68 @@ class SearchTest(unittest.TestCase):
         self.assertEqual(top, [])
         db.close()
 
+    def rerank_with(self, scores, **conf):
+        """search con il riordino: punteggio dal testo della sezione ([scores]: parola -> punteggio)."""
+        scorer = lambda question, section, stems, lang: max((v for k, v in scores.items() if k in section["body"]), default=0.0)
+        return mock.patch.dict(ev.RERANK, {"scorer": scorer, **conf})
+
+    def test_riordino_sostituzione_sceglie_le_candidate_col_punteggio_piu_alto(self):
+        with self.rerank_with({"Colonia romana": 0.9, "lungomare": 0.1}, mode="replace", candidates=10, general=0):
+            top, _ = ev.search(self.db, "italia", "Treni e alberghi a Rimini?", self.cities)
+        self.assertEqual(top[0]["category"], "STORIA")
+        self.assertLessEqual(len(top), ev.MAX_SECTIONS)
+
+    def test_riordino_aggiunta_tiene_le_sezioni_di_oggi(self):
+        today, _ = ev.search(self.db, "italia", "Dove dormire a Bologna?", self.cities)
+        with self.rerank_with({"Per entrare": 0.9}, mode="add", candidates=10, general=0):
+            top, _ = ev.search(self.db, "italia", "Dove dormire a Bologna?", self.cities)
+        self.assertEqual(top[:len(today)], today)
+        # La migliore candidata e' gia' tra quelle di oggi o in coda, mai al posto di una di oggi.
+        self.assertLessEqual(len(top), len(today) + 1)
+
+    def test_riordino_fuso_con_la_ricerca(self):
+        # Peso 1 alla ricerca: l'ordine di oggi; peso 0: quello del riordino, come "replace".
+        question = "Treni e alberghi a Rimini?"
+        with self.rerank_with({"Colonia romana": 0.9}, mode="replace", candidates=10, general=0):
+            replaced, _ = ev.search(self.db, "italia", question, self.cities)
+        with self.rerank_with({"Colonia romana": 0.9}, mode="blend", blend=0.0, candidates=10, general=0):
+            only_rerank, _ = ev.search(self.db, "italia", question, self.cities)
+        with self.rerank_with({"Colonia romana": 0.9}, mode="blend", blend=1.0, candidates=10, general=0):
+            only_search, _ = ev.search(self.db, "italia", question, self.cities)
+        with self.rerank_with({}, mode="replace", candidates=10, general=0):
+            search_order, _ = ev.search(self.db, "italia", question, self.cities)
+        self.assertEqual([s["category"] for s in only_rerank], [s["category"] for s in replaced])
+        self.assertEqual([s["category"] for s in only_search], [s["category"] for s in search_order])
+
+    def test_prompt_del_riordino_con_luogo_e_paragrafi_della_domanda(self):
+        body = "\n".join(["Il centro storico e' pieno di chiese. " * 5] * 6 + ["Si dorme in ostelli vicino alla stazione."])
+        section = {"city": "Porto (Portogallo)", "category": "ALLOGGIO", "title": "Dove alloggiare", "body": body}
+        prompt = ev.rerank_prompt("Dove dormire a Porto?", section, {"dorm", "ostel"}, "it")
+        self.assertIn("Porto, Dove alloggiare", prompt)
+        self.assertIn("Dove dormire a Porto?", prompt)
+        self.assertIn("Si dorme in ostelli", prompt)
+        self.assertLess(len(prompt), ev.RERANK["snippet"] + 300)
+        self.assertTrue(prompt.endswith("Rispondi solo sì o no."))
+        general = {"city": None, "general_guide": True, "category": "SALUTE", "title": "Jet lag", "body": "Breve."}
+        self.assertIn("guida generale, Jet lag", ev.rerank_prompt("Jet lag?", general, set(), "it"))
+
+    def test_candidate_del_riordino_con_le_pagine_della_guida_generale(self):
+        guides = Path(self.tmp.name) / "generale-riordino.db"
+        g = sqlite3.connect(guides)
+        g.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
+        g.executemany("INSERT INTO guide_sections VALUES (?,?,?,?,?)", [
+            ("italia", "DOGANE", "Dogane", "Per entrare serve il passaporto.", "u"),
+            ("_general", "DOGANE", "Documenti", "Il passaporto smarrito va denunciato " + "e poi rifatto. " * 30, "u"),
+        ])
+        g.commit()
+        g.close()
+        db = ev.build_db(guides, "italia", [])
+        # Oggi la pagina della guida generale non entra; tra le candidate del riordino si'.
+        with self.rerank_with({"smarrito": 0.9}, mode="replace", candidates=10, general=2):
+            top, _ = ev.search(db, "italia", "Serve il passaporto?", [])
+        self.assertEqual([s["title"] for s in top], ["Documenti", "Dogane"])
+        db.close()
+
     def test_parole_del_modello_fuori_dal_confronto_con_la_guida_generale(self):
         info = lambda q, c: {"p": 2, "c": 2, "hits": [[0, q], [0, c]], "docs": [[2, 3], [2, 3]], "n": 20, "avg": [3, 50], "len": [3, 50]}
         region = [({"category": "TRASPORTI", "title": "Trasporti"}, info(1, 5))]
@@ -451,6 +513,48 @@ class WriteContextsTest(unittest.TestCase):
 
     def test_unicode_non_escapato(self):
         self.assertIn("città", self.write(0, [{"kind": "a", "question": "Qual è la città?"}]))
+
+
+class MeasureTest(unittest.TestCase):
+    def test_margine_di_wilson(self):
+        self.assertEqual(ev.margin(0, 0), 0.0)
+        # 85% su 20 righe: intervallo al 95% circa 64-95% (calcolo del piano valutazione-modelli.md)
+        self.assertAlmostEqual(ev.margin(17, 20), 21.0, delta=1.0)
+        self.assertLess(ev.margin(850, 1000), 3.0)
+
+    def test_impronta_e_avviso_con_dati_diversi(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b = Path(tmp) / "guides.db", Path(tmp) / "manca.db"
+            a.write_bytes(b"uno")
+            first = ev.fingerprint([a, b])
+            self.assertEqual(list(first), ["guides.db"])
+            history = Path(tmp) / "storico.jsonl"
+            config = {"lang": "it", "series": "control"}
+            ev.record_history(history, config, first, {"paese": {"n": 1}})
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                ev.check_history(history, config, first)
+            self.assertEqual(err.getvalue(), "")
+            a.write_bytes(b"due")
+            with contextlib.redirect_stderr(err):
+                ev.check_history(history, config, ev.fingerprint([a]))
+            self.assertIn("dati diversi (guides.db)", err.getvalue())
+            # Configurazione diversa: nessun confronto, nessun avviso
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                ev.check_history(history, {"lang": "en", "series": "control"}, ev.fingerprint([a]))
+            self.assertEqual(err.getvalue(), "")
+
+    def test_paragrafi_uniti_e_divisi(self):
+        body = "Hotel Uno, centro.\nHotel Due, mare.\n\n" + "Frase lunga del paragrafo. " * 60
+        self.assertEqual(ev.paragraph_chunks(body, 0)[:2], ["Hotel Uno, centro.", "Hotel Due, mare."])
+        chunks = ev.paragraph_chunks(body, 400)
+        self.assertEqual(chunks[0].split("\n")[:2], ["Hotel Uno, centro.", "Hotel Due, mare."])
+        self.assertTrue(all(len(c) <= 2.5 * 400 for c in chunks))
+        # Nessun testo perso: ogni pezzo e' dentro la sezione, e l'ordine del testo si ricostruisce
+        flat = lambda s: " ".join(s.split())
+        self.assertEqual(flat(" ".join(chunks)), flat(body))
+        self.assertEqual(ev.in_text_order(body, {chunks[1], chunks[0]}), chunks[0] + "\n" + chunks[1])
 
 
 if __name__ == "__main__":

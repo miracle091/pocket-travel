@@ -44,6 +44,20 @@ class PromptTest(unittest.TestCase):
         self.assertEqual(on_device_prompt("  ", "D?", "it"), kotlin_prompt("it", it, "D?"))
 
 
+class MoveAnswerTest(unittest.TestCase):
+    def test_paragrafo_della_risposta_spostato(self):
+        from eval_common import move_answer
+        context = "Primo.\nRisposta: alberghi in centro.\nTerzo.\n\nQuarto.\nQuinto."
+        answer = "Risposta: alberghi in centro."
+        self.assertEqual(move_answer(context, answer, "start").split("\n")[0], answer)
+        self.assertEqual(move_answer(context, answer, "end").split("\n")[-1], answer)
+        middle = move_answer(context, answer, "middle").split("\n")
+        self.assertEqual(middle.index(answer), 2)
+        # Stesse righe, solo in un altro ordine
+        self.assertEqual(sorted(middle), sorted(line for line in context.split("\n") if line))
+        self.assertIsNone(move_answer(context, "Non c'e'.", "start"))
+
+
 class RefusalTest(unittest.TestCase):
     def test_rifiuto_per_lingua(self):
         self.assertTrue(is_refusal("Il contesto non contiene informazioni sugli alberghi.", "it"))

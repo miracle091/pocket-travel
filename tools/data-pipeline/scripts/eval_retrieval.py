@@ -35,13 +35,24 @@ quella scelta dal modello, come l'app sul dispositivo (ModelQuestionCategory.kt)
 Con --contexts FILE ogni domanda (distanze escluse) va in JSONL con il contesto che l'app mette nel prompt e la presenza
 della sezione attesa, per far rispondere il modello con eval_gguf.py --contexts (ricerca e modello insieme).
 
+Solo misura, non ancora nell'app: con --rerank GGUF il riordino delle candidate col modello della chat (llama-server,
+punteggio yesno o refusal, varianti replace, add e blend); con --rrf la fusione dei ranghi tra la query della domanda e
+quella con le parole della categoria; con --paragraphs la ricerca per paragrafi (rank) o i paragrafi scelti col BM25
+dentro le sezioni di oggi (within, within-country). Ogni misura stampa l'impronta dei dati e la configurazione, il
+margine al 95% di "trovata" e Hit@5 per tipo; con --history FILE la aggiunge a uno storico JSONL e avvisa se una misura
+con la stessa configurazione era stata fatta su dati diversi; con --explain FILE scrive le domande senza la sezione
+attesa, con le sezioni scelte e il posto di quella attesa.
+
 Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|dev2|other-lang|control|general|other-country] [--regions italia ...]
 [--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists [--model-categories FILE]] [--before-rag] [--contexts FILE [--contexts-sample N]]
+[--rerank GGUF --llama-cpp DIR [--rerank-scoring yesno|refusal] [--rerank-mode replace|add|blend] [--gpu-layers 99 --device Vulkan0]]
+[--rrf [--rrf-weight W]] [--paragraphs rank|within|within-country [--paragraph-chars N]] [--history FILE] [--explain FILE]
 (la cache dei file scaricati sta di default nella cartella temporanea di sistema)
 Richiede rete (`manifest.json`, release, API di Wikipedia) e, per Storia e Clima, il gradle wrapper dalla root del repo.
 """
 import argparse
 import atexit
+import hashlib
 import json
 import lzma
 import math
@@ -53,9 +64,12 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
+import threading
 import unicodedata
 import urllib.request
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from pathlib import Path
 
@@ -73,6 +87,7 @@ MAX_SECTIONS = 3                 # TravelAssistant.MAX_SECTIONS
 CANDIDATE_CAP = 100              # GuideRepository/CityRepository.CANDIDATE_CAP
 CITY_CANDIDATE_CAP = 100         # CityRepository.CITY_CANDIDATE_CAP
 MAX_CONTEXT = 2000               # buildOnDeviceContext(maxChars)
+MRR_DEPTH = 10                   # sezioni della classifica per Hit@5 e MRR@10 (solo misura)
 MIN_SECTION_CHARS = 50           # TravelAssistant.MIN_SECTION_CHARS
 MIN_CITY_NAME_CHARS = 3          # TravelAssistant.MIN_CITY_NAME_CHARS
 STEM_CHARS = 5                   # TravelAssistant.STEM_CHARS
@@ -676,7 +691,7 @@ def bm25(info, stats, phrases=None):
 
 
 def rank_sections(guide, city, country_first, history_or_climate=True, general_guide=(), general_question=False, lang="it",
-                  compare_phrases=None):
+                  compare_phrases=None, limit=MAX_SECTIONS, general_extra=0):
     """rankSections: [(sezione, matchinfo)] della guida del paese e delle citta' -> le MAX_SECTIONS migliori; prima
     quelle del paese con [country_first] True, quelle delle citta' con False, solo per punteggio con None. Della
     guida generale [general_guide] conta solo la migliore: in testa, in piu' alle altre, se supera di GENERAL_GUIDE_FIRST_RATIO
@@ -684,7 +699,9 @@ def rank_sections(guide, city, country_first, history_or_climate=True, general_g
     domanda non nomina una citta', o da sola se le altre non trovano nulla; altrimenti non entra (mai in fondo come riempitivo).
     Con [compare_phrases] il confronto con la guida generale conta solo le prime frasi della query (senza le parole della
     categoria scelta dal modello, aggiunte in fondo): quelle parole scelgono le sezioni della regione, non se la guida
-    generale va in testa."""
+    generale va in testa.
+    Solo per il riordino (--rerank): [limit] sezioni invece di MAX_SECTIONS, e in coda le [general_extra] pagine della guida
+    generale con il BM25 piu' alto che non ci sono gia'."""
     tables = [rows[0][1] for rows in (list(guide) + list(general_guide), city) if rows]
     if not tables:
         return []
@@ -692,9 +709,14 @@ def rank_sections(guide, city, country_first, history_or_climate=True, general_g
     weight = lambda s: WIKIPEDIA_OFF_TOPIC_WEIGHT if not history_or_climate and s["category"] in WIKI else 1.0
     ranked = [(bm25(info, stats), True, s) for s, info in guide] + [(bm25(info, stats) * weight(s), False, s) for s, info in city]
     ranked.sort(key=lambda r: (country_first is not None and r[1] != country_first, -r[0]))
-    top = ranked[:MAX_SECTIONS]
+    top = ranked[:limit]
     best = max(((bm25(info, stats, compare_phrases), s) for s, info in general_guide), key=lambda r: r[0], default=None)
     sections = [s for _, _, s in top]
+    if general_extra:
+        ranked_general = [s for s, _ in sorted(general_guide, key=lambda g: -bm25(g[1], stats, compare_phrases))]
+        with_general = rank_sections(guide, city, country_first, history_or_climate, general_guide, general_question, lang,
+                                     compare_phrases, limit)
+        return with_general + [s for s in ranked_general if all(s is not t for t in with_general)][:general_extra]
     if best is None:
         return sections
     infos = {id(s): (info, w) for s, info, w in [(s, i, 1.0) for s, i in guide] + [(s, i, weight(s)) for s, i in city]}
@@ -750,26 +772,41 @@ def build_db(guides_db, region, city_rows):
             db.execute("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES (?,?,?,?,?)", row)
     for row in city_rows:
         db.execute("INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl) VALUES (?,?,?,?,?,?)", (region, *row))
-    for t in ("guide_sections", "city_sections"):
+    # Paragrafi delle sezioni (solo per --paragraphs): una riga per paragrafo non vuoto, con il titolo della sezione.
+    for t, extra in (("guide", ""), ("city", "city,")):
+        db.execute(f"CREATE TABLE {t}_paragraphs (id INTEGER PRIMARY KEY, sectionId INTEGER, title TEXT, body TEXT)")
+        db.execute(f"CREATE VIRTUAL TABLE {t}_paragraphs_fts USING fts4(title, body, content='{t}_paragraphs', tokenize=unicode61)")
+        for sid, title, body in db.execute(f"SELECT id, title, body FROM {t}_sections").fetchall():
+            db.executemany(f"INSERT INTO {t}_paragraphs (sectionId, title, body) VALUES (?,?,?)",
+                           [(sid, title, para) for para in paragraph_chunks(body, PARAGRAPHS["chars"])])
+    for t in ("guide_sections", "city_sections", "guide_paragraphs", "city_paragraphs"):
         db.execute(f"INSERT INTO {t}_fts({t}_fts) VALUES('rebuild')")
     return db
 
 
 def city_candidates(db, region, fts, named):
     """CityRepository.searchCandidates per ogni citta' di [named] ("quanto dista X da Y"), o per tutte se e' vuota."""
-    return [({"city": c, "category": k, "body": b}, parse_matchinfo(mi)) for name in (named or [None])
-            for c, k, b, mi in db.execute(
-        "SELECT s.city, s.category, s.body, matchinfo(city_sections_fts, 'pcxnal') FROM city_sections s "
+    if PARAGRAPHS["on"] == "rank":
+        return [({"city": c, "category": k, "title": t, "body": p, "section_body": b}, parse_matchinfo(mi))
+                for name in (named or [None]) for c, k, t, p, b, mi in db.execute(
+            "SELECT s.city, s.category, s.title, p.body, s.body, matchinfo(city_paragraphs_fts, 'pcxnal') FROM city_paragraphs p "
+            "JOIN city_paragraphs_fts ON p.id = city_paragraphs_fts.rowid JOIN city_sections s ON s.id = p.sectionId "
+            "WHERE city_paragraphs_fts MATCH ? AND s.regionId = ? AND (? IS NULL OR s.city = ?) LIMIT ?",
+            (fts, region, name, name, PARAGRAPHS["cap"]))]
+    return [({"city": c, "category": k, "title": t, "body": b}, parse_matchinfo(mi)) for name in (named or [None])
+            for c, k, t, b, mi in db.execute(
+        "SELECT s.city, s.category, s.title, s.body, matchinfo(city_sections_fts, 'pcxnal') FROM city_sections s "
         "JOIN city_sections_fts ON s.id = city_sections_fts.rowid "
         "WHERE city_sections_fts MATCH ? AND s.regionId = ? AND (? IS NULL OR s.city = ?) LIMIT ?",
         (fts, region, name, name, CITY_CANDIDATE_CAP if name else CANDIDATE_CAP))]
 
 
-def search(db, region, question, cities, lang="it", word_lists=False, before_rag=False):
+def search(db, region, question, cities, lang="it", word_lists=False, before_rag=False, pool=None):
     """TravelAssistant.searchSections: (sezioni, radici della domanda). Con [word_lists] la query ha anche le parole delle
     guide per la categoria della domanda; le radici restano quelle della domanda. Una nazione diversa da quella di
     [region] nominata senza citta' (named_place) fa cercare nelle sue regioni, senza il suo nome nella query. Con
-    [before_rag] la ricerca di prima della guida generale e della nazione nominata: solo la regione aperta e le sue citta'."""
+    [before_rag] la ricerca di prima della guida generale e della nazione nominata: solo la regione aperta e le sue citta'.
+    Con [pool] le prime [pool] sezioni della classifica invece del contesto, senza riordino (Hit@5 e MRR@10)."""
     named = named_cities(question, cities, lang)
     city = named[0] if len(named) == 1 else None
     country = None if named or before_rag else named_place(question, region, lang)
@@ -792,12 +829,295 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
         city_rows = city_candidates(db, region, fts, named)
     history_or_climate = bool(HISTORY_CLIMATE_WORDS.search(question)) or bool((groups | model) & HISTORY_CLIMATE_GROUPS)
     guide_regions = country[2] if country else [region]
-    return (rank_sections(guide_candidates(db, guide_regions, fts), city_rows, country_first=not named,
-                          history_or_climate=history_or_climate,
-                          general_guide=() if before_rag else guide_candidates(db, [GENERAL_GUIDE_REGION_ID], fts),
-                          general_question=bool(GENERAL_TRAVEL_WORDS.search(question)), lang=lang,
-                          compare_phrases=len([t for t in base.split(" OR ") if t]) if model else None),
-            focus_stems(base, city))
+    rank_for = lambda query, rows, compare, **extra: rank_sections(
+        guide_candidates(db, guide_regions, query), rows, country_first=not named, history_or_climate=history_or_climate,
+        general_guide=() if before_rag else guide_candidates(db, [GENERAL_GUIDE_REGION_ID], query),
+        general_question=bool(GENERAL_TRAVEL_WORDS.search(question)), lang=lang, compare_phrases=compare, **extra)
+    rank = lambda **extra: rank_for(fts, city_rows, len([t for t in base.split(" OR ") if t]) if model else None, **extra)
+    if RRF["on"] and base and base != fts:
+        # Fusione dei ranghi tra la query della domanda e quella con le parole della categoria (solo misura).
+        base_rows = [] if country else city_candidates(db, region, base, named)
+        fused = rrf([rank_for(base, base_rows, None, limit=MRR_DEPTH), rank(limit=MRR_DEPTH)],
+                    [RRF["weight_original"], 1 - RRF["weight_original"]])
+        rank = lambda limit=MAX_SECTIONS, general_extra=0: fused[:limit]
+    if PARAGRAPHS["on"] == "rank":
+        ranked_paragraphs = rank(limit=PARAGRAPHS["pool"])
+        rank = lambda limit=MAX_SECTIONS, general_extra=0: by_section(ranked_paragraphs)[:limit]
+    elif PARAGRAPHS["on"] in ("within", "within-country") and not pool:
+        # Sezioni come oggi; dentro di loro i paragrafi col BM25 piu' alto riempiono il contesto.
+        today, mode = rank(), PARAGRAPHS["on"]
+        PARAGRAPHS["on"] = "rank"
+        try:
+            paragraph_rows = [] if country else city_candidates(db, region, fts, named)
+            ranked_paragraphs = rank_for(fts, paragraph_rows, len([t for t in base.split(" OR ") if t]) if model else None,
+                                         limit=PARAGRAPHS["pool"])
+        finally:
+            PARAGRAPHS["on"] = mode
+        within = paragraphs_within(today, ranked_paragraphs)
+        rank = lambda limit=None, general_extra=0: within[:limit]  # le sezioni di oggi, anche la quarta della guida generale
+    if pool:
+        return rank(limit=pool), focus_stems(base, city)
+    sections, stems = rank(), focus_stems(base, city)
+    if RERANK["scorer"]:
+        sections = reranked(question, sections, rank(limit=RERANK["candidates"], general_extra=RERANK["general"]), stems, lang)
+    return sections, stems
+
+
+# --- riordino col modello della chat (--rerank) ------------------------------------------------------------------------
+# Misura senza training: il modello della chat da' un punteggio a ogni candidata, le prime RERANK["candidates"] della
+# ricerca di oggi piu' le RERANK["general"] pagine migliori della guida generale. Due punteggi da confrontare:
+# - "yesno": "La sezione contiene la risposta? sì o no", con una grammatica che ammette solo le due risposte:
+#   P(sì) / (P(sì) + P(no)) sul primo token, come Qwen3-Reranker;
+# - "refusal": il prompt dell'app con la candidata come contesto, 1 - P(inizio del rifiuto addestrato), cioe' quanto il
+#   modello si aspetta di poter rispondere con quella sezione (ha senso per i modelli addestrati sulle guide).
+# Della candidata entrano i paragrafi con piu' radici della domanda, fino a RERANK["snippet"] caratteri (relevant_paragraphs).
+RERANK = {"scorer": None, "mode": "replace", "candidates": 10, "general": 2, "snippet": 600, "scoring": "yesno", "blend": 0.5}
+RERANK_PROMPT = {
+    "it": "Domanda di un viaggiatore: {q}\n\nSezione della guida ({place}):\n{text}\n\n"
+          "La sezione contiene la risposta alla domanda? Rispondi solo sì o no.",
+    "en": "A traveller's question: {q}\n\nGuide section ({place}):\n{text}\n\n"
+          "Does the section contain the answer to the question? Answer only yes or no.",
+}
+RERANK_ANSWERS = {"it": ("sì", "no"), "en": ("yes", "no")}
+RERANK_SLOTS = 4  # richieste in parallelo a llama-server (-np), contesto di 4096 token ciascuna
+REFUSAL_START = {"it": "Il contesto", "en": "The context"}  # inizio di REFUSAL e REFUSAL_EN di eval_common.py
+
+
+def rerank_place(section):
+    """Il luogo della candidata nel prompt del riordino: citta' e titolo, guida generale e titolo, o il titolo."""
+    title = section.get("title") or section["category"]
+    if section.get("city"):
+        return f"{spoken_city_name(section['city'])}, {title}"
+    return f"guida generale, {title}" if section.get("general_guide") else title
+
+
+def rerank_text(section, stems):
+    return relevant_paragraphs(section["body"], stems, RERANK["snippet"])
+
+
+def rerank_prompt(question, section, stems, lang):
+    return RERANK_PROMPT[lang].format(q=question, place=rerank_place(section), text=rerank_text(section, stems))
+
+
+def reranked(question, app, candidates, stems, lang):
+    """Le sezioni del contesto con il riordino: "replace" le MAX_SECTIONS candidate col punteggio piu' alto (a parita',
+    l'ordine della ricerca); "add" quelle dell'app piu' la migliore candidata se manca, in coda, come fts+emb1; "blend" le
+    prime MAX_SECTIONS della fusione dei ranghi (rrf) tra l'ordine della ricerca, con peso RERANK["blend"], e quello del
+    riordino, che regge meglio un giudice rumoroso."""
+    if not candidates:
+        return app
+    # In parallelo: llama-server ha RERANK_SLOTS slot, uno per richiesta.
+    with ThreadPoolExecutor(RERANK_SLOTS) as pool:
+        scores = list(pool.map(lambda s: RERANK["scorer"](question, s, stems, lang), candidates))
+    order = sorted(range(len(candidates)), key=lambda i: (-scores[i], i))
+    if RERANK["mode"] == "replace":
+        return [candidates[i] for i in order[:MAX_SECTIONS]]
+    if RERANK["mode"] == "blend":
+        return rrf([candidates, [candidates[i] for i in order]], [RERANK["blend"], 1 - RERANK["blend"]])[:MAX_SECTIONS]
+    best = candidates[order[0]]
+    return app + [best] if all(best is not s for s in app) else app
+
+
+class RerankScorer:
+    """llama-server con il modello della chat, prompt ChatML a turno singolo come ai_chat.cpp (blocco <think> vuoto solo
+    con enable_thinking), punteggio RERANK["scoring"]; i punteggi restano in [cache_file] (JSON) tra un'esecuzione e
+    l'altra, cosi' le varianti (add/replace, candidate) non rifanno le richieste."""
+
+    def __init__(self, model, llama_cpp, gpu_layers, device, cache_file):
+        import socket
+        import time
+        from gguf import GGUFReader
+        from eval_common import chatml_prompt, find_llama_bin, llama_env, on_device_prompt, uses_empty_think
+        self.chatml_prompt, self.on_device_prompt = chatml_prompt, on_device_prompt
+        template = GGUFReader(model).fields.get("tokenizer.chat_template")
+        self.think = uses_empty_think(bytes(template.parts[template.data[0]]).decode("utf-8") if template is not None else None)
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        exe = find_llama_bin("llama-server", llama_cpp)
+        self.server = subprocess.Popen([exe, "-m", str(model), "--host", "127.0.0.1", "--port", str(port),
+                                        "-c", str(4096 * RERANK_SLOTS), "-np", str(RERANK_SLOTS),
+                                        "--no-webui", "-ngl", str(gpu_layers), *(["--device", device] if device else [])],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=llama_env(exe))
+        atexit.register(self.close)
+        self.url = f"http://127.0.0.1:{port}"
+        for _ in range(600):
+            try:
+                if urllib.request.urlopen(f"{self.url}/health", timeout=5).status == 200:
+                    break
+            except OSError:
+                time.sleep(0.5)
+        self.cache_file = cache_file
+        self.cache = json.loads(cache_file.read_text(encoding="utf-8")) if cache_file.exists() else {}
+        self.calls = 0
+        self.lock = threading.Lock()
+
+    def post(self, path, payload):
+        request = urllib.request.Request(self.url + path, json.dumps(payload).encode("utf-8"), {"Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=300) as r:
+            return json.load(r)
+
+    def next_probs(self, prompt, grammar=None):
+        """({id: probabilita'}, {id: testo}) dei 20 primi token dopo [prompt] (testo, o lista di testo e id): con la
+        grammatica normalizzate sui token ammessi, senza grammatica la softmax dei logit."""
+        payload = {"prompt": prompt, "n_predict": 1, "n_probs": 20, "cache_prompt": True}
+        if grammar:
+            payload.update(grammar=grammar, temperature=1.0, samplers=["temperature"], post_sampling_probs=True)
+            top = self.post("/completion", payload)["completion_probabilities"][0]["top_probs"]
+            return {t["id"]: t["prob"] for t in top}, {t["id"]: t["token"] for t in top}
+        payload.update(temperature=0)
+        top = self.post("/completion", payload)["completion_probabilities"][0]["top_logprobs"]
+        return {t["id"]: math.exp(t["logprob"]) for t in top}, {t["id"]: t["token"] for t in top}
+
+    def yesno(self, prompt, lang):
+        yes, no = RERANK_ANSWERS[lang]
+        probs, pieces = self.next_probs(prompt, f'root ::= "{yes}" | "{no}"')
+        # Con la grammatica il primo token e' un prefisso di una delle due risposte ("s" di "sì", "n" o "no").
+        p_yes = sum(p for i, p in probs.items() if yes.startswith(pieces[i]))
+        p_no = sum(p for i, p in probs.items() if no.startswith(pieces[i]) and not yes.startswith(pieces[i]))
+        return p_yes / (p_yes + p_no) if p_yes + p_no > 0 else 0.0
+
+    def refusal(self, prompt, lang):
+        """1 - P(REFUSAL_START), con i token del rifiuto forzati uno alla volta in coda al prompt; un token fuori dai 20
+        piu' probabili conta 0."""
+        tokens = self.post("/tokenize", {"content": REFUSAL_START[lang]})["tokens"]
+        p = 1.0
+        for i, token in enumerate(tokens):
+            probs, _ = self.next_probs([prompt, *tokens[:i]])
+            p *= probs.get(token, 0.0)
+        return 1.0 - p
+
+    def __call__(self, question, section, stems, lang):
+        if RERANK["scoring"] == "yesno":
+            user = rerank_prompt(question, section, stems, lang)
+        else:
+            user = self.on_device_prompt(rerank_text(section, stems), question, lang)
+        prompt = self.chatml_prompt(user, self.think)
+        key = f"{RERANK['scoring']}\n{prompt}"
+        if key not in self.cache:
+            score = getattr(self, RERANK["scoring"])(prompt, lang)
+            with self.lock:
+                self.cache[key] = score
+                self.calls += 1
+                if self.calls % 500 == 0:
+                    self.save()
+        return self.cache[key]
+
+    def save(self):
+        part = self.cache_file.with_name(self.cache_file.name + ".part")
+        part.write_text(json.dumps(dict(self.cache), ensure_ascii=False), encoding="utf-8")
+        os.replace(part, self.cache_file)
+
+    def close(self):
+        if self.server.poll() is None:
+            self.save()
+            self.server.kill()
+            self.server.wait()
+
+
+# --- ricerca per paragrafi (--paragraphs, solo misura) ------------------------------------------------------------------
+# Ogni paragrafo e' una riga FTS con il titolo della sezione. "rank": la classifica dei paragrafi (stesso BM25) da' quella
+# delle sezioni, nell'ordine del loro paragrafo migliore, e nel contesto di ogni sezione entrano al piu'
+# PARAGRAPHS["per_section"] paragrafi, i migliori, nell'ordine del testo. "within": sezioni scelte come oggi, paragrafi
+# scelti col BM25 al posto delle radici della domanda (relevant_paragraphs).
+PARAGRAPHS = {"on": False, "pool": 60, "cap": 400, "per_section": 2, "chars": 0}
+SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9«\"(])")
+
+
+def paragraph_chunks(body, chars):
+    """I paragrafi indicizzati di una sezione: con [chars] 0 una riga non vuota per paragrafo; altrimenti righe
+    consecutive unite fino a [chars] caratteri e righe piu' lunghe di 2,5 [chars] divise a fine frase."""
+    lines = [line for line in body.split("\n") if line.strip()]
+    if not chars:
+        return lines
+    pieces = []
+    for line in lines:
+        if len(line) <= 2.5 * chars:
+            pieces.append(line)
+            continue
+        current = ""
+        for sentence in SENTENCE_END.split(line):
+            if current and len(current) + 1 + len(sentence) > chars:
+                pieces.append(current)
+                current = sentence
+            else:
+                current = f"{current} {sentence}" if current else sentence
+        if current:
+            pieces.append(current)
+    chunks, current = [], ""
+    for piece in pieces:
+        if current and len(current) + 1 + len(piece) > chars:
+            chunks.append(current)
+            current = piece
+        else:
+            current = f"{current}\n{piece}" if current else piece
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def in_text_order(section_body, chunks):
+    """[chunks] (pezzi di [section_body]) nell'ordine in cui compaiono nel testo, uniti da un a capo."""
+    return "\n".join(sorted(chunks, key=lambda c: (section_body.find(c), c)))
+
+
+def paragraphs_within(sections, paragraphs, budget=MAX_CONTEXT):
+    """[sections] nel loro ordine, ognuna con i suoi paragrafi presi da [paragraphs] (classifica BM25) finche' il totale
+    sta in [budget] caratteri, nell'ordine del testo; una sezione senza paragrafi in classifica tiene il corpo intero
+    (select_context lo taglia come oggi)."""
+    key = lambda s: (s.get("region"), s.get("city"), s["category"], s.get("title"))
+    wanted = {key(s): s["body"] for s in sections}
+    chosen, used = {}, 0
+    for para in paragraphs:
+        k = key(para)
+        if (k in wanted and para["section_body"] == wanted[k] and used + len(para["body"]) + 1 <= budget
+                and (PARAGRAPHS["on"] == "within" or not para.get("city"))):
+            chosen.setdefault(k, set()).add(para["body"])
+            used += len(para["body"]) + 1
+    out = []
+    for s in sections:
+        lines = chosen.get(key(s))
+        body = in_text_order(s["body"], lines) if lines else s["body"]
+        out.append({**s, "body": body, "section_body": s["body"]})
+    return out
+
+
+def by_section(paragraphs):
+    groups, order = {}, []
+    for para in paragraphs:
+        key = (para.get("region"), para.get("city"), para["category"], para.get("title"), para["section_body"][:80])
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        if len(groups[key]) < PARAGRAPHS["per_section"]:
+            groups[key].append(para)
+    out = []
+    for key in order:
+        first = groups[key][0]
+        body = in_text_order(first["section_body"], {p["body"] for p in groups[key]})
+        out.append({**{k: v for k, v in first.items() if k != "section_body"}, "body": body, "section_body": first["section_body"]})
+    return out
+
+
+# --- fusione dei ranghi (--rrf, solo misura) ---------------------------------------------------------------------------
+# RRF tra la classifica della query della domanda e quella della query con le parole della categoria (liste o modello):
+# punteggio = somma dei pesi / (K + posto). K = 20 come il RAG di riferimento del piano; peso della query originale 0,5.
+RRF = {"on": False, "k": 20, "weight_original": 0.5}
+
+
+def section_key(section):
+    return section.get("region"), section.get("city"), section["category"], section.get("title"), section["body"][:80]
+
+
+def rrf(rankings, weights):
+    """Le sezioni di [rankings] (liste ordinate) per punteggio RRF decrescente; a parita', l'ordine di comparsa."""
+    scores, first = {}, {}
+    for ranking, weight in zip(rankings, weights):
+        for position, section in enumerate(ranking, 1):
+            key = section_key(section)
+            scores[key] = scores.get(key, 0.0) + weight / (RRF["k"] + position)
+            first.setdefault(key, (len(first), section))
+    return [first[k][1] for k in sorted(scores, key=lambda k: (-scores[k], first[k][0]))]
 
 
 def guide_candidates(db, regions, fts):
@@ -805,6 +1125,16 @@ def guide_candidates(db, regions, fts):
     senza le sezioni "#for-nationality=XX" come l'app senza nazionalita' scelta (isGuideSectionFor): restano quelle
     "#not-for-nationality=XX", il rimando per tutti gli altri. CANDIDATE_CAP candidati per regione, come l'app."""
     marks = ",".join("?" * len(regions))
+    if PARAGRAPHS["on"] == "rank":
+        return [({"city": None, "region": r, "category": k, "title": t, "body": p, "section_body": b,
+                  "general_guide": r == GENERAL_GUIDE_REGION_ID}, parse_matchinfo(mi))
+                for r, k, t, p, b, url, mi in db.execute(
+                    "SELECT s.regionId, s.category, s.title, p.body, s.body, s.sourceUrl, matchinfo(guide_paragraphs_fts, 'pcxnal') "
+                    "FROM guide_paragraphs p JOIN guide_paragraphs_fts ON p.id = guide_paragraphs_fts.rowid "
+                    "JOIN guide_sections s ON s.id = p.sectionId "
+                    f"WHERE guide_paragraphs_fts MATCH ? AND s.regionId IN ({marks}) LIMIT {PARAGRAPHS['cap'] * len(regions)}",
+                    (fts, *regions))
+                if "#for-nationality=" not in url]
     return [({"city": None, "region": r, "category": k, "title": t, "body": b, "general_guide": r == GENERAL_GUIDE_REGION_ID}, parse_matchinfo(mi))
             for r, k, t, b, url, mi in db.execute(
                 "SELECT s.regionId, s.category, s.title, s.body, s.sourceUrl, matchinfo(guide_sections_fts, 'pcxnal') FROM guide_sections s "
@@ -822,13 +1152,15 @@ def answer_paragraph(body, stems):
 def context_row(top, stems, match):
     """Il contesto che l'app mette nel prompt (buildOnDeviceContext senza nota: selectContext dei corpi delle sezioni) e
     se la sezione attesa vi e' entrata: "section_in_context" se almeno un suo paragrafo e' nel contesto (selectContext
-    puo' lasciarla fuori o tagliarla), "answer_in_context" se c'e' il suo paragrafo con piu' radici della domanda."""
+    puo' lasciarla fuori o tagliarla), "answer_in_context" se c'e' il suo paragrafo con piu' radici della domanda, che
+    resta in "answer_paragraph" (per spostarlo nel contesto con eval_gguf.py --answer-position)."""
     context = select_context([s["body"] for s in top], stems)
     paragraphs = [p for s in match for p in s["body"].split("\n") if p.strip()]
-    answer = answer_paragraph(match[0]["body"], stems) if match else None
+    answer = answer_paragraph(match[0].get("section_body", match[0]["body"]), stems) if match else None
+    in_context = bool(answer) and answer[:150] in context
     return {"context": context, "found": bool(match),
             "section_in_context": any(p[:150] in context for p in paragraphs),
-            "answer_in_context": bool(answer) and answer[:150] in context}
+            "answer_in_context": in_context, "answer_paragraph": answer if in_context else None}
 
 
 def write_contexts(path, rows, sample):
@@ -956,7 +1288,7 @@ def make_plan(region, city_rows, rng, pick, questions):
     return plan
 
 
-def general(guides_db, regions, lang, word_lists=False, before_rag=False, rows=None):
+def general(guides_db, regions, lang, word_lists=False, before_rag=False, rows=None, results=None):
     """Le domande generali (GENERAL_Q) con aperta ogni regione di [regions], senza le citta' (non ne nominano): pagina
     della guida generale attesa nel contesto, al primo posto, e il suo paragrafo con piu' parole della domanda nel contesto.
     In [rows], se c'e', una riga per domanda con il contesto (context_row)."""
@@ -970,16 +1302,19 @@ def general(guides_db, regions, lang, word_lists=False, before_rag=False, rows=N
             found += bool(match)
             first += bool(top) and top[0] in match
             if match:
-                in_context += answer_paragraph(match[0]["body"], stems)[:150] in select_context([s["body"] for s in top], stems)
+                in_context += answer_paragraph(match[0].get("section_body", match[0]["body"]), stems)[:150] in select_context([s["body"] for s in top], stems)
             if rows is not None:
                 rows.append({"region": region, "kind": "domande generali", "category": page, "city": None,
                              "question": question, **context_row(top, stems, match)})
         db.close()
     print(f"domande generali ({n} domande): trovata {100 * found / max(n, 1):.1f}%, prima {100 * first / max(n, 1):.1f}%, "
-          f"risposta nel contesto {100 * in_context / max(found, 1):.1f}% delle trovate")
+          f"risposta nel contesto {100 * in_context / max(found, 1):.1f}% delle trovate; margine al 95% di trovata "
+          f"±{margin(found, n):.1f} punti")
+    if results is not None:
+        results["domande generali"] = {"n": n, "trovata": found, "prima": first, "risposta nel contesto": in_context}
 
 
-def other_country(guides_db, regions, lang, word_lists=False, before_rag=False):
+def other_country(guides_db, regions, lang, word_lists=False, before_rag=False, results=None):
     """Le domande sul paese con nominata un'altra nazione (OTHER_COUNTRY_Q): con aperta ogni regione di [regions] la
     nazione della regione successiva della lista, e con aperta la prima la Francia (nazione divisa in 13 regioni). Attesa
     la sezione della categoria in una regione della nazione nominata."""
@@ -998,7 +1333,68 @@ def other_country(guides_db, regions, lang, word_lists=False, before_rag=False):
                 found += bool(match)
                 first += bool(top) and top[0] in match
         db.close()
-    print(f"paese nominato ({n} domande): trovata {100 * found / max(n, 1):.1f}%, prima {100 * first / max(n, 1):.1f}%")
+    print(f"paese nominato ({n} domande): trovata {100 * found / max(n, 1):.1f}%, prima {100 * first / max(n, 1):.1f}%; "
+          f"margine al 95% di trovata ±{margin(found, n):.1f} punti")
+    if results is not None:
+        results["paese nominato"] = {"n": n, "trovata": found, "prima": first}
+
+
+# --- affidabilita' della misura --------------------------------------------------------------------------------------
+def margin(k, n, z=1.96):
+    """Meta' dell'intervallo di Wilson al 95% di k/n, in punti percentuali (il lato piu' largo)."""
+    if not n:
+        return 0.0
+    p = k / n
+    centre = (p + z * z / (2 * n)) / (1 + z * z / n)
+    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / (1 + z * z / n)
+    return 100 * max(centre + half - p, p - (centre - half))
+
+
+def fingerprint(paths):
+    """{nome del file: prime 12 cifre dello sha256} dei file che esistono tra [paths]."""
+    out = {}
+    for path in paths:
+        if path.exists():
+            digest = hashlib.sha256()
+            with open(path, "rb") as f:
+                for block in iter(lambda: f.read(1 << 20), b""):
+                    digest.update(block)
+            out[path.name] = digest.hexdigest()[:12]
+    return out
+
+
+def measure_config(a):
+    """La configurazione che cambia i numeri: serie, regioni, ricerca, categorie del modello, riordino, fusione, paragrafi."""
+    config = {"lang": a.lang, "series": a.questions, "regions": a.regions, "word_lists": a.word_lists,
+              "before_rag": a.before_rag, "no_wikipedia": a.no_wikipedia,
+              "model_categories": fingerprint([a.model_categories]) if a.model_categories else None,
+              "rrf": dict(RRF) if RRF["on"] else None,
+              "paragraphs": {k: v for k, v in PARAGRAPHS.items()} if PARAGRAPHS["on"] else None}
+    if RERANK["scorer"]:
+        config["rerank"] = {"model": a.rerank.name, **{k: v for k, v in RERANK.items() if k != "scorer"}}
+    return config
+
+
+def record_history(history, config, data, results):
+    """Una riga JSON in [history] (se c'e') con data, impronta dei dati, configurazione e risultati della misura."""
+    if history:
+        history.parent.mkdir(parents=True, exist_ok=True)
+        with open(history, "a", encoding="utf-8") as out:
+            out.write(json.dumps({"date": time.strftime("%Y-%m-%dT%H:%M:%S"), "data": data, "config": config,
+                                  "results": results}, ensure_ascii=False, sort_keys=True) + "\n")
+
+
+def check_history(history, config, data):
+    """Avviso se lo storico ha gia' una misura con la stessa configurazione ma dati diversi (guide ripubblicate)."""
+    if not history.exists():
+        return
+    for line in history.read_text(encoding="utf-8").splitlines():
+        old = json.loads(line)
+        if old["config"] == config and old["data"] != data:
+            changed = sorted(k for k in set(old["data"]) | set(data) if old["data"].get(k) != data.get(k))
+            print(f"attenzione: stessa configurazione della misura del {old['date']} con dati diversi ({', '.join(changed)}): "
+                  "i numeri non sono confrontabili con quella", file=sys.stderr)
+            return
 
 
 def main():
@@ -1020,7 +1416,48 @@ def main():
                     help="JSON {domanda: gruppo} scritto da model_categories.py: con --word-lists, la categoria scelta dal "
                          "modello per le domande in cui le liste non ne riconoscono nessuna (come l'app sul dispositivo)")
     ap.add_argument("--contexts-sample", type=int, default=0, help="con --contexts: al massimo N domande per tipo (0 = tutte)")
+    ap.add_argument("--history", type=Path,
+                    help="storico JSONL: aggiunge data, impronta dei dati, configurazione e risultati, e avvisa se una misura "
+                         "con la stessa configurazione e' stata fatta su dati diversi")
+    ap.add_argument("--explain", type=Path,
+                    help="JSONL con le domande senza la sezione attesa nel contesto: sezioni scelte e posto di quella attesa")
+    ap.add_argument("--paragraph-chars", type=int, default=PARAGRAPHS["chars"],
+                    help="con --paragraphs: righe consecutive della stessa sezione unite fino a N caratteri (0 = una riga per "
+                         "paragrafo); le righe piu' lunghe di 2,5 N divise a fine frase")
+    ap.add_argument("--rerank", type=Path, metavar="GGUF",
+                    help="riordino delle candidate col modello della chat (punteggio sì/no da llama-server): misura senza training")
+    ap.add_argument("--rerank-mode", choices=["replace", "add", "blend"], default="replace",
+                    help="replace: le 3 col punteggio piu' alto; add: le sezioni di oggi piu' la migliore se manca; blend: "
+                         "fusione dei ranghi tra la ricerca e il riordino")
+    ap.add_argument("--rerank-blend", type=float, default=RERANK["blend"], help="con --rerank-mode blend: peso della ricerca")
+    ap.add_argument("--rerank-candidates", type=int, default=RERANK["candidates"], help="candidate dalla ricerca di oggi")
+    ap.add_argument("--rerank-general", type=int, default=RERANK["general"], help="pagine della guida generale in piu' tra le candidate")
+    ap.add_argument("--rerank-scoring", choices=["yesno", "refusal"], default=RERANK["scoring"],
+                    help="yesno: P(sì) con la grammatica sì/no; refusal: 1 - P(rifiuto) col prompt dell'app")
+    ap.add_argument("--paragraphs", choices=["rank", "within", "within-country"],
+                    help="rank: classifica dei paragrafi (al piu' 2 per sezione); within: sezioni come oggi, dentro di loro i "
+                         "paragrafi col BM25 piu' alto riempiono il contesto; within-country: lo stesso solo per le sezioni del paese e della guida generale")
+    ap.add_argument("--rrf", action="store_true",
+                    help="con --word-lists: fusione dei ranghi tra la query della domanda e quella con le parole della categoria")
+    ap.add_argument("--rrf-weight", type=float, default=RRF["weight_original"], help="con --rrf: peso della query della domanda")
+    ap.add_argument("--llama-cpp", type=Path, help="con --rerank: cartella dei binari di llama.cpp (get_llama_tools.py)")
+    ap.add_argument("--gpu-layers", type=int, default=0, help="con --rerank: layer su GPU (99 = tutti)")
+    ap.add_argument("--device", help="con --rerank: GPU da usare, come in `llama-server --list-devices` (es. Vulkan0)")
     a = ap.parse_args()
+    if a.rrf and not a.word_lists:
+        ap.error("--rrf fonde la query con e senza le parole della categoria: serve --word-lists")
+    RRF.update(on=a.rrf, weight_original=a.rrf_weight)
+    PARAGRAPHS.update(on=a.paragraphs, chars=a.paragraph_chars)
+    if a.rerank:
+        if not a.llama_cpp:
+            ap.error("--rerank richiede --llama-cpp")
+        import gpu_lock
+        gpu_lock.gpu_job("eval_retrieval.py", gpu=a.gpu_layers > 0)
+        RERANK.update(mode=a.rerank_mode, candidates=a.rerank_candidates, general=a.rerank_general,
+                      scoring=a.rerank_scoring, blend=a.rerank_blend)
+        a.cache.mkdir(parents=True, exist_ok=True)
+        RERANK["scorer"] = RerankScorer(a.rerank, a.llama_cpp, a.gpu_layers, a.device,
+                                        a.cache / f"rerank-{a.rerank.stem}-{a.lang}-{RERANK['snippet']}.json")
     if a.before_rag and a.word_lists:
         ap.error("--before-rag misura la ricerca senza le liste di parole")
     if a.model_categories and not a.word_lists:
@@ -1032,16 +1469,27 @@ def main():
             "cache? rigeneralo con model_categories.py)", file=sys.stderr))
     fetch_data(a.regions, a.cache, a.lang)
     guides_db = a.guides_db or a.cache / f"guides{LANGS[a.lang]['suffix']}.db"
+    sfx = LANGS[a.lang]["suffix"]
+    data = fingerprint([guides_db] + [a.cache / f"{r}.{kind}{sfx}.db" for r in a.regions for kind in ("cities", "wp")])
+    config = measure_config(a)
+    print(f"dati: {json.dumps(data, sort_keys=True)}")
+    print(f"configurazione: {json.dumps(config, sort_keys=True, ensure_ascii=False)}")
+    if a.history:
+        check_history(a.history, config, data)
+    results = {}
+    explained = [] if a.explain else None
     context_rows = [] if a.contexts else None
     labels = {"lang": a.lang, "series": a.questions,
               "search": "before-rag" if a.before_rag else "word-lists" if a.word_lists else "no-word-lists"}
     if a.questions == "general":
-        general(guides_db, a.regions, a.lang, a.word_lists, a.before_rag, context_rows)
+        general(guides_db, a.regions, a.lang, a.word_lists, a.before_rag, context_rows, results)
         if a.contexts:
             write_contexts(a.contexts, [{**labels, **r} for r in context_rows], a.contexts_sample)
+        record_history(a.history, config, data, results)
         return
     if a.questions == "other-country":
-        other_country(guides_db, a.regions, a.lang, a.word_lists, a.before_rag)
+        other_country(guides_db, a.regions, a.lang, a.word_lists, a.before_rag, results)
+        record_history(a.history, config, data, results)
         return
     rng, pick = random.Random(7), random.Random(8)
     questions = questions_of(a.lang, a.questions)
@@ -1061,20 +1509,40 @@ def main():
             r["trovata"] += bool(match)
             r["prima"] += bool(top) and top[0] in match
             r["Storia/Clima di troppo"] += kind != KINDS[2] and any(s["category"] in WIKI for s in top)
+            # Posto della sezione attesa nella classifica della ricerca (senza riordino): Hit@1, Hit@5, MRR@10.
+            ranking, _ = search(db, region, q, cities, a.lang, a.word_lists, a.before_rag, pool=MRR_DEPTH)
+            rank_of = next((i + 1 for i, s in enumerate(ranking) if s["category"] == cat and (city is None or s["city"] == city)
+                            and not s.get("general_guide")), None)
+            r["hit1"] += rank_of == 1
+            r["hit5"] += rank_of is not None and rank_of <= 5
+            r["rr"] += 1 / rank_of if rank_of else 0.0
             if match:
-                expected = paragraph or answer_paragraph(match[0]["body"], stems)
+                expected = paragraph or answer_paragraph(match[0].get("section_body", match[0]["body"]), stems)
                 r["risposta nel contesto"] += expected[:150] in select_context([s["body"] for s in top], stems)
+            elif explained is not None:
+                explained.append({"region": region, "kind": kind, "question": q, "expected": {"category": cat, "city": city},
+                                  "rank_in_search": rank_of,
+                                  "chosen": [{"category": s["category"], "city": s.get("city"), "title": s.get("title"),
+                                              "general_guide": bool(s.get("general_guide"))} for s in top]})
             if context_rows is not None and kind != KINDS[3]:
                 context_rows.append({**labels, "region": region, "kind": kind, "category": cat, "city": city, "question": q,
                                      **context_row(top, stems, match)})
     if a.contexts:
         write_contexts(a.contexts, context_rows, a.contexts_sample)
+    if explained is not None:
+        with open(a.explain, "w", encoding="utf-8") as out:
+            out.writelines(json.dumps(e, ensure_ascii=False) + "\n" for e in explained)
+        print(f"spiegazioni: {len(explained)} domande senza la sezione attesa in {a.explain}")
     for kind in KINDS:
         r = res[kind]
         n = max(r["n"], 1)
         print(f"{kind} ({r['n']} domande): trovata {100 * r['trovata'] / n:.1f}%, prima {100 * r['prima'] / n:.1f}%, "
               f"Storia/Clima di troppo {100 * r['Storia/Clima di troppo'] / n:.1f}%, "
-              f"risposta nel contesto {100 * r['risposta nel contesto'] / max(r['trovata'], 1):.1f}% delle trovate")
+              f"risposta nel contesto {100 * r['risposta nel contesto'] / max(r['trovata'], 1):.1f}% delle trovate, "
+              f"Hit@1 {100 * r['hit1'] / n:.1f}%, Hit@5 {100 * r['hit5'] / n:.1f}%, MRR@{MRR_DEPTH} {r['rr'] / n:.3f}; "
+              f"margine al 95% di trovata ±{margin(r['trovata'], r['n']):.1f} e di Hit@5 ±{margin(r['hit5'], r['n']):.1f} punti")
+        results[kind] = {k: (round(v, 4) if isinstance(v, float) else v) for k, v in r.items()}
+    record_history(a.history, config, data, results)
 
 
 if __name__ == "__main__":

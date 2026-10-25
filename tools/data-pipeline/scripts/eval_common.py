@@ -109,6 +109,23 @@ def refusal_prefix(row):
     return REFUSAL_EN if row["messages"][0]["content"].startswith(EN_PROMPT) else REFUSAL
 
 
+ANSWER_POSITIONS = ("start", "middle", "end")
+
+
+def move_answer(context, answer, position):
+    """[context] con il paragrafo che contiene l'inizio di [answer] spostato all'inizio, a meta' o in fondo (stesse
+    righe, solo l'ordine cambia); None se il paragrafo non c'e'. Serve a misurare se il modello legge peggio la risposta
+    in mezzo o in fondo al contesto."""
+    lines = [line for line in context.split("\n") if line.strip()]
+    index = next((i for i, line in enumerate(lines) if answer[:150] in line), None)
+    if index is None:
+        return None
+    paragraph = lines.pop(index)
+    where = {"start": 0, "middle": len(lines) // 2, "end": len(lines)}[position]
+    lines.insert(where, paragraph)
+    return "\n".join(lines)
+
+
 def on_device_prompt(context, question, lang):
     """PromptTemplates.onDevicePrompt, con PromptTemplates.emptyContext al posto di un contesto vuoto (come planOnDevice)."""
     if lang == "en":

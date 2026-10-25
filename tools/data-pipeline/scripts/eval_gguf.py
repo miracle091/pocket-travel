@@ -39,8 +39,8 @@ from gguf import GGUFReader
 
 import gpu_lock
 import vram
-from eval_common import (ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, instruction_checks, is_refusal,
-                         knowledge_turns, llama_env, load_test_rows, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
+from eval_common import (ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, instruction_checks, is_refusal,
+                         knowledge_turns, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
                          print_report, question_lang, question_of, refusal_prefix, refusal_summary, score, text_lang, uses_empty_think)
 from status import Progress, phase
 
@@ -62,6 +62,9 @@ ap.add_argument("--answers", type=Path, help="salva domanda, risposta attesa e o
 ap.add_argument("--contexts", type=Path, nargs="+",
                 help="file di eval_retrieval.py --contexts al posto delle righe di test: il prompt dell'app con il contesto "
                      "della ricerca vera, e i rifiuti contati con e senza la sezione attesa nel contesto")
+ap.add_argument("--answer-position", choices=ANSWER_POSITIONS,
+                help="con --contexts: solo le righe con il paragrafo della risposta nel contesto, spostato all'inizio, a meta' "
+                     "o in fondo (la colonna ricerca dice dove)")
 ap.add_argument("--app-sampling", action="store_true",
                 help="anche la probabilita' del rifiuto con il campionamento dell'app (temperatura 0,3, top-k 10, top-p 0,95, min-p 0,05)")
 ap.add_argument("--samples", type=int, default=0, help="con --app-sampling: anche N risposte campionate per riga, per controllo")
@@ -72,6 +75,8 @@ ap.add_argument("--knowledge-system", action="store_true",
                 help="il contesto nel turno system nel formato di Qwen-Agent (\"# Knowledge Base\"), istruzioni e domanda nel "
                      "turno utente: per misurarlo sugli Ufficiali (knowledge_turns di eval_common.py)")
 a = ap.parse_args()
+if a.answer_position and not a.contexts:
+    ap.error("--answer-position vale con --contexts")
 if a.contexts and (a.app_sampling or a.kinds):
     ap.error("--app-sampling e --kinds valgono per le righe di test, non con --contexts")
 if a.samples and not a.app_sampling:
@@ -88,6 +93,13 @@ empty_think = a.empty_think or uses_empty_think(
 
 if a.contexts:
     test = [json.loads(line) for f in a.contexts for line in open(f, encoding="utf-8")]
+    if a.answer_position:
+        moved = []
+        for r in test:
+            context = move_answer(r["context"], r["answer_paragraph"], a.answer_position) if r.get("answer_paragraph") else None
+            if context is not None:
+                moved.append({**r, "context": context, "search": f"{r['search']} risposta-{a.answer_position}"})
+        test = moved
 else:
     test, held_out = load_test_rows(a.extended, a.dataset)
 if a.kinds:
