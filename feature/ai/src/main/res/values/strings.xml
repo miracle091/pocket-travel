@@ -55,6 +55,7 @@
     <!-- Numero seguito da un'unità di misura ("parole/s", "bit"), uguale al singolare e al plurale. -->
     <string name="ai_benchmark_result" tools:ignore="PluralsCandidate">%1$d parole/s · qualità %2$d/100</string>
     <string name="ai_benchmark_load_time">%1$s · caricamento %2$.1f s</string>
+    <string name="ai_benchmark_overheating">Telefono in surriscaldamento: ripeti la misura quando si è raffreddato</string>
     <string name="ai_benchmark_dialog_title">Modelli provati</string>
     <string name="ai_benchmark_none">Nessun modello ancora provato</string>
     <string name="ai_close">Chiudi</string>

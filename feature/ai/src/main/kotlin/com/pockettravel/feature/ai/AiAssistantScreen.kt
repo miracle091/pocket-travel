@@ -362,6 +362,14 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs),
         )
+        if (result.overheating) {
+            Text(
+                text = stringResource(R.string.ai_benchmark_overheating),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs),
+            )
+        }
     }
 
     if (showTaskManager && debugBuild) LlmTaskManagerDialog(onDismiss = { showTaskManager = false })

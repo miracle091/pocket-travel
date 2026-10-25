@@ -74,6 +74,11 @@ class LlmBenchmarkTest {
     }
 
     @Test
+    fun `surriscaldamento da THERMAL_STATUS_MODERATE in su`() {
+        assertEquals(listOf(false, false, false, true, true, true), listOf(null, 0, 1, 2, 3, 6).map(::isOverheating))
+    }
+
+    @Test
     fun `richiede lo stesso numero di prompt e risposte`() {
         try {
             scoreBenchmarkAnswers("model-e", prompts, listOf("solo una risposta"), elapsedMs = 1000L)

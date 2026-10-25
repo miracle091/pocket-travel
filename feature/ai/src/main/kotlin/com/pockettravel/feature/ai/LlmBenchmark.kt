@@ -1,5 +1,9 @@
 package com.pockettravel.feature.ai
 
+import android.content.Context
+import android.os.Build
+import android.os.PowerManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,18 +29,28 @@ data class BenchmarkResult(
     val loadTimeMs: Long,
     val qualityScore: Int,
     val ranAt: Long,
+    // Telefono in surriscaldamento all'inizio o alla fine della misura: il sistema rallenta la CPU e la velocita'
+    // misurata e' piu' bassa del solito. Solo per la misura appena fatta, non salvato.
+    val overheating: Boolean = false,
 )
 
 @Singleton
 class LlmBenchmark @Inject constructor(
     private val engine: OnDeviceLlmEngine,
+    @ApplicationContext context: Context,
 ) {
+    private val powerManager = context.getSystemService(PowerManager::class.java)
+
     suspend fun run(modelId: String): BenchmarkResult {
+        val hotBefore = isOverheating(thermalStatus())
         // Caricamento e generazioni sotto un unico lock: tutte le risposte vengono dallo stesso modello.
         val batch = engine.generateAll(PROMPTS.map { it.prompt })
         val answers = batch.answers.map { it.trim() }
         return scoreBenchmarkAnswers(modelId, PROMPTS, answers, batch.generationTimeMs.coerceAtLeast(1L), batch.loadTimeMs)
+            .copy(overheating = hotBefore || isOverheating(thermalStatus()))
     }
+
+    private fun thermalStatus(): Int? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) powerManager?.currentThermalStatus else null
 
     internal companion object {
         // Domande generiche sul dominio viaggio, non legate a una regione specifica: il
@@ -122,3 +136,9 @@ internal fun scoreBenchmarkAnswers(
         ranAt = System.currentTimeMillis(),
     )
 }
+
+/** Stato termico da THERMAL_STATUS_MODERATE (2) in su: il sistema rallenta gia' la CPU; null prima di Android 10. */
+internal fun isOverheating(thermalStatus: Int?): Boolean = thermalStatus != null && thermalStatus >= THERMAL_STATUS_MODERATE
+
+// PowerManager.THERMAL_STATUS_MODERATE, scritto qui perche' la costante esiste solo da Android 10.
+private const val THERMAL_STATUS_MODERATE = 2
