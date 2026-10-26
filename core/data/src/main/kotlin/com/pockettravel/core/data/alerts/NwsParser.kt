@@ -19,7 +19,7 @@ import java.time.OffsetDateTime
  * Una risposta che non e' un JSON con l'elenco `features` lancia [AlertParseException]; un elenco vuoto e' valido.
  *
  * Si tengono solo i messaggi `Actual` nuovi o aggiornati (`Alert`, `Update`; `Cancel` e `Ack` no). Si scartano gravita'
- * `Minor` e `Unknown`: l'NWS emette centinaia di avvisi minori (small craft advisory, frost advisory, outlook) che a
+ * `Minor` e `Unknown`: l'NWS emette centinaia di allerte minori (small craft advisory, frost advisory, outlook) che a
  * un viaggiatore non servono. Fanno eccezione tsunami e vulcani, utili anche se di grado basso.
  */
 object NwsParser {
