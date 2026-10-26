@@ -346,9 +346,13 @@ private fun RegionGroupedList(
     var toggled by rememberSaveable { mutableStateOf<List<String>>(arrayListOf()) }
     val rowsByGroup = remember(groups, replaced, searching, toggled) {
         groups.associate { (group, regions) ->
-            val entries = if (group == RegionGroup.Downloaded) regions.map { RegionListEntry.Single(it) } else countryEntries(regions)
-            val replacedRows = if (group == RegionGroup.Downloaded) replaced.map { ListRow.Replaced(it) } else emptyList()
-            group.key to (entries to replacedRows + visibleRows(entries, isExpanded = { searching || "country_$it" in toggled }))
+            // Stessi nomi e stessi gruppi nelle nazioni scaricate e nei continenti; tra le scaricate le nazioni con
+            // una regione da aggiornare vengono prima, e le loro regioni sono aperte di default.
+            val downloaded = group == RegionGroup.Downloaded
+            val entries = countryEntries(regions).let { all -> if (downloaded) all.sortedBy { !it.hasUpdate() } else all }
+            val replacedRows = if (downloaded) replaced.map { ListRow.Replaced(it) } else emptyList()
+            val prefix = if (downloaded) DOWNLOADED_COUNTRY_PREFIX else COUNTRY_PREFIX
+            group.key to (entries to replacedRows + visibleRows(entries, prefix) { searching || (("$prefix$it" in toggled) != downloaded) })
         }
     }
     LazyColumn(
@@ -357,7 +361,6 @@ private fun RegionGroupedList(
     ) {
         groups.forEach { (group, _) ->
             val key = group.key
-            // Nelle nazioni scaricate ogni regione resta una riga: sono poche e servono subito.
             val (entries, rows) = rowsByGroup.getValue(key)
             val expandedByDefault = group == RegionGroup.Downloaded
             val expanded = searching || ((key in toggled) != expandedByDefault)
@@ -401,9 +404,9 @@ private fun RegionGroupedList(
                                     },
                                     onChoose = {
                                         val continent = items.firstOrNull { it.groupName == row.item.groupName }?.continent
-                                        val keys = listOf(RegionGroup.Continent(continent).key, "country_${row.item.groupName}")
+                                        val keys = listOf(RegionGroup.Continent(continent).key, "$COUNTRY_PREFIX${row.item.groupName}")
                                         toggled = ArrayList(toggled - keys.toSet() + keys)
-                                        scrollToKey = "country_${row.item.groupName}"
+                                        scrollToKey = "$COUNTRY_PREFIX${row.item.groupName}"
                                     },
                                     onDelete = { deleting = row.item },
                                 )
@@ -411,10 +414,7 @@ private fun RegionGroupedList(
                                     country = row.country,
                                     expanded = row.expanded,
                                     enabled = !searching,
-                                    onToggle = {
-                                        val countryKey = "country_${row.country.name}"
-                                        toggled = ArrayList(if (countryKey in toggled) toggled - countryKey else toggled + countryKey)
-                                    },
+                                    onToggle = { toggled = ArrayList(if (row.key in toggled) toggled - row.key else toggled + row.key) },
                                 )
                             }
                             if (index < rows.lastIndex) HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
@@ -803,10 +803,13 @@ internal sealed interface RegionListEntry {
     data class Country(val name: String, val countryCode: String?, val items: List<RegionUiItem>) : RegionListEntry
 }
 
-/** Raccoglie in una voce nazione le regioni con lo stesso groupName (se sono piu' d'una), nell'ordine per nome. */
+/**
+ * Raccoglie in una voce nazione le regioni con lo stesso groupName, anche quando nell'elenco ce n'e' una sola
+ * (le altre sono nell'altra sezione), nell'ordine per nome.
+ */
 internal fun countryEntries(regions: List<RegionUiItem>): List<RegionListEntry> {
     val collator = Collator.getInstance(Locale.getDefault()).apply { strength = Collator.PRIMARY }
-    val byGroup = regions.filter { it.groupName != null }.groupBy { it.groupName!! }.filterValues { it.size > 1 }
+    val byGroup = regions.mapNotNull { item -> item.groupName?.let { it to item } }.groupBy({ it.first }, { it.second })
     val entries = regions.filter { it.groupName !in byGroup }.map<RegionUiItem, RegionListEntry> { RegionListEntry.Single(it) } +
         byGroup.map { (name, items) ->
             RegionListEntry.Country(name, items.first().countryCode, items.sortedWith(compareBy(collator) { it.groupLabel ?: it.displayName }))
@@ -833,17 +836,29 @@ internal sealed interface ListRow {
         override val key = "replaced_" + item.regionId
     }
 
-    data class CountryHeader(val country: RegionListEntry.Country, val expanded: Boolean) : ListRow {
-        override val key = "country_" + country.name
-    }
+    // La stessa nazione puo' stare sia tra le scaricate sia nel suo continente: la chiave dice la sezione.
+    data class CountryHeader(val country: RegionListEntry.Country, val expanded: Boolean, override val key: String = COUNTRY_PREFIX + country.name) : ListRow
 }
 
-internal fun visibleRows(entries: List<RegionListEntry>, isExpanded: (String) -> Boolean): List<ListRow> = entries.flatMap { entry ->
+internal const val COUNTRY_PREFIX = "country_"
+internal const val DOWNLOADED_COUNTRY_PREFIX = "downloaded_country_"
+
+private fun RegionListEntry.hasUpdate(): Boolean = when (this) {
+    is RegionListEntry.Single -> item.status == RegionStatus.UPDATE_AVAILABLE
+    is RegionListEntry.Country -> items.any { it.status == RegionStatus.UPDATE_AVAILABLE }
+}
+
+internal fun visibleRows(
+    entries: List<RegionListEntry>,
+    keyPrefix: String = COUNTRY_PREFIX,
+    isExpanded: (String) -> Boolean,
+): List<ListRow> = entries.flatMap { entry ->
     when (entry) {
         is RegionListEntry.Single -> listOf(ListRow.Region(entry.item, inCountry = false))
         is RegionListEntry.Country -> {
             val expanded = isExpanded(entry.name)
-            listOf(ListRow.CountryHeader(entry, expanded)) + if (expanded) entry.items.map { ListRow.Region(it, inCountry = true) } else emptyList()
+            listOf(ListRow.CountryHeader(entry, expanded, keyPrefix + entry.name)) +
+                if (expanded) entry.items.map { ListRow.Region(it, inCountry = true) } else emptyList()
         }
     }
 }

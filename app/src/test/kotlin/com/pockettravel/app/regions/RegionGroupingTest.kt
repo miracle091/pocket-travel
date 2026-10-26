@@ -64,8 +64,19 @@ class RegionGroupingTest {
     }
 
     @Test
-    fun `un gruppo con una sola regione resta una riga normale`() {
-        assertEquals(RegionListEntry.Single(state("Ohio")), countryEntries(listOf(state("Ohio"))).single())
+    fun `una sola regione di un paese diviso resta nel gruppo del paese`() {
+        val country = countryEntries(listOf(state("Ohio"))).single() as RegionListEntry.Country
+
+        assertEquals("Stati Uniti d'America", country.name)
+        assertEquals(listOf(state("Ohio")), country.items)
+    }
+
+    @Test
+    fun `lo stesso paese tra le scaricate e nel continente ha chiavi diverse`() {
+        val entries = countryEntries(listOf(state("Ohio")))
+
+        assertEquals("country_Stati Uniti d'America", visibleRows(entries) { false }.single().key)
+        assertEquals("downloaded_country_Stati Uniti d'America", visibleRows(entries, DOWNLOADED_COUNTRY_PREFIX) { false }.single().key)
     }
 
     @Test
