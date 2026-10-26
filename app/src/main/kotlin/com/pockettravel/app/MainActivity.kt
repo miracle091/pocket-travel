@@ -25,6 +25,7 @@ import com.pockettravel.app.settings.AppLanguage
 import com.pockettravel.app.settings.ThemePreferences
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.currentGuidesLanguage
+import com.pockettravel.core.sync.AlertNotifier
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.UpdateAvailableNotifier
 import com.pockettravel.core.sync.isEnglishGuidesVersion
@@ -108,7 +109,7 @@ class MainActivity : FragmentActivity() {
     }
 }
 
-// Notifica di aggiornamento toccata: la schermata da aprire passa al NavHost. Solo i valori noti, poi l'extra si toglie
+// Notifica di aggiornamento o di allerta toccata: la schermata da aprire passa al NavHost. Solo i valori noti, poi l'extra si toglie
 // (una ricreazione dell'activity non la riaprirebbe).
 // Scrim della barra di navigazione: bianco quasi opaco sul tema chiaro, grigio scuro semitrasparente sullo scuro.
 private const val LIGHT_SCRIM_ALPHA = 0xe6
@@ -116,10 +117,14 @@ private const val DARK_SCRIM_ALPHA = 0x80
 private const val DARK_SCRIM_CHANNEL = 0x1b
 private const val CHANNEL_MAX = 0xff
 
+private val REGION_ID = Regex("[a-z0-9-]{1,80}")
+
 private fun Intent.requestOpenScreen() {
     val screen = getStringExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN) ?: return
     removeExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN)
-    if (screen == UpdateAvailableNotifier.OPEN_UPDATES) OpenScreenRequests.screen.value = screen
+    val regionId = screen.removePrefix(AlertNotifier.OPEN_REGION_PREFIX).takeIf { screen.startsWith(AlertNotifier.OPEN_REGION_PREFIX) }
+    // Solo valori noti: l'activity e' esportata, un'altra app puo' passare un extra qualsiasi.
+    if (screen == UpdateAvailableNotifier.OPEN_UPDATES || regionId?.matches(REGION_ID) == true) OpenScreenRequests.screen.value = screen
 }
 
 // Navigation Compose legge dall'intent degli extra "android-support-nav:*" come deep link impliciti: l'app non ha

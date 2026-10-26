@@ -166,6 +166,8 @@ class LicenseDataTest {
             "pockettravel.data:vaccinations-canada", "pockettravel.data:vaccinations-uk",
             "pockettravel.data:vaccinations-fcdo", "pockettravel.data:vaccinations-france",
             "pockettravel.data:alerts-gdacs", "pockettravel.data:alerts-usgs", "pockettravel.data:alerts-meteoalarm",
+            "pockettravel.data:alerts-nws", "pockettravel.data:alerts-eccc", "pockettravel.data:alerts-geonet",
+            "pockettravel.data:alerts-jma",
         )
     }
 }

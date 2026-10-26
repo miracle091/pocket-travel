@@ -5,6 +5,9 @@ import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.RoutingVariantChoice
 import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
+import com.pockettravel.core.sync.AlertNotificationPreferences
+import com.pockettravel.core.sync.AlertNotificationSwitch
+import com.pockettravel.core.sync.AlertNotificationsScheduler
 import com.pockettravel.core.sync.CatalogCheck
 import com.pockettravel.core.sync.CustomCatalog
 import com.pockettravel.core.sync.testing.FakeCatalogPreferences
@@ -32,6 +35,8 @@ class SettingsViewModelTest {
 
     private val files = InMemoryPreferencesFactory()
     private val catalog = FakeCatalogPreferences()
+    private val scheduled = mutableListOf<Boolean>()
+    private val scheduler = AlertNotificationsScheduler { scheduled += it }
 
     // Senza una scelta la nazionalita' viene dal dispositivo (Resources di sistema, assente nei test JVM): la si salva prima.
     private fun viewModel(nationality: String = "IT", saved: CustomCatalog? = null): SettingsViewModel {
@@ -43,8 +48,21 @@ class SettingsViewModelTest {
             nationalityPreferences = NationalityPreferences(files),
             navigationPreferences = NavigationPreferences(files),
             catalogPreferences = catalog,
+            alertNotifications = AlertNotificationSwitch(AlertNotificationPreferences(files), scheduler),
             ioDispatcher = mainDispatcher.dispatcher,
         )
+    }
+
+    @Test
+    fun `le notifiche delle allerte sono spente di fabbrica e l'interruttore accende e spegne il controllo`() {
+        val viewModel = viewModel()
+        assertFalse(viewModel.alertNotifications.enabled.value)
+
+        viewModel.alertNotifications.set(true)
+        viewModel.alertNotifications.set(false)
+
+        assertEquals(listOf(true, false), scheduled)
+        assertFalse(viewModel.alertNotifications.enabled.value)
     }
 
     @Test

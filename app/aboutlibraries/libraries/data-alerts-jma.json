@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:alerts-jma",
+  "name": "Japan Meteorological Agency",
+  "website": "https://www.jma.go.jp/jma/indexe.html",
+  "licenses": [
+    "jma-terms"
+  ],
+  "tag": "data"
+}

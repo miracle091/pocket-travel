@@ -103,7 +103,8 @@ aboutLibraries {
             // Modelli e dati
             "CC-BY-SA-4.0", "ODbL-1.0", "CC0-1.0", "CC-BY-4.0", "OGL-Canada-2.0", "OGL-UK-3.0", "etalab-2.0",
             "public-domain-natural-earth", "public-domain-ourairports", "wikimedia-commons-flags",
-            "gdacs-terms", "public-domain-usgs", "meteoalarm-terms",
+            "gdacs-terms", "public-domain-usgs", "meteoalarm-terms", "public-domain-nws", "eccc-end-use-licence",
+            "CC-BY-3.0-NZ", "jma-terms",
         )
     }
 }

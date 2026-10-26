@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:alerts-eccc",
+  "name": "Environment and Climate Change Canada",
+  "website": "https://weather.gc.ca",
+  "licenses": [
+    "eccc-end-use-licence"
+  ],
+  "tag": "data"
+}

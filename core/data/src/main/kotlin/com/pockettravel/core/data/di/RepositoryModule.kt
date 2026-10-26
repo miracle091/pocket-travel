@@ -14,6 +14,8 @@ import com.pockettravel.core.data.TransitRepository
 import com.pockettravel.core.data.WeatherRepository
 import com.pockettravel.core.data.alerts.AlertsRepository
 import com.pockettravel.core.data.alerts.OnlineAlertsRepository
+import com.pockettravel.core.data.advice.OnlineTravelAdviceUpdates
+import com.pockettravel.core.data.advice.TravelAdviceUpdates
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -42,6 +44,9 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindAlertsRepository(impl: OnlineAlertsRepository): AlertsRepository
+
+    @Binds
+    abstract fun bindTravelAdviceUpdates(impl: OnlineTravelAdviceUpdates): TravelAdviceUpdates
 
     @Binds
     @IntoSet

@@ -20,6 +20,9 @@ import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.WeatherRepository
 import com.pockettravel.core.data.WeatherResult
+import com.pockettravel.core.data.advice.TravelAdviceUpdate
+import com.pockettravel.core.data.advice.TravelAdviceUpdates
+import com.pockettravel.core.data.advice.newerThanPackage
 import com.pockettravel.core.data.alerts.AlertsRepository
 import com.pockettravel.core.data.alerts.RegionAlerts
 import com.pockettravel.core.data.isGuideSectionFor
@@ -64,6 +67,8 @@ data class GuideUiState(
     val weather: PlaceWeather? = null,
     // Allerte in corso nella regione (GDACS, USGS, Meteoalarm); null finche' non arrivano o senza rete e senza allerte salvate.
     val alerts: RegionAlerts? = null,
+    // I consigli di viaggio dell'FCDO sono piu' recenti di quelli del pacchetto guide; null altrimenti o senza rete e cache.
+    val travelAdviceUpdate: TravelAdviceUpdate? = null,
     val isLoading: Boolean = true,
     @StringRes val loadError: Int? = null,
 )
@@ -89,6 +94,7 @@ class GuideViewModel @Inject constructor(
     private val weatherRepository: WeatherRepository,
     private val lastOpenedCityGuide: LastOpenedCityGuide,
     private val alertsRepository: AlertsRepository,
+    private val travelAdviceUpdates: TravelAdviceUpdates,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GuideUiState())
@@ -111,6 +117,22 @@ class GuideViewModel @Inject constructor(
     private var loadedCityKey: Pair<String, String>? = null
     // Tutte le sezioni della regione: in uiState solo quelle per la nazionalita' scelta (isGuideSectionFor).
     private var allSections: List<GuideSection> = emptyList()
+
+    private fun loadAlerts(regionId: String) {
+        alertsJob?.cancel()
+        _uiState.update { it.copy(alerts = null, travelAdviceUpdate = null) }
+        alertsJob = viewModelScope.launch {
+            // Le allerte non devono mai fermare la guida: un errore inatteso lascia il riquadro nascosto.
+            val alerts = try {
+                alertsRepository.alerts(regionId)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                null
+            }
+            _uiState.update { it.copy(alerts = alerts) }
+        }
+    }
 
     fun load(regionId: String) {
         if (loadedForRegionId == regionId) return
@@ -154,19 +176,7 @@ class GuideViewModel @Inject constructor(
             val weather = regionWeather(regionId)
             _uiState.update { it.copy(weather = weather) }
         }
-        alertsJob?.cancel()
-        _uiState.update { it.copy(alerts = null) }
-        alertsJob = viewModelScope.launch {
-            // Le allerte non devono mai fermare la guida: un errore inatteso lascia il riquadro nascosto.
-            val alerts = try {
-                alertsRepository.alerts(regionId)
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (_: Exception) {
-                null
-            }
-            _uiState.update { it.copy(alerts = alerts) }
-        }
+        loadAlerts(regionId)
         // Su tablet il ViewModel e' condiviso fra le regioni scelte: il caricamento lento della precedente
         // non deve arrivare dopo e sovrascrivere quella nuova.
         loadJob?.cancel()
@@ -174,8 +184,10 @@ class GuideViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, loadError = null) }
             // Di nuovo a ogni cambio del pacchetto guide: dopo un cambio di lingua le guide giuste arrivano
             // pochi secondi dopo, e la schermata gia' aperta resterebbe nella lingua precedente.
-            regionRepository.observeInstalledGuides().map { it?.version }.distinctUntilChanged().collectLatest {
+            regionRepository.observeInstalledGuides().map { it?.version }.distinctUntilChanged().collectLatest { version ->
                 loadSections(regionId)
+                val advice = travelAdviceUpdates.newerThanPackage(allSections, version)
+                _uiState.update { it.copy(travelAdviceUpdate = advice) }
             }
         }
     }
@@ -207,6 +219,7 @@ class GuideViewModel @Inject constructor(
         }
     }
 
+    // Confronta la data dei consigli dell'FCDO con quella del pacchetto guide; un errore lascia l'avviso nascosto.
     fun loadCity(regionId: String, city: String) {
         val key = regionId to city
         if (loadedCityKey == key) return

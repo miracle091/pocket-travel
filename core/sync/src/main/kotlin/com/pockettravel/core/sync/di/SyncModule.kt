@@ -2,7 +2,11 @@ package com.pockettravel.core.sync.di
 
 import com.pockettravel.core.data.AppInitializer
 import com.pockettravel.core.data.UpdateCheck
+import com.pockettravel.core.sync.AlertNotificationSink
+import com.pockettravel.core.sync.AlertNotificationsScheduler
+import com.pockettravel.core.sync.AlertNotifier
 import com.pockettravel.core.sync.AppUpdateCheckScheduler
+import com.pockettravel.core.sync.WorkManagerAlertNotificationsScheduler
 import com.pockettravel.core.sync.PublishedAtStore
 import com.pockettravel.core.sync.DefaultPublishedAtStore
 import com.pockettravel.core.sync.SyncInitializer
@@ -37,4 +41,10 @@ object SyncModule {
     @Provides
     @IntoSet
     fun provideAppUpdateCheck(scheduler: AppUpdateCheckScheduler): UpdateCheck = scheduler
+
+    @Provides
+    fun provideAlertNotificationSink(notifier: AlertNotifier): AlertNotificationSink = notifier
+
+    @Provides
+    fun provideAlertNotificationsScheduler(scheduler: WorkManagerAlertNotificationsScheduler): AlertNotificationsScheduler = scheduler
 }

@@ -32,6 +32,18 @@ private const val METEOALARM_NAME = "EUMETNET – MeteoAlarm"
 private const val GDACS_NAME = "Global Disaster Alert and Coordination System, GDACS"
 private const val USGS_NAME = "U.S. Geological Survey"
 
+private const val NWS_NAME = "National Weather Service (NOAA)"
+private const val TSUNAMI_NAME = "NOAA Tsunami Warning Centers (tsunami.gov)"
+
+// Riga della fonte di ogni servizio nazionale, nell'ordine in cui compaiono.
+private val NATIONAL_SOURCES: Map<AlertSource, @Composable () -> String> = linkedMapOf(
+    AlertSource.NWS to { stringResource(R.string.alerts_source_translated, NWS_NAME) },
+    AlertSource.TSUNAMI to { stringResource(R.string.alerts_source_translated, TSUNAMI_NAME) },
+    AlertSource.ECCC to { stringResource(R.string.alerts_source_eccc) },
+    AlertSource.GEONET to { stringResource(R.string.alerts_source_geonet) },
+    AlertSource.JMA to { stringResource(R.string.alerts_source_jma) },
+)
+
 /** Allerte mostrate prima di "Mostra tutte": una nazione intera puo' averne decine (una per area). */
 private const val ALERTS_SHOWN = 5
 
@@ -104,6 +116,10 @@ private fun AlertsSources(state: RegionAlerts, onOpenSource: (url: String, title
     } else {
         Text(timeString(millis, R.string.alerts_offline, R.string.alerts_offline_on), style = style, color = color)
         Text(stringResource(R.string.alerts_source, names), style = style, color = color)
+    }
+    // Attribuzioni chieste dalle fonti nazionali, solo per quelle che hanno allerte nel riquadro.
+    NATIONAL_SOURCES.filterKeys { it in sources }.values.forEach { line ->
+        Text(line(), style = style, color = color)
     }
     if (AlertSource.METEOALARM in sources) {
         val sender = state.meteoalarmSender

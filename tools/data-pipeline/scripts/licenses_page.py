@@ -29,6 +29,9 @@ APACHE_LLVM = ("Apache-2.0 WITH LLVM-exception", "https://llvm.org/LICENSE.txt")
 OFL = ("SIL OFL 1.1", "https://openfontlicense.org/open-font-license-official-text/")
 CC_BY_SA = ("CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0/")
 CC_BY = ("CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/")
+CC_BY_NZ = ("CC BY 3.0 NZ", "https://creativecommons.org/licenses/by/3.0/nz/")
+ECCC_LICENCE = "https://eccc-msc.github.io/open-data/licence/readme_en/"
+JMA_TERMS = "https://www.jma.go.jp/jma/en/copyright.html"
 CC0 = ("CC0 1.0", "https://creativecommons.org/publicdomain/zero/1.0/")
 ODBL = ("ODbL 1.0", "https://opendatacommons.org/licenses/odbl/1-0/")
 OGL_CANADA = ("OGL - Canada 2.0", "https://open.canada.ca/en/open-government-licence-canada")
@@ -73,13 +76,21 @@ TEXTS = {
             (("Wikidata", "https://www.wikidata.org"), CC0, "fatti rapidi, ambasciate, compagnie aeree"),
             (("Open-Meteo e GeoNames", "https://open-meteo.com"), CC_BY, "meteo e coordinate delle città, uso non commerciale"),
             (("GDACS", "https://www.gdacs.org"), ("Termini d'uso GDACS", "https://www.gdacs.org/documents/2025/GDACS_Terms_of_use_Mar_25.pdf"),
-             "allerte in corso: catastrofi (avvisi automatici, non ufficiali)"),
+             "allerte in corso: catastrofi (allerte automatiche, non ufficiali)"),
             (("U.S. Geological Survey", "https://earthquake.usgs.gov"), ("Pubblico dominio", None), "allerte in corso: terremoti"),
             (("EUMETNET – MeteoAlarm", "https://meteoalarm.org"), ("Termini di MeteoAlarm", "https://meteoalarm.org/en/live/page/terms-and-conditions"),
              "allerte in corso: allerte meteo dei servizi meteorologici nazionali europei"),
+            (("NOAA National Weather Service", "https://www.weather.gov"), ("Pubblico dominio", "https://www.weather.gov/disclaimer"),
+             "allerte in corso: allerte meteo degli Stati Uniti e tsunami (tsunami.gov)"),
+            (("Environment and Climate Change Canada", "https://weather.gc.ca"), ("Licenza d'uso dei server di dati ECCC", ECCC_LICENCE),
+             "allerte in corso: allerte meteo del Canada (testo originale invariato)"),
+            (("GeoNet", "https://www.geonet.org.nz"), CC_BY_NZ, "allerte in corso: livelli di allerta dei vulcani della Nuova Zelanda"),
+            (("Japan Meteorological Agency", "https://www.jma.go.jp/jma/indexe.html"), ("Termini d'uso JMA", JMA_TERMS),
+             "allerte in corso: allerte meteo del Giappone (testo modificato)"),
             (("Travel.gc.ca", "https://travel.gc.ca"), OGL_CANADA, "numeri di emergenza, consigli di viaggio, vaccinazioni"),
             (("gov.uk (FCDO)", "https://www.gov.uk/foreign-travel-advice"), OGL_UK,
-             "numeri di emergenza, consigli di viaggio di Palestina, Pitcairn e Wallis e Futuna, requisiti polio"),
+             "numeri di emergenza, consigli di viaggio di Palestina, Pitcairn e Wallis e Futuna, requisiti polio; "
+             "livello e ultima modifica dei consigli di viaggio, letti dal telefono"),
             (("TravelHealthPro (UKHSA, NaTHNaC)", "https://travelhealthpro.org.uk"), OGL_UK, "vaccinazioni"),
             (("France Diplomatie", "https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/"), LICENCE_OUVERTE,
              "requisito polio dell'Egitto"),
@@ -129,9 +140,17 @@ TEXTS = {
             (("U.S. Geological Survey", "https://earthquake.usgs.gov"), ("Public domain", None), "active alerts: earthquakes"),
             (("EUMETNET – MeteoAlarm", "https://meteoalarm.org"), ("MeteoAlarm terms", "https://meteoalarm.org/en/live/page/terms-and-conditions"),
              "active alerts: weather alerts from European national meteorological services"),
+            (("NOAA National Weather Service", "https://www.weather.gov"), ("Public domain", "https://www.weather.gov/disclaimer"),
+             "active alerts: US weather alerts and tsunamis (tsunami.gov)"),
+            (("Environment and Climate Change Canada", "https://weather.gc.ca"), ("ECCC Data Servers End-use Licence", ECCC_LICENCE),
+             "active alerts: Canadian weather alerts (original text unchanged)"),
+            (("GeoNet", "https://www.geonet.org.nz"), CC_BY_NZ, "active alerts: New Zealand volcanic alert levels"),
+            (("Japan Meteorological Agency", "https://www.jma.go.jp/jma/indexe.html"), ("JMA terms of use", JMA_TERMS),
+             "active alerts: Japanese weather alerts (edited text)"),
             (("Travel.gc.ca", "https://travel.gc.ca"), OGL_CANADA, "emergency numbers, travel advice, vaccinations"),
             (("gov.uk (FCDO)", "https://www.gov.uk/foreign-travel-advice"), OGL_UK,
-             "emergency numbers, travel advice for Palestine, Pitcairn and Wallis and Futuna, polio requirements"),
+             "emergency numbers, travel advice for Palestine, Pitcairn and Wallis and Futuna, polio requirements; "
+             "travel advice level and date of the last change, read from the phone"),
             (("TravelHealthPro (UKHSA, NaTHNaC)", "https://travelhealthpro.org.uk"), OGL_UK, "vaccinations"),
             (("France Diplomatie", "https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/"), LICENCE_OUVERTE,
              "Egypt polio requirement"),

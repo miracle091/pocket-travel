@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:alerts-geonet",
+  "name": "GeoNet (Earth Sciences New Zealand)",
+  "website": "https://www.geonet.org.nz",
+  "licenses": [
+    "CC-BY-3.0-NZ"
+  ],
+  "tag": "data"
+}

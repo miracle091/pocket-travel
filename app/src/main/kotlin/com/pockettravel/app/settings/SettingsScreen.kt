@@ -1,6 +1,11 @@
 package com.pockettravel.app.settings
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -36,9 +41,11 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pockettravel.core.sync.AlertNotificationSwitch
 import com.pockettravel.app.R
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CountryPickerSheet
@@ -92,6 +99,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 nationality?.let { countryName(it) } ?: stringResource(R.string.more_nationality_none),
             ) { showNationality = true }
             SettingsItem(AppIcons.Palette, stringResource(R.string.more_appearance), appearanceSummary(forceDark, useDynamicColor)) { showAppearance = true }
+            AlertNotificationsItem(viewModel.alertNotifications)
 
             SectionHeader(stringResource(R.string.settings_section_navigation))
             SettingsItem(
@@ -222,6 +230,33 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
         }
     }
 }
+
+@Composable
+private fun AlertNotificationsItem(switch: AlertNotificationSwitch) {
+    val context = LocalContext.current
+    val enabled by switch.enabled.collectAsStateWithLifecycle()
+    // Senza il permesso delle notifiche l'interruttore resta spento.
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) switch.set(true)
+    }
+    SwitchItem(
+        icon = ImageVector.vectorResource(UiR.drawable.ms_notifications),
+        title = stringResource(R.string.settings_alert_notifications),
+        subtitle = stringResource(R.string.settings_alert_notifications_subtitle),
+        checked = enabled,
+        onCheckedChange = { on ->
+            if (on && !hasNotificationPermission(context)) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                switch.set(on)
+            }
+        },
+    )
+}
+
+private fun hasNotificationPermission(context: Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
 @Composable
 private fun SectionHeader(text: String) {

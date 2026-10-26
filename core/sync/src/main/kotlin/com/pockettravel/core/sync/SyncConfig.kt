@@ -75,6 +75,7 @@ object SyncConfig {
     // indipendenti tra loro.
     const val APP_STATUS_URL = "https://github.com/miracle091/pocket-travel/releases/download/app-status/app-status.json"
     const val APP_UPDATE_CHECK_WORK_NAME = "app-update-check"
+    const val ALERT_NOTIFICATIONS_WORK_NAME = "alert-notifications"
 
     // Modelli proposti per i servizi online (OnlineModelList), sulla stessa release: cambia a ogni modifica di
     // feature/ai/src/main/assets/online-models.json (publish-online-models.yml), non con l'app.

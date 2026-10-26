@@ -1,0 +1,42 @@
+<?xml version='1.0' encoding='utf-8'?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>PAAQ-1-tnfxzn</identifier>
+  <sender>ntwc@noaa.gov</sender>
+  <sent>2026-10-25T02:26:53-00:00</sent>
+  <status>Actual</status>
+  <msgType>Alert</msgType>
+  <source>NTWC</source>
+  <scope>Public</scope>
+  <code>IPAWSv1.0</code>
+  <incidents>tnfxzn</incidents>
+  <info>
+    <category>Geo</category>
+    <event>Tsunami Information</event>
+    <responseType>None</responseType>
+    <urgency>Unknown</urgency>
+    <severity>Minor</severity>
+    <certainty>Unlikely</certainty>
+    <expires>2026-10-25T03:26:53-00:00</expires>
+    <senderName>NWS National Tsunami Warning Center Palmer AK</senderName>
+    <headline>This is a Tsunami Information Statement for Alaska, British Columbia, Washington, Oregon, and California. </headline>
+    <description>This is a Tsunami Information Statement for Alaska, British Columbia, Washington, Oregon, and California.  - Event details: Preliminary magnitude 7.0 (Mwp) earthquake / Lat: 28.000, Lon: 139.900 at 2026-10-25T02:09:24 UTC An information statement indicates that an earthquake has occurred, but does</description>
+    <instruction>  There is no tsunami danger for the U.S. West Coast, British    Columbia, or Alaska.   Based on the depth of the earthquake, a tsunami is not    expected.   This will be the only U.S. National</instruction>
+    <web>http://www.tsunami.gov/events/PAAQ/2026/10/25/tnfxzn/1/WEAK53/WEAK53.txt</web>
+    <parameter>
+      <valueName>EventLocationName</valueName>
+      <value>in the Bonin Islands, Japan region</value>
+    </parameter>
+    <parameter>
+      <valueName>EventPreliminaryMagnitude</valueName>
+      <value>7.0</value>
+    </parameter>
+    <parameter>
+      <valueName>EventLatLon</valueName>
+      <value>28.000,139.900 0.000</value>
+    </parameter>
+    <area>
+      <areaDesc>in the Bonin Islands, Japan region</areaDesc>
+      <circle>28.0,139.9 0.0</circle>
+    </area>
+  </info>
+</alert>

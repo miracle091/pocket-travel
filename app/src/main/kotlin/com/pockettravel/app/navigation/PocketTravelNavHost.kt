@@ -82,6 +82,7 @@ import com.pockettravel.app.updates.UpdatesViewModel
 import com.pockettravel.app.updates.outdatedRegions
 import com.pockettravel.app.updates.updatesCount
 import com.pockettravel.core.data.officialSourcesRegistry
+import com.pockettravel.core.sync.AlertNotifier
 import com.pockettravel.core.sync.UpdateAvailableNotifier
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ContextualHint
@@ -441,7 +442,7 @@ private fun fadeThroughExit(): ExitTransition = fadeOut(tween(MOTION_MS / THIRD)
 
 // Destinazioni principali: "fade through" tra loro (cambio di sezione dalla barra), "shared axis"
 // verso e dalle schermate di dettaglio.
-// Notifica di aggiornamento toccata (OpenScreenRequests): dopo la regione iniziale, sopra cui si apre. Durante
+// Notifica di aggiornamento o di allerta toccata (OpenScreenRequests): dopo la regione iniziale, sopra cui si apre. Durante
 // l'onboarding no: la richiesta resta per quando l'elenco delle nazioni c'e'.
 @Composable
 private fun OpenScreenRequestsEffect(navController: NavHostController, currentDestination: NavDestination?) {
@@ -453,6 +454,8 @@ private fun OpenScreenRequestsEffect(navController: NavHostController, currentDe
         when (screen) {
             // Una sola copia: toccare una seconda notifica con la schermata gia' aperta non la impila di nuovo.
             UpdateAvailableNotifier.OPEN_UPDATES -> navController.navigate(UpdatesRoute) { launchSingleTop = true }
+            // Notifica di un'allerta: la guida della regione, una sola copia.
+            else -> navController.navigate(RegionHubRoute(screen.removePrefix(AlertNotifier.OPEN_REGION_PREFIX))) { launchSingleTop = true }
         }
     }
 }

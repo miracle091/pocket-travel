@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.NationalityPreferences
+import com.pockettravel.core.sync.AlertNotificationSwitch
 import com.pockettravel.core.sync.CatalogCheck
 import com.pockettravel.core.sync.CatalogPreferences
 import com.pockettravel.core.sync.CustomCatalog
@@ -27,6 +28,8 @@ class SettingsViewModel @Inject constructor(
     private val nationalityPreferences: NationalityPreferences,
     private val navigationPreferences: NavigationPreferences,
     private val catalogPreferences: CatalogPreferences,
+    /** Interruttore "Notifiche delle allerte" (Altro > Impostazioni). */
+    val alertNotifications: AlertNotificationSwitch,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     val useDynamicColor: StateFlow<Boolean> = themePreferences.useDynamicColor

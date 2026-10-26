@@ -184,6 +184,11 @@ private fun GuideSectionsList(
                     AlertsCard(alerts, onOpenSource = onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
                 }
             }
+            uiState.travelAdviceUpdate?.let { update ->
+                item(key = "travel_advice_update") {
+                    TravelAdviceNotice(update, onOpenSource = onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
+                }
+            }
             if (uiState.emergencyNumbers != null || uiState.noCentralEmergencyNumber || uiState.embassiesCountry != null) {
                 item(key = "emergency_numbers") {
                     EmergencyNumbersCard(

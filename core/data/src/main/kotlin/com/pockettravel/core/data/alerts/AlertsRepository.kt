@@ -18,12 +18,15 @@ import java.nio.file.StandardCopyOption
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 /**
- * Allerte in corso di una regione. [updatedAtMillis] e' il download piu' vecchio tra le fonti usate; [fresh] e' falso se
- * almeno una fonte non si e' aggiornata (niente rete): l'interfaccia lo dice ("Ultime allerte scaricate alle").
+ * Allerte in corso di una regione. [fresh] e' vero se almeno una fonte ha risposto adesso, e allora [updatedAtMillis] e'
+ * l'ora di quel download; se nessuna ha risposto (niente rete) e' l'ora del download salvato piu' recente e l'interfaccia
+ * lo dice ("Ultime allerte scaricate alle"). Una fonte che non risponde (GDACS a volte va in timeout) lascia le sue allerte
+ * salvate senza far sembrare il telefono offline.
  */
 data class RegionAlerts(
     val alerts: List<Alert>,
@@ -40,8 +43,9 @@ interface AlertsRepository {
 }
 
 /**
- * GDACS, USGS e Meteoalarm letti dal telefono, senza server del progetto e senza la posizione dell'utente: le richieste sono
- * per tutto il mondo o per nazione, il rettangolo della regione si applica sul telefono ([selectAlerts]). L'ultima risposta
+ * GDACS, USGS, Meteoalarm, tsunami.gov e i servizi nazionali (NWS, ECCC, GeoNet, JMA) letti dal telefono, senza server del
+ * progetto e senza la posizione dell'utente: le richieste sono per tutto il mondo, per nazione, per stato o per il
+ * rettangolo della regione ([AlertUrls]), e il rettangolo si applica sul telefono ([selectAlerts]). L'ultima risposta
  * di ogni fonte resta in un file per l'uso senza rete; una fonte non si richiede piu' spesso di WEATHER_MIN_REFRESH_MILLIS,
  * lo stesso limite del meteo.
  */
@@ -68,13 +72,13 @@ class OnlineAlertsRepository(
 
     override suspend fun alerts(regionId: String): RegionAlerts? = withContext(ioDispatcher) {
         val countryCode = regionRepository.installed(regionId)?.countryCode
-        val loaded = sources(countryCode).mapNotNull(::load)
-        if (loaded.isEmpty()) return@withContext null
         val bounds = regionStorage.mapBounds(regionId)?.let { AlertBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) }
+        val loaded = (sources(countryCode) + nationalSources(regionId, countryCode, bounds)).mapNotNull(::load)
+        if (loaded.isEmpty()) return@withContext null
         RegionAlerts(
             alerts = selectAlerts(loaded.flatMap { it.alerts }, bounds, countryCode, clock.instant()),
-            updatedAtMillis = loaded.minOf { it.updatedAtMillis },
-            fresh = loaded.all { it.fresh },
+            updatedAtMillis = (loaded.filter { it.fresh }.ifEmpty { loaded }).maxOf { it.updatedAtMillis },
+            fresh = loaded.any { it.fresh },
             meteoalarmSender = meteoalarmCountry(countryCode)?.let { senderFile(it).takeIf(File::isFile)?.readText() },
         )
     }
@@ -88,8 +92,24 @@ class OnlineAlertsRepository(
             Source("usgs-day", AlertUrls.usgsDay(), JsonAlertParsers::parseUsgs),
             Source("usgs-significant", AlertUrls.usgsSignificantWeek(), JsonAlertParsers::parseUsgs),
             meteoalarmCountry(countryCode)?.let { country ->
-                Source("meteoalarm-$country", AlertUrls.meteoalarm(country), MeteoalarmParser::parse) { body -> saveSender(country, body) }
+                Source("meteoalarm-$country", AlertUrls.meteoalarm(country), MeteoalarmParser::parse, afterDownload = { body -> saveSender(country, body) })
             },
+        )
+    }
+
+    // Servizi nazionali: allerte meteo di NWS (per stato), ECCC (per rettangolo), GeoNet e JMA (per nazione); i due centri
+    // tsunami del NOAA per tutte le regioni, perche' un'onda attraversa l'oceano.
+    private fun nationalSources(regionId: String, countryCode: String?, bounds: AlertBounds?): List<Source> {
+        val country = countryCode?.lowercase(Locale.ROOT)
+        return listOfNotNull(
+            Source("tsunami-pacific", NationalAlertUrls.tsunamiPacific(), TsunamiParser::parse),
+            Source("tsunami-national", NationalAlertUrls.tsunamiNational(), TsunamiParser::parse),
+            nwsArea(regionId, countryCode)?.let { Source("nws-$it", NationalAlertUrls.nws(it), NwsParser::parse, headers = IDENTIFIED) },
+            bounds?.takeIf { country == "ca" }?.let {
+                Source("eccc-$regionId", NationalAlertUrls.eccc(it), EcccParser::parse, headers = IDENTIFIED)
+            },
+            Source("geonet-val", NationalAlertUrls.geonetVolcanoes(), GeoNetParser::parse, headers = GEONET).takeIf { country == "nz" },
+            Source("jma", NationalAlertUrls.jmaWarnings(), JmaParser::parse).takeIf { country == "jp" },
         )
     }
 
@@ -98,7 +118,7 @@ class OnlineAlertsRepository(
         val file = File(cacheDir, "${source.key}.txt")
         val recent = file.isFile && clock.millis() - file.lastModified() < WEATHER_MIN_REFRESH_MILLIS
         val fresh = recent || try {
-            val body = get(source.url)
+            val body = get(source.url, source.headers)
             source.parse(body)
             save(file, body)
             source.afterDownload(body)
@@ -128,9 +148,12 @@ class OnlineAlertsRepository(
         }
     }
 
-    private fun get(url: String): String = client.newCall(Request.Builder().url(url).build()).execute().use { response ->
-        if (!response.isSuccessful) throw IOException("Allerte: HTTP ${response.code} da $url")
-        response.body.string()
+    private fun get(url: String, headers: Map<String, String> = emptyMap()): String {
+        val request = Request.Builder().url(url).apply { headers.forEach { (name, value) -> header(name, value) } }.build()
+        return client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Allerte: HTTP ${response.code} da $url")
+            response.body.string()
+        }
     }
 
     // Meteoalarm chiede il nome del servizio nazionale accanto alle allerte di un paese: il feed Atom non lo ha, il messaggio
@@ -151,6 +174,7 @@ class OnlineAlertsRepository(
         val url: String,
         val parse: (String) -> List<Alert>,
         val afterDownload: (String) -> Unit = {},
+        val headers: Map<String, String> = emptyMap(),
     )
 
     private class Loaded(val alerts: List<Alert>, val updatedAtMillis: Long, val fresh: Boolean)
@@ -159,5 +183,11 @@ class OnlineAlertsRepository(
         // Eventi GDACS cominciati negli ultimi 14 giorni: gli eventi lunghi (siccita') restano finche' GDACS li aggiorna.
         const val GDACS_DAYS = 14L
         const val CALL_TIMEOUT_SECONDS = 10L
+
+        // NWS e MSC GeoMet chiedono un User-Agent che identifichi l'app con un contatto.
+        val IDENTIFIED = mapOf("User-Agent" to "PocketTravel (https://github.com/miracle091/pocket-travel)")
+
+        // GeoNet risponde solo a chi chiede la versione 2 del GeoJSON.
+        val GEONET = mapOf("Accept" to "application/vnd.geo+json;version=2")
     }
 }

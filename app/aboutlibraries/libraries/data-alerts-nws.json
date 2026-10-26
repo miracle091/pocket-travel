@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:alerts-nws",
+  "name": "NOAA National Weather Service",
+  "website": "https://www.weather.gov",
+  "licenses": [
+    "public-domain-nws"
+  ],
+  "tag": "data"
+}

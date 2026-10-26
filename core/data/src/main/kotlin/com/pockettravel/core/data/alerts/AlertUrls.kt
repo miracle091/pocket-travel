@@ -4,8 +4,10 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.time.LocalDate
 
 /**
- * Indirizzi delle fonti. Nessuno contiene la posizione dell'utente: GDACS e USGS rispondono per tutto il mondo
- * (il parametro `bbox` di GDACS e' ignorato dal servizio) e il rettangolo della regione si applica dopo con [inside].
+ * Indirizzi delle fonti. Nessuno contiene la posizione dell'utente: GDACS, USGS, tsunami.gov, GeoNet e JMA rispondono per
+ * tutto il mondo o tutta la nazione (il parametro `bbox` di GDACS e' ignorato dal servizio), Meteoalarm per nazione, NWS
+ * per stato, ECCC per il rettangolo della regione; il rettangolo si applica comunque dopo con [inside]. Gli indirizzi dei
+ * servizi nazionali sono in [NationalAlertUrls].
  */
 object AlertUrls {
     private const val GDACS_SEARCH = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH"

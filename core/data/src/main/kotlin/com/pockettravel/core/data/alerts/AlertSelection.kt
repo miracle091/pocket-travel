@@ -27,16 +27,25 @@ private val SEISMIC_COUNTRIES = setOf(
 /**
  * Le allerte da mostrare per una regione, dalla piu' grave: dentro il suo rettangolo ([bounds], null senza mappa
  * installata: allora solo quelle senza coordinate), ancora valide a [now], terremoti filtrati per magnitudo con la soglia
- * di [countryCode], segnalazioni e allerta PAGER, senza terremoti verdi di GDACS e senza doppioni GDACS/USGS.
+ * di [countryCode], segnalazioni e allerta PAGER, senza terremoti verdi di GDACS, senza gli eventi meteo di GDACS in
+ * Giappone, senza doppioni GDACS/USGS e con le copie per zona dei servizi nazionali unite ([mergeZones]).
  */
 fun selectAlerts(alerts: List<Alert>, bounds: AlertBounds?, countryCode: String?, now: Instant): List<Alert> {
     val inRegion = if (bounds != null) alerts.inside(bounds) else alerts.filter { it.area == null }
-    val kept = inRegion.filter { it.isActiveAt(now) && it.isRelevantQuake(countryCode, now) }
+    val kept = inRegion.filter { it.isActiveAt(now) && it.isRelevantQuake(countryCode, now) && it.isAllowedIn(countryCode) }
     val usgsQuakes = kept.filter { it.source == AlertSource.USGS }.mapNotNull { it.startsAt }
     return kept
         .filterNot { alert -> alert.source == AlertSource.GDACS && alert.kind == AlertKind.EARTHQUAKE && alert.startsAt.isNear(usgsQuakes) }
+        .mergeZones()
         .sortedWith(compareByDescending<Alert> { it.level }.thenByDescending { it.startsAt })
 }
+
+/** In Giappone solo la JMA emette allerte meteo (legge sul servizio meteorologico, art. 23; scelta dell'utente del 2026-10-26). */
+private val JMA_ONLY_KINDS = setOf(AlertKind.CYCLONE, AlertKind.FLOOD, AlertKind.DROUGHT, AlertKind.FIRE, AlertKind.WEATHER)
+
+// Nelle regioni del Giappone gli eventi meteo di GDACS lasciano il posto alla JMA; terremoti, vulcani e tsunami restano.
+private fun Alert.isAllowedIn(countryCode: String?): Boolean =
+    !(countryCode.equals("jp", ignoreCase = true) && source == AlertSource.GDACS && kind in JMA_ONLY_KINDS)
 
 private fun Alert.isRelevantQuake(countryCode: String?, now: Instant): Boolean = when {
     kind != AlertKind.EARTHQUAKE -> true

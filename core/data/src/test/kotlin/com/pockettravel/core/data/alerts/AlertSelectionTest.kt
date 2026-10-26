@@ -91,4 +91,15 @@ class AlertSelectionTest {
         assertNull(meteoalarmCountry("jp"))
         assertNull(meteoalarmCountry(null))
     }
+
+    @Test
+    fun inJapanGdacsWeatherEventsGiveWayToJma() {
+        val cyclone = event("cyclone", AlertKind.CYCLONE, AlertLevel.HIGH, area = null)
+        val flood = event("flood", AlertKind.FLOOD, AlertLevel.HIGH, area = null)
+        val volcano = event("volcano", AlertKind.VOLCANO, AlertLevel.HIGH, area = null)
+        val jma = event("jma", AlertKind.WEATHER, AlertLevel.HIGH, area = null).copy(source = AlertSource.JMA)
+
+        assertEquals(setOf("volcano", "jma"), ids(listOf(cyclone, flood, volcano, jma), country = "jp", bounds = null).toSet())
+        assertEquals(4, ids(listOf(cyclone, flood, volcano, jma), country = "ph", bounds = null).size)
+    }
 }

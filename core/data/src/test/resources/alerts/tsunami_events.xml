@@ -1,0 +1,130 @@
+<?xml version='1.0' encoding='utf-8'?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>PAAQ-2-maiqdx</identifier>
+  <sender>ntwc@noaa.gov</sender>
+  <sent>2012-09-18T00:59:00-00:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <source>WCATWC</source>
+  <scope>Public</scope>
+  <code>profile:CAP-TSU:1.1</code>
+  <references>ntwc@noaa.gov,PAAQ-1-maiqdx,2012-09-18T00:58:37-00:00</references>
+  <incidents>maiqdx</incidents>
+  <info>
+    <category>Geo</category>
+    <event>Tsunami</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Extreme</severity>
+    <certainty>Observed</certainty>
+    <eventCode>
+      <valueName>TsunamiSystemCategory</valueName>
+      <value>Warning</value>
+    </eventCode>
+    <onset>2012-09-18T00:59:00-00:00</onset>
+    <expires>2012-09-18T02:48:00-00:00</expires>
+    <senderName>NWS West Coast/Alaska Tsunami Warning Center Palmer AK</senderName>
+    <headline>The tsunami Warning continues in effect for the coastal areas of California from the California-Mexico border to Ragged Point, California (45 miles NW of San Luis Obispo).</headline>
+    <description>The tsunami Warning continues in effect for the coastal areas of California from the California-Mexico border to Ragged Point, California (45 miles NW of San Luis Obispo). - Event details: Preliminary magnitude 8.4 (Ml) earthquake / Lat: 32.776, Lon: -115.633 at 2012-09-17T23:53:57Z Tsunami</description>
+    <instruction>Recommended Actions: People in low-lying coastal areas should be alert to instructions from their local emergency officials. Evacuations are only ordered by emergency response agencies.  If in a</instruction>
+    <web>http://ntwc.arh.noaa.gov/events/PAAQ/2012/09/17/maiqdx/2/WEPA41/WEPA41.txt</web>
+    <parameter>
+      <valueName>EventLocationName</valueName>
+      <value>5 miles SW of El Centro, California</value>
+    </parameter>
+    <parameter>
+      <valueName>EventPreliminaryMagnitude</valueName>
+      <value>8.4</value>
+    </parameter>
+    <parameter>
+      <valueName>EventLatLon</valueName>
+      <value>32.776,-115.633 0.000</value>
+    </parameter>
+    <area>
+      <areaDesc>Coastal areas between and including the California-Mexico border to Ragged Point, California (45 miles NW of San Luis Obispo)</areaDesc>
+      <circle>32.776,-115.633 0.0</circle>
+    </area>
+    <area>
+      <areaDesc>La Jolla, California</areaDesc>
+      <circle>32.866001,-117.266998 0.0</circle>
+    </area>
+  </info>
+  <info>
+    <category>Geo</category>
+    <event>Tsunami</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Moderate</severity>
+    <certainty>Observed</certainty>
+    <eventCode>
+      <valueName>TsunamiSystemCategory</valueName>
+      <value>Advisory</value>
+    </eventCode>
+    <onset>2012-09-18T00:59:00-00:00</onset>
+    <expires>2012-09-18T02:48:00-00:00</expires>
+    <senderName>NWS West Coast/Alaska Tsunami Warning Center Palmer AK</senderName>
+    <headline>The tsunami Advisory continues in effect for the coastal areas of California from Ragged Point, California (45 miles NW of San Luis Obispo) to Horse Mountain, California (50 miles SW of Eureka).</headline>
+    <description>The tsunami Advisory continues in effect for the coastal areas of California from Ragged Point, California (45 miles NW of San Luis Obispo) to Horse Mountain, California (50 miles SW of Eureka). - Event details: Preliminary magnitude 8.4 (Ml) earthquake / Lat: 32.776, Lon: -115.633 at</description>
+    <instruction>Recommended Actions: People in low-lying coastal areas should be alert to instructions from their local emergency officials. Evacuations are only ordered by emergency response agencies.  If in a</instruction>
+    <web>http://ntwc.arh.noaa.gov/events/PAAQ/2012/09/17/maiqdx/2/WEPA41/WEPA41.txt</web>
+    <parameter>
+      <valueName>EventLocationName</valueName>
+      <value>5 miles SW of El Centro, California</value>
+    </parameter>
+    <parameter>
+      <valueName>EventPreliminaryMagnitude</valueName>
+      <value>8.4</value>
+    </parameter>
+    <parameter>
+      <valueName>EventLatLon</valueName>
+      <value>32.776,-115.633 0.000</value>
+    </parameter>
+    <area>
+      <areaDesc>Coastal areas between and including Ragged Point, California (45 miles NW of San Luis Obispo) to Horse Mountain, California (50 miles SW of Eureka)</areaDesc>
+      <circle>32.776,-115.633 0.0</circle>
+    </area>
+    <area>
+      <areaDesc>Point Sur, California</areaDesc>
+      <circle>36.310001,-121.899994 0.0</circle>
+    </area>
+  </info>
+  <info>
+    <category>Geo</category>
+    <event>Tsunami</event>
+    <responseType>Prepare</responseType>
+    <urgency>Expected</urgency>
+    <severity>Moderate</severity>
+    <certainty>Possible</certainty>
+    <eventCode>
+      <valueName>TsunamiSystemCategory</valueName>
+      <value>Watch</value>
+    </eventCode>
+    <onset>2012-09-18T00:59:00-00:00</onset>
+    <expires>2012-09-18T02:48:00-00:00</expires>
+    <senderName>NWS West Coast/Alaska Tsunami Warning Center Palmer AK</senderName>
+    <headline>The tsunami Watch continues in effect for the coastal areas of California, Oregon, Washington, British Columbia and Alaska from Horse Mountain, California (50 miles SW of Eureka) to Attu, Alaska.</headline>
+    <description>The tsunami Watch continues in effect for the coastal areas of California, Oregon, Washington, British Columbia and Alaska from Horse Mountain, California (50 miles SW of Eureka) to Attu, Alaska. - Event details: Preliminary magnitude 8.4 (Ml) earthquake / Lat: 32.776, Lon: -115.633 at</description>
+    <instruction>Recommended Actions: People in low-lying coastal areas should be alert to instructions from their local emergency officials. Evacuations are only ordered by emergency response agencies.  If in a</instruction>
+    <web>http://ntwc.arh.noaa.gov/events/PAAQ/2012/09/17/maiqdx/2/WEPA41/WEPA41.txt</web>
+    <parameter>
+      <valueName>EventLocationName</valueName>
+      <value>5 miles SW of El Centro, California</value>
+    </parameter>
+    <parameter>
+      <valueName>EventPreliminaryMagnitude</valueName>
+      <value>8.4</value>
+    </parameter>
+    <parameter>
+      <valueName>EventLatLon</valueName>
+      <value>32.776,-115.633 0.000</value>
+    </parameter>
+    <area>
+      <areaDesc>Coastal areas between and including Horse Mountain, California (50 miles SW of Eureka) to Attu, Alaska</areaDesc>
+      <circle>32.776,-115.633 0.0</circle>
+    </area>
+    <area>
+      <areaDesc>Cape Mendocino, California</areaDesc>
+      <circle>40.516701,-124.399994 0.0</circle>
+    </area>
+  </info>
+</alert>
