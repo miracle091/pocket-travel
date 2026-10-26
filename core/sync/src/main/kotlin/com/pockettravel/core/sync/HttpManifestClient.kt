@@ -24,6 +24,9 @@ class HttpManifestClient @Inject constructor(
 
     override suspend fun recentManifest(): RegionManifest = recent.get(RECENT_MANIFEST_MILLIS) { download() }.forLanguage()
 
+    override suspend fun savedManifest(): RegionManifest? =
+        (recent.peek() ?: signedFileCache.saved(SyncConfig.MANIFEST_URL) { bytes -> parseManifest(json, bytes) })?.forLanguage()
+
     // Prima di interpretarlo e salvarlo: un `manifest.json` con la firma sbagliata e' un fetch fallito (resta la cache).
     private suspend fun download(): RegionManifest = signedFileCache.fetch(
         SyncConfig.MANIFEST_URL,
@@ -59,8 +62,11 @@ internal fun parseManifest(json: Json, bytes: ByteArray): RegionManifest =
  */
 internal class RecentFetch<T : Any>(private val now: () -> Long) {
     private val lock = Mutex()
-    private var value: T? = null
+    @Volatile private var value: T? = null
     private var readAt = 0L
+
+    /** L'ultimo valore letto, di qualunque eta', senza aspettare una lettura in corso. */
+    fun peek(): T? = value
 
     suspend fun get(maxAgeMillis: Long, load: suspend () -> T): T = lock.withLock {
         value?.takeIf { now() - readAt < maxAgeMillis }?.let { return it }

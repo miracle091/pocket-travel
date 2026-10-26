@@ -11,6 +11,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -81,6 +82,20 @@ class SignedFileCacheTest {
     fun tearDown() {
         SyncConfig.useCatalog(null)
         dir.deleteRecursively()
+    }
+
+    @Test
+    fun `la copia salvata si legge senza rete e solo se la firma passa`() {
+        val read = { runBlocking { cache.saved(url) { it.decodeToString() } } }
+        assertNull(read())
+
+        fetch()
+        requested.clear()
+        assertEquals(body.decodeToString(), read())
+        assertTrue(requested.isEmpty())
+
+        dir.listFiles().orEmpty().single { it.name.endsWith(".json") }.writeBytes(file(200))
+        assertNull(read())
     }
 
     @Test

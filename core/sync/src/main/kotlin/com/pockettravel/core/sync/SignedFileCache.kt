@@ -18,6 +18,8 @@ import javax.inject.Singleton
 
 private const val HTTP_NOT_MODIFIED = 304
 
+private fun key(url: String): String = MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
+
 /**
  * File firmati letti a ogni controllo (manifest.json, app-status.json, online-models.json), scaricati solo quando
  * cambiano. Dopo ogni lettura verificata restano in [dir] i byte arrivati, la loro firma e l'`ETag` del sito; la
@@ -62,6 +64,29 @@ class SignedFileCache internal constructor(
         }
         val response = download(url, saved?.etag, httpError, emptyBody)
         if (response != null) accept(url, response, parse) else reuse(url, checkNotNull(saved), httpError, emptyBody, parse)
+    }
+
+    /**
+     * La copia salvata di [url], senza rete: interpretata con [parse] e verificata con la firma salvata; null se non c'e'
+     * o non passa. Per mostrare subito l'ultimo file verificato mentre [fetch] chiede al sito se e' cambiato. Senza il
+     * lucchetto di [fetch]: la copia si scrive rinominando un file intero, e una copia a meta' non supera la firma.
+     */
+    suspend fun <T> saved(url: String, parse: (ByteArray) -> T): T? = try {
+        withContext(ioDispatcher) {
+            val saved = load(url) ?: return@withContext null
+            val signature = saved.signature ?: return@withContext null
+            parse(saved.body).also { signatureVerifier.verifyWith(url, saved.body, signature) }
+        }
+    } catch (error: CancellationException) {
+        throw error
+    } catch (ignored: ManifestSignatureException) {
+        null
+    } catch (ignored: IllegalArgumentException) {
+        null
+    } catch (ignored: IllegalStateException) {
+        null
+    } catch (ignored: IOException) {
+        null
     }
 
     /**
@@ -164,8 +189,6 @@ class SignedFileCache internal constructor(
     // Nome del file dall'hash dell'URL: niente caratteri dell'indirizzo nel nome, lunghezza fissa, copie separate per
     // ogni catalogo.
     private fun file(url: String, extension: String): File = File(dir, "${key(url)}.$extension")
-
-    private fun key(url: String): String = MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
 
     private class Saved(val body: ByteArray, val etag: String, val signature: ByteArray?)
 

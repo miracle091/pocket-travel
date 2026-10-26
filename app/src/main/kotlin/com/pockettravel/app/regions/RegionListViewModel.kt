@@ -36,6 +36,7 @@ import com.pockettravel.core.sync.automaticOnMeteredNetwork
 import com.pockettravel.core.sync.guidesChoice
 import com.pockettravel.core.sync.hasCitiesIn
 import com.pockettravel.core.ui.countryName
+import com.pockettravel.feature.map.ConnectivityChecker
 import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
@@ -132,13 +133,19 @@ data class RegionListUiState(
     @StringRes val message: Int? = null,
     // Le regioni in download o in coda: nell'elenco salgono subito tra le nazioni scaricate.
     val downloadingRegions: Set<String> = emptySet(),
+    // Lettura del catalogo in corso: le nazioni scaricate mostrano il controllo al posto di dimensione e stato.
+    val checking: CatalogCheck? = null,
 )
+
+/** Controllo in corso: con la rete [UPDATES] (l'elenco viene dalla copia salvata), senza [CATALOG]. */
+enum class CatalogCheck { UPDATES, CATALOG }
 
 /** Le righe dell'elenco senza il filtro della ricerca. */
 private data class RegionCatalog(val items: List<RegionUiItem>, val replaced: List<ReplacedRegionItem>)
 
 private data class LoadStatus(
     val isLoading: Boolean = true,
+    val checking: CatalogCheck? = null,
     @StringRes val loadError: Int? = null,
     @StringRes val message: Int? = null,
 )
@@ -158,6 +165,7 @@ class RegionListViewModel @Inject constructor(
     private val routingVariantPreferences: RoutingVariantPreferences,
     private val lastKnownPosition: LastKnownPosition,
     private val countryLocator: CountryLocator,
+    private val connectivityChecker: ConnectivityChecker,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -168,6 +176,10 @@ class RegionListViewModel @Inject constructor(
     private val manifestRegions = MutableStateFlow<List<RegionManifestEntry>>(emptyList())
     // Catalogo e indice dei mezzi pubblici come arrivano: manifestRegions li unisce con le reti scelte.
     private val baseRegions = MutableStateFlow<List<RegionManifestEntry>>(emptyList())
+    // Elenco dalla copia salvata del catalogo: le sue voci non hanno civici a griglia e mezzi pubblici, quindi download e
+    // zone aspettano il catalogo del sito (awaitSiteCatalog). manifestFromSavedCopy segue manifestRegions.
+    private val fromSavedCopy = MutableStateFlow(false)
+    private val manifestFromSavedCopy = MutableStateFlow(false)
     private val transitIndex = MutableStateFlow<TransitIndex?>(null)
     private val replacedRegions = MutableStateFlow<List<ReplacedRegion>>(emptyList())
     private val status = MutableStateFlow(LoadStatus())
@@ -227,6 +239,7 @@ class RegionListViewModel @Inject constructor(
             loadError = currentStatus.loadError,
             message = currentStatus.message,
             downloadingRegions = currentDownloading,
+            checking = currentStatus.checking,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionListUiState())
 
@@ -234,7 +247,7 @@ class RegionListViewModel @Inject constructor(
         refresh()
         // Le reti scelte cambiano versione e dimensione del pacchetto: le regioni si ricalcolano subito.
         viewModelScope.launch {
-            combine(baseRegions, transitIndex, transitNetworkPreferences.excluded, place, regionRepository.observeInstalled()) { regions, index, stored, here, installed ->
+            combine(combine(baseRegions, fromSavedCopy, ::Pair), transitIndex, transitNetworkPreferences.excluded, place, regionRepository.observeInstalled()) { (regions, saved), index, stored, here, installed ->
                 val choices = effectiveTransitChoices(regions, index, stored, here)
                 // Le reti installate si leggono dal disco, solo per le regioni con gli orari e solo con l'indice.
                 val feeds = if (index == null) {
@@ -244,8 +257,14 @@ class RegionListViewModel @Inject constructor(
                         installed.filter { it.transitVersion != null }.associate { it.regionId to regionRepository.installedTransitFeeds(it.regionId) }
                     }
                 }
-                attachTransitFeeds(regions, index, choices.excluded, choices.reasons, feeds)
-            }.collect { manifestRegions.value = it }
+                attachTransitFeeds(regions, index, choices.excluded, choices.reasons, feeds) to saved
+            }.collect { (regions, saved) ->
+                // Prima il segnale "copia salvata", poi le voci; al contrario quando arriva il catalogo del sito: chi aspetta
+                // in awaitSiteCatalog non vede mai le voci della copia con il segnale spento.
+                if (saved) manifestFromSavedCopy.value = true
+                manifestRegions.value = regions
+                if (!saved) manifestFromSavedCopy.value = false
+            }
         }
         viewModelScope.launch(defaultDispatcher) {
             place.value = lastKnownPosition.get()?.let { (lat, lon) -> DevicePlace(lat, lon, countryLocator.countryAt(lat, lon)) }
@@ -265,8 +284,19 @@ class RegionListViewModel @Inject constructor(
     // chiede insieme all'elenco: ManifestClient.recentManifest).
     private fun load(fresh: Boolean) {
         viewModelScope.launch {
-            status.update { it.copy(isLoading = true) }
+            val online = connectivityChecker.isOnline()
+            status.update { it.copy(isLoading = true, checking = if (online) CatalogCheck.UPDATES else CatalogCheck.CATALOG) }
             try {
+                // Con la rete, alla prima lettura: subito l'ultimo catalogo verificato (copia sul telefono), mentre il sito
+                // risponde. Senza civici a griglia e mezzi pubblici, che arrivano con il catalogo del sito. Senza rete
+                // restano le nazioni installate.
+                if (online && baseRegions.value.isEmpty()) {
+                    runCatchingCancellable { manifestClient.savedManifest() }.getOrNull()?.let { saved ->
+                        fromSavedCopy.value = true
+                        baseRegions.value = withContext(defaultDispatcher) { attachAddressGridCells(saved.regions, null) }
+                        replacedRegions.value = saved.replacedRegions
+                    }
+                }
                 val manifest = if (fresh) manifestClient.fetchManifest() else manifestClient.recentManifest()
                 // Civici a griglia: un errore qui (rete, indice non
                 // valido) non deve bloccare l'elenco delle regioni, solo lasciarle senza civici a
@@ -277,6 +307,7 @@ class RegionListViewModel @Inject constructor(
                 this@RegionListViewModel.transitIndex.value = transitIndex
                 // Calcolo su tutte le regioni e le celle della griglia: fuori dal thread principale.
                 baseRegions.value = withContext(defaultDispatcher) { attachAddressGridCells(manifest.regions, addressGridIndex) }
+                fromSavedCopy.value = false
                 replacedRegions.value = manifest.replacedRegions
                 // Le guide si aggiornano da sole anche da qui, non solo col controllo periodico (sotto i 5 MB anche su
                 // rete a consumo).
@@ -295,9 +326,19 @@ class RegionListViewModel @Inject constructor(
             } catch (_: Exception) {
                 status.update { it.copy(loadError = R.string.regions_load_error) }
             } finally {
-                status.update { it.copy(isLoading = false) }
+                // Il sito non ha risposto: al posto della copia salvata restano le nazioni installate, come senza rete.
+                if (fromSavedCopy.value) {
+                    baseRegions.value = emptyList()
+                    replacedRegions.value = emptyList()
+                    fromSavedCopy.value = false
+                }
+                status.update { it.copy(isLoading = false, checking = null) }
             }
         }
+    }
+
+    private suspend fun awaitSiteCatalog() {
+        manifestFromSavedCopy.first { !it }
     }
 
     /** Controllo manuale immediato, in aggiunta a quello periodico: catalogo (qui, sincrono)
@@ -313,8 +354,9 @@ class RegionListViewModel @Inject constructor(
 
     /** Non installata: scarica tutti i pacchetti. Installata: aggiorna solo quelli cambiati. */
     fun download(regionId: String) {
-        val entry = zonedEntry(regionId) ?: return
         viewModelScope.launch {
+            awaitSiteCatalog()
+            val entry = zonedEntry(regionId) ?: return@launch
             val local = regionRepository.installed(regionId)
             enqueue(entry, if (local == null) entry.downloadKinds(usageModePreferences.wantsDirections.value) else outdatedKinds(entry, local))
         }
@@ -322,14 +364,18 @@ class RegionListViewModel @Inject constructor(
 
     /** Scarica i pacchetti scelti di una regione (primo avvio, selezione multipla): false se non e' partito. */
     suspend fun downloadKinds(regionId: String, kinds: Set<PackageKind>): Boolean {
+        awaitSiteCatalog()
         val entry = zonedEntry(regionId) ?: return false
         return enqueue(entry, kinds)
     }
 
     /** Scarica o aggiorna un solo pacchetto della regione (foglio "Contenuti"). */
     fun downloadPackage(regionId: String, kind: PackageKind) {
-        val entry = zonedEntry(regionId) ?: return
-        viewModelScope.launch { enqueue(entry, setOf(kind)) }
+        viewModelScope.launch {
+            awaitSiteCatalog()
+            val entry = zonedEntry(regionId) ?: return@launch
+            enqueue(entry, setOf(kind))
+        }
     }
 
     private suspend fun enqueue(listed: RegionManifestEntry, kinds: Set<PackageKind>): Boolean {
@@ -412,15 +458,17 @@ class RegionListViewModel @Inject constructor(
      * senza celle nella zona si tolgono. Con [download] e la regione non installata parte il download di tutta la regione.
      */
     fun setZone(regionId: String, zone: RegionZone?, download: Boolean = false) {
-        // Solo la parte dentro la regione (la zona inquadrata puo' prendere anche nazioni vicine, vedi regionsInZone).
-        val source = manifestRegions.value.firstOrNull { it.regionId == regionId }?.map?.source ?: return
-        if (zone != null && (zone.maxLon <= source.minLon || zone.minLon >= source.maxLon || zone.maxLat <= source.minLat || zone.minLat >= source.maxLat)) return
-        val clamped = zone?.let {
-            RegionZone(maxOf(it.minLon, source.minLon), maxOf(it.minLat, source.minLat), minOf(it.maxLon, source.maxLon), minOf(it.maxLat, source.maxLat))
-        }
-        regionZonePreferences.setZone(regionId, clamped)
-        val entry = zonedEntry(regionId, clamped) ?: return
         viewModelScope.launch {
+            // Con le voci della copia salvata (senza civici a griglia) i civici installati si toglierebbero.
+            awaitSiteCatalog()
+            // Solo la parte dentro la regione (la zona inquadrata puo' prendere anche nazioni vicine, vedi regionsInZone).
+            val source = manifestRegions.value.firstOrNull { it.regionId == regionId }?.map?.source ?: return@launch
+            if (zone != null && (zone.maxLon <= source.minLon || zone.minLon >= source.maxLon || zone.maxLat <= source.minLat || zone.minLat >= source.maxLat)) return@launch
+            val clamped = zone?.let {
+                RegionZone(maxOf(it.minLon, source.minLon), maxOf(it.minLat, source.minLat), minOf(it.maxLon, source.maxLon), minOf(it.maxLat, source.maxLat))
+            }
+            regionZonePreferences.setZone(regionId, clamped)
+            val entry = zonedEntry(regionId, clamped) ?: return@launch
             val local = regionRepository.installed(regionId)
             if (local == null) {
                 if (download) enqueue(entry, entry.downloadKinds(usageModePreferences.wantsDirections.value))

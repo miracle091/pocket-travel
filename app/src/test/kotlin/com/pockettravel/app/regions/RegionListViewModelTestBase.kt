@@ -18,6 +18,7 @@ import com.pockettravel.core.sync.testing.FakeAddressGridClient
 import com.pockettravel.core.sync.testing.FakeManifestClient
 import com.pockettravel.core.sync.testing.FakeRegionSyncScheduler
 import com.pockettravel.core.sync.testing.FakeTransitClient
+import com.pockettravel.feature.map.ConnectivityChecker
 import com.pockettravel.feature.map.MapFilterPreferences
 import com.pockettravel.feature.map.UsageModePreferences
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -52,6 +53,7 @@ abstract class RegionListViewModelTestBase {
     protected val zones = RegionZonePreferences(files)
     protected val position = FakeLastKnownPosition()
     protected val locator = FakeCountryLocator()
+    protected val connectivity = TestConnectivityChecker()
     protected lateinit var previousLocale: Locale
 
     @Before
@@ -79,6 +81,7 @@ abstract class RegionListViewModelTestBase {
         routingVariantPreferences = routingPreferences,
         lastKnownPosition = position,
         countryLocator = locator,
+        connectivityChecker = connectivity,
         ioDispatcher = mainDispatcher.dispatcher,
         defaultDispatcher = mainDispatcher.dispatcher,
     )
@@ -123,4 +126,11 @@ class FailingRemovals(private val inner: FakeRegionRepository) : RegionRepositor
     override suspend fun remove(regionId: String) = throw IllegalStateException("file non eliminabile")
 
     override suspend fun removePackage(regionId: String, kind: PackageKind) = throw IllegalStateException("file non eliminabile")
+}
+
+/** Rete finta: [online] da impostare nel test. */
+class TestConnectivityChecker(var online: Boolean = true) : ConnectivityChecker {
+    override fun isOnline(): Boolean = online
+
+    override fun isMetered(): Boolean = false
 }

@@ -12,6 +12,7 @@ import com.pockettravel.core.sync.AddressGridManifestEntry
 import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.sync.TransitIndex
 import com.pockettravel.core.sync.testing.FakeRegionSyncScheduler
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -134,6 +135,84 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
         assertEquals(listOf("italia", "francia"), state.items.map { it.regionId })
         assertEquals(setOf("francia"), state.downloadingRegions)
         assertEquals(R.string.regions_load_error, state.loadError)
+    }
+
+    @Test
+    fun `con la rete l'elenco parte dalla copia salvata e le installate aspettano il controllo degli aggiornamenti`() = runTest {
+        manifests.saved = regionManifest(listOf(regionEntry(), regionEntry(regionId = "francia", displayName = "Francia", countryCode = "fr")))
+        manifests.gate = CompletableDeferred()
+        repository.installedRegions.value = listOf(installed())
+        val viewModel = viewModel()
+
+        observe(viewModel)
+
+        assertEquals(listOf("francia", "italia"), viewModel.uiState.value.items.map { it.regionId }.sorted())
+        assertEquals(CatalogCheck.UPDATES, viewModel.uiState.value.checking)
+
+        manifests.gate?.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("italia"), viewModel.uiState.value.items.map { it.regionId })
+        assertNull(viewModel.uiState.value.checking)
+    }
+
+    @Test
+    fun `con la copia salvata il download aspetta il catalogo del sito`() = runTest {
+        val francia = regionEntry(regionId = "francia", displayName = "Francia", countryCode = "fr")
+        manifests.saved = regionManifest(listOf(regionEntry(), francia))
+        manifests.manifest = regionManifest(listOf(regionEntry(), francia))
+        manifests.gate = CompletableDeferred()
+        val viewModel = viewModel()
+        observe(viewModel)
+
+        viewModel.download("francia")
+        advanceUntilIdle()
+        assertEquals(emptyList<Any>(), scheduler.enqueued)
+
+        manifests.gate?.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("francia"), scheduler.enqueued.map { it.first.regionId })
+    }
+
+    @Test
+    fun `con la copia salvata e il sito irraggiungibile restano le nazioni installate`() = runTest {
+        manifests.saved = regionManifest(listOf(regionEntry(), regionEntry(regionId = "francia", displayName = "Francia", countryCode = "fr")))
+        manifests.failure = IOException("sito giu'")
+        manifests.gate = CompletableDeferred()
+        repository.installedRegions.value = listOf(installed())
+        val viewModel = viewModel()
+        observe(viewModel)
+
+        viewModel.download("francia")
+        manifests.gate?.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("italia"), viewModel.uiState.value.items.map { it.regionId })
+        assertEquals(R.string.regions_load_error, viewModel.uiState.value.loadError)
+        assertEquals(emptyList<Any>(), scheduler.enqueued)
+    }
+
+    @Test
+    fun `senza rete le installate aspettano il controllo del catalogo, senza la copia salvata`() = runTest {
+        connectivity.online = false
+        manifests.saved = regionManifest(listOf(regionEntry(), regionEntry(regionId = "francia", displayName = "Francia", countryCode = "fr")))
+        manifests.failure = IOException("offline")
+        manifests.gate = CompletableDeferred()
+        repository.installedRegions.value = listOf(installed())
+        val viewModel = viewModel()
+
+        observe(viewModel)
+
+        assertEquals(listOf("italia"), viewModel.uiState.value.items.map { it.regionId })
+        assertEquals(CatalogCheck.CATALOG, viewModel.uiState.value.checking)
+
+        manifests.gate?.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(listOf("italia"), viewModel.uiState.value.items.map { it.regionId })
+        assertNull(viewModel.uiState.value.checking)
+        assertEquals(R.string.regions_load_error, viewModel.uiState.value.loadError)
     }
 
     @Test

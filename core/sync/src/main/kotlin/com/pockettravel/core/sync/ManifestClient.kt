@@ -11,4 +11,10 @@ interface ManifestClient {
      * intero: all'avvio lo chiedono insieme l'elenco delle regioni e l'hub, poi ogni apertura di un hub.
      */
     suspend fun recentManifest(): RegionManifest
+
+    /**
+     * L'ultimo `manifest.json` gia' letto, senza rete: quello in memoria o la copia verificata salvata sul telefono; null se
+     * non ce n'e' uno. Per mostrare subito l'elenco mentre [recentManifest] aspetta il sito.
+     */
+    suspend fun savedManifest(): RegionManifest? = null
 }

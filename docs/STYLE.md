@@ -145,6 +145,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Azione che condivide un modello o i contenuti di una regione con un altro telefono, senza internet | Invia a un altro telefono | Send to another phone |
 | Azione che installa un modello o i contenuti ricevuti come file | Importa da file | Import from file |
 | File ricevuto che non corrisponde a niente del catalogo | Questo file non è nel catalogo di Pocket Travel | This file is not in the Pocket Travel catalog |
+| Importazione da file fallita per un motivo diverso da spazio, file danneggiato o file sconosciuto | Importazione non riuscita | Import failed |
 | File ricevuto alterato o incompleto (sha256 diverso) | File danneggiato: chiedi di inviarlo di nuovo | Damaged file: ask for it to be sent again |
 | Parola della lingua del posto spiegata da una voce di Wikipedia | termine locale (nel foglio: Da Wikipedia) | local term (in the sheet: From Wikipedia) |
 | Pulsanti della lettura ad alta voce della risposta | Ascolta, Ferma | Listen, Stop |
@@ -195,6 +196,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | JSON firmati dei dati scaricabili, pubblicati dal progetto | catalogo ufficiale | official catalog |
 | Catalogo di altri, scelto in Impostazioni → Catalogo | catalogo personalizzato | custom catalog |
 | Catalogo letto con `-PpocketTravel.manifestUrl`, solo in debug e senza firme | catalogo di debug | debug catalog |
+| Riga di una nazione scaricata mentre si legge il catalogo, con la rete (l'elenco viene dalla copia salvata) e senza | Controllo degli aggiornamenti…, Controllo del catalogo… | Checking for updates…, Checking the catalog… |
 | Testo di travel.gc.ca e del FCDO nelle guide inglesi | consigli di viaggio | travel advice |
 | Pagina web di un sito esterno (ministero, servizio sanitario) | pagina (mai "scheda") | page |
 | Da dove viene il testo mostrato (guida, vaccinazioni) | Fonti | Sources |

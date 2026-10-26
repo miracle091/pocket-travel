@@ -252,6 +252,7 @@ internal fun RegionListContent(
                     RegionGroupedList(
                     items = uiState.items,
                     downloading = downloadingRegions,
+                    checking = uiState.checking,
                     replaced = uiState.replaced,
                     searching = uiState.query.isNotBlank(),
                     rowActions = rowActions,
@@ -322,6 +323,7 @@ private fun RegionSearchField(query: String, onQueryChange: (String) -> Unit, mo
 private fun RegionGroupedList(
     items: List<RegionUiItem>,
     downloading: Set<String>,
+    checking: CatalogCheck?,
     replaced: List<ReplacedRegionItem>,
     searching: Boolean,
     rowActions: RegionRowActions,
@@ -392,6 +394,7 @@ private fun RegionGroupedList(
                                     item = row.item,
                                     actions = rowActions,
                                     onClick = { onRegionClick(row.item) },
+                                    checking = checking,
                                     title = if (row.inCountry) row.item.groupLabel ?: row.item.displayName else row.item.displayName,
                                     modifier = if (row.inCountry) Modifier.padding(start = Spacing.xl) else Modifier,
                                 )
@@ -583,31 +586,19 @@ internal fun RegionRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     title: String = item.displayName,
+    // Catalogo in lettura: le nazioni installate dicono il controllo invece di dimensione e stato, che possono cambiare.
+    checking: CatalogCheck? = null,
 ) {
     val workInfo by remember(item.regionId) { actions.observeProgress(item.regionId) }
         .collectAsStateWithLifecycle(initialValue = null)
     val download = workInfo.downloadUi()
-    val (isDownloading, installing, extractingMap) = download
+    val (isDownloading, installing) = download
     val progress = download.progress
-    val size = item.sizeText()
     val installed = item.status != RegionStatus.NOT_INSTALLED
 
     Column(modifier = modifier) {
         ListItem(
-            supportingContent = {
-                Text(
-                    if (isDownloading && installing) {
-                        stringResource(R.string.regions_status_installing)
-                    } else if (isDownloading) {
-                        stringResource(
-                            if (extractingMap) R.string.regions_status_extracting_map else R.string.regions_status_downloading,
-                            (progress * PERCENT_SCALE).toInt(),
-                        )
-                    } else {
-                        stringResource(item.statusLabel(), size)
-                    },
-                )
-            },
+            supportingContent = { Text(regionRowStatus(item, download, checking?.takeIf { installed })) },
             leadingContent = {
                 CountryFlag(item.countryCode, size = 40.dp) {
                     Surface(
@@ -637,6 +628,19 @@ internal fun RegionRow(
             )
         }
     }
+}
+
+// Riga sotto il nome: download in corso, controllo del catalogo, oppure dimensione e stato.
+@Composable
+private fun regionRowStatus(item: RegionUiItem, download: RegionDownloadUi, checking: CatalogCheck?): String = when {
+    download.isDownloading && download.installing -> stringResource(R.string.regions_status_installing)
+    download.isDownloading -> stringResource(
+        if (download.extractingMap) R.string.regions_status_extracting_map else R.string.regions_status_downloading,
+        (download.progress * PERCENT_SCALE).toInt(),
+    )
+    checking == CatalogCheck.UPDATES -> stringResource(R.string.regions_checking_updates)
+    checking == CatalogCheck.CATALOG -> stringResource(R.string.regions_checking_catalog)
+    else -> stringResource(item.statusLabel(), item.sizeText())
 }
 
 /** Avanzamento di un download di regione, letto dal lavoro: usato dalle righe dell'elenco e da Aggiornamenti. */
