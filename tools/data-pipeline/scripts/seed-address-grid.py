@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Genera il seme della griglia adattiva dei civici (address-grid-seed.tsv, una riga "z/x/y" per
 cella iniziale): quadtree Web Mercator, diviso finche' la
-dimensione stimata di ogni cella sta sotto <cap> (byte) o si arriva a <zoom> (default 12) - oltre,
+dimensione stimata di ogni cella sta sotto <cap> (byte) o si arriva a <zoom> (default 12); con --min-zoom
+si divide anche sotto il tetto fino a quello zoom (le figlie senza indirizzi non nascono) - oltre,
 la pipeline stessa divide ulteriormente le celle davvero troppo pesanti fino a z14 quando le
 costruisce (build-address-cell.sh); il seme e' solo il punto di partenza, non il tetto vero della
 griglia (quello e' z<=14, vedi ValidateManifest).
@@ -18,7 +19,10 @@ Stima la dimensione di ogni cella senza dipendenze esterne:
 
 Uso:
   seed-address-grid.py <manifest.json (path o URL)> <overture-rowgroups.csv> <output.tsv>
-    [--cap-mb 10] [--zoom 12] [--bytes-per-addr 10] [--margin 1.1]
+    [--cap-mb 10] [--zoom 12] [--min-zoom 0] [--bytes-per-addr 10] [--margin 1.1]
+
+Il seme conta solo per le celle non ancora coperte dall'indice pubblicato (vedi address-grid.sh):
+una cella gia' pubblicata sotto --min-zoom si divide solo se la build la divide (build-address-cell.sh).
 
 Richiede solo la libreria standard (urllib per l'HTTP Range e per scaricare manifest.json se e' un URL).
 """
@@ -195,14 +199,14 @@ def overture_rows_per_cell(rowgroups_csv, zoom):
 
 # --- Passo 3: quadtree, diviso finche' sotto <cap> o a <zoom> ---------------------------------------
 
-def quadtree_seed(combined_bytes_per_cell, zoom, cap_bytes):
+def quadtree_seed(combined_bytes_per_cell, zoom, cap_bytes, min_zoom=0):
     cells = []
 
     def recurse(z, x, y, items):
         total = sum(v for _, v in items)
         if total == 0:
             return
-        if total <= cap_bytes or z == zoom:
+        if z == zoom or (total <= cap_bytes and z >= min_zoom):
             cells.append((z, x, y))
             return
         shift = zoom - z - 1
@@ -232,9 +236,13 @@ def main():
     parser.add_argument("output", help="address-grid-seed.tsv da scrivere")
     parser.add_argument("--cap-mb", type=float, default=10.0)
     parser.add_argument("--zoom", type=int, default=12)
+    parser.add_argument("--min-zoom", type=int, default=0,
+                        help="zoom sotto il quale le celle si dividono anche se leggere (default 0: solo per peso)")
     parser.add_argument("--bytes-per-addr", type=float, default=10.0)
     parser.add_argument("--margin", type=float, default=1.1)
     args = parser.parse_args()
+    if not 0 <= args.min_zoom <= args.zoom:
+        parser.error(f"--min-zoom deve stare tra 0 e --zoom ({args.zoom})")
 
     manifest = load_manifest(args.manifest)
     osm = osm_bytes_per_cell(manifest, args.zoom)
@@ -244,7 +252,7 @@ def main():
     for key in set(osm) | set(overture):
         combined[key] = max(osm.get(key, 0), overture.get(key, 0) * args.bytes_per_addr) * args.margin
 
-    cells = quadtree_seed(combined, args.zoom, args.cap_mb * 1e6)
+    cells = quadtree_seed(combined, args.zoom, args.cap_mb * 1e6, args.min_zoom)
     cells.sort()
     with open(args.output, "w", encoding="utf-8") as out:
         for z, x, y in cells:

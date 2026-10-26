@@ -55,6 +55,21 @@ class QuadtreeSeedTest(unittest.TestCase):
 
         self.assertEqual([(2, 1, 1)], cells)
 
+    def test_zoom_minimo_divide_anche_le_celle_leggere_e_salta_le_figlie_vuote(self):
+        # Zoom 3 (8x8 celle), un solo dato leggero a (5, 2): con zoom minimo 2 resta una sola cella
+        # z2: (5, 2) a z3 sta nella cella (2, 1) di z2, le altre tre non nascono.
+        data = {(5, 2): 1e6}
+
+        self.assertEqual([(0, 0, 0)], quadtree_seed(data, zoom=3, cap_bytes=10e6))
+        self.assertEqual([(2, 2, 1)], quadtree_seed(data, zoom=3, cap_bytes=10e6, min_zoom=2))
+
+    def test_zoom_minimo_non_impedisce_la_divisione_per_peso(self):
+        data = {(0, 0): 8e6, (1, 0): 8e6}
+
+        cells = quadtree_seed(data, zoom=2, cap_bytes=10e6, min_zoom=1)
+
+        self.assertEqual({(2, 0, 0), (2, 1, 0)}, set(cells))
+
     def test_nessun_dato_niente_celle(self):
         self.assertEqual([], quadtree_seed({(0, 0): 0.0}, zoom=12, cap_bytes=10e6))
 
@@ -284,6 +299,19 @@ class MainTest(unittest.TestCase):
         # e il quadtree la tiene alla cella piu' grande con soli suoi dati: il quadrante z1 sud-est
         self.assertEqual(["1/1/1", "3/4/2"], lines)
         self.assertIn("seme:", out.getvalue())
+
+    def test_min_zoom_da_riga_di_comando_e_valore_non_valido(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest, rowgroups, output = Path(tmp, "m.json"), Path(tmp, "rg.csv"), Path(tmp, "seed.tsv")
+            manifest.write_text(json.dumps({"regions": []}), encoding="utf-8")
+            write_rowgroups(rowgroups, [(100, 151.2, -33.9, 151.21, -33.89)])
+            base = ["seed-address-grid.py", str(manifest), str(rowgroups), str(output), "--zoom", "5"]
+            with mock.patch.object(sys, "argv", base + ["--min-zoom", "4"]), mock.patch.object(sys, "stderr", io.StringIO()),                     mock.patch.object(sys, "stdout", io.StringIO()):
+                _seed_address_grid.main()
+            self.assertEqual(["4/14/9"], output.read_text(encoding="utf-8").splitlines())
+            with mock.patch.object(sys, "argv", base + ["--min-zoom", "6"]), mock.patch.object(sys, "stderr", io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    _seed_address_grid.main()
 
     def test_load_manifest_da_file_locale(self):
         with tempfile.TemporaryDirectory() as tmp:
