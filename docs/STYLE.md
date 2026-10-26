@@ -94,7 +94,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 |---|---|---|
 | Paese o territorio scaricabile | nazione (elenco), regione (unità che si scarica) | country, region |
 | Rettangolo di una regione scaricato al posto della regione intera | zona | zone |
-| Regione principale di una nazione con gli arcipelaghi lontani in regioni a parte | Continentale | Mainland |
+| Regione principale di una nazione con gli arcipelaghi lontani in regioni a parte | nome della nazione ("Portogallo"); "Río Muni" in Guinea Equatoriale | country name ("Portugal"); "Río Muni" in Equatorial Guinea |
 | Rettangolo geografico di una regione, di una zona o di un estratto ("riquadro" è solo dell'interfaccia) | rettangolo | bounding box |
 | Scheda della barra con l'elenco delle nazioni | Nazioni | Countries |
 | Pagina con le schede Guida, Mappa, Navigatore, IA | pagina della regione | region page |

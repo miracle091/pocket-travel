@@ -117,7 +117,7 @@ class ReadersTest(unittest.TestCase):
 
     def test_vs_codes_per_la_regione_principale_di_un_paese_con_gli_arcipelaghi_a_parte(self):
         (self.here / "regions.sh").write_text('''REGIONS=(
-  "portogallo|Portogallo - Continentale|-9.54|36.84|-6.17|42.29|Portugal|pt|Portogallo|Continentale|Europa"
+  "portogallo|Portogallo|-9.54|36.84|-6.17|42.29|Portugal|pt|Portogallo|Portogallo|Europa"
   "portogallo-azzorre|Portogallo - Azzorre|-31.29|36.91|-24.99|39.75|Azores|pt|Portogallo|Azzorre|Europa"
   "figi-occidentali|Figi - Isole occidentali|176.97|-20.70|180.00|-12.42|Fiji|fj|Figi|Isole occidentali|Oceania"
   "figi-lau|Figi - Isole Lau|-180.00|-21.05|-178.00|-15.59|Fiji|fj|Figi|Isole Lau|Oceania"

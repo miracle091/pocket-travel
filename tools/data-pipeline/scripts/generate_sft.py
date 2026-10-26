@@ -1208,8 +1208,9 @@ def main():
             continue
         name_en = en.with_article(en.display_name(t_en or wiki_title))
         # "Stati Uniti - Hawaii" -> "Hawaii": nelle domande il nome che scriverebbe un utente, come in inglese. La regione
-        # principale di una nazione con le isole a parte ("Portogallo - Continentale": le altre regioni della bandiera hanno
-        # il suo regionId come prefisso, come in vs_codes) ha la pagina della nazione: il suo nome e' quello della nazione.
+        # principale di una nazione con le isole a parte ("Portogallo", "Guinea Equatoriale - Río Muni": le altre regioni
+        # della bandiera hanno il suo regionId come prefisso, come in vs_codes) ha la pagina della nazione: il suo nome
+        # e' quello della nazione.
         others = [o for o in by_flag.get(flag_of.get(rid), []) if o != rid]
         main = bool(others) and all(o.startswith(f"{rid}-") for o in others)
         name = name_it.split(" - ", 1)[0] if main else name_it.rsplit(" - ", 1)[-1]

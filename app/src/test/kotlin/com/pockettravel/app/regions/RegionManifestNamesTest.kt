@@ -94,14 +94,14 @@ class RegionManifestNamesTest {
     }
 
     @Test
-    fun `il Portogallo continentale e le Azzorre stanno nel gruppo del Portogallo`() {
+    fun `il Portogallo senza isole e le Azzorre stanno nel gruppo del Portogallo`() {
         val mainland = entry.copy(
             regionId = "portogallo",
-            displayName = "Portogallo - Continentale",
+            displayName = "Portogallo",
             countryCode = "pt",
             groupName = "Portogallo",
-            groupLabel = "Continentale",
-            groupLabelEn = "Mainland",
+            groupLabel = "Portogallo",
+            groupLabelEn = "Portugal",
         )
         val azores = mainland.copy(
             regionId = "portogallo-azzorre",
@@ -110,8 +110,9 @@ class RegionManifestNamesTest {
             groupLabelEn = "Azores",
         )
 
-        assertEquals("Portogallo - Continentale", mainland.localizedNames(Locale.ITALIAN).displayName)
-        assertEquals("Portugal - Mainland", mainland.localizedNames(Locale.ENGLISH).displayName)
+        assertEquals("Portogallo", mainland.localizedNames(Locale.ITALIAN).displayName)
+        assertEquals("Portugal", mainland.localizedNames(Locale.ENGLISH).displayName)
+        assertEquals("Portugal", mainland.localizedNames(Locale.ENGLISH).groupLabel)
         assertEquals("Portugal - Azores", azores.localizedNames(Locale.ENGLISH).displayName)
         assertEquals("Portugal", azores.localizedNames(Locale.ENGLISH).groupName)
     }
