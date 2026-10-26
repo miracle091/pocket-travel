@@ -68,6 +68,7 @@ fun AlertsCard(state: RegionAlerts, onOpenSource: (url: String, title: String) -
 @Composable
 private fun AlertRow(alert: Alert, onOpenSource: (url: String, title: String) -> Unit) {
     val url = alert.url
+    val text = alertText(alert)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -75,9 +76,8 @@ private fun AlertRow(alert: Alert, onOpenSource: (url: String, title: String) ->
             .then(if (url != null) Modifier.clickable { onOpenSource(url, alert.title) } else Modifier)
             .padding(vertical = Spacing.xs),
     ) {
-        // Testo originale della fonte, non tradotto.
-        Text(alert.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-        listOfNotNull(alert.areaName, alert.details).distinct().forEach {
+        Text(text.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        text.lines.forEach {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         alert.issuedAt?.let {

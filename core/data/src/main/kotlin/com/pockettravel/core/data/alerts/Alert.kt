@@ -12,7 +12,8 @@ enum class AlertKind { EARTHQUAKE, CYCLONE, FLOOD, VOLCANO, FIRE, DROUGHT, TSUNA
 enum class AlertLevel { LOW, MODERATE, HIGH, EXTREME }
 
 /**
- * Un'allerta in corso, gia' normalizzata. Il testo e' quello della fonte, non tradotto.
+ * Un'allerta in corso, gia' normalizzata. Il testo e' quello inglese della fonte: l'app lo riscrive nella sua lingua
+ * con le funzioni di `AlertWording.kt`.
  *
  * @property id identificativo stabile nella fonte, per togliere i doppioni.
  * @property sourceLevel livello originale della fonte (colore GDACS, gravita' CAP), se c'e'.

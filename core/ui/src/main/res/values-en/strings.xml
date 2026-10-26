@@ -87,4 +87,55 @@
     <string name="alerts_source_meteoalarm">Source: %1$s via EUMETNET – MeteoAlarm</string>
     <string name="alerts_meteoalarm_delays">Time delays between this app and the www.meteoalarm.org website are possible. For the most up-to-date awareness information as published by the participating National Meteorological and Hydrological Services, please refer to www.meteoalarm.org</string>
     <string name="alerts_disclaimer">Not official and probably out of date: follow the instructions of the local authorities</string>
+    <!-- Allerte riscritte nella lingua dell'app dal testo inglese delle fonti -->
+    <string name="alerts_weather_warning">%1$s %2$s warning</string>
+    <string name="alerts_color_yellow">Yellow</string>
+    <string name="alerts_color_orange">Orange</string>
+    <string name="alerts_color_red">Red</string>
+    <string name="alerts_hazard_wind">wind</string>
+    <string name="alerts_hazard_snow_ice">snow and ice</string>
+    <string name="alerts_hazard_thunderstorm">thunderstorm</string>
+    <string name="alerts_hazard_fog">fog</string>
+    <string name="alerts_hazard_high_temperature">high temperature</string>
+    <string name="alerts_hazard_low_temperature">low temperature</string>
+    <string name="alerts_hazard_coastal_event">coastal event</string>
+    <string name="alerts_hazard_forest_fire">forest fire</string>
+    <string name="alerts_hazard_avalanches">avalanche</string>
+    <string name="alerts_hazard_rain">rain</string>
+    <string name="alerts_hazard_flooding">flood</string>
+    <string name="alerts_hazard_rain_flood">rain and flood</string>
+    <string name="alerts_quake_magnitude">Magnitude %1$s earthquake</string>
+    <string name="alerts_quake_place">%1$d km %2$s of %3$s</string>
+    <string name="alerts_quake_depth">Magnitude %1$s, depth %2$s km</string>
+    <string name="alerts_earthquake_in">Earthquake in %1$s</string>
+    <string name="alerts_flood_in">Flood in %1$s</string>
+    <string name="alerts_fire_in">Forest fires in %1$s</string>
+    <string name="alerts_drought_in">Drought in %1$s</string>
+    <string name="alerts_cyclone">Tropical cyclone %1$s</string>
+    <string name="alerts_eruption">Volcanic eruption: %1$s</string>
+    <string name="alerts_cyclone_depression">Tropical depression</string>
+    <string name="alerts_cyclone_storm">Tropical storm</string>
+    <string name="alerts_cyclone_hurricane">Hurricane or typhoon</string>
+    <string name="alerts_cyclone_wind">%1$s, wind up to %2$d km/h</string>
+    <string name="alerts_wind_only">Wind up to %1$d km/h</string>
+    <string name="alerts_area_hectares">Area affected: %1$s ha</string>
+    <string name="alerts_area_km2">Area affected: %1$s km²</string>
+    <string-array name="alerts_compass">
+        <item>north</item>
+        <item>north-northeast</item>
+        <item>northeast</item>
+        <item>east-northeast</item>
+        <item>east</item>
+        <item>east-southeast</item>
+        <item>southeast</item>
+        <item>south-southeast</item>
+        <item>south</item>
+        <item>south-southwest</item>
+        <item>southwest</item>
+        <item>west-southwest</item>
+        <item>west</item>
+        <item>west-northwest</item>
+        <item>northwest</item>
+        <item>north-northwest</item>
+    </string-array>
 </resources>

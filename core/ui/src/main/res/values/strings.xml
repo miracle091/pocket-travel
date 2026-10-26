@@ -87,4 +87,55 @@
     <string name="alerts_source_meteoalarm">Fonte: %1$s tramite EUMETNET – MeteoAlarm</string>
     <string name="alerts_meteoalarm_delays">Sono possibili ritardi tra questa app e il sito www.meteoalarm.org. Per le informazioni più aggiornate pubblicate dai servizi meteorologici e idrologici nazionali partecipanti si rimanda a www.meteoalarm.org</string>
     <string name="alerts_disclaimer">Informazioni non ufficiali e probabilmente non aggiornate: segui le direttive locali delle autorità</string>
+    <!-- Allerte riscritte nella lingua dell'app dal testo inglese delle fonti -->
+    <string name="alerts_weather_warning">Allerta %1$s per %2$s</string>
+    <string name="alerts_color_yellow">gialla</string>
+    <string name="alerts_color_orange">arancione</string>
+    <string name="alerts_color_red">rossa</string>
+    <string name="alerts_hazard_wind">vento</string>
+    <string name="alerts_hazard_snow_ice">neve e ghiaccio</string>
+    <string name="alerts_hazard_thunderstorm">temporali</string>
+    <string name="alerts_hazard_fog">nebbia</string>
+    <string name="alerts_hazard_high_temperature">temperature alte</string>
+    <string name="alerts_hazard_low_temperature">temperature basse</string>
+    <string name="alerts_hazard_coastal_event">mareggiate</string>
+    <string name="alerts_hazard_forest_fire">incendi boschivi</string>
+    <string name="alerts_hazard_avalanches">valanghe</string>
+    <string name="alerts_hazard_rain">pioggia</string>
+    <string name="alerts_hazard_flooding">alluvioni</string>
+    <string name="alerts_hazard_rain_flood">pioggia e alluvioni</string>
+    <string name="alerts_quake_magnitude">Terremoto di magnitudo %1$s</string>
+    <string name="alerts_quake_place">%1$d km a %2$s di %3$s</string>
+    <string name="alerts_quake_depth">Magnitudo %1$s, profondità %2$s km</string>
+    <string name="alerts_earthquake_in">Terremoto in %1$s</string>
+    <string name="alerts_flood_in">Alluvione in %1$s</string>
+    <string name="alerts_fire_in">Incendi boschivi in %1$s</string>
+    <string name="alerts_drought_in">Siccità in %1$s</string>
+    <string name="alerts_cyclone">Ciclone tropicale %1$s</string>
+    <string name="alerts_eruption">Eruzione vulcanica: %1$s</string>
+    <string name="alerts_cyclone_depression">Depressione tropicale</string>
+    <string name="alerts_cyclone_storm">Tempesta tropicale</string>
+    <string name="alerts_cyclone_hurricane">Uragano o tifone</string>
+    <string name="alerts_cyclone_wind">%1$s, vento fino a %2$d km/h</string>
+    <string name="alerts_wind_only">Vento fino a %1$d km/h</string>
+    <string name="alerts_area_hectares">Area colpita: %1$s ettari</string>
+    <string name="alerts_area_km2">Area colpita: %1$s km²</string>
+    <string-array name="alerts_compass">
+        <item>nord</item>
+        <item>nord-nordest</item>
+        <item>nordest</item>
+        <item>est-nordest</item>
+        <item>est</item>
+        <item>est-sudest</item>
+        <item>sudest</item>
+        <item>sud-sudest</item>
+        <item>sud</item>
+        <item>sud-sudovest</item>
+        <item>sudovest</item>
+        <item>ovest-sudovest</item>
+        <item>ovest</item>
+        <item>ovest-nordovest</item>
+        <item>nordovest</item>
+        <item>nord-nordovest</item>
+    </string-array>
 </resources>
