@@ -20,6 +20,30 @@ toni colloquiali.
 - Maiuscola solo all'inizio della frase e nei nomi propri (sentence case, anche in inglese): "Fonti ufficiali",
   "Official sources", non "Official Sources".
 
+## Tratti tipici dei testi generati da un'IA
+
+Valgono in italiano e in inglese, per ogni tipo di testo. Un tratto isolato non è un errore: lo diventa quando si ripete o si somma ad altri.
+
+- Nessun aggettivo che afferma invece di mostrare ("fondamentale", "cruciale", "innovativo", "completo", "robusto";
+  in inglese "crucial", "seamless", "robust", "comprehensive"): si scrive il fatto che lo giustifica, oppure si
+  toglie.
+- Verbi come "ottimizzare", "migliorare" e "potenziare" (in inglese "optimize", "enhance", "leverage") solo con
+  l'oggetto e la misura: "dimezza il tempo di apertura della guida", non "ottimizza le prestazioni".
+- Al massimo un connettivo formale per paragrafo ("inoltre", "tuttavia", "pertanto", "di conseguenza"; in inglese
+  "moreover", "furthermore"); quando il legame tra le frasi è evidente, nessuno.
+- Nessuna antitesi costruita ("non solo X, ma anche Y", "non è un semplice X: è Y"; in inglese "not just X, it's
+  Y"): si scrive direttamente Y.
+- Nessuna serie di tre elementi per abitudine (aggettivi, esempi, vantaggi): restano solo quelli che servono.
+- Nessuna importanza gonfiata ("rappresenta un passo importante", "svolge un ruolo chiave"): si scrive che cosa fa.
+- Nessuna frase che annuncia o riassume ("Ecco come", "In sintesi", "In conclusione") e nessuna domanda retorica in
+  apertura.
+- Nessuna lineetta lunga (—) per gli incisi: si usano i due punti, le parentesi o una frase nuova.
+- Nessun elenco puntato con titoletti in grassetto per un contenuto che sta in una o due frasi.
+
+Le regole riprendono, adattate al registro formale di questo progetto, i cataloghi di
+[avoid-ai-writing](https://github.com/conorbronsdon/avoid-ai-writing) e del suo adattamento italiano
+[avoid-ai-writing-multilingual](https://github.com/jurigis/avoid-ai-writing-multilingual) (licenza MIT).
+
 ## Interfaccia in italiano
 
 - Pulsanti e istruzioni brevi all'imperativo di seconda persona singolare, come le app di sistema Android in
