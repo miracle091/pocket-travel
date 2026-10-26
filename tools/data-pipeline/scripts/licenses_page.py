@@ -3,10 +3,10 @@
 
 Uso: python3 licenses_page.py <cartella del sito>
 
-Scrive licenses.html (italiano) e licenses-en.html (inglese) nella cartella del sito: software, modelli e
-dati fissi dalle tabelle qui sotto (da tenere allineate alla schermata Licenze dell'app, app/aboutlibraries),
-fonti dei numeri civici e reti dei mezzi pubblici da address-grid.json e transit.json della stessa
-pubblicazione. Un indice mancante lascia vuota la sua sezione.
+Scrive licenses.html (italiano) e licenses-en.html (inglese) nella cartella del sito: software e modelli dalle
+tabelle qui sotto, dati dalle definizioni della schermata Licenze dell'app (app/aboutlibraries: nome, sito e licenze
+di ogni voce "data", con l'uso nell'app di DATA_USE), fonti dei numeri civici e reti dei mezzi pubblici da
+address-grid.json e transit.json della stessa pubblicazione. Un indice mancante lascia vuota la sua sezione.
 """
 
 import datetime
@@ -28,15 +28,6 @@ MPL = ("MPL-2.0", "https://www.mozilla.org/MPL/2.0/")
 APACHE_LLVM = ("Apache-2.0 WITH LLVM-exception", "https://llvm.org/LICENSE.txt")
 OFL = ("SIL OFL 1.1", "https://openfontlicense.org/open-font-license-official-text/")
 CC_BY_SA = ("CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0/")
-CC_BY = ("CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/")
-CC_BY_NZ = ("CC BY 3.0 NZ", "https://creativecommons.org/licenses/by/3.0/nz/")
-ECCC_LICENCE = "https://eccc-msc.github.io/open-data/licence/readme_en/"
-JMA_TERMS = "https://www.jma.go.jp/jma/en/copyright.html"
-CC0 = ("CC0 1.0", "https://creativecommons.org/publicdomain/zero/1.0/")
-ODBL = ("ODbL 1.0", "https://opendatacommons.org/licenses/odbl/1-0/")
-OGL_CANADA = ("OGL - Canada 2.0", "https://open.canada.ca/en/open-government-licence-canada")
-OGL_UK = ("OGL v3.0", "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/")
-LICENCE_OUVERTE = ("Licence Ouverte 2.0", "https://www.etalab.gouv.fr/licence-ouverte-open-licence/")
 
 # Note di attribuzione richieste dalle Open Government Licence, uguali nelle due lingue.
 OGL_NOTES = [
@@ -65,36 +56,8 @@ TEXTS = {
             (MPL, "Public Suffix List (in OkHttp)"),
             (OFL, "font Noto Sans (etichette della mappa)"),
             (CC_BY_SA, "modelli Pocket Travel, addestrati su testi di Wikivoyage e Wikipedia"),
-            (("Pubblico dominio", None), "Natural Earth (confini), OurAirports (aeroporti), bandiere (in gran parte)"),
         ],
-        "data_title": "Dati", "use": "Uso nell'app",
-        "data": [
-            (("OpenStreetMap", "https://www.openstreetmap.org/copyright"), ODBL, "mappe, punti di interesse, civici, ambasciate"),
-            (("Protomaps", "https://github.com/protomaps/basemaps"), ODBL, "mappa, mappa d'insieme e mappa del mondo"),
-            (("Wikivoyage", "https://www.wikivoyage.org"), CC_BY_SA, "guide (adattate, alcune sezioni tradotte automaticamente)"),
-            (("Wikipedia", "https://www.wikipedia.org"), CC_BY_SA, "storia e clima delle città; cucina, tradizioni, media e telecomunicazioni delle guide"),
-            (("Wikidata", "https://www.wikidata.org"), CC0, "fatti rapidi, ambasciate, compagnie aeree"),
-            (("Open-Meteo e GeoNames", "https://open-meteo.com"), CC_BY, "meteo e coordinate delle città, uso non commerciale"),
-            (("GDACS", "https://www.gdacs.org"), ("Termini d'uso GDACS", "https://www.gdacs.org/documents/2025/GDACS_Terms_of_use_Mar_25.pdf"),
-             "allerte in corso: catastrofi (allerte automatiche, non ufficiali)"),
-            (("U.S. Geological Survey", "https://earthquake.usgs.gov"), ("Pubblico dominio", None), "allerte in corso: terremoti"),
-            (("EUMETNET – MeteoAlarm", "https://meteoalarm.org"), ("Termini di MeteoAlarm", "https://meteoalarm.org/en/live/page/terms-and-conditions"),
-             "allerte in corso: allerte meteo dei servizi meteorologici nazionali europei"),
-            (("NOAA National Weather Service", "https://www.weather.gov"), ("Pubblico dominio", "https://www.weather.gov/disclaimer"),
-             "allerte in corso: allerte meteo degli Stati Uniti e tsunami (tsunami.gov)"),
-            (("Environment and Climate Change Canada", "https://weather.gc.ca"), ("Licenza d'uso dei server di dati ECCC", ECCC_LICENCE),
-             "allerte in corso: allerte meteo del Canada (testo originale invariato)"),
-            (("GeoNet", "https://www.geonet.org.nz"), CC_BY_NZ, "allerte in corso: livelli di allerta dei vulcani della Nuova Zelanda"),
-            (("Japan Meteorological Agency", "https://www.jma.go.jp/jma/indexe.html"), ("Termini d'uso JMA", JMA_TERMS),
-             "allerte in corso: allerte meteo del Giappone (testo modificato)"),
-            (("Travel.gc.ca", "https://travel.gc.ca"), OGL_CANADA, "numeri di emergenza, consigli di viaggio, vaccinazioni"),
-            (("gov.uk (FCDO)", "https://www.gov.uk/foreign-travel-advice"), OGL_UK,
-             "numeri di emergenza, consigli di viaggio di Palestina, Pitcairn e Wallis e Futuna, requisiti polio; "
-             "livello e ultima modifica dei consigli di viaggio, letti dal telefono"),
-            (("TravelHealthPro (UKHSA, NaTHNaC)", "https://travelhealthpro.org.uk"), OGL_UK, "vaccinazioni"),
-            (("France Diplomatie", "https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/"), LICENCE_OUVERTE,
-             "requisito polio dell'Egitto"),
-        ],
+        "data_title": "Dati", "use": "Uso nell'app", "public_domain": "Pubblico dominio",
         "gov_note": "I testi governativi sono adattati e riscritti, e non sono approvati dai governi che li pubblicano.",
         "addr": "Numeri civici",
         "addr_text": "Da OpenStreetMap e dai registri ufficiali raccolti da Overture Maps; le attribuzioni "
@@ -125,36 +88,8 @@ TEXTS = {
             (MPL, "Public Suffix List (in OkHttp)"),
             (OFL, "Noto Sans font (map labels)"),
             (CC_BY_SA, "Pocket Travel models, trained on Wikivoyage and Wikipedia texts"),
-            (("Public domain", None), "Natural Earth (borders), OurAirports (airports), flags (mostly)"),
         ],
-        "data_title": "Data", "use": "Use in the app",
-        "data": [
-            (("OpenStreetMap", "https://www.openstreetmap.org/copyright"), ODBL, "maps, points of interest, house numbers, embassies"),
-            (("Protomaps", "https://github.com/protomaps/basemaps"), ODBL, "map, overview map and world map"),
-            (("Wikivoyage", "https://www.wikivoyage.org"), CC_BY_SA, "guides (adapted, some sections machine-translated)"),
-            (("Wikipedia", "https://www.wikipedia.org"), CC_BY_SA, "city history and climate; cuisine, traditions, media and telecommunications in the guides"),
-            (("Wikidata", "https://www.wikidata.org"), CC0, "quick facts, embassies, airlines"),
-            (("Open-Meteo and GeoNames", "https://open-meteo.com"), CC_BY, "weather and city coordinates, non-commercial use"),
-            (("GDACS", "https://www.gdacs.org"), ("GDACS terms of use", "https://www.gdacs.org/documents/2025/GDACS_Terms_of_use_Mar_25.pdf"),
-             "active alerts: disasters (automatic notices, not official)"),
-            (("U.S. Geological Survey", "https://earthquake.usgs.gov"), ("Public domain", None), "active alerts: earthquakes"),
-            (("EUMETNET – MeteoAlarm", "https://meteoalarm.org"), ("MeteoAlarm terms", "https://meteoalarm.org/en/live/page/terms-and-conditions"),
-             "active alerts: weather alerts from European national meteorological services"),
-            (("NOAA National Weather Service", "https://www.weather.gov"), ("Public domain", "https://www.weather.gov/disclaimer"),
-             "active alerts: US weather alerts and tsunamis (tsunami.gov)"),
-            (("Environment and Climate Change Canada", "https://weather.gc.ca"), ("ECCC Data Servers End-use Licence", ECCC_LICENCE),
-             "active alerts: Canadian weather alerts (original text unchanged)"),
-            (("GeoNet", "https://www.geonet.org.nz"), CC_BY_NZ, "active alerts: New Zealand volcanic alert levels"),
-            (("Japan Meteorological Agency", "https://www.jma.go.jp/jma/indexe.html"), ("JMA terms of use", JMA_TERMS),
-             "active alerts: Japanese weather alerts (edited text)"),
-            (("Travel.gc.ca", "https://travel.gc.ca"), OGL_CANADA, "emergency numbers, travel advice, vaccinations"),
-            (("gov.uk (FCDO)", "https://www.gov.uk/foreign-travel-advice"), OGL_UK,
-             "emergency numbers, travel advice for Palestine, Pitcairn and Wallis and Futuna, polio requirements; "
-             "travel advice level and date of the last change, read from the phone"),
-            (("TravelHealthPro (UKHSA, NaTHNaC)", "https://travelhealthpro.org.uk"), OGL_UK, "vaccinations"),
-            (("France Diplomatie", "https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/"), LICENCE_OUVERTE,
-             "Egypt polio requirement"),
-        ],
+        "data_title": "Data", "use": "Use in the app", "public_domain": "Public domain",
         "gov_note": "Government texts are adapted and rewritten, and are not endorsed by the governments that publish them.",
         "addr": "House numbers",
         "addr_text": "From OpenStreetMap and the official registries collected by Overture Maps; the full "
@@ -166,6 +101,72 @@ TEXTS = {
         "empty": "No data published",
     },
 }
+
+ABOUTLIBRARIES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "app", "aboutlibraries")
+
+# Uso nell'app di ogni fonte di dati, per il nome delle sue definizioni in app/aboutlibraries/libraries (le definizioni
+# con lo stesso nome, come le tre di Travel.gc.ca, sono una riga sola). L'ordine e' quello della tabella.
+DATA_USE = {
+    "OpenStreetMap": ("mappe, punti di interesse, civici, ambasciate", "maps, points of interest, house numbers, embassies"),
+    "Protomaps": ("mappa, mappa d'insieme e mappa del mondo", "map, overview map and world map"),
+    "Natural Earth": ("confini della mappa del mondo", "world map borders"),
+    "OurAirports, Wikidata": ("aeroporti", "airports"),
+    "flags-vector-drawables-android": ("bandiere delle nazioni", "country flags"),
+    "Wikivoyage": ("guide (adattate, alcune sezioni tradotte automaticamente)", "guides (adapted, some sections machine-translated)"),
+    "Wikipedia": ("storia e clima delle città; cucina, tradizioni, media e telecomunicazioni delle guide",
+                  "city history and climate; cuisine, traditions, media and telecommunications in the guides"),
+    "Wikidata": ("fatti rapidi, ambasciate, compagnie aeree", "quick facts, embassies, airlines"),
+    "Open-Meteo.com, GeoNames": ("meteo e coordinate delle città, uso non commerciale", "weather and city coordinates, non-commercial use"),
+    "Global Disaster Alert and Coordination System, GDACS": ("allerte in corso: catastrofi (allerte automatiche, non ufficiali)",
+                                                             "active alerts: disasters (automatic alerts, not official)"),
+    "U.S. Geological Survey": ("allerte in corso: terremoti", "active alerts: earthquakes"),
+    "EUMETNET – MeteoAlarm": ("allerte in corso: allerte meteo dei servizi meteorologici nazionali europei",
+                              "active alerts: weather alerts from European national meteorological services"),
+    "NOAA National Weather Service": ("allerte in corso: allerte meteo degli Stati Uniti e tsunami (tsunami.gov)",
+                                      "active alerts: US weather alerts and tsunamis (tsunami.gov)"),
+    "Environment and Climate Change Canada": ("allerte in corso: allerte meteo del Canada (testo originale invariato)",
+                                              "active alerts: Canadian weather alerts (original text unchanged)"),
+    "GeoNet (Earth Sciences New Zealand)": ("allerte in corso: livelli di allerta dei vulcani della Nuova Zelanda",
+                                            "active alerts: New Zealand volcanic alert levels"),
+    "Japan Meteorological Agency": ("allerte in corso: allerte meteo del Giappone (testo modificato)",
+                                    "active alerts: Japanese weather alerts (edited text)"),
+    "Travel.gc.ca": ("numeri di emergenza, consigli di viaggio, vaccinazioni", "emergency numbers, travel advice, vaccinations"),
+    "gov.uk Foreign travel advice": ("numeri di emergenza, consigli di viaggio di Palestina, Pitcairn e Wallis e Futuna, "
+                                     "requisiti polio; livello e ultima modifica dei consigli di viaggio, letti dal telefono",
+                                     "emergency numbers, travel advice for Palestine, Pitcairn and Wallis and Futuna, polio "
+                                     "requirements; travel advice level and date of the last change, read from the phone"),
+    "TravelHealthPro": ("vaccinazioni", "vaccinations"),
+    "France Diplomatie": ("requisito polio dell'Egitto", "Egypt polio requirement"),
+}
+
+
+def data_sources(defs_dir=ABOUTLIBRARIES):
+    """Fonti di dati della schermata Licenze: (nome, sito, [(licenza, indirizzo, hash)]) per nome, nell'ordine di
+    DATA_USE. Una definizione senza uso in DATA_USE, o un nome di DATA_USE senza definizione, e' un errore."""
+    licenses = {}
+    for name in os.listdir(os.path.join(defs_dir, "licenses")):
+        with open(os.path.join(defs_dir, "licenses", name), encoding="utf-8") as f:
+            licenses[name[:-len(".json")]] = json.load(f)
+    by_name = {}
+    for name in sorted(os.listdir(os.path.join(defs_dir, "libraries"))):
+        with open(os.path.join(defs_dir, "libraries", name), encoding="utf-8") as f:
+            library = json.load(f)
+        if library.get("tag") != "data":
+            continue
+        rows = [(licenses[h]["name"], licenses[h].get("url"), h) for h in library["licenses"]]
+        by_name.setdefault(library["name"], (library["name"], library.get("website"), rows))
+    missing = set(by_name) - set(DATA_USE)
+    stale = set(DATA_USE) - set(by_name)
+    if missing or stale:
+        raise ValueError(f"DATA_USE non allineato a app/aboutlibraries: senza uso {sorted(missing)}, in piu' {sorted(stale)}")
+    return [by_name[name] for name in DATA_USE]
+
+
+def license_cell(rows, lang):
+    """Licenze di una fonte: il nome della definizione, "Pubblico dominio" per i testi public-domain-*."""
+    names = [(TEXTS[lang]["public_domain"] if h.startswith("public-domain") else name, url) for name, url, h in rows]
+    return ", ".join(link(name, url) for name, url in names)
+
 
 STYLE = """
 :root { color-scheme: light dark; --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --line: #d1d9e0; --link: #0969da; }
@@ -231,8 +232,9 @@ def link(text, url):
     return f'<a href="{html.escape(url)}">{html.escape(text)}</a>'
 
 
-def build_page(lang, attributions, feeds, regions, day):
+def build_page(lang, attributions, feeds, regions, day, sources=None):
     t = TEXTS[lang]
+    sources = data_sources() if sources is None else sources
     other = TEXTS["en" if lang == "it" else "it"]
     mit = link(t["mit"], f"{REPO_URL}/blob/main/LICENSE")
     out = [
@@ -250,8 +252,9 @@ def build_page(lang, attributions, feeds, regions, day):
         out.append(f"<tr><td>{link(*lic)}</td><td>{html.escape(components)}</td></tr>")
     out += ["</table></div>", f"<h2>{t['data_title']}</h2>",
             f'<div class="table"><table><tr><th>{t["source"]}</th><th>{t["license"]}</th><th>{t["use"]}</th></tr>']
-    for source, lic, use in t["data"]:
-        out.append(f"<tr><td>{link(*source)}</td><td>{link(*lic)}</td><td>{html.escape(use)}</td></tr>")
+    for name, website, licenses in sources:
+        use = DATA_USE[name][0 if lang == "it" else 1]
+        out.append(f"<tr><td>{link(name, website)}</td><td>{license_cell(licenses, lang)}</td><td>{html.escape(use)}</td></tr>")
     out.append("</table></div>")
     out += [f"<p>{html.escape(n)}</p>" for n in OGL_NOTES + [t["gov_note"]]]
     out.append(f"<h2>{t['addr']} ({len(attributions)})</h2><p>{t['addr_text']}</p>")

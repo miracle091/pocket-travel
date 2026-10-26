@@ -93,21 +93,27 @@ aboutLibraries {
     collect {
         configPath = file("aboutlibraries")
     }
-    // Una dipendenza con una licenza fuori da questo elenco fa fallire il build: va controllata prima di aggiungerla
-    // qui. LicenseDataTest controlla che ogni voce abbia un testo di licenza e i componenti fuori da Gradle.
+    // Una dipendenza con una licenza fuori da questo elenco fa fallire il build: una licenza di codice va controllata
+    // prima di aggiungerla qui. Le licenze di modelli e dati vengono dalle loro definizioni (sotto): una fonte nuova
+    // entra con i suoi due file in app/aboutlibraries. LicenseDataTest controlla che ogni voce abbia un testo di
+    // licenza e che ogni definizione arrivi nella schermata.
     license {
         strictMode = com.mikepenz.aboutlibraries.plugin.StrictMode.FAIL
         allowedLicenses.addAll(
-            // Codice
             "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "MIT", "BSD-2-Clause", "BSD-3-Clause", "0BSD", "MPL-2.0", "OFL-1.1",
-            // Modelli e dati
-            "CC-BY-SA-4.0", "ODbL-1.0", "CC0-1.0", "CC-BY-4.0", "OGL-Canada-2.0", "OGL-UK-3.0", "etalab-2.0",
-            "public-domain-natural-earth", "public-domain-ourairports", "wikimedia-commons-flags",
-            "gdacs-terms", "public-domain-usgs", "meteoalarm-terms", "public-domain-nws", "eccc-end-use-licence",
-            "CC-BY-3.0-NZ", "jma-terms",
         )
+        allowedLicenses.addAll(dataAndModelLicenses())
     }
 }
+
+// Licenze delle definizioni con tag "data" o "models" di app/aboutlibraries/libraries: sono le fonti scelte a mano,
+// ognuna con il suo testo in licenses/. Le licenze di codice restano nell'elenco esplicito sopra.
+fun dataAndModelLicenses(): List<String> =
+    file("aboutlibraries/libraries").listFiles { f -> f.extension == "json" }.orEmpty().sortedBy { it.name }.flatMap { f ->
+        @Suppress("UNCHECKED_CAST")
+        val definition = groovy.json.JsonSlurper().parse(f) as Map<String, Any?>
+        if (definition["tag"] in setOf("data", "models")) (definition["licenses"] as List<String>) else emptyList()
+    }.distinct()
 
 // LicenseDataTest legge i JSON generati per debug e release.
 tasks.withType<Test>().configureEach {

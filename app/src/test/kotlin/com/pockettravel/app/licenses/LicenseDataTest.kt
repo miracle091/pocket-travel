@@ -27,6 +27,8 @@ class LicenseDataTest {
 
         val missing = outsideGradle - ids
 
+        // Una definizione per file, ognuna con il suo uniqueId: altrimenti il controllo passerebbe a vuoto.
+        assertEquals(definitionFiles.size, outsideGradle.size)
         assertTrue("$variant: senza definizione $missing", missing.isEmpty())
     }
 
@@ -153,21 +155,10 @@ class LicenseDataTest {
     private companion object {
         val noticeLicenses = setOf("MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC")
 
-        // Nell'APK o usati dall'app ma fuori dalle dipendenze Gradle: definizioni in app/aboutlibraries/libraries.
-        val outsideGradle = setOf(
-            "org.ggml:llama.cpp", "com.github.nlohmann:json", "com.github.yhirose:cpp-httplib", "com.arm:kleidiai",
-            "org.llvm:openmp", "btools:brouter", "com.google:material-symbols", "com.google:noto-sans",
-            "org.publicsuffix:list", "pockettravel.models:qwen", "pockettravel.models:trained",
-            "pockettravel.data:openstreetmap", "pockettravel.data:protomaps", "pockettravel.data:natural-earth",
-            "pockettravel.data:airports", "pockettravel.data:flags", "pockettravel.data:wikivoyage",
-            "pockettravel.data:wikipedia", "pockettravel.data:wikidata", "pockettravel.data:weather",
-            "pockettravel.data:emergency-canada", "pockettravel.data:emergency-uk",
-            "pockettravel.data:travel-advice-canada", "pockettravel.data:travel-advice-uk",
-            "pockettravel.data:vaccinations-canada", "pockettravel.data:vaccinations-uk",
-            "pockettravel.data:vaccinations-fcdo", "pockettravel.data:vaccinations-france",
-            "pockettravel.data:alerts-gdacs", "pockettravel.data:alerts-usgs", "pockettravel.data:alerts-meteoalarm",
-            "pockettravel.data:alerts-nws", "pockettravel.data:alerts-eccc", "pockettravel.data:alerts-geonet",
-            "pockettravel.data:alerts-jma",
-        )
+        // Nell'APK o usati dall'app ma fuori dalle dipendenze Gradle (e correzioni dei POM): le definizioni a mano di
+        // app/aboutlibraries/libraries, lette dalla cartella cosi' una fonte nuova non va elencata anche qui.
+        val definitionFiles: List<File> = File("aboutlibraries/libraries").listFiles { f -> f.extension == "json" }.orEmpty().toList()
+        val outsideGradle: Set<String> = definitionFiles
+            .mapNotNull { Regex(""""uniqueId"\s*:\s*"([^"]+)"""").find(it.readText())?.groupValues?.get(1) }.toSet()
     }
 }

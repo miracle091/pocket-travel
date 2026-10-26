@@ -49,7 +49,7 @@ The [developer guide](docs/GUIDA.md) (in Italian) explains how to set up the env
 | Database | every Room schema change has a migration in `Migrations.kt` and a test in `RegionDatabaseMigrationTest` |
 | Third parties | BRouter and llama.cpp are not edited: changes are patches in `third-party/patches/` |
 | Texts | every string in Italian (`values/`) and English (`values-en/`), with the terms and rules of [STYLE.md](docs/STYLE.md) |
-| Data | every new source has a compatible open license and is added to the Licenses screen (`app/aboutlibraries`, name and note in `LicenseData.kt`) and to the [licenses page](https://miracle091.github.io/pocket-travel/licenses-en.html) (`tools/data-pipeline/scripts/licenses_page.py`); no large generated files in the repository |
+| Data | every new source has a compatible open license and enters the Licenses screen with two files in `app/aboutlibraries` (`libraries/` with name, website and license, `tag` `data`; `licenses/` with the text), name and note in `LicenseData.kt` and its use in the app in `DATA_USE` of `tools/data-pipeline/scripts/licenses_page.py`: the license becomes allowed in the build and the source shows up on the [licenses page](https://miracle091.github.io/pocket-travel/licenses-en.html) by itself, and the tests flag the missing entries; no large generated files in the repository |
 
 ## Commit messages
 
