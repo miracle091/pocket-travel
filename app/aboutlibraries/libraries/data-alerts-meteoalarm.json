@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:alerts-meteoalarm",
+  "name": "EUMETNET – MeteoAlarm",
+  "website": "https://meteoalarm.org",
+  "licenses": [
+    "meteoalarm-terms"
+  ],
+  "tag": "data"
+}

@@ -24,6 +24,7 @@ enum class AlertLevel { LOW, MODERATE, HIGH, EXTREME }
  * @property url pagina della fonte con il dettaglio.
  * @property magnitude magnitudo di un terremoto (USGS).
  * @property feltReports segnalazioni di chi ha sentito la scossa (USGS "Did You Feel It?"), se ci sono.
+ * @property issuedAt ora di emissione del messaggio (Meteoalarm, `cap:sent`), da mostrare accanto all'allerta.
  * @property impactAlert allerta PAGER sui danni stimati di un terremoto (USGS: green, yellow, orange, red), se c'e'.
  */
 data class Alert(
@@ -42,6 +43,7 @@ data class Alert(
     val magnitude: Double? = null,
     val feltReports: Int? = null,
     val impactAlert: String? = null,
+    val issuedAt: Instant? = null,
 ) {
     /** Vero se la validita' non e' finita a [now]. */
     fun isActiveAt(now: Instant): Boolean = endsAt?.isAfter(now) != false

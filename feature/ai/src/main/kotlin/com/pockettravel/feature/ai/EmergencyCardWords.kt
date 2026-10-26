@@ -34,3 +34,29 @@ private val lifeThreatWords = Regex(
 
 /** True se la domanda parla di un pericolo per la vita in corso (italiano o inglese). */
 internal fun isLifeThreatening(question: String): Boolean = lifeThreatWords.containsMatchIn(folded(question))
+
+/**
+ * Catastrofi naturali ed eventi meteo estremi: con la rete il riquadro dell'assistente mostra le allerte in corso nella
+ * regione ("c'e' un terremoto?", "is there a hurricane warning?"). Anche al plurale e nelle domande informative, perche'
+ * le allerte servono proprio a chi chiede. Stesso confronto di [isLifeThreatening].
+ */
+private val disasterIt = listOf(
+    """terremot[oi]""", """scoss[ae] (di terremoto|sismic[ah]e?)""", """sism[ai]""", """alluvion[ei]""", """inondazion[ei]""",
+    """esondazion[ei]""", """nubifragi[oi]""", """uragan[oi]""", """ciclon[ei]""", """tifon[ei]""", """tempest[ae]""",
+    """tsunami""", """maremot[oi]""", """incendi[o]?( boschiv[oi])?""", """eruzion[ei]""", """vulcan[oi]""", """fran[ae]""",
+    """valanghe?""", """slavin[ae]""", """siccita""", """tromb[ae] d'aria""", """allert[ae]( meteo)?""", """emergenza meteo""",
+)
+
+private val disasterEn = listOf(
+    """earthquakes?""", """quakes?""", """tremors?""", """floods?""", """flooding""", """flash floods?""", """hurricanes?""",
+    """cyclones?""", """typhoons?""", """storms?""", """tsunamis?""", """wildfires?""", """bushfires?""", """forest fires?""",
+    """eruptions?""", """volcano(es)?""", """volcanic""", """landslides?""", """avalanches?""", """droughts?""", """tornado(es)?""",
+    """(weather )?alerts?""", """(weather )?warnings?""",
+)
+
+private val disasterWords = Regex(
+    (disasterIt + disasterEn).joinToString("|", prefix = """\b(""", postfix = """)\b"""),
+)
+
+/** True se la domanda parla di una catastrofe naturale o di un'allerta meteo (italiano o inglese). */
+internal fun isDisasterQuestion(question: String): Boolean = disasterWords.containsMatchIn(folded(question))

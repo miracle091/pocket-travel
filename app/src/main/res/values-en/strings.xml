@@ -259,6 +259,12 @@
     <string name="licenses_note_wikidata">Data dedicated to the public domain</string>
     <string name="licenses_component_weather">Weather: Open-Meteo.com (forecasts) and GeoNames (city locations)</string>
     <string name="licenses_note_weather">Weather data by Open-Meteo.com, non-commercial use. City coordinates from the Open-Meteo geocoding, based on GeoNames</string>
+    <string name="licenses_component_alerts_gdacs">Active alerts: disasters from GDACS</string>
+    <string name="licenses_note_alerts_gdacs">Disaster alerts from the Global Disaster Alert and Coordination System, GDACS (European Commission and United Nations). Automatic notices, not reviewed by experts and not a substitute for official alerts</string>
+    <string name="licenses_component_alerts_usgs">Active alerts: earthquakes from the U.S. Geological Survey</string>
+    <string name="licenses_note_alerts_usgs">Earthquakes from the U.S. Geological Survey, public domain</string>
+    <string name="licenses_component_alerts_meteoalarm">Active alerts: European weather alerts from EUMETNET – MeteoAlarm</string>
+    <string name="licenses_note_alerts_meteoalarm">Weather alerts from the national meteorological services via EUMETNET – MeteoAlarm, terms equivalent to CC BY 4.0 with additional requirements. Original text always shown, delays possible compared to www.meteoalarm.org</string>
     <string name="licenses_component_emergency_canada">Emergency numbers: Travel.gc.ca (Government of Canada)</string>
     <string name="licenses_note_emergency_canada">Contains information licensed under the Open Government Licence – Canada. Cross-checked with Wikipedia (CC BY-SA 4.0) and Wikidata (CC0)</string>
     <string name="licenses_component_emergency_uk">Emergency numbers: gov.uk Foreign travel advice (UK government)</string>

@@ -23,6 +23,9 @@ object MeteoalarmParser {
     private const val ACTUAL = "Actual"
     private const val CANCEL = "Cancel"
 
+    // Testo esterno: un nome di servizio non supera qualche decina di caratteri.
+    private const val MAX_SENDER_CHARS = 120
+
     private val SEVERITIES = mapOf(
         "Minor" to AlertLevel.LOW,
         "Moderate" to AlertLevel.MODERATE,
@@ -69,8 +72,28 @@ object MeteoalarmParser {
             area = null,
             areaName = entry.cap("areaDesc"),
             url = relatedLink(entry),
+            issuedAt = entry.cap("sent")?.let(::instant),
         )
     }
+
+    /** Indirizzo del messaggio CAP della prima voce del feed (`type="application/cap+xml"`), null se non ce n'e'. */
+    fun firstCapUrl(body: String): String? {
+        val entries = document(body).getElementsByTagNameNS(ATOM, "entry")
+        val entry = entries.item(0) as? Element ?: return null
+        val links = entry.getElementsByTagNameNS(ATOM, "link")
+        return (0 until links.length).map { links.item(it) as? Element }
+            .firstOrNull { it?.getAttribute("type") == "application/cap+xml" }
+            ?.getAttribute("href")?.takeIf { it.startsWith("https://") }
+    }
+
+    /**
+     * Nome del servizio meteorologico nazionale (`senderName`) in un messaggio CAP: il feed Atom non lo ha, e Meteoalarm
+     * chiede di mostrarlo accanto alle allerte di un paese. Null se manca o il messaggio non si legge.
+     */
+    fun senderName(capXml: String): String? = runCatching {
+        val names = document(capXml).getElementsByTagNameNS(CAP, "senderName")
+        names.item(0)?.textContent?.trim()?.takeIf { it.isNotEmpty() && it.length <= MAX_SENDER_CHARS }
+    }.getOrNull()
 
     private fun instant(text: String): Instant? =
         try {

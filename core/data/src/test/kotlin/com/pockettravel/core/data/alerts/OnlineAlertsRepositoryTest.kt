@@ -51,6 +51,7 @@ class OnlineAlertsRepositoryTest {
             val body = when {
                 "gdacs" in url -> fixture("gdacs_events.json")
                 "usgs" in url -> fixture("usgs_events.json")
+                "/api/v1/warnings/" in url -> fixture("meteoalarm_cap.xml")
                 "meteoalarm" in url -> fixture("meteoalarm_events.xml")
                 else -> error("indirizzo inatteso: $url")
             }
@@ -87,9 +88,12 @@ class OnlineAlertsRepositoryTest {
         assertTrue(result.alerts.any { it.source == AlertSource.USGS })
         assertTrue(result.alerts.any { it.source == AlertSource.METEOALARM })
         assertTrue(result.alerts.all { it.area == null || it.area.intersects(AlertBounds(6.6, 35.5, 18.5, 47.1)) })
-        // Cinque richieste: due a GDACS, due a USGS, Meteoalarm per l'Italia; nessuna con coordinate.
-        assertEquals(5, requested.size)
+        // Sei richieste: due a GDACS, due a USGS, Meteoalarm per l'Italia e un suo messaggio CAP; nessuna con coordinate.
+        assertEquals(6, requested.size)
         assertTrue(requested.any { it.endsWith("meteoalarm-legacy-atom-italy") })
+        // Il nome del servizio nazionale viene dal messaggio CAP: il feed Atom non lo ha.
+        assertEquals("Italian Air Force National Meteorological Service", result.meteoalarmSender)
+        assertTrue(result.alerts.filter { it.source == AlertSource.METEOALARM }.all { it.issuedAt != null })
     }
 
     @Test

@@ -1,0 +1,6 @@
+{
+  "name": "GDACS terms of use",
+  "url": "https://www.gdacs.org/documents/2025/GDACS_Terms_of_use_Mar_25.pdf",
+  "hash": "gdacs-terms",
+  "content": "GDACS data are free and available through its APIs. We only request to acknowledge the source as \"Global Disaster Alert and Coordination System, GDACS\". GDACS alerts for earthquakes, tsunamis and tropical cyclones are automatic, produced by algorithms and not reviewed by human experts. They are not meant to substitute nor to override any official information or alert message, and should not be used for decision making without prior confirmation of their validity. Content of the European Commission is licensed under CC BY 4.0. Full terms: https://www.gdacs.org/documents/2025/GDACS_Terms_of_use_Mar_25.pdf"
+}

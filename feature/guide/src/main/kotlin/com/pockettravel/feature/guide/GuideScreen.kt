@@ -32,6 +32,7 @@ import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.poi.PoiCategory
+import com.pockettravel.core.ui.AlertsCard
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CardDescription
 import com.pockettravel.core.ui.EmptyState
@@ -176,6 +177,11 @@ private fun GuideSectionsList(
             uiState.weather?.let { weather ->
                 item(key = "weather") {
                     WeatherCard(weather, onOpenSource = onOpenSource, onRefresh = onRefreshWeather, modifier = Modifier.padding(horizontal = Spacing.l))
+                }
+            }
+            uiState.alerts?.let { alerts ->
+                item(key = "alerts") {
+                    AlertsCard(alerts, onOpenSource = onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
                 }
             }
             if (uiState.emergencyNumbers != null || uiState.noCentralEmergencyNumber || uiState.embassiesCountry != null) {

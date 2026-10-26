@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:alerts-gdacs",
+  "name": "Global Disaster Alert and Coordination System, GDACS",
+  "website": "https://www.gdacs.org",
+  "licenses": [
+    "gdacs-terms"
+  ],
+  "tag": "data"
+}

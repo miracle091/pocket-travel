@@ -74,4 +74,17 @@
     <string name="weather_rain">Rain</string>
     <string name="weather_snow">Snow</string>
     <string name="weather_thunderstorm">Thunderstorm</string>
+    <string name="alerts_title">Active alerts</string>
+    <string name="alerts_none">No active alerts in this region</string>
+    <string name="alerts_show_all">Show all (%1$d)</string>
+    <string name="alerts_issued">Issued at %1$s</string>
+    <string name="alerts_issued_on">Issued on %1$s</string>
+    <string name="alerts_source_updated">Source: %1$s · updated at %2$s</string>
+    <string name="alerts_source_updated_on">Source: %1$s · updated on %2$s</string>
+    <string name="alerts_offline">Last alerts downloaded at %1$s</string>
+    <string name="alerts_offline_on">Last alerts downloaded on %1$s</string>
+    <string name="alerts_source">Source: %1$s</string>
+    <string name="alerts_source_meteoalarm">Source: %1$s via EUMETNET – MeteoAlarm</string>
+    <string name="alerts_meteoalarm_delays">Time delays between this app and the www.meteoalarm.org website are possible. For the most up-to-date awareness information as published by the participating National Meteorological and Hydrological Services, please refer to www.meteoalarm.org</string>
+    <string name="alerts_disclaimer">Not official and probably out of date: follow the instructions of the local authorities</string>
 </resources>

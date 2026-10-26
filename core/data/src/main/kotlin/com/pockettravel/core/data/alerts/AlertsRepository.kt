@@ -25,7 +25,13 @@ import javax.inject.Inject
  * Allerte in corso di una regione. [updatedAtMillis] e' il download piu' vecchio tra le fonti usate; [fresh] e' falso se
  * almeno una fonte non si e' aggiornata (niente rete): l'interfaccia lo dice ("Ultime allerte scaricate alle").
  */
-data class RegionAlerts(val alerts: List<Alert>, val updatedAtMillis: Long, val fresh: Boolean)
+data class RegionAlerts(
+    val alerts: List<Alert>,
+    val updatedAtMillis: Long,
+    val fresh: Boolean,
+    // Servizio meteorologico nazionale delle allerte Meteoalarm ("Fonte: %1$s tramite EUMETNET – MeteoAlarm"), se noto.
+    val meteoalarmSender: String? = null,
+)
 
 /** Allerte delle fonti aperte per una regione installata. Implementazione: [OnlineAlertsRepository]. */
 interface AlertsRepository {
@@ -69,6 +75,7 @@ class OnlineAlertsRepository(
             alerts = selectAlerts(loaded.flatMap { it.alerts }, bounds, countryCode, clock.instant()),
             updatedAtMillis = loaded.minOf { it.updatedAtMillis },
             fresh = loaded.all { it.fresh },
+            meteoalarmSender = meteoalarmCountry(countryCode)?.let { senderFile(it).takeIf(File::isFile)?.readText() },
         )
     }
 
@@ -80,7 +87,9 @@ class OnlineAlertsRepository(
             Source("gdacs-green", AlertUrls.gdacsGreen(from, today), JsonAlertParsers::parseGdacs),
             Source("usgs-day", AlertUrls.usgsDay(), JsonAlertParsers::parseUsgs),
             Source("usgs-significant", AlertUrls.usgsSignificantWeek(), JsonAlertParsers::parseUsgs),
-            meteoalarmCountry(countryCode)?.let { Source("meteoalarm-$it", AlertUrls.meteoalarm(it), MeteoalarmParser::parse) },
+            meteoalarmCountry(countryCode)?.let { country ->
+                Source("meteoalarm-$country", AlertUrls.meteoalarm(country), MeteoalarmParser::parse) { body -> saveSender(country, body) }
+            },
         )
     }
 
@@ -92,6 +101,7 @@ class OnlineAlertsRepository(
             val body = get(source.url)
             source.parse(body)
             save(file, body)
+            source.afterDownload(body)
             true
         } catch (cancellation: CancellationException) {
             throw cancellation
@@ -123,7 +133,25 @@ class OnlineAlertsRepository(
         response.body.string()
     }
 
-    private class Source(val key: String, val url: String, val parse: (String) -> List<Alert>)
+    // Meteoalarm chiede il nome del servizio nazionale accanto alle allerte di un paese: il feed Atom non lo ha, il messaggio
+    // CAP di una sua voce si'. Uno solo per download; se non si legge resta il nome salvato prima.
+    private fun saveSender(country: String, feed: String) {
+        val name = try {
+            MeteoalarmParser.firstCapUrl(feed)?.let(::get)?.let(MeteoalarmParser::senderName)
+        } catch (_: IOException) {
+            null
+        } ?: return
+        senderFile(country).writeText(name)
+    }
+
+    private fun senderFile(country: String) = File(cacheDir, "meteoalarm-$country.sender")
+
+    private class Source(
+        val key: String,
+        val url: String,
+        val parse: (String) -> List<Alert>,
+        val afterDownload: (String) -> Unit = {},
+    )
 
     private class Loaded(val alerts: List<Alert>, val updatedAtMillis: Long, val fresh: Boolean)
 

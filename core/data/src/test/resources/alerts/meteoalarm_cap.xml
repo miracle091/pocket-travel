@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.380.3.IT.261025103222.015</identifier>
+  <sent>2026-10-25T10:32:22+01:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <scope>Public</scope>
+  <info>
+    <language>en-GB</language>
+    <category>Met</category>
+    <event>Yellow Wind Warning</event>
+    <urgency>Future</urgency>
+    <severity>Moderate</severity>
+    <certainty>Likely</certainty>
+    <senderName>Italian Air Force National Meteorological Service</senderName>
+    <headline>Yellow Wind Warning for Italy - Basilicata</headline>
+  </info>
+</alert>

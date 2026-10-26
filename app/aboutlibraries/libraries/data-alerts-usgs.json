@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:alerts-usgs",
+  "name": "U.S. Geological Survey",
+  "website": "https://earthquake.usgs.gov",
+  "licenses": [
+    "public-domain-usgs"
+  ],
+  "tag": "data"
+}

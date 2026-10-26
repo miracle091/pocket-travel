@@ -24,6 +24,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.EmergencyNumbersRepository
+import com.pockettravel.core.data.alerts.AlertsRepository
+import com.pockettravel.core.data.alerts.RegionAlerts
+import com.pockettravel.core.ui.AlertsCard
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
 import kotlinx.coroutines.CancellationException
@@ -35,8 +38,12 @@ enum class EmergencyLabel { GENERAL, SINGLE, POLICE, AMBULANCE, FIRE }
 /** Un numero da chiamare; [labels] sono i servizi che lo condividono (es. Giappone: ambulanza e vigili del fuoco). */
 data class EmergencyCallEntry(val labels: List<EmergencyLabel>, val number: String)
 
-/** Il riquadro di emergenza di una domanda; [entries] vuoto = la regione non ha un numero di emergenza centralizzato. */
-data class EmergencyCardState(val entries: List<EmergencyCallEntry>)
+/**
+ * Il riquadro di emergenza di una domanda. [entries] null: la domanda non parla di un pericolo per la vita, niente numeri;
+ * vuoto: la regione non ha un numero di emergenza centralizzato. [alerts]: allerte in corso nella regione per una domanda su
+ * una catastrofe, null senza.
+ */
+data class EmergencyCardState(val entries: List<EmergencyCallEntry>?, val alerts: RegionAlerts? = null)
 
 /**
  * Numeri del riquadro di emergenza. Con un numero generale uguale a tutti gli altri (112 in Andorra, 911 negli Stati
@@ -62,23 +69,38 @@ internal fun EmergencyNumbers.callEntries(): List<EmergencyCallEntry> {
  */
 class EmergencyCardProvider @Inject constructor(
     private val emergencyNumbersRepository: EmergencyNumbersRepository,
+    private val alertsRepository: AlertsRepository,
 ) {
-    /** Il riquadro per [question] nella regione [regionId]; null se la domanda non parla di un pericolo per la vita. */
+    /**
+     * Il riquadro per [question] nella regione [regionId]: i numeri se la domanda parla di un pericolo per la vita, le allerte
+     * in corso se parla di una catastrofe; null se nessuna delle due.
+     */
     suspend fun forQuestion(regionId: String, question: String): EmergencyCardState? {
-        if (!isLifeThreatening(question)) return null
-        val numbers = try {
-            emergencyNumbersRepository.forRegion(regionId)
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Exception) {
-            null
-        }
-        return EmergencyCardState(numbers?.callEntries().orEmpty())
+        val entries = if (isLifeThreatening(question)) orNull { emergencyNumbersRepository.forRegion(regionId) }?.callEntries().orEmpty() else null
+        val alerts = if (isDisasterQuestion(question)) orNull { alertsRepository.alerts(regionId) } else null
+        return if (entries == null && alerts == null) null else EmergencyCardState(entries, alerts)
+    }
+
+    // Un errore della base dati o della rete non deve fermare la domanda: il riquadro resta senza quella parte.
+    private suspend fun <T> orNull(block: suspend () -> T?): T? = try {
+        block()
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Exception) {
+        null
     }
 }
 
 @Composable
-internal fun EmergencyCard(state: EmergencyCardState, modifier: Modifier = Modifier) {
+internal fun EmergencyCard(state: EmergencyCardState, onOpenSource: (url: String) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+        state.entries?.let { EmergencyNumbersCard(it) }
+        state.alerts?.let { alerts -> AlertsCard(alerts, onOpenSource = { url, _ -> onOpenSource(url) }) }
+    }
+}
+
+@Composable
+private fun EmergencyNumbersCard(entries: List<EmergencyCallEntry>, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     Surface(
         color = MaterialTheme.colorScheme.errorContainer,
@@ -92,10 +114,10 @@ internal fun EmergencyCard(state: EmergencyCardState, modifier: Modifier = Modif
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.semantics { heading() },
             )
-            if (state.entries.isEmpty()) {
+            if (entries.isEmpty()) {
                 Text(stringResource(R.string.ai_emergency_none), style = MaterialTheme.typography.bodyMedium)
             }
-            state.entries.forEach { entry ->
+            entries.forEach { entry ->
                 val label = entry.labels.map { stringResource(it.labelRes()) }.joinToString(" / ")
                 Button(
                     onClick = {

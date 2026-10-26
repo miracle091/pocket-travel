@@ -127,6 +127,11 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Frase sotto ogni allerta | Informazioni non ufficiali e probabilmente non aggiornate: segui le direttive locali delle autorità | Not official and probably out of date: follow the instructions of the local authorities |
 | Fonte e ora delle allerte | Fonte: %1$s · aggiornate alle %2$s; senza rete: Ultime allerte scaricate alle %1$s | Source: %1$s · updated at %2$s; offline: Last alerts downloaded at %1$s |
 | Riquadro delle allerte senza allerte nella regione | Nessuna allerta in corso nella regione | No active alerts in this region |
+| Ora delle allerte di un altro giorno | Fonte: %1$s · aggiornate il %2$s; senza rete: Ultime allerte scaricate il %1$s | Source: %1$s · updated on %2$s; offline: Last alerts downloaded on %1$s |
+| Ora di emissione di un'allerta (Meteoalarm) | Emessa alle %1$s (altro giorno: Emessa il %1$s) | Issued at %1$s (other day: Issued on %1$s) |
+| Fonte delle allerte meteo europee | Fonte: %1$s tramite EUMETNET – MeteoAlarm (%1$s è il servizio meteorologico nazionale) | Source: %1$s via EUMETNET – MeteoAlarm |
+| Frase sotto le allerte di Meteoalarm, chiesta dai suoi termini | Sono possibili ritardi tra questa app e il sito www.meteoalarm.org. Per le informazioni più aggiornate pubblicate dai servizi meteorologici e idrologici nazionali partecipanti si rimanda a www.meteoalarm.org | Time delays between this app and the www.meteoalarm.org website are possible. For the most up-to-date awareness information as published by the participating National Meteorological and Hydrological Services, please refer to www.meteoalarm.org |
+| Pulsante che mostra tutte le allerte di un riquadro | Mostra tutte (%1$d) | Show all (%1$d) |
 | Avviso nella guida quando il consiglio di viaggio è cambiato dopo il pacchetto | Consigli di viaggio aggiornati il %1$s, con il pulsante Apri | Travel advice updated on %1$s, with the Open button |
 | Allerta tradotta o riassunta dall'assistente | Riassunto dall'assistente, testo originale qui sotto | Summarized by the assistant, original text below |
 | Azione che condivide un modello o i contenuti di una regione con un altro telefono, senza internet | Invia a un altro telefono | Send to another phone |

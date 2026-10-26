@@ -65,4 +65,35 @@ class EmergencyCardWordsTest {
             "Is the tap water safe to drink?",
         ).forEach { assertFalse(it, isLifeThreatening(it)) }
     }
+
+    @Test
+    fun `disasters show the alerts`() {
+        listOf(
+            "C'è stato un terremoto?",
+            "Ci sono alluvioni in Liguria?",
+            "Arriva un uragano?",
+            "Il vulcano è in eruzione?",
+            "Ci sono incendi boschivi vicino a Olbia?",
+            "C'è un'allerta meteo per domani?",
+            "Pericolo di valanghe sulle Dolomiti?",
+            "Was there an earthquake today?",
+            "Is there a hurricane warning?",
+            "Any wildfires near Athens?",
+            "Flooding in Valencia?",
+            "Is the volcano erupting? Any eruption alerts?",
+        ).forEach { assertTrue(it, isDisasterQuestion(it)) }
+    }
+
+    @Test
+    fun `ordinary questions do not show the alerts`() {
+        listOf(
+            "Dove dormire a Roma?",
+            "Che tempo fa domani?",
+            "Com'è il clima a Spalato?",
+            "Quali piatti tipici devo assaggiare?",
+            "Is Lisbon safe at night?",
+            "What is the weather like in May?",
+            "Where can I go swimming?",
+        ).forEach { assertFalse(it, isDisasterQuestion(it)) }
+    }
 }

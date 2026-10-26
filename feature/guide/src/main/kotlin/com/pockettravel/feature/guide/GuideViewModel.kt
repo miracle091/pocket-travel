@@ -20,6 +20,8 @@ import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.WeatherRepository
 import com.pockettravel.core.data.WeatherResult
+import com.pockettravel.core.data.alerts.AlertsRepository
+import com.pockettravel.core.data.alerts.RegionAlerts
 import com.pockettravel.core.data.isGuideSectionFor
 import com.pockettravel.core.ui.PlaceWeather
 import com.pockettravel.core.poi.PoiCategory
@@ -60,6 +62,8 @@ data class GuideUiState(
     val mainCities: List<MainCity> = emptyList(),
     // Meteo della posizione (se dentro la regione) o della capitale; null finche' non c'e' o senza rete e cache.
     val weather: PlaceWeather? = null,
+    // Allerte in corso nella regione (GDACS, USGS, Meteoalarm); null finche' non arrivano o senza rete e senza allerte salvate.
+    val alerts: RegionAlerts? = null,
     val isLoading: Boolean = true,
     @StringRes val loadError: Int? = null,
 )
@@ -84,6 +88,7 @@ class GuideViewModel @Inject constructor(
     private val lastKnownPosition: LastKnownPosition,
     private val weatherRepository: WeatherRepository,
     private val lastOpenedCityGuide: LastOpenedCityGuide,
+    private val alertsRepository: AlertsRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GuideUiState())
@@ -100,6 +105,7 @@ class GuideViewModel @Inject constructor(
     private var loadJob: Job? = null
     private var embassiesJob: Job? = null
     private var weatherJob: Job? = null
+    private var alertsJob: Job? = null
     private var cityWeatherJob: Job? = null
     private var citySectionsJob: Job? = null
     private var loadedCityKey: Pair<String, String>? = null
@@ -147,6 +153,19 @@ class GuideViewModel @Inject constructor(
         weatherJob = viewModelScope.launch {
             val weather = regionWeather(regionId)
             _uiState.update { it.copy(weather = weather) }
+        }
+        alertsJob?.cancel()
+        _uiState.update { it.copy(alerts = null) }
+        alertsJob = viewModelScope.launch {
+            // Le allerte non devono mai fermare la guida: un errore inatteso lascia il riquadro nascosto.
+            val alerts = try {
+                alertsRepository.alerts(regionId)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                null
+            }
+            _uiState.update { it.copy(alerts = alerts) }
         }
         // Su tablet il ViewModel e' condiviso fra le regioni scelte: il caricamento lento della precedente
         // non deve arrivare dopo e sovrascrivere quella nuova.

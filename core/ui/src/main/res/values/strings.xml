@@ -74,4 +74,17 @@
     <string name="weather_rain">Pioggia</string>
     <string name="weather_snow">Neve</string>
     <string name="weather_thunderstorm">Temporale</string>
+    <string name="alerts_title">Allerte in corso</string>
+    <string name="alerts_none">Nessuna allerta in corso nella regione</string>
+    <string name="alerts_show_all">Mostra tutte (%1$d)</string>
+    <string name="alerts_issued">Emessa alle %1$s</string>
+    <string name="alerts_issued_on">Emessa il %1$s</string>
+    <string name="alerts_source_updated">Fonte: %1$s · aggiornate alle %2$s</string>
+    <string name="alerts_source_updated_on">Fonte: %1$s · aggiornate il %2$s</string>
+    <string name="alerts_offline">Ultime allerte scaricate alle %1$s</string>
+    <string name="alerts_offline_on">Ultime allerte scaricate il %1$s</string>
+    <string name="alerts_source">Fonte: %1$s</string>
+    <string name="alerts_source_meteoalarm">Fonte: %1$s tramite EUMETNET – MeteoAlarm</string>
+    <string name="alerts_meteoalarm_delays">Sono possibili ritardi tra questa app e il sito www.meteoalarm.org. Per le informazioni più aggiornate pubblicate dai servizi meteorologici e idrologici nazionali partecipanti si rimanda a www.meteoalarm.org</string>
+    <string name="alerts_disclaimer">Informazioni non ufficiali e probabilmente non aggiornate: segui le direttive locali delle autorità</string>
 </resources>
