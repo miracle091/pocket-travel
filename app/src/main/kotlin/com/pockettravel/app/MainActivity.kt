@@ -109,8 +109,6 @@ class MainActivity : FragmentActivity() {
     }
 }
 
-// Notifica di aggiornamento o di allerta toccata: la schermata da aprire passa al NavHost. Solo i valori noti, poi l'extra si toglie
-// (una ricreazione dell'activity non la riaprirebbe).
 // Scrim della barra di navigazione: bianco quasi opaco sul tema chiaro, grigio scuro semitrasparente sullo scuro.
 private const val LIGHT_SCRIM_ALPHA = 0xe6
 private const val DARK_SCRIM_ALPHA = 0x80
@@ -119,6 +117,8 @@ private const val CHANNEL_MAX = 0xff
 
 private val REGION_ID = Regex("[a-z0-9-]{1,80}")
 
+// Notifica di aggiornamento o di allerta toccata: la schermata da aprire passa al NavHost. Solo i valori noti, poi l'extra si toglie
+// (una ricreazione dell'activity non la riaprirebbe).
 private fun Intent.requestOpenScreen() {
     val screen = getStringExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN) ?: return
     removeExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN)
