@@ -17,7 +17,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** Firma mancante o non valida: il file scaricato non e' quello pubblicato dal sito, va trattato come un fetch fallito. */
-class ManifestSignatureException(message: String, cause: Throwable? = null) : Exception(message, cause)
+open class ManifestSignatureException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
+/** Firma valida, ma il file e' piu' vecchio dell'ultimo accettato ([checkPublishedAt]). */
+class OlderPublishedFileException(message: String) : ManifestSignatureException(message)
 
 /**
  * Verifica ECDSA P-256 / SHA-256 della firma DER ([signature]) di [content] con la chiave pubblica

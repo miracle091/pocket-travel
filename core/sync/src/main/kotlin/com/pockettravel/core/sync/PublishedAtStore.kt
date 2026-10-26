@@ -21,7 +21,7 @@ interface PublishedAtStore {
 
 /**
  * Da chiamare dopo la verifica della firma di [content] (il JSON del file [kind]). Rifiuta con
- * [ManifestSignatureException] (stesso percorso di una firma sbagliata) un `publishedAt` piu' basso
+ * [OlderPublishedFileException] (una [ManifestSignatureException], stesso percorso di una firma sbagliata) un `publishedAt` piu' basso
  * dell'ultimo accettato; un valore uguale (stesso file riscaricato) o piu' alto e' accettato e memorizzato.
  * Compatibilita': finche' per [kind] non e' mai stato visto un `publishedAt` un file senza il campo
  * (pubblicato prima dell'introduzione) passa; dopo, un file senza il campo e' rifiutato come uno piu' vecchio.
@@ -30,11 +30,11 @@ internal fun checkPublishedAt(store: PublishedAtStore, kind: String, content: By
     val publishedAt = readPublishedAt(content)
     val last = store.last(kind)
     if (publishedAt == null) {
-        if (last != null) throw ManifestSignatureException("$kind senza publishedAt dopo averne visto uno: file piu' vecchio dell'ultimo accettato")
+        if (last != null) throw OlderPublishedFileException("$kind senza publishedAt dopo averne visto uno: file piu' vecchio dell'ultimo accettato")
         return
     }
     if (last != null && publishedAt < last) {
-        throw ManifestSignatureException("$kind piu' vecchio dell'ultimo accettato (publishedAt $publishedAt < $last)")
+        throw OlderPublishedFileException("$kind piu' vecchio dell'ultimo accettato (publishedAt $publishedAt < $last)")
     }
     if (last != publishedAt) store.save(kind, publishedAt)
 }

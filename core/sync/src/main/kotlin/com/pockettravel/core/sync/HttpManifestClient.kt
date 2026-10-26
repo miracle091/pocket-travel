@@ -33,20 +33,24 @@ class HttpManifestClient @Inject constructor(
             error("manifest.json fetch failed: HTTP $code")
         },
         emptyBody = { error("Empty manifest.json response") },
-    ) { bytes ->
-        val parsed = json.decodeFromString(RegionManifest.serializer(), bytes.decodeToString())
-        sanitizeManifest(parsed) { what, error -> Log.w(TAG, "Voce del catalogo scartata: $what", error) }
-    }.also { manifest ->
+    ) { bytes -> parseManifest(json, bytes) }.also { manifest ->
         // Ad ogni sync riuscita: feature/map legge solo WorldMapStore, non dipende da core/sync.
         worldMapStore.save(manifest.worldMap?.url, manifest.worldMap?.maxZoom ?: worldMapStore.worldMapMaxZoom())
         appCompatibility.update(manifest.minAppVersionCode)
     }
 
     private companion object {
-        private val TAG = ManifestClient::class.java.simpleName
         const val RECENT_MANIFEST_MILLIS = 10 * 60 * 1_000L
     }
 }
+
+private val TAG = ManifestClient::class.java.simpleName
+
+/** `manifest.json` interpretato e ripulito con [sanitizeManifest]: dal sito e dal telefono che lo invia. */
+internal fun parseManifest(json: Json, bytes: ByteArray): RegionManifest =
+    sanitizeManifest(json.decodeFromString(RegionManifest.serializer(), bytes.decodeToString())) { what, error ->
+        Log.w(TAG, "Voce del catalogo scartata: $what", error)
+    }
 
 /**
  * L'ultimo valore letto da [get] e quando ([now], in millisecondi): una richiesta lo riusa se ha meno di `maxAgeMillis`, altrimenti lo
