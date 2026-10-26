@@ -119,6 +119,9 @@ object JsonAlertParsers {
             area = AlertBounds(point.first, point.second, point.first, point.second),
             areaName = null,
             url = props.text("url"),
+            magnitude = magnitude,
+            feltReports = (props["felt"] as? JsonPrimitive)?.longOrNull?.toInt(),
+            impactAlert = props.text("alert"),
         )
     }
 

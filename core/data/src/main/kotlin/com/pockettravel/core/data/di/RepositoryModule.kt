@@ -12,6 +12,8 @@ import com.pockettravel.core.data.SqliteAddressSearchRepository
 import com.pockettravel.core.data.SqliteTransitRepository
 import com.pockettravel.core.data.TransitRepository
 import com.pockettravel.core.data.WeatherRepository
+import com.pockettravel.core.data.alerts.AlertsRepository
+import com.pockettravel.core.data.alerts.OnlineAlertsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -37,6 +39,9 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindWeatherRepository(impl: OpenMeteoWeatherRepository): WeatherRepository
+
+    @Binds
+    abstract fun bindAlertsRepository(impl: OnlineAlertsRepository): AlertsRepository
 
     @Binds
     @IntoSet

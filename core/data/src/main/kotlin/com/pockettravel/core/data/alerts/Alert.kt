@@ -22,6 +22,9 @@ enum class AlertLevel { LOW, MODERATE, HIGH, EXTREME }
  * @property area estensione dell'evento (un punto e' un rettangolo di lato zero); nulla se la fonte non da' coordinate.
  * @property areaName nome dell'area interessata, se la fonte lo da'.
  * @property url pagina della fonte con il dettaglio.
+ * @property magnitude magnitudo di un terremoto (USGS).
+ * @property feltReports segnalazioni di chi ha sentito la scossa (USGS "Did You Feel It?"), se ci sono.
+ * @property impactAlert allerta PAGER sui danni stimati di un terremoto (USGS: green, yellow, orange, red), se c'e'.
  */
 data class Alert(
     val id: String,
@@ -36,6 +39,9 @@ data class Alert(
     val area: AlertBounds?,
     val areaName: String?,
     val url: String?,
+    val magnitude: Double? = null,
+    val feltReports: Int? = null,
+    val impactAlert: String? = null,
 ) {
     /** Vero se la validita' non e' finita a [now]. */
     fun isActiveAt(now: Instant): Boolean = endsAt?.isAfter(now) != false

@@ -102,14 +102,21 @@ class AlertBoundsTest {
 
     @Test
     fun urlsCarryNoLocation() {
-        val gdacs = AlertUrls.gdacs(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 26))
+        val from = LocalDate.of(2026, 10, 1)
+        val to = LocalDate.of(2026, 10, 26)
 
         assertEquals(
             "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventlist=EQ%3BTC%3BFL%3BVO%3BWF%3BDR" +
                 "&fromdate=2026-10-01&todate=2026-10-26&alertlevel=Orange%3BRed",
-            gdacs,
+            AlertUrls.gdacsSevere(from, to),
         )
-        assertEquals("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson", AlertUrls.usgs())
+        assertEquals(
+            "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventlist=TC%3BFL%3BVO%3BDR" +
+                "&fromdate=2026-10-01&todate=2026-10-26&alertlevel=Green",
+            AlertUrls.gdacsGreen(from, to),
+        )
+        assertEquals("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson", AlertUrls.usgsDay())
+        assertEquals("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.geojson", AlertUrls.usgsSignificantWeek())
         assertEquals("https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-italy", AlertUrls.meteoalarm("italy"))
         assertEquals(
             "https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-bosnia-herzegovina",
