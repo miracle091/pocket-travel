@@ -35,10 +35,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.pockettravel.app.R
+import com.pockettravel.core.data.MapBounds
 import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
-import com.pockettravel.feature.map.MapBounds
 import com.pockettravel.feature.map.ZonePickerMap
 import com.pockettravel.feature.map.ZonePickerMapViewModel
 import kotlinx.coroutines.launch

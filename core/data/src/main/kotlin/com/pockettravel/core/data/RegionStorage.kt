@@ -120,6 +120,15 @@ class RegionStorage @Inject constructor(
         return File(marker, "../${file.name}")
     }
 
+    /**
+     * Rettangolo della regione dall'header della mappa installata (completa, altrimenti d'insieme); null senza mappa o
+     * con un header illeggibile. Lo usano la mappa, la guida e l'assistente (allerte della regione).
+     */
+    fun mapBounds(regionId: String): MapBounds? {
+        val file = versionedPmtiles(regionId, MAP_FILE) ?: versionedPmtiles(regionId, PREVIEW_FILE) ?: return null
+        return runCatching { pmtilesHeaderBounds(readPmtilesHeader(file)) }.getOrNull()
+    }
+
     private fun versionedLinks(packageFile: File): List<File> =
         packageFile.parentFile?.listFiles().orEmpty().filter { it.name.startsWith(".v-${packageFile.nameWithoutExtension}-") }
 

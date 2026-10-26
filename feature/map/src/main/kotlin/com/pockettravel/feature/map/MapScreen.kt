@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import com.pockettravel.core.data.MapBounds
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons

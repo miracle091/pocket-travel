@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.viewinterop.AndroidView
+import com.pockettravel.core.data.MapBounds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.maplibre.android.camera.CameraUpdateFactory

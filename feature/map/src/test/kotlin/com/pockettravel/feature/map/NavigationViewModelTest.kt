@@ -1,6 +1,7 @@
 package com.pockettravel.feature.map
 
 import androidx.lifecycle.SavedStateHandle
+import com.pockettravel.core.data.MapBounds
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.data.testing.FakeRegionRepository

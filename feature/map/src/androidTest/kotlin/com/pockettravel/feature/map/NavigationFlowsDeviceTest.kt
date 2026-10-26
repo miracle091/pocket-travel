@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.platform.app.InstrumentationRegistry
+import com.pockettravel.core.data.MapBounds
 import com.pockettravel.core.ui.PocketTravelTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule

@@ -1,5 +1,8 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.MapBounds
+import com.pockettravel.core.data.pmtilesHeaderBounds
+import com.pockettravel.core.data.pmtilesHeaderMaxZoom
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

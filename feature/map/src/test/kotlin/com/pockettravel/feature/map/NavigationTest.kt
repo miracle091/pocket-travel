@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.MapBounds
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.MapBounds
 import kotlin.math.abs
 import kotlin.math.ceil
 

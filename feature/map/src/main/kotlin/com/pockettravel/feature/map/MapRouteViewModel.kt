@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.AreaPois
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.MapAccessibility
+import com.pockettravel.core.data.MapBounds
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RealtimeFeed
 import com.pockettravel.core.data.db.CategoryTag

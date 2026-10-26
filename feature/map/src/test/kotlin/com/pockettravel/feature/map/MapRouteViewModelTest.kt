@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.MapBounds
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RealtimeFeed
 import com.pockettravel.core.data.RegionZone

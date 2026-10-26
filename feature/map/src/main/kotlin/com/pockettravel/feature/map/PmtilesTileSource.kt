@@ -1,7 +1,9 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.MapBounds
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.WorldMapStore
+import com.pockettravel.core.data.pmtilesHeaderMaxZoom
 import java.io.File
 
 // MapLibre Native gestisce il protocollo pmtiles:// nativamente su Android (nessun parser
@@ -34,12 +36,7 @@ class PmtilesTileSource(
 
     override fun sourceKind(regionId: String): MapSourceKind = resolve(regionId).kind
 
-    override fun regionBounds(regionId: String): MapBounds? {
-        val file = regionStorage.versionedPmtiles(regionId, RegionStorage.MAP_FILE)
-            ?: regionStorage.versionedPmtiles(regionId, RegionStorage.PREVIEW_FILE)
-            ?: return null
-        return runCatching { pmtilesHeaderBounds(readPmtilesHeader(file)) }.getOrNull()
-    }
+    override fun regionBounds(regionId: String): MapBounds? = regionStorage.mapBounds(regionId)
 
     override fun styleJson(regionId: String, dark: Boolean, language: String, worldFallback: Boolean): String {
         val label = labelField(language)

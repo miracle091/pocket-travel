@@ -1,6 +1,6 @@
 package com.pockettravel.feature.map.testing
 
-import com.pockettravel.feature.map.MapBounds
+import com.pockettravel.core.data.MapBounds
 import com.pockettravel.feature.map.MapSourceKind
 import com.pockettravel.feature.map.OfflineTileSource
 
