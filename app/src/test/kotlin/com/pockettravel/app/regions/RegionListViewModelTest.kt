@@ -148,12 +148,14 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
 
         assertEquals(listOf("francia", "italia"), viewModel.uiState.value.items.map { it.regionId }.sorted())
         assertEquals(CatalogCheck.UPDATES, viewModel.uiState.value.checking)
+        assertTrue(viewModel.uiState.value.items.all { it.fromSavedCopy })
 
         manifests.gate?.complete(Unit)
         advanceUntilIdle()
 
         assertEquals(listOf("italia"), viewModel.uiState.value.items.map { it.regionId })
         assertNull(viewModel.uiState.value.checking)
+        assertFalse(viewModel.uiState.value.items.single().fromSavedCopy)
     }
 
     @Test

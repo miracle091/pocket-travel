@@ -95,7 +95,7 @@ internal fun RegionPreviewScreen(
                     // Solo con la guida pronta e la regione nell'elenco: prima non ci sarebbe nulla da scaricare.
                     if (item != null) {
                         RegionDownloadFlow(item = item, actions = downloadActions) { _, onDownloadClick ->
-                            FilledTonalButton(onClick = onDownloadClick, enabled = state == RegionPreviewState.Ready) {
+                            FilledTonalButton(onClick = onDownloadClick, enabled = state == RegionPreviewState.Ready && !item.fromSavedCopy) {
                                 Text(stringResource(R.string.preview_download))
                             }
                         }

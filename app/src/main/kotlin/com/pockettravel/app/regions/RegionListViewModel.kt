@@ -105,6 +105,8 @@ data class RegionUiItem(
     val routingCarAvailable: Boolean = false,
     // La mappa e' tra i pacchetti da scaricare: il suo peso non e' in sizeBytes (si conosce solo estraendola).
     val includesMap: Boolean = false,
+    // Voce della copia salvata del catalogo, mentre si aspetta il sito: download e scelte dei contenuti disattivati.
+    val fromSavedCopy: Boolean = false,
 ) {
     // Parte di una nazione divisa: "Tutta la regione" invece di "Tutta la nazione" (senza catalogo, dal nome).
     val splitCountry: Boolean get() = groupName != null || isSplitCountryName(displayName, countryCode)
@@ -200,13 +202,13 @@ class RegionListViewModel @Inject constructor(
     private val catalog = combine(
         // Ogni regione con la sua zona: dimensioni e versioni (quella dei civici dipende dalle celle) sono quelle della zona.
         // Con la rete stradale "solo auto" scelta, anche la dimensione e la versione della rete stradale sono quelle della variante.
-        combine(manifestRegions, locale, regionZonePreferences.zones, routingVariantPreferences.choices) { regions, currentLocale, zones, choices ->
-            regions.map { it.localizedNames(currentLocale).withRoutingVariant(choices.isCarOnly(it.regionId)) to zones[it.regionId] } to currentLocale
+        combine(manifestRegions, manifestFromSavedCopy, locale, regionZonePreferences.zones, routingVariantPreferences.choices) { regions, saved, currentLocale, zones, choices ->
+            Triple(regions.map { it.localizedNames(currentLocale).withRoutingVariant(choices.isCarOnly(it.regionId)) to zones[it.regionId] }, currentLocale, saved)
         },
         // Con "Percorsi di navigazione" la dimensione di "Scarica" comprende la rete stradale.
         combine(regionRepository.observeInstalled(), usageModePreferences.wantsDirections, ::Pair),
         replacedRegions,
-    ) { (zonedRegions, currentLocale), (installed, wantsDirections), replacedByManifest ->
+    ) { (zonedRegions, currentLocale, fromSaved), (installed, wantsDirections), replacedByManifest ->
         val remoteRegions = zonedRegions.map { it.first }
         val installedByRegion = installed.associateBy { it.regionId }
         // Senza catalogo (offline, o non ancora letto) le nazioni installate restano apribili: i loro dati sono sul dispositivo.
@@ -219,7 +221,12 @@ class RegionListViewModel @Inject constructor(
         } else {
             zonedRegions.map { (remote, zone) ->
                 regionUiItem(remote.restrictedTo(zone), installedByRegion[remote.regionId], regionRepository::packageBytes, regionRepository::installedAddressCells, wantsDirections, transitIndex.value != null)
-                    .copy(bbox = remote.map.source.let { RegionBbox(it.minLon, it.minLat, it.maxLon, it.maxLat) }, zone = zone, routingCarAvailable = remote.routingCar != null)
+                    .copy(
+                        bbox = remote.map.source.let { RegionBbox(it.minLon, it.minLat, it.maxLon, it.maxLat) },
+                        zone = zone,
+                        routingCarAvailable = remote.routingCar != null,
+                        fromSavedCopy = fromSaved,
+                    )
             }
         }
         RegionCatalog(items, replacedItems(installed, remoteRegions, replacedByManifest))

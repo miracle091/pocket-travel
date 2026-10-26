@@ -173,7 +173,7 @@ private fun UpdateRegionRow(item: RegionUiItem, actions: RegionRowActions) {
             trailingContent = {
                 RegionDownloadFlow(item = item, actions = actions) { startDownload, _ ->
                     // Solo icona, come nell'elenco: un'etichetta schiaccerebbe il nome della nazione col testo grande.
-                    FilledTonalIconButton(onClick = startDownload, enabled = !download.isDownloading) {
+                    FilledTonalIconButton(onClick = startDownload, enabled = !download.isDownloading && !item.fromSavedCopy) {
                         Icon(AppIcons.Download, contentDescription = stringResource(R.string.regions_update_region, item.displayName))
                     }
                 }

@@ -614,7 +614,7 @@ internal fun RegionRow(
                     }
                 }
             },
-            trailingContent = { RegionActionButton(item = item, isDownloading = isDownloading, actions = actions) },
+            trailingContent = { RegionActionButton(item = item, downloading = isDownloading, actions = actions) },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             modifier = Modifier.clickable(onClick = onClick),
             content = { Text(title) },
@@ -664,8 +664,10 @@ internal fun WorkInfo?.downloadUi(): RegionDownloadUi {
 }
 
 @Composable
-private fun RegionActionButton(item: RegionUiItem, isDownloading: Boolean, actions: RegionRowActions) {
+private fun RegionActionButton(item: RegionUiItem, downloading: Boolean, actions: RegionRowActions) {
     var showPackages by rememberSaveable { mutableStateOf(false) }
+    // Con le voci della copia salvata, download e scelte dei contenuti aspettano il catalogo del sito.
+    val isDownloading = downloading || item.fromSavedCopy
     RegionDownloadFlow(item = item, actions = actions) { startDownload, onDownloadClick ->
         when (item.status) {
             // Nazione grande non ancora scaricata: prima la scelta fra tutta la nazione e una zona.

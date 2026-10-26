@@ -187,10 +187,11 @@ class SignedFileCacheTest {
     }
 
     @Test
-    fun `ETag che non si puo' rimandare non salvato, il controllo dopo scarica per intero`() {
+    fun `ETag che non si puo' rimandare non salvato, il controllo dopo scarica per intero e la copia si legge lo stesso`() {
         etag = "\"é\""
         fetch()
         requested.clear()
+        assertEquals(body.decodeToString(), runBlocking { cache.saved(url) { it.decodeToString() } })
         assertEquals(body.decodeToString(), fetch())
         assertEquals(listOf(url to null, "$url.sig" to null), requested)
     }

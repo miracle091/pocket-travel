@@ -157,11 +157,14 @@ class SignedFileCache internal constructor(
             }
         }
 
-    /** La copia salvata, solo con il suo ETag (senza, una richiesta condizionata non ha senso). */
+    /**
+     * La copia salvata, anche senza ETag (un sito che non lo manda): [saved] la mostra lo stesso, mentre [fetch] senza
+     * ETag non fa una richiesta condizionata e scarica tutto.
+     */
     private fun load(url: String): Saved? {
-        val body = file(url, "json")
-        val etag = file(url, "etag").takeIf { body.isFile && it.isFile }?.readText()?.takeIf { etagPattern.matches(it) }
-        return etag?.let { Saved(body.readBytes(), it, file(url, "sig").takeIf(File::isFile)?.readBytes()) }
+        val body = file(url, "json").takeIf(File::isFile) ?: return null
+        val etag = file(url, "etag").takeIf(File::isFile)?.readText()?.takeIf { etagPattern.matches(it) }
+        return Saved(body.readBytes(), etag, file(url, "sig").takeIf(File::isFile)?.readBytes())
     }
 
     private fun forget(url: String) {
@@ -190,7 +193,7 @@ class SignedFileCache internal constructor(
     // ogni catalogo.
     private fun file(url: String, extension: String): File = File(dir, "${key(url)}.$extension")
 
-    private class Saved(val body: ByteArray, val etag: String, val signature: ByteArray?)
+    private class Saved(val body: ByteArray, val etag: String?, val signature: ByteArray?)
 
     private class Downloaded(val body: ByteArray, val etag: String?)
 
