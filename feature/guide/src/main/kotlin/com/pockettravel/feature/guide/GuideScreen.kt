@@ -39,6 +39,7 @@ import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.WeatherCard
 
 @Composable
 fun GuideScreen(

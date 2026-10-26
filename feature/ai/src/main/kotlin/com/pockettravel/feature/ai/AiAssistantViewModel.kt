@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.core.data.ConversationRepository
 import com.pockettravel.core.data.SavedConversation
+import com.pockettravel.core.data.WEATHER_MIN_REFRESH_MILLIS
 import com.pockettravel.core.data.crypto.HistoryKeys
 import com.pockettravel.core.data.crypto.HistoryReader
 import com.pockettravel.core.data.crypto.HistoryUnreadableException
@@ -15,6 +16,7 @@ import com.pockettravel.core.sync.OnlineModelEntry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,6 +67,8 @@ data class AiUiState(
     val askedQuestion: String? = null,
     // Riquadro di emergenza della domanda in fondo (askedQuestion): mostrato prima della risposta, null se non serve.
     val emergencyCard: EmergencyCardState? = null,
+    // Le previsioni della risposta in fondo hanno piu' di WEATHER_MIN_REFRESH_MILLIS: si possono riscaricare con un tocco.
+    val canRefreshForecast: Boolean = false,
     @StringRes val errorMessage: Int? = null,
     // Turni della conversazione aperta prima di quello in fondo (askedQuestion e answer).
     val earlierTurns: List<ShownTurn> = emptyList(),
@@ -458,6 +462,7 @@ class AiAssistantViewModel @Inject constructor(
         }
 
         resumeJob?.cancel()
+        forecastJob?.cancel()
         val previous = conversation.previousQuestion
         // Una conversazione ripresa resta nella sua regione, anche aperta dalla scheda IA di un'altra.
         val region = conversation.regionId ?: regionId
@@ -473,29 +478,74 @@ class AiAssistantViewModel @Inject constructor(
                     earlierTurns = it.earlierTurns + listOfNotNull(done),
                     askedQuestion = question,
                     emergencyCard = emergencyCard,
+                    canRefreshForecast = false,
                     question = "",
                     answer = null,
                     streamingText = "",
                 )
             }
-            try {
-                travelAssistant.ask(region, question, state.mode, previous).collect { progress ->
-                    when (progress) {
-                        is AssistantProgress.Partial -> _uiState.update { it.copy(streamingText = progress.text) }
-                        is AssistantProgress.Done -> {
-                            _uiState.update { it.copy(isThinking = false, streamingText = "", answer = progress.answer) }
-                            conversation.onAnswered(state.mode, region, state.selectedModelId, question, progress.answer)
-                        }
+            collectAnswer(region, question, state.mode, previous) { answer ->
+                conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer)
+            }
+        }
+    }
+
+    /**
+     * "Aggiorna le previsioni": rifa la domanda in fondo con le previsioni scaricate di nuovo, e la risposta nuova prende
+     * il posto di quella vecchia, anche nella cronologia. Solo dopo WEATHER_MIN_REFRESH_MILLIS ([AiUiState.canRefreshForecast]).
+     */
+    fun refreshForecast(regionId: String) {
+        val state = _uiState.value
+        val asked = state.askedQuestion ?: return
+        val answer = state.answer?.takeIf { state.canRefreshForecast && !state.isThinking } ?: return
+        val region = conversation.regionId ?: regionId
+        askJob = viewModelScope.launch {
+            _uiState.update { it.copy(isThinking = true, errorMessage = null, canRefreshForecast = false, answer = null, streamingText = "") }
+            // La domanda gia' unita a quella prima se era un seguito (followUpQuestion): non c'e' un seguito da risolvere.
+            collectAnswer(region, answer.question ?: asked, state.mode, previous = null) { refreshed ->
+                conversation.onReplaced(region, state.selectedModelId, asked, refreshed)
+            }
+        }
+    }
+
+    // La risposta in arrivo nella schermata; [onDone] la registra nella conversazione.
+    private suspend fun collectAnswer(
+        region: String,
+        question: String,
+        mode: AiEngineMode,
+        previous: String?,
+        onDone: (AssistantAnswer) -> Unit,
+    ) {
+        try {
+            travelAssistant.ask(region, question, mode, previous).collect { progress ->
+                when (progress) {
+                    is AssistantProgress.Partial -> _uiState.update { it.copy(streamingText = progress.text) }
+                    is AssistantProgress.Done -> {
+                        _uiState.update { it.copy(isThinking = false, streamingText = "", answer = progress.answer) }
+                        onDone(progress.answer)
+                        watchForecast(progress.answer)
                     }
                 }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                // Errore a meta': il parziale si scarta, come l'errore sostituisce la risposta nella UI. Senza risposta
-                // visibile nemmeno la base dei seguiti.
-                conversation.onFailed()
-                _uiState.update { it.copy(isThinking = false, streamingText = "", errorMessage = askErrorMessage(error)) }
             }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            // Errore a meta': il parziale si scarta, come l'errore sostituisce la risposta nella UI. Senza risposta
+            // visibile nemmeno la base dei seguiti.
+            conversation.onFailed()
+            _uiState.update { it.copy(isThinking = false, streamingText = "", errorMessage = askErrorMessage(error)) }
+        }
+    }
+
+    // Accende "Aggiorna le previsioni" quando le previsioni della risposta superano il limite per luogo.
+    private var forecastJob: Job? = null
+
+    private fun watchForecast(answer: AssistantAnswer) {
+        forecastJob?.cancel()
+        val updatedAt = answer.forecast?.result?.updatedAtMillis ?: return
+        forecastJob = viewModelScope.launch {
+            delay(forecastRefreshDelayMillis(updatedAt, System.currentTimeMillis()))
+            _uiState.update { it.copy(canRefreshForecast = true) }
         }
     }
 
@@ -517,8 +567,18 @@ class AiAssistantViewModel @Inject constructor(
         resumeJob?.cancel()
         askJob?.cancel()
         askJob = null
+        forecastJob?.cancel()
         conversation.end()
-        _uiState.update { it.copy(isThinking = false, streamingText = "", earlierTurns = emptyList(), readOnlyRegion = null, showsSavedContent = false) }
+        _uiState.update {
+            it.copy(
+                isThinking = false,
+                streamingText = "",
+                earlierTurns = emptyList(),
+                readOnlyRegion = null,
+                showsSavedContent = false,
+                canRefreshForecast = false,
+            )
+        }
     }
 
     // La cronologia sbloccata: vive solo mentre la cronologia e' aperta.
@@ -686,6 +746,10 @@ internal fun historyEmptied(counts: Flow<Int>, shown: () -> Boolean): Flow<Unit>
 
 /** Messaggio per un errore di [AiAssistantViewModel.ask]: il modello online sconosciuto ha il suo, il resto quello generico. */
 @StringRes
+/** Quanto manca perche' le previsioni scaricate a [updatedAtMillis] si possano riscaricare; 0 se si puo' gia'. */
+internal fun forecastRefreshDelayMillis(updatedAtMillis: Long, nowMillis: Long): Long =
+    (updatedAtMillis + WEATHER_MIN_REFRESH_MILLIS - nowMillis).coerceAtLeast(0)
+
 internal fun askErrorMessage(error: Exception): Int = when (error) {
     is OnlineModelNotFoundException -> R.string.ai_error_model
     is OnlineApiKeyRejectedException -> R.string.ai_error_key_rejected

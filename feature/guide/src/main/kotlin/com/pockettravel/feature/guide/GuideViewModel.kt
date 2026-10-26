@@ -12,6 +12,7 @@ import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.GuideRepository
 import com.pockettravel.core.data.GuideSection
+import com.pockettravel.core.data.LastOpenedCityGuide
 import com.pockettravel.core.data.MainCity
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.Poi
@@ -20,6 +21,7 @@ import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.WeatherRepository
 import com.pockettravel.core.data.WeatherResult
 import com.pockettravel.core.data.isGuideSectionFor
+import com.pockettravel.core.ui.PlaceWeather
 import com.pockettravel.core.poi.PoiCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -69,8 +71,6 @@ data class CityGuideUiState(
     @StringRes val loadError: Int? = null,
 )
 
-/** Meteo di un luogo: [place] e' il nome della citta', null per la posizione del dispositivo. */
-data class PlaceWeather(val place: String?, val result: WeatherResult)
 
 @HiltViewModel
 class GuideViewModel @Inject constructor(
@@ -83,6 +83,7 @@ class GuideViewModel @Inject constructor(
     private val nationalityPreferences: NationalityPreferences,
     private val lastKnownPosition: LastKnownPosition,
     private val weatherRepository: WeatherRepository,
+    private val lastOpenedCityGuide: LastOpenedCityGuide,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(GuideUiState())
@@ -191,6 +192,7 @@ class GuideViewModel @Inject constructor(
         val key = regionId to city
         if (loadedCityKey == key) return
         loadedCityKey = key
+        lastOpenedCityGuide.opened(regionId, city)
         _cityUiState.value = CityGuideUiState()
         cityWeatherJob?.cancel()
         cityWeatherJob = viewModelScope.launch {

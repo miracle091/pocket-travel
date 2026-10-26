@@ -2,6 +2,7 @@ package com.pockettravel.core.data.db
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
@@ -11,7 +12,8 @@ interface ConversationDao {
     @Insert
     suspend fun insertConversation(conversation: ConversationEntity)
 
-    @Insert
+    // Un turno con l'id di uno salvato prende il suo posto in un'istruzione sola (risposta rifatta); id 0 = turno nuovo.
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTurn(turn: ConversationTurnEntity)
 
     @Query("UPDATE conversations SET updatedAt = :at WHERE id = :id")

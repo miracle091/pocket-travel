@@ -34,7 +34,9 @@ class FakeConversationDao : ConversationDao {
 
     override suspend fun insertTurn(turn: ConversationTurnEntity) {
         check(turn.conversationId in conversations) { "FOREIGN KEY constraint failed" }
-        turns += turn.copy(id = turns.size + 1L)
+        // Come OnConflictStrategy.REPLACE: un id gia' salvato sostituisce quel turno.
+        val index = turns.indexOfFirst { it.id == turn.id }
+        if (turn.id != 0L && index >= 0) turns[index] = turn else turns += turn.copy(id = turns.size + 1L)
     }
 
     override suspend fun touch(id: String, at: Long) {

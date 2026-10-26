@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import com.pockettravel.core.data.WEATHER_MIN_REFRESH_MILLIS
 import com.pockettravel.core.data.Weather
 import com.pockettravel.core.data.WeatherCondition
 import com.pockettravel.core.data.WeatherDay
@@ -65,12 +66,18 @@ class ForecastContextTest {
     @Test
     fun forecastQuestionGetsTheBlockWithTheSharedCacheKey() = runTest {
         val repository = FakeWeatherRepository(result())
-        val section = requireNotNull(ForecastProvider(repository, clock).section("Roma", "IT", "it"))
+        val block = requireNotNull(ForecastProvider(repository, clock).section("Roma", "IT", "it"))
+        val section = block.section
+        // L'ora del download decide quando "Aggiorna le previsioni" compare sotto la risposta.
+        assertEquals(clock.millis(), block.weather.result.updatedAtMillis)
+        assertEquals("Roma", block.weather.place)
         assertEquals(listOf("city|IT|Roma"), repository.keys)
         assertEquals(listOf("Roma" to "IT"), repository.geocoded)
         assertEquals(
-            "Previsioni per Roma (Open-Meteo, aggiornate alle 16:20): oggi sereno, 22/13 °C, pioggia 0%; " +
-                "domani pioggia, 19/12 °C, pioggia 70%; martedì 27/10 coperto, 18/11 °C",
+            "Previsioni per Roma (Open-Meteo, aggiornate alle 16:20):\n" +
+                "- oggi: sereno, 22/13 °C, pioggia 0%\n" +
+                "- domani: pioggia, 19/12 °C, pioggia 70%\n" +
+                "- martedì 27/10: coperto, 18/11 °C",
             section.body,
         )
         assertTrue("Open-Meteo" in section.citation)
@@ -78,10 +85,19 @@ class ForecastContextTest {
 
     @Test
     fun englishBlockUsesEnglishLabels() = runTest {
-        val section = requireNotNull(ForecastProvider(FakeWeatherRepository(result()), clock).section("Rome", "IT", "en"))
-        assertTrue(section.body, section.body.startsWith("Forecast for Rome (Open-Meteo, updated at 16:20): today clear, 22/13 °C"))
-        assertTrue(section.body, "tomorrow rain, 19/12 °C, rain 70%" in section.body)
-        assertTrue(section.body, "Tuesday 27/10 cloudy" in section.body)
+        val section = requireNotNull(ForecastProvider(FakeWeatherRepository(result()), clock).section("Rome", "IT", "en")).section
+        assertTrue(section.body, section.body.startsWith("Forecast for Rome (Open-Meteo, updated at 16:20):\n- today: clear, 22/13 °C"))
+        assertTrue(section.body, "\n- tomorrow: rain, 19/12 °C, rain 70%" in section.body)
+        assertTrue(section.body, "\n- Tuesday 27/10: cloudy" in section.body)
+    }
+
+    @Test
+    fun refreshOnlyAfterThePerPlaceLimit() {
+        val updated = clock.millis()
+        assertEquals(WEATHER_MIN_REFRESH_MILLIS, forecastRefreshDelayMillis(updated, updated))
+        assertEquals(60_000L, forecastRefreshDelayMillis(updated, updated + WEATHER_MIN_REFRESH_MILLIS - 60_000L))
+        // Previsioni salvate piu' vecchie del limite (aperte senza rete, poi tornata): subito.
+        assertEquals(0L, forecastRefreshDelayMillis(updated, updated + 3 * WEATHER_MIN_REFRESH_MILLIS))
     }
 
     @Test

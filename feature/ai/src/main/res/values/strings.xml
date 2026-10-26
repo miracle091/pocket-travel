@@ -48,6 +48,7 @@
     <string name="ai_empty_title">Fai una domanda sul viaggio</string>
     <string name="ai_empty_subtitle">Le risposte, in poche frasi, si basano sulla guida della regione e sulle note personali. Se la guida non basta, l\'assistente lo segnala</string>
     <string name="ai_verify_official">Verifica sempre sulla fonte ufficiale</string>
+    <string name="ai_refresh_forecast">Aggiorna le previsioni</string>
     <string name="ai_delete_model">Elimina il modello</string>
     <string name="ai_model_send">Invia a un altro telefono</string>
     <string name="ai_model_import">Importa da file</string>

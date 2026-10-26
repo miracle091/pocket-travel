@@ -58,4 +58,20 @@
     <string name="poi_marina">Marinas</string>
     <string name="poi_airport">Airports</string>
     <string name="poi_other">Other</string>
+    <string name="weather_near_you">Near you</string>
+    <string name="weather_today">Today</string>
+    <string name="weather_footer">%1$s · Weather data by Open-Meteo.com</string>
+    <string name="weather_updated_today">Last updated: %1$s</string>
+    <string name="weather_updated_on">Last updated: %1$s</string>
+    <string name="weather_source_open">Open Open-Meteo.com</string>
+    <string name="weather_refresh">Refresh the weather</string>
+    <string name="weather_day_description">%1$s: %2$s, high %3$s, low %4$s</string>
+    <string name="weather_rain_description">, rain %1$d%%</string>
+    <string name="weather_clear">Clear</string>
+    <string name="weather_partly_cloudy">Partly cloudy</string>
+    <string name="weather_cloudy">Cloudy</string>
+    <string name="weather_fog">Fog</string>
+    <string name="weather_rain">Rain</string>
+    <string name="weather_snow">Snow</string>
+    <string name="weather_thunderstorm">Thunderstorm</string>
 </resources>

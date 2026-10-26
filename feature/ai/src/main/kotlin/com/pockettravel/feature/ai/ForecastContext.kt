@@ -4,11 +4,13 @@ import android.location.Location
 import com.pockettravel.core.data.CityRepository
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.LastKnownPosition
+import com.pockettravel.core.data.LastOpenedCityGuide
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.WeatherCondition
 import com.pockettravel.core.data.WeatherRepository
 import com.pockettravel.core.data.WeatherResult
+import com.pockettravel.core.ui.PlaceWeather
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Clock
@@ -42,8 +44,8 @@ internal class ForecastQuery(
 
 /**
  * Per una domanda di previsione (isForecastQuestion), le previsioni della citta' nominata nella domanda o, in ordine:
- * la piu' vicina alla posizione dell'utente (solo sul dispositivo), la capitale della regione (o la prima citta' principale), la citta'
- * delle domande precedenti. Null per le altre domande, se la domanda nomina una nazione (le citta' della regione
+ * la piu' vicina alla posizione dell'utente (solo sul dispositivo), quella dell'ultima guida di citta' aperta, la capitale
+ * della regione (o la prima citta' principale), la citta' delle domande precedenti. Null per le altre domande, se la domanda nomina una nazione (le citta' della regione
  * non c'entrano), senza codice paese o senza previsioni (ForecastProvider). Il blocco dice la citta' usata.
  */
 class ForecastSections @Inject constructor(
@@ -52,8 +54,9 @@ class ForecastSections @Inject constructor(
     private val cityRepository: CityRepository,
     private val poiRepository: PoiRepository,
     private val lastKnownPosition: LastKnownPosition,
+    private val lastOpenedCityGuide: LastOpenedCityGuide,
 ) {
-    internal suspend fun forQuestion(query: ForecastQuery): AssistantSection? {
+    internal suspend fun forQuestion(query: ForecastQuery): ForecastBlock? {
         val countryCode = if (isForecastQuestion(query.question, query.modelGroups) && !query.namesCountry) {
             regionRepository.installed(query.regionId)?.countryCode
         } else {
@@ -62,6 +65,7 @@ class ForecastSections @Inject constructor(
         val city = countryCode?.let {
             query.cities.firstOrNull()
                 ?: (if (query.usePosition) nearestCity(query.regionId, query.cityNames) else null)
+                ?: lastOpenedCityGuide.city(query.regionId)?.takeIf { it in query.cityNames }
                 ?: mainCity(query.regionId)
                 ?: query.previousQuestion?.let { previous -> namedCities(previous, query.cityNames, query.language).firstOrNull() }
         }
@@ -100,6 +104,9 @@ class ForecastSections @Inject constructor(
     }
 }
 
+/** Le previsioni nel contesto e quelle mostrate sotto la risposta nel riquadro meteo, con la citta' usata. */
+internal class ForecastBlock(val section: AssistantSection, val weather: PlaceWeather)
+
 /**
  * Le previsioni di una citta' come sezione di contesto. Stessa cache e stesso limite per luogo del riquadro meteo della
  * guida (la chiave e' la stessa): se la guida ha appena scaricato il meteo, la domanda non fa richieste in piu'.
@@ -109,15 +116,16 @@ class ForecastProvider @Inject constructor(
     private val clock: Clock,
 ) {
     /** Null senza previsioni: niente rete e nessuna risposta salvata ancora valida, o troppo lenta. */
-    internal suspend fun section(city: String, countryCode: String, language: String): AssistantSection? {
+    internal suspend fun section(city: String, countryCode: String, language: String): ForecastBlock? {
         val result = withTimeoutOrNull(FORECAST_TIMEOUT_MILLIS) {
             weatherRepository.weather("city|$countryCode|$city") { weatherRepository.coordinatesOf(city, countryCode) }
         } ?: return null
-        return AssistantSection(
+        val section = AssistantSection(
             body = forecastContext(city, result, language, clock.zone),
             category = GuideCategory.DA_SAPERE,
             citation = if (language == "en") "Source: weather forecasts by Open-Meteo.com" else "Fonte: previsioni del tempo di Open-Meteo.com",
         )
+        return ForecastBlock(section, PlaceWeather(city, result))
     }
 
     private companion object {
@@ -127,8 +135,9 @@ class ForecastProvider @Inject constructor(
 }
 
 /**
- * Il blocco delle previsioni per il contesto, in testo semplice su una riga: la citta' usata, la fonte, quando sono
- * state scaricate, poi un giorno per volta con condizione, massima/minima e probabilita' di pioggia. Etichette nella
+ * Il blocco delle previsioni per il contesto, in testo semplice: la citta' usata, la fonte, quando sono state scaricate,
+ * poi un giorno per riga con condizione, massima/minima e probabilita' di pioggia. Un modello che lo copia scrive un elenco
+ * leggibile. Etichette nella
  * lingua delle guide ([language]).
  */
 internal fun forecastContext(city: String, result: WeatherResult, language: String, zone: ZoneId): String {
@@ -139,7 +148,7 @@ internal fun forecastContext(city: String, result: WeatherResult, language: Stri
     val updatedText = updated.format(
         DateTimeFormatter.ofPattern(if (updated.toLocalDate() == weather.today) "HH:mm" else "d/M HH:mm", locale),
     )
-    val days = weather.days.joinToString("; ") { day ->
+    val days = weather.days.joinToString("") { day ->
         val offset = day.date.toEpochDay() - weather.today.toEpochDay()
         val label = when (offset) {
             0L -> if (en) "today" else "oggi"
@@ -147,12 +156,12 @@ internal fun forecastContext(city: String, result: WeatherResult, language: Stri
             else -> "${day.date.dayOfWeek.getDisplayName(TextStyle.FULL, locale)} ${day.date.dayOfMonth}/${day.date.monthValue}"
         }
         val rain = day.rainChance?.let { ", ${if (en) "rain" else "pioggia"} $it%" }.orEmpty()
-        "$label ${day.condition.word(en)}, ${day.max.roundToInt()}/${day.min.roundToInt()} °C$rain"
+        "\n- $label: ${day.condition.word(en)}, ${day.max.roundToInt()}/${day.min.roundToInt()} °C$rain"
     }
     return if (en) {
-        "Forecast for $city (Open-Meteo, updated at $updatedText): $days"
+        "Forecast for $city (Open-Meteo, updated at $updatedText):$days"
     } else {
-        "Previsioni per $city (Open-Meteo, aggiornate alle $updatedText): $days"
+        "Previsioni per $city (Open-Meteo, aggiornate alle $updatedText):$days"
     }
 }
 

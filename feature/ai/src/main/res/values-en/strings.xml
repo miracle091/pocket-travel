@@ -48,6 +48,7 @@
     <string name="ai_empty_title">Ask a question about the trip</string>
     <string name="ai_empty_subtitle">Answers, in a few sentences, are based on the region\'s guide and your personal notes. If the guide isn\'t enough, the assistant says so</string>
     <string name="ai_verify_official">Always verify with the official source</string>
+    <string name="ai_refresh_forecast">Refresh the forecast</string>
     <string name="ai_delete_model">Delete model</string>
     <string name="ai_model_send">Send to another phone</string>
     <string name="ai_model_import">Import from file</string>

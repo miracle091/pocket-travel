@@ -67,6 +67,19 @@ class ConversationRepositoryTest {
     }
 
     @Test
+    fun `una risposta rifatta prende il posto dell'ultimo turno, gli altri restano`() = runTest {
+        val repository = repository()
+        val handle = repository.start({ summary }, turn("Serve il visto?"), now = 10)
+        repository.append(handle, turn("Che tempo fa domani?", answer = "Sereno"), now = 20)
+        repository.replaceLast(handle, turn("Che tempo fa domani?", answer = "Pioggia"), now = 30)
+
+        val reader = repository.unlock()
+        assertEquals(30L, repository.list(reader).single().updatedAt)
+        val resumed = checkNotNull(repository.resume(reader, handle.id, now = 40))
+        assertEquals(listOf("Risposta a Serve il visto?", "Pioggia"), resumed.turns.map { it.answer })
+    }
+
+    @Test
     fun `nel database non c'e' testo in chiaro`() = runTest {
         val repository = repository()
         repository.start({ summary }, turn("Serve il visto per San Marino?", answer = "No, non serve"))

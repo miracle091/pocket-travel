@@ -77,6 +77,9 @@ class AssistantConversation @Inject constructor(
     private var debug: ConversationDebugInfo? = null
     private var readOnlyId: String? = null
 
+    // L'ultimo turno e' nella cronologia: solo allora una risposta rifatta lo sostituisce anche li'.
+    private var lastTurnSaved = false
+
     /** La conversazione salvata aperta; null finche' non ha un turno salvato. */
     val id: String? get() = handle?.id
 
@@ -104,23 +107,13 @@ class AssistantConversation @Inject constructor(
     /** Un turno con risposta: aggiorna lo stato e, sul dispositivo, si salva. */
     fun onAnswered(mode: AiEngineMode, regionId: String, modelId: String, askedQuestion: String, answer: AssistantAnswer) {
         val now = System.currentTimeMillis()
-        val turn = ConversationTurn(
-            askedQuestion = askedQuestion,
-            question = answer.question ?: askedQuestion,
-            answer = answer.text,
-            citations = answer.sourceCitations,
-            showOfficialSourceBanner = answer.showOfficialSourceBanner,
-            officialSourceUrl = answer.officialSourceUrl,
-            modelId = modelId,
-            cities = answer.cities,
-            destination = answer.destination,
-            askedAt = now,
-        )
+        val turn = turn(modelId, askedQuestion, answer, now)
         state = (state ?: ConversationState(regionId)).after(turn)
         val saves = when (mode) {
             AiEngineMode.ONLINE -> false
             AiEngineMode.ON_DEVICE -> historyAvailability.isAvailable()
         }
+        lastTurnSaved = saves
         if (saves) {
             val current = handle
             if (current != null) {
@@ -141,6 +134,29 @@ class AssistantConversation @Inject constructor(
         )
     }
 
+    /**
+     * L'ultima domanda rifatta (Aggiorna le previsioni): la risposta nuova prende il posto di quella dell'ultimo turno,
+     * anche nella cronologia. Con il motore Online resta tutto in memoria, come in [onAnswered].
+     */
+    fun onReplaced(regionId: String, modelId: String, askedQuestion: String, answer: AssistantAnswer) {
+        val turn = turn(modelId, askedQuestion, answer, System.currentTimeMillis())
+        state = (state ?: ConversationState(regionId)).after(turn)
+        handle?.takeIf { lastTurnSaved }?.let { repository.replaceLast(it, turn) }
+    }
+
+    private fun turn(modelId: String, askedQuestion: String, answer: AssistantAnswer, now: Long) = ConversationTurn(
+        askedQuestion = askedQuestion,
+        question = answer.question ?: askedQuestion,
+        answer = answer.text,
+        citations = answer.sourceCitations,
+        showOfficialSourceBanner = answer.showOfficialSourceBanner,
+        officialSourceUrl = answer.officialSourceUrl,
+        modelId = modelId,
+        cities = answer.cities,
+        destination = answer.destination,
+        askedAt = now,
+    )
+
     /** Domanda senza risposta: un seguito non si riferisce a una risposta che non si vede. */
     fun onFailed() {
         state = state?.copy(lastQuestion = null)
@@ -150,6 +166,7 @@ class AssistantConversation @Inject constructor(
     fun end() {
         handle?.let(repository::archive)
         handle = null
+        lastTurnSaved = false
         state = null
         regionId = null
         readOnlyRegionName = null

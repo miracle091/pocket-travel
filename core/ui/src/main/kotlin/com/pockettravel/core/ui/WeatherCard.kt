@@ -1,4 +1,4 @@
-package com.pockettravel.feature.guide
+package com.pockettravel.core.ui
 
 import android.text.format.DateUtils
 import androidx.annotation.DrawableRes
@@ -37,11 +37,6 @@ import com.pockettravel.core.data.Weather
 import com.pockettravel.core.data.WeatherCondition
 import com.pockettravel.core.data.WeatherDay
 import com.pockettravel.core.data.WeatherResult
-import com.pockettravel.core.ui.AppIcons
-import com.pockettravel.core.ui.InfoCardHeader
-import com.pockettravel.core.ui.PocketTravelTheme
-import com.pockettravel.core.ui.R as UiR
-import com.pockettravel.core.ui.Spacing
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -49,11 +44,14 @@ import kotlin.math.roundToInt
 
 private const val OPEN_METEO_URL = "https://open-meteo.com/"
 
+/** Meteo di un luogo: [place] e' il nome della citta', null per la posizione del dispositivo. */
+data class PlaceWeather(val place: String?, val result: WeatherResult)
+
 // Meteo di un luogo: condizione e temperatura attuali, poi un giorno per colonna con minima, massima e
 // probabilita' di pioggia. In fondo l'ora dell'ultimo aggiornamento e la fonte (attribuzione CC BY 4.0), con "Aggiorna"
 // ([onRefresh]) acceso solo WEATHER_MIN_REFRESH_MILLIS dopo l'ultimo aggiornamento.
 @Composable
-internal fun WeatherCard(
+fun WeatherCard(
     state: PlaceWeather,
     onOpenSource: (url: String, title: String) -> Unit,
     modifier: Modifier = Modifier,
@@ -161,13 +159,13 @@ private fun WeatherCondition.icon(): ImageVector = ImageVector.vectorResource(ic
 
 @DrawableRes
 private fun WeatherCondition.iconRes(): Int = when (this) {
-    WeatherCondition.CLEAR -> UiR.drawable.ms_sunny
-    WeatherCondition.PARTLY_CLOUDY -> UiR.drawable.ms_partly_cloudy_day
-    WeatherCondition.CLOUDY -> UiR.drawable.ms_cloud
-    WeatherCondition.FOG -> UiR.drawable.ms_foggy
-    WeatherCondition.RAIN -> UiR.drawable.ms_rainy
-    WeatherCondition.SNOW -> UiR.drawable.ms_weather_snowy
-    WeatherCondition.THUNDERSTORM -> UiR.drawable.ms_thunderstorm
+    WeatherCondition.CLEAR -> R.drawable.ms_sunny
+    WeatherCondition.PARTLY_CLOUDY -> R.drawable.ms_partly_cloudy_day
+    WeatherCondition.CLOUDY -> R.drawable.ms_cloud
+    WeatherCondition.FOG -> R.drawable.ms_foggy
+    WeatherCondition.RAIN -> R.drawable.ms_rainy
+    WeatherCondition.SNOW -> R.drawable.ms_weather_snowy
+    WeatherCondition.THUNDERSTORM -> R.drawable.ms_thunderstorm
 }
 
 @Preview

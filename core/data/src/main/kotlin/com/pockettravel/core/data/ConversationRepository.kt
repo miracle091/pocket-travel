@@ -110,6 +110,13 @@ class ConversationRepository @Inject constructor(
         dao.touch(handle.id, now)
     }
 
+    /** [turn] al posto dell'ultimo turno: la stessa domanda rifatta (previsioni aggiornate). */
+    fun replaceLast(handle: ConversationHandle, turn: ConversationTurn, now: Long = System.currentTimeMillis()) = writes.enqueue {
+        val last = dao.turns(handle.id).lastOrNull() ?: return@enqueue
+        dao.insertTurn(last.copy(encryptedPayload = handle.encrypt(turn), createdAt = now))
+        dao.touch(handle.id, now)
+    }
+
     /** La conversazione lascia la schermata (nuova conversazione, cambio di motore o di modello, schermata chiusa). */
     fun archive(handle: ConversationHandle) = writes.enqueue { dao.markArchived(handle.id) }
 

@@ -58,4 +58,20 @@
     <string name="poi_marina">Porti turistici</string>
     <string name="poi_airport">Aeroporti</string>
     <string name="poi_other">Altro</string>
+    <string name="weather_near_you">Vicino a te</string>
+    <string name="weather_today">Oggi</string>
+    <string name="weather_footer">%1$s · Dati meteo di Open-Meteo.com</string>
+    <string name="weather_updated_today">Ultimo aggiornamento: %1$s</string>
+    <string name="weather_updated_on">Ultimo aggiornamento: %1$s</string>
+    <string name="weather_source_open">Apri Open-Meteo.com</string>
+    <string name="weather_refresh">Aggiorna il meteo</string>
+    <string name="weather_day_description">%1$s: %2$s, massima %3$s, minima %4$s</string>
+    <string name="weather_rain_description">, pioggia %1$d%%</string>
+    <string name="weather_clear">Sereno</string>
+    <string name="weather_partly_cloudy">Poco nuvoloso</string>
+    <string name="weather_cloudy">Nuvoloso</string>
+    <string name="weather_fog">Nebbia</string>
+    <string name="weather_rain">Pioggia</string>
+    <string name="weather_snow">Neve</string>
+    <string name="weather_thunderstorm">Temporale</string>
 </resources>

@@ -33,6 +33,7 @@ import com.pockettravel.core.data.GENERAL_GUIDE_REGION_ID
 import com.pockettravel.core.data.bm25Score
 import com.pockettravel.core.data.db.CityCoordinates
 import com.pockettravel.core.data.currentGuidesLanguage
+import com.pockettravel.core.ui.PlaceWeather
 import com.pockettravel.core.data.displayName
 import com.pockettravel.core.data.officialSourceFor
 import com.pockettravel.core.data.poiCategory
@@ -66,6 +67,8 @@ data class AssistantAnswer(
     // Citta' e nazione nominate nella domanda: lo stato della conversazione.
     val cities: List<String> = emptyList(),
     val destination: String? = null,
+    // Le previsioni nel contesto, mostrate nel riquadro meteo sotto la risposta; null senza. Non si salvano nella cronologia.
+    val forecast: PlaceWeather? = null,
 )
 
 /** Avanzamento di una risposta: il testo scritto finora, poi la risposta definitiva. */
@@ -147,6 +150,7 @@ class TravelAssistant @Inject constructor(
                 destination = search.country?.name,
                 showOfficialSourceBanner = regulatedMatch != null,
                 officialSourceUrl = regulatedMatch?.let { officialSourceFor(it.category, nationalityPreferences.nationality.value)?.urlFor(destination) },
+                forecast = forecast?.weather,
             )
         }
         when (mode) {
@@ -155,7 +159,7 @@ class TravelAssistant @Inject constructor(
                 val plan = planOnDevice(
                     question,
                     listOfNotNull(
-                        forecast,
+                        forecast?.section,
                         cityDistanceSection(regionId, cities, question, language),
                         vaccinationSection(regionId, question, language, search.country),
                         emergency,
@@ -172,7 +176,7 @@ class TravelAssistant @Inject constructor(
                 }
                 emit(AssistantProgress.Done(withSource(AssistantAnswer(text, plan.citations, showOfficialSourceBanner = false))))
             }
-            AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language, forecast))))
+            AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language, forecast?.section))))
         }
         // Nomi da riconoscere, query e paragrafi da normalizzare: lavoro di CPU fuori dal main thread del chiamante.
     }.flowOn(defaultDispatcher)

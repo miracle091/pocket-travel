@@ -96,6 +96,7 @@ import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.WeatherCard
 import com.pockettravel.core.ui.isOnCellularNetwork
 import java.io.File
 import java.io.InputStream
@@ -206,6 +207,7 @@ data class AiActions(
     val onVoiceStop: () -> Unit = {},
     val onVoicePermissionDenied: () -> Unit = {},
     val onNewConversation: () -> Unit = {},
+    val onRefreshForecast: () -> Unit = {},
     val onOpenHistory: () -> Unit = {},
     val onDeleteHistory: () -> Unit = {},
     val onImportModel: (displayName: String?, sizeBytes: Long, open: () -> InputStream?) -> Unit = { _, _, _ -> },
@@ -238,6 +240,7 @@ private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
     onShowBenchmarkComparison = ::showBenchmarkComparison,
     onHideBenchmarkComparison = ::hideBenchmarkComparison,
     onNewConversation = ::newConversation,
+    onRefreshForecast = { refreshForecast(regionId) },
     onOpenHistory = ::openHistory,
     onDeleteHistory = ::deleteHistory,
     onImportModel = ::importModel,
@@ -259,7 +262,7 @@ internal fun AiAssistantContent(
     Column(modifier = Modifier.fillMaxSize()) {
         AssistantHeader(uiState = uiState, isReady = isReady, actions = actions)
         if (isReady) {
-            Conversation(uiState = uiState, onOpenOfficialSource = onOpenOfficialSource, onClearApiKey = actions.onClearApiKey, modifier = Modifier.weight(1f))
+            Conversation(uiState, actions, onOpenOfficialSource = onOpenOfficialSource, modifier = Modifier.weight(1f))
             val readOnlyRegion = uiState.readOnlyRegion
             if (readOnlyRegion != null) {
                 ReadOnlyNotice(readOnlyRegion, onNewConversation = actions.onNewConversation)
@@ -533,7 +536,7 @@ internal fun AiSettingsContent(uiState: AiUiState, actions: AiActions) {
 }
 
 @Composable
-private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String) -> Unit, onClearApiKey: () -> Unit, modifier: Modifier = Modifier) {
+private fun Conversation(uiState: AiUiState, actions: AiActions, onOpenOfficialSource: (url: String) -> Unit, modifier: Modifier = Modifier) {
     val asked = uiState.askedQuestion
     if (asked == null && !uiState.isThinking && uiState.errorMessage == null) {
         EmptyState(
@@ -585,7 +588,7 @@ private fun Conversation(uiState: AiUiState, onOpenOfficialSource: (url: String)
         ) {
             // animateContentSize: la bolla cresce con morbidezza da "Sto pensando…" alla risposta.
             Column(modifier = Modifier.animateContentSize().padding(Spacing.l)) {
-                AnswerContent(uiState, streaming, onOpenOfficialSource, onClearApiKey)
+                AnswerContent(uiState, streaming, onOpenOfficialSource, actions)
             }
         }
     }
@@ -676,7 +679,7 @@ private fun AnswerContent(
     uiState: AiUiState,
     streaming: Boolean,
     onOpenOfficialSource: (url: String) -> Unit,
-    onClearApiKey: () -> Unit,
+    actions: AiActions,
 ) {
     val answer = uiState.answer
     val error = uiState.errorMessage
@@ -702,17 +705,31 @@ private fun AnswerContent(
             )
             // Chiave scaduta o revocata: si toglie da qui e se ne inserisce una nuova.
             if (error == R.string.ai_error_key_rejected) {
-                TextButton(onClick = onClearApiKey) { Text(stringResource(R.string.ai_remove_key)) }
+                TextButton(onClick = actions.onClearApiKey) { Text(stringResource(R.string.ai_remove_key)) }
             }
         }
-        answer != null -> FinishedAnswer(answer, onOpenOfficialSource)
+        answer != null -> Column {
+            FinishedAnswer(answer, onOpenOfficialSource)
+            // Solo la risposta in fondo, con le previsioni nel contesto e piu' vecchie del limite per luogo.
+            if (uiState.canRefreshForecast && answer.forecast != null) {
+                TextButton(onClick = actions.onRefreshForecast, modifier = Modifier.padding(top = Spacing.s)) {
+                    Icon(AppIcons.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(Spacing.s))
+                    Text(stringResource(R.string.ai_refresh_forecast))
+                }
+            }
+        }
     }
 }
 
-// Risposta completa: testo, fonti e, sui temi regolati, il link alla fonte ufficiale.
+// Risposta completa: testo, riquadro meteo delle previsioni usate, fonti e, sui temi regolati, il link alla fonte ufficiale.
 @Composable
 private fun FinishedAnswer(answer: AssistantAnswer, onOpenOfficialSource: (url: String) -> Unit) {
     Text(answer.text, style = MaterialTheme.typography.bodyLarge)
+    // I numeri delle previsioni si leggono nel riquadro, non nel testo del modello.
+    answer.forecast?.let { forecast ->
+        WeatherCard(forecast, onOpenSource = { url, _ -> onOpenOfficialSource(url) }, modifier = Modifier.padding(top = Spacing.m))
+    }
     if (answer.sourceCitations.isNotEmpty()) SourceCitations(answer.sourceCitations)
     if (answer.showOfficialSourceBanner) {
         val url = answer.officialSourceUrl

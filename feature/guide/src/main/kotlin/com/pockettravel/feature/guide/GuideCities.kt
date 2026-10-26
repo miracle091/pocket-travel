@@ -55,6 +55,7 @@ import com.pockettravel.core.ui.InfoCardHeader
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.WeatherCard
 
 private const val MILLION = 1_000_000L
 private const val MILLION_DOUBLE = 1_000_000.0
