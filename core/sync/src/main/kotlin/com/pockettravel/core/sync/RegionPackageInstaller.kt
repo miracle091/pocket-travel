@@ -9,6 +9,7 @@ import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.readTransitValidUntil
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Clock
@@ -115,7 +116,7 @@ class RegionPackageInstaller @Inject constructor(
                     ?: (!installedMap.isFile || entry.regionId in mapDetailPreferences.installedLight.value)
                 val detail = if (light) MapDetail.LIGHT else MapDetail.FULL
                 val stats = withContext(ioDispatcher) {
-                    pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap, detail, onMapProgress) { ensureActive() }
+                    pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap, detail, onMapProgress, isCancelled = { !isActive }) { ensureActive() }
                 }
                 extractedLight = stats.maxZoom < entry.map.source.maxZoom
             }

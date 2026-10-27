@@ -1,14 +1,14 @@
 package com.pockettravel.core.sync
 
 import android.annotation.SuppressLint
-import ch.poole.geo.pmtiles.HttpUrlConnectionChannel
 import ch.poole.geo.pmtiles.Reader
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
-import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 class PmtilesExtractionException(message: String) : Exception(message)
@@ -63,15 +63,22 @@ enum class MapDetail { FULL, LIGHT }
  * Chiamato dentro RegionPackageDownloadWorker, non un meccanismo di download separato: per
  * l'utente e' lo stesso "Scarica" degli altri pacchetti.
  */
-class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: Int) {
+class PmtilesExtractor internal constructor(
+    private val okHttpClient: OkHttpClient,
+    private val alwaysDownloadMaxZoom: Int,
+    private val retryDelaysMs: List<Long>,
+    private val readTimeoutMs: Long,
+) {
 
-    @Inject constructor() : this(ALWAYS_DOWNLOAD_MAX_ZOOM)
+    @Inject constructor(okHttpClient: OkHttpClient) : this(okHttpClient, ALWAYS_DOWNLOAD_MAX_ZOOM, RETRY_DELAYS_MS, READ_TIMEOUT_MS)
 
     /**
      * Bloccante (richieste HTTP range): va chiamato fuori dal main thread. [ensureActive] e'
      * invocato prima di ogni richiesta e deve lanciare un'eccezione per interrompere
      * l'estrazione (es. CoroutineScope.ensureActive del worker annullato). [onProgress] riceve i
      * byte di tile scaricati sul totale da scaricare; riparte da 0 se si ripiega sull'estrazione completa.
+     * [isCancelled], chiamato da un altro thread mentre si aspetta la rete, interrompe la richiesta in corso
+     * (altrimenti l'annullamento arriverebbe solo alla richiesta successiva).
      */
     fun extract(
         mapSource: MapExtractionSource,
@@ -79,13 +86,18 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
         previousMap: File? = null,
         detail: MapDetail = MapDetail.FULL,
         onProgress: (bytesDone: Long, bytesTotal: Long) -> Unit = { _, _ -> },
+        isCancelled: () -> Boolean = { false },
         ensureActive: () -> Unit = {},
     ): PmtilesExtractionStats {
         val directory = requireNotNull(outputFile.absoluteFile.parentFile)
         // Spool di un tentativo ucciso dal sistema (il close() non e' mai arrivato): nella cartella di
         // staging della regione gira una sola estrazione alla volta, quindi i .tmp rimasti sono orfani.
         directory.listFiles { file -> file.name.startsWith(SPOOL_PREFIX) && file.name.endsWith(SPOOL_SUFFIX) }?.forEach { it.delete() }
-        HttpUrlConnectionChannel(URL(mapSource.sourceUrl)).use { channel ->
+        val client = okHttpClient.newBuilder()
+            .connectTimeout(CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            .readTimeout(readTimeoutMs, TimeUnit.MILLISECONDS)
+            .build()
+        OkHttpRangeChannel(client, mapSource.sourceUrl, retryDelaysMs, isCancelled).use { channel ->
             Reader(channel).use { reader ->
                 if (previousMap != null && previousMap.isFile) {
                     var interruption: Throwable? = null
@@ -304,6 +316,11 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
         const val MAX_BATCH_BYTES = 16L * 1024 * 1024
         const val MAX_GAP_BYTES = 256L * 1024
         const val ENSURE_ACTIVE_EVERY = 256L
+        const val CONNECT_TIMEOUT_MS = 15_000L
+        // Tra due byte consecutivi della risposta: una connessione ferma scade e la richiesta si ritenta.
+        const val READ_TIMEOUT_MS = 30_000L
+        // Attese prima del secondo e del terzo tentativo della stessa richiesta.
+        val RETRY_DELAYS_MS = listOf(1_000L, 3_000L)
         // Chiavi dello spool: le posizioni della mappa installata portano questo bit, per non confonderle con quelle remote.
         const val LOCAL_KEY_FLAG = 1L shl 62
         // Sotto questa soglia un errore di scrittura e' quasi certamente il disco pieno.

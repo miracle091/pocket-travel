@@ -78,13 +78,15 @@ class RegionPackageInstallerDeviceTest {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val bytes = files[request.path!!.removePrefix("/")] ?: return MockResponse().setResponseCode(404)
-                // Come nel test JVM di PmtilesExtractor: 200 con i soli byte del range richiesto.
+                // Come nel test JVM di PmtilesExtractor: 206 con i soli byte del range richiesto e il Content-Range.
                 val range = request.getHeader("Range")?.let { Regex("^bytes=([0-9]+)-([0-9]+)").find(it) }
-                val body = if (range == null) bytes else {
-                    val start = range.groupValues[1].toInt()
-                    bytes.copyOfRange(start, minOf(range.groupValues[2].toInt() + 1, bytes.size))
-                }
-                return MockResponse().setBody(Buffer().write(body))
+                if (range == null) return MockResponse().setBody(Buffer().write(bytes))
+                val start = range.groupValues[1].toInt()
+                val end = minOf(range.groupValues[2].toInt(), bytes.size - 1)
+                return MockResponse()
+                    .setResponseCode(206)
+                    .setHeader("Content-Range", "bytes $start-$end/${bytes.size}")
+                    .setBody(Buffer().write(bytes.copyOfRange(start, end + 1)))
             }
         }
         server.start()
@@ -101,7 +103,7 @@ class RegionPackageInstallerDeviceTest {
         storage,
         PoiImporter(db.poiDao(), db, Dispatchers.IO),
         RoutingSegmentsInstaller(Dispatchers.IO),
-        PmtilesExtractor(),
+        PmtilesExtractor(OkHttpClient()),
         CityImporter(db.cityDao(), db, Dispatchers.IO),
         RegionAddressGridInstaller(storage),
         MapDetailPreferences { name -> context.getSharedPreferences(name, Context.MODE_PRIVATE) },

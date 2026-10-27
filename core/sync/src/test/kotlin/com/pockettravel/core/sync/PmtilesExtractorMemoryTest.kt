@@ -82,8 +82,6 @@ class PmtilesExtractorMemoryTest {
         }
     }
 
-    private fun newExtractor() = PmtilesExtractor()
-
     private companion object {
         const val MAX_ZOOM = 12
     }
