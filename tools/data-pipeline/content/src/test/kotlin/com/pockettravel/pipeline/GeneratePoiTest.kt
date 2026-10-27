@@ -298,6 +298,25 @@ class GeneratePoiTest {
     }
 
     @Test
+    fun `l'elemento Wikidata del tag wikidata finisce come numero in poi db, fama e patrimonio restano vuoti`() {
+        fun qidOf(value: String): Long? =
+            readOsm(node(1, mapOf("tourism" to "museum", "name" to "Louvre", "wikidata" to value))).single().wikidata
+        assertEquals(19675L, qidOf("Q19675"))
+        // Piu' elementi separati da ";": il primo. Spazi e minuscole si accettano, il resto no.
+        assertEquals(19675L, qidOf(" q19675;Q2 "))
+        assertEquals(null, qidOf("Louvre"))
+        assertEquals(null, qidOf("Q"))
+        assertEquals(null, qidOf("Q0"))
+        withDb { db ->
+            writePoiDb(listOf(poi().copy(wikidata = 19675L), poi(name = "Senza")), db)
+            assertEquals(
+                listOf(listOf("Bar", "19675", null, null), listOf("Senza", null, null, null)),
+                rowsOf(db, "SELECT name, wikidata, sitelinks, heritage FROM poi ORDER BY name"),
+            )
+        }
+    }
+
+    @Test
     fun `stalli per disabili da parking_space=disabled o capacity disabled, gli altri stalli restano generici`() {
         val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi").toFile()
         val xml = File(dir, "a.xml")
@@ -621,7 +640,7 @@ class GeneratePoiTest {
             assertEquals(
                 listOf(
                     "name", "code", "latE6", "lonE6", "phone", "wheelchair", "openingHours", "address", "website", "email",
-                    "country", "nameEn", "nameIt", "toiletsWheelchair", "capacityDisabled",
+                    "country", "nameEn", "nameIt", "toiletsWheelchair", "capacityDisabled", "wikidata", "sitelinks", "heritage",
                 ),
                 rowsOf(db, "SELECT name FROM pragma_table_info('poi')").map { it[0] },
             )

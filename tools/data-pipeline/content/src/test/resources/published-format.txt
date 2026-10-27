@@ -17,6 +17,9 @@ poi.db poi.nameEn #11 TEXT notnull=0 default=null pk=0
 poi.db poi.nameIt #12 TEXT notnull=0 default=null pk=0
 poi.db poi.toiletsWheelchair #13 TEXT notnull=0 default=null pk=0
 poi.db poi.capacityDisabled #14 INTEGER notnull=0 default=null pk=0
+poi.db poi.wikidata #15 INTEGER notnull=0 default=null pk=0
+poi.db poi.sitelinks #16 INTEGER notnull=0 default=null pk=0
+poi.db poi.heritage #17 INTEGER notnull=0 default=null pk=0
 poi.db poi_code.code #0 INTEGER notnull=1 default=null pk=1
 poi.db poi_code.category #1 TEXT notnull=1 default=null pk=0
 poi.db poi_code.osmTag #2 TEXT notnull=1 default=null pk=0

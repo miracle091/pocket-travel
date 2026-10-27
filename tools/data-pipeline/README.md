@@ -119,6 +119,12 @@ rettangoli sovrapposti: un punto in più rettangoli va alla regione con il centr
   non sono in nessuna regione: Chatham e Kermadec (Nuova Zelanda), Attu e Shemya (Alaska), la punta della Čukotka e
   l'isola di Wrangel (Russia), le Phoenix occidentali (Kiribati). Figi e Kiribati sono divise in due regioni per
   questo motivo. `scripts/bbox_audit.py` elenca le terre di ogni confine fuori da tutti i rettangoli.
+- Fama e patrimonio: `generatePoi` salva il tag `wikidata` come numero (colonna `wikidata` di `poi.db`), poi
+  `scripts/poi_wikidata.py` chiede a Wikidata (CC0), a lotti di 250 elementi, quante voci di Wikipedia e degli altri
+  progetti sono collegate (`sitelinks`) e se il luogo è tutelato (`heritage` 1) o patrimonio dell'umanità UNESCO o parte
+  di uno (`heritage` 2). Toglie il tag quando l'elemento non ha coordinate (una persona, come Napoleone sulla sua tomba)
+  o le ha a più di 20 km dal POI. Le risposte valgono 60 giorni nella cache di `POI_WIKIDATA_CACHE`; dopo 10 minuti
+  (`POI_WIKIDATA_MAX_SECONDS`) gli elementi rimasti aspettano la run successiva. Un errore non fa fallire la regione.
 
 ## Firma dei file JSON
 

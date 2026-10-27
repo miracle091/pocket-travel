@@ -539,10 +539,11 @@ jobs:
         with:
           cache-name: cities-${{ matrix.shard }}
 
-      # Popolazione e coordinate delle citta' gia' chieste a Wikidata (city_population.py, CITY_FACTS_CACHE): si riparte
-      # dalla cache piu' recente di qualunque shard e si chiedono solo le citta' nuove o scadute, cosi' i tre shard
-      # insieme mandano poche richieste a Wikimedia, che alle raffiche risponde 429.
-      - name: Ripristina popolazione e coordinate delle citta'
+      # Dati gia' chiesti a Wikidata: popolazione e coordinate delle citta' (city_population.py, CITY_FACTS_CACHE) e fama e
+      # patrimonio dei POI (poi_wikidata.py, POI_WIKIDATA_CACHE), due file nella stessa cartella. Si riparte dalla cache
+      # piu' recente di qualunque shard e si chiedono solo le voci nuove o scadute, cosi' i tre shard insieme mandano poche
+      # richieste a Wikimedia, che alle raffiche risponde 429.
+      - name: Ripristina i dati Wikidata delle citta' e dei POI
         continue-on-error: true
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -557,6 +558,7 @@ jobs:
           EXTRA: ${{ needs.plan.outputs[format('shard{0}_extra', matrix.shard)] }}
           WIKIVOYAGE_DUMP_CACHE: ${{ runner.temp }}/wikivoyage-dumps
           CITY_FACTS_CACHE: ${{ github.workspace }}/city-facts/city-facts.json
+          POI_WIKIDATA_CACHE: ${{ github.workspace }}/city-facts/poi-wikidata.json
           # Intervalli dei .rd5 gia' scaricati, riusati dalle regioni dopo nello stesso shard (34% dei
           # download .rd5 della run del 2026-09-28 erano tile gia' scaricate nello shard).
           RD5_RANGE_CACHE: ${{ runner.temp }}/rd5-range-cache
@@ -579,18 +581,18 @@ jobs:
         continue-on-error: true
         run: bash .github/scripts/trim-caches.sh "translations-cities-$SHARD-" "translations-cities-$SHARD-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 
-      # Ogni shard salva la sua copia, con le citta' nuove di questa run; poi si tolgono le copie piu' vecchie dello
+      # Ogni shard salva la sua copia, con le citta' e i POI nuovi di questa run; poi si tolgono le copie piu' vecchie dello
       # stesso shard. Il ripristino sopra prende la piu' recente di tutti gli shard.
-      - name: Salva popolazione e coordinate delle citta'
+      - name: Salva i dati Wikidata delle citta' e dei POI
         id: save-city-facts
-        if: ${{ always() && hashFiles('city-facts/city-facts.json') != '' }}
+        if: ${{ always() && hashFiles('city-facts/*.json') != '' }}
         continue-on-error: true
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ github.workspace }}/city-facts
           key: city-facts-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
 
-      - name: Elimina le cache delle citta' piu' vecchie
+      - name: Elimina le cache Wikidata piu' vecchie
         if: ${{ always() && steps.save-city-facts.outcome == 'success' }}
         continue-on-error: true
         run: bash .github/scripts/trim-caches.sh "city-facts-$SHARD-" "city-facts-$SHARD-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"

@@ -929,6 +929,10 @@ if [ -z "$PUBLISHED_POI_COUNT" ] && [ -n "${PUBLISHED_POI_URL:-}" ] && [ -z "$GE
 fi
 POI_PUBLISHED_COUNT="$PUBLISHED_POI_COUNT" ./gradlew -q :tools:data-pipeline:content:generatePoi --args="$POI_ARGS"
 POI_COUNT="$(poi_count "$POI_DB")"
+# Fama (sitelinks) e patrimonio (heritage) dei POI con un elemento Wikidata, con la cache di POI_WIKIDATA_CACHE se c'e'.
+# Mai fatale: senza Wikidata i POI restano senza le due colonne.
+python3 "$SCRIPT_DIR/poi_wikidata.py" "$POI_DB" "$POI_EXTRA_DB" \
+  || echo "::warning::fama e patrimonio dei POI di $REGION_ID non scritti (errore sopra)"
 
 # I pacchetti POI si pubblicano solo compressi con xz (<file>.xz): Spagna 110 MB -> 26 MB, contro i
 # 44 MB di gzip. In `manifest.json` "file" descrive il database non compresso (nome, dimensione e sha256,

@@ -147,6 +147,9 @@ data class Poi(
     // Tag OSM "capacity:disabled": posti auto per disabili di un parcheggio, solo se e' un numero
     // ("yes" senza numero non dice quanti sono).
     val capacityDisabled: Int? = null,
+    // Elemento Wikidata del tag OSM "wikidata", senza la Q (Q19675 -> 19675): fama e patrimonio li aggiunge
+    // poi_wikidata.py dopo generatePoi, e serve all'app per il racconto del luogo.
+    val wikidata: Long? = null,
 )
 
 // Vince la prima chiave dell'elenco che da' un POI pubblicato: tourism=yes accanto a leisure=garden, o un'area
@@ -203,8 +206,13 @@ private fun poiFromKey(tags: Map<String, String>, lat: Double, lon: Double, tagK
         nameIt = translatedName(tags, "name:it")?.nfc(),
         toiletsWheelchair = tags["toilets:wheelchair"],
         capacityDisabled = tags["capacity:disabled"]?.trim()?.toIntOrNull()?.takeIf { it > 0 },
+        wikidata = wikidataNumber(tags["wikidata"]),
     )
 }
+
+// 19675 da "Q19675" (anche "q19675" o "Q19675;Q2": il primo). null se non e' un elemento Wikidata.
+private fun wikidataNumber(raw: String?): Long? =
+    raw?.substringBefore(';')?.trim()?.uppercase()?.takeIf { it.startsWith("Q") }?.drop(1)?.toLongOrNull()?.takeIf { it > 0 }
 
 // Nomi in forma precomposta (NFC): la ricerca per nome dell'app confronta i caratteri precomposti.
 private fun String.nfc(): String = Normalizer.normalize(this, Normalizer.Form.NFC)
@@ -233,7 +241,10 @@ private fun addressOf(tags: Map<String, String>): String? {
  * - "poi": name, il code di poi_code, le coordinate come interi in microgradi (lat/lon * 1e6,
  *   precisione ~0,11 m, piu' che sufficiente per un segnalino) invece di REAL a 8 byte, phone e
  *   wheelchair facoltativi, openingHours e address per cibo, alloggi, ambasciate, farmacie, ospedali e negozi, website ed email per alloggi e ambasciate, country (paese rappresentato) per le ambasciate, toiletsWheelchair (bagni accessibili, qualunque POI) e
- *   capacityDisabled (posti auto per disabili, parcheggi) (colonne aggiunte in seguito: le versioni dell'app che non le conoscono non le selezionano). Niente colonna
+ *   capacityDisabled (posti auto per disabili, parcheggi), wikidata (numero dell'elemento Wikidata), sitelinks (voci di
+ *   Wikipedia e degli altri progetti collegate all'elemento: la fama del luogo) e heritage (1 bene tutelato, 2 patrimonio
+ *   dell'umanita' UNESCO o parte di uno), questi due scritti da poi_wikidata.py (colonne aggiunte in seguito: le versioni
+ *   dell'app che non le conoscono non le selezionano). Niente colonna
  *   regionId (sarebbe costante su ogni riga: la regione la passa comunque chi importa il file).
  * - PRAGMA user_version = [POI_DB_FORMAT_VERSION]: marcatore di formato per PoiImporter, che
  *   legge sia questo che il vecchio formato (regionId/category/osmTag/lat/lon in chiaro,
@@ -285,10 +296,13 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
                 nameEn TEXT,
                 nameIt TEXT,
                 toiletsWheelchair TEXT,
-                capacityDisabled INTEGER
+                capacityDisabled INTEGER,
+                wikidata INTEGER,
+                sitelinks INTEGER,
+                heritage INTEGER
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair, openingHours, address, website, email, country, nameEn, nameIt, toiletsWheelchair, capacityDisabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair, openingHours, address, website, email, country, nameEn, nameIt, toiletsWheelchair, capacityDisabled, wikidata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         rows = pois,
     ) { insert, poi ->
         insert.setString(1, poi.name)
@@ -306,6 +320,7 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
         insert.setString(13, poi.nameIt)
         insert.setString(14, poi.toiletsWheelchair)
         if (poi.capacityDisabled != null) insert.setInt(15, poi.capacityDisabled) else insert.setNull(15, java.sql.Types.INTEGER)
+        if (poi.wikidata != null) insert.setLong(16, poi.wikidata) else insert.setNull(16, java.sql.Types.INTEGER)
     }
 
     // A parte (non e' una tabella): writeSqliteTable ricrea una tabella per volta, il marcatore di
