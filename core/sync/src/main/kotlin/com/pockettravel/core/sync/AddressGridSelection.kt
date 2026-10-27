@@ -1,5 +1,7 @@
 package com.pockettravel.core.sync
 
+import com.pockettravel.core.tiles.TileRange
+import com.pockettravel.core.tiles.tileRangeFor
 import java.security.MessageDigest
 
 /** Nodo z/x/y del quadtree Web Mercator che identifica una cella dei civici (z <= 14 = tileZoom). */

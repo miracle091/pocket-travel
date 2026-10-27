@@ -22,6 +22,8 @@ kotlin {
 dependencies {
     // Regole dei POI condivise con l'app: quali vanno nel pacchetto base, quali nell'extra.
     implementation(project(":core:poi"))
+    // Id delle tile di un rettangolo, gli stessi dell'estrazione della mappa nell'app.
+    implementation(project(":core:tiles"))
     implementation(libs.sqlite.jdbc)
     // Lettura PMTiles locali e decodifica dei tile vettoriali per GenerateAddresses.kt.
     implementation(libs.planetiler.core)

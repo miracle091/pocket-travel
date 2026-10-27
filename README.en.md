@@ -169,7 +169,7 @@ llama.cpp and BRouter are git submodules in `third-party/`: clone the repository
 | Command | What it does |
 |---|---|
 | `./gradlew :app:installDebug` | Installs the debug build |
-| `./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :tools:data-pipeline:content:test` | Runs the CI checks |
+| `./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :tools:data-pipeline:content:test` | Runs the CI checks |
 | `./gradlew :app:installDebug -PpocketTravel.manifestUrl=http://10.0.2.2:8000/manifest.json` | Uses a debug catalog, without signature checks |
 | `node tools/dev/simulate-route.js 12` | Moves the emulator's GPS along the Navigator route, at 12 m/s |
 

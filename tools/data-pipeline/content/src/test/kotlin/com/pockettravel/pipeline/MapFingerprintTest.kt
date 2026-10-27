@@ -1,6 +1,8 @@
 package com.pockettravel.pipeline
 
 import com.onthegomap.planetiler.geo.TileCoord
+import com.pockettravel.core.tiles.TILE_BLOCK_TARGET
+import com.pockettravel.core.tiles.tileIdBlocks
 import com.sun.net.httpserver.HttpServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -11,12 +13,25 @@ import java.io.File
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.io.path.createTempDirectory
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.floor
+import kotlin.math.ln
+import kotlin.math.tan
 
 // Tutti gli id del rettangolo, concatenando i blocchi (solo per rettangoli piccoli).
 private fun tileIdsIn(minLon: Double, minLat: Double, maxLon: Double, maxLat: Double, minZoom: Int, maxZoom: Int): LongArray =
     tileIdBlocks(minLon, minLat, maxLon, maxLat, minZoom, maxZoom).toList().fold(LongArray(0)) { all, block -> all + block }
 
-// Algoritmo precedente, in memoria per intero: riferimento per l'uguaglianza dell'output.
+// Riferimento indipendente da core:tiles: proiezione e curva di Hilbert di planetiler, tutti gli id in memoria.
+private fun lonToTile(lon: Double, n: Int): Int = floor((lon + 180.0) / 360.0 * n).toInt().coerceIn(0, n - 1)
+
+private fun latToTile(lat: Double, n: Int): Int {
+    val rad = Math.toRadians(lat.coerceIn(-85.0511, 85.0511))
+    return floor((1.0 - ln(tan(rad) + 1.0 / cos(rad)) / PI) / 2.0 * n).toInt().coerceIn(0, n - 1)
+}
+
+// Algoritmo in memoria per intero: riferimento per l'uguaglianza dell'output.
 private fun referenceTileIds(minLon: Double, minLat: Double, maxLon: Double, maxLat: Double, minZoom: Int, maxZoom: Int): LongArray {
     val ranges = (minZoom..maxZoom).map { z ->
         val n = 1 shl z

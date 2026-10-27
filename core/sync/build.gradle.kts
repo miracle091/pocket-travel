@@ -31,6 +31,8 @@ android {
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
+    // Id delle tile di un rettangolo, gli stessi dell'impronta della mappa nella pipeline.
+    implementation(project(":core:tiles"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

@@ -1,10 +1,10 @@
-package com.pockettravel.core.sync
+package com.pockettravel.core.tiles
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class SlippyTileTest {
+class TileRangeTest {
 
     @Test
     fun `a zoom 0 tutto il mondo e' una tile`() {

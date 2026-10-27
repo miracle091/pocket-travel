@@ -39,5 +39,10 @@ gradlePlugin {
             id = "pockettravel.hilt"
             implementationClass = "HiltConventionPlugin"
         }
+        // Per i moduli Kotlin puri (core:tiles); quelli Android lo ricevono dal loro plugin.
+        register("detekt") {
+            id = "pockettravel.detekt"
+            implementationClass = "DetektConventionPlugin"
+        }
     }
 }

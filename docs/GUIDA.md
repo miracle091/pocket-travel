@@ -19,7 +19,7 @@ git -c core.longpaths=true submodule update --init --depth 1   # una volta, se i
 Prima di ogni commit, lancia gli stessi controlli della CI (`.github/workflows/android-ci.yml`):
 
 ```bash
-./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :tools:data-pipeline:content:test --continue
+./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :tools:data-pipeline:content:test --continue
 for t in tools/data-pipeline/scripts/test_*.py .github/scripts/test_check_dependencies.py; do python "$t" || break; done
 ```
 

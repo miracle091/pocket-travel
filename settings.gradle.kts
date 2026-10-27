@@ -29,6 +29,7 @@ include(
     ":core:sync",
     ":core:ui",
     ":core:poi",
+    ":core:tiles",
     ":core:routing-engine",
     ":core:speech",
     ":feature:guide",

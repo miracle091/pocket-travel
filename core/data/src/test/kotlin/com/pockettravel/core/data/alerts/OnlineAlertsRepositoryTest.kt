@@ -85,7 +85,7 @@ class OnlineAlertsRepositoryTest {
         ByteBuffer.wrap(header, 102, 16).order(ByteOrder.LITTLE_ENDIAN).apply {
             listOf(minLon, minLat, maxLon, maxLat).forEach { putInt((it * 10_000_000).toInt()) }
         }
-        file.parentFile.mkdirs()
+        file.parentFile?.mkdirs()
         file.writeBytes(header)
     }
 

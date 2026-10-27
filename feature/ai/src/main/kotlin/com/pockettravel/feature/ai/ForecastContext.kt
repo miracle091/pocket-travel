@@ -69,7 +69,7 @@ class ForecastSections @Inject constructor(
                 ?: mainCity(query.regionId)
                 ?: query.previousQuestion?.let { previous -> namedCities(previous, query.cityNames, query.language).firstOrNull() }
         }
-        return if (city != null && countryCode != null) forecastProvider.section(city, countryCode, query.language) else null
+        return if (city != null) forecastProvider.section(city, countryCode, query.language) else null
     }
 
     // La citta' della regione piu' vicina all'ultima posizione nota, se l'utente e' nella regione (POI del pacchetto entro

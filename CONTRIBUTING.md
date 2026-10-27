@@ -30,7 +30,7 @@ Una proposta descrive prima il caso d'uso in viaggio, poi la soluzione. Le modif
 4. Esegui i controlli della CI:
 
    ```bash
-   ./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :tools:data-pipeline:content:test
+   ./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :tools:data-pipeline:content:test
    ```
 
    Per la pipeline anche `python3 tools/data-pipeline/scripts/test_<nome>.py`. I test sul dispositivo si lanciano con `installDebugAndroidTest` e `adb shell am instrument`, non con `connectedDebugAndroidTest`, che cancella i file sul dispositivo come il modello GGUF.

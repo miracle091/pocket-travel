@@ -2,6 +2,8 @@ package com.pockettravel.core.sync
 
 import android.annotation.SuppressLint
 import ch.poole.geo.pmtiles.Reader
+import com.pockettravel.core.tiles.tileIdBlocks
+import com.pockettravel.core.tiles.zoomOffset
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
@@ -172,7 +174,7 @@ class PmtilesExtractor internal constructor(
      * precedenti), scaricando anche i buchi tra una tile e l'altra fino a
      * [MAX_GAP_BYTES]. [onProgress] riceve i byte delle tile da scaricare (buchi esclusi).
      *
-     * I tileId si trattano a gruppi di qualche migliaio ([forEachTileIdBlock]): per le regioni piu' grandi
+     * I tileId si trattano a gruppi di qualche migliaio ([tileIdBlocks]): per le regioni piu' grandi
      * (decine di milioni di tile) l'elenco intero e le posizioni nei due archivi non starebbero in memoria. Il
      * totale dei byte per l'avanzamento richiede una prima passata sull'indice, poi una seconda scarica.
      */
@@ -200,7 +202,7 @@ class PmtilesExtractor internal constructor(
             // tileId ordinati: le tile fino a alwaysDownloadMaxZoom sono le prime.
             val firstReusableId = zoomOffset(alwaysDownloadMaxZoom + 1)
             fun forEachBlock(action: (tileIds: LongArray, remote: PmtilesTileLocations, installed: PmtilesTileLocations?) -> Unit) {
-                forEachTileIdBlock(mapSource.minLon, mapSource.minLat, mapSource.maxLon, mapSource.maxLat, mapSource.minZoom, lastZoom) { tileIds ->
+                tileIdBlocks(mapSource.minLon, mapSource.minLat, mapSource.maxLon, mapSource.maxLat, mapSource.minZoom, lastZoom).forEach { tileIds ->
                     val remote = remoteIndex.locate(tileIds, ensureActive)
                     action(tileIds, remote, localIndex?.locate(tileIds, ensureActive))
                 }

@@ -78,7 +78,7 @@ jobs:
               || { echo "::error::una patch di third-party/patches/$lib non si applica al submodule: rifarla o toglierla" >&2; exit 1; }
           done
 
-      - run: ./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :tools:data-pipeline:content:test --no-daemon
+      - run: ./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :tools:data-pipeline:content:test --no-daemon
 
       # Tutti i test Python della pipeline e degli script dei workflow: un test nuovo (test_*.py) viene eseguito senza
       # toccare il workflow. Un file o una connessione lasciati aperti (ResourceWarning) fanno fallire il passo: Python li

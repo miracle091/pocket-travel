@@ -1,4 +1,4 @@
-package com.pockettravel.core.sync
+package com.pockettravel.core.tiles
 
 import ch.poole.geo.pmtiles.Hilbert
 import org.junit.Assert.assertArrayEquals
@@ -20,8 +20,26 @@ class TileIdBlocksTest {
 
     private fun blocks(minLon: Double, minLat: Double, maxLon: Double, maxLat: Double, minZoom: Int, maxZoom: Int): List<LongArray> {
         val result = mutableListOf<LongArray>()
-        forEachTileIdBlock(minLon, minLat, maxLon, maxLat, minZoom, maxZoom) { result += it }
+        tileIdBlocks(minLon, minLat, maxLon, maxLat, minZoom, maxZoom).forEach { result += it }
         return result
+    }
+
+    @Test
+    fun `la curva di Hilbert coincide con quella della libreria fino a z15`() {
+        for (zoom in 0..15) {
+            val last = (1L shl zoom) - 1
+            val step = maxOf(1L, last / 37)
+            for (x in 0..last step step) for (y in listOf(0L, last / 3, last / 2, last)) {
+                assertEquals("tile $zoom/$x/$y", Hilbert.zxyToIndex(zoom, x, y), hilbertIndex(zoom, x, y))
+            }
+        }
+    }
+
+    @Test
+    fun `da z16 gli indici superano i 32 bit`() {
+        // Ultima tile della curva: 4^16 - 1, che la libreria tronca a 32 bit.
+        val last = (1L shl 16) - 1
+        assertEquals((1L shl 32) - 1, maxOf(hilbertIndex(16, last, 0), hilbertIndex(16, 0, 0), hilbertIndex(16, last, last), hilbertIndex(16, 0, last)))
     }
 
     @Test

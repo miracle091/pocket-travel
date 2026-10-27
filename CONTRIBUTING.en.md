@@ -30,7 +30,7 @@ A suggestion describes the travel use case first, then the solution. Large chang
 4. Run the CI checks:
 
    ```bash
-   ./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :tools:data-pipeline:content:test
+   ./gradlew assembleDebug lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :tools:data-pipeline:content:test
    ```
 
    For the pipeline, also `python3 tools/data-pipeline/scripts/test_<name>.py`. Device tests run with `installDebugAndroidTest` and `adb shell am instrument`, not with `connectedDebugAndroidTest`, which deletes files on the device such as the GGUF model.

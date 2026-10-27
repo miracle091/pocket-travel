@@ -266,7 +266,7 @@ fun MapScreen(
     }
 
     // PmtilesExtractor scarica solo le tile che intersecano il bounding box della regione (vedi
-    // core:sync/PmtilesExtractor.tileRangeFor), per tenere piccolo il pacchetto: ai livelli di zoom
+    // tileRangeFor di core:tiles), per tenere piccolo il pacchetto: ai livelli di zoom
     // bassi le tile vicine che non toccano il bbox non esistono, e zoomando a mano dalla vista mondo
     // meta' schermo mostrerebbe solo il "background". Per questo la camera si inquadra sui pin della
     // regione (gia' ben dentro il bbox estratto) appena sono disponibili. Una tantum (guardia

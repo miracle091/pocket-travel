@@ -1,7 +1,7 @@
 package com.pockettravel.pipeline
 
-import com.onthegomap.planetiler.geo.TileCoord
 import com.onthegomap.planetiler.pmtiles.Pmtiles
+import com.pockettravel.core.tiles.tileIdBlocks
 import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
@@ -12,10 +12,6 @@ import java.net.http.HttpResponse
 import java.security.MessageDigest
 import java.time.Duration
 import java.util.zip.GZIPInputStream
-import kotlin.math.PI
-import kotlin.math.floor
-import kotlin.math.ln
-import kotlin.math.tan
 
 /**
  * Impronta delle tile di un rettangolo in un archivio PMTiles (la build Protomaps da cui l'app estrae
@@ -142,60 +138,6 @@ private class TileIdCursor(private val blocks: Iterator<LongArray>) {
     fun advance() {
         position++
     }
-}
-
-// Livelli di zoom sotto una tile "sottoalbero": le sue 4^8 tile discendenti formano il blocco piu' grande.
-private const val SUBTREE_LEVELS = 8
-
-/** Dimensione dopo la quale un blocco di id viene consegnato; un blocco ne ha al piu' questi piu' 4^[SUBTREE_LEVELS]. */
-internal const val TILE_BLOCK_TARGET = 16_384
-
-/**
- * Id (curva di Hilbert, come negli indici PMTiles) delle tile che intersecano il rettangolo, a blocchi: in ordine
- * crescente nel complesso e dentro ogni blocco. Rispecchia forEachTileIdBlock di core/sync (TileIdBlocks.kt).
- * I discendenti di una tile sono contigui sulla curva: a ogni zoom il rettangolo si divide in sottoalberi di 8
- * livelli, visitati nell'ordine di Hilbert e ordinati al loro interno. Per rettangoli come la Siberia
- * (decine di milioni di tile) la lista intera non starebbe in memoria.
- */
-internal fun tileIdBlocks(
-    minLon: Double, minLat: Double, maxLon: Double, maxLat: Double,
-    minZoom: Int, maxZoom: Int,
-): Sequence<LongArray> = sequence {
-    val buffer = LongArray(TILE_BLOCK_TARGET + (1 shl (2 * SUBTREE_LEVELS)))
-    var count = 0
-    for (zoom in minZoom..maxZoom) {
-        val n = 1 shl zoom
-        val minX = lonToTile(minLon, n)
-        val maxX = lonToTile(maxLon, n)
-        val minY = latToTile(maxLat, n)
-        val maxY = latToTile(minLat, n)
-        val levels = minOf(zoom, SUBTREE_LEVELS)
-        val subtrees = ((minX shr levels)..(maxX shr levels)).flatMap { x ->
-            ((minY shr levels)..(maxY shr levels)).map { y -> x to y }
-        }.sortedBy { (x, y) -> TileCoord.ofXYZ(x, y, zoom - levels).hilbertEncoded() }
-        for ((subtreeX, subtreeY) in subtrees) {
-            val start = count
-            for (x in maxOf(minX, subtreeX shl levels)..minOf(maxX, ((subtreeX + 1) shl levels) - 1)) {
-                for (y in maxOf(minY, subtreeY shl levels)..minOf(maxY, ((subtreeY + 1) shl levels) - 1)) {
-                    buffer[count++] = TileCoord.ofXYZ(x, y, zoom).hilbertEncoded()
-                }
-            }
-            // Ogni sottoalbero e' un intervallo contiguo di id: va ordinato solo il suo tratto.
-            buffer.sort(start, count)
-            if (count >= TILE_BLOCK_TARGET) {
-                yield(buffer.copyOf(count))
-                count = 0
-            }
-        }
-    }
-    if (count > 0) yield(buffer.copyOf(count))
-}
-
-internal fun lonToTile(lon: Double, n: Int): Int = floor((lon + 180.0) / 360.0 * n).toInt().coerceIn(0, n - 1)
-
-internal fun latToTile(lat: Double, n: Int): Int {
-    val rad = Math.toRadians(lat.coerceIn(-85.0511, 85.0511))
-    return floor((1.0 - ln(tan(rad) + 1.0 / kotlin.math.cos(rad)) / PI) / 2.0 * n).toInt().coerceIn(0, n - 1)
 }
 
 private fun longBytes(value: Long) = ByteArray(8) { (value shr (56 - 8 * it)).toByte() }
