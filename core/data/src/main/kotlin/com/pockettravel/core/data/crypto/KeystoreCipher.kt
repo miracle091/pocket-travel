@@ -28,8 +28,13 @@ class KeystoreCipher(
     private val keyAlias: String,
     private val requireUserAuthentication: Boolean = false,
     private val authValiditySeconds: Int = AUTH_VALIDITY_SECONDS,
-) {
-    fun encrypt(plainText: String): String {
+) : TextCipher {
+    // Senza autenticazione la chiave si carica dal Keystore una volta sola; con l'autenticazione
+    // resta fuori dalla cache, perche' puo' essere invalidata (nuove impronte) e va riletta.
+    @Volatile
+    private var cachedKey: SecretKey? = null
+
+    override fun encrypt(plainText: String): String {
         try {
             val cipher = newEncryptionCipher()
             val ciphertext = cipher.doFinal(plainText.toByteArray(Charsets.UTF_8))
@@ -39,7 +44,7 @@ class KeystoreCipher(
         }
     }
 
-    fun decrypt(payload: String): String? {
+    override fun decrypt(payload: String): String? {
         return try {
             val iv = AesGcmCodec.decodeIv(payload) ?: return null
             val ciphertext = AesGcmCodec.decodeCiphertext(payload) ?: return null
@@ -72,6 +77,7 @@ class KeystoreCipher(
 
     /** Toglie la chiave dal Keystore: la prossima operazione ne genera una nuova. */
     fun deleteKey() {
+        cachedKey = null
         KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.deleteEntry(keyAlias)
     }
 
@@ -82,6 +88,7 @@ class KeystoreCipher(
     // creazione: una chiave gia' presente nel Keystore resta com'e', non viene rigenerata.
     @Suppress("DEPRECATION")
     private fun secretKey(): SecretKey {
+        cachedKey?.let { return it }
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         if (!keyStore.containsAlias(keyAlias)) {
             KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE).apply {
@@ -111,8 +118,10 @@ class KeystoreCipher(
                 generateKey()
             }
         }
-        return (keyStore.getKey(keyAlias, null) as? SecretKey)
+        val key = (keyStore.getKey(keyAlias, null) as? SecretKey)
             ?: error("Chiave Keystore non disponibile per l'alias $keyAlias")
+        if (!requireUserAuthentication) cachedKey = key
+        return key
     }
 
     private companion object {

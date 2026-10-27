@@ -1,10 +1,14 @@
 package com.pockettravel.core.data
 
 import com.pockettravel.core.data.crypto.KeystoreCipher
+import com.pockettravel.core.data.crypto.TextCipher
 import com.pockettravel.core.data.db.NoteDao
 import com.pockettravel.core.data.db.NoteEntity
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -14,29 +18,40 @@ import javax.inject.Inject
  * l'impronta. Una nota che non decifra piu' (chiave persa/invalidata) viene saltata invece di far
  * fallire l'intera lista.
  */
-class NoteRepository @Inject constructor(
+class NoteRepository internal constructor(
     private val noteDao: NoteDao,
+    private val ioDispatcher: CoroutineDispatcher,
+    private val cipher: TextCipher,
 ) {
-    private val cipher = KeystoreCipher(keyAlias = KEY_ALIAS)
+    @Inject
+    constructor(
+        noteDao: NoteDao,
+        @IoDispatcher ioDispatcher: CoroutineDispatcher,
+    ) : this(noteDao, ioDispatcher, KeystoreCipher(keyAlias = KEY_ALIAS))
 
     fun observeAll(): Flow<List<Note>> =
-        noteDao.observeAll().map { entities -> entities.mapNotNull { it.toDomainOrNull() } }
+        noteDao.observeAll()
+            .map { entities -> entities.mapNotNull { it.toDomainOrNull() } }
+            .flowOn(ioDispatcher)
 
     /** [note].id 0 = nuova nota; un id gia' esistente la sostituisce. Ritorna l'id salvato. */
-    suspend fun save(note: Note): Long = noteDao.upsert(
-        NoteEntity(
-            id = note.id,
-            title = cipher.encrypt(note.title),
-            body = cipher.encrypt(note.body),
-            updatedAt = System.currentTimeMillis(),
-        ),
-    )
+    suspend fun save(note: Note): Long = withContext(ioDispatcher) {
+        noteDao.upsert(
+            NoteEntity(
+                id = note.id,
+                title = cipher.encrypt(note.title),
+                body = cipher.encrypt(note.body),
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+    }
 
     suspend fun delete(id: Long) = noteDao.delete(id)
 
     /** Decifra in memoria e ordina per parole in comune con [query] (minuscolo e senza accenti come streetKey, non alfanumerico scartato). */
-    suspend fun search(query: String, limit: Int): List<Note> =
+    suspend fun search(query: String, limit: Int): List<Note> = withContext(ioDispatcher) {
         rankNotesByQuery(noteDao.all().mapNotNull { it.toDomainOrNull() }, query, limit)
+    }
 
     private fun NoteEntity.toDomainOrNull(): Note? {
         val decryptedTitle = cipher.decrypt(title) ?: return null

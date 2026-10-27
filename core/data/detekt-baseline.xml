@@ -25,7 +25,7 @@
     <ID>ReturnCount:AddressSearch.kt:internal fun searchAddressDb: List&lt;AddressResult&gt;</ID>
     <ID>ReturnCount:AndroidLastKnownPosition.kt:AndroidLastKnownPosition$override fun get: Pair&lt;Double, Double&gt;?</ID>
     <ID>ReturnCount:DiplomaticMissionRepository.kt:private fun sameName: Boolean</ID>
-    <ID>ReturnCount:KeystoreCipher.kt:KeystoreCipher$fun decrypt: String?</ID>
+    <ID>ReturnCount:KeystoreCipher.kt:KeystoreCipher$override fun decrypt: String?</ID>
     <ID>ReturnCount:NoteRepository.kt:NoteRepository$private fun NoteEntity.toDomainOrNull: Note?</ID>
     <ID>ReturnCount:RegionStorage.kt:RegionStorage$fun versionedPmtiles: File?</ID>
     <ID>ReturnCount:RoomRegionRepository.kt:RoomRegionRepository$override suspend fun forgetMissingPackages: Set&lt;PackageKind&gt;</ID>
