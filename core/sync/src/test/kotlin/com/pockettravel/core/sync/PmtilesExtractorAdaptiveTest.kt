@@ -150,7 +150,8 @@ class PmtilesExtractorAdaptiveTest {
 
         val requests = tileRequests.toList()
         assertEquals("tile 1, tile 2 interrotta, tile 2 ritentata, tile 3, tile 4", 5, requests.size)
-        assertEquals(requests[1].range, requests[2].range)
+        assertEquals("il ritentativo finisce dove finiva la richiesta interrotta", requests[1].range.last, requests[2].range.last)
+        assertTrue("e riparte dai byte gia' ricevuti: ${requests[2].range}", requests[2].range.first > requests[1].range.first)
         assertTrue("la seconda richiesta era su una connessione gia' usata", requests[1].sequenceNumber > 0)
         assertEquals("il ritentativo apre una connessione nuova", 0, requests[2].sequenceNumber)
         assertOutputHas(tiles, 3, minimum = 4)

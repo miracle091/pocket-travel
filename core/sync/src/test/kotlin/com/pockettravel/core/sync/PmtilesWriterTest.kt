@@ -260,6 +260,40 @@ class PmtilesWriterTest {
     }
 
     @Test
+    fun `l'annullamento interrompe la scrittura in ogni fase e non lascia file`() {
+        val dir = tempFile().parentFile!!
+        val output = File(dir, "map.pmtiles")
+        class Cancelled : RuntimeException()
+        fun write(failAt: Int): Int {
+            var calls = 0
+            // Id in ordine decrescente: serve l'ordinamento esterno; oltre 20.000 voci la directory usa le leaf.
+            PmtilesTileSpool(dir, sortChunkRecords = 10_000).use { tiles ->
+                for (id in 50_000L downTo 1L) tiles.add(id, fakeTile(id.toInt()))
+                PmtilesWriter.write(
+                    outputFile = output, tiles = tiles, metadataJson = "{}",
+                    tileCompression = Constants.COMPRESSION_GZIP, tileType = Constants.TYPE_MVT,
+                    minZoom = 0, maxZoom = 1, minLon = 0.0, minLat = 0.0, maxLon = 1.0, maxLat = 1.0,
+                    checkActive = { if (++calls == failAt) throw Cancelled() },
+                )
+            }
+            return calls
+        }
+
+        val total = write(failAt = -1)
+        assertTrue("controlli: $total", total > 20)
+        output.delete()
+        for (failAt in 1..total) {
+            try {
+                write(failAt)
+                fail("annullamento al controllo $failAt ignorato")
+            } catch (expected: Cancelled) {
+                // atteso
+            }
+            assertEquals("controllo $failAt", listOf<String>(), dir.listFiles()!!.map { it.name })
+        }
+    }
+
+    @Test
     fun `milioni di tile consecutive con lo stesso contenuto occupano una sola voce di directory`() {
         PmtilesTileSpool(tempFile().parentFile!!).use { tiles ->
             val content = fakeTile(1)

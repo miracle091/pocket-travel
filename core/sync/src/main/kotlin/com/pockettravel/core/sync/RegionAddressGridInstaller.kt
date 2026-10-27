@@ -126,6 +126,7 @@ class RegionAddressGridInstaller @Inject constructor(
                 minLat = mapSource.minLat,
                 maxLon = mapSource.maxLon,
                 maxLat = mapSource.maxLat,
+                checkActive = ensureActive,
             )
         }
 

@@ -168,6 +168,42 @@ class PmtilesExtractorTest {
     }
 
     @Test
+    fun `l'annullamento durante la scrittura finale interrompe l'estrazione, anche incrementale, senza file residui`() {
+        val remoteEntries = (0 until 4).flatMap { x -> (0 until 4).map { y -> PmtilesEntry(tileId(2, x, y), fakeTile(2, x, y)) } }
+        PmtilesWriter.write(
+            outputFile = sourceFile, entries = remoteEntries, metadataJson = """{"name":"fake"}""",
+            tileCompression = Constants.COMPRESSION_GZIP, tileType = Constants.TYPE_MVT,
+            minZoom = 2, maxZoom = 2, minLon = -180.0, minLat = -85.0, maxLon = 180.0, maxLat = 85.0,
+        )
+        server.dispatcher = RangeFileDispatcher(sourceFile)
+        server.start()
+        val mapSource = MapExtractionSource(
+            sourceUrl = server.url("/whole-planet.pmtiles").toString(),
+            minLon = -170.0, minLat = -80.0, maxLon = 170.0, maxLat = 80.0, minZoom = 2, maxZoom = 2,
+        )
+        val installed = File(outputFile.parentFile, "installed.pmtiles")
+        newExtractor().extract(mapSource, installed)
+        // Richieste di un aggiornamento incrementale completo: un ripiego sull'estrazione completa ne farebbe di piu'.
+        val reference = File(outputFile.parentFile, "reference.pmtiles")
+        var start = server.requestCount
+        newExtractor().extract(mapSource, reference, installed)
+        val incrementalRequests = server.requestCount - start
+        reference.delete()
+        // Annullamento non appena l'archivio di destinazione esiste: puo' arrivare solo dalla scrittura finale.
+        for (previous in listOf(null, installed)) {
+            start = server.requestCount
+            try {
+                newExtractor().extract(mapSource, outputFile, previous, ensureActive = { if (outputFile.exists()) throw IllegalStateException("annullato") })
+                fail("l'estrazione doveva essere interrotta")
+            } catch (expected: IllegalStateException) {
+                assertEquals("annullato", expected.message)
+            }
+            if (previous != null) assertEquals("nessun ripiego sull'estrazione completa", incrementalRequests, server.requestCount - start)
+            assertEquals(setOf("source.pmtiles", "installed.pmtiles"), outputFile.parentFile!!.listFiles()!!.map { it.name }.toSet())
+        }
+    }
+
+    @Test
     fun `l'estrazione riuscita non lascia file temporanei`() {
         val remoteEntries = listOf(PmtilesEntry(tileId(0, 0, 0), fakeTile(0, 0, 0)))
         PmtilesWriter.write(

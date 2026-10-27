@@ -107,16 +107,18 @@ class PmtilesExtractor internal constructor(
                     try {
                         // Le tile finiscono subito su un file temporaneo accanto all'output (non in RAM,
                         // vedi PmtilesTileSpool), cancellato alla chiusura anche su errore o annullamento.
-                        return PmtilesTileSpool(directory).use { tiles ->
-                            val stats = fetchTiles(channel, mapSource, previousMap, detail, tiles, onProgress) {
-                                try {
-                                    ensureActive()
-                                } catch (error: Throwable) {
-                                    interruption = error
-                                    throw error
-                                }
+                        // Anche la scrittura finale controlla l'annullamento: il suo errore non deve ripiegare sull'estrazione completa.
+                        val tracked = {
+                            try {
+                                ensureActive()
+                            } catch (error: Throwable) {
+                                interruption = error
+                                throw error
                             }
-                            writeArchive(reader, mapSource, stats.maxZoom, tiles, outputFile)
+                        }
+                        return PmtilesTileSpool(directory).use { tiles ->
+                            val stats = fetchTiles(channel, mapSource, previousMap, detail, tiles, onProgress, tracked)
+                            writeArchive(reader, mapSource, stats.maxZoom, tiles, outputFile, tracked)
                             stats
                         }
                     } catch (error: PmtilesExtractionException) {
@@ -136,21 +138,27 @@ class PmtilesExtractor internal constructor(
                 }
                 return PmtilesTileSpool(directory).use { tiles ->
                     val stats = fetchTiles(channel, mapSource, null, detail, tiles, onProgress, ensureActive)
-                    writeArchive(reader, mapSource, stats.maxZoom, tiles, outputFile)
+                    writeArchive(reader, mapSource, stats.maxZoom, tiles, outputFile, ensureActive)
                     stats
                 }
             }
         }
     }
 
-    private fun writeArchive(reader: Reader, mapSource: MapExtractionSource, maxZoom: Int, tiles: PmtilesTileSpool, outputFile: File) {
+    private fun writeArchive(reader: Reader, mapSource: MapExtractionSource, maxZoom: Int, tiles: PmtilesTileSpool, outputFile: File, ensureActive: () -> Unit) {
         if (tiles.tileCount == 0) {
             throw PmtilesExtractionException("Nessuna tile trovata per il bounding box richiesto")
+        }
+        // Reader legge i metadati dalla rete a ogni chiamata: un errore qui e' di rete, non un motivo per ripiegare sull'estrazione completa.
+        val metadataJson = try {
+            reader.metadata
+        } catch (error: IOException) {
+            throw RemoteReadException(error)
         }
         PmtilesWriter.write(
             outputFile = outputFile,
             tiles = tiles,
-            metadataJson = reader.metadata,
+            metadataJson = metadataJson,
             tileCompression = reader.tileCompression,
             tileType = reader.tileType,
             minZoom = mapSource.minZoom,
@@ -159,6 +167,7 @@ class PmtilesExtractor internal constructor(
             minLat = mapSource.minLat,
             maxLon = mapSource.maxLon,
             maxLat = mapSource.maxLat,
+            checkActive = ensureActive,
         )
     }
 

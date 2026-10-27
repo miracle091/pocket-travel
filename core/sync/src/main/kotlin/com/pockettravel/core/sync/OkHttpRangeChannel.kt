@@ -59,8 +59,10 @@ internal data class RangeTuning(
 /** Velocita' media delle richieste concluse, da cui la dimensione del blocco successivo e la soglia di fermo. Thread-safe. */
 internal class ThroughputEstimator(private val tuning: RangeTuning) {
     private var average = 0.0
-    private var hasAverage = false
     private var samples = 0
+
+    // Velocita' del fermo appena visto: dimensiona i blocchi finche' una nuova richiesta non si conclude.
+    private var stalledSpeed: Double? = null
 
     /** Registra una richiesta conclusa; ignora quelle troppo piccole per misurare la banda. */
     @Synchronized
@@ -68,22 +70,25 @@ internal class ThroughputEstimator(private val tuning: RangeTuning) {
         if (bytes < tuning.minSampleBytes || elapsedNanos <= 0) return
         val rate = bytes * NANOS_PER_SECOND / elapsedNanos
         average = if (samples == 0) rate else tuning.averageWeight * rate + (1 - tuning.averageWeight) * average
-        hasAverage = true
         samples++
+        stalledSpeed = null
     }
 
-    /** Dopo un fermo la media precedente non vale piu': riparte dalla velocita' osservata e torna significativa con nuove misure. */
+    /**
+     * Dopo un fermo i blocchi si dimensionano sulla velocita' osservata, mentre la soglia di fermo resta relativa alla
+     * media di prima: una connessione nuova altrettanto lenta si interrompe di nuovo e, finiti i ritentativi, la lettura
+     * fallisce invece di procedere per minuti a pochi KB/s. La media scende con le richieste che si concludono.
+     */
     @Synchronized
     fun reset(observedBytesPerSecond: Double) {
-        average = observedBytesPerSecond
-        hasAverage = true
-        samples = 0
+        stalledSpeed = observedBytesPerSecond
     }
 
     /** Dimensione del prossimo blocco in byte. */
     @Synchronized
     fun batchBytes(): Long {
-        val bytes = if (!hasAverage) tuning.initialBatchBytes else (average * tuning.targetBatchMs / MILLIS_PER_SECOND).toLong()
+        val speed = stalledSpeed ?: average.takeIf { samples > 0 }
+        val bytes = if (speed == null) tuning.initialBatchBytes else (speed * tuning.targetBatchMs / MILLIS_PER_SECOND).toLong()
         return bytes.coerceIn(tuning.minBatchBytes, tuning.maxBatchBytes)
     }
 
@@ -108,22 +113,32 @@ internal class ThroughputEstimator(private val tuning: RangeTuning) {
  * - [isCancelled] e' controllato durante l'attesa e, se vero, interrompe la richiesta in corso con `Call.cancel()`;
  * - la risposta deve essere 206 con un `Content-Range` che parte dal byte richiesto: un 200 (server che ignora
  *   `Range`) darebbe i primi byte del file al posto della tile;
- * - ogni richiesta si ritenta dopo ciascuna attesa di [retryDelaysMs] per errori di rete e 5xx; non per [SourceChangedIOException],
- *   annullamento e risposte che non sono l'intervallo richiesto;
- * - [nextBatchBytes] dice quanto leggere con la richiesta successiva in base alla velocita' delle precedenti;
- * - una richiesta la cui velocita' resta per [RangeTuning.stallWindowMs] molto sotto la media recente (i byte arrivano
- *   a goccia, quindi il timeout di lettura non scatta) si interrompe e si ritenta su una connessione nuova, come un errore di rete.
+ * - una lettura e' fatta a pezzi, ciascuno una richiesta lunga al piu' [ThroughputEstimator.batchBytes] (la durata
+ *   obiettivo alla velocita' recente): se la rete rallenta a meta' di una lettura grande, i pezzi successivi si restringono;
+ * - un pezzo si ritenta dopo ciascuna attesa di [retryDelaysMs] per errori di rete e 5xx, ripartendo dal byte gia'
+ *   ricevuto; non per [SourceChangedIOException], annullamento e risposte che non sono l'intervallo richiesto;
+ * - un pezzo la cui velocita' resta per [RangeTuning.stallWindowMs] molto sotto la media recente (i byte arrivano
+ *   a goccia, quindi il timeout di lettura non scatta) si interrompe e si ritenta su una connessione nuova, come un errore di rete;
+ * - le connessioni stanno in un pool proprio, svuotato a ogni fermo e alla chiusura: quella lenta non resta aperta.
  *
  * Bloccante: va usato fuori dal main thread.
  */
+// Un'unica connessione inattiva; il tempo di inattivita' breve limita ogni connessione sfuggita allo svuotamento.
+private fun rangeChannelPool() = ConnectionPool(1, RANGE_POOL_KEEP_ALIVE_SECONDS, TimeUnit.SECONDS)
+
+private const val RANGE_POOL_KEEP_ALIVE_SECONDS = 60L
+
 internal class OkHttpRangeChannel(
-    client: OkHttpClient,
+    private val baseClient: OkHttpClient,
     private val url: String,
     private val retryDelaysMs: List<Long>,
     private val tuning: RangeTuning = RangeTuning(),
     private val isCancelled: () -> Boolean,
 ) : UrlFileChannel() {
-    @Volatile private var client = client
+    @Volatile internal var pool = rangeChannelPool()
+        private set
+
+    @Volatile private var client = baseClient.newBuilder().connectionPool(pool).build()
     private val savedETag = AtomicReference<String?>(null)
     private val estimator = ThroughputEstimator(tuning)
 
@@ -132,17 +147,32 @@ internal class OkHttpRangeChannel(
 
     override fun read(dst: ByteBuffer, pos: Long): Int {
         val length = dst.capacity()
-        if (length == 0) return 0
+        var filled = 0
         var attempt = 0
-        while (true) {
+        while (filled < length) {
             if (isCancelled()) throw RangeReadCancelledException()
+            val piece = pieceLength(length - filled)
+            val received = AtomicLong()
             try {
-                return readOnce(dst, pos, length)
+                val done = readPiece(dst, pos + filled, filled, piece, received)
+                filled += done
+                attempt = 0
+                // Il server ha dato meno del richiesto (fine del file): lettura breve, la giudica il chiamante.
+                if (done < piece) break
             } catch (error: IOException) {
                 if (!isRetryable(error) || attempt >= retryDelaysMs.size) throw error
+                // I byte arrivati prima dell'errore sono corretti: si riparte da li'.
+                filled += received.get().toInt()
                 sleepUnlessCancelled(retryDelaysMs[attempt++])
             }
         }
+        return filled
+    }
+
+    /** Lunghezza del prossimo pezzo: un blocco, o tutto il resto se l'ultimo pezzo sarebbe piu' corto del blocco minimo. */
+    private fun pieceLength(remaining: Int): Int {
+        val batch = estimator.batchBytes()
+        return if (remaining - batch < tuning.minBatchBytes) remaining else batch.toInt()
     }
 
     private fun isRetryable(error: IOException) = when (error) {
@@ -151,10 +181,10 @@ internal class OkHttpRangeChannel(
         else -> true
     }
 
-    private fun readOnce(dst: ByteBuffer, pos: Long, length: Int): Int {
+    /** Legge [length] byte da [pos] in [dst] a partire da [dstOffset]; [received] conta i byte gia' scritti, anche se la richiesta fallisce. */
+    private fun readPiece(dst: ByteBuffer, pos: Long, dstOffset: Int, length: Int, received: AtomicLong): Int {
         val request = Request.Builder().url(url).header("Range", "bytes=$pos-${pos + length - 1}").build()
         val result = CompletableFuture<Int>()
-        val received = AtomicLong()
         val headersAt = AtomicLong()
         val started = System.nanoTime()
         val call = client.newCall(request)
@@ -168,7 +198,7 @@ internal class OkHttpRangeChannel(
                 // OkHttp non chiama onFailure dopo onResponse: ogni eccezione deve completare il risultato.
                 headersAt.set(System.nanoTime())
                 try {
-                    result.complete(response.use { readBody(it, dst, pos, length, received) })
+                    result.complete(response.use { readBody(it, dst, pos, dstOffset, length, received) })
                 } catch (error: Throwable) {
                     result.completeExceptionally(error)
                 }
@@ -177,6 +207,10 @@ internal class OkHttpRangeChannel(
         val done = await(result, call, received, headersAt)
         estimator.record(done.toLong(), System.nanoTime() - started)
         return done
+    }
+
+    override fun implCloseChannel() {
+        pool.evictAll()
     }
 
     /**
@@ -232,26 +266,33 @@ internal class OkHttpRangeChannel(
     }
 
     /**
-     * Chiude la richiesta ferma, aspetta che il thread di lettura abbia smesso di scrivere nel buffer (il ritentativo lo riusa)
-     * passa a un pool di connessioni nuovo (la connessione lenta non e' piu' riutilizzata, anche se multiplexata) e lancia
+     * Chiude la richiesta ferma, aspetta che il thread di lettura abbia smesso di scrivere nel buffer (il ritentativo lo riusa),
+     * chiude le connessioni del pool (la lenta non e' piu' riutilizzata, anche se multiplexata) e lancia
      * [StalledReadException]. Se la richiesta si e' conclusa lo stesso ne restituisce l'esito: i dati completi, o
      * [SourceChangedIOException], che un ritentativo nasconderebbe (l'ETag nuovo e' gia' salvato).
      */
     private fun abortStalled(result: CompletableFuture<Int>, call: Call, speed: Double): Int {
         call.cancel()
+        var stillBusy = false
         try {
             return result.get(CANCEL_JOIN_MS, TimeUnit.MILLISECONDS)
         } catch (error: ExecutionException) {
             // altrimenti atteso: la richiesta annullata fallisce
             (error.cause as? SourceChangedIOException)?.let { throw it }
         } catch (_: TimeoutException) {
-            // il thread di lettura non si e' liberato in tempo
+            // Il thread di lettura non si e' liberato in tempo: la connessione e' ancora occupata e evictAll() non la chiude.
+            stillBusy = true
         } catch (_: InterruptedException) {
             // Con il flag ripristinato l'attesa prima del ritentativo (sleepUnlessCancelled) chiude come annullamento.
             Thread.currentThread().interrupt()
         }
         estimator.reset(speed)
-        client = client.newBuilder().connectionPool(ConnectionPool()).build()
+        pool.evictAll()
+        if (stillBusy) {
+            // Il ritentativo passa a un pool nuovo; la connessione lenta si chiude da sola appena libera, dopo RANGE_POOL_KEEP_ALIVE_SECONDS.
+            pool = rangeChannelPool()
+            client = baseClient.newBuilder().connectionPool(pool).build()
+        }
         throw StalledReadException(speed.toLong())
     }
 
@@ -270,17 +311,16 @@ internal class OkHttpRangeChannel(
         return (last - first + 1).toInt()
     }
 
-    private fun readBody(response: Response, dst: ByteBuffer, pos: Long, length: Int, received: AtomicLong): Int {
+    private fun readBody(response: Response, dst: ByteBuffer, pos: Long, dstOffset: Int, length: Int, received: AtomicLong): Int {
         val expected = checkedLength(response, pos, length)
         response.header("ETag")?.let { eTag ->
             val previous = savedETag.getAndSet(eTag)
             if (previous != null && previous != eTag) throw SourceChangedIOException()
         }
-        dst.rewind()
         val stream = response.body.byteStream()
         var done = 0
         while (done < expected) {
-            val count = stream.read(dst.array(), dst.arrayOffset() + done, expected - done)
+            val count = stream.read(dst.array(), dst.arrayOffset() + dstOffset + done, expected - done)
             if (count < 0) break
             done += count
             received.set(done.toLong())
