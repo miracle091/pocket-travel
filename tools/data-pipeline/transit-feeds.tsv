@@ -76,6 +76,19 @@
 # SEPTA, Muni, Metrolinx, STM, TransLink Vancouver (accordi con manleva, registrazione o limiti d'uso),
 # BKK Budapest (solo uso personale), Vilnius (registrazione dell'utente), OVapi Paesi Bassi (nessuna
 # licenza dichiarata, 224 MB), Irlanda nazionale (193 MB: le 5 reti principali al suo posto).
+# Aggiunte il 27 ottobre 2026, licenze lette sulle pagine di pagina_licenza: Eurostar, autobus di Monaco e Corsica
+# Linea (Licence Ouverte 2.0 su transport.data.gouv.fr); Rapid Rail e Rapid KL a Kuala Lumpur (developer.data.gov.my:
+# "All GTFS Static feeds are licensed under CC BY 4.0"; non KTMB, orari di poche settimane); TIB Maiorca (tib.org,
+# CC BY 4.0); Metro Bilbao (data.ctb.eus, CC BY 4.0 per tutti i dataset del portale); TEC Vallonia (transportdata.be,
+# il punto di accesso nazionale belga, CC0); Bogota' (portale dei dati aperti di TransMilenio: "Todos los conjuntos
+# de datos [...] cubiertos por el licenciamiento: CC BY-SA 4.0"; {ultimo} dall'API di ricerca del portale, perche' la
+# copia del Mobility Database e' ferma a luglio); in Spagna, dal NAP, TUSSAM Siviglia, tram di Saragozza, Euskotren,
+# Granada ed EMT Palma (non tld-4324: lo stesso file, senza licenza). Varsavia: termini della ZTM (par. 6: consentono
+# di modificare i dati, pubblicarli in applicazioni esterne e cederli elaborati; nessuna registrazione ne' manleva;
+# revocabili, par. 9), dalla copia del Mobility Database del feed di mkuran.pl, che ha 30 giorni di orari invece
+# dei 10 del file della ZTM. Escluse: Slovenia (registrazione), King County Metro (manleva), Cracovia, treni CP,
+# Funchal, Santiago del Cile, TheBus Honolulu (nessuna licenza dichiarata), Volanbusz (registrazione), Israele
+# (176 MB); Tirana e Thailandia da ricontrollare (pagine della licenza non raggiungibili o dietro login).
 #
 # regioni: regionId di regions.sh separati da virgola (le regioni che propongono la rete).
 # attribuzione: testo per la schermata Licenze e sotto il tabellone.
@@ -157,11 +170,21 @@ tdg-81678	francia,francia-occitania	Tolosa (Tisséo)	ODbL-1.0	Toulouse Métropol
 tdg-79220	francia,francia-grand-est	Strasburgo (CTS)	etalab-2.0	CTS - Compagnie des Transports Strasbourgeois (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/donnees-theoriques-gtfs-et-temps-reel-siri-lite-du-reseau-cts
 tdg-83200	francia,francia-corsica	Corsica, autobus interurbani (Via Strada)	etalab-2.0	Collectivité de Corse, Via Strada (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/gtfs-transport-via-strada			https://ctc.plateforme-2cloud.com/api/gtfsrt/2.0/tripupdates/CTC-2298-2048-0876/bin
 tdg-81996	italia,francia,francia-corsica,francia-provenza-alpi-costa-azzurra,francia-occitania,spagna	Traghetti Corsica Ferries - Sardinia Ferries	etalab-2.0	Corsica Ferries (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/programme-des-rotations-corsica-ferries	https://www.data.gouv.fr/api/1/datasets/r/b95d6838-1143-4653-840f-eebc33c16fa7
+tdg-82199	francia,francia-ile-de-france,francia-alta-francia,francia-alvernia-rodano-alpi,regno-unito,belgio,paesi-bassi,germania	Treni Eurostar (Londra, Parigi, Bruxelles, Amsterdam, Colonia, Alpi)	etalab-2.0	Eurostar (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/eurostar-gtfs-plan-de-transport-et-temps-reel
+tdg-83756	monaco,francia-provenza-alpi-costa-azzurra	Principato di Monaco, autobus (CAM)	etalab-2.0	Compagnie des Autobus de Monaco (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/gtfs-3
+tdg-83510	francia,francia-corsica,francia-provenza-alpi-costa-azzurra,francia-occitania,algeria,tunisia	Traghetti Corsica Linea	etalab-2.0	Corsica Linea (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/programme-des-rotations-corsica-linea
 mdb-2820	spagna	Madrid, autobus urbani (CRTM)	CRTM	Powered by CRTM, Consorcio Regional de Transportes de Madrid (licencia de datos abiertos del CRTM); modificato	https://www.crtm.es/
 mdb-2832	spagna	Barcellona e Catalogna (ATM, metro, treni e bus)	NAP-MITRAMS	Powered by MITRAMS: Autoritat del Transport Metropolità (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
 mdb-2830	spagna	Valencia, metro e tram (FGV Metrovalencia)	NAP-MITRAMS	Powered by MITRAMS: Ferrocarrils de la Generalitat Valenciana (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
 mdb-2722	isole-canarie	Traghetti Fred. Olsen (Canarie)	NAP-MITRAMS	Powered by MITRAMS: Fred. Olsen Express (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
 mdb-2781	spagna	Siviglia, metro (Metro de Sevilla)	NAP-MITRAMS	Powered by MITRAMS: Metro de Sevilla (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
+mdb-2770	spagna	Siviglia, autobus (TUSSAM)	NAP-MITRAMS	Powered by MITRAMS: Transportes Urbanos de Sevilla (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
+mdb-2801	spagna	Saragozza, tram (Tranvías Urbanos de Zaragoza)	NAP-MITRAMS	Powered by MITRAMS: Tranvías Urbanos de Zaragoza (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
+mdb-2715	spagna	Paesi Baschi, treni e tram (Euskotren)	NAP-MITRAMS	Powered by MITRAMS: Euskotren (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
+mdb-2769	spagna	Granada, autobus (Transportes Rober)	NAP-MITRAMS	Powered by MITRAMS: Transportes Rober, Ayuntamiento de Granada (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
+mdb-2782	spagna	Palma di Maiorca, autobus (EMT Palma)	NAP-MITRAMS	Powered by MITRAMS: EMT Palma (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
+mdb-2141	spagna	Maiorca, autobus e treni (TIB)	CC-BY	Consorci de Transports de Mallorca (tib.org, CC BY 4.0); modificato	https://www.tib.org/en/sobre-ctm/portal-de-transparencia/dades-obertes
+mdb-3052	spagna	Bilbao, metro (Metro Bilbao)	CC-BY	Metro Bilbao, Consorcio de Transportes de Bizkaia (data.ctb.eus, CC BY 4.0); modificato	https://data.ctb.eus/en/pages/legal-notice
 otd-ch	svizzera	Svizzera, tutti i mezzi pubblici (SKI+)	opentransportdata.swiss-ToU	Fonte: opentransportdata.swiss (Systemaufgaben Kundeninformation SKI+); elaborazione Pocket Travel	https://opentransportdata.swiss/en/terms-of-use/	https://data.opentransportdata.swiss/dataset/timetable-{anno}-gtfs2020/permalink
 bods-london	regno-unito	Londra, autobus e tram (BODS)	OGL-UK-3.0	Department for Transport, Bus Open Data Service: contains public sector information licensed under the Open Government Licence v3.0; modificato	https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/	https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/london/
 bods-south-east	regno-unito	Sud-est, autobus e tram (BODS)	OGL-UK-3.0	Department for Transport, Bus Open Data Service: contains public sector information licensed under the Open Government Licence v3.0; modificato	https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/	https://data.bus-data.dft.gov.uk/timetable/download/gtfs-file/south_east/
@@ -234,3 +257,8 @@ ptv-11	australia	Melbourne, SkyBus per l'aeroporto (PTV)	CC-BY	Department of Tra
 iett-istanbul	turchia	Istanbul, autobus (IETT)	IBB-ODL	İETT, İstanbul Büyükşehir Belediyesi (data.ibb.gov.tr, İBB Açık Veri Lisansı); modificato, orari delle fermate intermedie stimati	https://data.ibb.gov.tr/license	script:iett_gtfs.py
 mdb-3235	estonia	Estonia, tutti i mezzi pubblici	CC-BY-SA	Regionaal- ja Põllumajandusministeerium, Ühistranspordiregister (andmed.eesti.ee, CC BY-SA 3.0); modificato	https://andmed.eesti.ee/datasets/uhistranspordiregistri-avaandmed	https://eu-gtfs.remix.com/estonia_unified_gtfs.zip
 mdb-1104	romania	Romania, treni (CFR Călători e altri operatori)	MIT	Copyright (c) 2014-2022 Vasile Coțovanu, data.gov.ro-gtfs-exporter (licenza MIT); dati di Informatică Feroviară, data.gov.ro (OGL-ROU 1.0); modificato	https://github.com/vasile/data.gov.ro-gtfs-exporter/blob/master/gtfs-out/LICENSE
+mdb-1212	belgio	Vallonia, autobus e metro di Charleroi (TEC)	CC0-1.0	Opérateur de Transport de Wallonie, TEC (transportdata.be, CC0 1.0)	https://transportdata.be/en/dataset/tec-gtfs
+mdb-2092	polonia	Varsavia, tutti i mezzi pubblici (ZTM)	ZTM-Warszawa-ToU	Zarząd Transportu Miejskiego w Warszawie (ztm.waw.pl, condizioni dei dati degli orari ZTM), feed di mkuran.pl; modificato	https://www.ztm.waw.pl/pliki-do-pobrania/dane-rozkladowe/
+tld-6771	malesia	Kuala Lumpur, treni urbani (Rapid Rail)	CC-BY	Prasarana Malaysia, Rapid Rail (data.gov.my, CC BY 4.0); modificato	https://developer.data.gov.my/realtime-api/gtfs-static
+tld-6767	malesia	Kuala Lumpur, autobus (Rapid KL)	CC-BY	Prasarana Malaysia, Rapid Bus (data.gov.my, CC BY 4.0); modificato	https://developer.data.gov.my/realtime-api/gtfs-static
+mdb-3358	colombia	Bogotá, TransMilenio e autobus SITP	CC-BY-SA	TRANSMILENIO S.A. (datosabiertos-transmilenio.hub.arcgis.com, CC BY-SA 4.0); modificato	https://datosabiertos-transmilenio.hub.arcgis.com/	{ultimo}	https://datosabiertos-transmilenio.hub.arcgis.com/api/search/v1/collections/all/items?q=gtfs&limit=100 https://storage\.googleapis\.com/gtfs-estaticos/GTFS_\d{8}\.zip
