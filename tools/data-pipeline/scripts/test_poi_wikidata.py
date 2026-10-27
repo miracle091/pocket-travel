@@ -19,7 +19,7 @@ import poi_wikidata
 PARIS = (48.8584, 2.2945)
 
 
-def binding(qid, links, protected=False, unesco=False, at=PARIS):
+def binding(qid, links, protected=False, unesco=False, at=PARIS, settlement=False):
     row = {"item": {"value": f"http://www.wikidata.org/entity/Q{qid}"}, "links": {"value": str(links)}}
     if at:
         row["coord"] = {"value": f"Point({at[1]} {at[0]})"}
@@ -27,6 +27,8 @@ def binding(qid, links, protected=False, unesco=False, at=PARIS):
         row["protected"] = {"value": "1"}
     if unesco:
         row["unesco"] = {"value": "1"}
+    if settlement:
+        row["settlement"] = {"value": "1"}
     return row
 
 
@@ -103,13 +105,16 @@ class AnnotateTest(unittest.TestCase):
 
     def test_tag_che_non_indicano_il_luogo_si_tolgono(self):
         # 517: Napoleone, senza coordinate (la sua tomba ha un altro elemento); 90: un elemento a Lione, lontano dal POI;
-        # 7: elemento cancellato; 8: a 15 km, come il punto di un parco grande, resta.
-        base = poi_db(self.tmp / "poi.db", [517, 90, 7, 8])
+        # 7: elemento cancellato; 8: a 15 km, come il punto di un parco grande, resta; 245: il comune di un ufficio
+        # postale, con le coordinate vicine ma centro abitato.
+        base = poi_db(self.tmp / "poi.db", [517, 90, 7, 8, 245])
         with mock.patch("poi_wikidata._post", return_value=answer(
                 binding(517, 288, at=None), binding(90, 400, at=(45.76, 4.84)),
-                binding(8, 12, at=(PARIS[0] + 0.135, PARIS[1])))), mock.patch("poi_wikidata.time.sleep"):
-            self.assertEqual((1, 0, 3), poi_wikidata.annotate([base], None, date(2026, 10, 27)))
-        self.assertEqual([(None, None, None), (None, None, None), (None, None, None), (8, 12, None)], rows(base))
+                binding(8, 12, at=(PARIS[0] + 0.135, PARIS[1])), binding(245, 78, settlement=True))), \
+                mock.patch("poi_wikidata.time.sleep"):
+            self.assertEqual((1, 0, 4), poi_wikidata.annotate([base], None, date(2026, 10, 27)))
+        self.assertEqual([(None, None, None), (None, None, None), (None, None, None), (8, 12, None),
+                          (None, None, None)], rows(base))
 
     def test_la_cache_fresca_evita_la_query_quella_scaduta_no(self):
         base = poi_db(self.tmp / "poi.db", [1, 2])

@@ -11,8 +11,9 @@ e al racconto del luogo.
   assenza no.
 
 Un tag wikidata che non indica il luogo si toglie, con fama e patrimonio: l'elemento non esiste piu', non ha coordinate
-(P625: e' una persona o un concetto, come la tomba di Napoleone con l'elemento di Napoleone) o le ha a piu' di MAX_KM
-dal POI (un altro luogo).
+(P625: e' una persona o un concetto, come la tomba di Napoleone con l'elemento di Napoleone), le ha a piu' di MAX_KM
+dal POI (un altro luogo) o e' un centro abitato (P1082 popolazione, o P31 sottoclasse di insediamento umano): un ufficio
+postale o una stazione con l'elemento del suo comune ne prenderebbero la fama. Comuni e quartieri non sono POI.
 
 Uso: poi_wikidata.py <poi.db> [poi-extra.db ...]
 
@@ -55,10 +56,12 @@ PROTECTED = 1
 UNESCO = 2
 POINT = re.compile(r"Point\(([-0-9.eE]+) ([-0-9.eE]+)\)")
 
-QUERY = """SELECT ?item ?links (SAMPLE(?c) AS ?coord) (MAX(?p) AS ?protected) (MAX(?u) AS ?unesco) WHERE {
+QUERY = """SELECT ?item ?links (SAMPLE(?c) AS ?coord) (MAX(?p) AS ?protected) (MAX(?u) AS ?unesco)
+       (MAX(?s) AS ?settlement) WHERE {
   VALUES ?item { %s }
   ?item wikibase:sitelinks ?links .
   OPTIONAL { ?item wdt:P625 ?c }
+  OPTIONAL { { ?item wdt:P1082 [] } UNION { ?item wdt:P31/wdt:P279* wd:Q486972 } BIND(1 AS ?s) }
   OPTIONAL { ?item wdt:P1435 [] . BIND(1 AS ?p) }
   OPTIONAL {
     { ?item wdt:P757 [] } UNION { ?item wdt:P1435 wd:Q9259 } UNION { ?item wdt:P361 ?whole . ?whole wdt:P757 [] }
@@ -89,8 +92,9 @@ def _point(row):
 
 def fetch(qids, deadline):
     """{numero dell'elemento: [sitelinks, heritage, latitudine, longitudine]} per i numeri in [qids]; un elemento che
-    Wikidata non ha (cancellato o unito a un altro) ha tutti i campi None. Mancano gli elementi non chiesti per un
-    errore o perche' e' passato [deadline] (time.monotonic())."""
+    Wikidata non ha (cancellato o unito a un altro) ha tutti i campi None, un centro abitato le coordinate None, perche'
+    il suo tag si tolga come quello di una persona. Mancano gli elementi non chiesti per un errore o perche' e' passato
+    [deadline] (time.monotonic())."""
     qids = sorted(qids)
     facts = {}
     for i in range(0, len(qids), BATCH):
@@ -108,7 +112,8 @@ def fetch(qids, deadline):
         for row in rows:
             q = int(row["item"]["value"].rsplit("/Q", 1)[1])
             heritage = UNESCO if "unesco" in row else PROTECTED if "protected" in row else None
-            found[q] = [int(row["links"]["value"]), heritage, *_point(row)]
+            point = (None, None) if "settlement" in row else _point(row)
+            found[q] = [int(row["links"]["value"]), heritage, *point]
         facts.update({q: found.get(q, [None, None, None, None]) for q in chunk})
         time.sleep(0.2)
     return facts
@@ -181,7 +186,7 @@ def main(argv):
     max_seconds = int(os.environ.get(MAX_SECONDS_ENV) or MAX_SECONDS)
     valid, unesco, dropped = annotate(paths, Path(cache) if cache else None, max_seconds=max_seconds)
     print(f"-- Wikidata: {valid} POI con fama e patrimonio, {unesco} patrimonio UNESCO, {dropped} tag wikidata tolti "
-          f"(elemento senza coordinate o lontano dal POI)")
+          f"(elemento senza coordinate, lontano dal POI o centro abitato)")
     return 0
 
 
