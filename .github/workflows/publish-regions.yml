@@ -55,6 +55,9 @@ on:
         required: false
         default: ""
 
+# Solo da "main": i job che scrivono sulle release o su Pages (plan, world-map, address-grid, publish) si fermano su un
+# altro ramo; guides, transit e build dipendono da plan e vengono saltati con lui. Il calendario gira sempre sul ramo
+# predefinito.
 # Minimo a livello di workflow; i permessi in piu' stanno sui singoli job (README della pipeline, "Permessi").
 permissions:
   contents: read
@@ -80,6 +83,7 @@ jobs:
   # Elenco delle regioni della run (bucket del giorno, input manuale o tutte), diviso nei 3 shard del job "build".
   plan:
     name: Piano degli shard
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -217,7 +221,7 @@ jobs:
   # WORLD_MAP_MAX_AGE_DAYS giorni o manca: altrimenti nessun frammento, e mergeManifests riporta la voce pubblicata.
   world-map:
     name: Mappa del mondo
-    if: ${{ !(github.event.inputs.continuation > 0) }}
+    if: ${{ github.ref == 'refs/heads/main' && !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
@@ -255,7 +259,7 @@ jobs:
   # Indice (address-grid.json) e frammento di catalogo vanno al job "publish" come artifact. Non gira nelle continuazioni.
   address-grid:
     name: Civici
-    if: ${{ !(github.event.inputs.continuation > 0) }}
+    if: ${{ github.ref == 'refs/heads/main' && !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     permissions:
@@ -618,7 +622,7 @@ jobs:
   publish:
     name: Pubblicazione
     needs: [guides, world-map, address-grid, transit, build]
-    if: ${{ !cancelled() }}
+    if: ${{ github.ref == 'refs/heads/main' && !cancelled() }}
     # Un deploy su Pages (e un merge/pulizia sul catalogo) alla volta (README della pipeline, "Run sovrapposte").
     concurrency:
       group: pages
