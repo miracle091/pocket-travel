@@ -385,3 +385,16 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
           script: ./gradlew connectedDebugAndroidTest --no-daemon
+
+      # Il log di Gradle dice solo che un modulo ha test falliti: quali e perche' sono nel report HTML e nei risultati
+      # con il logcat di ogni test.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: device-tests-report
+          path: |
+            */build/reports/androidTests/connected/
+            */*/build/reports/androidTests/connected/
+            */build/outputs/androidTest-results/connected/
+            */*/build/outputs/androidTest-results/connected/
+          retention-days: 7
