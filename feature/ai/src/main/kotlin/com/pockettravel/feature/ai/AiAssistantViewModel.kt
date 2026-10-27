@@ -469,6 +469,12 @@ class AiAssistantViewModel @Inject constructor(
         // Subito, prima di ogni attesa: un secondo tocco su Invia trova la domanda gia' in corso.
         _uiState.update { it.startingTurn(question) ?: it }
         askJob = viewModelScope.launch {
+            // Pericolo per la vita: solo i numeri da chiamare. Il modello non aiuta e puo' inventare consigli medici.
+            if (isLifeThreatening(question)) {
+                val emergencyCard = emergencyCards.forQuestion(region, question)
+                _uiState.update { it.copy(emergencyCard = emergencyCard, isThinking = false) }
+                return@launch
+            }
             // Accanto alla ricerca e al modello, non prima: le allerte di una domanda su una catastrofe arrivano da
             // piu' fonti in rete, e il numero da chiamare non aspetta la risposta.
             launch {

@@ -612,8 +612,8 @@ private fun Conversation(
         // Risposta: bolla a sinistra su superficie tonale; liveRegion perche' TalkBack annunci la
         // risposta (o l'errore) quando arriva, senza dover cercare dove e' comparsa. Non durante lo
         // streaming: ogni aggiornamento del testo parziale verrebbe riletto, la risposta si annuncia una
-        // volta sola quando e' completa.
-        Surface(
+        // volta sola quando e' completa. Niente bolla vuota sotto il riquadro di emergenza, quando il modello non risponde.
+        if (uiState.isThinking || uiState.errorMessage != null || uiState.answer != null) Surface(
             shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             modifier = Modifier.fillMaxWidth().semantics { if (!streaming) liveRegion = LiveRegionMode.Polite },
