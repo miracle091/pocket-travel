@@ -1,0 +1,248 @@
+min-app-version-code 12
+const MANIFEST_VERSION 2
+const POI_DB_FORMAT_VERSION 1
+poi.db user_version 1
+poi.db poi.name #0 TEXT notnull=1 default=null pk=0
+poi.db poi.code #1 INTEGER notnull=1 default=null pk=0
+poi.db poi.latE6 #2 INTEGER notnull=1 default=null pk=0
+poi.db poi.lonE6 #3 INTEGER notnull=1 default=null pk=0
+poi.db poi.phone #4 TEXT notnull=0 default=null pk=0
+poi.db poi.wheelchair #5 TEXT notnull=0 default=null pk=0
+poi.db poi.openingHours #6 TEXT notnull=0 default=null pk=0
+poi.db poi.address #7 TEXT notnull=0 default=null pk=0
+poi.db poi.website #8 TEXT notnull=0 default=null pk=0
+poi.db poi.email #9 TEXT notnull=0 default=null pk=0
+poi.db poi.country #10 TEXT notnull=0 default=null pk=0
+poi.db poi.nameEn #11 TEXT notnull=0 default=null pk=0
+poi.db poi.nameIt #12 TEXT notnull=0 default=null pk=0
+poi.db poi.toiletsWheelchair #13 TEXT notnull=0 default=null pk=0
+poi.db poi.capacityDisabled #14 INTEGER notnull=0 default=null pk=0
+poi.db poi_code.code #0 INTEGER notnull=1 default=null pk=1
+poi.db poi_code.category #1 TEXT notnull=1 default=null pk=0
+poi.db poi_code.osmTag #2 TEXT notnull=1 default=null pk=0
+guides.db user_version 0
+guides.db index CREATE INDEX diplomatic_missions_pair ON diplomatic_missions(sending, host)
+guides.db diplomatic_missions.wikidata #0 TEXT notnull=1 default=null pk=1
+guides.db diplomatic_missions.sending #1 TEXT notnull=1 default=null pk=0
+guides.db diplomatic_missions.host #2 TEXT notnull=1 default=null pk=0
+guides.db diplomatic_missions.kind #3 TEXT notnull=1 default=null pk=0
+guides.db diplomatic_missions.name #4 TEXT notnull=1 default=null pk=0
+guides.db diplomatic_missions.name_en #5 TEXT notnull=0 default=null pk=0
+guides.db diplomatic_missions.city #6 TEXT notnull=0 default=null pk=0
+guides.db diplomatic_missions.address #7 TEXT notnull=0 default=null pk=0
+guides.db diplomatic_missions.phone #8 TEXT notnull=0 default=null pk=0
+guides.db diplomatic_missions.website #9 TEXT notnull=0 default=null pk=0
+guides.db diplomatic_missions.email #10 TEXT notnull=0 default=null pk=0
+guides.db diplomatic_missions.lat #11 REAL notnull=0 default=null pk=0
+guides.db diplomatic_missions.lon #12 REAL notnull=0 default=null pk=0
+guides.db emergency_numbers.regionId #0 TEXT notnull=1 default=null pk=0
+guides.db emergency_numbers.general #1 TEXT notnull=0 default=null pk=0
+guides.db emergency_numbers.police #2 TEXT notnull=1 default=null pk=0
+guides.db emergency_numbers.ambulance #3 TEXT notnull=1 default=null pk=0
+guides.db emergency_numbers.fire #4 TEXT notnull=1 default=null pk=0
+guides.db emergency_numbers_none.regionId #0 TEXT notnull=1 default=null pk=0
+guides.db guide_sections.regionId #0 TEXT notnull=1 default=null pk=0
+guides.db guide_sections.category #1 TEXT notnull=1 default=null pk=0
+guides.db guide_sections.title #2 TEXT notnull=1 default=null pk=0
+guides.db guide_sections.body #3 TEXT notnull=1 default=null pk=0
+guides.db guide_sections.sourceUrl #4 TEXT notnull=1 default=null pk=0
+guides.db guide_sections.translated #5 INTEGER notnull=1 default=0 pk=0
+guides.db vacc_meta.key #0 TEXT notnull=1 default=null pk=0
+guides.db vacc_meta.value #1 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_entry.iso2 #0 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_entry.origin #1 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_entry.vaccine #2 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_entry.timeWindow #3 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_entry.applies #4 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_entry.noteIt #5 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_entry.noteEn #6 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_entry.sources #7 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_entry.verified #8 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_status.iso2 #0 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_status.category #1 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_status.statement #2 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_status.sources #3 TEXT notnull=1 default=null pk=0
+guides.db vacc_polio_status.verified #4 TEXT notnull=1 default=null pk=0
+guides.db vacc_recommended.iso2 #0 TEXT notnull=1 default=null pk=0
+guides.db vacc_recommended.vaccine #1 TEXT notnull=1 default=null pk=0
+guides.db vacc_recommended.level #2 TEXT notnull=1 default=null pk=0
+guides.db vacc_recommended.conditionIt #3 TEXT notnull=1 default=null pk=0
+guides.db vacc_recommended.conditionEn #4 TEXT notnull=1 default=null pk=0
+guides.db vacc_recommended.sources #5 TEXT notnull=1 default=null pk=0
+guides.db vacc_recommended.verified #6 TEXT notnull=1 default=null pk=0
+guides.db vacc_special.iso2 #0 TEXT notnull=1 default=null pk=0
+guides.db vacc_special.purpose #1 TEXT notnull=1 default=null pk=0
+guides.db vacc_special.vaccine #2 TEXT notnull=1 default=null pk=0
+guides.db vacc_special.minAgeMonths #3 INTEGER notnull=0 default=null pk=0
+guides.db vacc_special.minDaysBefore #4 INTEGER notnull=0 default=null pk=0
+guides.db vacc_special.validityYears #5 INTEGER notnull=0 default=null pk=0
+guides.db vacc_special.noteIt #6 TEXT notnull=1 default=null pk=0
+guides.db vacc_special.noteEn #7 TEXT notnull=1 default=null pk=0
+guides.db vacc_special.sources #8 TEXT notnull=1 default=null pk=0
+guides.db vacc_special.verified #9 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_entry.iso2 #0 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_entry.rule #1 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_entry.minAgeMonths #2 INTEGER notnull=0 default=null pk=0
+guides.db vacc_yf_entry.transit #3 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_entry.fromList #4 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_entry.exitRequired #5 INTEGER notnull=1 default=null pk=0
+guides.db vacc_yf_entry.noteIt #6 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_entry.noteEn #7 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_entry.sources #8 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_entry.verified #9 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_risk.iso2 #0 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_risk.scope #1 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_risk.areasIt #2 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_risk.areasEn #3 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_risk.sources #4 TEXT notnull=1 default=null pk=0
+guides.db vacc_yf_risk.verified #5 TEXT notnull=1 default=null pk=0
+cities.db user_version 0
+cities.db city_sections.city #0 TEXT notnull=1 default=null pk=0
+cities.db city_sections.category #1 TEXT notnull=1 default=null pk=0
+cities.db city_sections.title #2 TEXT notnull=1 default=null pk=0
+cities.db city_sections.body #3 TEXT notnull=1 default=null pk=0
+cities.db city_sections.sourceUrl #4 TEXT notnull=1 default=null pk=0
+cities.db city_sections.population #5 INTEGER notnull=0 default=null pk=0
+cities.db city_sections.capital #6 INTEGER notnull=1 default=0 pk=0
+cities.db city_sections.latitude #7 REAL notnull=0 default=null pk=0
+cities.db city_sections.longitude #8 REAL notnull=0 default=null pk=0
+cities.db city_sections.translated #9 INTEGER notnull=1 default=0 pk=0
+addresses-search.db user_version 0
+addresses-search.db index CREATE INDEX street_key ON street(key)
+addresses-search.db address.street_id #0 INTEGER notnull=1 default=null pk=1
+addresses-search.db address.number #1 TEXT notnull=1 default=null pk=2
+addresses-search.db address.dlat #2 INTEGER notnull=1 default=null pk=3
+addresses-search.db address.dlon #3 INTEGER notnull=1 default=null pk=4
+addresses-search.db address WITHOUT ROWID
+addresses-search.db meta.key #0 TEXT notnull=1 default=null pk=1
+addresses-search.db meta.value #1 TEXT notnull=0 default=null pk=0
+addresses-search.db meta WITHOUT ROWID
+addresses-search.db meta format 2
+addresses-search.db street.id #0 INTEGER notnull=0 default=null pk=1
+addresses-search.db street.name #1 TEXT notnull=1 default=null pk=0
+addresses-search.db street.key #2 TEXT notnull=1 default=null pk=0
+addresses-search.db street.city #3 TEXT notnull=0 default=null pk=0
+transit.db user_version 0
+transit.db gtfs_stop.id #0 INTEGER notnull=0 default=null pk=1
+transit.db gtfs_stop.stop_id #1 TEXT notnull=1 default=null pk=0
+transit.db gtfs_trip.id #0 INTEGER notnull=0 default=null pk=1
+transit.db gtfs_trip.trip_id #1 TEXT notnull=1 default=null pk=0
+transit.db headsign.id #0 INTEGER notnull=0 default=null pk=1
+transit.db headsign.text #1 TEXT notnull=1 default=null pk=0
+transit.db meta.key #0 TEXT notnull=1 default=null pk=1
+transit.db meta.value #1 TEXT notnull=1 default=null pk=0
+transit.db meta format 2
+transit.db pattern_stop.stop #0 INTEGER notnull=1 default=null pk=1
+transit.db pattern_stop.pattern #1 INTEGER notnull=1 default=null pk=2
+transit.db pattern_stop.offset #2 INTEGER notnull=1 default=null pk=3
+transit.db pattern_stop WITHOUT ROWID
+transit.db route.id #0 INTEGER notnull=0 default=null pk=1
+transit.db route.short_name #1 TEXT notnull=0 default=null pk=0
+transit.db route.long_name #2 TEXT notnull=0 default=null pk=0
+transit.db route.type #3 INTEGER notnull=1 default=null pk=0
+transit.db route.color #4 TEXT notnull=0 default=null pk=0
+transit.db route.text_color #5 TEXT notnull=0 default=null pk=0
+transit.db service.id #0 INTEGER notnull=0 default=null pk=1
+transit.db service.days #1 BLOB notnull=1 default=null pk=0
+transit.db stop.id #0 INTEGER notnull=0 default=null pk=1
+transit.db stop.code #1 TEXT notnull=0 default=null pk=0
+transit.db stop.name #2 TEXT notnull=1 default=null pk=0
+transit.db stop.latE6 #3 INTEGER notnull=1 default=null pk=0
+transit.db stop.lonE6 #4 INTEGER notnull=1 default=null pk=0
+transit.db stop.parent #5 INTEGER notnull=0 default=null pk=0
+transit.db stop.wheelchair #6 INTEGER notnull=0 default=null pk=0
+transit.db trip.pattern #0 INTEGER notnull=1 default=null pk=1
+transit.db trip.start #1 INTEGER notnull=1 default=null pk=2
+transit.db trip.id #2 INTEGER notnull=1 default=null pk=3
+transit.db trip.route #3 INTEGER notnull=1 default=null pk=0
+transit.db trip.service #4 INTEGER notnull=1 default=null pk=0
+transit.db trip.headsign #5 INTEGER notnull=0 default=null pk=0
+transit.db trip.wheelchair #6 INTEGER notnull=0 default=null pk=0
+transit.db trip WITHOUT ROWID
+addresses.pmtiles version 3
+addresses.pmtiles internal_compression 2
+addresses.pmtiles tile_compression 1
+addresses.pmtiles tile_type 1
+manifest.json $ object
+manifest.json $.guides object
+manifest.json $.guides.file object
+manifest.json $.guides.file.name string
+manifest.json $.guides.file.sha256 string
+manifest.json $.guides.file.sizeBytes integer
+manifest.json $.guides.file.sourceKey string
+manifest.json $.guides.file.url string
+manifest.json $.guides.version string
+manifest.json $.manifestVersion integer
+manifest.json $.minAppVersionCode integer
+manifest.json $.regions array
+manifest.json $.regions[] object
+manifest.json $.regions[].continent string
+manifest.json $.regions[].countryCode string
+manifest.json $.regions[].displayName string
+manifest.json $.regions[].groupLabel string
+manifest.json $.regions[].groupName string
+manifest.json $.regions[].map object
+manifest.json $.regions[].map.source object
+manifest.json $.regions[].map.source.maxLat number
+manifest.json $.regions[].map.source.maxLon number
+manifest.json $.regions[].map.source.maxZoom integer
+manifest.json $.regions[].map.source.minLat number
+manifest.json $.regions[].map.source.minLon number
+manifest.json $.regions[].map.source.minZoom integer
+manifest.json $.regions[].map.source.sourceUrl string
+manifest.json $.regions[].map.version string
+manifest.json $.regions[].poi object
+manifest.json $.regions[].poi.file object
+manifest.json $.regions[].poi.file.name string
+manifest.json $.regions[].poi.file.sha256 string
+manifest.json $.regions[].poi.file.sizeBytes integer
+manifest.json $.regions[].poi.file.sourceKey string
+manifest.json $.regions[].poi.file.url string
+manifest.json $.regions[].poi.version string
+manifest.json $.regions[].poiExtra object
+manifest.json $.regions[].poiExtra.file object
+manifest.json $.regions[].poiExtra.file.name string
+manifest.json $.regions[].poiExtra.file.sha256 string
+manifest.json $.regions[].poiExtra.file.sizeBytes integer
+manifest.json $.regions[].poiExtra.file.sourceKey string
+manifest.json $.regions[].poiExtra.file.url string
+manifest.json $.regions[].poiExtra.version string
+manifest.json $.regions[].preview object
+manifest.json $.regions[].preview.file object
+manifest.json $.regions[].preview.file.name string
+manifest.json $.regions[].preview.file.sha256 string
+manifest.json $.regions[].preview.file.sizeBytes integer
+manifest.json $.regions[].preview.file.sourceKey string
+manifest.json $.regions[].preview.file.url string
+manifest.json $.regions[].preview.maxZoom integer
+manifest.json $.regions[].preview.version string
+manifest.json $.regions[].regionId string
+manifest.json $.regions[].routing object
+manifest.json $.regions[].routing.files array
+manifest.json $.regions[].routing.files[] object
+manifest.json $.regions[].routing.files[].name string
+manifest.json $.regions[].routing.files[].sha256 string
+manifest.json $.regions[].routing.files[].sizeBytes integer
+manifest.json $.regions[].routing.files[].sourceKey string
+manifest.json $.regions[].routing.files[].url string
+manifest.json $.regions[].routing.version string
+manifest.json $.regions[].updatedAt string
+manifest.json $.regions[].wikivoyageUrl string
+address-grid.json $ object
+address-grid.json $.attributions array
+address-grid.json $.attributions[] object
+address-grid.json $.attributions[].license string
+address-grid.json $.attributions[].source string
+address-grid.json $.attributions[].url string
+address-grid.json $.cells array
+address-grid.json $.cells[] object
+address-grid.json $.cells[].file object
+address-grid.json $.cells[].file.name string
+address-grid.json $.cells[].file.sha256 string
+address-grid.json $.cells[].file.sizeBytes integer
+address-grid.json $.cells[].file.url string
+address-grid.json $.cells[].id string
+address-grid.json $.cells[].version string
+address-grid.json $.publishedAt integer
+address-grid.json $.tileZoom integer
+address-grid.json $.version string
