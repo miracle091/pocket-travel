@@ -382,5 +382,8 @@
     <string name="crash_notice_share">Condividi il rapporto</string>
     <string name="crash_notice_github">Apri una segnalazione su GitHub</string>
     <string name="crash_notice_close">Chiudi</string>
+    <string name="crash_report_event">Evento: %1$s, %2$s</string>
+    <string name="crash_report_screen">Schermata: %1$s</string>
+    <string name="crash_report_model">Modello caricato: %1$s (fascia %2$s, dispositivo %3$s)</string>
     <string name="crash_notice_smaller_model">Il modello %1$s richiede più RAM di questo dispositivo. Scarica %2$s</string>
 </resources>

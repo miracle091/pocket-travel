@@ -372,5 +372,8 @@
     <string name="crash_notice_share">Share the report</string>
     <string name="crash_notice_github">Report on GitHub</string>
     <string name="crash_notice_close">Close</string>
+    <string name="crash_report_event">Event: %1$s, %2$s</string>
+    <string name="crash_report_screen">Screen: %1$s</string>
+    <string name="crash_report_model">Loaded model: %1$s (RAM tier %2$s, device %3$s)</string>
     <string name="crash_notice_smaller_model">The %1$s model needs more RAM than this device has. Download %2$s</string>
 </resources>

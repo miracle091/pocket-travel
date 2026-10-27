@@ -29,14 +29,20 @@ private const val PRINTABLE_LAST = 0x7e
 private const val TRUNCATED_MARK = "\n[...]"
 private const val SHRINK_PERCENT = 90
 
+/**
+ * Etichette del rapporto nella lingua dell'app, come formati di `String.format`: [event] con tipo e ora, [screen] con
+ * la schermata, [loadedModel] con modello, fascia del modello e fascia del dispositivo.
+ */
+data class CrashReportLabels(val event: String, val screen: String, val loadedModel: String)
+
 /** Testo del rapporto, quello che l'utente vede e condivide. */
-fun CrashReport.toText(): String = buildString {
+fun CrashReport.toText(labels: CrashReportLabels): String = buildString {
     appendLine("Pocket Travel $appVersion")
     appendLine("Android $androidVersion, $device, RAM $totalRamMb MB")
-    appendLine("Evento: ${kind.name}, ${formatUtc(occurredAt)}")
-    if (screen != null) appendLine("Schermata: $screen")
+    appendLine(labels.event.format(kind.name, formatUtc(occurredAt)))
+    if (screen != null) appendLine(labels.screen.format(screen))
     if (loadedModelId != null) {
-        appendLine("Modello caricato: $loadedModelId (fascia ${modelRamTier?.name ?: "?"}, dispositivo ${deviceRamTier?.name ?: "?"})")
+        appendLine(labels.loadedModel.format(loadedModelId, modelRamTier?.name ?: "?", deviceRamTier?.name ?: "?"))
     }
     if (details.isNotBlank()) {
         appendLine()
@@ -48,8 +54,8 @@ fun CrashReport.toText(): String = buildString {
  * URL del modulo "Problema nell'app" con i campi già compilati. Il campo del rapporto si accorcia finché l'URL
  * codificato sta sotto [maxLength].
  */
-fun CrashReport.issueUrl(maxLength: Int = MAX_ISSUE_URL_LENGTH): String {
-    val text = toText()
+fun CrashReport.issueUrl(labels: CrashReportLabels, maxLength: Int = MAX_ISSUE_URL_LENGTH): String {
+    val text = toText(labels)
     var keep = text.length
     var url = buildIssueUrl(this, text)
     while (url.length > maxLength && keep > 0) {
@@ -80,13 +86,14 @@ private fun formatUtc(millis: Long): String =
 
 /**
  * Classi e righe della traccia di [error] e delle sue cause, senza i messaggi: possono contenere testo dell'utente
- * (un titolo, il testo di una nota).
+ * (un titolo, il testo di una nota). "Caused by:" come in ogni traccia Java: il testo si scrive al crash, prima di
+ * sapere in che lingua si leggera'.
  */
 fun stackDetails(error: Throwable): String = buildString {
     var current: Throwable? = error
     var causes = 0
     while (current != null && causes <= MAX_CAUSES) {
-        appendLine(if (causes == 0) current.javaClass.name else "Causato da: ${current.javaClass.name}")
+        appendLine(if (causes == 0) current.javaClass.name else "Caused by: ${current.javaClass.name}")
         current.stackTrace.take(MAX_STACK_FRAMES).forEach { appendLine("    at $it") }
         current = current.cause?.takeIf { it !== current }
         causes++

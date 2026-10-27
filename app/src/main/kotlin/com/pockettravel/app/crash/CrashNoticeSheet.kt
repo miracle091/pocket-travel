@@ -21,6 +21,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -45,6 +46,12 @@ fun CrashNoticeHost(viewModel: CrashNoticeViewModel = hiltViewModel()) {
 @Composable
 private fun CrashNoticeSheet(notice: CrashNoticeState, onDismiss: () -> Unit, onDownload: (String) -> Unit) {
     val context = LocalContext.current
+    val labels = CrashReportLabels(
+        event = stringResource(R.string.crash_report_event),
+        screen = stringResource(R.string.crash_report_screen),
+        loadedModel = stringResource(R.string.crash_report_model),
+    )
+    val text = remember(notice.report, labels) { notice.report.toText(labels) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)),
@@ -62,7 +69,7 @@ private fun CrashNoticeSheet(notice: CrashNoticeState, onDismiss: () -> Unit, on
             }
             SelectionContainer {
                 Text(
-                    text = notice.text,
+                    text = text,
                     style = MaterialTheme.typography.bodySmall,
                     fontFamily = FontFamily.Monospace,
                     modifier = Modifier
@@ -72,10 +79,10 @@ private fun CrashNoticeSheet(notice: CrashNoticeState, onDismiss: () -> Unit, on
                         .verticalScroll(rememberScrollState()),
                 )
             }
-            Button(onClick = { shareReport(context, notice.text) }, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = { shareReport(context, text) }, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.crash_notice_share))
             }
-            OutlinedButton(onClick = { openIssue(context, notice.issueUrl) }, modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = { openIssue(context, notice.report.issueUrl(labels)) }, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.crash_notice_github))
             }
             TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {

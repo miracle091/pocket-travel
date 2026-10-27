@@ -20,10 +20,9 @@ import kotlinx.coroutines.withContext
 /** Modello più grande della RAM del dispositivo che si è chiuso, e quello adatto da scaricare. */
 data class ModelProposal(val loadedName: String, val proposedId: String, val proposedName: String)
 
-/** Rapporto in attesa da mostrare: testo, indirizzo del modulo su GitHub e proposta del modello. Null: nessun avviso. */
+/** Rapporto in attesa da mostrare, con la proposta del modello. Null: nessun avviso. */
 data class CrashNoticeState(
-    val text: String,
-    val issueUrl: String,
+    val report: CrashReport,
     val proposal: ModelProposal?,
 )
 
@@ -51,7 +50,7 @@ class CrashNoticeViewModel @Inject constructor(
         val proposal = proposedModel(report, currentGuidesLanguage())?.let { (loaded, proposed) ->
             ModelProposal(loaded.displayName, proposed.id, proposed.displayName)
         }
-        return CrashNoticeState(report.toText(), report.issueUrl(), proposal)
+        return CrashNoticeState(report, proposal)
     }
 
     /** "Chiudi": il rapporto si cancella. */
