@@ -342,6 +342,23 @@ class GenerateTransitTest {
     }
 
     @Test
+    fun `la data di fine viene solo dai servizi con corse scritte`() {
+        // Corsica Ferries: il calendario arriva a fine anno, ma le corse con orari si fermano prima.
+        val noTimes = miniFeed(
+            trips = "route_id,service_id,trip_id\nR1,X,T1\nR1,Y,T2",
+            stopTimes = """
+                trip_id,arrival_time,departure_time,stop_id,stop_sequence
+                T1,08:00:00,08:00:00,A,1
+                T1,08:10:00,08:10:00,B,2
+            """,
+        ).minus("calendar.txt") + ("calendar_dates.txt" to "service_id,date,exception_type\nX,20261006,1\nY,20261009,1")
+        val stats = generateTransit(zipOf("notimes.zip", noTimes), tmp.root.resolve("notimes.db"), "mdb-1", monday, 7)
+
+        assertEquals(1, stats.trips)
+        assertEquals(LocalDate.parse("2026-10-06"), stats.validUntil)
+    }
+
+    @Test
     fun `un servizio cui le eccezioni tolgono ogni giorno non da' corse ne' data di fine`() {
         val removed = miniFeed(
             trips = "route_id,service_id,trip_id\nR1,FERIALE,T1",

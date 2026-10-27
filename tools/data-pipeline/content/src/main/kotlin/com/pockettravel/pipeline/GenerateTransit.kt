@@ -78,7 +78,6 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
         }
         val activeServices = services.filterValues { days -> days.any { it } }
         val serviceIds = activeServices.keys.sorted().withIndex().associate { (i, id) -> id to i }
-        val lastActiveDay = activeServices.values.maxOfOrNull { days -> days.indexOfLast { it } }?.takeIf { it >= 0 }
 
         var timezone = ""
         rows("agency.txt") { r -> if (timezone.isEmpty()) timezone = r["agency_timezone"].orEmpty() }
@@ -250,6 +249,11 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                 insertAll("INSERT INTO gtfs_trip VALUES (?, ?)", trips.values.filter { it.id in tripPattern }) { trip -> setInt(1, trip.id); setString(2, trip.gtfsId) }
                 insertAll("INSERT INTO gtfs_stop VALUES (?, ?)", stops.entries) { (stopId, stop) -> setInt(1, stop.id); setString(2, stopId) }
             }
+            // Fine degli orari: l'ultimo giorno dei servizi con almeno una corsa scritta. Un servizio del calendario
+            // senza corse con orari (Corsica Ferries: calendario fino a fine anno, orari solo fino a ottobre) non conta.
+            val writtenServices = trips.values.filter { it.id in tripPattern }.mapTo(HashSet()) { it.service }
+            val lastActiveDay = activeServices.filterKeys { serviceIds.getValue(it) in writtenServices }.values
+                .maxOfOrNull { days -> days.indexOfLast { it } }?.takeIf { it >= 0 }
             val validUntil = lastActiveDay?.let { windowStart.plusDays(it.toLong()) }
             insertAll(
                 "INSERT INTO meta VALUES (?, ?)",

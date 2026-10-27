@@ -436,16 +436,29 @@ translate_overlay() {
 }
 
 # gtfs_end_date <zip>: ultimo giorno con corse secondo un feed GTFS (end_date di calendar.txt, giorni aggiunti in
-# calendar_dates.txt) come AAAA-MM-GG, "?" se il feed non lo dice. Usata da build-transit.sh per decidere se gli
-# orari sono scaduti e per dire da quando.
+# calendar_dates.txt) come AAAA-MM-GG, "?" se il feed non lo dice. Contano solo i servizi con almeno una corsa in
+# stop_times.txt: un calendario che va oltre gli orari (Corsica Ferries) non allunga la data. Usata da
+# build-transit.sh per decidere se gli orari sono scaduti e per dire da quando.
 gtfs_end_date() {
-  local d
+  local d timed
+  timed="$(mktemp)"
+  # service_id delle corse con orari: prima gli id delle corse di stop_times.txt (righe T), poi trips.txt (righe S).
+  { unzip -p "$1" stop_times.txt 2>/dev/null \
+      | awk -F, 'NR == 1 { for (i = 1; i <= NF; i++) { gsub(/["\r]|^\xef\xbb\xbf/, "", $i); if ($i == "trip_id") c = i }; next }
+                 c { gsub(/["\r]/, "", $c); if (!($c in seen)) { seen[$c] = 1; print "T\t" $c } }'
+    unzip -p "$1" trips.txt 2>/dev/null \
+      | awk -F, 'NR == 1 { for (i = 1; i <= NF; i++) { gsub(/["\r]|^\xef\xbb\xbf/, "", $i); if ($i == "trip_id") t = i; if ($i == "service_id") s = i }; next }
+                 t && s { gsub(/["\r]/, "", $t); gsub(/["\r]/, "", $s); print "S\t" $t "\t" $s }'
+  } | awk -F'\t' '$1 == "T" { timed[$2] = 1; next } $1 == "S" && ($2 in timed) { print $3 }' | sort -u > "$timed"
   d="$({ unzip -p "$1" calendar.txt 2>/dev/null \
-      | awk -F, 'NR == 1 { for (i = 1; i <= NF; i++) { gsub(/["\r]|^\xef\xbb\xbf/, "", $i); if ($i == "end_date") c = i }; next }
-                 c { gsub(/["\r ]/, "", $c); print $c }'
+      | awk -F, 'FNR == NR { ok[$0] = 1; next }
+                 FNR == 1 { for (i = 1; i <= NF; i++) { gsub(/["\r]|^\xef\xbb\xbf/, "", $i); if ($i == "end_date") c = i; if ($i == "service_id") s = i }; next }
+                 c && s { gsub(/["\r]/, "", $s); if ($s in ok) { gsub(/["\r ]/, "", $c); print $c } }' "$timed" -
     unzip -p "$1" calendar_dates.txt 2>/dev/null \
-      | awk -F, 'NR == 1 { for (i = 1; i <= NF; i++) { gsub(/["\r]|^\xef\xbb\xbf/, "", $i); if ($i == "date") c = i; if ($i == "exception_type") e = i }; next }
-                 c && e { gsub(/["\r ]/, "", $c); gsub(/["\r ]/, "", $e); if ($e == "1") print $c }'
+      | awk -F, 'FNR == NR { ok[$0] = 1; next }
+                 FNR == 1 { for (i = 1; i <= NF; i++) { gsub(/["\r]|^\xef\xbb\xbf/, "", $i); if ($i == "date") c = i; if ($i == "exception_type") e = i; if ($i == "service_id") s = i }; next }
+                 c && e && s { gsub(/["\r]/, "", $s); gsub(/["\r ]/, "", $c); gsub(/["\r ]/, "", $e); if ($e == "1" && ($s in ok)) print $c }' "$timed" -
   } | grep -E '^[0-9]{8}$' | sort | tail -1 || true)"
+  rm -f "$timed"
   [ -n "$d" ] && echo "${d:0:4}-${d:4:2}-${d:6:2}" || echo "?"
 }

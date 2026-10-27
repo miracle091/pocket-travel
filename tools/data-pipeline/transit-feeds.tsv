@@ -37,11 +37,13 @@
 # "transit" non la pubblica, la mette da solo tra le "Non incluse" di transit.json (motivo "orari") con un
 # warning nella run, e la ripubblica con un altro warning quando l'ente mette online orari validi.
 # Le reti escluse a mano (licenza, o orari senza una fonte da ricontrollare) sono in transit-missing.tsv.
-# Traghetti di sardegnamobilita.it (pagina open-data/offerta-servizi, CC BY 4.0), verificati il 10
+# Traghetti di sardegnamobilita.it (file in open-data/offerta-servizi, licenza CC BY 4.0 sulla pagina open-data,
+# ricontrollata il 27 ottobre 2026), verificati il 10
 # ottobre 2026, tutti fuori: Tirrenia (R_SARDEGTRASP_00026, corse fino al 2022-12-31; il nuovo
 # TIRRENIA_regione_opendata.zip di static.moby.it non e' GTFS, porti e navi senza fermate ne' orari, e
 # arriva al 2022-12-31), Grimaldi (00031, corse fino al 2025-12-31; GRIMALDI_OPENDATA.zip stesso formato
-# non GTFS, fino al 2025-12-31), Corsica Ferries - Sardinia Ferries (00028, fino al 2024-01-14), Moby e
+# non GTFS, fino al 2025-12-31), Corsica Ferries - Sardinia Ferries (00028, fino al 2024-01-14; la rete
+# viene dal dataset ufficiale di transport.data.gouv.fr, riga tdg-81996), Moby e
 # GTM Santa Teresa - Bonifacio (00010 dati_mare_corsica, fino al 2026-10-31: meno di un mese). Si
 # rimettono quando il portale pubblica un GTFS con almeno un mese di corse.
 # Marche (10 ottobre 2026): il GTFS regionale (bus urbani, extraurbani e treni regionali,
@@ -154,6 +156,7 @@ tdg-83024	francia,francia-nuova-aquitania	Bordeaux (TBM)	Licence-Ouverte-1.0	Bor
 tdg-81678	francia,francia-occitania	Tolosa (Tisséo)	ODbL-1.0	Toulouse Métropole, Tisséo (transport.data.gouv.fr, ODbL 1.0); modificato	https://transport.data.gouv.fr/datasets/tisseo-reseau-transport-urbain-toulousain			https://api.tisseo.fr/opendata/gtfsrt/GtfsRt.pb
 tdg-79220	francia,francia-grand-est	Strasburgo (CTS)	etalab-2.0	CTS - Compagnie des Transports Strasbourgeois (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/donnees-theoriques-gtfs-et-temps-reel-siri-lite-du-reseau-cts
 tdg-83200	francia,francia-corsica	Corsica, autobus interurbani (Via Strada)	etalab-2.0	Collectivité de Corse, Via Strada (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/gtfs-transport-via-strada			https://ctc.plateforme-2cloud.com/api/gtfsrt/2.0/tripupdates/CTC-2298-2048-0876/bin
+tdg-81996	italia,francia,francia-corsica,francia-provenza-alpi-costa-azzurra,francia-occitania,spagna	Traghetti Corsica Ferries - Sardinia Ferries	etalab-2.0	Corsica Ferries (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/programme-des-rotations-corsica-ferries	https://www.data.gouv.fr/api/1/datasets/r/b95d6838-1143-4653-840f-eebc33c16fa7
 mdb-2820	spagna	Madrid, autobus urbani (CRTM)	CRTM	Powered by CRTM, Consorcio Regional de Transportes de Madrid (licencia de datos abiertos del CRTM); modificato	https://www.crtm.es/
 mdb-2832	spagna	Barcellona e Catalogna (ATM, metro, treni e bus)	NAP-MITRAMS	Powered by MITRAMS: Autoritat del Transport Metropolità (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
 mdb-2830	spagna	Valencia, metro e tram (FGV Metrovalencia)	NAP-MITRAMS	Powered by MITRAMS: Ferrocarrils de la Generalitat Valenciana (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
