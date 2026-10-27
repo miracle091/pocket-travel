@@ -138,7 +138,7 @@ INDEX="$RUNNER_TEMP/transit-index/transit.json"
 # (transit-expired.jsonl), che l'app mostra come "Non incluse" con il motivo; sourceSha256 resta nella voce (l'app
 # ignora le chiavi che non conosce), feedEnd si toglie.
 MISSING="$(jq -Rn '[inputs | select(length > 0 and (startswith("#") | not)) | split("\t")
-  | {id: .[0], regions: (.[1] | split(",")), name: .[2], reason: .[3]}]' tools/data-pipeline/transit-missing.tsv)"
+  | {id: .[0], regions: (.[1] | split(",") | map(gsub("^\\s+|\\s+$"; ""))), name: .[2], reason: .[3]}]' tools/data-pipeline/transit-missing.tsv)"
 touch "$OUT/transit-expired.jsonl"
 MISSING="$(jq -s --argjson listed "$MISSING" '$listed + map(del(.feedEnd)) | unique_by(.id)' "$OUT/transit-expired.jsonl")"
 jq -s --arg v "$VERSION" --argjson at "$(date +%s)" --argjson missing "$MISSING" \

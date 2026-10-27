@@ -1,5 +1,6 @@
 package com.pockettravel.pipeline
 
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.URI
@@ -217,6 +218,8 @@ fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
         if (feed.getString("license").isBlank() || feed.getString("attribution").isBlank()) {
             throw ManifestValidationException("transit.json: $id senza licenza o attribuzione")
         }
+        // L'app rifiuta l'intero indice se il nome di una rete e' vuoto.
+        if (feed.getString("name").isBlank()) throw ManifestValidationException("transit.json: $id senza nome")
         // Come TransitFeed.validate() nell'app, che altrimenti rifiuta l'intero indice.
         val licenseUrl = feed.optString("licenseUrl", "")
         if (licenseUrl.isNotEmpty() && !isHttpsUrl(licenseUrl, withoutCredentials = false)) {
@@ -240,6 +243,16 @@ fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
         validateVersion(feed, "transit/$id")
         validateFile(feed.getJSONObject("file"), "transit/$id", allowedHosts)
         feed.optJSONObject("fileXz")?.let { validateFile(it, "transit/$id", allowedHosts) }
+    }
+    // Reti non incluse: come TransitIndex.validate() nell'app, che altrimenti rifiuta l'intero indice.
+    val missing = root.optJSONArray("missing") ?: JSONArray()
+    for (i in 0 until missing.length()) {
+        val entry = missing.getJSONObject(i)
+        val name = entry.getString("name")
+        val regions = entry.getJSONArray("regions")
+        if (name.isBlank() || (0 until regions.length()).any { !isSafeSegment(regions.getString(it)) }) {
+            throw ManifestValidationException("transit.json: rete non inclusa non valida: $name")
+        }
     }
 }
 

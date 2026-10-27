@@ -681,6 +681,23 @@ class ValidateManifestTest {
     }
 
     @Test
+    fun `l'indice delle reti rifiuta un nome vuoto, come l'app`() {
+        assertTransitInvalid(transitIndex(transitFeed().replace("\"name\": \"Riga\"", "\"name\": \"  \"")))
+    }
+
+    @Test
+    fun `l'indice delle reti controlla le reti non incluse come l'app`() {
+        fun withMissing(entry: String) = transitIndex(transitFeed()).removeSuffix("}") + ", \"missing\": [$entry] }"
+        validateTransitJson(transitIndex(transitFeed()).removeSuffix("}") + ", \"missing\": [] }", allowedHosts)
+        validateTransitJson(withMissing("""{ "id": "x", "regions": ["lettonia", "estonia"], "name": "Tallinn", "reason": "licenza" }"""), allowedHosts)
+        // Uno spazio nelle regioni (riga "a, b" del TSV) o un nome vuoto fanno rifiutare all'app tutto l'indice.
+        assertTransitInvalid(withMissing("""{ "id": "x", "regions": ["lettonia", " estonia"], "name": "Tallinn", "reason": "licenza" }"""))
+        assertTransitInvalid(withMissing("""{ "id": "x", "regions": ["../x"], "name": "Tallinn", "reason": "licenza" }"""))
+        assertTransitInvalid(withMissing("""{ "id": "x", "regions": ["lettonia"], "name": "", "reason": "licenza" }"""))
+        assertTransitInvalid(withMissing("""{ "id": "x", "regions": ["lettonia"], "name": "  ", "reason": "licenza" }"""))
+    }
+
+    @Test
     fun `l'indice delle reti rifiuta validUntil non valido`() {
         assertTransitInvalid(transitIndex(transitFeed().replace("2026-12-27", "27/12/2026")))
         assertTransitInvalid(transitIndex(transitFeed().replace("2026-12-27", "2026-02-30")))
