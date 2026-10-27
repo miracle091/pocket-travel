@@ -163,5 +163,7 @@ dependencies {
         implementation(libs.androidx.concurrent.futures)
         implementation(libs.androidx.concurrent.futures.ktx)
         implementation(libs.error.prone.annotations)
+        // media3 tira dentro guava 33.3.1-android, con una CVE nota (CVE-2026-102554).
+        implementation(libs.guava.android)
     }
 }

@@ -26,11 +26,14 @@ dependencies {
     // Lettura PMTiles locali e decodifica dei tile vettoriali per GenerateAddresses.kt.
     implementation(libs.planetiler.core)
     // planetiler-core 0.10.2 (l'ultima) tira dentro jackson 2.21.2, log4j 2.25.3, aircompressor 2.0.2 e
-    // lz4-java 1.8.0, tutte con CVE note (OSV, ottobre 2026): si alzano alle versioni corrette.
+    // lz4-java 1.8.0, guava 33.5.0 e snappy-java 1.1.10.8, tutte con CVE note (OSV, ottobre 2026): si alzano
+    // alle versioni corrette.
     implementation(platform(libs.jackson.bom))
     implementation(platform(libs.log4j.bom))
     constraints {
         implementation(libs.aircompressor)
+        implementation(libs.guava.jre)
+        implementation(libs.snappy.java)
     }
     // Lettura e scrittura dei segmenti .rd5 per la variante "solo auto" della rete stradale (FilterRd5.kt).
     implementation(project(":core:routing-engine"))
