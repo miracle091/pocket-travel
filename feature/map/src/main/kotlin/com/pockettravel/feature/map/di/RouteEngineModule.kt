@@ -27,6 +27,7 @@ import com.pockettravel.feature.map.OfflineTileSource
 import com.pockettravel.feature.map.PmtilesTileSource
 import com.pockettravel.feature.map.RouteEngineFactory
 import com.pockettravel.feature.map.UsageMode
+import com.pockettravel.feature.map.createOrFailed
 import com.pockettravel.feature.map.defaultRoutingProfile
 import com.pockettravel.feature.map.UsageModePreferences
 import dagger.Module
@@ -72,14 +73,16 @@ object RouteEngineModule {
         val mergedDir = File(context.cacheDir, MERGED_DIR_NAME)
 
         return RouteEngineFactory { regionIds ->
-            withContext(ioDispatcher) { profilesSynced.value }
-            // Il profilo del modo scelto, letto a ogni motore creato.
-            val profileName = usageModePreferences.modes.value.defaultRoutingProfile()
-            fun engine(segmentDir: File) = BRouterRouteEngine(segmentDir, profileDir, profileName, ROUTE_TIMEOUT_MILLIS, ioDispatcher, defaultDispatcher)
-            val dirs = regionIds.map { File(regionsDir, "$it/$ROUTING_DIR_NAME") }
-            val merged = mergedDirOrNull(dirs, mergedDir, ioDispatcher)
-            if (merged == null) engine(dirs.first())
-            else FallbackRouteEngine(engine(merged), dirs.map(::engine))
+            createOrFailed {
+                withContext(ioDispatcher) { profilesSynced.value }
+                // Il profilo del modo scelto, letto a ogni motore creato.
+                val profileName = usageModePreferences.modes.value.defaultRoutingProfile()
+                fun engine(segmentDir: File) = BRouterRouteEngine(segmentDir, profileDir, profileName, ROUTE_TIMEOUT_MILLIS, ioDispatcher, defaultDispatcher)
+                val dirs = regionIds.map { File(regionsDir, "$it/$ROUTING_DIR_NAME") }
+                val merged = mergedDirOrNull(dirs, mergedDir, ioDispatcher)
+                if (merged == null) engine(dirs.first())
+                else FallbackRouteEngine(engine(merged), dirs.map(::engine))
+            }
         }
     }
 
