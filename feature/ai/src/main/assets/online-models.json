@@ -9,7 +9,7 @@
       { "id": "mistral-large-latest", "role": "capable", "temperature": true, "inputUsdPerMTok": 0.50, "outputUsdPerMTok": 1.50 }
     ],
     "GEMINI": [
-      { "id": "gemini-3.8-flash", "role": "auto", "temperature": false, "inputUsdPerMTok": 0.75, "outputUsdPerMTok": 3.75 },
+      { "id": "gemini-3.6-flash", "role": "auto", "temperature": false, "inputUsdPerMTok": 0.75, "outputUsdPerMTok": 3.75 },
       { "id": "gemini-4-argon", "role": "capable", "temperature": false, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 10.00 }
     ],
     "CLAUDE": [

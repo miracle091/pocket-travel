@@ -101,7 +101,7 @@ I modelli proposti per ogni servizio, con il costo stimato di 100 domande, vengo
 |---|---|---|
 | [ChatGPT (OpenAI)](https://platform.openai.com/api-keys) | `gpt-6-luna` | `gpt-5.6-terra` |
 | [Mistral AI](https://console.mistral.ai/api-keys) | `mistral-small-latest` | `mistral-large-latest` |
-| [Gemini (Google)](https://aistudio.google.com/apikey) | `gemini-3.8-flash` | `gemini-4-argon` |
+| [Gemini (Google)](https://aistudio.google.com/apikey) | `gemini-3.6-flash` | `gemini-4-argon` |
 | [Claude (Anthropic)](https://console.anthropic.com/settings/keys) | `claude-haiku-5-5` | `claude-sonnet-5-5` |
 
 ## Schermate
