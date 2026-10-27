@@ -436,7 +436,7 @@ class AiAssistantViewModel @Inject constructor(
                 throw error
             } catch (error: Exception) {
                 val message = when (error) {
-                    is ModelNoSpaceException -> R.string.ai_error_space
+                    is ModelNoSpaceException -> R.string.ai_import_no_space
                     is ModelIntegrityException -> R.string.ai_import_damaged
                     is ModelUnknownFileException -> R.string.ai_import_unknown
                     else -> R.string.ai_import_failed

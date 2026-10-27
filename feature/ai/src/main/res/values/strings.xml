@@ -59,6 +59,7 @@
     <string name="ai_import_unknown">Questo file non è nel catalogo di Pocket Travel</string>
     <string name="ai_import_damaged">File danneggiato: chiedi di inviarlo di nuovo</string>
     <string name="ai_import_failed">Importazione non riuscita</string>
+    <string name="ai_import_no_space">Spazio insufficiente per importare il modello IA</string>
     <string name="ai_remove_key">Rimuovi la chiave</string>
     <string name="ai_delete_model_title">Eliminare il modello IA?</string>
     <string name="ai_delete_model_message">Per usare di nuovo l\'assistente IA sul dispositivo bisogna scaricare di nuovo il modello</string>
