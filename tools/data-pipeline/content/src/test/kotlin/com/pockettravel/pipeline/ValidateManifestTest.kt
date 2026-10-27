@@ -587,6 +587,13 @@ class ValidateManifestTest {
     }
 
     @Test
+    fun `l'indice dei civici rifiuta id di cella con zeri iniziali o segno`() {
+        listOf("1/01/0", "01/1/0", "1/0/00", "11/+1/0", "011/1/1").forEach { id ->
+            assertGridInvalid(addressGridIndex(gridCell(id)))
+        }
+    }
+
+    @Test
     fun `l'indice dei civici accetta i confini dell'intervallo valido`() {
         validateAddressGridJson(addressGridIndex(gridCell("0/0/0")), allowedHosts)
         validateAddressGridJson(addressGridIndex(gridCell("11/2047/2047")), allowedHosts)

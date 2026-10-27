@@ -256,6 +256,8 @@ fun validateTransitJson(indexJson: String, allowedHosts: Set<String>) {
     }
 }
 
+private val canonicalCellNumberRegex = Regex("0|[1-9][0-9]*")
+
 /**
  * Valida address-grid.json (indice dei civici a celle): duplica qui le
  * stesse regole della griglia dell'app (RegionManifest.kt, core/sync), stesso motivo di
@@ -279,10 +281,12 @@ fun validateAddressGridJson(indexJson: String, allowedHosts: Set<String>) {
         val cell = cells.getJSONObject(i)
         val id = cell.getString("id")
         val parts = id.split('/')
+        // Forma canonica: l'app confronta i numeri letti ("1/01/0" e "1/1/0" per lei sono la stessa cella), qui solo "0" o cifre senza zeri iniziali.
+        val canonical = parts.all { it.matches(canonicalCellNumberRegex) }
         val z = parts.getOrNull(0)?.toIntOrNull()
         val x = parts.getOrNull(1)?.toIntOrNull()
         val y = parts.getOrNull(2)?.toIntOrNull()
-        if (parts.size != 3 || z == null || x == null || y == null || z !in 0..14 || x !in 0 until (1 shl z) || y !in 0 until (1 shl z)) {
+        if (!canonical || parts.size != 3 || z == null || x == null || y == null || z !in 0..14 || x !in 0 until (1 shl z) || y !in 0 until (1 shl z)) {
             throw ManifestValidationException("address-grid.json: id di cella non valido: $id")
         }
         if (!seenIds.add(id)) throw ManifestValidationException("address-grid.json: id di cella duplicato: $id")
