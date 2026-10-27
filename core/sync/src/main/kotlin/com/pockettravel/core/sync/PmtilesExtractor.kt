@@ -68,6 +68,7 @@ class PmtilesExtractor internal constructor(
     private val alwaysDownloadMaxZoom: Int,
     private val retryDelaysMs: List<Long>,
     private val readTimeoutMs: Long,
+    private val rangeTuning: RangeTuning = RangeTuning(),
 ) {
 
     @Inject constructor(okHttpClient: OkHttpClient) : this(okHttpClient, ALWAYS_DOWNLOAD_MAX_ZOOM, RETRY_DELAYS_MS, READ_TIMEOUT_MS)
@@ -97,7 +98,7 @@ class PmtilesExtractor internal constructor(
             .connectTimeout(CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
             .readTimeout(readTimeoutMs, TimeUnit.MILLISECONDS)
             .build()
-        OkHttpRangeChannel(client, mapSource.sourceUrl, retryDelaysMs, isCancelled).use { channel ->
+        OkHttpRangeChannel(client, mapSource.sourceUrl, retryDelaysMs, rangeTuning, isCancelled).use { channel ->
             Reader(channel).use { reader ->
                 if (previousMap != null && previousMap.isFile) {
                     var interruption: Throwable? = null
@@ -167,7 +168,8 @@ class PmtilesExtractor internal constructor(
      * Una richiesta HTTP per tile sarebbe lenta (circa 3 MB al minuto sulla Lettonia, limitati dalla
      * latenza): la build Protomaps e' in ordine di tileId (clustered), quindi le tile vicine del
      * rettangolo stanno quasi sempre una dopo l'altra nel file e si leggono a blocchi, una richiesta
-     * per blocco fino a [MAX_BATCH_BYTES], scaricando anche i buchi tra una tile e l'altra fino a
+     * per blocco di dimensione adattiva ([OkHttpRangeChannel.nextBatchBytes]: da 256 KB a 16 MB, secondo la velocita' delle richieste
+     * precedenti), scaricando anche i buchi tra una tile e l'altra fino a
      * [MAX_GAP_BYTES]. [onProgress] riceve i byte delle tile da scaricare (buchi esclusi).
      *
      * I tileId si trattano a gruppi di qualche migliaio ([forEachTileIdBlock]): per le regioni piu' grandi
@@ -175,7 +177,7 @@ class PmtilesExtractor internal constructor(
      * totale dei byte per l'avanzamento richiede una prima passata sull'indice, poi una seconda scarica.
      */
     private fun fetchTiles(
-        channel: FileChannel,
+        channel: OkHttpRangeChannel,
         mapSource: MapExtractionSource,
         previousMap: File?,
         detail: MapDetail,
@@ -252,7 +254,7 @@ class PmtilesExtractor internal constructor(
                             readRemote(channel, offset, length)
                         } else {
                             ensureActive()
-                            val end = batchEnd(i, tileIds.size, offset, remote) { reusable(it, tileIds, remote, installed) }
+                            val end = batchEnd(i, tileIds.size, offset, remote, channel.nextBatchBytes()) { reusable(it, tileIds, remote, installed) }
                             bufferStart = offset
                             buffer = readRemote(channel, offset, (end - offset).toInt())
                             buffer.copyOfRange(0, length)
@@ -276,17 +278,17 @@ class PmtilesExtractor internal constructor(
     /**
      * Fine (esclusa) del blocco da leggere a partire dalla tile [first] all'offset [start]: si
      * aggiungono le tile successive da scaricare finche' sono dopo la fine attuale con un buco di al
-     * massimo [MAX_GAP_BYTES] e il blocco resta entro [MAX_BATCH_BYTES]. Quelle gia' dentro il blocco
+     * massimo [MAX_GAP_BYTES] e il blocco resta entro [maxBatchBytes]. Quelle gia' dentro il blocco
      * (stesso contenuto) o prima di [start] (lette a parte) non lo allungano.
      */
-    private fun batchEnd(first: Int, count: Int, start: Long, remote: PmtilesTileLocations, reusable: (Int) -> Boolean): Long {
+    private fun batchEnd(first: Int, count: Int, start: Long, remote: PmtilesTileLocations, maxBatchBytes: Long, reusable: (Int) -> Boolean): Long {
         var end = start + remote.lengths[first]
         for (j in first + 1 until count) {
             val length = remote.lengths[j]
             if (length < 0 || reusable(j)) continue
             val offset = remote.offsets[j]
             if (offset < start || offset + length <= end) continue
-            if (offset < end || offset - end > MAX_GAP_BYTES || offset + length - start > MAX_BATCH_BYTES) break
+            if (offset < end || offset - end > MAX_GAP_BYTES || offset + length - start > maxBatchBytes) break
             end = offset + length
         }
         return end
@@ -313,7 +315,6 @@ class PmtilesExtractor internal constructor(
 
     private companion object {
         const val ALWAYS_DOWNLOAD_MAX_ZOOM = 6
-        const val MAX_BATCH_BYTES = 16L * 1024 * 1024
         const val MAX_GAP_BYTES = 256L * 1024
         const val ENSURE_ACTIVE_EVERY = 256L
         const val CONNECT_TIMEOUT_MS = 15_000L

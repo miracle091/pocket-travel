@@ -1,13 +1,20 @@
 package com.pockettravel.core.sync
 
 import ch.poole.geo.pmtiles.Constants
+import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.channels.FileChannel
+import java.util.PriorityQueue
 import java.util.zip.GZIPOutputStream
 
 /** Una tile gia' pronta per l'archivio: id calcolato con la stessa curva di Hilbert usata da
@@ -26,24 +33,45 @@ private const val VARINT_PAYLOAD_BITS = 7
 // Gradi in interi a 1e-7, come i campi lon/lat dell'header PMTiles.
 private const val E7_SCALE = 10_000_000.0
 
+// Una voce di directory sul disco: tileId, tile consecutive, offset nello spool (Long) e lunghezza (Int).
+private const val RECORD_BYTES = 8 + 8 + 8 + 4
+private const val FILE_BUFFER_BYTES = 16 * 1024
+
+/** Riceve le voci della directory nell'ordine di tileId, senza che siano mai tutte in memoria. */
+internal fun interface DirectoryEntrySink {
+    fun accept(tileId: Long, runLength: Long, offset: Long, length: Int)
+}
+
 /**
- * Accumula le tile su un file temporaneo in [directory] man mano che arrivano, tenendo in
- * memoria solo la directory: una voce (tileId iniziale, tile consecutive, offset, lunghezza) per ogni
- * gruppo di tile consecutive con lo stesso contenuto, non una per tile (mare e terra vuota coprono
- * milioni di tile con poche voci). Tenere in memoria un indice per ogni tile di una regione grande,
- * o le ByteArray, esaurirebbe l'heap. I contenuti con la stessa chiave ([add], [addKnown]) sono
- * scritti una sola volta anche se non sono vicini. close() cancella sempre il file temporaneo, anche dopo
+ * Accumula le tile su un file temporaneo in [directory] man mano che arrivano. La directory (una voce
+ * per ogni gruppo di tile consecutive con lo stesso contenuto: tileId iniziale, tile consecutive, offset,
+ * lunghezza) non sta in memoria ma su un secondo file temporaneo, a record di dimensione fissa: in
+ * memoria resta solo l'ultima voce, ancora estendibile, e una tabella dei contenuti ripetuti di dimensione
+ * massima fissa. Una regione grande ha milioni di tile con contenuti distinti, e tenerne un indice in
+ * memoria, o le ByteArray, esaurirebbe l'heap. close() cancella sempre i file temporanei, anche dopo
  * un errore o un annullamento.
+ *
+ * I contenuti piccoli con la stessa chiave ([add], [addKnown]) sono scritti una sola volta anche se non
+ * sono vicini, finche' la tabella li ricorda: un contenuto dimenticato si riscrive, e l'archivio resta
+ * corretto, solo un po' piu' grande. Le tile arrivano di norma in ordine di tileId; altrimenti
+ * [finishData] ordina la directory a blocchi di [sortChunkRecords] voci, unendoli con un merge.
  */
-class PmtilesTileSpool(directory: File) : Closeable {
-    private val tempFile: File = File.createTempFile(SPOOL_PREFIX, SPOOL_SUFFIX, directory)
+class PmtilesTileSpool(
+    private val directory: File,
+    private val sortChunkRecords: Int = DEFAULT_SORT_CHUNK_RECORDS,
+) : Closeable {
+    private val tempFile: File = createTempFile()
+    private var indexFile: File = createTempFile()
     private val out = BufferedOutputStream(FileOutputStream(tempFile))
-    private val offsetByKey = LongLongMap()
-    private var ids = LongArray(INITIAL_CAPACITY)
-    private var runLengths = LongArray(INITIAL_CAPACITY)
-    private var offsets = LongArray(INITIAL_CAPACITY)
-    private var lengths = IntArray(INITIAL_CAPACITY)
-    private var entryCount = 0
+    private var indexOut: DataOutputStream? = DataOutputStream(
+        BufferedOutputStream(FileOutputStream(indexFile), FILE_BUFFER_BYTES),
+    )
+    private val contentTable = ContentTable()
+    private var hasLast = false
+    private var lastId = 0L
+    private var lastRunLength = 0L
+    private var lastOffset = 0L
+    private var lastLength = 0
     private var dataLength = 0L
     private var dataFinished = false
 
@@ -60,9 +88,15 @@ class PmtilesTileSpool(directory: File) : Closeable {
     var inTileIdOrder = true
         private set
 
-    /** Memoria trattenuta dalla directory in costruzione (array e tabella dei contenuti), in byte. */
+    /** Voci della directory finale; vale solo dopo [finishData]. */
+    internal var directoryEntryCount = 0L
+        private set
+
+    /** Memoria trattenuta in attesa delle voci di directory (tabella dei contenuti e buffer dei file), in byte. */
     internal val retainedBytes: Long
-        get() = (ids.size + runLengths.size + offsets.size) * Long.SIZE_BYTES + lengths.size * Int.SIZE_BYTES + offsetByKey.retainedBytes
+        get() = contentTable.retainedBytes + FILE_BUFFER_BYTES + DATA_BUFFER_BYTES
+
+    private fun createTempFile(): File = File.createTempFile(SPOOL_PREFIX, SPOOL_SUFFIX, directory)
 
     /**
      * Scrive [data] sul file temporaneo. Con una [contentKey] (>= 0) il contenuto si puo' riusare in seguito con
@@ -74,50 +108,53 @@ class PmtilesTileSpool(directory: File) : Closeable {
         out.write(data)
         dataLength += data.size
         uniqueTileCount++
-        if (contentKey != NO_CONTENT_KEY) offsetByKey.put(contentKey, offset)
+        if (contentKey != NO_CONTENT_KEY && data.size <= MAX_REMEMBERED_TILE_BYTES) contentTable.put(contentKey, offset)
         append(tileId, offset, data.size)
     }
 
-    /** Aggiunge una tile con un contenuto gia' scritto con la stessa [contentKey]; false se la chiave non c'e'. */
+    /** Aggiunge una tile con un contenuto gia' scritto con la stessa [contentKey]; false se la chiave non c'e' (piu'). */
     fun addKnown(tileId: Long, contentKey: Long, length: Int): Boolean {
         check(!dataFinished) { "Dati delle tile gia' chiusi" }
-        val offset = offsetByKey.get(contentKey)
+        val offset = contentTable.get(contentKey)
         if (offset < 0) return false
         append(tileId, offset, length)
         return true
     }
 
-    /** Estende l'ultima voce se la tile la continua con lo stesso contenuto, altrimenti ne apre una. */
+    /** Estende l'ultima voce se la tile la continua con lo stesso contenuto, altrimenti la scrive su disco e ne apre una. */
     private fun append(tileId: Long, offset: Long, length: Int) {
         tileCount++
-        if (entryCount > 0) {
-            val last = entryCount - 1
-            val end = ids[last] + runLengths[last]
+        if (hasLast) {
+            val end = lastId + lastRunLength
             if (tileId < end) {
                 inTileIdOrder = false
-            } else if (tileId == end && offsets[last] == offset && lengths[last] == length) {
-                runLengths[last]++
+            } else if (tileId == end && lastOffset == offset && lastLength == length) {
+                lastRunLength++
                 return
             }
+            writeLast()
         }
-        if (entryCount == ids.size) {
-            val capacity = ids.size * 2
-            ids = ids.copyOf(capacity)
-            runLengths = runLengths.copyOf(capacity)
-            offsets = offsets.copyOf(capacity)
-            lengths = lengths.copyOf(capacity)
-        }
-        ids[entryCount] = tileId
-        runLengths[entryCount] = 1L
-        offsets[entryCount] = offset
-        lengths[entryCount] = length
-        entryCount++
+        hasLast = true
+        lastId = tileId
+        lastRunLength = 1L
+        lastOffset = offset
+        lastLength = length
     }
 
-    /** Chiude la scrittura dei dati e ne restituisce la lunghezza totale in byte. */
+    private fun writeLast() {
+        writeRecord(requireNotNull(indexOut), lastId, lastRunLength, lastOffset, lastLength)
+    }
+
+    /** Chiude la scrittura dei dati e della directory, ne ordina le voci se servono, e restituisce la lunghezza dei dati in byte. */
     internal fun finishData(): Long {
         if (!dataFinished) {
             out.close()
+            if (hasLast) writeLast()
+            hasLast = false
+            indexOut?.close()
+            indexOut = null
+            if (!inTileIdOrder) sortIndex()
+            directoryEntryCount = indexFile.length() / RECORD_BYTES
             dataFinished = true
         }
         return dataLength
@@ -125,107 +162,259 @@ class PmtilesTileSpool(directory: File) : Closeable {
 
     internal val dataFile: File get() = tempFile
 
-    /** Entry di directory ordinate per tileId (come richiesto dallo spec). Tile con id
-     *  consecutivi e stesso contenuto sono gia' una sola entry con runLength > 1. */
-    internal fun directoryEntries(): DirectoryEntries {
-        val n = entryCount
-        if (inTileIdOrder) {
-            return DirectoryEntries(
-                ids = ids.copyOf(n),
-                runLengths = runLengths.copyOf(n),
-                lengths = LongArray(n) { lengths[it].toLong() },
-                offsets = offsets.copyOf(n),
-            )
-        }
-        val sortedIds = ids.copyOf(n).also { it.sort() }
-        for (i in 1 until n) require(sortedIds[i] != sortedIds[i - 1]) { "tileId duplicati" }
-        // Ordinamento con soli array primitivi (niente indici boxed): ogni id e' unico, quindi
-        // la sua posizione finale si trova con una ricerca binaria sugli id ordinati.
-        val sortedRunLengths = LongArray(n)
-        val sortedOffsets = LongArray(n)
-        val sortedLengths = LongArray(n)
-        for (i in 0 until n) {
-            val position = sortedIds.binarySearch(ids[i])
-            sortedRunLengths[position] = runLengths[i]
-            sortedOffsets[position] = offsets[i]
-            sortedLengths[position] = lengths[i].toLong()
-        }
-        for (i in 1 until n) require(sortedIds[i] >= sortedIds[i - 1] + sortedRunLengths[i - 1]) { "tileId duplicati" }
-        // Dopo l'ordinamento voci vicine possono continuarsi: si uniscono.
-        var count = 0
-        for (i in 0 until n) {
-            val extendsRun = count > 0 &&
-                sortedIds[i] == sortedIds[count - 1] + sortedRunLengths[count - 1] &&
-                sortedOffsets[i] == sortedOffsets[count - 1] &&
-                sortedLengths[i] == sortedLengths[count - 1]
-            if (extendsRun) {
-                sortedRunLengths[count - 1] += sortedRunLengths[i]
-            } else {
-                sortedIds[count] = sortedIds[i]
-                sortedRunLengths[count] = sortedRunLengths[i]
-                sortedOffsets[count] = sortedOffsets[i]
-                sortedLengths[count] = sortedLengths[i]
-                count++
+    /** Passa a [sink], in ordine di tileId (come richiesto dallo spec), le voci della directory; tile con id
+     *  consecutivi e stesso contenuto sono gia' una sola voce con runLength > 1. Si puo' ripetere. */
+    internal fun forEachDirectoryEntry(sink: DirectoryEntrySink) {
+        check(dataFinished) { "Dati delle tile ancora aperti" }
+        DataInputStream(BufferedInputStream(FileInputStream(indexFile), FILE_BUFFER_BYTES)).use { input ->
+            for (i in 0 until directoryEntryCount) {
+                sink.accept(input.readLong(), input.readLong(), input.readLong(), input.readInt())
             }
         }
-        return DirectoryEntries(
-            ids = sortedIds.copyOf(count),
-            runLengths = sortedRunLengths.copyOf(count),
-            lengths = sortedLengths.copyOf(count),
-            offsets = sortedOffsets.copyOf(count),
-        )
+    }
+
+    /**
+     * Ordina il file delle voci per tileId con un merge esterno: blocchi di [sortChunkRecords] voci ordinati in
+     * memoria e scritti uno dopo l'altro su un file temporaneo, poi fusi in un file nuovo. Voci vicine dopo
+     * l'ordinamento che si continuano si uniscono; voci sovrapposte sono tileId duplicati.
+     */
+    private fun sortIndex() {
+        val runsFile = createTempFile()
+        val sortedFile = createTempFile()
+        var sorted = false
+        try {
+            val runSizes = writeSortedRuns(runsFile)
+            mergeRuns(runsFile, runSizes, sortedFile)
+            sorted = true
+        } finally {
+            runsFile.delete()
+            if (!sorted) sortedFile.delete()
+        }
+        indexFile.delete()
+        indexFile = sortedFile
+    }
+
+    /** Divide il file delle voci in blocchi ordinati, scritti in [runsFile]; restituisce le voci di ogni blocco. */
+    private fun writeSortedRuns(runsFile: File): List<Int> {
+        val total = indexFile.length() / RECORD_BYTES
+        val capacity = minOf(sortChunkRecords.toLong(), total).toInt()
+        val ids = LongArray(capacity)
+        val runLengths = LongArray(capacity)
+        val offsets = LongArray(capacity)
+        val lengths = IntArray(capacity)
+        val sizes = mutableListOf<Int>()
+        DataInputStream(BufferedInputStream(FileInputStream(indexFile), FILE_BUFFER_BYTES)).use { input ->
+            DataOutputStream(BufferedOutputStream(FileOutputStream(runsFile), FILE_BUFFER_BYTES)).use { runs ->
+                var remaining = total
+                while (remaining > 0) {
+                    val n = minOf(capacity.toLong(), remaining).toInt()
+                    for (i in 0 until n) {
+                        ids[i] = input.readLong()
+                        runLengths[i] = input.readLong()
+                        offsets[i] = input.readLong()
+                        lengths[i] = input.readInt()
+                    }
+                    // Ordinamento con soli array primitivi (niente indici boxed): ogni id e' unico, quindi
+                    // la sua posizione finale si trova con una ricerca binaria sugli id ordinati.
+                    val sortedIds = ids.copyOf(n).also { it.sort() }
+                    for (i in 1 until n) require(sortedIds[i] != sortedIds[i - 1]) { "tileId duplicati" }
+                    val source = IntArray(n)
+                    for (i in 0 until n) source[sortedIds.binarySearch(ids[i])] = i
+                    for (position in 0 until n) {
+                        val i = source[position]
+                        writeRecord(runs, ids[i], runLengths[i], offsets[i], lengths[i])
+                    }
+                    sizes += n
+                    remaining -= n
+                }
+            }
+        }
+        return sizes
+    }
+
+    private fun mergeRuns(runsFile: File, runSizes: List<Int>, sortedFile: File) {
+        RandomAccessFile(runsFile, "r").use { source ->
+            val queue = PriorityQueue<SortedRun>(runSizes.size.coerceAtLeast(1), compareBy { it.tileId })
+            var start = 0L
+            for (size in runSizes) {
+                val run = SortedRun(source.channel, start, size.toLong())
+                if (run.advance()) queue.add(run)
+                start += size
+            }
+            DataOutputStream(BufferedOutputStream(FileOutputStream(sortedFile), FILE_BUFFER_BYTES)).use { merged ->
+                val coalescer = RunCoalescer(merged)
+                while (queue.isNotEmpty()) {
+                    val run = queue.poll()
+                    coalescer.add(run.tileId, run.runLength, run.offset, run.length)
+                    if (run.advance()) queue.add(run)
+                }
+                coalescer.finish()
+            }
+        }
     }
 
     override fun close() {
         try {
-            out.close()
+            try {
+                out.close()
+            } finally {
+                // Anche con il disco pieno: lo spazio di un file cancellato si libera solo chiudendolo.
+                indexOut?.close()
+            }
         } finally {
             tempFile.delete()
+            indexFile.delete()
         }
     }
 
-    internal class DirectoryEntries(
-        val ids: LongArray,
-        val runLengths: LongArray,
-        val lengths: LongArray,
-        val offsets: LongArray,
-    )
+    /** Scrive le voci in ordine di tileId unendo quelle che si continuano; una voce che ne copre un'altra e' un tileId duplicato. */
+    private class RunCoalescer(private val output: DataOutputStream) {
+        private var hasPending = false
+        private var tileId = 0L
+        private var runLength = 0L
+        private var offset = 0L
+        private var length = 0
+
+        fun add(nextId: Long, nextRunLength: Long, nextOffset: Long, nextLength: Int) {
+            if (hasPending) {
+                val end = tileId + runLength
+                require(nextId >= end) { "tileId duplicati" }
+                if (nextId == end && nextOffset == offset && nextLength == length) {
+                    runLength += nextRunLength
+                    return
+                }
+                finish()
+            }
+            hasPending = true
+            tileId = nextId
+            runLength = nextRunLength
+            offset = nextOffset
+            this.length = nextLength
+        }
+
+        fun finish() {
+            if (hasPending) writeRecord(output, tileId, runLength, offset, length)
+            hasPending = false
+        }
+    }
+
+    /** Un blocco ordinato del file dei blocchi, letto con un piccolo buffer proprio; i campi sono la voce corrente. */
+    private class SortedRun(private val channel: FileChannel, firstRecord: Long, private var left: Long) {
+        private val buffer = ByteBuffer.allocate(RUN_BUFFER_RECORDS * RECORD_BYTES).also { it.limit(0) }
+        private var nextRecord = firstRecord
+        var tileId = 0L
+            private set
+        var runLength = 0L
+            private set
+        var offset = 0L
+            private set
+        var length = 0
+            private set
+
+        fun advance(): Boolean {
+            if (left == 0L) return false
+            if (!buffer.hasRemaining()) refill()
+            tileId = buffer.getLong()
+            runLength = buffer.getLong()
+            offset = buffer.getLong()
+            length = buffer.getInt()
+            left--
+            return true
+        }
+
+        private fun refill() {
+            val records = minOf(left, RUN_BUFFER_RECORDS.toLong()).toInt()
+            buffer.clear()
+            buffer.limit(records * RECORD_BYTES)
+            var position = nextRecord * RECORD_BYTES
+            while (buffer.hasRemaining()) {
+                val read = channel.read(buffer, position)
+                check(read >= 0) { "File dei blocchi troncato" }
+                position += read
+            }
+            buffer.flip()
+            nextRecord += records
+        }
+    }
 
     companion object {
         /** Contenuto senza chiave: scritto sempre, mai riusabile con [addKnown]. */
         const val NO_CONTENT_KEY = -1L
-        private const val INITIAL_CAPACITY = 1_024
+        private const val DEFAULT_SORT_CHUNK_RECORDS = 65_536
+        private const val RUN_BUFFER_RECORDS = 512
+        private const val DATA_BUFFER_BYTES = 8 * 1024
+
+        // I contenuti ripetuti delle build Protomaps (mare, terra vuota, poligoni a copertura piena) sono di
+        // poche centinaia di byte; una tile piu' grande ripetuta e' rara, e riscriverla costa quanto lei.
+        private const val MAX_REMEMBERED_TILE_BYTES = 4_096
     }
 }
 
-/** Mappa da Long (>= 0) a Long con indirizzamento aperto: senza un oggetto per voce, perche' i contenuti distinti sono milioni. */
-private class LongLongMap {
+private fun writeRecord(output: DataOutputStream, tileId: Long, runLength: Long, offset: Long, length: Int) {
+    output.writeLong(tileId)
+    output.writeLong(runLength)
+    output.writeLong(offset)
+    output.writeInt(length)
+}
+
+/**
+ * Tabella da chiave di contenuto (>= 0) a offset nello spool, di dimensione massima fissa: indirizzamento
+ * aperto con sondaggio limitato, senza un oggetto per voce. Cresce raddoppiando fino al tetto; oltre,
+ * una chiave nuova prende il posto di una voce mai riusata della sua finestra, o non entra se sono tutte
+ * state riusate: i contenuti che si ripetono davvero (il mare) restano, quelli irripetibili passano.
+ */
+private class ContentTable {
     private var keys = LongArray(INITIAL_SLOTS) { EMPTY }
     private var values = LongArray(INITIAL_SLOTS)
     private var size = 0
 
     val retainedBytes: Long get() = keys.size * 2L * Long.SIZE_BYTES
 
-    /** Il valore di [key], o -1 se manca. */
+    /** Il valore di [key], o -1 se manca; la voce ritrovata conta come riusata. */
     fun get(key: Long): Long {
         var slot = slotOf(key, keys.size)
-        while (keys[slot] != EMPTY) {
-            if (keys[slot] == key) return values[slot]
+        var result = -1L
+        var probe = 0
+        while (probe < PROBES && keys[slot] != EMPTY) {
+            if (keys[slot] == key) {
+                values[slot] = values[slot] or REUSED
+                result = values[slot] and REUSED.inv()
+                break
+            }
             slot = (slot + 1) and (keys.size - 1)
+            probe++
         }
-        return -1L
+        return result
     }
 
     fun put(key: Long, value: Long) {
         require(key >= 0) { "Chiave negativa" }
-        if ((size + 1) * 2 > keys.size) grow()
+        if (size * 2 > keys.size && keys.size < MAX_SLOTS) grow()
+        insert(key, value)
+    }
+
+    private fun insert(key: Long, value: Long) {
         var slot = slotOf(key, keys.size)
-        while (keys[slot] != EMPTY && keys[slot] != key) slot = (slot + 1) and (keys.size - 1)
-        if (keys[slot] == EMPTY) {
-            keys[slot] = key
-            size++
+        var victim = -1
+        repeat(PROBES) {
+            val stored = keys[slot]
+            if (stored == EMPTY) {
+                keys[slot] = key
+                values[slot] = value
+                size++
+                return
+            }
+            if (stored == key) {
+                values[slot] = value
+                return
+            }
+            if (victim < 0 && values[slot] and REUSED == 0L) victim = slot
+            slot = (slot + 1) and (keys.size - 1)
         }
-        values[slot] = value
+        if (victim >= 0) {
+            keys[victim] = key
+            values[victim] = value
+        }
     }
 
     private fun grow() {
@@ -233,12 +422,9 @@ private class LongLongMap {
         val oldValues = values
         keys = LongArray(oldKeys.size * 2) { EMPTY }
         values = LongArray(oldKeys.size * 2)
+        size = 0
         for (i in oldKeys.indices) {
-            if (oldKeys[i] == EMPTY) continue
-            var slot = slotOf(oldKeys[i], keys.size)
-            while (keys[slot] != EMPTY) slot = (slot + 1) and (keys.size - 1)
-            keys[slot] = oldKeys[i]
-            values[slot] = oldValues[i]
+            if (oldKeys[i] != EMPTY) insert(oldKeys[i], oldValues[i])
         }
     }
 
@@ -248,6 +434,9 @@ private class LongLongMap {
     private companion object {
         const val EMPTY = -1L
         const val INITIAL_SLOTS = 1_024
+        const val MAX_SLOTS = 1 shl 17 // 2 MiB tra chiavi e valori
+        const val PROBES = 16
+        const val REUSED = 1L shl 62 // gli offset dello spool restano sotto 2^62
         const val GOLDEN_RATIO = -7046029254386353131L
         const val HASH_SHIFT = 32
     }
@@ -272,6 +461,12 @@ object PmtilesWriter {
     // 16384 come limite assoluto, qui si lascia un margine per non finire esattamente al bordo.
     private const val MAX_ROOT_DIR_BYTES = 16_257
     private const val INITIAL_LEAF_CHUNK_SIZE = 2_000
+
+    // Fino a qui la directory prova a stare tutta nella root; oltre si passa subito alle leaf.
+    private const val MAX_ROOT_ONLY_ENTRIES = 20_000L
+
+    // Leaf attese per directory enormi: la root (un puntatore per leaf) resta sotto il suo limite al primo colpo.
+    private const val TARGET_LEAVES = 1_000L
 
     fun write(
         outputFile: File,
@@ -331,38 +526,38 @@ object PmtilesWriter {
     ) {
         require(tiles.tileCount > 0) { "Nessuna tile da scrivere" }
         val tileDataLength = tiles.finishData()
-        val directory = tiles.directoryEntries()
-        val ids = directory.ids
-        val runLengths = directory.runLengths
-        val lengths = directory.lengths
-        val offsets = directory.offsets
-
-        val rootOnly = gzip(encodeDirectory(ids, runLengths, lengths, offsets))
-        val leafDirs: List<ByteArray>
-        val rootDirCompressed: ByteArray
-        if (rootOnly.size <= MAX_ROOT_DIR_BYTES) {
-            rootDirCompressed = rootOnly
-            leafDirs = emptyList()
-        } else {
-            var chunkSize = INITIAL_LEAF_CHUNK_SIZE
-            var built = buildWithLeaves(ids, runLengths, lengths, offsets, chunkSize)
-            while (built.first.size > MAX_ROOT_DIR_BYTES && chunkSize < ids.size) {
-                chunkSize *= 2
-                built = buildWithLeaves(ids, runLengths, lengths, offsets, chunkSize)
-            }
-            check(built.first.size <= MAX_ROOT_DIR_BYTES) {
-                "Impossibile produrre una root directory valida (${built.first.size} byte)"
-            }
-            rootDirCompressed = built.first
-            leafDirs = built.second
+        val leafFile = File.createTempFile(SPOOL_PREFIX, SPOOL_SUFFIX, tiles.dataFile.absoluteFile.parentFile)
+        try {
+            val directory = buildDirectory(tiles, leafFile)
+            writeArchive(outputFile, tiles, directory, leafFile, tileDataLength, metadataJson, tileCompression, tileType, minZoom, maxZoom, minLon, minLat, maxLon, maxLat)
+        } finally {
+            leafFile.delete()
         }
+    }
 
+    private fun writeArchive(
+        outputFile: File,
+        tiles: PmtilesTileSpool,
+        directory: Directory,
+        leafFile: File,
+        tileDataLength: Long,
+        metadataJson: String,
+        tileCompression: Byte,
+        tileType: Byte,
+        minZoom: Int,
+        maxZoom: Int,
+        minLon: Double,
+        minLat: Double,
+        maxLon: Double,
+        maxLat: Double,
+    ) {
+        val rootDirCompressed = directory.root
         val metadataCompressed = gzip(metadataJson.toByteArray(Charsets.UTF_8))
 
         val rootDirOffset = HEADER_LENGTH.toLong()
         val metadataOffset = rootDirOffset + rootDirCompressed.size
         val leafDirOffset = metadataOffset + metadataCompressed.size
-        val leafDirLength = leafDirs.sumOf { it.size.toLong() }
+        val leafDirLength = directory.leafLength
         val tileDataOffset = leafDirOffset + leafDirLength
 
         val header = buildHeader(
@@ -375,7 +570,7 @@ object PmtilesWriter {
             tileDataOffset = tileDataOffset,
             tileDataLength = tileDataLength,
             addressedTiles = tiles.tileCount.toLong(),
-            tileEntries = ids.size.toLong(),
+            tileEntries = tiles.directoryEntryCount,
             tileContents = tiles.uniqueTileCount,
             clustered = tiles.inTileIdOrder,
             tileCompression = tileCompression,
@@ -392,48 +587,88 @@ object PmtilesWriter {
             out.write(header)
             out.write(rootDirCompressed)
             out.write(metadataCompressed)
-            leafDirs.forEach { out.write(it) }
+            leafFile.inputStream().use { it.copyTo(out) }
             tiles.dataFile.inputStream().use { it.copyTo(out) }
+        }
+    }
+
+    /** Root directory gia' compressa e lunghezza delle leaf directory scritte su un file a parte. */
+    private class Directory(val root: ByteArray, val leafLength: Long)
+
+    /** Voci di directory in attesa di essere codificate: al massimo un blocco, mai la directory intera. */
+    private class EntryChunk(capacity: Int) {
+        private val ids = LongArray(capacity)
+        private val runLengths = LongArray(capacity)
+        private val lengths = LongArray(capacity)
+        private val offsets = LongArray(capacity)
+        var count = 0
+            private set
+        val isFull: Boolean get() = count == ids.size
+        val firstId: Long get() = ids[0]
+
+        fun add(tileId: Long, runLength: Long, offset: Long, length: Int) {
+            ids[count] = tileId
+            runLengths[count] = runLength
+            lengths[count] = length.toLong()
+            offsets[count] = offset
+            count++
+        }
+
+        fun clear() {
+            count = 0
+        }
+
+        fun encode(): ByteArray = encodeDirectory(ids.copyOf(count), runLengths.copyOf(count), lengths.copyOf(count), offsets.copyOf(count))
+    }
+
+    /**
+     * Costruisce la directory leggendo le voci di [tiles] in streaming: con poche voci basta la root, altrimenti
+     * le leaf directory vanno su [leafFile] man mano che si riempiono e in memoria restano solo le voci della root.
+     */
+    private fun buildDirectory(tiles: PmtilesTileSpool, leafFile: File): Directory {
+        val entryCount = tiles.directoryEntryCount
+        if (entryCount <= MAX_ROOT_ONLY_ENTRIES) {
+            val chunk = EntryChunk(entryCount.toInt())
+            tiles.forEachDirectoryEntry { id, runLength, offset, length -> chunk.add(id, runLength, offset, length) }
+            val rootOnly = gzip(chunk.encode())
+            if (rootOnly.size <= MAX_ROOT_DIR_BYTES) return Directory(rootOnly, 0L)
+        }
+        var chunkSize = maxOf(INITIAL_LEAF_CHUNK_SIZE.toLong(), (entryCount + TARGET_LEAVES - 1) / TARGET_LEAVES)
+        while (true) {
+            val built = writeLeaves(tiles, leafFile, chunkSize.toInt())
+            if (built.root.size <= MAX_ROOT_DIR_BYTES) return built
+            check(chunkSize < entryCount) { "Impossibile produrre una root directory valida (${built.root.size} byte)" }
+            chunkSize *= 2
         }
     }
 
     /** Divide le entry in blocchi da leafChunkSize, ciascuno una leaf directory a parte;
      *  la root diventa una directory di soli puntatori (runLength=0) a quelle leaf. */
-    private fun buildWithLeaves(
-        ids: LongArray,
-        runLengths: LongArray,
-        lengths: LongArray,
-        offsets: LongArray,
-        leafChunkSize: Int,
-    ): Pair<ByteArray, List<ByteArray>> {
-        val leafDirs = mutableListOf<ByteArray>()
+    private fun writeLeaves(tiles: PmtilesTileSpool, leafFile: File, leafChunkSize: Int): Directory {
         val rootIds = mutableListOf<Long>()
         val rootOffsets = mutableListOf<Long>()
         val rootLengths = mutableListOf<Long>()
         var cursor = 0L
-
-        var start = 0
-        while (start < ids.size) {
-            val end = minOf(start + leafChunkSize, ids.size)
-            val leafBytes = gzip(
-                encodeDirectory(
-                    ids.copyOfRange(start, end),
-                    runLengths.copyOfRange(start, end),
-                    lengths.copyOfRange(start, end),
-                    offsets.copyOfRange(start, end),
-                ),
-            )
-            rootIds += ids[start]
-            rootOffsets += cursor
-            rootLengths += leafBytes.size.toLong()
-            leafDirs += leafBytes
-            cursor += leafBytes.size
-            start = end
+        val chunk = EntryChunk(leafChunkSize)
+        BufferedOutputStream(FileOutputStream(leafFile)).use { out ->
+            fun flushLeaf() {
+                if (chunk.count == 0) return
+                val leafBytes = gzip(chunk.encode())
+                out.write(leafBytes)
+                rootIds += chunk.firstId
+                rootOffsets += cursor
+                rootLengths += leafBytes.size.toLong()
+                cursor += leafBytes.size
+                chunk.clear()
+            }
+            tiles.forEachDirectoryEntry { id, runLength, offset, length ->
+                chunk.add(id, runLength, offset, length)
+                if (chunk.isFull) flushLeaf()
+            }
+            flushLeaf()
         }
-
-        val rootRunLengths = LongArray(rootIds.size)
-        val root = encodeDirectory(rootIds.toLongArray(), rootRunLengths, rootLengths.toLongArray(), rootOffsets.toLongArray())
-        return gzip(root) to leafDirs
+        val root = encodeDirectory(rootIds.toLongArray(), LongArray(rootIds.size), rootLengths.toLongArray(), rootOffsets.toLongArray())
+        return Directory(gzip(root), cursor)
     }
 
     /** Formato esatto dello spec PMTiles v3: num_entries, poi TileID delta-encoded, RunLength,

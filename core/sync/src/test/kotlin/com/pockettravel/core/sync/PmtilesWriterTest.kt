@@ -269,8 +269,10 @@ class PmtilesWriterTest {
             assertEquals(3_000_000, tiles.tileCount)
             assertEquals(1L, tiles.uniqueTileCount)
             assertTrue("memoria trattenuta ${tiles.retainedBytes} byte", tiles.retainedBytes < 100_000)
-            val entries = tiles.directoryEntries()
-            assertArrayEquals(longArrayOf(3_000_000L), entries.runLengths)
+            tiles.finishData()
+            val runLengths = mutableListOf<Long>()
+            tiles.forEachDirectoryEntry { _, runLength, _, _ -> runLengths += runLength }
+            assertEquals(listOf(3_000_000L), runLengths)
             assertTrue(tiles.inTileIdOrder)
         }
     }

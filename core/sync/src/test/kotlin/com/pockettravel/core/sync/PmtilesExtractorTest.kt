@@ -53,8 +53,12 @@ internal class RangeFileDispatcher(private val file: File) : Dispatcher() {
 }
 
 /** L'estrattore dei test: senza ritentativi (salvo richiesta) e con una lettura che scade presto. */
-internal fun newExtractor(alwaysDownloadMaxZoom: Int = 6, retryDelaysMs: List<Long> = emptyList(), readTimeoutMs: Long = 5_000L) =
-    PmtilesExtractor(OkHttpClient(), alwaysDownloadMaxZoom, retryDelaysMs, readTimeoutMs)
+internal fun newExtractor(
+    alwaysDownloadMaxZoom: Int = 6,
+    retryDelaysMs: List<Long> = emptyList(),
+    readTimeoutMs: Long = 5_000L,
+    tuning: RangeTuning = RangeTuning(),
+) = PmtilesExtractor(OkHttpClient(), alwaysDownloadMaxZoom, retryDelaysMs, readTimeoutMs, tuning)
 
 class PmtilesExtractorTest {
 
