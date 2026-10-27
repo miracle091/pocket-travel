@@ -4,6 +4,7 @@ import ch.poole.geo.pmtiles.Constants
 import ch.poole.geo.pmtiles.Reader
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -258,7 +259,55 @@ class PmtilesWriterTest {
         assertTrue("nessun file temporaneo residuo", dir.listFiles()!!.none { it.name.endsWith(".tmp") })
     }
 
-    private fun header(bytes: ByteArray): ByteBuffer = ByteBuffer.wrap(bytes, 0, 127).order(ByteOrder.LITTLE_ENDIAN)
+    @Test
+    fun `milioni di tile consecutive con lo stesso contenuto occupano una sola voce di directory`() {
+        PmtilesTileSpool(tempFile().parentFile!!).use { tiles ->
+            val content = fakeTile(1)
+            tiles.add(0L, content, contentKey = 7L)
+            for (id in 1L until 3_000_000L) assertTrue(tiles.addKnown(id, 7L, content.size))
+
+            assertEquals(3_000_000, tiles.tileCount)
+            assertEquals(1L, tiles.uniqueTileCount)
+            assertTrue("memoria trattenuta ${tiles.retainedBytes} byte", tiles.retainedBytes < 100_000)
+            val entries = tiles.directoryEntries()
+            assertArrayEquals(longArrayOf(3_000_000L), entries.runLengths)
+            assertTrue(tiles.inTileIdOrder)
+        }
+    }
+
+    @Test
+    fun `un contenuto con la stessa chiave si scrive una volta anche tra tile lontane`() {
+        val dir = tempFile().parentFile!!
+        val output = File(dir, "map.pmtiles")
+        PmtilesTileSpool(dir).use { tiles ->
+            val sea = fakeTile(1)
+            tiles.add(0L, sea, contentKey = 1L)
+            tiles.add(1L, fakeTile(2), contentKey = 2L)
+            assertTrue(tiles.addKnown(2L, 1L, sea.size))
+            assertTrue(tiles.addKnown(5L, 1L, sea.size))
+            assertFalse("chiave mai vista", tiles.addKnown(6L, 99L, sea.size))
+            assertEquals(2L, tiles.uniqueTileCount)
+            assertEquals(4, tiles.tileCount)
+
+            PmtilesWriter.write(
+                outputFile = output, tiles = tiles, metadataJson = "{}",
+                tileCompression = Constants.COMPRESSION_GZIP, tileType = Constants.TYPE_MVT,
+                minZoom = 0, maxZoom = 2, minLon = 0.0, minLat = 0.0, maxLon = 1.0, maxLat = 1.0,
+            )
+        }
+        assertEquals(40L, header(output.readBytes()).getLong(64)) // due contenuti da 20 byte
+    }
+
+    @Test
+    fun `la tabella dei contenuti regge molte chiavi distinte`() {
+        PmtilesTileSpool(tempFile().parentFile!!).use { tiles ->
+            for (key in 0L until 20_000L) tiles.add(key, byteArrayOf(key.toByte()), contentKey = key * 4096L)
+            for (key in 0L until 20_000L) assertTrue("chiave $key", tiles.addKnown(20_000L + key, key * 4096L, 1))
+            assertEquals(40_000, tiles.tileCount)
+        }
+    }
+
+    private fun header(bytes: ByteArray): ByteBuffer =ByteBuffer.wrap(bytes, 0, 127).order(ByteOrder.LITTLE_ENDIAN)
 
     private class DecodedDirectory(val ids: LongArray, val runLengths: LongArray, val lengths: LongArray, val encodedOffsets: LongArray)
 

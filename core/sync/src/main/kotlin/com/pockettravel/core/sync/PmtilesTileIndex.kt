@@ -102,8 +102,23 @@ internal class PmtilesTileIndex(private val source: PmtilesRangeSource) {
 
     private class Directory(val ids: LongArray, val runLengths: LongArray, val lengths: LongArray, val offsets: LongArray)
 
+    // La root e l'ultima leaf letta restano in memoria: [locate] viene chiamato per blocchi di tile vicine,
+    // che ripartono dalla root e ricadono quasi sempre nella stessa leaf del blocco precedente.
+    private var rootDirectory: Directory? = null
+    private var lastLeaf: Directory? = null
+    private var lastLeafOffset = -1L
+
+    private fun readDirectory(offset: Long, length: Long): Directory = when {
+        offset == rootDirOffset -> rootDirectory ?: parseDirectory(offset, length).also { rootDirectory = it }
+        offset == lastLeafOffset -> checkNotNull(lastLeaf)
+        else -> parseDirectory(offset, length).also {
+            lastLeaf = it
+            lastLeafOffset = offset
+        }
+    }
+
     /** Stesso formato di PmtilesWriter.encodeDirectory: num_entries, poi id delta-encoded, RunLength, Length, Offset — tutti varint. */
-    private fun readDirectory(offset: Long, length: Long): Directory {
+    private fun parseDirectory(offset: Long, length: Long): Directory {
         val compressed = source.read(offset, length.toInt())
         val raw = if (internalGzip) GZIPInputStream(ByteArrayInputStream(compressed)).use { it.readBytes() } else compressed
         var position = 0

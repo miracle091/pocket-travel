@@ -1,7 +1,6 @@
 package com.pockettravel.core.sync
 
 import android.annotation.SuppressLint
-import ch.poole.geo.pmtiles.Hilbert
 import ch.poole.geo.pmtiles.HttpUrlConnectionChannel
 import ch.poole.geo.pmtiles.Reader
 import java.io.File
@@ -158,6 +157,10 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
      * rettangolo stanno quasi sempre una dopo l'altra nel file e si leggono a blocchi, una richiesta
      * per blocco fino a [MAX_BATCH_BYTES], scaricando anche i buchi tra una tile e l'altra fino a
      * [MAX_GAP_BYTES]. [onProgress] riceve i byte delle tile da scaricare (buchi esclusi).
+     *
+     * I tileId si trattano a gruppi di qualche migliaio ([forEachTileIdBlock]): per le regioni piu' grandi
+     * (decine di milioni di tile) l'elenco intero e le posizioni nei due archivi non starebbero in memoria. Il
+     * totale dei byte per l'avanzamento richiede una prima passata sull'indice, poi una seconda scarica.
      */
     private fun fetchTiles(
         channel: FileChannel,
@@ -175,26 +178,32 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
             if (localIndex != null && (remoteIndex.tileCompression != localIndex.tileCompression || remoteIndex.tileType != localIndex.tileType)) {
                 throw IOException("Compressione o tipo di tile diversi tra la mappa installata e la build")
             }
-            val tileIds = wantedTileIds(mapSource)
-            val remote = remoteIndex.locate(tileIds, ensureActive)
-            val installed = localIndex?.locate(tileIds, ensureActive)
 
-            // Mappa leggera: solo le tile sotto l'ultimo zoom, cioe' un prefisso dei tileId ordinati.
+            // Mappa leggera: senza l'ultimo zoom.
             val light = detail == MapDetail.LIGHT && mapSource.maxZoom > mapSource.minZoom
-            val count = if (light) tileIds.indexOfFirst { it >= zoomOffset(mapSource.maxZoom) }.let { if (it < 0) tileIds.size else it } else tileIds.size
+            val lastZoom = if (light) mapSource.maxZoom - 1 else mapSource.maxZoom
 
             // tileId ordinati: le tile fino a alwaysDownloadMaxZoom sono le prime.
             val firstReusableId = zoomOffset(alwaysDownloadMaxZoom + 1)
-            fun reusable(i: Int) = installed != null && installed.lengths[i] == remote.lengths[i] && tileIds[i] >= firstReusableId
+            fun forEachBlock(action: (tileIds: LongArray, remote: PmtilesTileLocations, installed: PmtilesTileLocations?) -> Unit) {
+                forEachTileIdBlock(mapSource.minLon, mapSource.minLat, mapSource.maxLon, mapSource.maxLat, mapSource.minZoom, lastZoom) { tileIds ->
+                    val remote = remoteIndex.locate(tileIds, ensureActive)
+                    action(tileIds, remote, localIndex?.locate(tileIds, ensureActive))
+                }
+            }
+            fun reusable(i: Int, tileIds: LongArray, remote: PmtilesTileLocations, installed: PmtilesTileLocations?) =
+                installed != null && installed.lengths[i] == remote.lengths[i] && tileIds[i] >= firstReusableId
 
             // Le tile di una stessa voce con runLength > 1 (mare, terra vuota) hanno lo stesso offset:
             // contano (e si scaricano) una volta sola.
             var bytesToDownload = 0L
             var previousOffset = -1L
-            for (i in 0 until count) {
-                if (remote.lengths[i] < 0 || reusable(i) || remote.offsets[i] == previousOffset) continue
-                bytesToDownload += remote.lengths[i]
-                previousOffset = remote.offsets[i]
+            forEachBlock { tileIds, remote, installed ->
+                for (i in tileIds.indices) {
+                    if (remote.lengths[i] < 0 || reusable(i, tileIds, remote, installed) || remote.offsets[i] == previousOffset) continue
+                    bytesToDownload += remote.lengths[i]
+                    previousOffset = remote.offsets[i]
+                }
             }
 
             var downloaded = 0
@@ -204,42 +213,49 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
             // Blocco letto per ultimo: [bufferStart, bufferStart + buffer.size) nel file remoto.
             var bufferStart = -1L
             var buffer = ByteArray(0)
-            // Tile prima del blocco: contenuti condivisi da molte tile (il mare) salvati una volta
-            // sola nella build; letti a parte senza spostare il blocco.
-            val earlier = HashMap<Long, ByteArray>()
             var lastDownloadedOffset = -1L
-            for (i in 0 until count) {
-                if (i % ENSURE_ACTIVE_EVERY == 0) ensureActive()
-                val length = remote.lengths[i]
-                if (length < 0) continue
-                if (reusable(i)) {
-                    reused++
-                    bytesReused += length
-                    tiles.add(tileIds[i], readLocal(local!!, installed!!.offsets[i], length))
-                    continue
-                }
-                val offset = remote.offsets[i]
-                val data = if (offset >= bufferStart && offset + length <= bufferStart + buffer.size) {
-                    val start = (offset - bufferStart).toInt()
-                    buffer.copyOfRange(start, start + length)
-                } else if (offset < bufferStart) {
-                    earlier.getOrPut(offset) { readRemote(channel, offset, length) }
-                } else {
-                    ensureActive()
-                    val end = batchEnd(i, count, offset, remote, ::reusable)
-                    bufferStart = offset
-                    buffer = readRemote(channel, offset, (end - offset).toInt())
-                    buffer.copyOfRange(0, length)
-                }
-                tiles.add(tileIds[i], data)
-                if (offset != lastDownloadedOffset) {
-                    downloaded++
-                    bytesDownloaded += length
-                    lastDownloadedOffset = offset
-                    onProgress(bytesDownloaded, bytesToDownload)
+            var processed = 0L
+            forEachBlock { tileIds, remote, installed ->
+                for (i in tileIds.indices) {
+                    if (processed++ % ENSURE_ACTIVE_EVERY == 0L) ensureActive()
+                    val length = remote.lengths[i]
+                    if (length < 0) continue
+                    if (reusable(i, tileIds, remote, installed)) {
+                        reused++
+                        bytesReused += length
+                        // Chiave dello spool: la posizione nel file, quella locale distinta da quella remota.
+                        val localOffset = requireNotNull(installed).offsets[i]
+                        val key = LOCAL_KEY_FLAG or localOffset
+                        if (!tiles.addKnown(tileIds[i], key, length)) tiles.add(tileIds[i], readLocal(requireNotNull(local), localOffset, length), key)
+                        continue
+                    }
+                    val offset = remote.offsets[i]
+                    // Contenuti condivisi da molte tile (il mare) sono salvati una volta sola nella build e nello spool.
+                    if (!tiles.addKnown(tileIds[i], offset, length)) {
+                        val data = if (offset >= bufferStart && offset + length <= bufferStart + buffer.size) {
+                            val start = (offset - bufferStart).toInt()
+                            buffer.copyOfRange(start, start + length)
+                        } else if (offset < bufferStart) {
+                            // Prima del blocco: letto a parte senza spostarlo.
+                            readRemote(channel, offset, length)
+                        } else {
+                            ensureActive()
+                            val end = batchEnd(i, tileIds.size, offset, remote) { reusable(it, tileIds, remote, installed) }
+                            bufferStart = offset
+                            buffer = readRemote(channel, offset, (end - offset).toInt())
+                            buffer.copyOfRange(0, length)
+                        }
+                        tiles.add(tileIds[i], data, offset)
+                    }
+                    if (offset != lastDownloadedOffset) {
+                        downloaded++
+                        bytesDownloaded += length
+                        lastDownloadedOffset = offset
+                        onProgress(bytesDownloaded, bytesToDownload)
+                    }
                 }
             }
-            return PmtilesExtractionStats(installed != null, downloaded, bytesDownloaded, reused, bytesReused, if (light) mapSource.maxZoom - 1 else mapSource.maxZoom)
+            return PmtilesExtractionStats(localIndex != null, downloaded, bytesDownloaded, reused, bytesReused, lastZoom)
         } finally {
             local?.close()
         }
@@ -283,33 +299,13 @@ class PmtilesExtractor internal constructor(private val alwaysDownloadMaxZoom: I
         return bytes
     }
 
-    /** TileId (zoomOffset incluso) di tutte le tile del rettangolo, ordinati: le stesse dell'estrazione completa. */
-    private fun wantedTileIds(mapSource: MapExtractionSource): LongArray {
-        val zooms = mapSource.minZoom..mapSource.maxZoom
-        val ranges = zooms.map { tileRangeFor(mapSource.minLon, mapSource.minLat, mapSource.maxLon, mapSource.maxLat, it) }
-        // Array primitivo (a z14 sono centinaia di migliaia di tile): niente liste di Long boxed.
-        val ids = LongArray(ranges.sumOf { (it.maxX - it.minX + 1).toLong() * (it.maxY - it.minY + 1) }.toInt())
-        var count = 0
-        for ((zoom, range) in zooms.zip(ranges)) {
-            for (x in range.minX..range.maxX) {
-                for (y in range.minY..range.maxY) ids[count++] = zoomOffset(zoom) + Hilbert.zxyToIndex(zoom, x.toLong(), y.toLong())
-            }
-        }
-        return ids.also { it.sort() }
-    }
-
-    /** Somma cumulativa delle tile di tutti gli zoom precedenti a `zoom` (0 = nessuna): stesso
-     *  offset che ch.poole.geo.pmtiles.Reader.getZoomOffset applica internamente — non esposto
-     *  pubblicamente dalla libreria, quindi replicato qui in forma chiusa: sum(4^k, k=0..z-1). */
-    private fun zoomOffset(zoom: Int): Long = ((1L shl (2 * zoom)) - 1L) / GEOMETRIC_SERIES_DIVISOR
-
     private companion object {
-        // 4 - 1: divisore della somma sum(4^k) in forma chiusa.
-        const val GEOMETRIC_SERIES_DIVISOR = 3L
         const val ALWAYS_DOWNLOAD_MAX_ZOOM = 6
         const val MAX_BATCH_BYTES = 16L * 1024 * 1024
         const val MAX_GAP_BYTES = 256L * 1024
-        const val ENSURE_ACTIVE_EVERY = 256
+        const val ENSURE_ACTIVE_EVERY = 256L
+        // Chiavi dello spool: le posizioni della mappa installata portano questo bit, per non confonderle con quelle remote.
+        const val LOCAL_KEY_FLAG = 1L shl 62
         // Sotto questa soglia un errore di scrittura e' quasi certamente il disco pieno.
         const val LOW_SPACE_BYTES = 16L * 1024 * 1024
     }

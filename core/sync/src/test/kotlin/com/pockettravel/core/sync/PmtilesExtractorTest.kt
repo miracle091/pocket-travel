@@ -26,7 +26,7 @@ import kotlin.io.path.createTempDirectory
  * (PMTilesDispatcher.java): risponde 200 con solo i byte richiesti, non 206 (HttpUrlConnectionChannel
  * non controlla il codice di stato, legge solo il corpo).
  */
-private class RangeFileDispatcher(private val file: File) : Dispatcher() {
+internal class RangeFileDispatcher(private val file: File) : Dispatcher() {
     /** Inizio di ogni range richiesto, per verificare quali tile sono state scaricate. */
     val requestedStarts = java.util.concurrent.CopyOnWriteArrayList<Long>()
     val requestedRanges = java.util.concurrent.CopyOnWriteArrayList<LongRange>()

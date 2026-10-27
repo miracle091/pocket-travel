@@ -140,9 +140,14 @@ class PmtilesTileIndexTest {
             assertArrayEquals(tiles.getValue(last), slice(file, both.offsets[1], both.lengths[1]))
             assertEquals(one.offsets[0], both.offsets[0])
 
-            // Header + root + una leaf per una tile; la prima e l'ultima stanno in leaf diverse: root + 2 leaf.
+            // Header + root + una leaf per una tile. La prima e l'ultima stanno in leaf diverse, ma la root e
+            // l'ultima leaf letta sono in memoria: resta da leggere solo la leaf dell'ultima.
             assertEquals(3, readsForOne)
-            assertEquals(3, readsForBoth)
+            assertEquals(1, readsForBoth)
+            // Cercare di nuovo una tile dell'ultima leaf non legge niente.
+            val readsBefore = source.reads
+            index.locate(longArrayOf(last))
+            assertEquals("la root e l'ultima leaf non si rileggono", 0, source.reads - readsBefore)
             // Un id oltre l'ultima tile resta assente.
             val beyond = index.locate(longArrayOf(last + 1))
             assertEquals(-1, beyond.lengths[0])

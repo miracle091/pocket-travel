@@ -8,7 +8,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.security.MessageDigest
 import java.util.zip.GZIPOutputStream
 
 /** Una tile gia' pronta per l'archivio: id calcolato con la stessa curva di Hilbert usata da
@@ -29,20 +28,22 @@ private const val E7_SCALE = 10_000_000.0
 
 /**
  * Accumula le tile su un file temporaneo in [directory] man mano che arrivano, tenendo in
- * memoria solo tileId/offset/lunghezza (~20 byte per tile) invece dei dati: per regioni grandi
- * a z14-15 tenere tutte le ByteArray in RAM (piu' le copie fatte dal writer) porterebbe a
- * OutOfMemoryError. Le tile identiche (mare, terra vuota: frequentissime) sono scritte una sola
- * volta e poi riusate per offset, riconosciute da SHA-256 (primi 128 bit) + lunghezza.
- * close() cancella sempre il file temporaneo, anche dopo un errore o un annullamento.
+ * memoria solo la directory: una voce (tileId iniziale, tile consecutive, offset, lunghezza) per ogni
+ * gruppo di tile consecutive con lo stesso contenuto, non una per tile (mare e terra vuota coprono
+ * milioni di tile con poche voci). Tenere in memoria un indice per ogni tile di una regione grande,
+ * o le ByteArray, esaurirebbe l'heap. I contenuti con la stessa chiave ([add], [addKnown]) sono
+ * scritti una sola volta anche se non sono vicini. close() cancella sempre il file temporaneo, anche dopo
+ * un errore o un annullamento.
  */
 class PmtilesTileSpool(directory: File) : Closeable {
     private val tempFile: File = File.createTempFile(SPOOL_PREFIX, SPOOL_SUFFIX, directory)
     private val out = BufferedOutputStream(FileOutputStream(tempFile))
-    private val digest = MessageDigest.getInstance("SHA-256")
-    private val offsetByContent = HashMap<ContentKey, Long>()
+    private val offsetByKey = LongLongMap()
     private var ids = LongArray(INITIAL_CAPACITY)
+    private var runLengths = LongArray(INITIAL_CAPACITY)
     private var offsets = LongArray(INITIAL_CAPACITY)
     private var lengths = IntArray(INITIAL_CAPACITY)
+    private var entryCount = 0
     private var dataLength = 0L
     private var dataFinished = false
 
@@ -50,38 +51,67 @@ class PmtilesTileSpool(directory: File) : Closeable {
     var tileCount = 0
         private set
 
-    /** Contenuti distinti davvero scritti sul file temporaneo (= "tile contents" dello spec). */
+    /** Contenuti davvero scritti sul file temporaneo (= "tile contents" dello spec). */
     var uniqueTileCount = 0L
         private set
 
     /** true finche' le tile arrivano in ordine di tileId crescente: solo allora i dati sono
-     *  "clustered" nel senso dello spec (l'estrattore le scarica per colonne, non in Hilbert). */
+     *  "clustered" nel senso dello spec. */
     var inTileIdOrder = true
         private set
 
-    private data class ContentKey(val high: Long, val low: Long, val length: Int)
+    /** Memoria trattenuta dalla directory in costruzione (array e tabella dei contenuti), in byte. */
+    internal val retainedBytes: Long
+        get() = (ids.size + runLengths.size + offsets.size) * Long.SIZE_BYTES + lengths.size * Int.SIZE_BYTES + offsetByKey.retainedBytes
 
-    fun add(tileId: Long, data: ByteArray) {
+    /**
+     * Scrive [data] sul file temporaneo. Con una [contentKey] (>= 0) il contenuto si puo' riusare in seguito con
+     * [addKnown] senza passare di nuovo i dati.
+     */
+    fun add(tileId: Long, data: ByteArray, contentKey: Long = NO_CONTENT_KEY) {
         check(!dataFinished) { "Dati delle tile gia' chiusi" }
-        if (tileCount > 0 && tileId <= ids[tileCount - 1]) inTileIdOrder = false
-        val hash = ByteBuffer.wrap(digest.digest(data))
-        val key = ContentKey(hash.getLong(0), hash.getLong(8), data.size)
-        val offset = offsetByContent[key] ?: dataLength.also { newOffset ->
-            out.write(data)
-            dataLength += data.size
-            uniqueTileCount++
-            offsetByContent[key] = newOffset
+        val offset = dataLength
+        out.write(data)
+        dataLength += data.size
+        uniqueTileCount++
+        if (contentKey != NO_CONTENT_KEY) offsetByKey.put(contentKey, offset)
+        append(tileId, offset, data.size)
+    }
+
+    /** Aggiunge una tile con un contenuto gia' scritto con la stessa [contentKey]; false se la chiave non c'e'. */
+    fun addKnown(tileId: Long, contentKey: Long, length: Int): Boolean {
+        check(!dataFinished) { "Dati delle tile gia' chiusi" }
+        val offset = offsetByKey.get(contentKey)
+        if (offset < 0) return false
+        append(tileId, offset, length)
+        return true
+    }
+
+    /** Estende l'ultima voce se la tile la continua con lo stesso contenuto, altrimenti ne apre una. */
+    private fun append(tileId: Long, offset: Long, length: Int) {
+        tileCount++
+        if (entryCount > 0) {
+            val last = entryCount - 1
+            val end = ids[last] + runLengths[last]
+            if (tileId < end) {
+                inTileIdOrder = false
+            } else if (tileId == end && offsets[last] == offset && lengths[last] == length) {
+                runLengths[last]++
+                return
+            }
         }
-        if (tileCount == ids.size) {
+        if (entryCount == ids.size) {
             val capacity = ids.size * 2
             ids = ids.copyOf(capacity)
+            runLengths = runLengths.copyOf(capacity)
             offsets = offsets.copyOf(capacity)
             lengths = lengths.copyOf(capacity)
         }
-        ids[tileCount] = tileId
-        offsets[tileCount] = offset
-        lengths[tileCount] = data.size
-        tileCount++
+        ids[entryCount] = tileId
+        runLengths[entryCount] = 1L
+        offsets[entryCount] = offset
+        lengths[entryCount] = length
+        entryCount++
     }
 
     /** Chiude la scrittura dei dati e ne restituisce la lunghezza totale in byte. */
@@ -96,40 +126,51 @@ class PmtilesTileSpool(directory: File) : Closeable {
     internal val dataFile: File get() = tempFile
 
     /** Entry di directory ordinate per tileId (come richiesto dallo spec). Tile con id
-     *  consecutivi e stesso contenuto diventano una sola entry con runLength > 1. */
+     *  consecutivi e stesso contenuto sono gia' una sola entry con runLength > 1. */
     internal fun directoryEntries(): DirectoryEntries {
-        val n = tileCount
+        val n = entryCount
+        if (inTileIdOrder) {
+            return DirectoryEntries(
+                ids = ids.copyOf(n),
+                runLengths = runLengths.copyOf(n),
+                lengths = LongArray(n) { lengths[it].toLong() },
+                offsets = offsets.copyOf(n),
+            )
+        }
         val sortedIds = ids.copyOf(n).also { it.sort() }
         for (i in 1 until n) require(sortedIds[i] != sortedIds[i - 1]) { "tileId duplicati" }
         // Ordinamento con soli array primitivi (niente indici boxed): ogni id e' unico, quindi
         // la sua posizione finale si trova con una ricerca binaria sugli id ordinati.
+        val sortedRunLengths = LongArray(n)
         val sortedOffsets = LongArray(n)
         val sortedLengths = LongArray(n)
         for (i in 0 until n) {
             val position = sortedIds.binarySearch(ids[i])
+            sortedRunLengths[position] = runLengths[i]
             sortedOffsets[position] = offsets[i]
             sortedLengths[position] = lengths[i].toLong()
         }
-        val runLengths = LongArray(n)
+        for (i in 1 until n) require(sortedIds[i] >= sortedIds[i - 1] + sortedRunLengths[i - 1]) { "tileId duplicati" }
+        // Dopo l'ordinamento voci vicine possono continuarsi: si uniscono.
         var count = 0
         for (i in 0 until n) {
             val extendsRun = count > 0 &&
-                sortedIds[i] == sortedIds[count - 1] + runLengths[count - 1] &&
+                sortedIds[i] == sortedIds[count - 1] + sortedRunLengths[count - 1] &&
                 sortedOffsets[i] == sortedOffsets[count - 1] &&
                 sortedLengths[i] == sortedLengths[count - 1]
             if (extendsRun) {
-                runLengths[count - 1]++
+                sortedRunLengths[count - 1] += sortedRunLengths[i]
             } else {
                 sortedIds[count] = sortedIds[i]
+                sortedRunLengths[count] = sortedRunLengths[i]
                 sortedOffsets[count] = sortedOffsets[i]
                 sortedLengths[count] = sortedLengths[i]
-                runLengths[count] = 1L
                 count++
             }
         }
         return DirectoryEntries(
             ids = sortedIds.copyOf(count),
-            runLengths = runLengths.copyOf(count),
+            runLengths = sortedRunLengths.copyOf(count),
             lengths = sortedLengths.copyOf(count),
             offsets = sortedOffsets.copyOf(count),
         )
@@ -150,8 +191,65 @@ class PmtilesTileSpool(directory: File) : Closeable {
         val offsets: LongArray,
     )
 
+    companion object {
+        /** Contenuto senza chiave: scritto sempre, mai riusabile con [addKnown]. */
+        const val NO_CONTENT_KEY = -1L
+        private const val INITIAL_CAPACITY = 1_024
+    }
+}
+
+/** Mappa da Long (>= 0) a Long con indirizzamento aperto: senza un oggetto per voce, perche' i contenuti distinti sono milioni. */
+private class LongLongMap {
+    private var keys = LongArray(INITIAL_SLOTS) { EMPTY }
+    private var values = LongArray(INITIAL_SLOTS)
+    private var size = 0
+
+    val retainedBytes: Long get() = keys.size * 2L * Long.SIZE_BYTES
+
+    /** Il valore di [key], o -1 se manca. */
+    fun get(key: Long): Long {
+        var slot = slotOf(key, keys.size)
+        while (keys[slot] != EMPTY) {
+            if (keys[slot] == key) return values[slot]
+            slot = (slot + 1) and (keys.size - 1)
+        }
+        return -1L
+    }
+
+    fun put(key: Long, value: Long) {
+        require(key >= 0) { "Chiave negativa" }
+        if ((size + 1) * 2 > keys.size) grow()
+        var slot = slotOf(key, keys.size)
+        while (keys[slot] != EMPTY && keys[slot] != key) slot = (slot + 1) and (keys.size - 1)
+        if (keys[slot] == EMPTY) {
+            keys[slot] = key
+            size++
+        }
+        values[slot] = value
+    }
+
+    private fun grow() {
+        val oldKeys = keys
+        val oldValues = values
+        keys = LongArray(oldKeys.size * 2) { EMPTY }
+        values = LongArray(oldKeys.size * 2)
+        for (i in oldKeys.indices) {
+            if (oldKeys[i] == EMPTY) continue
+            var slot = slotOf(oldKeys[i], keys.size)
+            while (keys[slot] != EMPTY) slot = (slot + 1) and (keys.size - 1)
+            keys[slot] = oldKeys[i]
+            values[slot] = oldValues[i]
+        }
+    }
+
+    // Moltiplicazione per la costante aurea a 64 bit: gli offset sono molto regolari e senza mescolarli si ammassano.
+    private fun slotOf(key: Long, slots: Int): Int = ((key * GOLDEN_RATIO) ushr HASH_SHIFT).toInt() and (slots - 1)
+
     private companion object {
-        const val INITIAL_CAPACITY = 1_024
+        const val EMPTY = -1L
+        const val INITIAL_SLOTS = 1_024
+        const val GOLDEN_RATIO = -7046029254386353131L
+        const val HASH_SHIFT = 32
     }
 }
 
@@ -191,7 +289,12 @@ object PmtilesWriter {
         require(entries.isNotEmpty()) { "Nessuna tile da scrivere" }
         // In ordine di tileId: dati "clustered" nel senso dello spec.
         PmtilesTileSpool(requireNotNull(outputFile.absoluteFile.parentFile)).use { tiles ->
-            entries.sortedBy { it.tileId }.forEach { tiles.add(it.tileId, it.data) }
+            // Contenuti uguali scritti una volta sola: la chiave e' la posizione della prima entry con quei byte.
+            val firstWithContent = HashMap<ByteBuffer, Int>()
+            entries.sortedBy { it.tileId }.forEachIndexed { index, entry ->
+                val key = firstWithContent.getOrPut(ByteBuffer.wrap(entry.data)) { index }.toLong()
+                if (!tiles.addKnown(entry.tileId, key, entry.data.size)) tiles.add(entry.tileId, entry.data, key)
+            }
             write(
                 outputFile = outputFile,
                 tiles = tiles,
