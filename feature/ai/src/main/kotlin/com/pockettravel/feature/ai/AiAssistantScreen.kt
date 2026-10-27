@@ -603,7 +603,7 @@ private fun Conversation(
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(Spacing.l)) {
                     FinishedAnswer(turn.answer, onOpenOfficialSource)
-                    ReadAloudButton(turn.answer.text, readAloud, actions.onReadAloud)
+                    ReadAloudButton(markdownToDisplayText(turn.answer.text).text, readAloud, actions.onReadAloud)
                 }
             }
         }
@@ -743,7 +743,7 @@ private fun AnswerContent(
         }
         answer != null -> Column {
             FinishedAnswer(answer, onOpenOfficialSource)
-            ReadAloudButton(answer.text, readAloud, actions.onReadAloud)
+            ReadAloudButton(markdownToDisplayText(answer.text).text, readAloud, actions.onReadAloud)
             // Solo la risposta in fondo, con le previsioni nel contesto e piu' vecchie del limite per luogo.
             if (uiState.canRefreshForecast && answer.forecast != null) {
                 TextButton(onClick = actions.onRefreshForecast, modifier = Modifier.padding(top = Spacing.s)) {
@@ -778,7 +778,7 @@ private fun ReadAloudButton(text: String, state: ReadAloudUiState, onReadAloud: 
 // Risposta completa: testo, riquadro meteo delle previsioni usate, fonti e, sui temi regolati, il link alla fonte ufficiale.
 @Composable
 private fun FinishedAnswer(answer: AssistantAnswer, onOpenOfficialSource: (url: String) -> Unit) {
-    Text(answer.text, style = MaterialTheme.typography.bodyLarge)
+    Text(remember(answer.text) { markdownToDisplayText(answer.text) }, style = MaterialTheme.typography.bodyLarge)
     // I numeri delle previsioni si leggono nel riquadro, non nel testo del modello.
     answer.forecast?.let { forecast ->
         WeatherCard(forecast, onOpenSource = { url, _ -> onOpenOfficialSource(url) }, modifier = Modifier.padding(top = Spacing.m))
