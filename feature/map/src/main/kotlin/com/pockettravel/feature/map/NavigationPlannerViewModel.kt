@@ -229,10 +229,15 @@ class NavigationPlannerViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     @OptIn(FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    private val results: StateFlow<List<PlannerResult>> = combine(_query.debounce(SEARCH_DEBOUNCE_MILLIS), regionId, installed, lastPosition) { text, current, regions, _ ->
+    private val results: StateFlow<List<PlannerResult>> = combine(_query.debounce(SEARCH_DEBOUNCE_MILLIS), regionId, installed, searchPosition()) { text, current, regions, _ ->
         SearchInput(text, current, regions)
     }.mapLatest { (text, current, regions) -> search(text, current, regions) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // La posizione che rifa' la ricerca: la prima nota o uno spostamento di 200 m, non ogni fix del GPS.
+    private fun searchPosition() = lastPosition.distinctUntilChanged { old, new ->
+        old != null && new != null && NavigationTracker.distanceMeters(old, new) < SEARCH_REFRESH_METERS
+    }
 
     /**
      * La regione aperta ha la rete stradale installata. Se mancano, "nessun dato di percorso" vuol dire
@@ -568,6 +573,7 @@ class NavigationPlannerViewModel @Inject constructor(
         const val ADDRESS_RESULTS_SHOWN = 10
         const val LOCATION_TIMEOUT_MILLIS = 20_000L
         const val NEARBY_REFRESH_METERS = 50.0
+        const val SEARCH_REFRESH_METERS = 200.0
     }
 }
 

@@ -213,6 +213,32 @@ class NavigationPlannerSearchTest : NavigationPlannerTestBase() {
     }
 
     @Test
+    fun `i fix del GPS vicini non rifanno la ricerca, la prima posizione e uno spostamento oltre 200 m si`() = runTest {
+        dao.rows += poiRow(1, "Bar Sport", lat = 41.9, lon = 12.5)
+        val viewModel = viewModel()
+        viewModel.load("r1")
+        viewModel.setQuery("bar sport")
+        advanceTimeBy(300)
+        runCurrent()
+        val first = dao.searches.size
+
+        gps.emit(fix())
+        runCurrent()
+        assertEquals(first + 1, dao.searches.size)
+
+        // Circa 11 m e 55 m dal primo fix.
+        gps.emit(fix(latitude = duomo.latitude + 0.0001))
+        gps.emit(fix(latitude = duomo.latitude + 0.0005))
+        runCurrent()
+        assertEquals(first + 1, dao.searches.size)
+
+        // Circa 330 m dal primo fix.
+        gps.emit(fix(latitude = duomo.latitude + 0.003))
+        runCurrent()
+        assertEquals(first + 2, dao.searches.size)
+    }
+
+    @Test
     fun `senza permesso aprire la ricerca non ascolta il GPS`() = runTest {
         gps.permission = false
         val viewModel = viewModel()
