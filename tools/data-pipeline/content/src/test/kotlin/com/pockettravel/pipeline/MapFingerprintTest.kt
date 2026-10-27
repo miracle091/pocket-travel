@@ -1,5 +1,6 @@
 package com.pockettravel.pipeline
 
+import com.onthegomap.planetiler.geo.TileCoord
 import com.sun.net.httpserver.HttpServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -11,7 +12,59 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.io.path.createTempDirectory
 
+// Tutti gli id del rettangolo, concatenando i blocchi (solo per rettangoli piccoli).
+private fun tileIdsIn(minLon: Double, minLat: Double, maxLon: Double, maxLat: Double, minZoom: Int, maxZoom: Int): LongArray =
+    tileIdBlocks(minLon, minLat, maxLon, maxLat, minZoom, maxZoom).toList().fold(LongArray(0)) { all, block -> all + block }
+
+// Algoritmo precedente, in memoria per intero: riferimento per l'uguaglianza dell'output.
+private fun referenceTileIds(minLon: Double, minLat: Double, maxLon: Double, maxLat: Double, minZoom: Int, maxZoom: Int): LongArray {
+    val ranges = (minZoom..maxZoom).map { z ->
+        val n = 1 shl z
+        intArrayOf(z, lonToTile(minLon, n), lonToTile(maxLon, n), latToTile(maxLat, n), latToTile(minLat, n))
+    }
+    val ids = LongArray(ranges.sumOf { (_, x0, x1, y0, y1) -> (x1 - x0 + 1).toLong() * (y1 - y0 + 1) }.toInt())
+    var i = 0
+    for ((z, x0, x1, y0, y1) in ranges) for (x in x0..x1) for (y in y0..y1) ids[i++] = TileCoord.ofXYZ(x, y, z).hilbertEncoded()
+    return ids.also { it.sort() }
+}
+
 class MapFingerprintTest {
+
+    @Test
+    fun `i blocchi coincidono con l'algoritmo in memoria su piu' rettangoli`() {
+        // minLon, minLat, maxLon, maxLat, minZoom, maxZoom
+        val rectangles = listOf(
+            doubleArrayOf(12.40, 43.89, 12.52, 43.99, 0.0, 14.0),
+            doubleArrayOf(-180.0, -90.0, 180.0, 90.0, 0.0, 7.0),
+            doubleArrayOf(6.6, 36.6, 18.6, 47.1, 0.0, 11.0),
+            doubleArrayOf(-400.0, -100.0, 400.0, 100.0, 3.0, 6.0),
+            doubleArrayOf(179.0, -10.0, 180.0, 10.0, 5.0, 10.0),
+            doubleArrayOf(12.45, 43.94, 12.45, 43.94, 0.0, 16.0),
+            doubleArrayOf(100.0, 50.0, 120.0, 60.0, 8.0, 11.0),
+        )
+        for (r in rectangles) {
+            val expected = referenceTileIds(r[0], r[1], r[2], r[3], r[4].toInt(), r[5].toInt())
+            val actual = tileIdsIn(r[0], r[1], r[2], r[3], r[4].toInt(), r[5].toInt())
+            assertEquals("rettangolo ${r.toList()}", expected.toList(), actual.toList())
+        }
+    }
+
+    @Test
+    fun `un rettangolo come la Siberia si elabora a blocchi di memoria limitata`() {
+        // 60-120E 45-82N fino a z14: circa 17 milioni di tile, 136 MB di LongArray con l'algoritmo in memoria.
+        var total = 0L
+        var largest = 0
+        var previous = -1L
+        tileIdBlocks(60.0, 45.0, 120.0, 82.0, 0, 14).forEach { block ->
+            assertTrue(block.first() > previous)
+            previous = block.last()
+            total += block.size
+            largest = maxOf(largest, block.size)
+        }
+
+        assertTrue("tile $total", total > 10_000_000)
+        assertTrue("blocco piu' grande $largest", largest <= TILE_BLOCK_TARGET + 65_536)
+    }
 
     // Fixture reale: le tile z15 del centro di San Marino (build Protomaps).
     private val fixture = File("testdata/san-marino-center-z15.pmtiles")

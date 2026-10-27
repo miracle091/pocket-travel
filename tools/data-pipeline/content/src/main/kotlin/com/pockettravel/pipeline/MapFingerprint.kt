@@ -83,7 +83,7 @@ fun mapFingerprint(
     minZoom: Int, maxZoom: Int,
 ): MapFingerprintResult {
     val header = Pmtiles.Header.fromBytes(reader.read(0, 127))
-    val needed = tileIdsIn(minLon, minLat, maxLon, maxLat, minZoom, maxZoom)
+    val needed = TileIdCursor(tileIdBlocks(minLon, minLat, maxLon, maxLat, minZoom, maxZoom).iterator())
     val digest = MessageDigest.getInstance("SHA-256")
     var tiles = 0
 
@@ -93,26 +93,24 @@ fun mapFingerprint(
         return Pmtiles.directoryFromBytes(raw)
     }
 
-    // Tile nell'intervallo [from, to) di una voce: quelle cercate, in ordine di id.
-    fun neededIn(from: Long, to: Long): IntRange {
-        val start = needed.binarySearch(from).let { if (it < 0) -it - 1 else it }
-        val end = needed.binarySearch(to).let { if (it < 0) -it - 1 else it }
-        return start until end
-    }
-
+    // Le voci si visitano in ordine di id crescente, come richiede il cursore.
     fun walk(entries: List<Pmtiles.Entry>, end: Long) {
         entries.forEachIndexed { index, entry ->
             val next = entries.getOrNull(index + 1)?.tileId() ?: end
             if (entry.runLength() == 0) {
                 // Indice foglia: si scarica solo se copre almeno una tile del rettangolo.
-                if (!neededIn(entry.tileId(), next).isEmpty()) {
+                if ((needed.peekAtLeast(entry.tileId()) ?: Long.MAX_VALUE) < next) {
                     walk(directory(header.leafDirectoriesOffset() + entry.offset(), entry.length().toLong()), next)
                 }
             } else {
-                for (i in neededIn(entry.tileId(), entry.tileId() + entry.runLength())) {
-                    digest.update(longBytes(needed[i]))
+                // Tile cercate nell'intervallo [tileId, tileId + runLength) della voce.
+                val runEnd = entry.tileId() + entry.runLength()
+                while (true) {
+                    val id = needed.peekAtLeast(entry.tileId())?.takeIf { it < runEnd } ?: break
+                    digest.update(longBytes(id))
                     digest.update(longBytes(entry.length().toLong()))
                     tiles++
+                    needed.advance()
                 }
             }
         }
@@ -122,22 +120,80 @@ fun mapFingerprint(
     return MapFingerprintResult(digest.digest().joinToString("") { "%02x".format(it) }, tiles)
 }
 
-/** Id (curva di Hilbert, come negli indici PMTiles) delle tile che intersecano il rettangolo, ordinati. */
-internal fun tileIdsIn(minLon: Double, minLat: Double, maxLon: Double, maxLat: Double, minZoom: Int, maxZoom: Int): LongArray {
-    // Riempito senza boxing: allo z14 un rettangolo come quello del Nunavut ha milioni di tile.
-    val ranges = (minZoom..maxZoom).map { z ->
-        val n = 1 shl z
-        intArrayOf(z, lonToTile(minLon, n), lonToTile(maxLon, n), latToTile(maxLat, n), latToTile(minLat, n))
+/**
+ * Lettore in avanti degli id cercati, che tiene in memoria un blocco alla volta. Le richieste devono avere
+ * [peekAtLeast] non decrescente: gli id minori vengono scartati.
+ */
+private class TileIdCursor(private val blocks: Iterator<LongArray>) {
+    private var block = LongArray(0)
+    private var position = 0
+
+    /** Primo id cercato >= [from], senza consumarlo; null se sono finiti. */
+    fun peekAtLeast(from: Long): Long? {
+        while (true) {
+            while (position < block.size && block[position] < from) position++
+            if (position < block.size) return block[position]
+            if (!blocks.hasNext()) return null
+            block = blocks.next()
+            position = 0
+        }
     }
-    val ids = LongArray(ranges.sumOf { (_, x0, x1, y0, y1) -> (x1 - x0 + 1).toLong() * (y1 - y0 + 1) }.toInt())
-    var i = 0
-    for ((z, x0, x1, y0, y1) in ranges) for (x in x0..x1) for (y in y0..y1) ids[i++] = TileCoord.ofXYZ(x, y, z).hilbertEncoded()
-    return ids.also { it.sort() }
+
+    fun advance() {
+        position++
+    }
 }
 
-private fun lonToTile(lon: Double, n: Int): Int = floor((lon + 180.0) / 360.0 * n).toInt().coerceIn(0, n - 1)
+// Livelli di zoom sotto una tile "sottoalbero": le sue 4^8 tile discendenti formano il blocco piu' grande.
+private const val SUBTREE_LEVELS = 8
 
-private fun latToTile(lat: Double, n: Int): Int {
+/** Dimensione dopo la quale un blocco di id viene consegnato; un blocco ne ha al piu' questi piu' 4^[SUBTREE_LEVELS]. */
+internal const val TILE_BLOCK_TARGET = 16_384
+
+/**
+ * Id (curva di Hilbert, come negli indici PMTiles) delle tile che intersecano il rettangolo, a blocchi: in ordine
+ * crescente nel complesso e dentro ogni blocco. Rispecchia forEachTileIdBlock di core/sync (TileIdBlocks.kt).
+ * I discendenti di una tile sono contigui sulla curva: a ogni zoom il rettangolo si divide in sottoalberi di 8
+ * livelli, visitati nell'ordine di Hilbert e ordinati al loro interno. Per rettangoli come la Siberia
+ * (decine di milioni di tile) la lista intera non starebbe in memoria.
+ */
+internal fun tileIdBlocks(
+    minLon: Double, minLat: Double, maxLon: Double, maxLat: Double,
+    minZoom: Int, maxZoom: Int,
+): Sequence<LongArray> = sequence {
+    val buffer = LongArray(TILE_BLOCK_TARGET + (1 shl (2 * SUBTREE_LEVELS)))
+    var count = 0
+    for (zoom in minZoom..maxZoom) {
+        val n = 1 shl zoom
+        val minX = lonToTile(minLon, n)
+        val maxX = lonToTile(maxLon, n)
+        val minY = latToTile(maxLat, n)
+        val maxY = latToTile(minLat, n)
+        val levels = minOf(zoom, SUBTREE_LEVELS)
+        val subtrees = ((minX shr levels)..(maxX shr levels)).flatMap { x ->
+            ((minY shr levels)..(maxY shr levels)).map { y -> x to y }
+        }.sortedBy { (x, y) -> TileCoord.ofXYZ(x, y, zoom - levels).hilbertEncoded() }
+        for ((subtreeX, subtreeY) in subtrees) {
+            val start = count
+            for (x in maxOf(minX, subtreeX shl levels)..minOf(maxX, ((subtreeX + 1) shl levels) - 1)) {
+                for (y in maxOf(minY, subtreeY shl levels)..minOf(maxY, ((subtreeY + 1) shl levels) - 1)) {
+                    buffer[count++] = TileCoord.ofXYZ(x, y, zoom).hilbertEncoded()
+                }
+            }
+            // Ogni sottoalbero e' un intervallo contiguo di id: va ordinato solo il suo tratto.
+            buffer.sort(start, count)
+            if (count >= TILE_BLOCK_TARGET) {
+                yield(buffer.copyOf(count))
+                count = 0
+            }
+        }
+    }
+    if (count > 0) yield(buffer.copyOf(count))
+}
+
+internal fun lonToTile(lon: Double, n: Int): Int = floor((lon + 180.0) / 360.0 * n).toInt().coerceIn(0, n - 1)
+
+internal fun latToTile(lat: Double, n: Int): Int {
     val rad = Math.toRadians(lat.coerceIn(-85.0511, 85.0511))
     return floor((1.0 - ln(tan(rad) + 1.0 / kotlin.math.cos(rad)) / PI) / 2.0 * n).toInt().coerceIn(0, n - 1)
 }
