@@ -78,7 +78,7 @@ The 366 regions are updated every week and their content is downloaded separatel
 
 The assistant answers in at most three sentences, only with what it finds in the guide and the notes, and says when the guide is not enough. The engine is chosen in **Settings → AI assistant**.
 
-The question can also be dictated with the microphone in the field, from Android 12, with both engines. Voice recognition runs on the device, also without internet, with the phone's language pack: the app receives only the text, which stays in the field to be corrected before sending.
+The question can also be dictated with the microphone in the field, from Android 12, with both engines. Voice recognition runs on the device, also without internet, with the phone's language pack: the app receives only the text, which stays in the field to be corrected before sending. "Listen" under each answer reads it aloud with the device's system voice, also without internet.
 
 ### 📱 On device (offline)
 

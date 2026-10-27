@@ -18,6 +18,7 @@ object AppIcons {
     val Send: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_send)
     val Mic: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_mic)
     val Stop: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_stop)
+    val Listen: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_volume_up)
     val Refresh: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_refresh)
     val Search: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_search)
     val ExpandMore: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_expand_more)

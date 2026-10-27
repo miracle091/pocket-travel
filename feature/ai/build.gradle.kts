@@ -70,6 +70,7 @@ android {
 
 dependencies {
     implementation(project(":core:data"))
+    implementation(project(":core:speech"))
     implementation(project(":core:sync"))
     implementation(project(":core:ui"))
     implementation(libs.compose.ui.tooling.preview)

@@ -1,0 +1,9 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Da Android 11 l'app vede i motori di sintesi vocale installati solo dichiarandoli: senza, TextToSpeech non si
+         collega al motore e fallisce. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+</manifest>

@@ -35,6 +35,10 @@
     <string name="ai_voice_language_download">Per il riconoscimento vocale serve la lingua sul dispositivo. Riprova dopo il download</string>
     <string name="ai_voice_language_unavailable">Riconoscimento vocale non disponibile sul dispositivo in questa lingua</string>
     <string name="ai_voice_error">Riconoscimento vocale non riuscito</string>
+    <string name="ai_read_aloud_listen">Ascolta</string>
+    <string name="ai_read_aloud_stop">Ferma</string>
+    <string name="ai_read_aloud_language_unavailable">Voce di questa lingua non installata. Si aggiunge nelle impostazioni della sintesi vocale del dispositivo</string>
+    <string name="ai_read_aloud_error">Lettura ad alta voce non riuscita</string>
     <string name="ai_thinking">Elaborazione della risposta…</string>
     <string name="ai_loading_model">Caricamento del modello…</string>
     <string name="ai_emergency_title">Emergenza? Chiama subito</string>

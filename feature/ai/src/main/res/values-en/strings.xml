@@ -35,6 +35,10 @@
     <string name="ai_voice_language_download">Voice recognition needs the language on the device. Try again after the download</string>
     <string name="ai_voice_language_unavailable">Voice recognition is not available on the device in this language</string>
     <string name="ai_voice_error">Voice recognition failed</string>
+    <string name="ai_read_aloud_listen">Listen</string>
+    <string name="ai_read_aloud_stop">Stop</string>
+    <string name="ai_read_aloud_language_unavailable">No voice installed for this language. Add one in the device\'s text-to-speech settings</string>
+    <string name="ai_read_aloud_error">Reading aloud failed</string>
     <string name="ai_thinking">Generating the answer…</string>
     <string name="ai_emergency_title">Emergency? Call now</string>
     <string name="ai_emergency_none">This country has no single emergency number. Call the police or the local health services</string>

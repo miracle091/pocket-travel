@@ -111,21 +111,29 @@ fun AiAssistantScreen(
     splitCountry: Boolean = false,
     viewModel: AiAssistantViewModel = hiltViewModel(),
     voiceViewModel: VoiceInputViewModel = hiltViewModel(),
+    readAloudViewModel: ReadAloudViewModel = hiltViewModel(),
     onOpenOfficialSource: (url: String) -> Unit = {},
     onNavigationRequest: (NavigationRequest) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val voiceState by voiceViewModel.uiState.collectAsStateWithLifecycle()
+    val readAloudState by readAloudViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) { viewModel.navigationRequests.collect(onNavigationRequest) }
     LaunchedEffect(voiceViewModel) { voiceViewModel.text.collect(viewModel::onQuestionChanged) }
-    // Il microfono si chiude quando la schermata non si vede piu' (altra scheda, app in secondo piano).
+    // Il microfono e la voce si fermano quando la schermata non si vede piu' (altra scheda, app in secondo piano).
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, voiceViewModel) {
-        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_STOP) voiceViewModel.stop() }
+    DisposableEffect(lifecycleOwner, voiceViewModel, readAloudViewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                voiceViewModel.stop()
+                readAloudViewModel.stop()
+            }
+        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             voiceViewModel.stop()
+            readAloudViewModel.stop()
         }
     }
     // La cronologia sbloccata si richiude come la cassaforte: app in secondo piano o schermata lasciata, non a una
@@ -149,13 +157,25 @@ fun AiAssistantScreen(
         },
         onAsk = {
             voiceViewModel.stop()
+            readAloudViewModel.stop()
             viewModel.ask(regionId)
         },
-        onVoiceStart = { voiceViewModel.start(uiState.question) },
+        onVoiceStart = {
+            readAloudViewModel.stop()
+            voiceViewModel.start(uiState.question)
+        },
         onVoiceStop = voiceViewModel::stop,
         onVoicePermissionDenied = voiceViewModel::onPermissionDenied,
+        onReadAloud = readAloudViewModel::toggle,
     )
-    AiAssistantContent(uiState = uiState, actions = actions, onOpenOfficialSource = onOpenOfficialSource, splitCountry = splitCountry, voice = voiceState)
+    AiAssistantContent(
+        uiState = uiState,
+        actions = actions,
+        onOpenOfficialSource = onOpenOfficialSource,
+        splitCountry = splitCountry,
+        voice = voiceState,
+        readAloud = readAloudState,
+    )
     uiState.history?.let { history ->
         ConversationHistoryDialog(
             history = history,
@@ -206,6 +226,8 @@ data class AiActions(
     val onVoiceStart: () -> Unit = {},
     val onVoiceStop: () -> Unit = {},
     val onVoicePermissionDenied: () -> Unit = {},
+    // Ascolta e Ferma sotto una risposta, con il suo testo.
+    val onReadAloud: (String) -> Unit = {},
     val onNewConversation: () -> Unit = {},
     val onRefreshForecast: () -> Unit = {},
     val onOpenHistory: () -> Unit = {},
@@ -254,6 +276,7 @@ internal fun AiAssistantContent(
     onOpenOfficialSource: (url: String) -> Unit,
     splitCountry: Boolean = false,
     voice: VoiceInputUiState = VoiceInputUiState(isAvailable = false),
+    readAloud: ReadAloudUiState = ReadAloudUiState(),
 ) {
     val isReady = when (uiState.mode) {
         AiEngineMode.ON_DEVICE -> uiState.isModelDownloaded
@@ -262,7 +285,7 @@ internal fun AiAssistantContent(
     Column(modifier = Modifier.fillMaxSize()) {
         AssistantHeader(uiState = uiState, isReady = isReady, actions = actions)
         if (isReady) {
-            Conversation(uiState, actions, onOpenOfficialSource = onOpenOfficialSource, modifier = Modifier.weight(1f))
+            Conversation(uiState, actions, readAloud, onOpenOfficialSource = onOpenOfficialSource, modifier = Modifier.weight(1f))
             val readOnlyRegion = uiState.readOnlyRegion
             if (readOnlyRegion != null) {
                 ReadOnlyNotice(readOnlyRegion, onNewConversation = actions.onNewConversation)
@@ -536,7 +559,13 @@ internal fun AiSettingsContent(uiState: AiUiState, actions: AiActions) {
 }
 
 @Composable
-private fun Conversation(uiState: AiUiState, actions: AiActions, onOpenOfficialSource: (url: String) -> Unit, modifier: Modifier = Modifier) {
+private fun Conversation(
+    uiState: AiUiState,
+    actions: AiActions,
+    readAloud: ReadAloudUiState,
+    onOpenOfficialSource: (url: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val asked = uiState.askedQuestion
     if (asked == null && !uiState.isThinking && uiState.errorMessage == null) {
         EmptyState(
@@ -572,7 +601,10 @@ private fun Conversation(uiState: AiUiState, actions: AiActions, onOpenOfficialS
         uiState.earlierTurns.forEach { turn ->
             QuestionBubble(turn.askedQuestion)
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(Spacing.l)) { FinishedAnswer(turn.answer, onOpenOfficialSource) }
+                Column(modifier = Modifier.padding(Spacing.l)) {
+                    FinishedAnswer(turn.answer, onOpenOfficialSource)
+                    ReadAloudButton(turn.answer.text, readAloud, actions.onReadAloud)
+                }
             }
         }
         if (asked != null) QuestionBubble(asked)
@@ -588,7 +620,7 @@ private fun Conversation(uiState: AiUiState, actions: AiActions, onOpenOfficialS
         ) {
             // animateContentSize: la bolla cresce con morbidezza da "Sto pensando…" alla risposta.
             Column(modifier = Modifier.animateContentSize().padding(Spacing.l)) {
-                AnswerContent(uiState, streaming, onOpenOfficialSource, actions)
+                AnswerContent(uiState, streaming, onOpenOfficialSource, actions, readAloud)
             }
         }
     }
@@ -680,6 +712,7 @@ private fun AnswerContent(
     streaming: Boolean,
     onOpenOfficialSource: (url: String) -> Unit,
     actions: AiActions,
+    readAloud: ReadAloudUiState,
 ) {
     val answer = uiState.answer
     val error = uiState.errorMessage
@@ -710,6 +743,7 @@ private fun AnswerContent(
         }
         answer != null -> Column {
             FinishedAnswer(answer, onOpenOfficialSource)
+            ReadAloudButton(answer.text, readAloud, actions.onReadAloud)
             // Solo la risposta in fondo, con le previsioni nel contesto e piu' vecchie del limite per luogo.
             if (uiState.canRefreshForecast && answer.forecast != null) {
                 TextButton(onClick = actions.onRefreshForecast, modifier = Modifier.padding(top = Spacing.s)) {
@@ -719,6 +753,25 @@ private fun AnswerContent(
                 }
             }
         }
+    }
+}
+
+// Ascolta sotto ogni risposta, Ferma su quella in lettura; il motivo sotto il pulsante se la lettura non e' riuscita.
+@Composable
+private fun ReadAloudButton(text: String, state: ReadAloudUiState, onReadAloud: (String) -> Unit) {
+    val speaking = state.speakingText == text
+    TextButton(onClick = { onReadAloud(text) }, modifier = Modifier.padding(top = Spacing.s)) {
+        Icon(if (speaking) AppIcons.Stop else AppIcons.Listen, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(Spacing.s))
+        Text(stringResource(if (speaking) R.string.ai_read_aloud_stop else R.string.ai_read_aloud_listen))
+    }
+    val message = state.message
+    if (state.failedText == text && message != null) {
+        Text(
+            stringResource(message),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
     }
 }
 

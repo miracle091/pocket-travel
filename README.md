@@ -77,7 +77,7 @@ Le 366 regioni sono aggiornate ogni settimana e i loro contenuti si scaricano se
 
 L'assistente risponde in al massimo tre frasi solo con ciò che trova nella guida e nelle note, e lo dice quando la guida non basta. Il motore si sceglie in **Impostazioni → Assistente IA**.
 
-La domanda si può anche dettare con il microfono nel campo, da Android 12, con entrambi i motori. Il riconoscimento vocale avviene sul dispositivo, anche senza internet, con il pacchetto della lingua del telefono: l'app riceve solo il testo, che resta nel campo da correggere prima dell'invio.
+La domanda si può anche dettare con il microfono nel campo, da Android 12, con entrambi i motori. Il riconoscimento vocale avviene sul dispositivo, anche senza internet, con il pacchetto della lingua del telefono: l'app riceve solo il testo, che resta nel campo da correggere prima dell'invio. "Ascolta" sotto ogni risposta la legge ad alta voce con la voce di sistema del dispositivo, anche senza internet.
 
 ### 📱 Sul dispositivo (offline)
 

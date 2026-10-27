@@ -30,6 +30,7 @@ include(
     ":core:ui",
     ":core:poi",
     ":core:routing-engine",
+    ":core:speech",
     ":feature:guide",
     ":feature:map",
     ":feature:ai",
