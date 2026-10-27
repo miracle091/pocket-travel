@@ -453,7 +453,7 @@ class AiAssistantViewModel @Inject constructor(
     fun ask(regionId: String) {
         val state = _uiState.value
         val question = state.question.trim()
-        if (question.isBlank() || state.isThinking || state.readOnlyRegion != null) return
+        if (state.startingTurn(question) == null) return
         // Riconosciuta sul dispositivo con regole, anche con il motore online: destinazione e posizione non escono mai.
         parseNavigationRequest(question)?.let { request ->
             _uiState.update { it.copy(question = "", errorMessage = null) }
@@ -466,23 +466,14 @@ class AiAssistantViewModel @Inject constructor(
         val previous = conversation.previousQuestion
         // Una conversazione ripresa resta nella sua regione, anche aperta dalla scheda IA di un'altra.
         val region = conversation.regionId ?: regionId
+        // Subito, prima di ogni attesa: un secondo tocco su Invia trova la domanda gia' in corso.
+        _uiState.update { it.startingTurn(question) ?: it }
         askJob = viewModelScope.launch {
-            // Prima della ricerca e del modello: il numero da chiamare non aspetta la risposta.
-            val emergencyCard = emergencyCards.forQuestion(region, question)
-            _uiState.update {
-                // Il turno concluso sale sopra la domanda nuova.
-                val done = it.askedQuestion?.let { asked -> it.answer?.let { answer -> ShownTurn(asked, answer) } }
-                it.copy(
-                    isThinking = true,
-                    errorMessage = null,
-                    earlierTurns = it.earlierTurns + listOfNotNull(done),
-                    askedQuestion = question,
-                    emergencyCard = emergencyCard,
-                    canRefreshForecast = false,
-                    question = "",
-                    answer = null,
-                    streamingText = "",
-                )
+            // Accanto alla ricerca e al modello, non prima: le allerte di una domanda su una catastrofe arrivano da
+            // piu' fonti in rete, e il numero da chiamare non aspetta la risposta.
+            launch {
+                val emergencyCard = emergencyCards.forQuestion(region, question)
+                _uiState.update { it.copy(emergencyCard = emergencyCard) }
             }
             collectAnswer(region, question, state.mode, previous) { answer ->
                 conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer)
@@ -744,12 +735,32 @@ internal fun historyEmptied(counts: Flow<Int>, shown: () -> Boolean): Flow<Unit>
     }
 }
 
-/** Messaggio per un errore di [AiAssistantViewModel.ask]: il modello online sconosciuto ha il suo, il resto quello generico. */
-@StringRes
 /** Quanto manca perche' le previsioni scaricate a [updatedAtMillis] si possano riscaricare; 0 se si puo' gia'. */
 internal fun forecastRefreshDelayMillis(updatedAtMillis: Long, nowMillis: Long): Long =
     (updatedAtMillis + WEATHER_MIN_REFRESH_MILLIS - nowMillis).coerceAtLeast(0)
 
+/**
+ * Lo stato all'invio di [question], o null se la domanda non puo' partire: vuota, con un'altra in corso o in una
+ * conversazione aperta in sola lettura. Il turno concluso sale sopra la domanda nuova.
+ */
+internal fun AiUiState.startingTurn(question: String): AiUiState? {
+    if (question.isBlank() || isThinking || readOnlyRegion != null) return null
+    val done = askedQuestion?.let { asked -> answer?.let { ShownTurn(asked, it) } }
+    return copy(
+        isThinking = true,
+        errorMessage = null,
+        earlierTurns = earlierTurns + listOfNotNull(done),
+        askedQuestion = question,
+        emergencyCard = null,
+        canRefreshForecast = false,
+        question = "",
+        answer = null,
+        streamingText = "",
+    )
+}
+
+/** Messaggio per un errore di [AiAssistantViewModel.ask]: il modello online sconosciuto ha il suo, il resto quello generico. */
+@StringRes
 internal fun askErrorMessage(error: Exception): Int = when (error) {
     is OnlineModelNotFoundException -> R.string.ai_error_model
     is OnlineApiKeyRejectedException -> R.string.ai_error_key_rejected
