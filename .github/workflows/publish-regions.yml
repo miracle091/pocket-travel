@@ -55,9 +55,9 @@ on:
         required: false
         default: ""
 
-# Solo da "main": i job che scrivono sulle release o su Pages (plan, world-map, address-grid, publish) si fermano su un
-# altro ramo; guides, transit e build dipendono da plan e vengono saltati con lui. Il calendario gira sempre sul ramo
-# predefinito.
+# Solo da "main": i job che scrivono sulle release o su Pages (plan, world-map, address-grid, publish) e quello che apre
+# le issue (overture-check) si fermano su un altro ramo; guides, transit e build dipendono da plan e vengono saltati con
+# lui. Il calendario gira sempre sul ramo predefinito.
 # Minimo a livello di workflow; i permessi in piu' stanno sui singoli job (README della pipeline, "Permessi").
 permissions:
   contents: read
@@ -364,7 +364,7 @@ jobs:
   # decine di minuti) e mai bloccante: se fallisce si ripete alla run successiva.
   overture-check:
     name: Controllo Overture
-    if: ${{ !(github.event.inputs.continuation > 0) }}
+    if: ${{ github.ref == 'refs/heads/main' && !(github.event.inputs.continuation > 0) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
