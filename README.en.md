@@ -82,13 +82,13 @@ The question can also be dictated with the microphone in the field, from Android
 
 ### 📱 On device (offline)
 
-The model runs on the device and no data leaves it. Conversations are saved in the history, encrypted on the device: it opens with strong biometrics (fingerprint or face) and is deleted from the Settings. It needs at least 3 GB of RAM; the app suggests the right model for the RAM and the app language and updates it when it improves. In the table, the model of the next row can be chosen too (with 3 GB the 4 GB one, with 4 GB the 6 GB one, with 6 and 8 GB the 12 GB one): the app warns that the model needs more RAM and that the app may slow down or close.
+The model runs on the device and no data leaves it. Conversations are saved in the history, encrypted on the device: it opens with strong biometrics (fingerprint or face) and is deleted from the Settings. It needs at least 3 GB of RAM; the app suggests the right model for the RAM and the app language (from 8 to 12 GB the 2B, which is faster) and updates it when it improves. In the table, the model of the next row can be chosen too (with 3 GB the 4 GB one, with 4 GB the 6 GB one, with 6 GB the 8 GB one): the app warns that the model needs more RAM and that the app may slow down or close.
 
 | RAM | Trained on the guides (Italian) | Trained on the guides (English) | Official |
 |---|---|---|---|
 | 4 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-it-GGUF.md) – 0.53 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-en-GGUF.md) – 0.53 GB | [Qwen3.5 0.8B](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF) – 0.56 GB |
 | 6 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-it-GGUF.md) – 1.27 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-en-GGUF.md) – 1.27 GB | [Qwen3.5 2B](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) – 1.34 GB |
-| 12 GB or more | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3-4b-instruct-2507-travel-it-GGUF.md) – 2.50 GB | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3-4b-instruct-2507-travel-en-GGUF.md) – 2.50 GB | [Qwen3 4B Instruct 2507](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF) – 2.55 GB |
+| 8 GB or more | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3-4b-instruct-2507-travel-it-GGUF.md) – 2.50 GB | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3-4b-instruct-2507-travel-en-GGUF.md) – 2.50 GB | [Qwen3 4B Instruct 2507](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF) – 2.55 GB |
 
 ### ☁️ Online (with a personal API key)
 

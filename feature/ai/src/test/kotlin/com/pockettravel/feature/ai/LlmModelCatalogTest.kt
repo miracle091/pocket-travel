@@ -11,7 +11,15 @@ class LlmModelCatalogTest {
     fun `il modello predefinito e' l'addestrato sulle guide della fascia di RAM`() {
         assertEquals("pt-qwen3.5-0.8b", LlmModelCatalog.defaultFor(RamTier.MINIMO).id)
         assertEquals("pt-qwen3.5-2b", LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE).id)
-        assertEquals("pt-qwen3-4b-2507", LlmModelCatalog.defaultFor(RamTier.AMPIA).id)
+        assertEquals("pt-qwen3-4b-2507", LlmModelCatalog.defaultFor(RamTier.PUNTA).id)
+    }
+
+    @Test
+    fun `da 8 GB il 4B e' nella lista senza avviso ma il predefinito resta il 2B`() {
+        val fourB = LlmModelCatalog.ALL.first { it.id == "pt-qwen3-4b-2507" }
+        assertTrue(fourB in LlmModelCatalog.visibleFor(RamTier.AMPIA, "it"))
+        assertFalse(LlmModelCatalog.needsMoreRam(fourB, RamTier.AMPIA))
+        assertEquals("pt-qwen3.5-2b", LlmModelCatalog.defaultFor(RamTier.AMPIA).id)
     }
 
     @Test
@@ -50,7 +58,7 @@ class LlmModelCatalogTest {
         assertEquals("pt-qwen3.5-0.8b-en", LlmModelCatalog.defaultFor(RamTier.INSUFFICIENTE, "en").id)
         assertEquals("pt-qwen3.5-0.8b-en", LlmModelCatalog.defaultFor(RamTier.MINIMO, "en").id)
         assertEquals("pt-qwen3.5-2b-en", LlmModelCatalog.defaultFor(RamTier.CONFORTEVOLE, "en").id)
-        assertEquals("pt-qwen3-4b-2507-en", LlmModelCatalog.defaultFor(RamTier.AMPIA, "en").id)
+        assertEquals("pt-qwen3-4b-2507-en", LlmModelCatalog.defaultFor(RamTier.PUNTA, "en").id)
     }
 
     @Test

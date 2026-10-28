@@ -145,7 +145,7 @@ object LlmModelCatalog {
 
     /**
      * Modello predefinito per la fascia di RAM del dispositivo: l'addestrato sulle guide scaricabile della
-     * fascia (4 GB -> 0.8B, 6 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge;
+     * fascia (4 GB -> 0.8B, 6 e 8 GB -> 2B, 12 GB -> 4B), o il piu' grande tra quelli che la fascia regge;
      * con RAM insufficiente (IA sul dispositivo disattivata) il piu' leggero. Gli addestrati hanno la precedenza
      * sugli ufficiali perche' rifiutano molto meglio le domande a cui la guida non risponde. Solo quelli
      * addestrati nella lingua dell'interfaccia [language]: senza, gli ufficiali, con la stessa regola
@@ -172,7 +172,9 @@ object LlmModelCatalog {
     fun defaultFor(tier: RamTier, language: String = "it"): LlmModelDefinition {
         val candidates = ALL.filter { it.origin == ModelOrigin.ADDESTRATO && it.language == language && it.sha256 != null }
             .ifEmpty { ALL.filter { it.origin == ModelOrigin.UFFICIALE && it.sha256 != null } }
-        return candidates.filter { it.minRamTier <= tier }.maxByOrNull { it.minRamTier }
+        // Da 8 GB il 4B si sceglie senza avviso, ma il proposto resta il 2B: download piu' piccolo, risposte piu' rapide.
+        val defaultTier = if (tier == RamTier.AMPIA) RamTier.CONFORTEVOLE else tier
+        return candidates.filter { it.minRamTier <= defaultTier }.maxByOrNull { it.minRamTier }
             ?: candidates.minBy { it.minRamTier }
     }
 }

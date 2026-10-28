@@ -48,17 +48,22 @@ class DeviceAiCapabilityTest {
     }
 
     @Test
-    fun `6 and 8 GB phones are CONFORTEVOLE`() {
+    fun `6 GB phones are CONFORTEVOLE`() {
         assertEquals(RamTier.CONFORTEVOLE, ramTierFor(5.5.gib()))
-        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(7.4.gib()))
         assertEquals(RamTier.MINIMO, ramTierFor(DeviceAiCapability.COMFORTABLE_RAM_BYTES - 1))
     }
 
     @Test
-    fun `12 GB phones are AMPIA`() {
-        assertEquals(RamTier.AMPIA, ramTierFor(11.2.gib()))
-        assertEquals(RamTier.AMPIA, ramTierFor(16 * GB))
-        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(10 * GB))
+    fun `8 GB phones are AMPIA`() {
+        assertEquals(RamTier.AMPIA, ramTierFor(7.4.gib()))
+        assertEquals(RamTier.AMPIA, ramTierFor(10 * GB))
+        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(DeviceAiCapability.AMPLE_RAM_BYTES - 1))
+    }
+
+    @Test
+    fun `12 GB phones are PUNTA`() {
+        assertEquals(RamTier.PUNTA, ramTierFor(11.2.gib()))
+        assertEquals(RamTier.PUNTA, ramTierFor(16 * GB))
     }
 
     @Test
@@ -74,8 +79,8 @@ class DeviceAiCapabilityTest {
         assertEquals(RamTier.RIDOTTA, ramTierFor(3_000_000_000L))
         assertEquals(RamTier.MINIMO, ramTierFor(4_000_000_000L))
         assertEquals(RamTier.CONFORTEVOLE, ramTierFor(6_000_000_000L))
-        assertEquals(RamTier.CONFORTEVOLE, ramTierFor(8_000_000_000L))
-        assertEquals(RamTier.AMPIA, ramTierFor(12_000_000_000L))
+        assertEquals(RamTier.AMPIA, ramTierFor(8_000_000_000L))
+        assertEquals(RamTier.PUNTA, ramTierFor(12_000_000_000L))
     }
     @Test
     fun `inferenceThreadCountFor uses cores minus one below the tier cap`() {
@@ -88,6 +93,7 @@ class DeviceAiCapabilityTest {
         assertEquals(4, inferenceThreadCountFor(RamTier.MINIMO, availableCores = 16))
         assertEquals(4, inferenceThreadCountFor(RamTier.CONFORTEVOLE, availableCores = 16))
         assertEquals(6, inferenceThreadCountFor(RamTier.AMPIA, availableCores = 16))
+        assertEquals(6, inferenceThreadCountFor(RamTier.PUNTA, availableCores = 16))
     }
 
     @Test

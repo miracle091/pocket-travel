@@ -135,7 +135,7 @@ class AiAssistantViewModel @Inject constructor(
             // dispositivo che non puo' comunque usarlo.
             mode = if (deviceAiCapability.isOnDeviceAiSupported()) aiSettingsStore.engineMode() else AiEngineMode.ONLINE,
             isDeviceCapable = deviceAiCapability.isOnDeviceAiSupported(),
-            // L'ordine di RamTier (INSUFFICIENTE < RIDOTTA < MINIMO < CONFORTEVOLE < AMPIA) e' significativo
+            // L'ordine di RamTier (INSUFFICIENTE < RIDOTTA < MINIMO < CONFORTEVOLE < AMPIA < PUNTA) e' significativo
             // qui: un dispositivo vede i modelli delle fasce inferiori e quelli della fascia subito sopra.
             availableModels = LlmModelCatalog.visibleFor(deviceAiCapability.ramTier(), currentGuidesLanguage()),
             modelsNeedingMoreRam = deviceAiCapability.ramTier().let { tier ->
