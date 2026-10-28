@@ -73,11 +73,12 @@ class EmergencyCardProvider @Inject constructor(
 ) {
     /**
      * Il riquadro per [question] nella regione [regionId]: i numeri se la domanda parla di un pericolo per la vita, le allerte
-     * in corso se parla di una catastrofe; null se nessuna delle due.
+     * in corso (se ce ne sono) se parla di una catastrofe; null se nessuna delle due.
      */
     suspend fun forQuestion(regionId: String, question: String): EmergencyCardState? {
         val entries = if (isLifeThreatening(question)) orNull { emergencyNumbersRepository.forRegion(regionId) }?.callEntries().orEmpty() else null
-        val alerts = if (isDisasterQuestion(question)) orNull { alertsRepository.alerts(regionId) } else null
+        // Senza allerte in corso il riquadro delle allerte non compare.
+        val alerts = if (isDisasterQuestion(question)) orNull { alertsRepository.alerts(regionId) }?.takeIf { it.alerts.isNotEmpty() } else null
         return if (entries == null && alerts == null) null else EmergencyCardState(entries, alerts)
     }
 

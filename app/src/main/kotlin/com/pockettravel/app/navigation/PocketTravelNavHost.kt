@@ -335,6 +335,7 @@ fun PocketTravelNavHost(
                     displayName = route.name.ifBlank { route.regionId },
                     onBack = dropUnlessResumed { navController.popBackStack() },
                     item = listState.items.firstOrNull { it.regionId == route.regionId },
+                    downloading = route.regionId in listState.downloadingRegions,
                     rowActions = listViewModel.rowActions(),
                     // Il download completo si segue dalla lista Regioni (barra di avanzamento gia'
                     // presente li'), non duplicata qui: torna semplicemente indietro.

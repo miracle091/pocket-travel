@@ -107,6 +107,7 @@ class GuideViewModel @Inject constructor(
     // progetto): arriva a runtime dalla composable, come AiAssistantViewModel.ask(regionId) —
     // stesso pattern, per coerenza di stile.
     private var loadedForRegionId: String? = null
+    private var loadedCatalogCountry: String? = null
     private var citiesJob: Job? = null
     private var loadJob: Job? = null
     private var embassiesJob: Job? = null
@@ -134,9 +135,15 @@ class GuideViewModel @Inject constructor(
         }
     }
 
-    fun load(regionId: String) {
-        if (loadedForRegionId == regionId) return
+    /**
+     * Carica la guida di [regionId]. [catalogCountry] e' la nazione della regione nel catalogo, per l'anteprima di una
+     * regione non scaricata, che non ha la nazione tra le regioni installate.
+     */
+    fun load(regionId: String, catalogCountry: String? = null) {
+        // La voce del catalogo puo' arrivare dopo la guida: con la nazione nuova la guida si ricarica.
+        if (loadedForRegionId == regionId && loadedCatalogCountry == catalogCountry) return
         loadedForRegionId = regionId
+        loadedCatalogCountry = catalogCountry
         citiesJob?.cancel()
         citiesJob = viewModelScope.launch {
             combine(cityRepository.citiesFor(regionId), cityRepository.mainCitiesFor(regionId, MAIN_CITIES)) { cities, main ->
@@ -147,7 +154,7 @@ class GuideViewModel @Inject constructor(
         }
         embassiesJob?.cancel()
         embassiesJob = viewModelScope.launch {
-            val regionCountry = regionRepository.installed(regionId)?.countryCode
+            val regionCountry = regionRepository.installed(regionId)?.countryCode ?: catalogCountry
             nationalityPreferences.nationality.collect { nationality ->
                 // La nazione della regione e' minuscola (`manifest.json`), la nazionalita' maiuscola.
                 val country = nationality?.takeIf { !it.equals(regionCountry, ignoreCase = true) }

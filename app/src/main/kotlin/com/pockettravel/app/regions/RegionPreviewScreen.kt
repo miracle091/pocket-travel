@@ -47,6 +47,8 @@ internal fun RegionPreviewScreen(
     // La riga della regione nell'elenco e le sue azioni: il download completo passa dallo stesso percorso dell'elenco
     // (civici, spazio libero, avviso su rete cellulare, scelta della zona). item e' null finche' l'elenco non l'ha.
     item: RegionUiItem?,
+    // Download della regione gia' in corso (avviato qui o dall'elenco): "Scarica" resta disattivato.
+    downloading: Boolean,
     rowActions: RegionRowActions,
     onDownloadFull: () -> Unit,
     onOpenSource: (url: String, title: String) -> Unit = { _, _ -> },
@@ -95,7 +97,7 @@ internal fun RegionPreviewScreen(
                     // Solo con la guida pronta e la regione nell'elenco: prima non ci sarebbe nulla da scaricare.
                     if (item != null) {
                         RegionDownloadFlow(item = item, actions = downloadActions) { _, onDownloadClick ->
-                            FilledTonalButton(onClick = onDownloadClick, enabled = state == RegionPreviewState.Ready && !item.fromSavedCopy) {
+                            FilledTonalButton(onClick = onDownloadClick, enabled = state == RegionPreviewState.Ready && !item.fromSavedCopy && !downloading) {
                                 Text(stringResource(R.string.preview_download))
                             }
                         }
@@ -116,7 +118,7 @@ internal fun RegionPreviewScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
 
-                RegionPreviewState.Ready -> GuideScreen(regionId = regionId, onOpenSource = onOpenSource)
+                RegionPreviewState.Ready -> GuideScreen(regionId = regionId, onOpenSource = onOpenSource, catalogCountry = item?.countryCode)
             }
         }
     }

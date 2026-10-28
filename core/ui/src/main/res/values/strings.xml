@@ -75,7 +75,6 @@
     <string name="weather_snow">Neve</string>
     <string name="weather_thunderstorm">Temporale</string>
     <string name="alerts_title">Allerte in corso</string>
-    <string name="alerts_none">Nessuna allerta in corso nella regione</string>
     <string name="alerts_show_all">Mostra tutte (%1$d)</string>
     <string name="alerts_issued">Emessa alle %1$s</string>
     <string name="alerts_issued_on">Emessa il %1$s</string>
@@ -86,7 +85,7 @@
     <string name="alerts_source">Fonte: %1$s</string>
     <string name="alerts_source_meteoalarm">Fonte: %1$s tramite EUMETNET – MeteoAlarm</string>
     <string name="alerts_meteoalarm_delays">Sono possibili ritardi tra questa app e il sito www.meteoalarm.org. Per le informazioni più aggiornate pubblicate dai servizi meteorologici e idrologici nazionali partecipanti si rimanda a www.meteoalarm.org</string>
-    <string name="alerts_disclaimer">Informazioni non ufficiali e probabilmente non aggiornate: segui le direttive locali delle autorità</string>
+    <string name="alerts_disclaimer">Informazioni non ufficiali e non in tempo reale: segui sempre le direttive delle autorità locali</string>
     <!-- Allerte riscritte nella lingua dell'app dal testo inglese delle fonti -->
     <string name="alerts_weather_warning">Allerta %1$s per %2$s</string>
     <string name="alerts_color_yellow">gialla</string>

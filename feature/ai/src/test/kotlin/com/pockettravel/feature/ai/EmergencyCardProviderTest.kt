@@ -5,6 +5,10 @@ import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.EmergencyNumbersEntity
 import com.pockettravel.core.data.db.NoCentralEmergencyNumberEntity
+import com.pockettravel.core.data.alerts.Alert
+import com.pockettravel.core.data.alerts.AlertKind
+import com.pockettravel.core.data.alerts.AlertLevel
+import com.pockettravel.core.data.alerts.AlertSource
 import com.pockettravel.core.data.alerts.AlertsRepository
 import com.pockettravel.core.data.alerts.RegionAlerts
 import kotlinx.coroutines.test.runTest
@@ -36,8 +40,13 @@ private class FakeEmergencyNumbersDao(
     override suspend fun deleteAllNoCentralNumber() = Unit
 }
 
+private val flood = Alert(
+    id = "gdacs-fl-1", source = AlertSource.GDACS, kind = AlertKind.FLOOD, level = AlertLevel.HIGH, sourceLevel = null,
+    title = "Flood", details = null, startsAt = null, endsAt = null, area = null, areaName = null, url = null,
+)
+
 /** Allerte finte: [result] per ogni regione, [requests] conta le richieste. */
-private class FakeAlertsRepository(private val result: RegionAlerts? = RegionAlerts(emptyList(), 0L, fresh = true)) : AlertsRepository {
+private class FakeAlertsRepository(private val result: RegionAlerts? = RegionAlerts(listOf(flood), 0L, fresh = true)) : AlertsRepository {
     var requests = 0
 
     override suspend fun alerts(regionId: String): RegionAlerts? {
@@ -137,6 +146,12 @@ class EmergencyCardProviderTest {
     @Test
     fun `senza allerte disponibili una catastrofe non mostra il riquadro`() = runTest {
         assertNull(provider(FakeEmergencyNumbersDao(), FakeAlertsRepository(result = null)).forQuestion("italia", "terremoto oggi?"))
+    }
+
+    @Test
+    fun `senza allerte in corso una catastrofe non mostra il riquadro`() = runTest {
+        val none = FakeAlertsRepository(result = RegionAlerts(emptyList(), 0L, fresh = true))
+        assertNull(provider(FakeEmergencyNumbersDao(), none).forQuestion("italia", "terremoto oggi?"))
     }
 
     @Test

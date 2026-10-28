@@ -46,12 +46,14 @@ import com.pockettravel.core.ui.WeatherCard
 fun GuideScreen(
     regionId: String,
     onOpenSource: (url: String, title: String) -> Unit = { _, _ -> },
+    // Nazione della regione nel catalogo, per l'anteprima di una regione non scaricata (vedi GuideViewModel.load).
+    catalogCountry: String? = null,
     // Senza barra del titolo (hub della regione): Indietro sulla riga dei filtri.
     onBack: (() -> Unit)? = null,
     viewModel: GuideViewModel = hiltViewModel(),
     vaccinationViewModel: VaccinationViewModel = hiltViewModel(),
 ) {
-    LaunchedEffect(regionId) { viewModel.load(regionId) }
+    LaunchedEffect(regionId, catalogCountry) { viewModel.load(regionId, catalogCountry) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCities by rememberSaveable(regionId) { mutableStateOf(false) }
     // citta' aperta direttamente da un chip del riquadro Citta' (null = si apre l'elenco)
@@ -179,7 +181,7 @@ private fun GuideSectionsList(
                     WeatherCard(weather, onOpenSource = onOpenSource, onRefresh = onRefreshWeather, modifier = Modifier.padding(horizontal = Spacing.l))
                 }
             }
-            uiState.alerts?.let { alerts ->
+            uiState.alerts?.takeIf { it.alerts.isNotEmpty() }?.let { alerts ->
                 item(key = "alerts") {
                     AlertsCard(alerts, onOpenSource = onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
                 }

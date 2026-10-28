@@ -48,7 +48,8 @@ private val NATIONAL_SOURCES: Map<AlertSource, @Composable () -> String> = linke
 private const val ALERTS_SHOWN = 5
 
 /**
- * Riquadro "Allerte in corso" della guida e del riquadro di emergenza dell'assistente: allerte dalla piu' grave, fonti
+ * Riquadro "Allerte in corso" della guida e del riquadro di emergenza dell'assistente, solo con almeno un'allerta (i
+ * chiamanti lo tolgono quando non ce ne sono): allerte dalla piu' grave, fonti
  * con l'ora dell'ultimo download ("Ultime allerte scaricate alle" senza rete), e sempre la frase che non sono
  * informazioni ufficiali. Per Meteoalarm, come chiedono i suoi termini: servizio nazionale, ora di emissione di ogni
  * allerta, collegamento a meteoalarm.org e frase sui ritardi. Un tocco su un'allerta apre la pagina della fonte.
@@ -59,9 +60,6 @@ fun AlertsCard(state: RegionAlerts, onOpenSource: (url: String, title: String) -
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
             InfoCardHeader(icon = AppIcons.Error, title = stringResource(R.string.alerts_title), iconTint = MaterialTheme.colorScheme.error)
-            if (state.alerts.isEmpty()) {
-                Text(stringResource(R.string.alerts_none), style = MaterialTheme.typography.bodyMedium)
-            }
             val shown = if (expanded) state.alerts else state.alerts.take(ALERTS_SHOWN)
             shown.forEach { AlertRow(it, onOpenSource) }
             if (!expanded && state.alerts.size > ALERTS_SHOWN) {

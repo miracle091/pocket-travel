@@ -124,9 +124,8 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Evento reale in corso (terremoto, alluvione, allerta meteo...) letto dalle fonti online | allerta, allerte (mai "avviso", "allarme" o "notifica") | alert, alerts |
 | Riquadro della guida con le allerte della regione | Allerte in corso | Active alerts |
 | Riquadro in cima alla risposta dell'assistente quando la domanda parla di un pericolo per la vita | riquadro di emergenza (titolo: Emergenza? Chiama subito) | emergency card (title: Emergency? Call now) |
-| Frase sotto ogni allerta | Informazioni non ufficiali e probabilmente non aggiornate: segui le direttive locali delle autorità | Not official and probably out of date: follow the instructions of the local authorities |
+| Frase sotto ogni allerta | Informazioni non ufficiali e non in tempo reale: segui sempre le direttive delle autorità locali | Unofficial and not in real time: always follow the instructions of the local authorities |
 | Fonte e ora delle allerte | Fonte: %1$s · aggiornate alle %2$s; senza rete: Ultime allerte scaricate alle %1$s | Source: %1$s · updated at %2$s; offline: Last alerts downloaded at %1$s |
-| Riquadro delle allerte senza allerte nella regione | Nessuna allerta in corso nella regione | No active alerts in this region |
 | Ora delle allerte di un altro giorno | Fonte: %1$s · aggiornate il %2$s; senza rete: Ultime allerte scaricate il %1$s | Source: %1$s · updated on %2$s; offline: Last alerts downloaded on %1$s |
 | Ora di emissione di un'allerta (Meteoalarm) | Emessa alle %1$s (altro giorno: Emessa il %1$s) | Issued at %1$s (other day: Issued on %1$s) |
 | Fonte delle allerte meteo europee | Fonte: %1$s tramite EUMETNET – MeteoAlarm (%1$s è il servizio meteorologico nazionale) | Source: %1$s via EUMETNET – MeteoAlarm |
