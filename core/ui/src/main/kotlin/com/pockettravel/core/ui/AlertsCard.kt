@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.pockettravel.core.data.alerts.Alert
 import com.pockettravel.core.data.alerts.AlertSource
 import com.pockettravel.core.data.alerts.RegionAlerts
+import java.time.Instant
+import java.time.ZoneId
 
 private const val METEOALARM_URL = "https://meteoalarm.org/en/live/"
 private const val METEOALARM_NAME = "EUMETNET – MeteoAlarm"
@@ -90,6 +92,9 @@ private fun AlertRow(alert: Alert, onOpenSource: (url: String, title: String) ->
         text.lines.forEach {
             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        validityText(alert)?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         alert.issuedAt?.let {
             Text(
                 timeString(it.toEpochMilli(), R.string.alerts_issued, R.string.alerts_issued_on),
@@ -140,6 +145,27 @@ private fun AlertsSources(state: RegionAlerts, onOpenSource: (url: String, title
 @Composable
 private fun timeString(millis: Long, today: Int, otherDay: Int): String =
     stringResource(if (DateUtils.isToday(millis)) today else otherDay, timeText(millis))
+
+// Periodo di validita' dell'allerta, con il giorno: due allerte uguali possono valere in giorni diversi (la nebbia di due notti).
+@Composable
+private fun validityText(alert: Alert): String? {
+    val start = alert.startsAt
+    val end = alert.endsAt
+    if (start == null || end == null) return null
+    val context = LocalContext.current
+    val zone = ZoneId.systemDefault()
+    fun time(instant: Instant) = DateUtils.formatDateTime(context, instant.toEpochMilli(), DateUtils.FORMAT_SHOW_TIME)
+    fun day(instant: Instant) = DateUtils.formatDateTime(
+        context,
+        instant.toEpochMilli(),
+        DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_ABBREV_ALL or DateUtils.FORMAT_NO_YEAR,
+    )
+    return if (start.atZone(zone).toLocalDate() == end.atZone(zone).toLocalDate()) {
+        stringResource(R.string.alerts_valid_same_day, time(start), time(end), day(start))
+    } else {
+        stringResource(R.string.alerts_valid, time(start), day(start), time(end), day(end))
+    }
+}
 
 // Ora del giorno se e' oggi, altrimenti data e ora, nel formato del sistema.
 @Composable

@@ -76,6 +76,8 @@
     <string name="weather_thunderstorm">Thunderstorm</string>
     <string name="alerts_title">Active alerts</string>
     <string name="alerts_show_all">Show all (%1$d)</string>
+    <string name="alerts_valid_same_day">From %1$s to %2$s on %3$s</string>
+    <string name="alerts_valid">From %1$s on %2$s to %3$s on %4$s</string>
     <string name="alerts_issued">Issued at %1$s</string>
     <string name="alerts_issued_on">Issued on %1$s</string>
     <string name="alerts_source_updated">Source: %1$s · updated at %2$s</string>

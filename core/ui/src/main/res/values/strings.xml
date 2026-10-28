@@ -76,6 +76,8 @@
     <string name="weather_thunderstorm">Temporale</string>
     <string name="alerts_title">Allerte in corso</string>
     <string name="alerts_show_all">Mostra tutte (%1$d)</string>
+    <string name="alerts_valid_same_day">Dalle %1$s alle %2$s di %3$s</string>
+    <string name="alerts_valid">Dalle %1$s di %2$s alle %3$s di %4$s</string>
     <string name="alerts_issued">Emessa alle %1$s</string>
     <string name="alerts_issued_on">Emessa il %1$s</string>
     <string name="alerts_source_updated">Fonte: %1$s · aggiornate alle %2$s</string>
