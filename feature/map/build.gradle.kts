@@ -24,6 +24,7 @@ android {
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
+    implementation(libs.androidx.core.ktx)
     implementation(project(":core:routing-engine"))
     implementation(libs.maplibre.android.sdk)
     implementation(libs.androidx.lifecycle.runtime.compose)
