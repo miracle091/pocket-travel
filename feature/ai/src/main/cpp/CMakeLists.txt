@@ -1,4 +1,4 @@
-# JNI bridge per llama.cpp (submodule git in third-party/llama-cpp, sul tag v0.7.0; attribuzione in
+# JNI bridge per llama.cpp (submodule git in third-party/llama-cpp, sul tag v0.8.0; attribuzione in
 # third-party/LICENSE-LLAMA-CPP.txt): non esiste un AAR Maven ufficiale per Android,
 # ne' un wrapper di terze parti affidabile (verificato su ai.google.dev, GitHub, JitPack a
 # settembre 2026), quindi si compila da sorgente con NDK/CMake. Struttura e flag adattati da
