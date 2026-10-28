@@ -6,6 +6,8 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ## [Non rilasciato]
 
+## [0.13.0] - 2026-10-28
+
 ### Aggiunto
 - Guide: sezioni dalla voce di Wikipedia della regione, in italiano o in inglese come la guida. La cucina va in Cibo e bevande, le tradizioni e le festività in Usi e costumi, i media (giornali, televisione, radio) in Vita quotidiana, le telecomunicazioni in Connettività. Stanno in fondo alla guida, dopo le sezioni di Wikivoyage, e la voce si apre dalle Fonti; l'assistente IA le usa come le altre sezioni e le cita come Wikipedia. Le hanno circa 160 regioni nella guida italiana e 250 in quella inglese. Arrivano con il prossimo aggiornamento delle guide, anche nelle versioni precedenti dell'app.
 - Più luoghi famosi tra i punti di interesse, quelli che OpenStreetMap collega a Wikidata: piazze pedonali (place de la Bastille), piazze con un nome proprio e una voce di Wikipedia (place des Vosges), siti monumentali (santuari e templi di Nikko), biblioteche disegnate come edifici (Bibliotheca Alexandrina), catene montuose (Olimpo) e cime con una voce di Wikipedia. Arrivano con il prossimo aggiornamento dei punti di interesse della regione; le versioni precedenti dell'app non li mostrano.
@@ -588,7 +590,8 @@ Prima baseline documentata: nessuna versione precedente pubblicata da cui deriva
 - Attribuzione mancante a schermo per OpenStreetMap e link sorgente mancante per le citazioni Wikivoyage.
 - Inizializzazione di WorkManager con Hilt, che impediva l'esecuzione di qualunque download in background.
 
-[Non rilasciato]: https://github.com/miracle091/pocket-travel/compare/v0.12.0...HEAD
+[Non rilasciato]: https://github.com/miracle091/pocket-travel/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/miracle091/pocket-travel/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/miracle091/pocket-travel/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/miracle091/pocket-travel/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/miracle091/pocket-travel/compare/v0.9.0...v0.10.0
