@@ -8,6 +8,7 @@
 #include <sys/prctl.h>
 #include <algorithm>
 #include <cstring>
+#include <deque>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -17,6 +18,7 @@
 #include "chat.h"
 #include "common.h"
 #include "llama.h"
+#include "ngram-map.h"
 
 /**
  * LLama resources: context, model, batch and sampler
@@ -33,6 +35,14 @@ constexpr int   DEFAULT_CONTEXT_SIZE    = 4096;
 constexpr int   OVERFLOW_HEADROOM       = 4;
 constexpr int   BATCH_SIZE              = 512;
 constexpr float DEFAULT_SAMPLER_TEMP    = 0.3f;
+// Decodifica speculativa ngram (common_ngram_simple_draft): quando gli ultimi NGRAM_SIZE_N token compaiono gia' nel
+// prompt o nella risposta, i fino a NGRAM_SIZE_M token che li seguivano li' vengono proposti e verificati dal modello in
+// un solo batch. Valori "corti" misurati sulla CPU a 4 thread con i modelli addestrati sulle guide, che copiano frasi
+// del contesto: risposta circa 2 volte piu' veloce sul 0.8B e sul 2B, quasi sempre identica in greedy; con i valori di
+// default di llama.cpp (12 e 48) le frasi copiate sono troppo corte per essere trovate. Sugli Ufficiali il guadagno
+// resta sotto il 13%, quindi la decide il chiamante (prepare).
+constexpr uint16_t NGRAM_SIZE_N         = 4;
+constexpr uint16_t NGRAM_SIZE_M         = 8;
 
 static llama_model                      * g_model;
 static llama_context                    * g_context;
@@ -190,6 +200,14 @@ static llama_context *init_context(llama_model *model, const int n_threads, cons
 static int32_t g_top_k;
 static float g_top_p;
 
+// Decodifica speculativa ngram accesa (prepare) e modo di scartare le ipotesi sbagliate: con la memoria ricorrente dei
+// modelli ibridi (Qwen3.5) llama_memory_seq_rm non toglie una parte della sequenza, quindi prima di ogni verifica si
+// salva lo stato ricorrente e lo si ripristina (rollback_draft); con la sola KV cache (Qwen3) basta seq_rm.
+static bool g_speculative;
+static bool g_speculative_checkpoint;
+// Stato ricorrente salvato prima della verifica, riusato tra i passi perche' pesa decine di MB; liberato da unload.
+static std::vector<uint8_t> g_checkpoint;
+
 // grammar GBNF vuota = campionamento libero; altrimenti l'output resta dentro la grammatica (regola "root").
 static common_sampler *new_sampler(float temp, int32_t top_k, float top_p, const std::string &grammar = "") {
     common_params_sampling sparams;
@@ -337,11 +355,17 @@ static ChatFormat choose_chat_format(const bool jinja_parsed) {
 
 // top_k/top_p passati da Kotlin (OnDeviceLlmEngine): il riferimento Arm usa solo i default di
 // common_params_sampling, qui il campionamento lo sceglie il chiamante.
-static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads) {
+static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads, jboolean speculative) {
     auto *context = init_context(g_model, n_threads > 0 ? n_threads : DEFAULT_N_THREADS);
     if (!context) { return 1; }
     g_context = context;
     g_batch = common_batch(context);
+    // common_context_can_seq_rm decodifica due token di prova e svuota la cache: qui, prima di ogni prompt.
+    const common_context_seq_rm_type seq_rm_type = speculative ? common_context_can_seq_rm(context) : COMMON_CONTEXT_SEQ_RM_TYPE_NO;
+    g_speculative = seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_PART || seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_FULL;
+    g_speculative_checkpoint = seq_rm_type == COMMON_CONTEXT_SEQ_RM_TYPE_FULL;
+    LOGi("Speculative ngram decoding: %s", !g_speculative ? (speculative ? "off, memory cannot drop drafts" : "off")
+                                                         : g_speculative_checkpoint ? "on, with checkpoints" : "on");
     // Un template che jinja non legge (sintassi non supportata) non blocca il modello: si tiene un template ChatML,
     // che conta solo per sapere che il GGUF ha un template, e choose_chat_format ripiega sul formatter di llama.cpp.
     bool jinja_parsed = true;
@@ -445,6 +469,18 @@ static std::string chat_add_and_format(const std::string &role, const std::strin
 static std::string cached_token_chars;
 static std::ostringstream assistant_ss;
 static bool assistant_turn_open = false;
+// Token campionati e non ancora restituiti a Kotlin: un passo di generazione (generation_step) ne accetta fino a
+// 1 + NGRAM_SIZE_M, generateNextToken li restituisce uno alla volta. L'ultimo campionato (pending_token) non e' ancora
+// nella cache: lo decodifica il passo successivo, insieme alle ipotesi da verificare, o close_assistant_turn.
+static std::deque<llama_token> ready_tokens;
+static llama_token pending_token = LLAMA_TOKEN_NULL;
+// Token del prompt e della risposta in cui il ngram cerca le ripetizioni. Dopo uno shift del contesto contiene anche i
+// token scartati: serve solo a trovare le frasi da proporre, che il modello verifica comunque. Si riparte a ogni
+// domanda, quindi resta sotto il contesto piu' n_predict token (circa 5000 con i valori dell'app).
+static llama_tokens turn_tokens;
+// Ipotesi del ngram proposte e accettate nel turno, per il log.
+static int drafted_tokens = 0;
+static int accepted_tokens = 0;
 
 // Solo misure per il task manager di debug (contextUsage): token del prompt e token campionati
 // nell'ultimo turno. Non le azzerano i reset, cosi' si leggono anche a turno finito.
@@ -456,26 +492,46 @@ static void reset_short_term_states() {
     cached_token_chars.clear();
     assistant_ss.str("");
     assistant_turn_open = false;
+    ready_tokens.clear();
+    pending_token = LLAMA_TOKEN_NULL;
+    turn_tokens.clear();
+    drafted_tokens = 0;
+    accepted_tokens = 0;
 }
 
-// Chiude il turno assistente in corso sia nella KV cache (token di fine turno, se il modello non l'ha generato) sia
-// in chat_msgs, con il testo scritto finora: altrimenti il prossimo processUserPrompt formatterebbe la history senza
-// questo turno, disallineata dalla cache. OVERFLOW_HEADROOM lascia sempre posto al token di fine turno.
-static void close_assistant_turn(const bool decode_end_token) {
-    if (decode_end_token) {
-        const llama_vocab *vocab = llama_model_get_vocab(g_model);
-        llama_token end_token = llama_vocab_eot(vocab);
-        if (end_token == LLAMA_TOKEN_NULL) end_token = llama_vocab_eos(vocab);
-        if (end_token != LLAMA_TOKEN_NULL) {
-            g_batch.clear();
-            g_batch.add(end_token, current_position, 0, false);
-            if (llama_process(g_context, LLAMA_PROCESS_TYPE_DECODE, g_batch.get()) != 0) {
-                LOGe("%s: llama_decode() failed for end-of-turn token", __func__);
-                throw std::runtime_error("llama_decode() failed for end-of-turn token");
-            }
-            current_position++;
-        }
+static std::string take_complete_chars(std::string &cache, const std::string &piece, std::vector<jchar> &utf16);
+
+// Chiude il turno assistente in corso sia nella KV cache (token in attesa e token di fine turno) sia in chat_msgs, con
+// il testo scritto finora: altrimenti il prossimo processUserPrompt formatterebbe la history senza questo turno,
+// disallineata dalla cache. Il fine turno campionato dal modello non entra mai nella cache (generate_next_token_impl):
+// lo si decodifica qui come quello di una risposta interrotta. OVERFLOW_HEADROOM lascia sempre posto ai due token.
+static void close_assistant_turn() {
+    const llama_vocab *vocab = llama_model_get_vocab(g_model);
+    // Token accettati ma non ancora restituiti a Kotlin (generazione interrotta): sono nella cache, quindi vanno anche
+    // nel testo del turno.
+    for (const llama_token token : ready_tokens) {
+        if (llama_vocab_is_eog(vocab, token)) break;
+        std::vector<jchar> unused;
+        assistant_ss << take_complete_chars(cached_token_chars, common_token_to_piece(g_context, token), unused);
     }
+    ready_tokens.clear();
+    llama_token end_token = llama_vocab_eot(vocab);
+    if (end_token == LLAMA_TOKEN_NULL) end_token = llama_vocab_eos(vocab);
+    g_batch.clear();
+    int n_tokens = 0;
+    if (pending_token != LLAMA_TOKEN_NULL && !llama_vocab_is_eog(vocab, pending_token)) {
+        g_batch.add(pending_token, current_position + n_tokens++, 0, false);
+    }
+    pending_token = LLAMA_TOKEN_NULL;
+    if (end_token != LLAMA_TOKEN_NULL) g_batch.add(end_token, current_position + n_tokens++, 0, false);
+    if (n_tokens > 0) {
+        if (llama_process(g_context, LLAMA_PROCESS_TYPE_DECODE, g_batch.get()) != 0) {
+            LOGe("%s: llama_decode() failed for end-of-turn token", __func__);
+            throw std::runtime_error("llama_decode() failed for end-of-turn token");
+        }
+        current_position += n_tokens;
+    }
+    if (g_speculative) LOGi("Speculative ngram decoding: %d of %d drafted tokens accepted", accepted_tokens, drafted_tokens);
     chat_add_and_format(ROLE_ASSISTANT, assistant_ss.str());
     assistant_turn_open = false;
 }
@@ -699,6 +755,7 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     last_prompt_tokens = user_prompt_size;
     last_generated_tokens = 0;
     stop_generation_position = current_position + n_predict;
+    turn_tokens = std::move(user_tokens);
     assistant_turn_open = true;
     return 0;
 }
@@ -716,7 +773,7 @@ JNIEXPORT void JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_cancelGeneration(JNIEnv * /*env*/, jobject /*unused*/) {
     if (g_context && assistant_turn_open) {
         try {
-            close_assistant_turn(true);
+            close_assistant_turn();
         } catch (const std::exception &e) {
             LOGe("%s: cannot close the interrupted turn, resetting the conversation: %s", __func__, e.what());
             reset_long_term_states();
@@ -816,44 +873,113 @@ static std::string take_complete_chars(std::string &cache, const std::string &pi
     return complete;
 }
 
-static jstring generate_next_token_impl(JNIEnv *env) {
-    // Generazione illimitata grazie allo shift del contesto. Se lo shift non e' possibile la generazione si
-    // ferma qui, come a n_predict (la risposta resta troncata ma la cache e le posizioni coerenti).
-    bool context_exhausted = false;
-    if (current_position >= DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM) {
-        LOGw("%s: Context full! Shifting...", __func__);
-        context_exhausted = !shift_context();
+// Tiene nella cache solo i primi `kept` token del batch di verifica appena decodificato (il token in attesa e le
+// ipotesi accettate). Con la sola KV cache si tolgono le posizioni dopo; con la memoria ricorrente si ripristina lo
+// stato salvato prima del batch e si decodificano di nuovo i token tenuti.
+static void rollback_draft(const llama_tokens &batch_tokens, const size_t kept, const std::vector<uint8_t> &checkpoint) {
+    llama_memory_t mem = llama_get_memory(g_context);
+    if (!g_speculative_checkpoint) {
+        if (!llama_memory_seq_rm(mem, 0, current_position + (llama_pos) kept, -1)) {
+            throw std::runtime_error("llama_memory_seq_rm() failed for rejected draft tokens");
+        }
+        return;
     }
-
-    // Ci si ferma alla posizione segnata, chiudendo il turno come su EOG.
-    if (context_exhausted || current_position >= stop_generation_position) {
-        LOGw("%s: STOP: hitting stop position: %d (context exhausted: %d)", __func__, stop_generation_position, (int) context_exhausted);
-        close_assistant_turn(true);
-        return nullptr;
+    const size_t restored = llama_state_seq_set_data_ext(g_context, checkpoint.data(), checkpoint.size(), 0,
+                                                         LLAMA_STATE_SEQ_FLAGS_PARTIAL_ONLY);
+    if (restored != checkpoint.size() || !llama_memory_seq_rm(mem, 0, current_position, -1)) {
+        throw std::runtime_error("cannot restore the state before the draft tokens");
     }
-
-    // Sample next token
-    const auto new_token_id = common_sampler_sample(g_sampler, g_context, -1);
-    common_sampler_accept(g_sampler, new_token_id, true);
-
-    // Populate the batch with new token, then decode
     g_batch.clear();
-    g_batch.add(new_token_id, current_position, 0, true);
+    for (size_t i = 0; i < kept; ++i) g_batch.add(batch_tokens[i], current_position + (llama_pos) i, 0, false);
+    if (llama_process(g_context, LLAMA_PROCESS_TYPE_DECODE, g_batch.get()) != 0) {
+        throw std::runtime_error("llama_decode() failed for accepted draft tokens");
+    }
+}
+
+// Un passo di generazione: mette in ready_tokens i token campionati. Al primo passo del turno campiona dai logit del
+// prompt; poi decodifica il token in attesa con le ipotesi del ngram (se ce ne sono) e tiene quelle che il sampler
+// avrebbe scelto lui stesso, piu' il token che campiona dopo l'ultima accettata (common_sampler_sample_and_accept_n):
+// la risposta segue la stessa distribuzione del campionamento un token alla volta.
+static void generation_step() {
+    if (pending_token == LLAMA_TOKEN_NULL) {
+        pending_token = common_sampler_sample(g_sampler, g_context, -1);
+        common_sampler_accept(g_sampler, pending_token, true);
+        ready_tokens.push_back(pending_token);
+        last_generated_tokens++;
+        return;
+    }
+    // Dopo il passo restano nella cache al massimo 1 + ipotesi token, e il token nuovo in attesa conta tra gli n_predict.
+    const int room = std::min(DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM - current_position - 1,
+                              (int) stop_generation_position - current_position - 2);
+    llama_tokens draft;
+    if (g_speculative && room > 0) {
+        draft = common_ngram_simple_draft({NGRAM_SIZE_N, NGRAM_SIZE_M}, turn_tokens, pending_token);
+        if ((int) draft.size() > room) draft.resize(room);
+        // Un fine turno copiato dal prompt resta fuori: accettato come ultima ipotesi entrerebbe nella cache, con un
+        // altro token campionato dopo. Cosi' un fine turno arriva solo come token nuovo, che la cache non riceve mai.
+        const llama_vocab *vocab = llama_model_get_vocab(g_model);
+        draft.erase(std::find_if(draft.begin(), draft.end(), [vocab](llama_token t) { return llama_vocab_is_eog(vocab, t); }),
+                    draft.end());
+    }
+    std::vector<uint8_t> &checkpoint = g_checkpoint;
+    if (!draft.empty() && g_speculative_checkpoint) {
+        checkpoint.resize(llama_state_seq_get_size_ext(g_context, 0, LLAMA_STATE_SEQ_FLAGS_PARTIAL_ONLY));
+        if (llama_state_seq_get_data_ext(g_context, checkpoint.data(), checkpoint.size(), 0,
+                                         LLAMA_STATE_SEQ_FLAGS_PARTIAL_ONLY) != checkpoint.size()) {
+            throw std::runtime_error("cannot save the state before the draft tokens");
+        }
+    }
+    llama_tokens batch_tokens = {pending_token};
+    batch_tokens.insert(batch_tokens.end(), draft.begin(), draft.end());
+    g_batch.clear();
+    for (size_t i = 0; i < batch_tokens.size(); ++i) g_batch.add(batch_tokens[i], current_position + (llama_pos) i, 0, true);
     if (llama_process(g_context, LLAMA_PROCESS_TYPE_DECODE, g_batch.get()) != 0) {
         // Non un fine generazione: nullptr verrebbe letto da Kotlin come EOG (risposta troncata senza
         // errore). L'eccezione arriva a generateNextToken, che la rilancia a Java.
         LOGe("%s: llama_decode() failed for generated token", __func__);
         throw std::runtime_error("llama_decode() failed for generated token");
     }
+    // ids: le ipotesi accettate e poi il token nuovo, che resta in attesa. Nella cache restano il token in attesa di
+    // prima e le ipotesi accettate.
+    const auto ids = common_sampler_sample_and_accept_n(g_sampler, g_context, draft);
+    const size_t kept = ids.size();
+    if (kept < batch_tokens.size()) rollback_draft(batch_tokens, kept, checkpoint);
+    turn_tokens.insert(turn_tokens.end(), batch_tokens.begin(), batch_tokens.begin() + (std::ptrdiff_t) kept);
+    current_position += (llama_pos) kept;
+    last_generated_tokens += (int) ids.size();
+    drafted_tokens += (int) draft.size();
+    accepted_tokens += (int) kept - 1;
+    pending_token = ids.back();
+    ready_tokens.insert(ready_tokens.end(), ids.begin(), ids.end());
+}
 
-    // Update position
-    current_position++;
-    last_generated_tokens++;
+static jstring generate_next_token_impl(JNIEnv *env) {
+    if (ready_tokens.empty()) {
+        // Generazione illimitata grazie allo shift del contesto. Se lo shift non e' possibile la generazione si
+        // ferma qui, come a n_predict (la risposta resta troncata ma la cache e le posizioni coerenti).
+        bool context_exhausted = false;
+        if (current_position >= DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM) {
+            LOGw("%s: Context full! Shifting...", __func__);
+            context_exhausted = !shift_context();
+        }
+
+        // Ci si ferma alla posizione segnata, chiudendo il turno come su EOG.
+        // Il token in attesa e' gia' stato restituito: conta tra gli n_predict.
+        const llama_pos generated_end = current_position + (pending_token != LLAMA_TOKEN_NULL ? 1 : 0);
+        if (context_exhausted || generated_end >= stop_generation_position) {
+            LOGw("%s: STOP: hitting stop position: %d (context exhausted: %d)", __func__, stop_generation_position, (int) context_exhausted);
+            close_assistant_turn();
+            return nullptr;
+        }
+        generation_step();
+    }
+    const llama_token new_token_id = ready_tokens.front();
+    ready_tokens.pop_front();
 
     // Stop if next token is EOG
     if (llama_vocab_is_eog(llama_model_get_vocab(g_model), new_token_id)) {
         LOGd("id: %d,\tIS EOG!\nSTOP.", new_token_id);
-        close_assistant_turn(false);
+        close_assistant_turn();
         return nullptr;
     }
 
@@ -885,9 +1011,10 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_load(JNIE
 
 extern "C"
 JNIEXPORT jint JNICALL
-Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_prepare(JNIEnv * /*env*/, jobject /*unused*/, jint top_k, jfloat top_p, jint n_threads) {
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_prepare(JNIEnv * /*env*/, jobject /*unused*/, jint top_k, jfloat top_p, jint n_threads,
+                                                                              jboolean speculative) {
     try {
-        return prepare_impl(top_k, top_p, n_threads);
+        return prepare_impl(top_k, top_p, n_threads, speculative);
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
         return -100;
@@ -971,6 +1098,7 @@ static void unload_impl() {
     // fa double free se chiamata due volte.
     common_sampler_free(g_sampler);
     g_sampler = nullptr;
+    std::vector<uint8_t>().swap(g_checkpoint);
     g_chat_templates.reset();
     g_batch = common_batch();
     llama_free(g_context);

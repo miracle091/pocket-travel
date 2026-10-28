@@ -97,7 +97,7 @@ internal class InferenceEngineImpl private constructor(
 
     private external fun load(modelPath: String): Int
 
-    private external fun prepare(topK: Int, topP: Float, nThreads: Int): Int
+    private external fun prepare(topK: Int, topP: Float, nThreads: Int, speculativeNgram: Boolean): Int
 
     @FastNative
     private external fun systemInfo(): String
@@ -201,17 +201,17 @@ internal class InferenceEngineImpl private constructor(
     /**
      * Load the LLM
      */
-    override suspend fun loadModel(pathToModel: String, topK: Int, topP: Float, nThreads: Int) {
+    override suspend fun loadModel(pathToModel: String, topK: Int, topP: Float, nThreads: Int, speculativeNgram: Boolean) {
         // L'init della libreria nativa parte alla creazione e finisce in modo asincrono: se loadModel
         // arriva prima, aspetta invece di fallire il check sullo stato Initializing.
         _state.first { it !is InferenceEngine.State.Uninitialized && it !is InferenceEngine.State.Initializing }
         nativeInitError?.let {
             throw IllegalStateException("Motore IA non disponibile: libreria nativa non caricata (${it.message})", it)
         }
-        loadModelOnDispatcher(pathToModel, topK, topP, nThreads)
+        loadModelOnDispatcher(pathToModel, topK, topP, nThreads, speculativeNgram)
     }
 
-    private suspend fun loadModelOnDispatcher(pathToModel: String, topK: Int, topP: Float, nThreads: Int) =
+    private suspend fun loadModelOnDispatcher(pathToModel: String, topK: Int, topP: Float, nThreads: Int, speculativeNgram: Boolean) =
         withContext(llamaDispatcher) {
             check(_state.value is InferenceEngine.State.Initialized) {
                 "Cannot load model in ${_state.value.javaClass.simpleName}!"
@@ -230,7 +230,7 @@ internal class InferenceEngineImpl private constructor(
                 load(pathToModel).let {
                     if (it != 0) throw UnsupportedArchitectureException()
                 }
-                prepare(topK, topP, nThreads).let {
+                prepare(topK, topP, nThreads, speculativeNgram).let {
                     if (it != 0) throw IOException("Failed to prepare resources")
                 }
                 Log.i(TAG, "Model loaded!")
