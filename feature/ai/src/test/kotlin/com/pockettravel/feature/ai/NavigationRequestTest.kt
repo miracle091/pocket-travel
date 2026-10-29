@@ -76,6 +76,20 @@ class NavigationRequestTest {
     }
 
     @Test
+    fun `percorso, naviga, indicazioni e route senza una preposizione di destinazione non sono richieste`() {
+        assertNull(parseNavigationRequest("Percorso consigliato di 3 giorni a Roma?"))
+        assertNull(parseNavigationRequest("Navigare in barca alle Eolie si può?"))
+        assertNull(parseNavigationRequest("Indicazioni sui vaccini?"))
+        assertNull(parseNavigationRequest("Route 66 è bella?"))
+        assertNull(parseNavigationRequest("Directions in the old town are confusing?"))
+        assertNull(parseNavigationRequest("Navigate the canals by boat?"))
+        // Con la preposizione, anche dopo il modo, restano richieste.
+        assertEquals(NavigationRequest("Colosseo", NavigationRequestProfile.WALK), parseNavigationRequest("Percorso a piedi per il Colosseo"))
+        assertEquals(NavigationRequest("Duomo", NavigationRequestProfile.BIKE), parseNavigationRequest("Naviga in bici verso il Duomo"))
+        assertEquals(NavigationRequest("Termini", null), parseNavigationRequest("Route to Termini"))
+    }
+
+    @Test
     fun `senza destinazione non e' una richiesta`() {
         assertNull(parseNavigationRequest("Portami"))
         assertNull(parseNavigationRequest("take me to"))

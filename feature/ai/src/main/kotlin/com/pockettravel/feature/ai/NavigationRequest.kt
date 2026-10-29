@@ -20,13 +20,16 @@ data class NavigationRequest(
  * "come si arriva" restano domande per la guida (sezione "Come arrivare" di Wikivoyage), non comandi.
  */
 fun parseNavigationRequest(text: String): NavigationRequest? {
-    val rest = TRIGGER.find(text.trim())?.groupValues?.get(1) ?: return null
+    val trigger = TRIGGER.find(text.trim()) ?: return null
+    val rest = trigger.groupValues[2]
     val profileMatch = MODES.firstNotNullOfOrNull { (regex, profile) -> regex.find(rest)?.let { it to profile } }
     val withTime = (profileMatch?.let { rest.removeRange(it.first.range) } ?: rest)
         .replace(POLITENESS, " ").trim().trimEnd('?', '!', '.', ',', ';', ' ')
     val withoutTime = withTime.replace(TRAILING_TIME, "")
-    val destination = withoutLeadingWords(withoutTime)
-    return destination.takeIf { it.isNotEmpty() }
+    // "Percorso consigliato di 3 giorni a Roma?", "Route 66 è bella?": questi trigger sono anche parole comuni, e
+    // valgono solo con una preposizione di destinazione dopo ("percorso per", "route to"), anche dopo il modo.
+    val destination = withoutLeadingWords(withoutTime).takeUnless { trigger.groupValues[1].isNotEmpty() && !DESTINATION_START.containsMatchIn(withTime) }
+    return destination?.takeIf { it.isNotEmpty() }
         ?.let { NavigationRequest(it, profileMatch?.second, withoutLeadingWords(withTime).takeIf { withoutTime != withTime }) }
 }
 
@@ -42,8 +45,16 @@ private fun withoutLeadingWords(text: String): String {
 
 private val TRIGGER = Regex(
     "^(?:(?:puoi|potresti|per favore|please|can you|could you)\\s+)?" +
-        "(?:portami|accompagnami|come (?:arrivo|raggiungo|vado)|naviga(?:re)?|indicazioni|percorso|voglio andare|andiamo" +
-        "|take me|directions|navigate|how (?:do|can) i get to|route|guide me|get me|i want to go)\\b(.*)$",
+        "(?:portami|accompagnami|come (?:arrivo|raggiungo|vado)|voglio andare|andiamo" +
+        "|take me|how (?:do|can) i get to|guide me|get me|i want to go" +
+        // Trigger che sono anche parole comuni: gruppo 1, controllati con DESTINATION_START.
+        "|(naviga(?:re)?|indicazioni|percorso|directions|navigate|route))\\b(.*)$",
+    RegexOption.IGNORE_CASE,
+)
+
+// Inizio della destinazione dopo un trigger ambiguo: "per", "verso", "alla", "to", "towards"; "stradali" puo' precedere.
+private val DESTINATION_START = Regex(
+    "^(?:stradali\\s+)?(?:(?:verso|fino|per|a|ad|al|allo|alla|ai|agli|alle|to|towards?|for)\\b|(?:all|dall)['’])",
     RegexOption.IGNORE_CASE,
 )
 
