@@ -61,7 +61,13 @@ class VaultViewModel @Inject constructor(
     }
 
     fun completeUnlock(intent: VaultKeyEnvelope.UnlockCipher, authenticatedCipher: Cipher) {
-        repository.unlock(keyEnvelope.completeUnlock(intent, authenticatedCipher))
+        val dek = keyEnvelope.completeUnlock(intent, authenticatedCipher)
+        try {
+            // SessionAesCipher ne tiene una copia: la chiave in chiaro non resta in questo array.
+            repository.unlock(dek)
+        } finally {
+            dek.fill(0)
+        }
         unlocked.value = true
     }
 

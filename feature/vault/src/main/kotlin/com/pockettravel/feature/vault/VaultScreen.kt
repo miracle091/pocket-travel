@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -77,6 +78,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -120,7 +122,15 @@ private fun DocumentType.label(): Int = when (this) {
     DocumentType.OTHER -> R.string.vault_type_other
 }
 
-private enum class GateStatus { NOT_ENROLLED, LOCKED, UNLOCKED }
+internal enum class GateStatus { NOT_ENROLLED, LOCKED, UNLOCKED }
+
+// Al ritorno in primo piano: la biometria forte puo' essere comparsa (NOT_ENROLLED -> LOCKED) o sparita
+// (LOCKED -> NOT_ENROLLED, impronte tolte a cassaforte bloccata: senza, lo sblocco non puo' riuscire).
+internal fun gateStatusOnResume(current: GateStatus, canAuthenticate: Boolean): GateStatus = when {
+    canAuthenticate && current == GateStatus.NOT_ENROLLED -> GateStatus.LOCKED
+    !canAuthenticate && current == GateStatus.LOCKED -> GateStatus.NOT_ENROLLED
+    else -> current
+}
 
 // Passaporto proprio e di altri, cifrati con una chiave di sessione (SessionAesCipher) sbloccata
 // tramite BiometricPrompt.CryptoObject: la vera operazione biometrica avviene una volta sola
@@ -147,15 +157,15 @@ fun VaultScreen(
 
     // L'utente puo' uscire da qui per impostare il blocco schermo nelle Impostazioni: al ritorno
     // (ON_RESUME) si ricontrolla la biometria, cosi' NOT_ENROLLED non resta bloccato per sempre.
-    // Non tocca LOCKED/UNLOCKED gia' impostati, solo NOT_ENROLLED che puo' essere diventato disponibile.
+    // Da UNLOCKED non cambia nulla; da LOCKED passa a NOT_ENROLLED se la biometria e' sparita.
     // App in background (ON_STOP, non una rotazione): la cassaforte si chiude, al ritorno serve di nuovo
     // lo sblocco. Il prompt biometrico e il dialogo dei permessi non fermano l'activity.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && gateStatus == GateStatus.NOT_ENROLLED) {
+            if (event == Lifecycle.Event.ON_RESUME) {
                 val canAuthenticate = BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS)
-                if (canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS) gateStatus = GateStatus.LOCKED
+                gateStatus = gateStatusOnResume(gateStatus, canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS)
             }
             if (event == Lifecycle.Event.ON_STOP && gateStatus == GateStatus.UNLOCKED && (context as? Activity)?.isChangingConfigurations != true) {
                 viewModel.lock()
@@ -215,6 +225,7 @@ fun VaultScreen(
                     GateStatus.LOCKED -> LockedContent(
                         viewModel = viewModel,
                         onUnlock = { gateStatus = GateStatus.UNLOCKED },
+                        onNotEnrolled = { gateStatus = GateStatus.NOT_ENROLLED },
                     )
                     GateStatus.UNLOCKED -> PassportList(viewModel)
                 }
@@ -250,7 +261,7 @@ private fun NoLockScreenSetUp() {
 }
 
 @Composable
-private fun LockedContent(viewModel: VaultViewModel, onUnlock: () -> Unit) {
+private fun LockedContent(viewModel: VaultViewModel, onUnlock: () -> Unit, onNotEnrolled: () -> Unit) {
     val context = LocalContext.current
     var errorMessage by remember { mutableStateOf<String?>(null) }
     // Impronte aggiunte o tolte dopo aver creato la cassaforte: la chiave non c'e' piu'.
@@ -264,6 +275,11 @@ private fun LockedContent(viewModel: VaultViewModel, onUnlock: () -> Unit) {
 
     fun showPrompt() {
         val activity = context as FragmentActivity
+        // Senza biometria forte la chiave non si crea ne' si usa: si mostra la spiegazione, non un errore.
+        if (BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS) != BiometricManager.BIOMETRIC_SUCCESS) {
+            onNotEnrolled()
+            return
+        }
         val unlockIntent = viewModel.prepareUnlockCipher() ?: run {
             keyInvalidated = true
             return
@@ -577,11 +593,13 @@ private fun PassportEditDialog(
     onSave: (Passport) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var fullName by rememberSaveable { mutableStateOf(existing?.fullName ?: "") }
-    var documentNumber by rememberSaveable { mutableStateOf(existing?.documentNumber ?: "") }
-    var nationality by rememberSaveable { mutableStateOf(existing?.nationality ?: "") }
-    var expiryDate by rememberSaveable { mutableStateOf(existing?.expiryDate ?: "") }
-    var note by rememberSaveable { mutableStateOf(existing?.note ?: "") }
+    // Con remember, non rememberSaveable: i dati del documento non devono finire nello stato salvato
+    // dell'activity (Bundle di onSaveInstanceState), che arriva prima del blocco.
+    var fullName by remember { mutableStateOf(existing?.fullName ?: "") }
+    var documentNumber by remember { mutableStateOf(existing?.documentNumber ?: "") }
+    var nationality by remember { mutableStateOf(existing?.nationality ?: "") }
+    var expiryDate by remember { mutableStateOf(existing?.expiryDate ?: "") }
+    var note by remember { mutableStateOf(existing?.note ?: "") }
     var documentType by rememberSaveable { mutableStateOf(existing?.documentType ?: DocumentType.PASSPORT) }
     val initialPhotoFileNames = remember { existing?.photoFileNames ?: emptyList() }
     var photoFileNames by rememberSaveable { mutableStateOf(initialPhotoFileNames) }
@@ -710,7 +728,15 @@ private fun PassportEditDialog(
                     label = stringResource(fields.name),
                     index = if (documentType == DocumentType.TICKET) travelData?.airlines else null,
                 )
-                OutlinedTextField(value = documentNumber, onValueChange = { documentNumber = it }, label = { Text(stringResource(fields.number)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = documentNumber,
+                    onValueChange = { documentNumber = it },
+                    label = { Text(stringResource(fields.number)) },
+                    singleLine = true,
+                    // Niente correzione automatica: la tastiera non deve imparare il numero del documento.
+                    keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Ascii),
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 fields.nationality?.let { label ->
                     if (documentType == DocumentType.TICKET) {
                         RouteFields(

@@ -20,6 +20,18 @@ class SessionAesCipherTest {
     }
 
     @Test
+    fun `azzerare l'array della chiave dopo la creazione non rompe il cifrario`() {
+        val key = randomKey()
+        val cipher = SessionAesCipher(key)
+        val payload = cipher.encrypt("Mario Rossi")
+
+        key.fill(0)
+
+        assertEquals("Mario Rossi", cipher.decrypt(payload))
+        assertEquals("Luigi", cipher.decrypt(cipher.encrypt("Luigi")))
+    }
+
+    @Test
     fun `encryptBytes poi decryptBytes ricostruisce i byte originali`() {
         val cipher = SessionAesCipher(randomKey())
         val original = ByteArray(4096) { (it % 256).toByte() }

@@ -16,6 +16,7 @@
         tools:ignore="DataExtractionRules"
         android:name=".PocketTravelApp"
         android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
         android:localeConfig="@xml/locales_config"
