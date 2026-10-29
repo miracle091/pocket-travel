@@ -312,7 +312,7 @@ class GenerateGuideContentTest {
         // Con il dump italiano si rigenerano, anche se c'e' una sezione pubblicata.
         val dump = "{{QuickbarCountry\n|Lingua=Italiano\n}}"
         assertEquals(englishQuickFactsSection("italia", dump), englishQuickFactsOrPublished("italia", dump, listOf(published)))
-        // Niente dump e niente sezione pubblicata: i soli dati di Wikidata, come prima.
+        // Niente dump e niente sezione pubblicata: i soli dati di Wikidata.
         assertEquals(englishQuickFactsSection("italia", ""), englishQuickFactsOrPublished("italia", null, listOf(other)))
     }
 
