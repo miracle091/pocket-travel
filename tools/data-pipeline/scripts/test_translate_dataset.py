@@ -5,13 +5,9 @@ usa una cache gia' piena o un _run sostituito.
 
 Uso: python test_translate_dataset.py
 """
-import io
 import json
-import os
-import subprocess
 import sys
 import tempfile
-import types
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -179,50 +175,6 @@ class RunTest(unittest.TestCase):
             with mock.patch.object(t, "_run") as run:
                 self.assertEqual(["", "\n"], t.translate_many(["", "\n"]))
         run.assert_not_called()
-
-
-class PickDiscreteGpuTest(unittest.TestCase):
-    def setUp(self):
-        env = {k: v for k, v in os.environ.items() if k not in ("HIP_VISIBLE_DEVICES", "CUDA_VISIBLE_DEVICES")}
-        patcher = mock.patch.dict(os.environ, env, clear=True)
-        patcher.start()
-        self.addCleanup(patcher.stop)
-        modules = mock.patch.dict(sys.modules)
-        modules.start()
-        self.addCleanup(modules.stop)
-        sys.modules.pop("torch", None)
-
-    def test_imposta_entrambe_le_variabili_con_la_gpu_migliore(self):
-        with mock.patch("subprocess.run", return_value=mock.Mock(stdout="1\n")):
-            ts._pick_discrete_gpu()
-        self.assertEqual("1", os.environ["HIP_VISIBLE_DEVICES"])
-        self.assertEqual("1", os.environ["CUDA_VISIBLE_DEVICES"])
-
-    def test_variabile_gia_impostata_viene_rispettata(self):
-        os.environ["HIP_VISIBLE_DEVICES"] = "0"
-        with mock.patch("subprocess.run") as run:
-            ts._pick_discrete_gpu()
-        run.assert_not_called()
-        self.assertNotIn("CUDA_VISIBLE_DEVICES", os.environ)
-
-    def test_torch_gia_importato_non_si_tocca_nulla(self):
-        sys.modules["torch"] = types.ModuleType("torch")
-        with mock.patch("subprocess.run") as run:
-            ts._pick_discrete_gpu()
-        run.assert_not_called()
-
-    def test_nessuna_gpu_lascia_l_ambiente_com_e(self):
-        with mock.patch("subprocess.run", return_value=mock.Mock(stdout="-1\n")):
-            ts._pick_discrete_gpu()
-        self.assertNotIn("HIP_VISIBLE_DEVICES", os.environ)
-
-    def test_sonda_fallita_avvisa_senza_eccezioni(self):
-        for failure in (mock.Mock(stdout="traceback"), subprocess.TimeoutExpired("x", 300)):
-            kwargs = {"side_effect": failure} if isinstance(failure, Exception) else {"return_value": failure}
-            with mock.patch("subprocess.run", **kwargs), mock.patch("sys.stderr", io.StringIO()) as err:
-                ts._pick_discrete_gpu()
-            self.assertIn("scelta della GPU non riuscita", err.getvalue())
-        self.assertNotIn("CUDA_VISIBLE_DEVICES", os.environ)
 
 
 class EdgeTest(unittest.TestCase):

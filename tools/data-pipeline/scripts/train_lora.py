@@ -4,8 +4,9 @@
 Due backend, stessi iperparametri:
   (default)   transformers + peft, PyTorch ROCm puro
   --unsloth   kernel Unsloth (Triton); su Windows serve l'ambiente MSVC: usa train_auto.py
-Va lanciato limitando HIP_VISIBLE_DEVICES alla sola GPU discreta (l'iGPU compare come device 0):
-  HIP_VISIBLE_DEVICES=<indice GPU> python train_lora.py --max-steps 30
+Sceglie da se' la GPU discreta (l'iGPU compare come device 0) dopo aver preso il lucchetto della GPU, e rispetta
+HIP_VISIBLE_DEVICES/CUDA_VISIBLE_DEVICES gia' impostate (train_auto.py le imposta):
+  python train_lora.py --max-steps 30
 Pesi in bf16; --4bit (QLoRA, AMD e NVIDIA) solo per GPU con poca VRAM: Unsloth la sconsiglia per i Qwen3.5
 (differenze di quantizzazione piu' alte del normale). Con --merge la LoRA si fonde nel modello base a piena precisione.
 
@@ -47,24 +48,6 @@ from eval_common import TEST_REGIONS, chat_prompt_and_answer, question_of
 import gpu_lock
 from status import Progress, phase
 from text_only import CHATML, check_chat_format, check_loaded_embeddings, check_no_vision, text_only_base
-
-# Unsloth 2026.10.8 compila ogni blocco del modello come una regione di torch.compile: sul Qwen3.5 con ROCm su Windows
-# la prima loss esce enorme e dal secondo passo loss 0 e gradiente NaN (peft puro e senza compilazione: gradiente ~1).
-# Unsloth la legge al caricamento del modello: impostata qui vale anche senza train_auto.py. Una variabile gia'
-# impostata resta, per riprovare la compilazione con una versione nuova.
-os.environ.setdefault("UNSLOTH_BLOCK_COMPILE", "0")
-try:
-    import unsloth  # noqa: F401  patch di compatibilita' Windows/ROCm (torch senza distributed), serve anche senza --unsloth
-except ImportError:
-    pass  # senza Unsloth resta solo il backend peft
-import torch
-from datasets import load_dataset
-from peft import LoraConfig, get_peft_model
-from transformers import (AutoModelForCausalLM, AutoTokenizer, DataCollatorForSeq2Seq, Trainer,
-                          TrainerCallback, TrainingArguments)
-
-# bf16 nativo (stessa regola per NVIDIA e AMD): capability >= 8 (Ampere+; su ROCm gfx9+). Su Turing/Pascal is_bf16_supported() e' vero ma emulato (lento): meglio fp16
-BF16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported() and torch.cuda.get_device_capability()[0] >= 8
 
 SFT_DIR = Path(__file__).resolve().parent.parent / "data" / "sft"
 
@@ -108,6 +91,26 @@ ap.add_argument("--dataset", default="pocket_travel_sft.v10.it.jsonl",
 ap.add_argument("--out", default=str(SFT_DIR / "run-smollm2-135m"))
 a = ap.parse_args()
 gpu_lock.gpu_job("train_lora.py")
+gpu_lock.pick_discrete_gpu("train_lora")  # dopo il lucchetto e prima di torch e Unsloth
+
+# Unsloth 2026.10.8 compila ogni blocco del modello come una regione di torch.compile: sul Qwen3.5 con ROCm su Windows
+# la prima loss esce enorme e dal secondo passo loss 0 e gradiente NaN (peft puro e senza compilazione: gradiente ~1).
+# Unsloth la legge al caricamento del modello: impostata qui vale anche senza train_auto.py. Una variabile gia'
+# impostata resta, per riprovare la compilazione con una versione nuova.
+os.environ.setdefault("UNSLOTH_BLOCK_COMPILE", "0")
+try:
+    import unsloth  # noqa: F401  patch di compatibilita' Windows/ROCm (torch senza distributed), serve anche senza --unsloth
+except ImportError:
+    pass  # senza Unsloth resta solo il backend peft
+import torch
+from datasets import load_dataset
+from peft import LoraConfig, get_peft_model
+from transformers import (AutoModelForCausalLM, AutoTokenizer, DataCollatorForSeq2Seq, Trainer,
+                          TrainerCallback, TrainingArguments)
+
+# bf16 nativo (stessa regola per NVIDIA e AMD): capability >= 8 (Ampere+; su ROCm gfx9+). Su Turing/Pascal is_bf16_supported() e' vero ma emulato (lento): meglio fp16
+BF16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported() and torch.cuda.get_device_capability()[0] >= 8
+
 if a.four_bit and not a.unsloth:
     ap.error("--4bit richiede --unsloth")
 LORA.update(r=a.lora_r, lora_alpha=a.lora_alpha)

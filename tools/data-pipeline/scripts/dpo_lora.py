@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """DPO con LoRA su un modello gia' addestrato con train_lora.py (cartella merged), sui punti deboli del test esteso.
 
-Uso (stessa GPU e stesso ambiente di train_lora.py; HIP_VISIBLE_DEVICES sulla sola GPU discreta):
+Uso (stesso ambiente di train_lora.py; GPU discreta scelta come in train_lora.py):
   python dpo_lora.py --base <run> --dataset pocket_travel_sft.v10.it.jsonl --out <cartella> [--merge]
 
 Coppie (risposta preferita, risposta scartata) dalle righe del dataset SFT, fuori dalle regioni di test (TEST_REGIONS) e
@@ -126,6 +126,7 @@ def main():
     import gpu_lock
     from status import Progress, phase
     gpu_lock.gpu_job("dpo_lora.py")
+    gpu_lock.pick_discrete_gpu("dpo_lora")  # dopo il lucchetto e prima di torch e Unsloth
     try:
         import unsloth  # noqa: F401  patch di compatibilita' Windows/ROCm, come in train_lora.py
     except ImportError:

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Misura il comportamento di un modello fuso sulle regioni di test (le stesse di train_lora.py).
 
-Uso: HIP_VISIBLE_DEVICES=<gpu> python eval_behavior.py [<cartella merged>]
+Uso: python eval_behavior.py [<cartella merged>] (GPU discreta scelta da gpu_lock.pick_discrete_gpu dopo il lucchetto;
+HIP_VISIBLE_DEVICES/CUDA_VISIBLE_DEVICES gia' impostate restano)
 Metriche: sui positivi, rifiuti sbagliati e risposta con lo stesso inizio dell'atteso;
 sui negativi, quanti rifiutano e quanti danno la risposta identica (rifiuto sul tema giusto); poi i controlli sulle
 istruzioni (instruction_checks di eval_common.py: fedelta' al contesto, lunghezza, lingua, <think> iniziale).
@@ -10,13 +11,6 @@ le righe possono essere qualcuna in piu'.
 """
 import argparse
 import sys
-
-try:
-    import unsloth  # noqa: F401  patch di compatibilita' Windows/ROCm
-except ImportError:
-    pass
-import torch
-from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForImageTextToText, AutoTokenizer
 
 import gpu_lock
 import vram
@@ -32,6 +26,14 @@ ap.add_argument("--max-vram-held", type=float, default=vram.DEFAULT_MAX_HELD_PCT
 ap.add_argument("--errors", action="store_true", help="con --extended: elenca i positivi rifiutati (categoria, domanda)")
 a = ap.parse_args()
 gpu_lock.gpu_job("eval_behavior.py")
+gpu_lock.pick_discrete_gpu("eval_behavior")  # dopo il lucchetto e prima di torch e Unsloth
+
+try:
+    import unsloth  # noqa: F401  patch di compatibilita' Windows/ROCm
+except ImportError:
+    pass
+import torch
+from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForImageTextToText, AutoTokenizer
 
 # bf16 nativo solo se supportato e capability >= 8, come train_lora.py (NVIDIA e AMD), altrimenti fp16
 BF16 = torch.cuda.is_bf16_supported() and torch.cuda.get_device_capability()[0] >= 8

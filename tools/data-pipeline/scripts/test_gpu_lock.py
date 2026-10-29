@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test di gpu_lock.py: attesa del lucchetto tenuto da un altro processo, rilascio quando quel processo muore,
-figli che non lo riprendono, `status`. Lucchetto in una cartella temporanea, nessuna GPU.
+figli che non lo riprendono, `status`, scelta della GPU discreta (sonda finta). Lucchetto in una cartella temporanea,
+nessuna GPU.
 
 Uso: python test_gpu_lock.py
 """
@@ -163,6 +164,50 @@ class GpuLockTest(unittest.TestCase):
         info = {"name": "train_auto.py", "pid": 42, "session": "abcdef1234", "since": 1000}
         self.assertEqual("train_auto.py (PID 42, sessione abcdef12, da 10 min)", gpu_lock.describe(info, now=1600))
         self.assertEqual("un altro processo", gpu_lock.describe(None))
+
+
+class PickDiscreteGpuTest(unittest.TestCase):
+    def setUp(self):
+        env = {k: v for k, v in os.environ.items() if k not in ("HIP_VISIBLE_DEVICES", "CUDA_VISIBLE_DEVICES")}
+        patcher = mock.patch.dict(os.environ, env, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        modules = mock.patch.dict(sys.modules)
+        modules.start()
+        self.addCleanup(modules.stop)
+        sys.modules.pop("torch", None)
+
+    def test_imposta_entrambe_le_variabili_con_la_gpu_migliore(self):
+        with mock.patch("subprocess.run", return_value=mock.Mock(stdout="1\n")):
+            gpu_lock.pick_discrete_gpu("prova")
+        self.assertEqual("1", os.environ["HIP_VISIBLE_DEVICES"])
+        self.assertEqual("1", os.environ["CUDA_VISIBLE_DEVICES"])
+
+    def test_variabile_gia_impostata_viene_rispettata(self):
+        os.environ["HIP_VISIBLE_DEVICES"] = "0"
+        with mock.patch("subprocess.run") as run:
+            gpu_lock.pick_discrete_gpu("prova")
+        run.assert_not_called()
+        self.assertNotIn("CUDA_VISIBLE_DEVICES", os.environ)
+
+    def test_torch_gia_importato_non_si_tocca_nulla(self):
+        sys.modules["torch"] = object()
+        with mock.patch("subprocess.run") as run:
+            gpu_lock.pick_discrete_gpu("prova")
+        run.assert_not_called()
+
+    def test_nessuna_gpu_lascia_l_ambiente_com_e(self):
+        with mock.patch("subprocess.run", return_value=mock.Mock(stdout="-1\n")):
+            gpu_lock.pick_discrete_gpu("prova")
+        self.assertNotIn("HIP_VISIBLE_DEVICES", os.environ)
+
+    def test_sonda_fallita_avvisa_senza_eccezioni(self):
+        for failure in (mock.Mock(stdout="traceback"), subprocess.TimeoutExpired("x", 300)):
+            kwargs = {"side_effect": failure} if isinstance(failure, Exception) else {"return_value": failure}
+            with mock.patch("subprocess.run", **kwargs), mock.patch("sys.stderr", io.StringIO()) as err:
+                gpu_lock.pick_discrete_gpu("prova")
+            self.assertIn("[prova] scelta della GPU non riuscita", err.getvalue())
+        self.assertNotIn("CUDA_VISIBLE_DEVICES", os.environ)
 
 
 if __name__ == "__main__":

@@ -55,20 +55,21 @@ Output in data/sft/: pocket_travel_sft.<versione>.<lang>.jsonl, ATTRIBUTION.<ver
 (le fonti e le sezioni rimaste fuori e perche', vedi write_excluded di generate_sft_dataset.py); traduzioni in cache in
 raw/translations.<src>-<tgt>.jsonl. Senza --version: v11 con --nearby, --distances, --cities-db, --emergency,
 --user-style-questions diverso da 0, --city-daily-life, --balanced-negatives, --clear-questions o --guide-sections con
---guides-db (i default), altrimenti v9; il v9, che
-usano i training, si sovrascrive solo dando
---version v9. Fonti e pulizia sono cambiate dal v9 generato: gli stessi argomenti non ridanno quel file.
+--guides-db (i default), altrimenti v9. Un dataset con la stessa versione e lingua che esiste gia' si sovrascrive solo
+con --overwrite; i file nuovi sostituiscono i vecchi solo a scrittura finita. Fonti e pulizia sono cambiate dal v9
+generato: gli stessi argomenti non ridanno quel file.
 """
 import argparse
 import json
 import math
+import os
 import random
 import re
 import sqlite3
 import sys
 import urllib.parse
 from collections import Counter, defaultdict
-from contextlib import closing
+from contextlib import closing, contextmanager
 from pathlib import Path
 
 import audit_sft
@@ -1077,6 +1078,18 @@ def localized_attribution(rows, lang):
     return [(rid, tr(name), url, tr(lic)) for rid, name, url, lic in rows]
 
 
+@contextmanager
+def replaced_when_done(path):
+    """Percorso temporaneo accanto a path, che sostituisce path solo se il blocco finisce senza errori: un'interruzione
+    o un errore a meta' scrittura lasciano intero il file precedente, e il temporaneo si cancella."""
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        yield tmp
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lang", choices=("it", "en"), required=True)
@@ -1130,7 +1143,10 @@ def main():
     ap.add_argument("--version", help="versione nel nome dei file di output (default: v12 con --guide-wikipedia, v11 con --nearby, --distances, "
                                       "--cities-db, --emergency, --user-style-questions diverso da 0, --city-daily-life, "
                                       "--balanced-negatives, --clear-questions o --guide-sections con --guides-db, "
-                                      "altrimenti v9); serve per sovrascrivere un v9 che esiste gia'")
+                                      "altrimenti v9)")
+    ap.add_argument("--overwrite", action="store_true",
+                    help="sovrascrive il dataset della stessa versione e lingua se esiste gia' (la versione in sviluppo si "
+                         "rigenera con lo stesso nome); senza, lo script si ferma prima di cominciare")
     ap.add_argument("--external-questions", action=argparse.BooleanOptionalAction, default=True,
                     help="rifiuti sui servizi di un alloggio con le domande di WebFAQ e domande fuori tema di MKQA "
                          "(external_questions.py; cache in raw/, la prima volta serve la rete)")
@@ -1152,8 +1168,9 @@ def main():
     version = a.version or ("v12" if a.guide_wikipedia else "v11" if a.nearby or a.distances or a.cities_db or a.emergency or a.user_style_questions
                             or a.city_daily_life or a.balanced_negatives or a.clear_questions
                             or (a.guide_sections and a.guides_db) else "v9")
-    if version == "v9" and not a.version and (it.OUT / f"pocket_travel_sft.v9.{a.lang}.jsonl").exists():
-        ap.error(f"pocket_travel_sft.v9.{a.lang}.jsonl esiste gia' (lo usano i training): per sovrascriverlo dai --version v9")
+    if (it.OUT / f"pocket_travel_sft.{version}.{a.lang}.jsonl").exists() and not a.overwrite:
+        ap.error(f"pocket_travel_sft.{version}.{a.lang}.jsonl esiste gia' (potrebbe usarlo un training): "
+                 "per sovrascriverlo dai --overwrite")
     if a.city_daily_life:  # tutte e due le lingue: i rifiuti controllano anche le radici dell'altra lingua
         LANGS.update({k: with_city_daily_life(v, k) for k, v in LANGS.items()})
     if a.guide_sections and a.guides_db:
@@ -1786,13 +1803,18 @@ def main():
         attribution.append(("-", f"dump {wiki} del {date}",wiki_dump.export_url(wiki, date),
                             "CC BY-SA 4.0 (testo delle pagine elencate sopra)"))
     data_out, attr_out = it.OUT / f"pocket_travel_sft.{version}.{lang}.jsonl", it.OUT / f"ATTRIBUTION.{version}.{lang}.tsv"
-    with open(data_out, "w", encoding="utf-8") as f:
-        for r in rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    with open(attr_out, "w", encoding="utf-8") as f:
-        f.write("regionId\tdisplayName\tsourceUrl\tlicense\n")
-        for rid, name, url, lic in localized_attribution(attribution, lang):
-            f.write(f"{rid}\t{name}\t{url}\t{lic}\n")
+    # Il dataset si sostituisce per ultimo, dopo ATTRIBUTION ed EXCLUDED: chi lo trova nuovo trova nuovi anche gli altri
+    excluded_out = it.OUT / f"EXCLUDED.{version}.{lang}.tsv"
+    with replaced_when_done(data_out) as data_tmp, replaced_when_done(attr_out) as attr_tmp, \
+            replaced_when_done(excluded_out) as excluded_tmp:
+        with open(data_tmp, "w", encoding="utf-8") as f:
+            for r in rows:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        with open(attr_tmp, "w", encoding="utf-8") as f:
+            f.write("regionId\tdisplayName\tsourceUrl\tlicense\n")
+            for rid, name, url, lic in localized_attribution(attribution, lang):
+                f.write(f"{rid}\t{name}\t{url}\t{lic}\n")
+        it.write_excluded(excluded_tmp, excluded)
     print(f"regioni con testo: {len(data)}; sezioni tradotte {other}->{lang}: {n_tr['sezioni']}, "
           f"paragrafi Wikipedia tradotti: {n_tr['wikipedia']}, originali di Wikipedia EN: {n_tr['wikipedia_en']}")
     print(f"positivi={pos} negativi={neg} citta' positivi={city_pos} negativi={city_neg} "
@@ -1805,7 +1827,6 @@ def main():
     if user_style:
         print("domande in stile utente usate (tra positivi, rifiuti e righe scartate):", dict(user_style_uses))
     print(f"scritto {data_out}")
-    it.write_excluded(it.OUT / f"EXCLUDED.{version}.{lang}.tsv", excluded)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,6 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -64,25 +63,6 @@ def _plausible(src, out):
             and 0.5 <= (len(out) + 10) / (len(src) + 10) <= 2.0)
 
 
-def _pick_discrete_gpu():
-    """Rende visibile a torch solo la GPU con piu' unita' di calcolo, prima che torch inizializzi la GPU: con ROCm la
-    grafica integrata compare spesso come device 0, non esegue i kernel (hipErrorInvalidImage) e dichiara come sua la
-    RAM di sistema; sceglierla dopo con set_device non basta, generate() crea comunque tensori sul device 0.
-    Un processo a parte fa la scelta; HIP_VISIBLE_DEVICES o CUDA_VISIBLE_DEVICES gia' impostati vengono rispettati."""
-    if "torch" in sys.modules or any(v in os.environ for v in ("HIP_VISIBLE_DEVICES", "CUDA_VISIBLE_DEVICES")):
-        return
-    probe = ("import torch\n"
-             "n = torch.cuda.device_count() if torch.cuda.is_available() else 0\n"
-             "print(max(range(n), key=lambda i: torch.cuda.get_device_properties(i).multi_processor_count) if n else -1)")
-    try:
-        best = int(subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, timeout=300).stdout.strip())
-    except (ValueError, subprocess.SubprocessError) as e:
-        print(f"[traduzione] scelta della GPU non riuscita ({e}): imposta HIP_VISIBLE_DEVICES/CUDA_VISIBLE_DEVICES", file=sys.stderr)
-        return
-    if best >= 0:
-        os.environ["HIP_VISIBLE_DEVICES"] = os.environ["CUDA_VISIBLE_DEVICES"] = str(best)
-
-
 class Translator:
     def __init__(self, src, tgt, cache_dir, batch=32):
         self.src, self.tgt, self.batch = src, tgt, batch
@@ -103,12 +83,12 @@ class Translator:
         # torchao (importato da transformers se installato) carica torch.distributed, assente in torch ROCm per
         # Windows; per la traduzione non serve
         sys.modules.setdefault("torchao", None)
-        _pick_discrete_gpu()
+        import gpu_lock
+        gpu_lock.pick_discrete_gpu("traduzione")
         import torch
         from transformers import MarianMTModel, MarianTokenizer
         name = MODELS[(self.src, self.tgt)]
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        import gpu_lock
         gpu_lock.gpu_job(f"traduzione {self.src}-{self.tgt}", gpu=self.device == "cuda")
         self.tokenizer = MarianTokenizer.from_pretrained(name, revision=REVISIONS[name])
         model = MarianMTModel.from_pretrained(name, revision=REVISIONS[name])

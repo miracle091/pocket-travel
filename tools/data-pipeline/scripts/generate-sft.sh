@@ -3,7 +3,7 @@
 # ne controlla la qualita' (audit_sft.py --strict). Solo il dataset: nessun training.
 #
 # Uso: generate-sft.sh [--new | --v12 | --old] --data <cartella> [--lang it|en] [--version <nome>] [--dump-dir <cartella>]
-#                      [--no-eval]
+#                      [--overwrite] [--no-eval]
 #   --new   (default) la ricetta nuova (v11): citta', citta' vicine e partenze, distanze, Storia e Clima delle citta',
 #           numeri di emergenza, domande in stile utente, VITA_QUOTIDIANA delle citta', rifiuti in proporzione ai
 #           positivi, niente domande ambigue, sezioni nuove, guida generale e campi Wikidata delle guide pubblicate (gli
@@ -12,7 +12,7 @@
 #           telecomunicazioni: --guide-wikipedia)
 #   --old   la ricetta vecchia (v9): citta', fatti rapidi, note e vaccinazioni, senza le opzioni nuove. Le fonti sono
 #           cambiate da allora, quindi il file non e' identico al v9 dei training: si chiama v9-rigenerato e non
-#           sostituisce pocket_travel_sft.v9.*.jsonl (per farlo, --version v9)
+#           sostituisce pocket_travel_sft.v9.*.jsonl (per farlo, --version v9 --overwrite)
 #   --data  cartella con:
 #             dumps/<AAAA-MM-GG>/     MediaWiki Content File Exports (download-wikimedia-dumps.sh); si usa il piu' recente
 #             guides/                 guides.db e guides-en.db pubblicati (guides--<versione>--guides.db, guides-en--...)
@@ -22,6 +22,7 @@
 #   --lang      una sola lingua (default: it ed en)
 #   --version   nome nel file di output (default: v11 con --new, v12 con --v12, v9-rigenerato con --old)
 #   --dump-dir  un dump preciso invece del piu' recente in <data>/dumps
+#   --overwrite sovrascrive i dataset della stessa versione che esistono gia' (senza, generate_sft.py si ferma)
 #   --no-eval   senza rigenerare i test estesi (l'audit usa quelli che ci sono)
 # Output in tools/data-pipeline/data/sft/; log in <data>/generate-sft.<versione>.<lang>.log.
 # Richiede: Python con torch, transformers e sentencepiece (variabile PYTHON, default python3), Java e ANDROID_HOME
@@ -29,7 +30,7 @@
 set -euo pipefail
 
 usage() { sed -n '2,/^set /{/^#/p}' "$0" >&2; exit 1; }
-RECIPE="" DATA="" LANGS="it en" VERSION="" DUMP="" EVAL=1
+RECIPE="" DATA="" LANGS="it en" VERSION="" DUMP="" EVAL=1 OVERWRITE=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --new|--v12|--old) [ -z "$RECIPE" ] || usage; RECIPE="${1#--}" ;;
@@ -37,6 +38,7 @@ while [ "$#" -gt 0 ]; do
     --lang) LANGS="${2:?}"; shift ;;
     --version) VERSION="${2:?}"; shift ;;
     --dump-dir) DUMP="${2:?}"; shift ;;
+    --overwrite) OVERWRITE=1 ;;
     --no-eval) EVAL="" ;;
     *) usage ;;
   esac
@@ -76,6 +78,7 @@ for lang in $LANGS; do
   [ -e "${cities[0]}" ] || { echo "nessun cities db per $lang in $DATA" >&2; exit 1; }
   args=(--lang "$lang" --dump-dir "$DUMP" --cities 4500 --guides-db "$guides" --vaccinations "$DATA/vaccinations.jsonl"
         --version "$VERSION")
+  [ -z "$OVERWRITE" ] || args+=(--overwrite)
   if [ "$RECIPE" != old ]; then
     args+=(--nearby 0.045 --distances 0.02 --emergency 0.01 --cities-db "${cities[@]}" --retrieval-rows 600
            --retrieval-cache "$DATA/retrieval-cache")

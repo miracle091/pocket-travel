@@ -20,7 +20,8 @@ I figli di chi lo tiene (train_auto.py -> train_lora.py -> run_eval.py, eval_ggu
 ereditano POCKET_TRAVEL_GPU_LOCK e non lo riprendono.
 
 Negli script della pipeline: gpu_job("nome", gpu=True) dopo gli argomenti, prima di toccare la GPU (prende il
-lucchetto e accende il monitor di hw_monitor.py fino all'uscita del processo).
+lucchetto e accende il monitor di hw_monitor.py fino all'uscita del processo); negli script con torch, subito
+dopo pick_discrete_gpu() e solo poi l'import di torch.
 Da riga di comando, per un comando qualsiasi che usa la GPU (llama-server, script di prova):
   python gpu_lock.py run -- <comando> [argomenti]
   python gpu_lock.py status
@@ -216,6 +217,27 @@ def gpu_job(name, gpu=True):
         lock = GpuLock(name).acquire()
         atexit.register(lock.release)
     hw_monitor.start(name)
+
+
+def pick_discrete_gpu(tag):
+    """Rende visibile a torch solo la GPU con piu' unita' di calcolo (multi_processor_count, non la memoria: la grafica
+    integrata dichiara come sua la RAM di sistema). Va chiamata dopo gpu_job e prima di importare torch o Unsloth: con
+    ROCm la grafica integrata compare spesso come device 0 e non esegue i kernel (hipErrorInvalidImage, 0xC0000005 su
+    Windows); sceglierla dopo con set_device non basta, generate() crea comunque tensori sul device 0.
+    La scelta la fa un processo a parte; HIP_VISIBLE_DEVICES o CUDA_VISIBLE_DEVICES gia' impostati (train_auto.py)
+    vengono rispettati, e con torch gia' importato non cambia nulla. tag apre il messaggio d'errore."""
+    if "torch" in sys.modules or any(v in os.environ for v in ("HIP_VISIBLE_DEVICES", "CUDA_VISIBLE_DEVICES")):
+        return
+    probe = ("import torch\n"
+             "n = torch.cuda.device_count() if torch.cuda.is_available() else 0\n"
+             "print(max(range(n), key=lambda i: torch.cuda.get_device_properties(i).multi_processor_count) if n else -1)")
+    try:
+        best = int(subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, timeout=300).stdout.strip())
+    except (ValueError, subprocess.SubprocessError) as e:
+        print(f"[{tag}] scelta della GPU non riuscita ({e}): imposta HIP_VISIBLE_DEVICES/CUDA_VISIBLE_DEVICES", file=sys.stderr)
+        return
+    if best >= 0:
+        os.environ["HIP_VISIBLE_DEVICES"] = os.environ["CUDA_VISIBLE_DEVICES"] = str(best)
 
 
 def main(argv=None):
