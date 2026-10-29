@@ -74,7 +74,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -605,7 +611,7 @@ private fun Conversation(
             QuestionBubble(turn.askedQuestion)
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(Spacing.l)) {
-                    FinishedAnswer(turn.answer, onOpenOfficialSource)
+                    FinishedAnswer(turn.answer, turn.credit, onOpenOfficialSource)
                     ReadAloudButton(markdownToDisplayText(turn.answer.text).text, readAloud, actions.onReadAloud)
                 }
             }
@@ -722,7 +728,7 @@ private fun AnswerContent(
     when {
         streaming -> Column {
             Text(uiState.streamingText, style = MaterialTheme.typography.bodyLarge)
-            AiGeneratedLabel()
+            AiGeneratedLabel(uiState.answerCredit, onOpenOfficialSource)
         }
         // Alla prima domanda il modello si carica in memoria (fino a qualche decina di secondi per il 4B): una barra
         // dice che l'app sta lavorando e che la risposta arriva dopo.
@@ -748,7 +754,7 @@ private fun AnswerContent(
             }
         }
         answer != null -> Column {
-            FinishedAnswer(answer, onOpenOfficialSource)
+            FinishedAnswer(answer, uiState.answerCredit, onOpenOfficialSource)
             ReadAloudButton(markdownToDisplayText(answer.text).text, readAloud, actions.onReadAloud)
             // Solo la risposta in fondo, con le previsioni nel contesto e piu' vecchie del limite per luogo.
             if (uiState.canRefreshForecast && answer.forecast != null) {
@@ -781,11 +787,27 @@ private fun ReadAloudButton(text: String, state: ReadAloudUiState, onReadAloud: 
     }
 }
 
-// AI Act art. 50(1) e (2): ogni risposta, anche mentre arriva, dice che l'ha scritta un modello IA.
+// AI Act art. 50(1) e (2): ogni risposta, anche mentre arriva, dice che l'ha scritta un modello IA, e quale: il nome
+// apre la pagina del modello.
 @Composable
-private fun AiGeneratedLabel() {
+private fun AiGeneratedLabel(credit: ModelCredit?, onOpenOfficialSource: (url: String) -> Unit) {
+    val label = stringResource(R.string.ai_answer_generated)
+    val linkColor = MaterialTheme.colorScheme.primary
+    val text = remember(label, credit, linkColor) {
+        buildAnnotatedString {
+            append(label)
+            if (credit != null) {
+                append(": ")
+                val link = LinkAnnotation.Clickable(
+                    tag = credit.url,
+                    styles = TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline)),
+                ) { onOpenOfficialSource(credit.url) }
+                withLink(link) { append(credit.name) }
+            }
+        }
+    }
     Text(
-        stringResource(R.string.ai_answer_generated),
+        text,
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = Spacing.xs),
@@ -794,9 +816,9 @@ private fun AiGeneratedLabel() {
 
 // Risposta completa: testo, riquadro meteo delle previsioni usate, fonti e, sui temi regolati, il link alla fonte ufficiale.
 @Composable
-private fun FinishedAnswer(answer: AssistantAnswer, onOpenOfficialSource: (url: String) -> Unit) {
+private fun FinishedAnswer(answer: AssistantAnswer, credit: ModelCredit?, onOpenOfficialSource: (url: String) -> Unit) {
     Text(remember(answer.text) { markdownToDisplayText(answer.text) }, style = MaterialTheme.typography.bodyLarge)
-    AiGeneratedLabel()
+    AiGeneratedLabel(credit, onOpenOfficialSource)
     // I numeri delle previsioni si leggono nel riquadro, non nel testo del modello.
     answer.forecast?.let { forecast ->
         WeatherCard(forecast, onOpenSource = { url, _ -> onOpenOfficialSource(url) }, modifier = Modifier.padding(top = Spacing.m))

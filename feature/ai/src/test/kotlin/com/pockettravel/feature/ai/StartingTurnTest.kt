@@ -52,6 +52,34 @@ class StartingTurnTest {
     }
 
     @Test
+    fun `il turno concluso tiene il suo modello, la domanda nuova prende quello scelto`() {
+        val answer = AssistantAnswer("Si'", emptyList(), false)
+        val old = ModelCredit("Qwen3.5 2B", "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF")
+        val state = state(askedQuestion = "Serve il visto?", answer = answer)
+            .copy(answerCredit = old, selectedModelId = "pt-qwen3.5-0.8b")
+
+        val next = requireNotNull(state.startingTurn("Per quanto tempo?"))
+
+        assertEquals(old, next.earlierTurns.single().credit)
+        assertEquals(
+            ModelCredit("Pocket Travel 0.8B (Qwen3.5)", "https://huggingface.co/pockettravel/qwen3.5-0.8b-travel-it-GGUF"),
+            next.answerCredit,
+        )
+    }
+
+    @Test
+    fun `online il nome e' quello del modello in uso e il link la pagina dei modelli del servizio`() {
+        val online = state().copy(
+            mode = AiEngineMode.ONLINE,
+            onlineProvider = OnlineProvider.MISTRAL,
+            onlineModels = mapOf(OnlineProvider.MISTRAL to "mistral-small-latest"),
+        )
+
+        assertEquals(ModelCredit("mistral-small-latest", OnlineProvider.MISTRAL.modelsPageUrl), online.currentModelCredit())
+        assertNull(state().copy(selectedModelId = "rimosso").currentModelCredit())
+    }
+
+    @Test
     fun `domanda vuota o conversazione in sola lettura non partono`() {
         assertNull(state().startingTurn("  "))
         assertNull(state(readOnlyRegion = "Giappone").startingTurn("Serve il visto?"))

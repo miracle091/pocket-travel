@@ -64,6 +64,8 @@ data class AiUiState(
     // Testo della risposta scritto finora dal modello (con isThinking): vuoto prima del primo token.
     val streamingText: String = "",
     val answer: AssistantAnswer? = null,
+    // Il modello che scrive la risposta in fondo (anche mentre arriva), per l'etichetta sotto il testo.
+    val answerCredit: ModelCredit? = null,
     val askedQuestion: String? = null,
     // Riquadro di emergenza della domanda in fondo (askedQuestion): mostrato prima della risposta, null se non serve.
     val emergencyCard: EmergencyCardState? = null,
@@ -87,8 +89,24 @@ data class AiUiState(
     @StringRes val importError: Int? = null,
 )
 
-/** Un turno gia' concluso della conversazione mostrata. */
-data class ShownTurn(val askedQuestion: String, val answer: AssistantAnswer)
+/** Un turno gia' concluso della conversazione mostrata; [credit] e' il modello che ha scritto la risposta. */
+data class ShownTurn(val askedQuestion: String, val answer: AssistantAnswer, val credit: ModelCredit? = null)
+
+/** Il modello di una risposta: [name] nell'etichetta "Generata da un modello IA", [url] la sua pagina. */
+data class ModelCredit(val name: String, val url: String)
+
+/**
+ * Il modello che scrive le risposte con lo stato attuale: sul dispositivo quello scelto, online quello in uso per il
+ * servizio. Null per un modello che il catalogo non conosce piu'.
+ */
+internal fun AiUiState.currentModelCredit(): ModelCredit? = when (mode) {
+    AiEngineMode.ON_DEVICE -> onDeviceModelCredit(selectedModelId)
+    AiEngineMode.ONLINE -> onlineModels[onlineProvider]?.let { ModelCredit(it, onlineProvider.modelsPageUrl) }
+}
+
+// La pagina del repository HuggingFace da cui si scarica il file: per i modelli addestrati sulle guide quella di pockettravel.
+internal fun onDeviceModelCredit(modelId: String): ModelCredit? =
+    LlmModelCatalog.ALL.firstOrNull { it.id == modelId }?.let { ModelCredit(it.displayName, it.url.substringBefore("/resolve/")) }
 
 /** La cronologia delle conversazioni, cifrata: si apre solo dopo la biometria. */
 sealed interface HistoryUiState {
@@ -508,7 +526,9 @@ class AiAssistantViewModel @Inject constructor(
         val answer = state.answer?.takeIf { state.canRefreshForecast && !state.isThinking } ?: return
         val region = conversation.regionId ?: regionId
         askJob = viewModelScope.launch {
-            _uiState.update { it.copy(isThinking = true, errorMessage = null, canRefreshForecast = false, answer = null, streamingText = "") }
+            _uiState.update {
+                it.copy(isThinking = true, errorMessage = null, canRefreshForecast = false, answer = null, answerCredit = it.currentModelCredit(), streamingText = "")
+            }
             // La domanda gia' unita a quella prima se era un seguito (followUpQuestion): non c'e' un seguito da risolvere.
             collectAnswer(region, answer.question ?: asked, state.mode, previous = null) { refreshed ->
                 conversation.onReplaced(region, state.selectedModelId, asked, refreshed)
@@ -674,6 +694,7 @@ class AiAssistantViewModel @Inject constructor(
                 ShownTurn(
                     turn.askedQuestion,
                     AssistantAnswer(turn.answer, turn.citations, turn.showOfficialSourceBanner, turn.officialSourceUrl, turn.question),
+                    onDeviceModelCredit(turn.modelId),
                 )
             }
             _uiState.update {
@@ -684,6 +705,7 @@ class AiAssistantViewModel @Inject constructor(
                     askedQuestion = shown.lastOrNull()?.askedQuestion,
                     emergencyCard = null,
                     answer = shown.lastOrNull()?.answer,
+                    answerCredit = shown.lastOrNull()?.credit,
                     errorMessage = null,
                     readOnlyRegion = conversation.readOnlyRegionName,
                     showsSavedContent = conversation.showsSavedContent,
@@ -762,8 +784,9 @@ internal fun forecastRefreshDelayMillis(updatedAtMillis: Long, nowMillis: Long):
  */
 internal fun AiUiState.startingTurn(question: String): AiUiState? {
     if (question.isBlank() || isThinking || readOnlyRegion != null) return null
-    val done = askedQuestion?.let { asked -> answer?.let { ShownTurn(asked, it) } }
+    val done = askedQuestion?.let { asked -> answer?.let { ShownTurn(asked, it, answerCredit) } }
     return copy(
+        answerCredit = currentModelCredit(),
         isThinking = true,
         errorMessage = null,
         earlierTurns = earlierTurns + listOfNotNull(done),

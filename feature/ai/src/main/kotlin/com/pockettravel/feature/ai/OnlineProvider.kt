@@ -4,18 +4,32 @@ package com.pockettravel.feature.ai
  * Servizi per il motore "Online": tutti espongono un endpoint compatibile con la Chat Completions
  * API di OpenAI ([OnlineLlmClient]), quindi cambiano solo indirizzo e pagina in cui l'utente crea la sua
  * chiave. I modelli proposti per ognuno vengono da [OnlineModelCatalog]. [keyPrefix]: com'e' fatta una
- * chiave, per il suggerimento nel campo (null se non ha un prefisso fisso).
+ * chiave, per il suggerimento nel campo (null se non ha un prefisso fisso). [modelsPageUrl]: la pagina dei modelli
+ * del servizio, aperta dal nome del modello sotto ogni risposta.
  */
 enum class OnlineProvider(
     val displayName: String,
     val baseUrl: String,
     val keyPageUrl: String,
     val keyPrefix: String?,
+    val modelsPageUrl: String,
 ) {
-    CHATGPT("ChatGPT (OpenAI)", "https://api.openai.com/v1", "https://platform.openai.com/api-keys", "sk-"),
-    MISTRAL("Mistral AI", "https://api.mistral.ai/v1", "https://console.mistral.ai/api-keys", null),
-    GEMINI("Gemini (Google)", "https://generativelanguage.googleapis.com/v1beta/openai", "https://aistudio.google.com/apikey", "AIza"),
-    CLAUDE("Claude (Anthropic)", "https://api.anthropic.com/v1", "https://console.anthropic.com/settings/keys", "sk-ant-"),
+    CHATGPT("ChatGPT (OpenAI)", "https://api.openai.com/v1", "https://platform.openai.com/api-keys", "sk-", "https://platform.openai.com/docs/models"),
+    MISTRAL("Mistral AI", "https://api.mistral.ai/v1", "https://console.mistral.ai/api-keys", null, "https://docs.mistral.ai/getting-started/models/"),
+    GEMINI(
+        "Gemini (Google)",
+        "https://generativelanguage.googleapis.com/v1beta/openai",
+        "https://aistudio.google.com/apikey",
+        "AIza",
+        "https://ai.google.dev/gemini-api/docs/models",
+    ),
+    CLAUDE(
+        "Claude (Anthropic)",
+        "https://api.anthropic.com/v1",
+        "https://console.anthropic.com/settings/keys",
+        "sk-ant-",
+        "https://docs.anthropic.com/en/docs/about-claude/models",
+    ),
 }
 
 /**
