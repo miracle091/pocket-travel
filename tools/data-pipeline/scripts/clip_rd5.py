@@ -322,6 +322,7 @@ def main():
         # La tile esiste ma nel rettangolo non ha strade (costa, mare al bordo della regione): non si scrive
         # un .rd5 vuoto e il chiamante salta solo questa tile, con EMPTY_EXIT distinto da un errore vero.
         print(f"-- {src.name}: nessuna micro-cella nel rettangolo {bbox}, tile saltata", file=sys.stderr)
+        print(src.size)  # anche qui: build-region.sh registra la tile vuota con questa dimensione (routing.emptyTiles)
         return EMPTY_EXIT
     a.dst.write_bytes(out)
     reused = f", {src.reused / 2**20:.1f} MiB dalla cache" if isinstance(src, CachedSource) else ""

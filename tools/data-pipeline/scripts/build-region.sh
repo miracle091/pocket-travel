@@ -90,8 +90,12 @@ fetch_rd5() {
   local rc=0
   sourceSize="$(python3 "$SCRIPT_DIR/clip_rd5.py" "${BROUTER_BASE}/${name}" "$dest" \
     --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" --user-agent "$PIPELINE_USER_AGENT" "${cacheArgs[@]}")" || rc=$?
-  # 3 = la tile non ha strade nel rettangolo (costa, mare al bordo): non serve alla regione, si salta.
-  [ "$rc" -ne 3 ] || return 0
+  # 3 = la tile non ha strade nel rettangolo (costa, mare al bordo): non serve alla regione, si salta. Si annota
+  # in "<tsv>.empty" (nome, sourceKey) per routing.emptyTiles: senza, il confronto 2bis la vedrebbe sempre mancante.
+  if [ "$rc" -eq 3 ]; then
+    printf '%s\t%s\n' "$name" "$sourceSize $RD5_CLIP" >> "$2.empty"
+    return 0
+  fi
   [ "$rc" -eq 0 ] || return "$rc"
   printf '%s\t%s\t%s\t%s\t%s\n' "$name" "${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--${name}" \
     "$(wc -c < "$dest" | tr -d ' ')" "$(sha256sum < "$dest" | awk '{print $1}')" "$sourceSize $RD5_CLIP" >> "$2"
@@ -498,6 +502,9 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
         | {name, sourceKey: (.sourceKey // "")}]
       | sort_by(.name)
     ' "$PUBLISHED_MANIFEST" 2>/dev/null || echo "[]")"
+    # Tile senza strade nel rettangolo (routing.emptyTiles): non hanno un file, ma se la sorgente e il ritaglio sono
+    # gli stessi restano fuori dal confronto. Se cambiano, restano tra le attese e la regione si rigenera.
+    EXPECTED_SORTED="$(without_empty_tiles "$PUBLISHED_MANIFEST" "$REGION_ID" <<< "$EXPECTED_SORTED" 2>/dev/null || echo "$EXPECTED_SORTED")"
 
     # Eta' del poi.db pubblicato, dal nome dell'asset (regionId--YYYY.MM.DD--poi.db, o --content.db
     # per le regioni convertite dal formato v1; dal 2026-09-27 la versione ha anche il suffisso della
@@ -538,6 +545,10 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
     fi
     # POI pubblicati senza taglio o tagliati su un altro confine (la nazione invece dello stato): si rigenerano anche
     # se recenti.
+    if [ "$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.partial // false' 2>/dev/null || true)" = true ]; then
+      echo "-- $REGION_ID: POI pubblicati incompleti (poi.partial): li rigenero"
+      POI_STALE=true
+    fi
     find_border
     if [ -n "$BORDER_FILE" ] && [ "$(printf '%s' "$PUBLISHED_REGION" | jq -r '.poi.borderRelation // ""' 2>/dev/null || true)" != "$BORDER_RELATION" ]; then
       echo "-- $REGION_ID: POI pubblicati non tagliati sul confine $BORDER_RELATION: li rigenero"
@@ -775,6 +786,7 @@ fi
 echo "-- risolvo segmenti .rd5 e interrogo Overpass per i POI, tile per tile..."
 ROUTING_TSV="$WORKDIR/routing-rd5.tsv"
 : > "$ROUTING_TSV"
+rm -f "$ROUTING_TSV.empty"
 POI_XML_FILES=()
 FAILED_CHUNKS=0
 lon="$LON_START"
@@ -843,7 +855,8 @@ if [ "$FAILED_CHUNKS" -gt 0 ] && [ -n "${PUBLISHED_POI_URL:-}" ]; then
   echo "ERRORE: $FAILED_CHUNKS/$chunkIndex chunk Overpass falliti e $REGION_ID ha gia' dei POI pubblicati: li tengo" >&2
   exit 1
 elif [ "$FAILED_CHUNKS" -gt 0 ]; then
-  echo "-- attenzione: $FAILED_CHUNKS/$chunkIndex chunk falliti, alcuni POI di $REGION_ID mancheranno"
+  # Prima pubblicazione con POI incompleti: si pubblica, ma poi.partial fa rigenerare il poi.db alla run dopo.
+  echo "::warning::$REGION_ID: $FAILED_CHUNKS/$chunkIndex chunk Overpass falliti, alcuni POI mancheranno (poi.partial: il poi.db si rigenera alla prossima run)"
 fi
 # Ripiego Overpass: l'area della nazione nella query tiene anche le vie e le aree a cavallo del confine e nessuna
 # regola divide le sorelle russe. geofabrik_pois.py --overpass applica confine e sorelle sul nodo o sul <center>;
@@ -1062,10 +1075,18 @@ POI_EXTRA_XZ="null"
 # e la rigenerazione anticipata confrontano solo pacchetti tagliati sulla stessa relazione, con le stesse sorelle.
 jq -c --argjson xz "$POI_XZ" --argjson extraXz "$POI_EXTRA_XZ" --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" \
   --argjson borderRelation "${BORDER_RELATION:-null}" --argjson borderRule "$POI_BORDER_RULE_JSON" --argjson scope "$POI_SCOPE_JSON" \
+  --argjson partial "$([ "$FAILED_CHUNKS" -gt 0 ] && echo true || echo false)" \
   '.regions |= map(.poi.fileXz = $xz | .poi.count = $count | .poi.border = $border | .poi.borderRelation = $borderRelation | .poi.borderRule = $borderRule
+    | (if $partial then .poi.partial = true else del(.poi.partial) end)
     | (if $scope then .poi.scope = $scope else del(.poi.scope) end) | if .poiExtra and $extraXz then .poiExtra.fileXz = $extraXz else . end)' \
   "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
 mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
+# Tile senza strade nel rettangolo (vedi fetch_rd5): l'app le ignora, la prossima run le riconosce e non rigenera.
+if [ -s "$ROUTING_TSV.empty" ]; then
+  jq -c --argjson empty "$(jq -R -s -c 'split("\n") | map(select(length > 0) | split("\t") | {name: .[0], sourceKey: .[1]})' "$ROUTING_TSV.empty")" \
+    '.regions |= map(.routing.emptyTiles = $empty)' "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
+  mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
+fi
 # Mappa d'insieme compressa (voce fileXz): dimensione/hash gia' calcolati da build_preview, niente
 # ricompressione (a differenza di xz_entry sopra, che lavora su un file non ancora compresso).
 if [ -f "$OUTPUT_DIR/preview.pmtiles" ]; then

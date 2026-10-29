@@ -566,6 +566,17 @@ fun englishQuickFactsSection(regionId: String, dumpIt: String): GuideSectionRow?
     return lines.takeIf { it.isNotEmpty() }?.let { GuideSectionRow(category = "FATTI_RAPIDI", title = "Quick facts", body = it.joinToString("\n")) }
 }
 
+/**
+ * "Quick facts" della guida inglese: senza la pagina italiana (dump non scaricato in questa run) i fatti tradotti
+ * mancherebbero, quindi resta la sezione gia' pubblicata, se c'e'.
+ */
+internal fun englishQuickFactsOrPublished(regionId: String, dumpIt: String?, published: List<GuideSectionRow>): GuideSectionRow? =
+    if (dumpIt == null) {
+        published.firstOrNull { it.category == "FATTI_RAPIDI" } ?: englishQuickFactsSection(regionId, "")
+    } else {
+        englishQuickFactsSection(regionId, dumpIt)
+    }
+
 /** Guida di una regione: sezioni estratte dal dump Wikivoyage e URL della pagina da cui vengono. */
 data class RegionGuide(val regionId: String, val sourceUrl: String, val sections: List<GuideSectionRow>)
 
@@ -634,7 +645,7 @@ fun main(rawArgs: Array<String>) {
         val dump = dumpPath.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }
         val dumpOther = columns.getOrNull(3)?.takeIf { it.isNotBlank() }?.let(::File)?.takeIf { it.length() > 0 }
         if (dump != null && english) {
-            RegionGuide(regionId, sourceUrl, listOfNotNull(englishQuickFactsSection(regionId, dumpOther?.readText().orEmpty())) + parseWikivoyageDump(dump.readText()))
+            RegionGuide(regionId, sourceUrl, listOfNotNull(englishQuickFactsOrPublished(regionId, dumpOther?.readText(), publishedDb?.let { readRegionGuide(it, regionId) }?.sections.orEmpty())) + parseWikivoyageDump(dump.readText()))
         } else if (dump != null) {
             regionGuideFromDumps(regionId, dump.readText(), sourceUrl, dumpOther?.readText(), columns.getOrNull(4).orEmpty())
         } else {

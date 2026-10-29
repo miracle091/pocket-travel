@@ -146,13 +146,24 @@ if [ -n "$PUBLISHED_ENTRY" ] && [ "$HASH" = "$(printf '%s' "$PUBLISHED_ENTRY" | 
   exit 0
 fi
 
+# Un cities.db piu' povero del pubblicato (popolazione, coordinate, sezioni Wikipedia: errori di rete di Wikidata o
+# Wikipedia, tetto di tempo) non lo sostituisce: resta la voce pubblicata fino a una run completa.
+STATS="$(python3 "$SCRIPT_DIR/cities_db_stats.py" "$CITIES_FILE")"
+PUBLISHED_STATS="$(printf '%s' "$PUBLISHED_ENTRY" | jq -c '.stats // empty' 2>/dev/null || true)"
+if [ -n "$PUBLISHED_STATS" ] && LOST="$(python3 "$SCRIPT_DIR/cities_db_stats.py" --poorer "$STATS" "$PUBLISHED_STATS")"; then
+  rm -f "$CITIES_FILE"
+  echo "::warning::$REGION_ID: cities.db piu' povero del pubblicato ($LOST)"
+  keep_published "dati mancanti: $LOST"
+  exit 0
+fi
+
 SIZE="$(wc -c < "$CITIES_FILE" | tr -d ' ')"
 CITIES_XZ_URL="${ASSET_BASE_URL}/${REGION_ID}--${VERSION}--$FILE_BASE.db.xz"
 CITIES_XZ_JSON="$(xz_entry "$CITIES_FILE" "$CITIES_XZ_URL")"
 set_entry "$(jq -n -c --arg version "$VERSION" --arg url "$CITIES_XZ_URL" \
   --argjson size "$SIZE" --arg hash "$HASH" --argjson xz "$CITIES_XZ_JSON" \
-  --arg name "$FILE_BASE.db" \
-  '{version: $version, file: {name: $name, url: $url, sizeBytes: $size, sha256: $hash}, fileXz: $xz}')"
+  --argjson stats "$STATS" --arg name "$FILE_BASE.db" \
+  '{version: $version, file: {name: $name, url: $url, sizeBytes: $size, sha256: $hash}, fileXz: $xz, stats: $stats}')"
 # Una regione altrimenti invariata ora ha un file da caricare: il workflow carica solo le regioni
 # senza .skipped, e con .incremental solo i file presenti in <outputDir> (vedi build-region.sh).
 if [ -f "$OUTPUT_DIR/.skipped" ]; then

@@ -115,6 +115,12 @@ rettangoli sovrapposti: un punto in più rettangoli va alla regione con il centr
   confine e sorelle sul nodo o sul `<center>` di Overpass, che per le vie aperte e le aree a C non è il punto
   sull'oggetto. La voce resta quindi senza `poi.borderRule` e `poi.scope`, e la run successiva rigenera i POI dagli
   estratti.
+- Se alcuni chunk Overpass falliscono su una regione senza POI pubblicati, `build-region.sh` stampa un `::warning::`,
+  pubblica il `poi.db` incompleto e scrive `poi.partial: true`: la run successiva lo rigenera. Con POI già pubblicati la
+  regione fallisce e resta il pacchetto precedente.
+- Le tile `.rd5` senza strade nel rettangolo della regione non hanno un file: il frammento le elenca in
+  `routing.emptyTiles` (nome e `sourceKey`), così il confronto con il catalogo pubblicato non le vede come mancanti e
+  la regione invariata non si rigenera a ogni run. L'app ignora il campo.
 - I rettangoli non attraversano il meridiano di 180°. Le terre oltre il meridiano di una nazione con una sola regione
   non sono in nessuna regione: Chatham e Kermadec (Nuova Zelanda), Attu e Shemya (Alaska), la punta della Čukotka e
   l'isola di Wrangel (Russia), le Phoenix occidentali (Kiribati). Figi e Kiribati sono divise in due regioni per
@@ -286,6 +292,10 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   (P1082); la capitale della regione da Wikidata (P36). Finiscono nelle colonne `population` e `capital` di
   `cities.db`; senza dati la città resta senza popolazione. Le coordinate (Wikidata P625) finiscono nelle colonne
   `latitude` e `longitude`: con queste l'assistente calcola la distanza tra due città nominate in una domanda.
+  Wikidata e Wikipedia non fanno fallire la regione: con un errore di rete o il tetto di tempo il `cities.db` esce senza
+  quei dati. Per questo la voce `cities`/`citiesEn` del catalogo ha `stats` (`scripts/cities_db_stats.py`: città con
+  popolazione, città con coordinate, sezioni di Wikipedia) e `build-cities.sh` tiene il pacchetto pubblicato, con un
+  `::warning::`, se un valore cala di oltre il 10%. Le voci pubblicate prima di `stats` non si confrontano.
 - **Dati dei paesi**: `scripts/wikidata_countries.py --out content/src/main/resources/countries.tsv` scrive da
   Wikidata (CC0) una riga per regione di `regions.sh` con capitale, valuta, lato di guida, prefisso, lingue ufficiali,
   fusi orari, numeri di emergenza, prese e tensione, con le etichette in italiano e in inglese. I fusi orari sono
@@ -437,8 +447,8 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v11 con
   `--nearby`, `--distances`, `--cities-db`, `--emergency`, le domande in stile utente, `--city-daily-life`,
   `--balanced-negatives` o `--clear-questions` (i default), v9 senza nessuna di queste,
-  oppure quella data con `--version`; un v9 che esiste già (lo usano i training) si sovrascrive solo con
-  `--version v9`. Le fonti e la pulizia sono cambiate dopo il v9 generato: gli stessi argomenti non ridanno quel file. I test estesi
+  oppure quella data con `--version`; un dataset con la stessa versione e lingua che esiste già si sovrascrive solo
+  con `--overwrite`, e i file nuovi sostituiscono i vecchi solo a scrittura finita. Le fonti e la pulizia sono cambiate dopo il v9 generato: gli stessi argomenti non ridanno quel file. I test estesi
   (`generate_eval_set.py`, `generate_eval_set_en.py`) hanno in fondo le righe `pos_near`/`neg_near` e
   `pos_dep`/`neg_dep` sugli stessi blocchi, con domande, nomi e seme diversi da quelli del training, e con
   `--cities-db` (solo le regioni di test) `pos_wiki`/`neg_wiki` su storia e clima; le righe

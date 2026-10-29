@@ -12,13 +12,17 @@ shopt -s nullglob
 
 SITE_DIR="$RUNNER_TEMP/site"
 mkdir -p "$SITE_DIR"
+# Pages risponde con max-age=600 dietro una CDN: senza un parametro nuovo a ogni richiesta e Cache-Control: no-cache una
+# run a meno di 10 minuti dal deploy precedente leggerebbe i file di prima, e il merge e il controllo sulle regioni
+# perse partirebbero da un catalogo vecchio.
+FRESH="cb=$(date +%s)"
 # `manifest.json` pubblicato prima di questa run: lo usano il controllo sulle regioni perse (prima
 # del deploy) e la pulizia degli asset per il periodo di grazia di una generazione.
 # Solo un 404 vale come "prima pubblicazione" (segnata da first-publication): ogni altro
 # esito (rete, 5xx) dopo i tentativi ferma il passo, altrimenti il controllo sulle regioni
 # perse e la pulizia degli asset verrebbero saltati in silenzio.
 rm -f "$RUNNER_TEMP/previous-manifest.json" "$RUNNER_TEMP/first-publication"
-MANIFEST_HTTP="$(curl -sSL --max-time 120 --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/manifest.json" \
+MANIFEST_HTTP="$(curl -sSL --max-time 120 --retry 5 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$PAGES_BASE_URL/manifest.json?$FRESH" \
   -o "$RUNNER_TEMP/previous-manifest.json" -w '%{http_code}' || true)"
 case "$MANIFEST_HTTP" in
   200) ;;
@@ -42,7 +46,7 @@ esac
 for index_name in address-grid transit; do
   INDEX_FILE="$RUNNER_TEMP/previous-$index_name.json"
   rm -f "$INDEX_FILE"
-  INDEX_HTTP="$(curl -sSL --max-time 120 --retry 5 --retry-all-errors --retry-delay 5 "$PAGES_BASE_URL/$index_name.json" \
+  INDEX_HTTP="$(curl -sSL --max-time 120 --retry 5 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$PAGES_BASE_URL/$index_name.json?$FRESH" \
     -o "$INDEX_FILE" -w '%{http_code}' || true)"
   case "$INDEX_HTTP" in
     200) ;;
@@ -59,7 +63,7 @@ done
 # Stesso file anche per il merge (curl legge file://), senza scaricarlo una seconda volta; se
 # il download sopra e' fallito assemble-site.sh riprova dall'URL e decide lui (errore, o
 # BOOTSTRAP=1 alla prima pubblicazione).
-MERGE_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
+MERGE_MANIFEST_URL="$PAGES_BASE_URL/manifest.json?$FRESH"
 if [ -s "$RUNNER_TEMP/previous-manifest.json" ]; then
   # Su Git Bash curl e' nativo di Windows: vuole file:///C:/..., non il path POSIX virtuale (su Linux winpath non cambia nulla).
   PREVIOUS_MANIFEST_PATH="$(winpath "$RUNNER_TEMP/previous-manifest.json")"

@@ -255,6 +255,38 @@ class AddressSearchTest {
         assertEquals(streetKey("VIA ROMA"), streetKey("via roma"))
     }
 
+    // La chiave che la pipeline scrive in addresses-search.db e quella con cui l'app cerca (streetKey di
+    // core/data, AddressSearch.kt) devono coincidere: qui l'algoritmo dell'app, copiato com'e', confrontato con quello
+    // della pipeline sui casi dei test dell'app e su ogni code point Unicode. Se l'app cambia, si cambia anche questa copia.
+    private val appCombiningMarks = Regex("\\p{M}+")
+    private val appNonAlphanumeric = Regex("[^\\p{L}\\p{Nd}]+")
+
+    private fun appStreetKey(text: String): String =
+        java.text.Normalizer.normalize(text.lowercase(java.util.Locale.ROOT), java.text.Normalizer.Form.NFD)
+            .replace(appCombiningMarks, "")
+            .replace(appNonAlphanumeric, " ")
+            .trim()
+
+    @Test
+    fun `streetKey della pipeline e quella dell'app danno la stessa chiave sui casi noti`() {
+        listOf(
+            "Brīvības iela", "  Rue de  Rivoli ", "Via XX-Settembre", "D'Artagnan", "Łódź", "Straße (5)", " -- ", "",
+            "Улица Ленина, 5", "中山路", "via_roma", "via\tRoma\n", "a—b", "Via 😀 Roma", "İstanbul", "ISTANBUL",
+            "Via Dell'Univérsità, 3", "  Rue de l’Église  ", "Straße des 17. Juni", "--Avenida 9 de   Julio--", "a/b\tc",
+            "й", "中山路, 2", "ÀÉÎÕÜ", "ñ", "شارع ١٢", "12_34", "a b", "a b", "a b", "𝒜𝒷𝒸 street", "ǅ", "ﬁ",
+            "x\uD800y", "\uDC00",
+        ).forEach { assertEquals(it, appStreetKey(it), streetKey(it)) }
+    }
+
+    @Test
+    fun `streetKey della pipeline e quella dell'app danno la stessa chiave per ogni code point`() {
+        val different = (0..Character.MAX_CODE_POINT).filter { codePoint ->
+            val text = "a" + String(Character.toChars(codePoint)) + "b"
+            appStreetKey(text) != streetKey(text)
+        }
+        assertTrue("code point con chiavi diverse: " + different.take(20).joinToString { "U+%04X".format(it) }, different.isEmpty())
+    }
+
     // --- RoadIndex e assignStreets: casi limite ---
 
     @Test

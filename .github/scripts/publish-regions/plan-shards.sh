@@ -30,7 +30,9 @@ if [ -z "$SELECTED" ] && [ -n "${SCHEDULE:-}" ]; then
   echo "-- trigger schedule ($SCHEDULE): bucket del giorno $DOW"
   ADAPTIVE_DOW="$DOW"
 fi
-if [ -z "$SELECTED" ]; then
+# Un bucket del giorno vuoto resta vuoto (restano le regioni in ritardo della quota adattiva): "tutte" vale solo per
+# le run manuali.
+if [ -z "$SELECTED" ] && [ -z "${SCHEDULE:-}" ]; then
   # workflow_dispatch senza regions esplicite (fuori da uno schedule): tutto l'elenco delle regioni.
   ids=()
   for spec in "${ALL_REGIONS[@]}"; do
@@ -60,7 +62,8 @@ if curl -sSfL --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0" "$PAGE
   done < "$RUNNER_TEMP/region-timings.tsv"
 fi
 echo "-- tempi misurati per ${#TIMINGS[@]} regioni"
-IFS=',' read -ra REGION_ARR <<< "$SELECTED"
+REGION_ARR=()
+[ -z "$SELECTED" ] || IFS=',' read -ra REGION_ARR <<< "$SELECTED"
 SORTED_FILE="$RUNNER_TEMP/sorted-regions.tsv"
 for r in "${REGION_ARR[@]}"; do
   printf '%d\t%s\n' "${TIMINGS[$r]:-$(( ${WEEKLY_SCHEDULE_TILES[$r]:-1} * 50 ))}" "$r"

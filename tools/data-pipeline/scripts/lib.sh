@@ -162,6 +162,16 @@ fetch_published_manifest() {
   curl -sSf --max-time 120 --speed-limit 1000 --speed-time 30 --retry 5 --retry-all-errors -o "$2" -w '%{http_code}' "$1" 2>/dev/null || true
 }
 
+# without_empty_tiles <manifest.json> <regionId>: legge da stdin l'array JSON [{name, sourceKey}] delle tile .rd5 attese
+# e stampa quelle che la regione pubblicata non dichiara vuote. routing.emptyTiles elenca le tile senza strade nel
+# rettangolo (nessun file nel catalogo): con lo stesso sourceKey (stessa sorgente e stesso ritaglio) restano fuori dal
+# confronto con le tile pubblicate; con un sourceKey diverso restano, e la regione si rigenera.
+without_empty_tiles() {
+  jq -c --slurpfile pub "$1" --arg id "$2" '
+    [($pub[0].regions // [])[] | select(.regionId == $id) | (.routing.emptyTiles // [])[] | {name, sourceKey}] as $empty
+    | map(select(. as $t | any($empty[]; . == $t) | not))'
+}
+
 # User-Agent descrittivo della pipeline: richiesto dalla policy di Wikimedia; senza, overpass-api.de
 # risponde 406 (visto il 2026-09-25).
 PIPELINE_USER_AGENT="PocketTravelDataPipeline/1.0 (https://github.com/miracle091/pocket-travel)"

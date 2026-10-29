@@ -35,7 +35,7 @@ MANIFEST_INPUTS=()
 # Senza il `manifest.json` pubblicato il merge conterrebbe solo le regioni di questa run, e la pulizia
 # degli asset in publish-regions.yml cancellerebbe quelli di tutte le altre: si ritenta e, se non
 # arriva, ci si ferma. BOOTSTRAP=1 solo per la primissima pubblicazione (nessun `manifest.json` online).
-if curl -sSf --retry 5 --retry-all-errors --retry-delay 5 -o "$PREV_MANIFEST" "$PUBLISHED_MANIFEST_URL"; then
+if curl -sSf --retry 5 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' -o "$PREV_MANIFEST" "$PUBLISHED_MANIFEST_URL"; then
   echo "-- manifest.json gia' pubblicato trovato, unisco (le regioni di questa run vincono)"
   MANIFEST_INPUTS+=("$PREV_MANIFEST")
 elif [ "${BOOTSTRAP:-}" = "1" ]; then

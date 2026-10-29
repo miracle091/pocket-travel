@@ -305,6 +305,18 @@ class GenerateGuideContentTest {
     }
 
     @Test
+    fun `senza il dump italiano i fatti rapidi inglesi restano quelli pubblicati`() {
+        val published = GuideSectionRow(category = "FATTI_RAPIDI", title = "Quick facts", body = "Language: Italian\nElectricity: 230V/50Hz (European plug)")
+        val other = GuideSectionRow(category = "ALTRO", title = "Altro", body = "x")
+        assertEquals(published, englishQuickFactsOrPublished("italia", null, listOf(other, published)))
+        // Con il dump italiano si rigenerano, anche se c'e' una sezione pubblicata.
+        val dump = "{{QuickbarCountry\n|Lingua=Italiano\n}}"
+        assertEquals(englishQuickFactsSection("italia", dump), englishQuickFactsOrPublished("italia", dump, listOf(published)))
+        // Niente dump e niente sezione pubblicata: i soli dati di Wikidata, come prima.
+        assertEquals(englishQuickFactsSection("italia", ""), englishQuickFactsOrPublished("italia", null, listOf(other)))
+    }
+
+    @Test
     fun `la sottosezione Costo della vita sparisce con tutto il suo testo`() {
         val raw = "Si paga in euro.\n=== Costo della vita ===\nGli stipendi sono bassi.\n==== Dettagli ====\nAffitti alti.\n" +
             "=== Acquisti ===\nNegozi aperti fino alle 20."

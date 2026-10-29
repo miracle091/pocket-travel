@@ -154,6 +154,8 @@ class ClipRd5Test(unittest.TestCase):
                              capture_output=True)
         self.assertEqual(res.returncode, 3)  # tile saltata, non errore
         self.assertFalse(out.exists())
+        # La dimensione dell'originale esce comunque: build-region.sh la registra in routing.emptyTiles.
+        self.assertEqual(res.stdout.decode().strip(), str((self.dir / self.NAME).stat().st_size))
 
     def test_via_http_senza_content_range_errore(self):
         RangeHandler.data, RangeHandler.honor_range, RangeHandler.send_content_range = self.rd5, True, False
