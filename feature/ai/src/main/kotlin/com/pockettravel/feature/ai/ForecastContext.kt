@@ -28,7 +28,8 @@ internal fun isForecastQuestion(question: String, modelGroups: Set<String> = emp
 
 /**
  * Cosa serve a [ForecastSections] dalla domanda: [namesCountry] se la domanda nomina una nazione; [usePosition] solo sul
- * dispositivo, perche' con i modelli online il nome della citta' vicina all'utente arriverebbe al servizio.
+ * dispositivo, perche' con i modelli online il nome della citta' vicina all'utente o dell'ultima guida aperta arriverebbe
+ * al servizio.
  */
 internal class ForecastQuery(
     val regionId: String,
@@ -44,7 +45,7 @@ internal class ForecastQuery(
 
 /**
  * Per una domanda di previsione (isForecastQuestion), le previsioni della citta' nominata nella domanda o, in ordine:
- * la piu' vicina alla posizione dell'utente (solo sul dispositivo), quella dell'ultima guida di citta' aperta, la capitale
+ * la piu' vicina alla posizione dell'utente e quella dell'ultima guida di citta' aperta (solo sul dispositivo), la capitale
  * della regione (o la prima citta' principale), la citta' delle domande precedenti. Null per le altre domande, se la domanda nomina una nazione (le citta' della regione
  * non c'entrano), senza codice paese o senza previsioni (ForecastProvider). Il blocco dice la citta' usata.
  */
@@ -63,11 +64,12 @@ class ForecastSections @Inject constructor(
             null
         }
         val city = countryCode?.let {
-            query.cities.firstOrNull()
-                ?: (if (query.usePosition) nearestCity(query.regionId, query.cityNames) else null)
-                ?: lastOpenedCityGuide.city(query.regionId)?.takeIf { it in query.cityNames }
-                ?: mainCity(query.regionId)
-                ?: query.previousQuestion?.let { previous -> namedCities(previous, query.cityNames, query.language).firstOrNull() }
+            forecastCity(
+                query,
+                nearest = { nearestCity(query.regionId, query.cityNames) },
+                lastOpened = { lastOpenedCityGuide.city(query.regionId) },
+                main = { mainCity(query.regionId) },
+            )
         }
         return if (city != null) forecastProvider.section(city, countryCode, query.language) else null
     }
@@ -103,6 +105,22 @@ class ForecastSections @Inject constructor(
         const val MAIN_CITIES = 5
     }
 }
+
+/**
+ * La citta' delle previsioni, nell'ordine di [ForecastSections]. La piu' vicina alla posizione e quella dell'ultima guida
+ * aperta solo con [ForecastQuery.usePosition]: con i modelli online direbbero al servizio dove si trova l'utente o cosa
+ * ha letto.
+ */
+internal suspend fun forecastCity(
+    query: ForecastQuery,
+    nearest: suspend () -> String?,
+    lastOpened: () -> String?,
+    main: suspend () -> String?,
+): String? = query.cities.firstOrNull()
+    ?: (if (query.usePosition) nearest() else null)
+    ?: (if (query.usePosition) lastOpened()?.takeIf { it in query.cityNames } else null)
+    ?: main()
+    ?: query.previousQuestion?.let { previous -> namedCities(previous, query.cityNames, query.language).firstOrNull() }
 
 /** Le previsioni nel contesto e quelle mostrate sotto la risposta nel riquadro meteo, con la citta' usata. */
 internal class ForecastBlock(val section: AssistantSection, val weather: PlaceWeather)

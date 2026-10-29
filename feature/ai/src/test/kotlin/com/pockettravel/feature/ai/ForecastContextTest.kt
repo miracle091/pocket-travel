@@ -53,6 +53,25 @@ class ForecastContextTest {
         }
     }
 
+    private fun query(usePosition: Boolean, cities: List<String> = emptyList()) = ForecastQuery(
+        regionId = "italia", question = "Che tempo fa domani?", previousQuestion = null, modelGroups = emptySet(),
+        cities = cities, cityNames = listOf("Roma", "Firenze", "Bari"), namesCountry = false, language = "it",
+        usePosition = usePosition,
+    )
+
+    @Test
+    fun onlineForecastSkipsPositionAndLastOpenedGuide() = runTest {
+        val nearest = suspend { "Bari" }
+        val main = suspend { "Roma" }
+        // Sul dispositivo: la piu' vicina, poi l'ultima guida aperta.
+        assertEquals("Bari", forecastCity(query(usePosition = true), nearest, { "Firenze" }, main))
+        assertEquals("Firenze", forecastCity(query(usePosition = true), { null }, { "Firenze" }, main))
+        // Online: ne' la posizione ne' l'ultima guida aperta arrivano al servizio, si passa alla capitale.
+        assertEquals("Roma", forecastCity(query(usePosition = false), nearest, { "Firenze" }, main))
+        // La citta' nominata nella domanda vale con tutti e due i motori.
+        assertEquals("Bari", forecastCity(query(usePosition = false, cities = listOf("Bari")), nearest, { "Firenze" }, main))
+    }
+
     @Test
     fun onlyForecastQuestionsAreForecastQuestions() {
         listOf("Che tempo fa domani a Roma?", "Will it rain tomorrow in Porto?", "Weather forecast for Zagreb")
