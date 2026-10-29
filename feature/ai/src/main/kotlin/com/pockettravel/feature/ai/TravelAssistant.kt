@@ -983,7 +983,7 @@ internal fun relevantParagraphs(body: String, focusStems: Set<String>, budget: I
  * prefisso (ftsPrefix): l'indice non ha radici, e "mangia" deve trovare "Dove mangiare".
  */
 internal fun buildFtsQuery(question: String, regionId: String, city: String? = null, keepCityWords: Boolean = true): String {
-    val regionNameTokens = regionId.split(Regex("[^\\p{L}\\p{N}]+")).map { it.lowercase() }.toSet()
+    val regionNameTokens = regionId.split(nonWord).map { it.lowercase() }.toSet()
     val words = question
         // Parole divise come le divide l'indice (unicode61): "dell'isola" e' "dell" e "isola", non "dellisola".
         .split(nonWord)

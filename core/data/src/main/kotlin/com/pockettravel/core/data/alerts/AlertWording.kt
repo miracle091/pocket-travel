@@ -147,9 +147,11 @@ private val ENGLISH_COUNTRIES: Map<String, String> by lazy {
         COUNTRY_ALIASES
 }
 
+private val SPACES = Regex("""\s+""")
+
 /** Codice ISO 3166-1 alpha-2 di una nazione scritta in inglese dalle fonti ("Italy", "Viet Nam"); null se sconosciuta. */
 fun countryCode(englishName: String): String? =
-    ENGLISH_COUNTRIES[englishName.trim().replace(Regex("""\s+"""), " ").lowercase(Locale.ROOT)]
+    ENGLISH_COUNTRIES[englishName.trim().replace(SPACES, " ").lowercase(Locale.ROOT)]
 
 /** Nazioni dell'elenco GDACS separato da virgole ("Japan, China, "), senza i vuoti. */
 fun gdacsCountries(text: String?): List<String> = text.orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }

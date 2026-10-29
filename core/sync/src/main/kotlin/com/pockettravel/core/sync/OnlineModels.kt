@@ -47,7 +47,9 @@ fun OnlineModelList.validate() {
 }
 
 fun OnlineModelEntry.validate() {
-    require(id.matches(Regex("[A-Za-z0-9._:-]+"))) { "id non valido: $id" }
+    require(id.matches(MODEL_ID)) { "id non valido: $id" }
     require(role == ONLINE_MODEL_ROLE_AUTO || role == ONLINE_MODEL_ROLE_CAPABLE) { "$id: ruolo non valido" }
     require(inputUsdPerMTok >= 0 && outputUsdPerMTok >= 0) { "$id: prezzo non valido" }
 }
+
+private val MODEL_ID = Regex("[A-Za-z0-9._:-]+")

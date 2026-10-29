@@ -25,13 +25,13 @@ data class AppVersionEntry(val versionName: String, val versionCode: Int)
 data class AiModelManifestEntry(val modelId: String, val modelVersion: String, val sha256: String, val sizeBytes: Long)
 
 fun AppVersionEntry.validate() {
-    require(versionName.matches(Regex("[A-Za-z0-9._-]+"))) { "versionName non valido" }
+    require(versionName.matches(SAFE_NAME)) { "versionName non valido" }
     require(versionCode > 0) { "versionCode non valido" }
 }
 
 fun AiModelManifestEntry.validate() {
-    require(modelId.matches(Regex("[A-Za-z0-9._-]+"))) { "modelId non valido" }
-    require(modelVersion.matches(Regex("[A-Za-z0-9._-]+"))) { "modelVersion non valido" }
-    require(sha256.matches(Regex("[0-9a-fA-F]{64}"))) { "sha256 non valido" }
+    require(modelId.matches(SAFE_NAME)) { "modelId non valido" }
+    require(modelVersion.matches(SAFE_NAME)) { "modelVersion non valido" }
+    require(sha256.matches(SHA256_HEX)) { "sha256 non valido" }
     require(sizeBytes >= 0) { "sizeBytes non valido" }
 }

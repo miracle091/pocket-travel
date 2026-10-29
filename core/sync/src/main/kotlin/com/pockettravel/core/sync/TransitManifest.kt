@@ -82,7 +82,7 @@ internal fun TransitFeed.info() = TransitFeedInfo(id, name, attribution, license
 fun TransitManifestEntry.validate() {
     require(isSafeVersion(version)) { "version dell'indice dei mezzi pubblici non valida" }
     require(sizeBytes >= 0) { "Dimensione dell'indice dei mezzi pubblici non valida" }
-    require(sha256.matches(Regex("[0-9a-fA-F]{64}"))) { "SHA-256 dell'indice dei mezzi pubblici non valido" }
+    require(sha256.matches(SHA256_HEX)) { "SHA-256 dell'indice dei mezzi pubblici non valido" }
     require(isAllowedManifestUrl(url)) { "url dell'indice dei mezzi pubblici non consentito" }
 }
 

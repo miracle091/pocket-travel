@@ -312,7 +312,7 @@ fun WorldMapEntry.validate() {
 fun AddressGridManifestEntry.validate() {
     require(isSafeVersion(version)) { "version della griglia indirizzi non valida" }
     require(sizeBytes >= 0) { "Dimensione della griglia indirizzi non valida" }
-    require(sha256.matches(Regex("[0-9a-fA-F]{64}"))) { "SHA-256 della griglia indirizzi non valido" }
+    require(sha256.matches(SHA256_HEX)) { "SHA-256 della griglia indirizzi non valido" }
     require(isAllowedManifestUrl(url)) { "url della griglia indirizzi non consentito" }
 }
 
@@ -354,11 +354,15 @@ private fun AddressGridCell.validate(owner: String) {
 internal fun RegionManifestFile.validate(owner: String) {
     require(isSafeSegment(name)) { "file.name non valido per $owner" }
     require(sizeBytes >= 0) { "Dimensione non valida per $owner/$name" }
-    require(sha256.matches(Regex("[0-9a-fA-F]{64}"))) { "SHA-256 non valido per $owner/$name" }
+    require(sha256.matches(SHA256_HEX)) { "SHA-256 non valido per $owner/$name" }
     require(isAllowedManifestUrl(url)) { "URL non consentito per $owner/$name" }
 }
 
-internal fun isSafeVersion(version: String): Boolean = version.matches(Regex("[A-Za-z0-9._-]+"))
+// Compilate una volta: la convalida del catalogo le usa per ogni voce.
+internal val SHA256_HEX = Regex("[0-9a-fA-F]{64}")
+internal val SAFE_NAME = Regex("[A-Za-z0-9._-]+")
+
+internal fun isSafeVersion(version: String): Boolean = version.matches(SAFE_NAME)
 
 internal fun isAllowedManifestUrl(url: String): Boolean {
     val uri = runCatching { URI(url) }.getOrNull() ?: return false
@@ -369,4 +373,4 @@ internal fun isAllowedManifestUrl(url: String): Boolean {
 }
 
 internal fun isSafeSegment(value: String): Boolean = value.isNotEmpty() && value != "." && value != ".." &&
-    !value.contains('/') && !value.contains('\\') && value.matches(Regex("[A-Za-z0-9._-]+"))
+    !value.contains('/') && !value.contains('\\') && value.matches(SAFE_NAME)
