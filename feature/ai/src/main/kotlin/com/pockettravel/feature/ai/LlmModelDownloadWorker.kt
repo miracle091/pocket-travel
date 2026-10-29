@@ -28,7 +28,8 @@ class LlmModelDownloadWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            val definition = aiSettingsStore.selectedModelDefinition().withPublishedFingerprint(publishedModels())
+            val definition = downloadDefinition(inputData.getString(KEY_MODEL_ID), aiSettingsStore.selectedModelDefinition())
+                .withPublishedFingerprint(publishedModels())
             // Un solo modello installato alla volta (vedi LlmModelManager.selectAndDownload):
             // se un altro modello e' gia' su disco va eliminato prima di scaricare questo.
             val currentlyInstalled = LlmModelCatalog.ALL.firstOrNull {
@@ -53,8 +54,12 @@ class LlmModelDownloadWorker @AssistedInject constructor(
             Result.failure(workDataOf(KEY_FAILURE_REASON to FAILURE_REASON_INTEGRITY))
         } catch (_: ModelDownloadFailedException) {
             Result.failure()
-        } catch (_: IOException) {
-            Result.retry()
+        } catch (error: IOException) {
+            when {
+                error.isNoSpaceLeft() -> Result.failure(workDataOf(KEY_FAILURE_REASON to FAILURE_REASON_SPACE))
+                shouldRetryDownload(runAttemptCount) -> Result.retry()
+                else -> Result.failure()
+            }
         } catch (_: Exception) {
             Result.failure()
         }
@@ -75,8 +80,26 @@ class LlmModelDownloadWorker @AssistedInject constructor(
         const val KEY_TOTAL_BYTES = "total_bytes"
         const val KEY_FAILURE_REASON = "failure_reason"
         const val FAILURE_REASON_INTEGRITY = "integrity"
+        const val FAILURE_REASON_SPACE = "space"
+
+        /** Id del modello da scaricare: il lavoro resta legato a quello richiesto, anche se poi se ne sceglie un altro. */
+        const val KEY_MODEL_ID = "model_id"
+
+        /** Tentativi totali (con attesa crescente tra l'uno e l'altro) prima di dichiarare il download fallito. */
+        internal const val MAX_ATTEMPTS = 5
     }
 }
+
+/** Il modello [requestedId] del catalogo; senza id (o con un id sconosciuto) quello scelto adesso. */
+internal fun downloadDefinition(requestedId: String?, selected: LlmModelDefinition): LlmModelDefinition =
+    requestedId?.let { id -> LlmModelCatalog.ALL.firstOrNull { it.id == id } } ?: selected
+
+/** Dopo il tentativo numero [runAttemptCount] + 1 (da 0) se ne fa un altro, entro [LlmModelDownloadWorker.MAX_ATTEMPTS]. */
+internal fun shouldRetryDownload(runAttemptCount: Int): Boolean = runAttemptCount + 1 < LlmModelDownloadWorker.MAX_ATTEMPTS
+
+/** Disco pieno: ritentare non serve finché l'utente non libera spazio. */
+internal fun IOException.isNoSpaceLeft(): Boolean =
+    message?.let { it.contains("ENOSPC") || it.contains("No space left", ignoreCase = true) } == true
 
 /**
  * [this] con sha256 e dimensione pubblicati in app-status.json (firmato, verificato da AppStatusClient) per lo

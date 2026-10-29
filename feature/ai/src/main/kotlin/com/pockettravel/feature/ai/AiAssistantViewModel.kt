@@ -206,8 +206,10 @@ class AiAssistantViewModel @Inject constructor(
     // solo in viewModelScope.
     private fun observeModelDownload() {
         viewModelScope.launch {
+            val failureGate = DownloadFailureGate()
             modelDownloadScheduler.observeDownload().collect { workInfo ->
                 if (workInfo == null) return@collect
+                val reportsFailure = failureGate.reportsFailure(workInfo.state)
                 when (workInfo.state) {
                     WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED -> {
                         val downloaded = workInfo.progress.getLong(LlmModelDownloadWorker.KEY_BYTES_DOWNLOADED, 0L)
@@ -220,10 +222,11 @@ class AiAssistantViewModel @Inject constructor(
                             it.copy(downloadProgress = null, isModelDownloaded = modelManager.isDownloaded(aiSettingsStore.selectedModelDefinition()))
                         }
                     }
-                    WorkInfo.State.FAILED -> {
+                    WorkInfo.State.FAILED -> if (reportsFailure) {
                         val message = when (workInfo.outputData.getString(LlmModelDownloadWorker.KEY_FAILURE_REASON)) {
                             LlmModelDownloadWorker.FAILURE_REASON_INTEGRITY ->
                                 R.string.ai_error_integrity
+                            LlmModelDownloadWorker.FAILURE_REASON_SPACE -> R.string.ai_error_space
                             else -> R.string.ai_error_download
                         }
                         _uiState.update { it.copy(downloadProgress = null, errorMessage = message) }
@@ -244,7 +247,7 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     fun onQuestionChanged(value: String) {
-        _uiState.update { it.copy(question = value) }
+        _uiState.update { it.copy(question = limitedQuestion(value)) }
     }
 
     fun onApiKeyInputChanged(value: String) {
@@ -341,6 +344,8 @@ class AiAssistantViewModel @Inject constructor(
             // subito, non solo quando il nuovo download finisce, altrimenti una domanda posta
             // durante il cambio riceverebbe una risposta dal modello sbagliato.
             viewModelScope.launch { engine.release() }
+            // Il download in corso è del modello precedente: la percentuale non va mostrata su quello nuovo.
+            if (_uiState.value.downloadProgress != null) cancelDownload()
         }
         val definition = aiSettingsStore.selectedModelDefinition()
         _uiState.update {
@@ -400,7 +405,13 @@ class AiAssistantViewModel @Inject constructor(
             return
         }
         _uiState.update { it.copy(downloadProgress = 0f, errorMessage = null) }
-        modelDownloadScheduler.enqueueDownload()
+        modelDownloadScheduler.enqueueDownload(definition.id)
+    }
+
+    /** "Annulla" durante il download: il lavoro si ferma, il file parziale resta per riprendere. */
+    fun cancelDownload() {
+        modelDownloadScheduler.cancelDownload()
+        _uiState.update { it.copy(downloadProgress = null) }
     }
 
     fun deleteModel() {
@@ -771,4 +782,21 @@ internal fun askErrorMessage(error: Exception): Int = when (error) {
     is OnlineModelNotFoundException -> R.string.ai_error_model
     is OnlineApiKeyRejectedException -> R.string.ai_error_key_rejected
     else -> R.string.ai_error_answer
+}
+
+/**
+ * Lunghezza massima della domanda: circa il doppio della domanda piu' lunga dei dataset di addestramento (165 caratteri),
+ * abbastanza per una domanda dettata con i dettagli. Un testo incollato piu' lungo rallenta la risposta e la peggiora:
+ * i modelli non hanno mai visto domande cosi', e una domanda di seguito si unisce alla precedente.
+ */
+internal const val MAX_QUESTION_CHARS = 300
+
+/** Da quanti caratteri il campo della domanda mostra il contatore. */
+internal const val QUESTION_COUNTER_FROM = 250
+
+/** [value] entro [MAX_QUESTION_CHARS], senza spezzare un carattere fatto di due unita' (un'emoji). */
+internal fun limitedQuestion(value: String): String {
+    if (value.length <= MAX_QUESTION_CHARS) return value
+    val end = if (Character.isHighSurrogate(value[MAX_QUESTION_CHARS - 1])) MAX_QUESTION_CHARS - 1 else MAX_QUESTION_CHARS
+    return value.take(end)
 }

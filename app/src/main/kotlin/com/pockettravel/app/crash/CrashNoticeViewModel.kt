@@ -62,7 +62,7 @@ class CrashNoticeViewModel @Inject constructor(
     /** Stesso flusso del download dell'assistente: sceglie il modello e avvia il download. */
     fun downloadProposed(modelId: String) {
         aiSettingsStore.setSelectedModelId(modelId)
-        downloadScheduler.enqueueDownload()
+        downloadScheduler.enqueueDownload(modelId)
         dismiss()
     }
 }

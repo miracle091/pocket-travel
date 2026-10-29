@@ -8,6 +8,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.workDataOf
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -24,12 +25,14 @@ class LlmModelDownloadScheduler @Inject constructor(
 ) {
     private val workManager get() = WorkManager.getInstance(context)
 
-    fun enqueueDownload() {
+    /** Scarica il modello [modelId]; un download di un altro modello ancora in corso viene sostituito. */
+    fun enqueueDownload(modelId: String) {
         val request = OneTimeWorkRequestBuilder<LlmModelDownloadWorker>()
+            .setInputData(workDataOf(LlmModelDownloadWorker.KEY_MODEL_ID to modelId))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request)
+        workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request)
     }
 
     fun observeDownload(): Flow<WorkInfo?> =

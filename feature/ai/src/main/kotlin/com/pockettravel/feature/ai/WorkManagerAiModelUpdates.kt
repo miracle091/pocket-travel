@@ -21,7 +21,7 @@ class WorkManagerAiModelUpdates @Inject constructor(
 
     override fun download(update: AiModelManifestEntry): Boolean {
         if (modelManager.availableStorageBytes() < update.sizeBytes) return false
-        downloadScheduler.enqueueDownload()
+        downloadScheduler.enqueueDownload(update.modelId)
         return true
     }
 

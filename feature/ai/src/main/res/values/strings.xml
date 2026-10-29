@@ -14,6 +14,7 @@
     <!-- Sotto un modello della fascia di RAM sopra quella del dispositivo; %1$d = GB di RAM della fascia del modello. -->
     <string name="ai_model_needs_more_ram">Il modello richiede almeno %1$d GB di RAM. L\'app può rallentare o chiudersi su questo dispositivo</string>
     <string name="ai_model_download">Scarica il modello</string>
+    <string name="ai_model_retry">Riprova</string>
     <string name="ai_model_downloading">Download in corso · %1$d%%</string>
     <string name="ai_large_download_title">Download di grandi dimensioni</string>
     <string name="ai_large_download_message">%1$s occupa circa %2$s e il dispositivo usa la rete mobile. Continuare?</string>

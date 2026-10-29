@@ -98,6 +98,7 @@ import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.WeatherCard
 import com.pockettravel.core.ui.isOnCellularNetwork
+import com.pockettravel.core.ui.R as UiR
 import java.io.File
 import java.io.InputStream
 import java.text.NumberFormat
@@ -232,6 +233,7 @@ data class AiActions(
     val onRefreshForecast: () -> Unit = {},
     val onOpenHistory: () -> Unit = {},
     val onDeleteHistory: () -> Unit = {},
+    val onCancelDownload: () -> Unit = {},
     val onImportModel: (displayName: String?, sizeBytes: Long, open: () -> InputStream?) -> Unit = { _, _, _ -> },
     val sendableModelFile: (LlmModelDefinition) -> File? = { null },
 )
@@ -250,6 +252,7 @@ private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
     onModeChanged = ::onModeChanged,
     onModelSelected = ::onModelSelected,
     onDownloadModel = ::downloadModel,
+    onCancelDownload = ::cancelDownload,
     onApiKeyInputChanged = ::onApiKeyInputChanged,
     onSaveApiKey = ::saveApiKey,
     onProviderSelected = ::onProviderSelected,
@@ -838,7 +841,8 @@ private fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: Bo
             } else {
                 null
             },
-            supportingText = voice.message?.let { message -> { Text(stringResource(message)) } },
+            supportingText = voice.message?.let { message -> { Text(stringResource(message)) } }
+                ?: uiState.question.length.takeIf { it >= QUESTION_COUNTER_FROM }?.let { length -> { Text("$length/$MAX_QUESTION_CHARS") } },
             shape = MaterialTheme.shapes.extraLarge,
             maxLines = 4,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -931,6 +935,10 @@ private fun ImportModelButton(uiState: AiUiState, actions: AiActions) {
     }
 }
 
+// Dopo un errore del download il pulsante propone "Riprova" invece di "Scarica il modello".
+internal fun Int?.isDownloadError(): Boolean =
+    this == R.string.ai_error_download || this == R.string.ai_error_integrity || this == R.string.ai_error_space
+
 @Composable
 private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiState: AiUiState, actions: AiActions) {
     val context = LocalContext.current
@@ -994,6 +1002,7 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
                         style = MaterialTheme.typography.bodySmall,
                     )
                     DownloadProgressIndicator(progress = { downloadProgress }, modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs))
+                    TextButton(onClick = actions.onCancelDownload) { Text(stringResource(UiR.string.confirm_cancel)) }
                 } else {
                     Button(
                         onClick = {
@@ -1006,7 +1015,7 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
                     ) {
                         Icon(AppIcons.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(Spacing.s))
-                        Text(stringResource(R.string.ai_model_download))
+                        Text(stringResource(if (uiState.errorMessage.isDownloadError()) R.string.ai_model_retry else R.string.ai_model_download))
                     }
                 }
             }
