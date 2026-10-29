@@ -107,6 +107,7 @@ class TravelAssistant @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val wordListsOverride: WordListsOverride,
     private val forecastSections: ForecastSections,
+    private val alertsSections: AlertsSections,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) {
     /**
@@ -142,6 +143,8 @@ class TravelAssistant @Inject constructor(
                 usePosition = mode == AiEngineMode.ON_DEVICE,
             ),
         )
+        // Con la rete (o l'ultima risposta salvata), le allerte della regione per le domande su una catastrofe.
+        val alerts = alertsSections.forQuestion(regionId, question, language)
 
         val withSource = { answer: AssistantAnswer ->
             answer.copy(
@@ -160,6 +163,7 @@ class TravelAssistant @Inject constructor(
                     question,
                     listOfNotNull(
                         forecast?.section,
+                        alerts,
                         cityDistanceSection(regionId, cities, question, language),
                         vaccinationSection(regionId, question, language, search.country),
                         emergency,
@@ -176,7 +180,7 @@ class TravelAssistant @Inject constructor(
                 }
                 emit(AssistantProgress.Done(withSource(AssistantAnswer(text, plan.citations, showOfficialSourceBanner = false))))
             }
-            AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language, forecast?.section))))
+            AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language, listOfNotNull(forecast?.section, alerts)))))
         }
         // Nomi da riconoscere, query e paragrafi da normalizzare: lavoro di CPU fuori dal main thread del chiamante.
     }.flowOn(defaultDispatcher)
@@ -372,7 +376,7 @@ class TravelAssistant @Inject constructor(
         )
     }
 
-    private suspend fun askOnline(question: String, language: String, forecast: AssistantSection? = null): AssistantAnswer {
+    private suspend fun askOnline(question: String, language: String, live: List<AssistantSection>): AssistantAnswer {
         val apiKey = aiSettingsStore.apiKey() ?: error("Nessuna chiave API online configurata")
         val provider = aiSettingsStore.onlineProvider()
         val model = onlineModelCatalog.modelFor(provider, aiSettingsStore.onlineModelSetting(provider))
@@ -380,11 +384,11 @@ class TravelAssistant @Inject constructor(
             baseUrl = provider.baseUrl,
             apiKey = apiKey,
             model = model,
-            // Il template resta com'e': il blocco delle previsioni lo precede.
-            prompt = listOfNotNull(forecast?.body, OnlinePromptTemplates.onlinePrompt(question, language)).joinToString("\n\n"),
+            // Il template resta com'e': i blocchi delle previsioni e delle allerte lo precedono.
+            prompt = (live.map { it.body } + OnlinePromptTemplates.onlinePrompt(question, language)).joinToString("\n\n"),
             sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
         )
-        return AssistantAnswer(text = text, sourceCitations = listOfNotNull(forecast?.citation), showOfficialSourceBanner = false)
+        return AssistantAnswer(text = text, sourceCitations = live.map { it.citation }, showOfficialSourceBanner = false)
     }
 
     private companion object {

@@ -6,6 +6,9 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ## [Non rilasciato]
 
+### Aggiunto
+- Assistente IA: alle domande su una catastrofe o un'allerta ("Ci sono allerte meteo in Puglia?", "Was there an earthquake?") l'assistente risponde con le allerte in corso nella regione, le stesse del riquadro "Allerte in corso": titolo, livello e fine della validità, con l'ora dell'ultimo download e "Informazioni non ufficiali e non in tempo reale". Se la domanda nomina un'area, l'assistente parla delle allerte di quell'area e conta le altre; senza allerte in corso lo dice. Vale per tutti e due i motori, e le fonti compaiono tra le citazioni.
+
 ## [0.13.0] - 2026-10-28
 
 ### Aggiunto
