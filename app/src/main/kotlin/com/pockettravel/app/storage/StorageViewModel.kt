@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.app.R
+import com.pockettravel.app.regions.RecentRegionStore
 import com.pockettravel.core.data.InstalledGuides
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.PackageKind
@@ -63,6 +64,7 @@ class StorageViewModel @Inject constructor(
     private val modelManager: LlmModelManager,
     private val engine: OnDeviceLlmEngine,
     private val aiSettingsStore: AiSettingsStore,
+    private val recentRegionStore: RecentRegionStore,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
@@ -110,14 +112,21 @@ class StorageViewModel @Inject constructor(
     fun deleteRegion(regionId: String) {
         regionSyncScheduler.cancelDownload(regionId)
         viewModelScope.launch {
-            removeOrReport { regionRepository.remove(regionId) }
+            removeOrReport {
+                regionRepository.remove(regionId)
+                recentRegionStore.clearIfLast(regionId)
+            }
             refreshDeviceState()
         }
     }
 
     fun deletePackage(regionId: String, kind: PackageKind) {
         viewModelScope.launch {
-            removeOrReport { regionRepository.removePackage(regionId, kind) }
+            removeOrReport {
+                regionRepository.removePackage(regionId, kind)
+                // Con l'ultimo pacchetto se ne va l'intera regione.
+                if (regionRepository.installed(regionId) == null) recentRegionStore.clearIfLast(regionId)
+            }
             refreshDeviceState()
         }
     }

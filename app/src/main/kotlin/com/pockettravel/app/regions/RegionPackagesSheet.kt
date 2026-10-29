@@ -99,7 +99,7 @@ internal fun RegionPackagesSheet(
                             pkg = pkg,
                             enabled = !isDownloading,
                             onDownload = {
-                                if (pkg.downloadBytes > LARGE_DOWNLOAD_WARNING_BYTES && isOnCellularNetwork(context)) {
+                                if (pkg.warnsOnCellular() && isOnCellularNetwork(context)) {
                                     pendingLargeDownload = pkg.kind
                                 } else {
                                     actions.onDownloadPackage(item.regionId, pkg.kind)
@@ -182,7 +182,12 @@ internal fun RegionPackagesSheet(
         val size = Formatter.formatShortFileSize(context, pkg.downloadBytes)
         ConfirmationDialog(
             title = stringResource(R.string.regions_large_download_title),
-            message = stringResource(R.string.regions_large_download_message, stringResource(kind.label()), size),
+            // Il peso della mappa si conosce solo estraendola: senza dimensione un messaggio apposta.
+            message = if (kind == PackageKind.MAP) {
+                stringResource(R.string.regions_large_download_map_message)
+            } else {
+                stringResource(R.string.regions_large_download_message, stringResource(kind.label()), size)
+            },
             confirmLabel = stringResource(R.string.regions_large_download_confirm),
             destructive = false,
             onConfirm = { pendingLargeDownload = null; actions.onDownloadPackage(item.regionId, kind) },
@@ -198,6 +203,10 @@ internal fun RegionPackagesSheet(
         )
     }
 }
+
+// La mappa si estrae sul dispositivo e il suo peso (downloadBytes = 0) non si conosce prima: avvisa sempre, come
+// l'elenco delle regioni con includesMap.
+internal fun PackageUiState.warnsOnCellular(): Boolean = kind == PackageKind.MAP || downloadBytes > LARGE_DOWNLOAD_WARNING_BYTES
 
 @Composable
 private fun PackageRow(pkg: PackageUiState, enabled: Boolean, onDownload: () -> Unit, onDelete: () -> Unit) {

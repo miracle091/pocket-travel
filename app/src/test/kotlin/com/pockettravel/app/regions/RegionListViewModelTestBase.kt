@@ -54,6 +54,7 @@ abstract class RegionListViewModelTestBase {
     protected val position = FakeLastKnownPosition()
     protected val locator = FakeCountryLocator()
     protected val connectivity = TestConnectivityChecker()
+    protected val recent = RecentRegionStore(files)
     protected lateinit var previousLocale: Locale
 
     @Before
@@ -82,6 +83,7 @@ abstract class RegionListViewModelTestBase {
         lastKnownPosition = position,
         countryLocator = locator,
         connectivityChecker = connectivity,
+        recentRegionStore = recent,
         ioDispatcher = mainDispatcher.dispatcher,
         defaultDispatcher = mainDispatcher.dispatcher,
     )

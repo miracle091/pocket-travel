@@ -99,6 +99,7 @@
     <string name="map_missing_notice">Mappa non scaricata: scaricala per vedere strade e luoghi. Il calcolo dei percorsi richiede la mappa e la rete stradale scaricate</string>
     <string name="regions_large_download_title">Download di grandi dimensioni</string>
     <string name="regions_large_download_message">%1$s: %2$s da scaricare con la rete mobile. Continuare?</string>
+    <string name="regions_large_download_map_message">La mappa può superare i 100 MB e il download usa la rete mobile. Continuare?</string>
     <string name="regions_large_download_confirm">Scarica</string>
     <string name="continent_other">Altro</string>
     <string name="continent_europe">Europa</string>

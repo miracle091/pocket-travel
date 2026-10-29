@@ -30,6 +30,17 @@ class RecentRegionStoreTest {
     }
 
     @Test
+    fun `clearIfLast azzera solo la regione indicata`() {
+        val preferences = RecentRegionStore(InMemoryPreferencesFactory())
+        preferences.setLastRegionId("toscana")
+
+        preferences.clearIfLast("umbria")
+        assertEquals("toscana", preferences.lastRegionId())
+        preferences.clearIfLast("toscana")
+        assertNull(preferences.lastRegionId())
+    }
+
+    @Test
     fun `l'id sta nel file recent_region con la chiave region_id`() {
         val files = InMemoryPreferencesFactory()
         RecentRegionStore(files).setLastRegionId("toscana")

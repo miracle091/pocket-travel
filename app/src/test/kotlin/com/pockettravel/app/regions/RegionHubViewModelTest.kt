@@ -180,7 +180,7 @@ class RegionHubViewModelTest {
 
         assertTrue(viewModel.uiState.value.regionMissing)
         assertNull(viewModel.uiState.value.displayName)
-        assertEquals("anche una regione mancante e' l'ultima aperta", "atlantide", recent.lastRegionId())
+        assertNull("una regione mancante non resta l'ultima aperta", recent.lastRegionId())
     }
 
     @Test

@@ -98,6 +98,7 @@
     <string name="map_missing_notice">Map not downloaded: download it to see streets and places. Route calculation requires the downloaded map and road network</string>
     <string name="regions_large_download_title">Large download</string>
     <string name="regions_large_download_message">%1$s: %2$s to download on mobile data. Continue?</string>
+    <string name="regions_large_download_map_message">The map can exceed 100 MB and the download uses mobile data. Continue?</string>
     <string name="regions_large_download_confirm">Download</string>
     <string name="continent_other">Other</string>
     <string name="continent_europe">Europe</string>

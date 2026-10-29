@@ -472,7 +472,7 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
 
     @Test
     fun `lo spazio giusto basta`() = runTest {
-        repository.availableBytes = 1_000L
+        repository.availableBytes = 1_000L + MAP_MIN_FREE_BYTES
         val viewModel = viewModel()
         advanceUntilIdle()
 
@@ -480,6 +480,31 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
         advanceUntilIdle()
 
         assertEquals(1, scheduler.enqueued.size)
+    }
+
+    @Test
+    fun `la sola mappa senza lo spazio minimo non si accoda`() = runTest {
+        repository.availableBytes = MAP_MIN_FREE_BYTES - 1
+        val viewModel = viewModel()
+        observe(viewModel)
+
+        viewModel.downloadPackage("italia", PackageKind.MAP)
+        advanceUntilIdle()
+
+        assertTrue(scheduler.enqueued.isEmpty())
+        assertEquals(R.string.regions_not_enough_space, viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `la sola mappa con lo spazio minimo si accoda`() = runTest {
+        repository.availableBytes = MAP_MIN_FREE_BYTES
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.downloadPackage("italia", PackageKind.MAP)
+        advanceUntilIdle()
+
+        assertEquals(setOf(PackageKind.MAP), scheduler.enqueued.single().second)
     }
 
     @Test
@@ -526,6 +551,7 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
     fun `eliminare una regione ferma il download, toglie la zona e cancella i dati`() = runTest {
         repository.installedRegions.value = listOf(installed())
         zones.setZone("italia", RegionZone(8.0, 40.0, 10.0, 42.0))
+        recent.setLastRegionId("italia")
         val viewModel = viewModel()
         observe(viewModel)
 
@@ -534,6 +560,7 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
 
         assertEquals(listOf("italia"), scheduler.cancelled)
         assertNull(zones.zone("italia"))
+        assertNull(recent.lastRegionId())
         assertTrue(repository.installedRegions.value.isEmpty())
         assertEquals(RegionStatus.NOT_INSTALLED, viewModel.items.single().status)
     }

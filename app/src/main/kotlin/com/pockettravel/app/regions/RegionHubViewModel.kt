@@ -176,6 +176,8 @@ class RegionHubViewModel @Inject constructor(
             val name = region?.let { localizedInstalledName(it.displayName, it.countryCode, Locale.getDefault()) }
             // Nel frattempo il pannello puo' essere passato a un'altra regione.
             if (this@RegionHubViewModel.regionId.value != regionId) return@launch
+            // Regione eliminata: non resta l'ultima aperta.
+            if (region == null) recentRegionStore.clearIfLast(regionId)
             header.value = RegionHeader(
                 displayName = name,
                 splitCountry = region?.let { isSplitCountryName(it.displayName, it.countryCode) } == true,

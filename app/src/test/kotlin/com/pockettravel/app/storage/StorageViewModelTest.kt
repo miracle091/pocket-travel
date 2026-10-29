@@ -2,6 +2,7 @@ package com.pockettravel.app.storage
 
 import com.pockettravel.app.MainDispatcherRule
 import com.pockettravel.app.R
+import com.pockettravel.app.regions.RecentRegionStore
 import com.pockettravel.core.data.InstalledGuides
 import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.PackageKind
@@ -44,6 +45,7 @@ class StorageViewModelTest {
     private val engine = FakeOnDeviceLlmEngine()
     private val modelsDir = createTempDirectory("storage-view-model-test").toFile()
     private val settings = AiSettingsStore(InMemoryPreferencesFactory(), modelsDir) { RamTier.MINIMO }
+    private val recent = RecentRegionStore(InMemoryPreferencesFactory())
     private lateinit var previousLocale: Locale
 
     @Before
@@ -61,7 +63,7 @@ class StorageViewModelTest {
     private fun viewModel(
         regions: RegionRepository = repository,
         modelEngine: OnDeviceLlmEngine = engine,
-    ) = StorageViewModel(regions, scheduler, models, modelEngine, settings, mainDispatcher.dispatcher)
+    ) = StorageViewModel(regions, scheduler, models, modelEngine, settings, recent, mainDispatcher.dispatcher)
 
     // uiState e' un WhileSubscribed: serve un osservatore per avere i valori.
     private fun TestScope.observe(viewModel: StorageViewModel) {
@@ -163,6 +165,7 @@ class StorageViewModelTest {
     fun `eliminare una regione annulla il suo download, la toglie e rilegge lo spazio libero`() = runTest {
         repository.installedRegions.value = listOf(region("italia"), region("francia", "Francia", "fr"))
         repository.availableBytes = 1_000L
+        recent.setLastRegionId("italia")
         val viewModel = viewModel()
         observe(viewModel)
 
@@ -171,6 +174,7 @@ class StorageViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf("italia"), scheduler.cancelled)
+        assertNull(recent.lastRegionId())
         assertEquals(listOf("francia"), viewModel.uiState.value.installedRegions.map { it.regionId })
         assertEquals(2_000L, viewModel.uiState.value.availableBytes)
         assertNull(viewModel.uiState.value.message)
@@ -179,6 +183,7 @@ class StorageViewModelTest {
     @Test
     fun `eliminare un pacchetto lascia la regione con gli altri`() = runTest {
         repository.installedRegions.value = listOf(region())
+        recent.setLastRegionId("italia")
         val viewModel = viewModel()
         observe(viewModel)
 
@@ -186,12 +191,14 @@ class StorageViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf("italia" to PackageKind.MAP), repository.removedPackages)
+        assertEquals("italia", recent.lastRegionId())
         assertEquals(listOf(PackageKind.POI), viewModel.uiState.value.installedRegions.single().packages.map { it.kind })
     }
 
     @Test
     fun `eliminare l'ultimo pacchetto toglie la regione dall'elenco`() = runTest {
         repository.installedRegions.value = listOf(region(poi = null))
+        recent.setLastRegionId("italia")
         val viewModel = viewModel()
         observe(viewModel)
 
@@ -199,6 +206,7 @@ class StorageViewModelTest {
         advanceUntilIdle()
 
         assertEquals(emptyList<StorageRegionItem>(), viewModel.uiState.value.installedRegions)
+        assertNull(recent.lastRegionId())
     }
 
     @Test

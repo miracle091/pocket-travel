@@ -58,6 +58,9 @@ import kotlinx.coroutines.withContext
 import java.text.Normalizer
 import javax.inject.Inject
 
+/** Spazio libero minimo per estrarre una mappa non ancora installata: il suo peso reale si conosce solo a estrazione finita. */
+internal const val MAP_MIN_FREE_BYTES = 100L * 1024 * 1024
+
 enum class RegionStatus { NOT_INSTALLED, INSTALLED, UPDATE_AVAILABLE }
 
 /** Stato di un pacchetto (mappa, rete stradale, POI) di una regione, per il foglio "Contenuti". */
@@ -168,6 +171,7 @@ class RegionListViewModel @Inject constructor(
     private val lastKnownPosition: LastKnownPosition,
     private val countryLocator: CountryLocator,
     private val connectivityChecker: ConnectivityChecker,
+    private val recentRegionStore: RecentRegionStore,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -389,7 +393,9 @@ class RegionListViewModel @Inject constructor(
         if (kinds.isEmpty()) return false
         val entry = if (PackageKind.CITIES in kinds) withCitiesInCurrentLanguage(listed) else listed
         // StorageManager.getAllocatableBytes puo' bloccare: fuori dal thread principale.
-        val enoughSpace = withContext(ioDispatcher) { regionRepository.availableStorageBytes() } >= entry.downloadBytes(kinds)
+        // La mappa non ha un peso noto in anticipo (si estrae sul dispositivo): se non c'e' ancora, se ne stima un minimo.
+        val mapEstimate = if (PackageKind.MAP in kinds && regionRepository.installed(entry.regionId)?.versionOf(PackageKind.MAP) == null) MAP_MIN_FREE_BYTES else 0L
+        val enoughSpace = withContext(ioDispatcher) { regionRepository.availableStorageBytes() } >= entry.downloadBytes(kinds) + mapEstimate
         if (enoughSpace) {
             transitNetworkPreferences.rememberChoice(entry, kinds)
             regionSyncScheduler.enqueueDownload(entry, kinds)
@@ -417,11 +423,22 @@ class RegionListViewModel @Inject constructor(
     fun delete(regionId: String) {
         regionSyncScheduler.cancelDownload(regionId)
         regionZonePreferences.setZone(regionId, null)
-        viewModelScope.launch { removeOrReport { regionRepository.remove(regionId) } }
+        viewModelScope.launch {
+            removeOrReport {
+                regionRepository.remove(regionId)
+                recentRegionStore.clearIfLast(regionId)
+            }
+        }
     }
 
     fun deletePackage(regionId: String, kind: PackageKind) {
-        viewModelScope.launch { removeOrReport { regionRepository.removePackage(regionId, kind) } }
+        viewModelScope.launch {
+            removeOrReport {
+                regionRepository.removePackage(regionId, kind)
+                // Con l'ultimo pacchetto se ne va l'intera regione.
+                if (regionRepository.installed(regionId) == null) recentRegionStore.clearIfLast(regionId)
+            }
+        }
     }
 
     /** Mappa leggera: la scelta dell'utente o, senza, com'e' la mappa installata; senza mappa leggera (il default). */

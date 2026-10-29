@@ -15,6 +15,11 @@ class RecentRegionStore @Inject constructor(preferences: PreferencesFactory) {
 
     fun setLastRegionId(regionId: String) = prefs.edit { putString(KEY_REGION_ID, regionId) }
 
+    /** Azzera l'ultima regione se e' [regionId] (eliminata): all'avvio successivo non si riapre una regione che non c'e' piu'. */
+    fun clearIfLast(regionId: String) {
+        if (lastRegionId() == regionId) prefs.edit { remove(KEY_REGION_ID) }
+    }
+
     private companion object {
         const val KEY_REGION_ID = "region_id"
     }
