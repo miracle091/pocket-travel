@@ -136,8 +136,10 @@ internal fun NavigationMap(
     // renderer esista manda in crash MapLibre (SIGSEGV in MapRenderer::actor, visto sull'emulatore).
     // Sul main resta solo querySourceFeatures: la conversione delle strade e l'abbinamento alle svolte (O(svolte x
     // segmenti)) si fanno su Default, e solo per le svolte ancora senza nome. Una ricerca ogni pochi secondi e al massimo
-    // qualche tentativo per svolta (StreetLookupBudget): una strada senza nome non fa cercare per tutta la navigazione.
+    // qualche tentativo per svolta, solo per le svolte entro 1,5 km (StreetLookupBudget): una strada senza nome non fa
+    // cercare per tutta la navigazione.
     val currentOnStreetNames by rememberUpdatedState(onStreetNames)
+    val currentPosition by rememberUpdatedState(position)
     val scope = rememberCoroutineScope()
     DisposableEffect(mapView, route, language) {
         var attached: MapLibreMap? = null
@@ -150,7 +152,7 @@ internal fun NavigationMap(
         val lookup = MapView.OnDidBecomeIdleListener {
             if (lookupJob?.isActive == true) return@OnDidBecomeIdleListener
             val now = SystemClock.elapsedRealtime()
-            val due = budget.due(probes.map { it.first }.filter { it !in resolved }, now).toSet()
+            val due = budget.due(StreetLookupBudget.nearTurns(probes, currentPosition).filter { it !in resolved }, now).toSet()
             val pending = probes.filter { (pointIndex, _) -> pointIndex in due }
             if (pending.isEmpty()) return@OnDidBecomeIdleListener
             val style = attached?.style?.takeIf { it.isFullyLoaded } ?: return@OnDidBecomeIdleListener

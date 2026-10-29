@@ -27,4 +27,13 @@ class StreetLookupBudgetTest {
         assertEquals(emptyList<Int>(), budget.due(listOf(7), now))
         assertEquals(listOf(8), budget.due(listOf(7, 8), now))
     }
+
+    @Test
+    fun `si cercano solo le svolte entro un chilometro e mezzo dalla posizione`() {
+        val position = RoutePoint(latitude = 41.9, longitude = 12.5)
+        // Un centesimo di grado di latitudine: circa 1,1 km.
+        val probes = listOf(1 to RoutePoint(41.91, 12.5), 2 to RoutePoint(41.92, 12.5), 3 to RoutePoint(41.89, 12.5))
+
+        assertEquals(listOf(1, 3), StreetLookupBudget.nearTurns(probes, position))
+    }
 }
