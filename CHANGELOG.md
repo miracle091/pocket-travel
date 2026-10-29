@@ -8,6 +8,26 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ### Aggiunto
 - Assistente IA: alle domande su una catastrofe o un'allerta ("Ci sono allerte meteo in Puglia?", "Was there an earthquake?") l'assistente risponde con le allerte in corso nella regione, le stesse del riquadro "Allerte in corso": titolo, livello e fine della validità, con l'ora dell'ultimo download e "Informazioni non ufficiali e non in tempo reale". Se la domanda nomina un'area, l'assistente parla delle allerte di quell'area e conta le altre; senza allerte in corso lo dice. Vale per tutti e due i motori, e le fonti compaiono tra le citazioni.
+- Assistente IA: sotto la barra di avanzamento del download del modello c'è "Annulla". Dopo un download fallito il pulsante diventa "Riprova".
+- Aggiornamenti: il controllo periodico delle regioni installate segnala anche i numeri civici e gli orari dei mezzi pubblici cambiati, come già l'elenco delle nazioni.
+
+### Modificato
+- Assistente IA, motore Online: per le previsioni senza una città nella domanda l'assistente non usa più la città dell'ultima guida aperta, che arrivava al servizio online come già la posizione; usa la capitale della regione o la città della domanda precedente.
+- Assistente IA: la domanda ha al massimo 300 caratteri, anche quando è incollata o dettata. Da 250 caratteri sotto il campo compare il conteggio ("280/300").
+- Download della mappa con la rete mobile: l'avviso compare sempre, perché il peso della mappa si conosce solo dopo l'estrazione sul dispositivo.
+- Download del modello IA: dopo 5 tentativi falliti si ferma con un errore, e con la memoria piena lo dice invece di riprovare. Il download resta quello del modello richiesto anche se nel frattempo se ne sceglie un altro.
+
+### Corretto
+- Dopo l'eliminazione di una regione, o del suo ultimo pacchetto, l'app non la riapre più all'avvio.
+- Regioni: un download fallito faceva fallire anche quelli della stessa regione accodati dopo.
+- Regioni: eliminare un pacchetto mentre se ne installava un altro della stessa regione poteva cancellare l'intera regione.
+- Regioni: la lettura del catalogo e la verifica della sua firma non avvengono più sul thread dell'interfaccia.
+- Regioni: un download ripreso dallo sfondo senza notifica, da Android 12, poteva ricominciare l'estrazione della mappa da capo all'infinito. Dopo 3 tentativi si ferma con un errore.
+- Assistente IA: l'errore di un vecchio download del modello non ricompare più a ogni apertura della schermata.
+- Navigatore: sui percorsi lunghi la posizione sul percorso si cerca solo nei 2 km successivi, e il nome delle strade senza nome si cerca al massimo 3 volte per svolta, una volta ogni 5 secondi.
+- Documenti: se le impronte vengono rimosse mentre la cassaforte è bloccata, compare la spiegazione invece di un errore di sblocco. I dati di un documento in modifica non finiscono più nello stato salvato da Android, e il numero del documento si scrive senza correzione automatica della tastiera.
+- Pubblicazione dei dati: un giorno del calendario senza regioni non pubblica più tutte le regioni, e il catalogo da aggiornare si legge senza passare dalla copia in cache della CDN. Una tile della rete stradale vuota dopo il ritaglio non fa più rigenerare la regione a ogni run, e i punti di interesse incompleti si rigenerano alla run successiva. Il "Quick facts" della guida inglese resta quello pubblicato quando manca la pagina italiana, e un database delle città con molti meno dati del precedente non lo sostituisce.
+- Assistente IA: domande come "Percorso consigliato di 3 giorni a Roma?", "Navigare in barca alle Eolie si può?" o "Indicazioni sui vaccini?" aprivano il Navigatore. Con "percorso", "naviga", "indicazioni", "route", "directions" e "navigate" la frase diventa una richiesta di navigazione solo se dopo c'è la destinazione con "per", "verso", "a", "to" o simili ("Percorso a piedi per il Colosseo").
 
 ## [0.13.0] - 2026-10-28
 
