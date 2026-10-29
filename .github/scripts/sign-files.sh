@@ -34,6 +34,25 @@ if ! openssl ec -in "$key" -noout -text 2> /dev/null | grep -q 'prime256v1'; the
 fi
 openssl ec -in "$key" -pubout -out "$pub" 2> /dev/null
 
+# La chiave deve essere quella incorporata nell'app (SyncConfig.OFFICIAL_PUBLIC_KEY in core/sync): con un'altra
+# chiave P-256 le firme sarebbero valide per openssl ma l'app le rifiuterebbe tutte. Si confrontano le chiavi
+# pubbliche (SubjectPublicKeyInfo DER in base64), mai quella privata. Solo nel repository del progetto: un fork firma
+# il suo catalogo con la sua chiave, che l'app riceve da Impostazioni > Catalogo senza ricompilare.
+if [ "${GITHUB_REPOSITORY:-}" = "miracle091/pocket-travel" ]; then
+  config="$(dirname "$0")/../../core/sync/src/main/kotlin/com/pockettravel/core/sync/SyncConfig.kt"
+  # "|| true": senza, con pipefail un grep senza risultati chiuderebbe lo script in silenzio, prima del messaggio sotto.
+  expected="$(grep -A1 'OFFICIAL_PUBLIC_KEY =' "$config" | grep -oE '"[A-Za-z0-9+/=]{40,}"' | tr -d '"' || true)"
+  if [ -z "$expected" ]; then
+    echo "::error::OFFICIAL_PUBLIC_KEY non trovata in $config: non firmo senza poter controllare la chiave" >&2
+    exit 1
+  fi
+  actual="$(openssl ec -in "$key" -pubout -outform DER 2> /dev/null | base64 | tr -d '\n')"
+  if [ "$actual" != "$expected" ]; then
+    echo "::error::La chiave pubblica di MANIFEST_SIGNING_KEY non coincide con OFFICIAL_PUBLIC_KEY dell'app: non firmo" >&2
+    exit 1
+  fi
+fi
+
 for file in "$@"; do
   if [ ! -s "$file" ]; then
     echo "::error::$file non trovato o vuoto: non lo firmo" >&2
