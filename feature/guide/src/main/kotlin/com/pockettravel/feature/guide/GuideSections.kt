@@ -143,6 +143,16 @@ private fun GuideSectionCard(
                 iconTint = container,
                 overline = category.takeUnless { it.equals(section.title, ignoreCase = true) },
             )
+            // AI Act art. 50(4): un testo tradotto da un'IA e pubblicato su sicurezza, salute e leggi va
+            // dichiarato su ogni contenuto, non solo nelle fonti in fondo, se nessuno lo ha rivisto.
+            if (section.translated) {
+                Spacer(modifier = Modifier.height(Spacing.xs))
+                Text(
+                    text = stringResource(R.string.guide_section_machine_translated),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(modifier = Modifier.height(Spacing.m))
             GuideBody(section.body)
         }

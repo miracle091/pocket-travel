@@ -720,7 +720,10 @@ private fun AnswerContent(
     val answer = uiState.answer
     val error = uiState.errorMessage
     when {
-        streaming -> Text(uiState.streamingText, style = MaterialTheme.typography.bodyLarge)
+        streaming -> Column {
+            Text(uiState.streamingText, style = MaterialTheme.typography.bodyLarge)
+            AiGeneratedLabel()
+        }
         // Alla prima domanda il modello si carica in memoria (fino a qualche decina di secondi per il 4B): una barra
         // dice che l'app sta lavorando e che la risposta arriva dopo.
         uiState.isThinking && uiState.isModelLoading -> Column {
@@ -778,10 +781,22 @@ private fun ReadAloudButton(text: String, state: ReadAloudUiState, onReadAloud: 
     }
 }
 
+// AI Act art. 50(1) e (2): ogni risposta, anche mentre arriva, dice che l'ha scritta un modello IA.
+@Composable
+private fun AiGeneratedLabel() {
+    Text(
+        stringResource(R.string.ai_answer_generated),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = Spacing.xs),
+    )
+}
+
 // Risposta completa: testo, riquadro meteo delle previsioni usate, fonti e, sui temi regolati, il link alla fonte ufficiale.
 @Composable
 private fun FinishedAnswer(answer: AssistantAnswer, onOpenOfficialSource: (url: String) -> Unit) {
     Text(remember(answer.text) { markdownToDisplayText(answer.text) }, style = MaterialTheme.typography.bodyLarge)
+    AiGeneratedLabel()
     // I numeri delle previsioni si leggono nel riquadro, non nel testo del modello.
     answer.forecast?.let { forecast ->
         WeatherCard(forecast, onOpenSource = { url, _ -> onOpenOfficialSource(url) }, modifier = Modifier.padding(top = Spacing.m))
