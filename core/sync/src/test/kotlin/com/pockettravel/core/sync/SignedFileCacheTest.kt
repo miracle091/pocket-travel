@@ -2,6 +2,7 @@ package com.pockettravel.core.sync
 
 import com.pockettravel.core.sync.testing.FakePublishedAtStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import okhttp3.Headers
 import okhttp3.Interceptor
@@ -24,6 +25,7 @@ import java.security.KeyPairGenerator
 import java.security.Signature
 import java.security.spec.ECGenParameterSpec
 import java.util.Base64
+import java.util.concurrent.Executors
 import kotlin.io.path.createTempDirectory
 
 /** SignedFileCache con firme ECDSA vere e un sito finto che risponde 304 quando l'ETag e' quello attuale. */
@@ -96,6 +98,24 @@ class SignedFileCacheTest {
 
         dir.listFiles().orEmpty().single { it.name.endsWith(".json") }.writeBytes(file(200))
         assertNull(read())
+    }
+
+    @Test
+    fun `il catalogo si interpreta sul dispatcher iniettato e non sul thread di chi chiama`() {
+        val executor = Executors.newSingleThreadExecutor { Thread(it, "io-di-prova") }
+        try {
+            val threads = mutableListOf<String>()
+            val ioCache = SignedFileCache(dir, client, ManifestSignatureVerifier(client, FakePublishedAtStore(), Dispatchers.IO), executor.asCoroutineDispatcher())
+            // In modalita' debug delle coroutine il nome del thread finisce con " @coroutine#N".
+            val parse = { bytes: ByteArray -> threads += Thread.currentThread().name.substringBefore(" @"); bytes.decodeToString() }
+            runBlocking {
+                // Primo giro: download; secondo: 304 e copia salvata.
+                repeat(2) { ioCache.fetch(url, httpError = { throw IOException("HTTP $it") }, emptyBody = { throw IOException("vuoto") }, parse = parse) }
+            }
+            assertEquals(listOf("io-di-prova", "io-di-prova"), threads)
+        } finally {
+            executor.shutdown()
+        }
     }
 
     @Test

@@ -59,12 +59,7 @@ class RoomRegionRepository @Inject constructor(
     }
 
     override suspend fun removePackage(regionId: String, kind: PackageKind) {
-        val current = installed(regionId) ?: return
-        // Ultimo pacchetto: si elimina l'intera regione, con i file fuori dalla transazione come in remove().
-        if (PackageKind.entries.all { it == kind || current.versionOf(it) == null }) {
-            remove(regionId)
-            return
-        }
+        installed(regionId) ?: return
         // File su disco fuori dalla transazione (come in remove()); prima di save(), che ne legge le dimensioni.
         withContext(ioDispatcher) {
             when (kind) {
@@ -83,7 +78,10 @@ class RoomRegionRepository @Inject constructor(
                 PackageKind.POI, PackageKind.POI_EXTRA, PackageKind.CITIES -> Unit
             }
         }
+        // Lo stato si rilegge dentro la transazione: un'installazione registrata dopo la prima lettura non va sovrascritta.
+        // Se non resta nessun altro pacchetto, save() elimina l'intera regione.
         database.withTransaction {
+            val current = installedRegionDao.findById(regionId)?.toDomain() ?: return@withTransaction
             when (kind) {
                 PackageKind.POI -> poiDao.deleteForRegion(regionId, extra = false)
                 PackageKind.POI_EXTRA -> poiDao.deleteForRegion(regionId, extra = true)
@@ -99,8 +97,11 @@ class RoomRegionRepository @Inject constructor(
                 citiesSizeBytes = if (kind == PackageKind.CITIES) null else current.citiesSizeBytes,
             )
         }
-        // Fuori dalla transazione (il VACUUM non ci puo' stare). Mappa, rete stradale e il resto sono file, non righe.
-        if (kind == PackageKind.POI || kind == PackageKind.POI_EXTRA || kind == PackageKind.CITIES) compactor.compactIfWasteful()
+        // Fuori dalla transazione (il VACUUM non ci puo' stare). Mappa, rete stradale e il resto sono file, non righe;
+        // se e' sparita l'intera regione, come in remove().
+        if (kind in ROW_PACKAGES || installed(regionId) == null) {
+            compactor.compactIfWasteful()
+        }
     }
 
     override suspend fun forgetMissingPackages(regionId: String): Set<PackageKind> {
@@ -228,6 +229,11 @@ class RoomRegionRepository @Inject constructor(
     override fun installedAddressCells(regionId: String): Map<String, String> = regionStorage.installedAddressCells(regionId)
 
     override fun installedTransitFeeds(regionId: String): List<TransitFeedInfo> = regionStorage.installedTransitFeeds(regionId)
+
+    private companion object {
+        // Pacchetti fatti di righe del database (gli altri sono file).
+        val ROW_PACKAGES = setOf(PackageKind.POI, PackageKind.POI_EXTRA, PackageKind.CITIES)
+    }
 }
 
 private val FILE_PACKAGES = mapOf(

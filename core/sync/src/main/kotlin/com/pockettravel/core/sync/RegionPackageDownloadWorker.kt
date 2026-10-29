@@ -64,14 +64,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
                 notification.build(id, entry.displayName, kinds, phase),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
             )
-            try {
-                setForeground(foregroundInfo(DownloadPhase.Files(0, 0)))
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                // Da Android 12 un nuovo tentativo partito da sfondo non puo' avviare il servizio: si scarica comunque, senza notifica.
-                Log.w(TAG, "Notifica di download non mostrata", error)
-            }
+            if (!startForegroundOrContinue(foregroundInfo(DownloadPhase.Files(0, 0)))) return finish(Result.failure(), regionId, requestFile)
             installer.install(
                 entry,
                 kinds,
@@ -120,6 +113,19 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         return result
     }
 
+    // Da Android 12 un nuovo tentativo partito da sfondo non puo' avviare il servizio: si scarica comunque, senza notifica.
+    // Senza notifica pero' il lavoro ha il limite di 10 minuti e l'estrazione della mappa riparte da zero a ogni stop, che
+    // non conta in MAX_RETRIES: dopo qualche tentativo ci si arrende (false).
+    private suspend fun startForegroundOrContinue(info: ForegroundInfo): Boolean = try {
+        setForeground(info)
+        true
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Exception) {
+        Log.w(TAG, "Notifica di download non mostrata", error)
+        !givesUpWithoutForeground(runAttemptCount)
+    }
+
     // Uscite anticipate di doWork: anche loro lasciano il file della richiesta (e lo staging) a posto.
     private fun finish(result: Result, regionId: String?, requestFile: String?): Result {
         cleanUp(regionId, requestFile)
@@ -151,6 +157,10 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         const val KEY_MAP_BYTES_TOTAL = "map_bytes_total"
         // Tentativi ripetuti dopo il primo per errori di rete, poi il download si arrende.
         private const val MAX_RETRIES = 5
+        // Tentativi (dopo il primo) consentiti senza la notifica in primo piano.
+        private const val MAX_RETRIES_WITHOUT_FOREGROUND = 2
+
+        internal fun givesUpWithoutForeground(runAttemptCount: Int) = runAttemptCount >= MAX_RETRIES_WITHOUT_FOREGROUND
         private val TAG = RegionPackageDownloadWorker::class.java.simpleName
 
         internal fun requestFiles(context: Context) = DownloadRequestFiles(File(context.noBackupFilesDir, "download-requests"))

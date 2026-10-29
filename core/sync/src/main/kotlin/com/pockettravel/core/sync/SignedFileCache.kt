@@ -57,13 +57,14 @@ class SignedFileCache internal constructor(
         parse: (ByteArray) -> T,
     ): T = lock.withLock {
         // Una lettura alla volta: due chiamate insieme (worker e schermate) non scrivono la stessa copia.
-        val saved = withContext(ioDispatcher) {
+        // Tutto sul dispatcher iniettato: parse e verifica della firma non girano sul thread di chi chiama (spesso il Main).
+        withContext(ioDispatcher) {
             if (!othersForgotten) forgetOthers()
             othersForgotten = true
-            load(url)
+            val saved = load(url)
+            val response = download(url, saved?.etag, httpError, emptyBody)
+            if (response != null) accept(url, response, parse) else reuse(url, checkNotNull(saved), httpError, emptyBody, parse)
         }
-        val response = download(url, saved?.etag, httpError, emptyBody)
-        if (response != null) accept(url, response, parse) else reuse(url, checkNotNull(saved), httpError, emptyBody, parse)
     }
 
     /**

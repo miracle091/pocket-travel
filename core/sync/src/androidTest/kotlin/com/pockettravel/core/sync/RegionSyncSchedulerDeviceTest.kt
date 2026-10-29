@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.NetworkType
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.pockettravel.core.data.PackageKind
 import kotlinx.coroutines.runBlocking
@@ -53,6 +54,8 @@ class RegionSyncSchedulerDeviceTest {
 
     private fun uniqueWork(name: String) = workManager.getWorkInfosForUniqueWork(name).get()
 
+    private fun downloadsOf(regionId: String) = workManager.getWorkInfosByTag("${SyncConfig.DOWNLOAD_TAG}:$regionId").get()
+
     // Le voci passate ai worker stanno in un file: le regioni del test hanno un id proprio.
     private fun requestedEntries(): List<RegionManifestEntry> =
         File(context.noBackupFilesDir, "download-requests").listFiles().orEmpty()
@@ -89,14 +92,25 @@ class RegionSyncSchedulerDeviceTest {
     }
 
     @Test
-    fun ilDownloadHaUnNomeUnicoPerRegioneETagPerLElenco() {
+    fun ilDownloadHaIlTagDellaRegioneEDelElenco() {
         val region = "${REGION_PREFIX}a"
         assertNotNull(scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP, PackageKind.POI)))
 
-        val work = uniqueWork(SyncConfig.DOWNLOAD_WORK_NAME_PREFIX + region).single()
+        val work = downloadsOf(region).single()
         assertEquals(NetworkType.CONNECTED, work.constraints.requiredNetworkType)
         assertTrue(SyncConfig.DOWNLOAD_TAG in work.tags)
-        assertTrue("${SyncConfig.DOWNLOAD_TAG}:$region" in work.tags)
+    }
+
+    @Test
+    fun ilDownloadAccodatoPerLaStessaRegioneNonDipendeDaQuelloPrecedente() {
+        val region = "${REGION_PREFIX}h"
+        scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP))
+        scheduler.enqueueDownload(entry(region), setOf(PackageKind.POI))
+
+        // In catena il secondo sarebbe BLOCKED e fallirebbe insieme al primo.
+        val works = downloadsOf(region)
+        assertEquals(2, works.size)
+        assertTrue(works.none { it.state == WorkInfo.State.BLOCKED })
     }
 
     @Test
@@ -157,7 +171,7 @@ class RegionSyncSchedulerDeviceTest {
         assertNull(scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP)))
         scheduler.enqueueGuidesSync(onlyOnWifi = true)
 
-        assertTrue(uniqueWork(SyncConfig.DOWNLOAD_WORK_NAME_PREFIX + region).isEmpty())
+        assertTrue(downloadsOf(region).isEmpty())
         assertTrue(uniqueWork(SyncConfig.GUIDES_SYNC_WORK_NAME).isEmpty())
         assertTrue(requestedEntries().none { it.regionId == region })
     }
@@ -171,8 +185,8 @@ class RegionSyncSchedulerDeviceTest {
 
         scheduler.cancelDownload(a)
 
-        assertTrue(uniqueWork(SyncConfig.DOWNLOAD_WORK_NAME_PREFIX + a).all { it.state.isFinished })
-        assertEquals(1, uniqueWork(SyncConfig.DOWNLOAD_WORK_NAME_PREFIX + b).size)
+        assertTrue(downloadsOf(a).all { it.state.isFinished })
+        assertEquals(1, downloadsOf(b).size)
         assertTrue(!runBlocking { scheduler.isDownloadPending(a) })
     }
 
