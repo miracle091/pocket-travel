@@ -502,7 +502,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   CC BY 4.0, CTranslate2 int8 su CPU) le sezioni del Governo del Canada della guida inglese che pubblica la passata
   `en` (`GUIDES_FINAL_COPY`, poi `GUIDES_SOURCE_DB` della passata italiana), senza quelle per i soli canadesi
   (`#for-nationality=CA`: requisiti d'ingresso, indirizzi e numeri restano nella guida inglese); `generateGuides
-  --translated` le aggiunge in fondo alla guida italiana, con titoli fissi e `translated = 1`, che le app vecchie ignorano. Le frasi inglesi più
+  --translated` le aggiunge in fondo alla guida italiana, con titoli fissi e `translated = 1`, che le app vecchie ignorano. Ogni sezione tradotta registra in `translatedBy` (guide e città) l'id del modello che l'ha tradotta, per sapere chi ha scritto cosa (AI Act, art. 50) e perché il generatore del dataset SFT esclude le tradotte da un modello Gemma, che i Gemma Terms of Use (1.1(e)(iii)) rendono derivato per chi lo addestra su quegli output; senza `translatedBy` (tradotte prima) il modello è ignoto e valgono come Gemma. Le frasi inglesi più
   frequenti hanno una traduzione rivista in `translation-corrections.en-it.tsv` (una riga "inglese<TAB>italiano"), che
   prevale sul modello e non passa dal controllo automatico; le altre frasi con numeri diversi, lunghezza fuori misura o
   un carattere perso (" ⁇ ") fanno scartare la loro sezione. Il confronto delle sezioni di Wikivoyage con quelle

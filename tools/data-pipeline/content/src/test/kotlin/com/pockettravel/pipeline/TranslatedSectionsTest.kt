@@ -26,6 +26,17 @@ class TranslatedSectionsTest {
     }
 
     @Test
+    fun `il modello che ha tradotto passa dal file alle sezioni e alle citta'`() {
+        val line = """{"owner": "Venezia", "category": "STORIA", "model": "Helsinki-NLP/opus-mt-tc-big-en-it", "sections": [{"title": "Storia", "body": "Fondata nel 421.", "sourceUrl": "u"}]}"""
+        val translated = parseTranslatedSections(line)
+
+        assertEquals("Helsinki-NLP/opus-mt-tc-big-en-it", translated.single().sections.single().translatedBy)
+        val city = listOf(CitySectionRow("Venezia", "STORIA", "Storia", "Poca.", "u")).withCityTranslations(translated).single()
+        assertEquals("Helsinki-NLP/opus-mt-tc-big-en-it", city.translatedBy)
+        assertEquals(null, parseTranslatedSections(jsonl).first().sections.single().translatedBy)
+    }
+
+    @Test
     fun `la categoria tradotta sostituisce quella italiana al suo posto`() {
         val guide = RegionGuide(
             "finlandia", "https://it.wikivoyage.org/wiki/Finlandia",

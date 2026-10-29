@@ -705,7 +705,7 @@ class GenerateGuideContentTest {
                     val columns = statement.executeQuery("PRAGMA table_info(guide_sections)").use { rs ->
                         generateSequence { if (rs.next()) rs.getString("name") else null }.toList()
                     }
-                    assertEquals(listOf("regionId", "category", "title", "body", "sourceUrl", "translated"), columns)
+                    assertEquals(listOf("regionId", "category", "title", "body", "sourceUrl", "translated", "translatedBy"), columns)
 
                     val rows = statement.executeQuery("SELECT category, body, sourceUrl, translated FROM guide_sections ORDER BY category").use { rs ->
                         generateSequence { if (rs.next()) listOf(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4)) else null }.toList()

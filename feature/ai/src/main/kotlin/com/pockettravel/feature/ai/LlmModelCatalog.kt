@@ -5,7 +5,8 @@ package com.pockettravel.feature.ai
  * download" (vedi LlmModelManager.download, che rifiuta di procedere in quel caso, e ModelRow in
  * AiAssistantScreen, che mostra "Presto disponibile" invece del pulsante): serve per un modello
  * aggiunto al catalogo dei modelli prima della sua pubblicazione.
- * Il catalogo dei modelli contiene solo modelli non gated (Apache 2.0/MIT): il download non richiede alcun
+ * Il catalogo dei modelli contiene solo modelli non gated: gli ufficiali sono Apache 2.0/MIT, gli addestrati
+ * sulle guide CC BY-SA 4.0 (share-alike dei testi di Wikivoyage e Wikipedia). Il download non richiede alcun
  * token HuggingFace. Ogni `url`/`fileName` referenziato e' un file GGUF quantizzato a ~4 bit
  * (UD-Q4_K_XL per gli ufficiali, Q4_K_M con imatrix per gli addestrati sulle guide), l'unico formato che
  * [OnDeviceLlmEngine] (llama.cpp) sa caricare.
@@ -36,7 +37,7 @@ enum class ModelOrigin {
 object LlmModelCatalog {
     // Fasce MINIMO/CONFORTEVOLE/AMPIA: vedi DeviceAiCapability.RamTier. Un modello ufficiale per fascia,
     // della stessa famiglia del modello addestrato sulle guide nella stessa fascia (confronto diretto).
-    // Solo modelli non gated (Apache 2.0/MIT): niente modelli Gemma o altri repo che richiedono
+    // Solo modelli non gated (ufficiali Apache 2.0/MIT, addestrati sulle guide CC BY-SA 4.0): niente modelli Gemma o altri repo che richiedono
     // accettare una licenza su HuggingFace.
     // Niente modelli solo "reasoning": i Qwen3.5 hanno il thinking, spento da ai_chat.cpp con il blocco
     // <think> vuoto (template con enable_thinking); Qwen3-4B-Instruct-2507 e' solo non-thinking.

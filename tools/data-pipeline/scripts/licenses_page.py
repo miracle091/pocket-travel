@@ -112,7 +112,7 @@ DATA_USE = {
     "Natural Earth": ("confini della mappa del mondo", "world map borders"),
     "OurAirports, Wikidata": ("aeroporti", "airports"),
     "flags-vector-drawables-android": ("bandiere delle nazioni", "country flags"),
-    "Wikivoyage": ("guide (adattate, alcune sezioni tradotte automaticamente)", "guides (adapted, some sections machine-translated)"),
+    "Wikivoyage": ("guide (adattate)", "guides (adapted)"),
     "Wikipedia": ("storia e clima delle città; cucina, tradizioni, media e telecomunicazioni delle guide",
                   "city history and climate; cuisine, traditions, media and telecommunications in the guides"),
     "Wikidata": ("fatti rapidi, ambasciate, compagnie aeree", "quick facts, embassies, airlines"),

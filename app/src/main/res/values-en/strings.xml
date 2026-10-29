@@ -255,9 +255,9 @@
     <string name="licenses_note_noto_sans">Glyphs converted for the map by openmaptiles/fonts; includes Latin, Greek, Cyrillic, Armenian, Hebrew, Arabic, Thai and Georgian characters</string>
     <string name="licenses_component_osm">OpenStreetMap data</string>
     <string name="licenses_note_osm">© OpenStreetMap contributors. The map, road network, points of interest, house numbers and embassies contain OpenStreetMap data, available under the ODbL</string>
-    <string name="licenses_note_wikivoyage">Text by Wikivoyage contributors; every page used is linked in the sources of each guide. Sections are adapted (extracted and stripped of formatting); some are machine-translated from the page in the other language (Italian or English) with Helsinki-NLP\'s opus-mt-tc-big models. The adapted and translated text is also licensed under CC BY-SA 4.0</string>
+    <string name="licenses_note_wikivoyage">Text by Wikivoyage contributors; every page used is linked in the sources of each guide. Sections are adapted (extracted and stripped of formatting). The adapted text is also licensed under CC BY-SA 4.0</string>
     <string name="licenses_component_wikipedia">Wikipedia (guides and city guides)</string>
-    <string name="licenses_note_wikipedia">Text by Wikipedia contributors, linked in the guide\'s sources: the History (shortened) and Climate sections of each city\'s article and the sections on cuisine, traditions, media and telecommunications of each region\'s article. When History or Climate is missing or thin, it is machine-translated from the article in the other language, as for Wikivoyage. The adapted and translated text is also licensed under CC BY-SA 4.0</string>
+    <string name="licenses_note_wikipedia">Text by Wikipedia contributors, linked in the guide\'s sources: the History (shortened) and Climate sections of each city\'s article and the sections on cuisine, traditions, media and telecommunications of each region\'s article. The adapted text is also licensed under CC BY-SA 4.0</string>
     <string name="licenses_component_wikidata">Wikidata (embassies and consulates, Quick facts in the guides)</string>
     <string name="licenses_note_wikidata">Data dedicated to the public domain</string>
     <string name="licenses_component_weather">Weather: Open-Meteo.com (forecasts) and GeoNames (city locations)</string>
@@ -279,8 +279,8 @@
     <string name="licenses_component_emergency_canada">Emergency numbers: Travel.gc.ca (Government of Canada)</string>
     <string name="licenses_note_emergency_canada">Contains information licensed under the Open Government Licence – Canada. Cross-checked with Wikipedia (CC BY-SA 4.0) and Wikidata (CC0)</string>
     <string name="licenses_component_emergency_uk">Emergency numbers: gov.uk Foreign travel advice (UK government)</string>
-    <string name="licenses_component_travel_advice">English guides, travel advice: Travel.gc.ca (Government of Canada)</string>
-    <string name="licenses_note_travel_advice">Contains information licensed under the Open Government Licence – Canada. Adapted text (without the parts for Canadian citizens), not endorsed by the Government of Canada</string>
+    <string name="licenses_component_travel_advice">English and Italian guides, travel advice: Travel.gc.ca (Government of Canada)</string>
+    <string name="licenses_note_travel_advice">Contains information licensed under the Open Government Licence – Canada. Adapted text (without the parts for Canadian citizens), not endorsed by the Government of Canada. In the Italian guides it is machine-translated with an AI model (Helsinki-NLP\'s opus-mt-tc-big-en-it, CC BY 4.0), without human review</string>
     <string name="licenses_component_travel_advice_uk">English guides, travel advice for Palestine, Pitcairn, Wallis and Futuna: gov.uk Foreign travel advice (FCDO, UK government)</string>
     <string name="licenses_note_travel_advice_uk">Contains public sector information licensed under the Open Government Licence v3.0. Adapted text (without the parts for British citizens), not endorsed by the Foreign, Commonwealth &amp; Development Office. Travel advice level and date of the last change also read from the phone through the GOV.UK Content API</string>
     <string name="licenses_component_vaccinations_canada">Vaccinations: Travel.gc.ca (Government of Canada)</string>

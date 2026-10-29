@@ -218,7 +218,7 @@ class DatabaseTest(unittest.TestCase):
             with mock.patch.object(tg, "Ct2Translator", lambda src, tgt, cache_dir, model_dir: FakeTranslator(cache_dir, src, tgt)):
                 tg.main(["guides", str(it), str(en), str(overlay), "--cache-dir", d, "--model-dir", d])
             lines = [json.loads(line) for line in overlay.read_text(encoding="utf-8").splitlines()]
-        self.assertEqual([{"owner": "a", "category": "SALUTE",
+        self.assertEqual([{"owner": "a", "category": "SALUTE", "model": "Helsinki-NLP/opus-mt-tc-big-en-it",
                            "sections": [{"title": "Salute (Governo del Canada)", "body": "IT:Malaria occurs.", "sourceUrl": gc}]}], lines)
 
     def test_main_guide_le_sezioni_di_wikipedia_non_si_traducono(self):
@@ -255,10 +255,11 @@ class OverlayTest(unittest.TestCase):
                       ("a", "TRASPORTI"): [("Città", "Autobus.", "u1"), ("Treni", "Ogni ora.", "u3")]}
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "overlay.jsonl"
-            tg.write_overlay(path, translated)
+            tg.write_overlay(path, translated, "Helsinki-NLP/opus-mt-tc-big-en-it")
             raw = path.read_text(encoding="utf-8")
         lines = [json.loads(line) for line in raw.splitlines()]
         self.assertEqual(["a", "b"], [l["owner"] for l in lines])
+        self.assertEqual({"Helsinki-NLP/opus-mt-tc-big-en-it"}, {l["model"] for l in lines})  # chi ha tradotto, per l'AI Act e la licenza Gemma
         self.assertIn("è sicuro", raw)           # non escapato
         self.assertEqual([{"title": "Città", "body": "Autobus.", "sourceUrl": "u1"},
                           {"title": "Treni", "body": "Ogni ora.", "sourceUrl": "u3"}], lines[0]["sections"])
@@ -266,7 +267,7 @@ class OverlayTest(unittest.TestCase):
     def test_overlay_vuoto_e_un_file_vuoto(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "overlay.jsonl"
-            tg.write_overlay(path, {})
+            tg.write_overlay(path, {}, "m")
             self.assertEqual("", path.read_text(encoding="utf-8"))
 
 

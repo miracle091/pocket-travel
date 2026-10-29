@@ -5,7 +5,7 @@ dopo la revisione a campione (vedi WIKIVOYAGE_SECTIONS): per ogni regione (o cit
 della guida con quella nell'altra lingua (translate_dataset.needs_translation: assente, sotto 300 caratteri o lunga meno
 della meta') e, dove l'altra e' molto piu' ricca, la si traduce, italiano dall'inglese o inglese dall'italiano (--from).
 Scrive un file di sezioni tradotte (una riga JSON per regione e categoria) che generateGuides / generateCities
-(--translated) mettono al posto di quelle povere, segnandole con translated = 1 nel database.
+(--translated) mettono al posto di quelle povere, segnandole con translated = 1 e con il modello usato in translatedBy nel database.
 
 Uso: translate_guides.py guides|cities <guides.db|cities.db da arricchire> <idem nell'altra lingua> <tradotte.jsonl>
          --cache-dir DIR --model-dir DIR [--from en|it] [--max-seconds N] [--deadline EPOCH]
@@ -246,10 +246,12 @@ def other_titles(own_titles, other_titles, own_lang, other_lang, cache_dir):
     return {t: known.get(t, t) for t in own_titles if known.get(t, t) in other_titles}
 
 
-def write_overlay(path, translated):
+def write_overlay(path, translated, model):
+    """Scrive le sezioni tradotte, ognuna con il [model] che le ha tradotte (id del modello): generateGuides e
+    generateCities lo conservano in translatedBy, e il generatore del dataset SFT esclude quelle di un modello Gemma."""
     with open(path, "w", encoding="utf-8") as f:
         for (owner, category), rows in sorted(translated.items()):
-            f.write(json.dumps({"owner": owner, "category": category,
+            f.write(json.dumps({"owner": owner, "category": category, "model": model,
                                 "sections": [{"title": t, "body": b, "sourceUrl": u} for t, b, u in rows]},
                                ensure_ascii=False) + "\n")
 
@@ -294,7 +296,7 @@ def main(argv=None):
         picks += pick_sections(group(own_rows, drop_url_prefix=f"https://{source_lang}."), source, source_owner)
     if not picks:
         print(f"traduzioni {source_lang}->{own_lang} ({args.kind}): niente da tradurre", file=sys.stderr)
-        write_overlay(args.overlay, {})
+        write_overlay(args.overlay, {}, ts.MODELS[(source_lang, own_lang)])
         return 0
 
     translator = Ct2Translator(source_lang, own_lang, args.cache_dir, args.model_dir)
@@ -303,7 +305,7 @@ def main(argv=None):
     before = len(translator.cache)
     deadline = min(time.time() + args.max_seconds, args.deadline)
     translated, _ = translate_picks(picks, translator, deadline, priority)
-    write_overlay(args.overlay, translated)
+    write_overlay(args.overlay, translated, ts.MODELS[(source_lang, own_lang)])
     marker = os.environ.get("TRANSLATE_GROWN_MARKER")
     if marker and len(translator.cache) > before:
         Path(marker).touch()

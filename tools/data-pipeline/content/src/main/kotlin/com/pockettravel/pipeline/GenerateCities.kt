@@ -96,6 +96,7 @@ data class CitySectionRow(
     val latitude: Double? = null,
     val longitude: Double? = null,
     val translated: Boolean = false,
+    val translatedBy: String? = null,
 )
 
 /**
@@ -150,10 +151,11 @@ fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
                 capital INTEGER NOT NULL DEFAULT 0,
                 latitude REAL,
                 longitude REAL,
-                translated INTEGER NOT NULL DEFAULT 0
+                translated INTEGER NOT NULL DEFAULT 0,
+                translatedBy TEXT
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO city_sections (city, category, title, body, sourceUrl, population, capital, latitude, longitude, translated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO city_sections (city, category, title, body, sourceUrl, population, capital, latitude, longitude, translated, translatedBy) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         rows = sections,
     ) { insert, section ->
         insert.setString(1, section.city)
@@ -166,6 +168,7 @@ fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
         section.latitude?.let { insert.setDouble(8, it) } ?: insert.setNull(8, java.sql.Types.REAL)
         section.longitude?.let { insert.setDouble(9, it) } ?: insert.setNull(9, java.sql.Types.REAL)
         insert.setInt(10, if (section.translated) 1 else 0)
+        insert.setString(11, section.translatedBy)
     }
 }
 

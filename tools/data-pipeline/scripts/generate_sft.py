@@ -591,17 +591,29 @@ def city_db_region(spec):
     return path.name.split("--")[0], path
 
 
+def gemma_derived(model):
+    """True se il testo tradotto da [model] non puo' entrare nel dataset: un modello della famiglia Gemma (gemma,
+    translategemma) o un modello non dichiarato. I Gemma Terms of Use (1.1(e)(iii)) considerano "Model Derivative" un
+    modello addestrato sugli output di Gemma, quindi le traduzioni di Gemma si pubblicano nelle guide ma non si usano per
+    l'addestramento; senza il nome del modello (testo tradotto prima che translatedBy esistesse) non si puo' escludere
+    che sia Gemma, e si lascia fuori."""
+    return not model or "gemma" in model.lower()
+
+
 def load_city_sections(specs):
-    """{regionId: {citta': [(categoria, corpo, sourceUrl, tradotta)]}} dai cities.db di [specs] (city_sections). I cities.db
-    pubblicati prima della colonna translated hanno solo sezioni non tradotte."""
+    """{regionId: {citta': [(categoria, corpo, sourceUrl, tradotta)]}} dai cities.db di [specs] (city_sections), senza le
+    sezioni tradotte da un modello Gemma o non dichiarato (gemma_derived). I cities.db pubblicati prima della colonna
+    translated hanno solo sezioni non tradotte."""
     out = {}
     for spec in specs:
         region, path = city_db_region(spec)
         with closing(sqlite3.connect(path)) as db:
-            has_translated = any(col[1] == "translated" for col in db.execute("PRAGMA table_info(city_sections)"))
-            for city, cat, body, url, translated in db.execute(
-                    f"SELECT city, category, body, sourceUrl, {'translated' if has_translated else '0'} "
-                    "FROM city_sections ORDER BY city, rowid"):
+            columns = {col[1] for col in db.execute("PRAGMA table_info(city_sections)")}
+            for city, cat, body, url, translated, model in db.execute(
+                    f"SELECT city, category, body, sourceUrl, {'translated' if 'translated' in columns else '0'}, "
+                    f"{'translatedBy' if 'translatedBy' in columns else 'NULL'} FROM city_sections ORDER BY city, rowid"):
+                if translated and gemma_derived(model):
+                    continue
                 out.setdefault(region, {}).setdefault(city, []).append((cat, body, url, bool(translated)))
     return out
 
@@ -815,8 +827,8 @@ def load_guide_sections(guides_db, lang, wikipedia=False):
     GUIDE_LICENSES e categorie GUIDE_ONLY_CATS di Wikivoyage nella lingua [lang], con [wikipedia] (--guide-wikipedia)
     anche le sezioni della voce di Wikipedia della regione (cucina, tradizioni, media, telecomunicazioni: le sceglie la
     pipeline delle guide, CountryWikipedia.kt; quelle sulle feste in HOLIDAY_CATEGORY); fuori le "#for-nationality=", i Fatti rapidi (a parte, load_quick_facts),
-    le sezioni tradotte da translate_guides.py (guides.db non dice con quale modello, che ATTRIBUTION dovrebbe
-    dichiarare) e la guida generale "_general", che ha domande sue (load_general_guide, GENERAL_GUIDE_QUESTIONS)."""
+    le sezioni tradotte da translate_guides.py (anche quelle di un modello non Gemma: ATTRIBUTION non dichiara ancora
+    il modello di una sezione di guides.db; per i modelli Gemma vedi gemma_derived) e la guida generale "_general", che ha domande sue (load_general_guide, GENERAL_GUIDE_QUESTIONS)."""
     out = {}
     with closing(sqlite3.connect(guides_db)) as db:
         has_translated = any(col[1] == "translated" for col in db.execute("PRAGMA table_info(guide_sections)"))

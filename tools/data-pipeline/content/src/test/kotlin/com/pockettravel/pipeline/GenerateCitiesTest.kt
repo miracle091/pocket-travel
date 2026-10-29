@@ -342,7 +342,7 @@ class GenerateCitiesTest {
         )
 
         assertEquals(
-            listOf("city", "category", "title", "body", "sourceUrl", "population", "capital", "latitude", "longitude", "translated"),
+            listOf("city", "category", "title", "body", "sourceUrl", "population", "capital", "latitude", "longitude", "translated", "translatedBy"),
             rowsOf(db, "SELECT name FROM pragma_table_info('city_sections')").map { it[0] },
         )
         assertEquals(

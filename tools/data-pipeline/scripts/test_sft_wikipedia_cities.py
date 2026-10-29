@@ -115,6 +115,25 @@ class CityDbTest(unittest.TestCase):
             db.close()
             self.assertEqual(load_city_sections([str(path)]), {"afghanistan": {"Kabul": [("TRASPORTI", "Bus.", "u", False)]}})
 
+    def test_sezioni_tradotte_da_gemma_o_senza_modello_restano_fuori(self):
+        # licenza Gemma: un modello addestrato sugli output di Gemma e' un modello derivato
+        rows = [("Kabul", "TRASPORTI", "Trasporti", "Libera.", "u", 0, None),
+                ("Kabul", "SALUTE", "Salute", "Marian.", "u", 1, "Helsinki-NLP/opus-mt-tc-big-en-it"),
+                ("Kabul", "CLIMA", "Clima", "Gemma.", "u", 1, "google/translategemma-4b-it"),
+                ("Kabul", "STORIA", "Storia", "Gemma gguf.", "u", 1, "gemma-3-4b-it-Q4_K_M.gguf"),
+                ("Kabul", "ALLOGGIO", "Alloggio", "Vecchia.", "u", 1, None)]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "afghanistan--r1--cities.db"
+            db = sqlite3.connect(path)
+            db.execute("CREATE TABLE city_sections (city TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT, "
+                       "translated INTEGER NOT NULL DEFAULT 0, translatedBy TEXT)")
+            db.executemany("INSERT INTO city_sections (city, category, title, body, sourceUrl, translated, translatedBy) "
+                           "VALUES (?, ?, ?, ?, ?, ?, ?)", rows)
+            db.commit()
+            db.close()
+            self.assertEqual(load_city_sections([str(path)]), {"afghanistan": {"Kabul": [
+                ("TRASPORTI", "Libera.", "u", False), ("SALUTE", "Marian.", "u", True)]}})
+
 
 def make_db(path, cities):
     """cities.db di prova, con le colonne di GenerateCities.kt."""

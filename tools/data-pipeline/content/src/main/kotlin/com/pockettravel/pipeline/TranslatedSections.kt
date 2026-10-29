@@ -10,18 +10,22 @@ import org.json.JSONObject
  */
 data class TranslatedCategory(val owner: String, val category: String, val sections: List<GuideSectionRow>)
 
-/** Righe del file scritto da translate_guides.py: {"owner", "category", "sections": [{"title", "body", "sourceUrl"}]}. */
+/**
+ * Righe del file scritto da translate_guides.py: {"owner", "category", "model", "sections": [{"title", "body", "sourceUrl"}]};
+ * "model" e' l'id del modello che ha tradotto, che finisce in [GuideSectionRow.translatedBy].
+ */
 fun parseTranslatedSections(jsonl: String): List<TranslatedCategory> =
     jsonl.lineSequence().filter { it.isNotBlank() }.map { line ->
         val obj = JSONObject(line)
         val category = obj.getString("category")
+        val model = obj.optString("model").ifEmpty { null }
         val sections = obj.getJSONArray("sections")
         TranslatedCategory(
             owner = obj.getString("owner"),
             category = category,
             sections = (0 until sections.length()).map { i ->
                 val section = sections.getJSONObject(i)
-                GuideSectionRow(category, section.getString("title"), section.getString("body"), section.getString("sourceUrl"), translated = true)
+                GuideSectionRow(category, section.getString("title"), section.getString("body"), section.getString("sourceUrl"), translated = true, translatedBy = model)
             },
         )
     }.toList()
@@ -75,7 +79,7 @@ fun List<CitySectionRow>.withCityTranslations(translated: List<TranslatedCategor
             sections.map {
                 CitySectionRow(
                     city, it.category, it.title, it.body, it.sourceUrl.orEmpty(), first.population, first.capital,
-                    latitude = first.latitude, longitude = first.longitude, translated = true,
+                    latitude = first.latitude, longitude = first.longitude, translated = true, translatedBy = it.translatedBy,
                 )
             }
         }

@@ -258,7 +258,8 @@ private const val SUBHEADING_MARKER = ""
 
 /**
  * [sourceUrl] solo per le sezioni che non vengono dalla pagina della guida (tradotte dall'inglese): null = quella della
- * regione. [translated]: sezione tradotta dall'inglese da translate_guides.py, colonna "translated" di guide_sections.
+ * regione. [translated]: sezione tradotta dall'inglese da translate_guides.py, colonna "translated" di guide_sections;
+ * [translatedBy]: id del modello che l'ha tradotta, colonna "translatedBy" (null nelle tradotte pubblicate prima).
  */
 data class GuideSectionRow(
     val category: String,
@@ -266,6 +267,7 @@ data class GuideSectionRow(
     val body: String,
     val sourceUrl: String? = null,
     val translated: Boolean = false,
+    val translatedBy: String? = null,
 )
 
 // categories di default: le guide di regione (headingToCategory sopra). GenerateCities.kt passa la
@@ -711,7 +713,7 @@ fun regionGuideFromDumps(regionId: String, dump: String, sourceUrl: String, dump
  * "guide_sections" con le stesse colonne meno l'id autogenerato. L'app importa riga per
  * riga in region.db via GuideDao.insertAll(), che ripopola anche la shadow table FTS
  * come effetto collaterale dell'insert Room. La colonna "translated" (sezione tradotta dall'inglese) la ignorano le
- * app che non la conoscono: l'importer legge le colonne per nome. Nello stesso file la tabella emergency_numbers
+ * app che non la conoscono, come "translatedBy" (il modello della traduzione): l'importer legge le colonne per nome. Nello stesso file la tabella emergency_numbers
  * (vedi GenerateEmergencyNumbers.kt).
  */
 fun writeGuidesDb(guides: List<RegionGuide>, outputDb: File) {
@@ -725,10 +727,11 @@ fun writeGuidesDb(guides: List<RegionGuide>, outputDb: File) {
                 title TEXT NOT NULL,
                 body TEXT NOT NULL,
                 sourceUrl TEXT NOT NULL,
-                translated INTEGER NOT NULL DEFAULT 0
+                translated INTEGER NOT NULL DEFAULT 0,
+                translatedBy TEXT
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO guide_sections (regionId, category, title, body, sourceUrl, translated) VALUES (?, ?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO guide_sections (regionId, category, title, body, sourceUrl, translated, translatedBy) VALUES (?, ?, ?, ?, ?, ?, ?)",
         rows = guides.flatMap { guide -> guide.sections.map { guide to it } },
     ) { insert, (guide, section) ->
         insert.setString(1, guide.regionId)
@@ -737,6 +740,7 @@ fun writeGuidesDb(guides: List<RegionGuide>, outputDb: File) {
         insert.setString(4, section.body)
         insert.setString(5, section.sourceUrl ?: guide.sourceUrl)
         insert.setInt(6, if (section.translated) 1 else 0)
+        insert.setString(7, section.translatedBy)
     }
     writeEmergencyNumbersTable(guides.map { it.regionId }, outputDb)
     writeVaccinationsTables(outputDb)
@@ -745,20 +749,21 @@ fun writeGuidesDb(guides: List<RegionGuide>, outputDb: File) {
 private fun readRegionGuide(db: File, regionId: String): RegionGuide? =
     DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->
         // I guides.db pubblicati prima delle sezioni tradotte non hanno la colonna translated.
-        val hasTranslated = conn.createStatement().use { s ->
+        val columns = conn.createStatement().use { s ->
             s.executeQuery("PRAGMA table_info(guide_sections)").use { rs ->
-                generateSequence { if (rs.next()) rs.getString("name") else null }.any { it == "translated" }
+                generateSequence { if (rs.next()) rs.getString("name") else null }.toSet()
             }
         }
-        val translatedColumn = if (hasTranslated) "translated" else "0"
-        conn.prepareStatement("SELECT category, title, body, sourceUrl, $translatedColumn FROM guide_sections WHERE regionId = ?").use { query ->
+        val translatedColumn = if ("translated" in columns) "translated" else "0"
+        val translatedByColumn = if ("translatedBy" in columns) "translatedBy" else "NULL"
+        conn.prepareStatement("SELECT category, title, body, sourceUrl, $translatedColumn, $translatedByColumn FROM guide_sections WHERE regionId = ?").use { query ->
             query.setString(1, regionId)
             val rs = query.executeQuery()
             var sourceUrl: String? = null
             val sections = mutableListOf<GuideSectionRow>()
             while (rs.next()) {
                 // Le tradotte hanno l'url della pagina inglese, quelle di Wikipedia della voce: ognuna tiene il proprio.
-                sections += GuideSectionRow(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getInt(5) != 0)
+                sections += GuideSectionRow(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getInt(5) != 0, rs.getString(6))
                 if (rs.getInt(5) == 0 && !isWikipediaUrl(rs.getString(4))) sourceUrl = rs.getString(4)
             }
             (sourceUrl ?: sections.firstOrNull()?.sourceUrl)?.let { RegionGuide(regionId, it, sections) }

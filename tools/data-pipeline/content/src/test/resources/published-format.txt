@@ -50,6 +50,7 @@ guides.db guide_sections.title #2 TEXT notnull=1 default=null pk=0
 guides.db guide_sections.body #3 TEXT notnull=1 default=null pk=0
 guides.db guide_sections.sourceUrl #4 TEXT notnull=1 default=null pk=0
 guides.db guide_sections.translated #5 INTEGER notnull=1 default=0 pk=0
+guides.db guide_sections.translatedBy #6 TEXT notnull=0 default=null pk=0
 guides.db vacc_meta.key #0 TEXT notnull=1 default=null pk=0
 guides.db vacc_meta.value #1 TEXT notnull=1 default=null pk=0
 guides.db vacc_polio_entry.iso2 #0 TEXT notnull=1 default=null pk=0
@@ -110,6 +111,7 @@ cities.db city_sections.capital #6 INTEGER notnull=1 default=0 pk=0
 cities.db city_sections.latitude #7 REAL notnull=0 default=null pk=0
 cities.db city_sections.longitude #8 REAL notnull=0 default=null pk=0
 cities.db city_sections.translated #9 INTEGER notnull=1 default=0 pk=0
+cities.db city_sections.translatedBy #10 TEXT notnull=0 default=null pk=0
 addresses-search.db user_version 0
 addresses-search.db index CREATE INDEX street_key ON street(key)
 addresses-search.db address.street_id #0 INTEGER notnull=1 default=null pk=1
