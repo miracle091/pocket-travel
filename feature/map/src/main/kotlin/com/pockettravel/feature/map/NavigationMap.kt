@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import android.os.SystemClock
 import android.view.View
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -134,25 +135,33 @@ internal fun NavigationMap(
     // OnDidBecomeIdle e non la fine del movimento della camera: querySourceFeatures prima che il
     // renderer esista manda in crash MapLibre (SIGSEGV in MapRenderer::actor, visto sull'emulatore).
     // Sul main resta solo querySourceFeatures: la conversione delle strade e l'abbinamento alle svolte (O(svolte x
-    // segmenti)) si fanno su Default, e solo per le svolte ancora senza nome; finite quelle, a ogni idle non si fa piu' nulla.
+    // segmenti)) si fanno su Default, e solo per le svolte ancora senza nome. Una ricerca ogni pochi secondi e al massimo
+    // qualche tentativo per svolta (StreetLookupBudget): una strada senza nome non fa cercare per tutta la navigazione.
     val currentOnStreetNames by rememberUpdatedState(onStreetNames)
     val scope = rememberCoroutineScope()
     DisposableEffect(mapView, route, language) {
         var attached: MapLibreMap? = null
         var lookupJob: Job? = null
         val resolved = mutableSetOf<Int>()
+        val budget = StreetLookupBudget()
         val probes = route.instructions.mapNotNull { instruction ->
             NavigationTracker.streetProbe(route, instruction)?.let { probe -> instruction.pointIndex to probe }
         }
         val lookup = MapView.OnDidBecomeIdleListener {
             if (lookupJob?.isActive == true) return@OnDidBecomeIdleListener
-            val pending = probes.filter { (pointIndex, _) -> pointIndex !in resolved }
+            val now = SystemClock.elapsedRealtime()
+            val due = budget.due(probes.map { it.first }.filter { it !in resolved }, now).toSet()
+            val pending = probes.filter { (pointIndex, _) -> pointIndex in due }
             if (pending.isEmpty()) return@OnDidBecomeIdleListener
             val style = attached?.style?.takeIf { it.isFullyLoaded } ?: return@OnDidBecomeIdleListener
             // Le strade di tutte le regioni del percorso: una sorgente ognuna (REGION_SOURCE_PREFIX).
             val features = style.sources.filterIsInstance<VectorSource>().filter { it.id.startsWith(REGION_SOURCE_PREFIX) }
                 .flatMap { it.querySourceFeatures(arrayOf(ROADS_SOURCE_LAYER), null) }
-            if (features.isEmpty()) return@OnDidBecomeIdleListener
+            if (features.isEmpty()) {
+                // Tile non ancora caricate: non e' un tentativo, ma la prossima ricerca aspetta lo stesso.
+                budget.record(emptyList(), emptyList(), now)
+                return@OnDidBecomeIdleListener
+            }
             lookupJob = scope.launch {
                 val found = withContext(Dispatchers.Default) {
                     val roads = features.flatMap { it.toNamedRoads(language) }
@@ -160,6 +169,7 @@ internal fun NavigationMap(
                         NavigationTracker.nearestRoadName(probe, roads)?.let { name -> pointIndex to name }
                     }.toMap()
                 }
+                budget.record(pending.map { it.first }, found.keys, now)
                 if (found.isNotEmpty()) {
                     resolved += found.keys
                     currentOnStreetNames(found)

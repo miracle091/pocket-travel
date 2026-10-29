@@ -51,7 +51,9 @@ private fun countries(locale: Locale): List<Pair<String, String>> {
 }
 
 // Per cercare "cote" e trovare "Côte d'Ivoire".
-private fun String.folded(): String = Normalizer.normalize(this, Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").lowercase(Locale.ROOT)
+private val MARKS = Regex("\\p{M}")
+
+private fun String.folded(): String = Normalizer.normalize(this, Normalizer.Form.NFD).replace(MARKS, "").lowercase(Locale.ROOT)
 
 /** Foglio per scegliere un paese: ricerca per nome, bandiera, quello scelto con la spunta. */
 @OptIn(ExperimentalMaterial3Api::class)

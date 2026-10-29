@@ -70,6 +70,19 @@ internal fun searchRelevance(poi: Poi, query: String): Int {
 }
 
 /**
+ * I risultati per [this] ordinati: prima la regione aperta, poi la pertinenza, poi la distanza. La pertinenza
+ * ([relevance]) si calcola una volta per posto, non a ogni confronto dell'ordinamento.
+ */
+internal fun List<Poi>.rankedResults(relevance: (Poi) -> Int, toResult: (Poi) -> PlannerResult): List<PlannerResult> =
+    map { poi -> relevance(poi) to toResult(poi) }
+        .sortedWith(
+            compareBy<Pair<Int, PlannerResult>> { it.second.otherRegionName != null }
+                .thenBy { it.first }
+                .thenBy { it.second.distanceMeters ?: Double.MAX_VALUE },
+        )
+        .map { it.second }
+
+/**
  * La destinazione da cercare per una richiesta dell'assistente: quella col momento del giorno ("bar stasera") se e' il nome di
  * un posto ([hasPois]), altrimenti quella senza ("bar"). Solo i POI: un indirizzo non finisce con "domani".
  */
@@ -522,13 +535,7 @@ class NavigationPlannerViewModel @Inject constructor(
         val addressResults = addresses.map { it.toResult(current, regions, reference) }.sortedWith(byProximity).take(ADDRESS_RESULTS_SHOWN)
         // Tra i punti di interesse prima i posti da visitare e i nomi uguali alla ricerca: "Louvre" trova il museo, non
         // gli hotel col suo nome piu' vicini.
-        val poiResults = pois.map { poi -> poi to poi.toResult(language, current, regions, reference) }
-            .sortedWith(
-                compareBy<Pair<Poi, PlannerResult>> { it.second.otherRegionName != null }
-                    .thenBy { searchRelevance(it.first, text) }
-                    .thenBy { it.second.distanceMeters ?: Double.MAX_VALUE },
-            )
-            .map { it.second }
+        val poiResults = pois.rankedResults({ searchRelevance(it, text) }) { it.toResult(language, current, regions, reference) }
             .take(RESULTS_SHOWN - addressResults.size)
         // Con un civico nella ricerca gli indirizzi esatti vengono per primi, altrimenti i punti di interesse.
         return if (parseAddressQuery(text).number != null) addressResults + poiResults else poiResults + addressResults

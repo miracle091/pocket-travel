@@ -2,6 +2,7 @@ package com.pockettravel.feature.map
 
 import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.sqrt
 
 /** Una strada della mappa con un nome: la sua linea (o un pezzo, se la strada e' divisa in piu' linee). */
 data class NamedRoad(val name: String, val points: List<RoutePoint>)
@@ -47,21 +48,29 @@ class NavigationTracker(private val route: Route) {
     private class Projection(val segment: Int, val fraction: Double, val distance: Double)
 
     // Il tratto piu' vicino a [position] da [from] in avanti, tra quelli con la posizione proiettata oltre
-    // [minTravelled] metri dalla partenza (a parita' di distanza vince il primo); null se nessuno.
-    private fun nearestSegment(position: RoutePoint, from: Int, minTravelled: Double): Projection? {
+    // [minTravelled] metri dalla partenza (a parita' di distanza vince il primo); null se nessuno. La scansione si ferma
+    // ai tratti che iniziano oltre [maxTravelled] metri dalla partenza. Le proiezioni non creano oggetti: l'unico
+    // nuovo e' quello del tratto migliore.
+    private fun nearestSegment(position: RoutePoint, from: Int, minTravelled: Double, maxTravelled: Double): Projection? {
         val points = route.points
-        var best: Projection? = null
-        var bestDistance = Double.MAX_VALUE
+        var bestSegment = -1
+        var bestDistanceSquared = Double.MAX_VALUE
+        var bestFraction = 0.0
         for (i in from until points.size - 1) {
-            val (fraction, distance) = projectOnSegment(position, points[i], points[i + 1])
-            val ahead = cumulative[i] + fraction * (cumulative[i + 1] - cumulative[i]) >= minTravelled
-            if (distance < bestDistance && ahead) {
-                bestDistance = distance
-                best = Projection(i, fraction, distance)
+            if (cumulative[i] > maxTravelled) break
+            projectInto(position, points[i], points[i + 1], scratch)
+            val ahead = cumulative[i] + scratch[0] * (cumulative[i + 1] - cumulative[i]) >= minTravelled
+            if (scratch[1] < bestDistanceSquared && ahead) {
+                bestDistanceSquared = scratch[1]
+                bestFraction = scratch[0]
+                bestSegment = i
             }
         }
-        return best
+        return if (bestSegment < 0) null else Projection(bestSegment, bestFraction, sqrt(bestDistanceSquared))
     }
+
+    // Frazione e distanza al quadrato dell'ultima proiezione calcolata da nearestSegment.
+    private val scratch = DoubleArray(2)
 
     // Il tratto di [position] (vedi progress), e aggiorna il punto piu' avanti raggiunto. Con un solo punto o senza tratti:
     // la distanza dall'unico punto, tratto 0.
@@ -71,8 +80,12 @@ class NavigationTracker(private val route: Route) {
         val minTravelled = maxTravelled - BACK_MARGIN_METERS
         var from = frontSegment
         while (from > 0 && cumulative[from] > minTravelled) from--
-        val ahead = nearestSegment(position, from, minTravelled)
-        val overall = if (ahead == null || ahead.distance > OFF_ROUTE_METERS) nearestSegment(position, 0, Double.NEGATIVE_INFINITY) else null
+        val ahead = nearestSegment(position, from, minTravelled, maxTravelled + LOOKAHEAD_METERS)
+        val overall = if (ahead == null || ahead.distance > OFF_ROUTE_METERS) {
+            nearestSegment(position, 0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)
+        } else {
+            null
+        }
         val restarted = overall != null && (ahead == null || overall.distance < ahead.distance)
         val best = (if (restarted) overall else ahead) ?: Projection(0, 0.0, Double.MAX_VALUE)
         val travelled = cumulative[best.segment] + best.fraction * (cumulative[best.segment + 1] - cumulative[best.segment])
@@ -87,7 +100,8 @@ class NavigationTracker(private val route: Route) {
      * Un tracker segue un solo percorso con la sua posizione: la ricerca del tratto parte da quello piu' avanti
      * raggiunto, con un margine all'indietro ([BACK_MARGIN_METERS]), e passa a tutto il percorso solo se li' la
      * posizione e' lontana. Dopo un'inversione a U la posizione resta cosi' sul tratto di ritorno, non su quello
-     * d'andata (che passa per gli stessi punti); e il costo per posizione non cresce con la lunghezza del percorso.
+     * d'andata (che passa per gli stessi punti). In avanti la ricerca guarda solo [LOOKAHEAD_METERS], quindi il costo
+     * per posizione non cresce con la lunghezza del percorso, tranne quando si e' fuori percorso.
      */
     fun progress(position: RoutePoint): NavigationProgress {
         val points = route.points
@@ -139,6 +153,9 @@ class NavigationTracker(private val route: Route) {
 
         /** Quanto la posizione puo' tornare indietro lungo il percorso rispetto al punto piu' avanti raggiunto. */
         private const val BACK_MARGIN_METERS = 10.0
+
+        /** Quanto in avanti, rispetto al punto piu' avanti raggiunto, si cerca il tratto piu' vicino. */
+        private const val LOOKAHEAD_METERS = 2000.0
 
         /** A meno di questa distanza dalla fine del percorso si e' arrivati. */
         const val ARRIVAL_METERS = 20.0
@@ -196,11 +213,25 @@ class NavigationTracker(private val route: Route) {
 
         // Frazione (0..1) del punto del segmento a-b piu' vicino a p, e la distanza di p da quel punto.
         private fun projectOnSegment(p: RoutePoint, a: RoutePoint, b: RoutePoint): Pair<Double, Double> {
-            val (bx, by) = toLocalMeters(b, a)
-            val (px, py) = toLocalMeters(p, a)
+            val out = DoubleArray(2)
+            projectInto(p, a, b, out)
+            return out[0] to sqrt(out[1])
+        }
+
+        // Come projectOnSegment, senza oggetti: scrive in [out] la frazione e la distanza al quadrato.
+        private fun projectInto(p: RoutePoint, a: RoutePoint, b: RoutePoint, out: DoubleArray) {
+            val scaleX = Math.toRadians(1.0) * EARTH_RADIUS_METERS * cos(Math.toRadians(a.latitude))
+            val scaleY = Math.toRadians(1.0) * EARTH_RADIUS_METERS
+            val bx = (b.longitude - a.longitude) * scaleX
+            val by = (b.latitude - a.latitude) * scaleY
+            val px = (p.longitude - a.longitude) * scaleX
+            val py = (p.latitude - a.latitude) * scaleY
             val lengthSquared = bx * bx + by * by
             val fraction = if (lengthSquared == 0.0) 0.0 else ((px * bx + py * by) / lengthSquared).coerceIn(0.0, 1.0)
-            return fraction to hypot(px - fraction * bx, py - fraction * by)
+            val dx = px - fraction * bx
+            val dy = py - fraction * by
+            out[0] = fraction
+            out[1] = dx * dx + dy * dy
         }
     }
 }

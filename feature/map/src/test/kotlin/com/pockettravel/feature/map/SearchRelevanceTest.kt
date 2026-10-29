@@ -25,4 +25,16 @@ class SearchRelevanceTest {
         val ranked = listOf(hotel, taxi, museum).sortedBy { searchRelevance(it, "Louvre") }
         assertEquals(listOf(museum, taxi, hotel), ranked)
     }
+
+    @Test
+    fun `la pertinenza si calcola una volta per posto, non a ogni confronto`() {
+        val pois = (1..200).map { poi("Louvre $it", "hotel", "tourism=hotel") }.reversed()
+        var calls = 0
+        val results = pois.rankedResults(
+            relevance = { calls++; 1 },
+            toResult = { PlannerResult(NavigationPlace(it.name, it.latitude, it.longitude, it.regionId), null, null, null) },
+        )
+        assertEquals(pois.size, calls)
+        assertEquals(pois.map { it.name }, results.map { it.place.name })
+    }
 }
