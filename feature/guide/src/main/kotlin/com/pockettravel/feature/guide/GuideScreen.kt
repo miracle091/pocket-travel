@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
+import com.pockettravel.core.data.GuideSourceTarget
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AlertsCard
 import com.pockettravel.core.ui.AppIcons
@@ -50,6 +51,9 @@ fun GuideScreen(
     catalogCountry: String? = null,
     // Senza barra del titolo (hub della regione): Indietro sulla riga dei filtri.
     onBack: (() -> Unit)? = null,
+    // Sezione citata da una risposta dell'assistente: la guida la apre e ne evidenzia le frasi; poi chiama onTargetConsumed.
+    target: GuideSourceTarget? = null,
+    onTargetConsumed: () -> Unit = {},
     viewModel: GuideViewModel = hiltViewModel(),
     vaccinationViewModel: VaccinationViewModel = hiltViewModel(),
 ) {
@@ -58,6 +62,17 @@ fun GuideScreen(
     var showCities by rememberSaveable(regionId) { mutableStateOf(false) }
     // citta' aperta direttamente da un chip del riquadro Citta' (null = si apre l'elenco)
     var initialCity by rememberSaveable(regionId) { mutableStateOf<String?>(null) }
+    // La sezione da mostrare resta qui finche' la schermata c'e': chi sta sopra puo' gia' avere dimenticato la richiesta.
+    var focus by remember { mutableStateOf<GuideSourceTarget?>(null) }
+    LaunchedEffect(target) {
+        if (target == null) return@LaunchedEffect
+        focus = target
+        if (target.city != null) {
+            initialCity = target.city
+            showCities = true
+        }
+        onTargetConsumed()
+    }
     LaunchedEffect(regionId) { vaccinationViewModel.load(regionId) }
     val vaccinationState by vaccinationViewModel.uiState.collectAsStateWithLifecycle()
     var showVaccinations by rememberSaveable(regionId) { mutableStateOf(false) }
@@ -74,6 +89,7 @@ fun GuideScreen(
         excludedTransit = excludedTransitNotes(regionId),
         onBack = onBack,
         onRefreshWeather = viewModel::refreshWeather,
+        focus = focus?.takeIf { it.city == null },
     )
 
     if (showVaccinations && vaccinationState.available) {
@@ -88,6 +104,7 @@ fun GuideScreen(
             viewModel = viewModel,
             onOpenSource = onOpenSource,
             onDismiss = { showCities = false },
+            focus = focus?.takeIf { it.city != null },
         )
     }
 }
@@ -102,6 +119,7 @@ internal fun GuideContent(
     excludedTransit: List<Int> = emptyList(),
     onBack: (() -> Unit)? = null,
     onRefreshWeather: () -> Unit = {},
+    focus: GuideSourceTarget? = null,
 ) {
     when {
         uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -127,7 +145,7 @@ internal fun GuideContent(
             )
         }
 
-        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities, vaccination, onOpenVaccination, excludedTransit, onBack, onRefreshWeather)
+        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities, vaccination, onOpenVaccination, excludedTransit, onBack, onRefreshWeather, focus)
     }
 }
 
@@ -150,6 +168,7 @@ private fun GuideSectionsList(
     excludedTransit: List<Int>,
     onBack: (() -> Unit)?,
     onRefreshWeather: () -> Unit,
+    focus: GuideSourceTarget?,
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
     val transport = transportSummary(uiState.transportCounts)
@@ -175,6 +194,7 @@ private fun GuideSectionsList(
         onSelectedCategoryChange = { selectedCategory = it },
         onOpenSource = onOpenSource,
         onBack = onBack,
+        focus = focus,
         extraContent = {
             uiState.weather?.let { weather ->
                 item(key = "weather") {

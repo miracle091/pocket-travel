@@ -15,15 +15,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,10 +38,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.data.CitySection
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
+import com.pockettravel.core.data.GuideSourceTarget
 import com.pockettravel.core.data.guideSourceUrlWithoutAudience
 import com.pockettravel.core.ui.InfoCardDefaults
 import com.pockettravel.core.ui.InfoCardHeader
@@ -52,14 +61,20 @@ internal fun SectionsWithFilters(
     onOpenSource: (url: String, title: String) -> Unit,
     extraContent: (LazyListScope.() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
+    // Sezione citata da una risposta dell'assistente: si sceglie la sua categoria, ci si scorre e se ne evidenziano le frasi.
+    focus: GuideSourceTarget? = null,
 ) {
     val categories = sections.map { it.category }.distinct()
     val visibleSections = sections.filter { selectedCategory == null || it.category == selectedCategory }
+    val listState = rememberLazyListState()
+    // Sopra le sezioni c'è il riquadro dei filtri, se c'è; con una categoria scelta non c'è altro contenuto.
+    FocusOnSection(focus, sections, visibleSections, selectedCategory, onSelectedCategoryChange, listState, firstSectionItem = if (categories.size > 1 || onBack != null) 1 else 0)
 
     // Larghezza massima di lettura: sugli schermi larghi il testo della guida non si allunga su
     // righe da 200 caratteri.
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.widthIn(max = 720.dp).fillMaxSize(),
             contentPadding = PaddingValues(bottom = Spacing.l),
             verticalArrangement = Arrangement.spacedBy(InfoCardDefaults.CardGap),
@@ -98,7 +113,11 @@ internal fun SectionsWithFilters(
             }
             // L'indice nella chiave: categoria e titolo non sono garantiti unici, e una chiave doppia manda in crash la LazyColumn.
             itemsIndexed(visibleSections, key = { index, section -> "${section.category}_${section.title}_$index" }) { _, section ->
-                GuideSectionCard(section, modifier = Modifier.padding(horizontal = Spacing.l))
+                GuideSectionCard(
+                    section,
+                    answer = focus?.answer.takeIf { section.isFocus(focus) },
+                    modifier = Modifier.padding(horizontal = Spacing.l),
+                )
             }
             // Le fonti una volta sola, in fondo, invece che sotto ogni riquadro (attribuzione CC BY-SA).
             val sourceUrls = visibleSections.map { guideSourceUrlWithoutAudience(it.sourceUrl) }.filter { it.isNotBlank() }.distinct()
@@ -124,12 +143,38 @@ internal data class SectionUi(
     val translated: Boolean = false,
 )
 
+private fun SectionUi.isFocus(focus: GuideSourceTarget?) = focus != null && category == focus.category && title == focus.title
+
+// Sceglie la categoria della sezione citata, poi scorre la lista fino a lei ([firstSectionItem]: righe sopra le sezioni).
+@Composable
+private fun FocusOnSection(
+    focus: GuideSourceTarget?,
+    sections: List<SectionUi>,
+    visibleSections: List<SectionUi>,
+    selectedCategory: GuideCategory?,
+    onSelectedCategoryChange: (GuideCategory?) -> Unit,
+    listState: LazyListState,
+    firstSectionItem: Int,
+) {
+    val focusInSections = sections.any { it.isFocus(focus) }
+    LaunchedEffect(focus, focusInSections) {
+        if (focus != null && focusInSections) onSelectedCategoryChange(focus.category)
+    }
+    val focusIndex = visibleSections.indexOfFirst { it.isFocus(focus) }
+    LaunchedEffect(focus, selectedCategory == focus?.category, focusIndex >= 0) {
+        if (focus != null && selectedCategory == focus.category && focusIndex >= 0) {
+            listState.scrollToItem(focusIndex + firstSectionItem)
+        }
+    }
+}
+
 internal fun GuideSection.toUi() = SectionUi(category, title, body, sourceUrl, translated)
 internal fun CitySection.toUi() = SectionUi(category, title, body, sourceUrl, translated)
 
 @Composable
 private fun GuideSectionCard(
     section: SectionUi,
+    answer: String?,
     modifier: Modifier = Modifier,
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
@@ -154,7 +199,7 @@ private fun GuideSectionCard(
                 )
             }
             Spacer(modifier = Modifier.height(Spacing.m))
-            GuideBody(section.body)
+            GuideBody(section.body, answer)
         }
     }
 }
@@ -188,8 +233,18 @@ internal fun guideBodyBlocks(body: String): List<GuideBodyBlock> {
 }
 
 @Composable
-private fun GuideBody(body: String) {
-    guideBodyBlocks(body).forEach { block ->
+private fun GuideBody(body: String, answer: String? = null) {
+    val highlight = SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
+    val blocks = guideBodyBlocks(body)
+    // Le frasi della risposta si cercano in ogni paragrafo: gli intervalli sono nel testo del paragrafo.
+    val highlights = remember(body, answer) {
+        blocks.map { block -> if (answer == null || block.isSubheading) emptyList() else answerHighlights(block.text, answer) }
+    }
+    // La pagina scorre fino al paragrafo con la prima frase evidenziata, anche quando la sezione e' lunga.
+    val firstHighlighted = highlights.indexOfFirst { it.isNotEmpty() }
+    val firstHighlightRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(firstHighlighted) { if (firstHighlighted >= 0) firstHighlightRequester.bringIntoView() }
+    blocks.forEachIndexed { index, block ->
         if (block.isSubheading) {
             Text(
                 text = block.text,
@@ -197,7 +252,17 @@ private fun GuideBody(body: String) {
                 modifier = Modifier.padding(top = Spacing.l, bottom = Spacing.xs).semantics { heading() },
             )
         } else {
-            Text(text = block.text, style = MaterialTheme.typography.bodyLarge)
+            val text = remember(block.text, highlights[index], highlight) {
+                buildAnnotatedString {
+                    append(block.text)
+                    highlights[index].forEach { addStyle(highlight, it.first, it.last + 1) }
+                }
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = if (index == firstHighlighted) Modifier.bringIntoViewRequester(firstHighlightRequester) else Modifier,
+            )
         }
     }
 }

@@ -658,7 +658,15 @@ internal fun AssistantSection.isRegulatedTopic(): Boolean =
 
 // CC BY-SA 4.0 (e la OGL-Canada per travel.gc.ca, la OGL v3.0 per gov.uk) impone di indicare la fonte: titolo + link alla pagina originale, non
 // solo il nome del sito.
-private fun GuideSection.toAssistantSection(language: String): AssistantSection {
+private fun GuideSection.toAssistantSection(language: String) = AssistantSection(
+    body = body,
+    category = category,
+    citation = citation(language),
+    fromGeneralGuide = regionId == GENERAL_GUIDE_REGION_ID,
+)
+
+/** La fonte sotto la risposta per questa sezione; resolveGuideCitation la ricostruisce per risalire alla sezione da una fonte salvata. */
+internal fun GuideSection.citation(language: String): String {
     val site = when (guideSourceSiteOf(sourceUrl)) {
         GuideSourceSite.WIKIVOYAGE -> "Wikivoyage"
         GuideSourceSite.WIKIPEDIA -> "Wikipedia"
@@ -666,22 +674,15 @@ private fun GuideSection.toAssistantSection(language: String): AssistantSection 
         GuideSourceSite.FCDO -> if (language == "en") "UK government (gov.uk)" else "Governo del Regno Unito (gov.uk)"
     }
     val url = guideSourceUrlWithoutAudience(sourceUrl)
-    return AssistantSection(
-        body = body,
-        category = category,
-        citation = if (language == "en") "Source: $site, section $title — $url" else "Fonte: $site, sezione $title — $url",
-        fromGeneralGuide = regionId == GENERAL_GUIDE_REGION_ID,
-    )
+    return if (language == "en") "Source: $site, section $title — $url" else "Fonte: $site, sezione $title — $url"
 }
 
+private fun CitySection.toAssistantSection(language: String) = AssistantSection(body = body, category = category, citation = citation(language))
+
 // Storia e Clima delle citta' vengono dalla voce di Wikipedia, il resto da Wikivoyage: il sito si legge dal link.
-private fun CitySection.toAssistantSection(language: String): AssistantSection {
+internal fun CitySection.citation(language: String): String {
     val site = if (sourceUrl.substringAfter("://").substringBefore('/').endsWith("wikipedia.org")) "Wikipedia" else "Wikivoyage"
-    return AssistantSection(
-        body = body,
-        category = category,
-        citation = if (language == "en") "Source: $site, section $title ($city) — $sourceUrl" else "Fonte: $site, sezione $title ($city) — $sourceUrl",
-    )
+    return if (language == "en") "Source: $site, section $title ($city) — $sourceUrl" else "Fonte: $site, sezione $title ($city) — $sourceUrl"
 }
 
 /**
@@ -795,7 +796,6 @@ private const val MIN_CITY_NAME_CHARS = 3
 // Prima del nome di una citta' scritto in minuscolo ("a forli", "to porto"). Senza, una parola comune uguale al nome
 // di una citta' di una sola parola non e' la citta': "mobile data" (Mobile), "mi sento male" (Male'), "split the bill".
 // In inglese niente "a": e' l'articolo ("a nice beach").
-private val placePrepositions = mapOf(
 private val italianArticles = setOf("il", "lo", "la", "i", "gli", "le", "l")
 
 private val articulatedPrepositions = setOf(
@@ -806,11 +806,11 @@ private val articulatedPrepositions = setOf(
     "sul", "sullo", "sulla", "sui", "sugli", "sulle", "sull",
 )
 
+private val placePrepositions = mapOf(
     "it" to setOf("a", "ad", "di", "da", "in", "per", "verso", "vicino"),
     "en" to setOf("in", "to", "from", "near", "around", "at", "of", "visit", "visiting"),
 )
 
-/**
 // "La Valletta" nominata come "della Valletta": in italiano l'articolo del nome ([name], normalizzato) si fonde con la
 // preposizione che lo precede.
 private fun namedWithoutArticle(name: String, foldedTokens: List<String>): Boolean {
@@ -820,6 +820,7 @@ private fun namedWithoutArticle(name: String, foldedTokens: List<String>): Boole
         (1..foldedTokens.size - rest.size).any { i -> foldedTokens.subList(i, i + rest.size) == rest && foldedTokens[i - 1] in articulatedPrepositions }
 }
 
+/**
  * Le citta' di [cities] nominate in [question] come parole intere, dal nome piu' lungo; un nome compreso in uno piu'
  * lungo gia' trovato non conta ("Porto" in "Porto Santo"). Un nome di una sola parola conta solo con l'iniziale
  * maiuscola o dopo una preposizione di luogo della lingua [language].

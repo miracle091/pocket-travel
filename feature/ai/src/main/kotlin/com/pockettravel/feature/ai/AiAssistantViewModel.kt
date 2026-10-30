@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.core.data.ConversationRepository
+import com.pockettravel.core.data.GuideSourceTarget
 import com.pockettravel.core.data.SavedConversation
 import com.pockettravel.core.data.WEATHER_MIN_REFRESH_MILLIS
 import com.pockettravel.core.data.crypto.HistoryKeys
@@ -139,6 +140,7 @@ class AiAssistantViewModel @Inject constructor(
     private val historyAvailability: HistoryAvailability,
     private val onlineModelCatalog: OnlineModelCatalog,
     private val onlineModelAvailability: OnlineModelAvailability,
+    private val guideCitationResolver: GuideCitationResolver,
     private val emergencyCards: EmergencyCardProvider,
     private val answerKeepAlive: AnswerKeepAlive,
 ) : ViewModel() {
@@ -477,6 +479,21 @@ class AiAssistantViewModel @Inject constructor(
                 }
                 _uiState.update { it.copy(isImportingModel = false, importError = message) }
             }
+        }
+    }
+
+    /**
+     * La sezione della guida di [regionId] che [citation] cita sotto la risposta [answer]. Null se la fonte è di altro
+     * tipo, se la regione della conversazione ripresa non è più installata o se la sezione non c'è più.
+     */
+    suspend fun resolveGuideSource(regionId: String, citation: String, answer: String): GuideSourceTarget? {
+        if (_uiState.value.readOnlyRegion != null) return null
+        return try {
+            guideCitationResolver.resolve(regionId, citation, answer)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            null
         }
     }
 

@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
@@ -44,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.dropUnlessResumed
 import com.pockettravel.app.R
 import com.pockettravel.app.navigation.regionContainer
+import com.pockettravel.core.data.GuideSourceTarget
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ContextualHint
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
@@ -78,6 +80,8 @@ fun RegionHubScreen(
     viewModel: RegionHubViewModel = hiltViewModel(),
 ) {
     var selectedTab by rememberSaveable(regionId) { mutableStateOf(RegionTab.fromKey(initialTab)) }
+    // Sezione della guida richiesta da una fonte dell'assistente, finche' la Guida non la prende.
+    var guideTarget by remember { mutableStateOf<GuideSourceTarget?>(null) }
     val hubState by viewModel.uiState.collectAsStateWithLifecycle()
     val displayName = hubState.displayName
     val splitCountry = hubState.splitCountry
@@ -156,7 +160,15 @@ fun RegionHubScreen(
                 Crossfade(targetState = currentTab, animationSpec = tween(TAB_CROSSFADE_MS), label = "regionTab") { tab ->
                 tabStateHolder.SaveableStateProvider(tab.key) {
                 when (tab) {
-                    RegionTab.GUIDE -> Box(modifier = Modifier.statusBarsPadding()) { GuideScreen(regionId = regionId, onOpenSource = onOpenSource, onBack = onBackTap) }
+                    RegionTab.GUIDE -> Box(modifier = Modifier.statusBarsPadding()) {
+                        GuideScreen(
+                            regionId = regionId,
+                            onOpenSource = onOpenSource,
+                            onBack = onBackTap,
+                            target = guideTarget,
+                            onTargetConsumed = { guideTarget = null },
+                        )
+                    }
                     RegionTab.MAP -> {
                         // I pacchetti si installano separatamente: la mappa completa puo' mancare,
                         // ma la scheda mostra sempre qualcosa (mappa d'insieme, mappa del mondo, o solo lo
@@ -231,6 +243,11 @@ fun RegionHubScreen(
                                     request.profile?.let { plannerViewModel.setRouteProfile(it.toRouteProfile()) }
                                     plannerViewModel.searchDestination(request.destination, request.destinationWithTime)
                                     selectedTab = RegionTab.NAVIGATION
+                                },
+                                // Fonte sotto una risposta: la Guida si apre su quella sezione.
+                                onOpenGuideSource = { target ->
+                                    guideTarget = target
+                                    selectedTab = RegionTab.GUIDE
                                 },
                             )
                         }

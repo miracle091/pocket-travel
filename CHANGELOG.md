@@ -9,6 +9,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 ### Aggiunto
 - Assistente IA e guide: i testi scritti da un modello IA lo dicono, come chiede l'articolo 50 del regolamento europeo sull'intelligenza artificiale (AI Act). Sotto ogni risposta dell'assistente, anche mentre arriva, c'è "Generata da un modello IA" con il nome del modello, che apre la sua pagina (su HuggingFace per i modelli sul dispositivo, tra i modelli del servizio per quelli online), e la schermata vuota dell'assistente dice che le risposte sono generate da un modello IA. Le sezioni della guida tradotte automaticamente hanno sotto il titolo "Tradotta automaticamente con un modello IA, senza revisione umana", e la nota di licenza degli avvisi di viaggio del Canada dice che nelle guide in italiano il testo è tradotto automaticamente con opus-mt-tc-big-en-it.
 - Assistente IA: alle domande su una catastrofe o un'allerta ("Ci sono allerte meteo in Puglia?", "Was there an earthquake?") l'assistente risponde con le allerte in corso nella regione, le stesse del riquadro "Allerte in corso": titolo, livello e fine della validità, con l'ora dell'ultimo download e "Informazioni non ufficiali e non in tempo reale". Se la domanda nomina un'area, l'assistente parla delle allerte di quell'area e conta le altre; senza allerte in corso lo dice. Vale per tutti e due i motori, e le fonti compaiono tra le citazioni.
+- Assistente IA: le fonti di una risposta che vengono dalla guida della regione si toccano. La scheda Guida si apre sulla sezione (della nazione o della città) con le frasi usate dalla risposta evidenziate; vale anche per le conversazioni riprese dalla cronologia, se la regione è installata.
 - Assistente IA: la risposta continua anche a schermo spento o con l'app in background. Mentre l'assistente risponde, la notifica "Risposta dell'assistente in corso" tiene l'app attiva, e il suo pulsante "Ferma" interrompe la risposta; a fine risposta la notifica sparisce.
 - Assistente IA: sotto la barra di avanzamento del download del modello c'è "Annulla". Dopo un download fallito il pulsante diventa "Riprova".
 - Aggiornamenti: il controllo periodico delle regioni installate segnala anche i numeri civici e gli orari dei mezzi pubblici cambiati, come già l'elenco delle nazioni.
@@ -21,8 +22,8 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Download del modello IA: dopo 5 tentativi falliti si ferma con un errore, e con la memoria piena lo dice invece di riprovare. Il download resta quello del modello richiesto anche se nel frattempo se ne sceglie un altro.
 
 ### Corretto
-- Dopo l'eliminazione di una regione, o del suo ultimo pacchetto, l'app non la riapre più all'avvio.
 - Assistente IA: le città con l'articolo nel nome (La Valletta, L'Aquila, La Spezia) si riconoscono anche dopo una preposizione articolata, come in "Storia della Valletta?". Prima la domanda non cercava nella guida della città e la risposta veniva dalla guida della nazione.
+- Dopo l'eliminazione di una regione, o del suo ultimo pacchetto, l'app non la riapre più all'avvio.
 - Regioni: un download fallito faceva fallire anche quelli della stessa regione accodati dopo.
 - Regioni: eliminare un pacchetto mentre se ne installava un altro della stessa regione poteva cancellare l'intera regione.
 - Regioni: la lettura del catalogo e la verifica della sua firma non avvengono più sul thread dell'interfaccia.

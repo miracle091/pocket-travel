@@ -47,6 +47,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.GuideCategory
+import com.pockettravel.core.data.GuideSourceTarget
 import com.pockettravel.core.data.MainCity
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CardDescription
@@ -166,8 +167,12 @@ internal fun CitiesDialog(
     viewModel: GuideViewModel,
     onOpenSource: (url: String, title: String) -> Unit,
     onDismiss: () -> Unit,
+    // Sezione di una citta' citata da una risposta dell'assistente (vedi SectionsWithFilters).
+    focus: GuideSourceTarget? = null,
 ) {
     var selectedCity by rememberSaveable { mutableStateOf(initialCity) }
+    // Dopo un ripristino dello stato salvato la citta' scelta puo' essere un'altra da quella richiesta.
+    LaunchedEffect(focus) { if (focus != null) selectedCity = initialCity }
     val goBack = {
         // Una citta' aperta da una scorciatoia del riquadro: indietro torna alla guida della nazione, non all'elenco.
         if (selectedCity != null && initialCity != null) {
@@ -208,6 +213,7 @@ internal fun CitiesDialog(
                         onOpenSource = onOpenSource,
                         excludedTransit = excludedTransitCityNotes(city),
                         onRefreshWeather = viewModel::refreshCityWeather,
+                        focus = focus?.takeIf { it.city == city },
                     )
                 }
             }
@@ -235,6 +241,7 @@ private fun CityGuideContent(
     onOpenSource: (url: String, title: String) -> Unit,
     excludedTransit: List<Int>,
     onRefreshWeather: () -> Unit,
+    focus: GuideSourceTarget?,
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
     when {
@@ -259,6 +266,7 @@ private fun CityGuideContent(
             selectedCategory = selectedCategory,
             onSelectedCategoryChange = { selectedCategory = it },
             onOpenSource = onOpenSource,
+            focus = focus,
             extraContent = if (excludedTransit.isEmpty() && uiState.weather == null) {
                 null
             } else {

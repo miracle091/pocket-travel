@@ -56,6 +56,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -92,6 +93,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pockettravel.core.data.GuideSourceTarget
 import com.pockettravel.core.sync.ONLINE_MODEL_ROLE_AUTO
 import com.pockettravel.core.sync.OnlineModelEntry
 import com.pockettravel.core.ui.AppIcons
@@ -121,6 +123,8 @@ fun AiAssistantScreen(
     readAloudViewModel: ReadAloudViewModel = hiltViewModel(),
     onOpenOfficialSource: (url: String) -> Unit = {},
     onNavigationRequest: (NavigationRequest) -> Unit = {},
+    // Tocco su una fonte che risale a una sezione della guida della regione.
+    onOpenGuideSource: (GuideSourceTarget) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val voiceState by voiceViewModel.uiState.collectAsStateWithLifecycle()
@@ -174,6 +178,7 @@ fun AiAssistantScreen(
         onVoiceStop = voiceViewModel::stop,
         onVoicePermissionDenied = voiceViewModel::onPermissionDenied,
         onReadAloud = readAloudViewModel::toggle,
+        onOpenGuideSource = onOpenGuideSource,
     )
     AiAssistantContent(
         uiState = uiState,
@@ -242,6 +247,9 @@ data class AiActions(
     val onCancelDownload: () -> Unit = {},
     val onImportModel: (displayName: String?, sizeBytes: Long, open: () -> InputStream?) -> Unit = { _, _, _ -> },
     val sendableModelFile: (LlmModelDefinition) -> File? = { null },
+    // Fonte di una sezione della guida sotto una risposta (con il testo della risposta): la sezione, se c'è, e la sua apertura.
+    val resolveGuideSource: suspend (citation: String, answer: String) -> GuideSourceTarget? = { _, _ -> null },
+    val onOpenGuideSource: (GuideSourceTarget) -> Unit = {},
 )
 
 /** Le azioni della cronologia, dal ViewModel. */
@@ -276,6 +284,7 @@ private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
     onDeleteHistory = ::deleteHistory,
     onImportModel = ::importModel,
     sendableModelFile = ::sendableModelFile,
+    resolveGuideSource = { citation, answer -> resolveGuideSource(regionId, citation, answer) },
 )
 
 @Composable
@@ -611,7 +620,7 @@ private fun Conversation(
             QuestionBubble(turn.askedQuestion)
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(Spacing.l)) {
-                    FinishedAnswer(turn.answer, turn.credit, onOpenOfficialSource)
+                    FinishedAnswer(turn.answer, turn.credit, onOpenOfficialSource, actions)
                     ReadAloudButton(markdownToDisplayText(turn.answer.text).text, readAloud, actions.onReadAloud)
                 }
             }
@@ -675,8 +684,17 @@ private fun QuestionBubble(text: String) {
 // Fonti in una riga sola, "Fonti (2)" con il numero di quelle citate, che si apre a richiesta: con la sezione e
 // l'indirizzo di ogni pagina, l'elenco completo occuperebbe spesso piu' spazio della risposta.
 @Composable
-private fun SourceCitations(citations: List<String>) {
+private fun SourceCitations(
+    citations: List<String>,
+    answerText: String,
+    resolveGuideSource: suspend (citation: String, answer: String) -> GuideSourceTarget?,
+    onOpenGuideSource: (GuideSourceTarget) -> Unit,
+) {
     var expanded by rememberSaveable(citations) { mutableStateOf(false) }
+    // Le fonti che risalgono a una sezione della guida installata si toccano; si cercano solo quando l'elenco è aperto.
+    val guideTargets by produceState(emptyMap<String, GuideSourceTarget>(), citations, answerText, expanded) {
+        value = if (expanded) citations.mapNotNull { citation -> resolveGuideSource(citation, answerText)?.let { citation to it } }.toMap() else emptyMap()
+    }
     Column(modifier = Modifier.padding(top = Spacing.xs)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -700,12 +718,25 @@ private fun SourceCitations(citations: List<String>) {
         }
         if (expanded) {
             citations.forEach { citation ->
-                Text(
-                    citation,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = Spacing.xs),
-                )
+                val target = guideTargets[citation]
+                if (target == null) {
+                    Text(
+                        citation,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = Spacing.xs),
+                    )
+                } else {
+                    Text(
+                        citation,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        textDecoration = TextDecoration.Underline,
+                        modifier = Modifier
+                            .padding(top = Spacing.xs)
+                            .clickable(role = Role.Button, onClickLabel = stringResource(R.string.ai_source_open_guide)) { onOpenGuideSource(target) },
+                    )
+                }
             }
         }
     }
@@ -754,7 +785,7 @@ private fun AnswerContent(
             }
         }
         answer != null -> Column {
-            FinishedAnswer(answer, uiState.answerCredit, onOpenOfficialSource)
+            FinishedAnswer(answer, uiState.answerCredit, onOpenOfficialSource, actions)
             ReadAloudButton(markdownToDisplayText(answer.text).text, readAloud, actions.onReadAloud)
             // Solo la risposta in fondo, con le previsioni nel contesto e piu' vecchie del limite per luogo.
             if (uiState.canRefreshForecast && answer.forecast != null) {
@@ -816,14 +847,14 @@ private fun AiGeneratedLabel(credit: ModelCredit?, onOpenOfficialSource: (url: S
 
 // Risposta completa: testo, riquadro meteo delle previsioni usate, fonti e, sui temi regolati, il link alla fonte ufficiale.
 @Composable
-private fun FinishedAnswer(answer: AssistantAnswer, credit: ModelCredit?, onOpenOfficialSource: (url: String) -> Unit) {
+private fun FinishedAnswer(answer: AssistantAnswer, credit: ModelCredit?, onOpenOfficialSource: (url: String) -> Unit, actions: AiActions) {
     Text(remember(answer.text) { markdownToDisplayText(answer.text) }, style = MaterialTheme.typography.bodyLarge)
     AiGeneratedLabel(credit, onOpenOfficialSource)
     // I numeri delle previsioni si leggono nel riquadro, non nel testo del modello.
     answer.forecast?.let { forecast ->
         WeatherCard(forecast, onOpenSource = { url, _ -> onOpenOfficialSource(url) }, modifier = Modifier.padding(top = Spacing.m))
     }
-    if (answer.sourceCitations.isNotEmpty()) SourceCitations(answer.sourceCitations)
+    if (answer.sourceCitations.isNotEmpty()) SourceCitations(answer.sourceCitations, answer.text, actions.resolveGuideSource, actions.onOpenGuideSource)
     if (answer.showOfficialSourceBanner) {
         val url = answer.officialSourceUrl
         AssistChip(

@@ -213,6 +213,7 @@
     <string name="ai_taskmgr_cpu_restart">Riavvia ora</string>
     <string name="ai_sources_show">Mostra le fonti</string>
     <string name="ai_sources_hide">Nascondi le fonti</string>
+    <string name="ai_source_open_guide">Apri la sezione nella guida</string>
     <plurals name="ai_sources_count">
         <item quantity="one">Fonte (%d)</item>
         <item quantity="many">Fonti (%d)</item>

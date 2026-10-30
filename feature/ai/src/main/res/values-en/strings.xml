@@ -209,6 +209,7 @@
     <string name="ai_taskmgr_cpu_restart">Restart now</string>
     <string name="ai_sources_show">Show sources</string>
     <string name="ai_sources_hide">Hide sources</string>
+    <string name="ai_source_open_guide">Open the section in the guide</string>
     <plurals name="ai_sources_count">
         <item quantity="one">Source (%d)</item>
         <item quantity="other">Sources (%d)</item>
