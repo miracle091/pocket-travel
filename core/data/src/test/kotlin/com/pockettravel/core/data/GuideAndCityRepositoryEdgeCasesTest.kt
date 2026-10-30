@@ -1,6 +1,7 @@
 package com.pockettravel.core.data
 
 import com.pockettravel.core.data.db.CityCoordinates
+import com.pockettravel.core.data.db.CityClimateEntity
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.CityPopulation
 import com.pockettravel.core.data.db.CitySectionEntity
@@ -56,6 +57,12 @@ private class RecordingCityDao(
     var lastMainLimit: Int? = null
 
     override suspend fun insertAll(sections: List<CitySectionEntity>) = Unit
+
+    override suspend fun insertClimate(rows: List<CityClimateEntity>) = Unit
+
+    override suspend fun climateFor(regionId: String, city: String): List<CityClimateEntity> = emptyList()
+
+    override suspend fun deleteClimateForRegion(regionId: String) = Unit
 
     override fun citiesForRegion(regionId: String): Flow<List<String>> =
         flowOf(sections.filter { it.regionId == regionId }.map { it.city }.distinct())

@@ -85,7 +85,10 @@ class RoomRegionRepository @Inject constructor(
             when (kind) {
                 PackageKind.POI -> poiDao.deleteForRegion(regionId, extra = false)
                 PackageKind.POI_EXTRA -> poiDao.deleteForRegion(regionId, extra = true)
-                PackageKind.CITIES -> cityDao.deleteForRegion(regionId)
+                PackageKind.CITIES -> {
+                    cityDao.deleteForRegion(regionId)
+                    cityDao.deleteClimateForRegion(regionId)
+                }
                 PackageKind.MAP, PackageKind.ROUTING, PackageKind.ADDRESSES, PackageKind.TRANSIT -> Unit
             }
             save(
@@ -209,6 +212,7 @@ class RoomRegionRepository @Inject constructor(
             installedRegionDao.deleteById(regionId)
             poiDao.deleteForRegion(regionId, extra = null)
             cityDao.deleteForRegion(regionId)
+            cityDao.deleteClimateForRegion(regionId)
         }
     }
 

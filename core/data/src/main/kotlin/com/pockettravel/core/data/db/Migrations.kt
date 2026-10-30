@@ -8,7 +8,7 @@ import java.io.File
 
 /** Tutte le migrazioni, per Room.databaseBuilder e per i test. */
 val ALL_MIGRATIONS: Array<Migration>
-    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_24, MIGRATION_24_25, MIGRATION_25_26)
+    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27)
 
 /** Versioni del database mai uscite in una versione pubblicata dell'app (solo sviluppo). */
 val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16, 18, 19, 20, 21, 22, 23)
@@ -387,8 +387,7 @@ val MIGRATION_24_25 = object : Migration(24, 25) {
     override fun migrate(db: SupportSQLiteDatabase) = migratePoiToCompact(db)
 }
 
-// Da 25 a 26: cronologia delle conversazioni dell'assistente (conversations, conversation_turns), vuota. E' la migrazione
-// piu' recente: resta separata.
+// Da 25 (v0.11.0) a 26 (v0.12.0): cronologia delle conversazioni dell'assistente (conversations, conversation_turns), vuota.
 val MIGRATION_25_26 = object : Migration(25, 26) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
@@ -402,6 +401,18 @@ val MIGRATION_25_26 = object : Migration(25, 26) {
                 "ON UPDATE NO ACTION ON DELETE CASCADE )",
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_conversation_turns_conversationId` ON `conversation_turns` (`conversationId`)")
+    }
+}
+
+// Da 26 a 27: clima mensile delle citta' (city_climate), vuoto finche' la regione non riscarica il pacchetto citta'. E' la
+// migrazione piu' recente: resta separata.
+val MIGRATION_26_27 = object : Migration(26, 27) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `city_climate` (`regionId` TEXT NOT NULL, `city` TEXT NOT NULL, `month` INTEGER NOT NULL, " +
+                "`tempMax` REAL, `tempMin` REAL, `precipMm` REAL, `rainDays` REAL, `sourceUrl` TEXT NOT NULL, " +
+                "PRIMARY KEY(`regionId`, `city`, `month`))",
+        )
     }
 }
 

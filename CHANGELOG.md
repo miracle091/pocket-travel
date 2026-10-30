@@ -13,6 +13,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA: la risposta continua anche a schermo spento o con l'app in background. Mentre l'assistente risponde, la notifica "Risposta dell'assistente in corso" tiene l'app attiva, e il suo pulsante "Ferma" interrompe la risposta; a fine risposta la notifica sparisce.
 - Assistente IA: sotto la barra di avanzamento del download del modello c'è "Annulla". Dopo un download fallito il pulsante diventa "Riprova".
 - Assistente IA: alle domande sul clima o sul periodo migliore per partire che non nominano una città ("Quando conviene andare a Malta?"), se la guida della nazione non ha una sezione sul clima, l'assistente usa la sezione Clima della capitale. Per le domande solo sul clima la sezione Clima trovata va in testa al contesto: prima, dopo una sezione lunga come "Do" della guida della nazione, non ci entrava ("Is it hot in Malta in July?").
+- Assistente IA: alle domande di previsione senza rete e senza previsioni salvate ancora valide, l'assistente dice che le previsioni mancano e risponde con le medie del mese della città (massima, minima, pioggia e giorni di pioggia) dalla tabella climatica della sua voce di Wikipedia, che ora arriva con le guide delle città. Senza la tabella risponde con la sezione Clima.
 - Aggiornamenti: il controllo periodico delle regioni installate segnala anche i numeri civici e gli orari dei mezzi pubblici cambiati, come già l'elenco delle nazioni.
 
 ### Modificato

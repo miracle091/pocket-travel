@@ -131,12 +131,85 @@ fun parseCitiesJsonl(jsonl: String, english: Boolean = false): List<CitySectionR
         wikivoyage + wikipedia
     }.toList()
 
+/** Clima di un mese ([month] 1..12) di una citta': valori null se la voce non li da'. */
+data class CityClimateRow(
+    val city: String,
+    val month: Int,
+    val tempMax: Double?,
+    val tempMin: Double?,
+    val precipMm: Double?,
+    val rainDays: Double?,
+    val sourceUrl: String,
+)
+
+private fun JSONObject.numberOrNull(key: String): Double? =
+    if (isNull(key)) null else optDouble(key).takeUnless { it.isNaN() }
+
+/**
+ * Righe di clima del campo facoltativo "climate" di ogni riga del cities.jsonl
+ * ({"title": voce, "months": [12 oggetti da gennaio con tempMax, tempMin, precipMm, rainDays]}):
+ * una riga per citta' e mese con almeno un valore, i mesi tutti null si saltano.
+ */
+fun parseCitiesClimateJsonl(jsonl: String, english: Boolean = false): List<CityClimateRow> =
+    jsonl.lineSequence().filter { it.isNotBlank() }.flatMap { line ->
+        val obj = JSONObject(line)
+        val climate = obj.optJSONObject("climate") ?: return@flatMap emptySequence()
+        val months = climate.optJSONArray("months") ?: return@flatMap emptySequence()
+        val city = obj.getString("city")
+        val lang = if (english) "en" else "it"
+        val sourceUrl = "https://$lang.wikipedia.org/wiki/" + climate.getString("title").replace(" ", "_")
+        (0 until minOf(months.length(), 12)).asSequence().mapNotNull { index ->
+            val month = months.optJSONObject(index) ?: return@mapNotNull null
+            val row = CityClimateRow(
+                city = city,
+                month = index + 1,
+                tempMax = month.numberOrNull("tempMax"),
+                tempMin = month.numberOrNull("tempMin"),
+                precipMm = month.numberOrNull("precipMm"),
+                rainDays = month.numberOrNull("rainDays"),
+                sourceUrl = sourceUrl,
+            )
+            row.takeUnless { it.tempMax == null && it.tempMin == null && it.precipMm == null && it.rainDays == null }
+        }
+    }.toList()
+
+/** Tabella "city_climate" di cities.db (sempre scritta, vuota se nessuna citta' ha un clima). */
+private fun writeCityClimateTable(climate: List<CityClimateRow>, outputDb: File) {
+    writeSqliteTable(
+        outputDb = outputDb,
+        tableName = "city_climate",
+        createTableSql = """
+            CREATE TABLE city_climate (
+                city TEXT NOT NULL,
+                month INTEGER NOT NULL,
+                tempMax REAL,
+                tempMin REAL,
+                precipMm REAL,
+                rainDays REAL,
+                sourceUrl TEXT NOT NULL
+            )
+            """.trimIndent(),
+        insertSql = "INSERT INTO city_climate (city, month, tempMax, tempMin, precipMm, rainDays, sourceUrl) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        rows = climate,
+    ) { insert, row ->
+        insert.setString(1, row.city)
+        insert.setInt(2, row.month)
+        row.tempMax?.let { insert.setDouble(3, it) } ?: insert.setNull(3, java.sql.Types.REAL)
+        row.tempMin?.let { insert.setDouble(4, it) } ?: insert.setNull(4, java.sql.Types.REAL)
+        row.precipMm?.let { insert.setDouble(5, it) } ?: insert.setNull(5, java.sql.Types.REAL)
+        row.rainDays?.let { insert.setDouble(6, it) } ?: insert.setNull(6, java.sql.Types.REAL)
+        insert.setString(7, row.sourceUrl)
+    }
+}
+
 /**
  * Schema minimo (non lo schema Room di CitySectionEntity, niente FTS4): una tabella
  * "city_sections" con le stesse colonne meno l'id autogenerato (population ripetuta su ogni sezione della citta'), come guide_sections in
  * GenerateGuideContent.kt — l'app importa riga per riga in region.db via CityDao.insertAll().
+ * Segue la tabella "city_climate" con il clima mensile ([climate]).
  */
-fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File) {
+fun writeCitiesDb(sections: List<CitySectionRow>, outputDb: File, climate: List<CityClimateRow> = emptyList()) {
+    writeCityClimateTable(climate, outputDb)
     writeSqliteTable(
         outputDb = outputDb,
         tableName = "city_sections",
@@ -201,6 +274,7 @@ fun main(rawArgs: Array<String>) {
         println("citta': nessuna sezione, cities.db non generato")
         return
     }
-    writeCitiesDb(sections, outputDb)
-    println("citta': ${sections.size} sezioni di ${sections.map { it.city }.distinct().size} citta' scritte in ${outputDb.path}")
+    val climate = parseCitiesClimateJsonl(jsonlFile.readText(), english)
+    writeCitiesDb(sections, outputDb, climate)
+    println("citta': ${sections.size} sezioni di ${sections.map { it.city }.distinct().size} citta' e ${climate.size} mesi di clima scritti in ${outputDb.path}")
 }

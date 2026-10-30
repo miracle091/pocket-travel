@@ -127,8 +127,8 @@ class RegionPackageInstaller @Inject constructor(
             // memoria prima, per una regione grande, rischierebbe l'OutOfMemoryError.
             val poisToImport = if (PackageKind.POI in kinds) File(staging, entry.poi.file.name) else null
             val poiExtraToImport = if (PackageKind.POI_EXTRA in kinds) File(staging, entry.poiExtra!!.file.name) else null
-            val citySectionsToImport = if (PackageKind.CITIES in kinds) {
-                cityImporter.readSections(entry.regionId, File(staging, entry.cities!!.file.name))
+            val cityPackageToImport = if (PackageKind.CITIES in kinds) {
+                cityImporter.read(entry.regionId, File(staging, entry.cities!!.file.name))
             } else {
                 null
             }
@@ -157,7 +157,7 @@ class RegionPackageInstaller @Inject constructor(
                     // Byte veri in region.db (stima dai dati importati), non la dimensione del file scaricato.
                     val poiBytes = poisToImport?.let { poiImporter.replaceFromFile(entry.regionId, it) }
                     val poiExtraBytes = poiExtraToImport?.let { poiImporter.replaceFromFile(entry.regionId, it, extra = true) }
-                    citySectionsToImport?.let { cityImporter.replace(entry.regionId, it) }
+                    cityPackageToImport?.let { cityImporter.replace(entry.regionId, it) }
                     regionRepository.markPackagesInstalled(
                         entry.regionId, entry.displayName, entry.countryCode,
                         versions = kinds.associateWith { entry.versionOf(it)!! },

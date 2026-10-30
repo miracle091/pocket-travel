@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import com.pockettravel.core.data.CityClimate
 import com.pockettravel.core.data.WEATHER_MIN_REFRESH_MILLIS
 import com.pockettravel.core.data.Weather
 import com.pockettravel.core.data.WeatherCondition
@@ -88,8 +89,9 @@ class ForecastContextTest {
         val block = requireNotNull(ForecastProvider(repository, clock).section("Roma", "IT", "it"))
         val section = block.section
         // L'ora del download decide quando "Aggiorna le previsioni" compare sotto la risposta.
-        assertEquals(clock.millis(), block.weather.result.updatedAtMillis)
-        assertEquals("Roma", block.weather.place)
+        val weather = requireNotNull(block.weather)
+        assertEquals(clock.millis(), weather.result.updatedAtMillis)
+        assertEquals("Roma", weather.place)
         assertEquals(listOf("city|IT|Roma"), repository.keys)
         assertEquals(listOf("Roma" to "IT"), repository.geocoded)
         assertEquals(
@@ -122,5 +124,24 @@ class ForecastContextTest {
     @Test
     fun noForecastWithoutNetworkAndSavedWeather() = runTest {
         assertNull(ForecastProvider(FakeWeatherRepository(null), clock).section("Roma", "IT", "it"))
+    }
+
+    @Test
+    fun withoutForecastTheMonthAveragesOfWikipedia() {
+        val url = "https://it.wikipedia.org/wiki/Roma"
+        val climate = listOf(CityClimate(10, 22.4, 13.0, 113.0, 8.0, url), CityClimate(11, 17.0, null, null, null, url))
+        val october = offlineWeatherSection("Roma", climate, 10, "it")
+        assertEquals(
+            "Previsioni per Roma non disponibili: niente rete e nessuna previsione salvata.\n" +
+                "Medie di ottobre a Roma (Wikipedia): massima 22 °C, minima 13 °C, pioggia 113 mm, giorni di pioggia 8.",
+            october.body,
+        )
+        assertEquals("Fonte: tabella climatica di Wikipedia (Roma)", october.citation)
+        assertEquals(
+            "No forecast for Rome: no connection and no saved forecast.\nAverage for November in Rome (Wikipedia): high 17 °C.",
+            offlineWeatherSection("Rome", climate, 11, "en").body,
+        )
+        // Senza il mese nella tabella resta solo la frase: la sezione Clima trovata dalla ricerca fa il resto.
+        assertEquals("Previsioni per Roma non disponibili: niente rete e nessuna previsione salvata.", offlineWeatherSection("Roma", climate, 3, "it").body)
     }
 }

@@ -1,13 +1,16 @@
 """Sezioni Storia e Clima della voce di Wikipedia di ogni citta' per i JSONL di extract-cities-dump(-en).py: aggiunge
 alle righe il campo "wikipedia" ({"title": voce, "text": wikitext delle sezioni}), che GenerateCities.kt pulisce con la
-stessa cleanBody delle guide e salva come sezioni STORIA e CLIMA in cities.db.
+stessa cleanBody delle guide e salva come sezioni STORIA e CLIMA in cities.db, e "climate" ({"title": voce,
+"months": 12 oggetti da gennaio con tempMax, tempMin, precipMm, rainDays}): le medie mensili della tabella climatica
+della voce ({{ClimaAnnuale}} in italiano, {{Weather box}} in inglese, anche in un template a parte come
+{{Paris weatherbox}}), ogni valore un numero o null; il campo manca se la voce non ha una tabella con valori.
 
 La voce si trova dall'elemento Wikidata collegato alla pagina di Wikivoyage (city_population.wikibase_items) e dal
 suo sitelink {lang}wiki; il testo viene dall'API di Wikipedia (wikitext delle voci a lotti): i dump completi di
 Wikipedia (IT ~5 GB, EN ~24 GB) non stanno nei runner di CI, che girano questo script una volta per shard.
 Wikipedia e' CC BY-SA 4.0 come Wikivoyage; la voce resta tra le fonti della guida nell'app.
 
-Mai fatale: un errore di rete lascia le citta' senza Storia e Clima. Il tempo e' limitato a MAX_SECONDS per chiamata
+Mai fatale: un errore di rete lascia le citta' senza Storia, Clima e tabella climatica. Il tempo e' limitato a MAX_SECONDS per chiamata
 (una per shard e lingua nel workflow): oltre, le voci rimaste non si scaricano e quelle citta' restano senza le due
 sezioni fino alla generazione successiva, invece di consumare il budget di tempo dello shard (publish-regions.yml).
 """
@@ -59,6 +62,141 @@ def sections(text, names):
     return "\n".join(out)
 
 
+MONTHS_EN = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+# Template della tabella climatica: nome seguito da "|" o dalla fine del template.
+TABLE = {"it": re.compile(r"\{\{\s*clima\s*annuale\s*(?=[|}])", re.I),
+         "en": re.compile(r"\{\{\s*weather\s*box\s*(?=[|}])", re.I)}
+# Template inglese a parte che contiene la tabella ({{Paris weatherbox}}).
+SEPARATE_TABLE = re.compile(r"\{\{\s*([^{}|<>\[\]]*?weather\s*box)\s*[|}]", re.I)
+COMMENT = re.compile(r"<!--.*?-->", re.S)
+NOISE = re.compile(r"<!--.*?-->|<ref[^>/]*/>|<ref[^>]*>.*?</ref>", re.S | re.I)
+NUMBER = re.compile(r"-?\d+(\.\d+)?")
+FIELDS = ("tempMax", "tempMin", "precipMm", "rainDays")
+
+
+def _template_body(text, start):
+    """Testo del template che inizia in [start] ("{{"), senza le graffe esterne, o None se non si chiude."""
+    depth, i = 0, start
+    while i < len(text) - 1:
+        pair = text[i:i + 2]
+        if pair == "{{":
+            depth += 1
+            i += 2
+        elif pair == "}}":
+            depth -= 1
+            i += 2
+            if depth == 0:
+                return text[start + 2:i - 2]
+        else:
+            i += 1
+    return None
+
+
+def _params(body):
+    """{nome in minuscolo: valore} dei parametri col nome di un template, divisi solo dai "|" di primo livello."""
+    body = NOISE.sub("", body)
+    parts, depth, current, i = [], 0, [], 0
+    while i < len(body):
+        pair = body[i:i + 2]
+        if pair in ("{{", "[["):
+            depth += 1
+            current.append(pair)
+            i += 2
+        elif pair in ("}}", "]]"):
+            depth -= 1
+            current.append(pair)
+            i += 2
+        elif body[i] == "|" and depth == 0:
+            parts.append("".join(current))
+            current = []
+            i += 1
+        else:
+            current.append(body[i])
+            i += 1
+    parts.append("".join(current))
+    out = {}
+    for part in parts[1:]:
+        name, eq, value = part.partition("=")
+        if eq:
+            out.setdefault(" ".join(name.lower().split()), value.strip())
+    return out
+
+
+def _number(value, lang):
+    """Numero di un valore della tabella (virgola decimale in italiano, delle migliaia in inglese) o None."""
+    if value is None:
+        return None
+    for _ in range(5):  # {{convert|5|mm|in}} vale 5, gli altri template annidati (refn, ...) spariscono
+        value = re.sub(r"\{\{\s*(?:convert|cvt)\s*\|\s*([^{}|]*)[^{}]*\}\}", r"\1", value, flags=re.I)
+        value = re.sub(r"\{\{[^{}]*\}\}", "", value)
+    value = re.sub(r"<[^>]*>", "", value).replace("&minus;", "-").replace("&nbsp;", "")
+    value = re.sub(r"[\u2212\u2013\u2012\u2010]", "-", value)
+    value = "".join(value.split())
+    if lang == "it" and "," in value:
+        value = value.replace(".", "").replace(",", ".")
+    else:
+        value = value.replace(",", "")
+    return float(value) if NUMBER.fullmatch(value) else None
+
+
+def _months(params, lang):
+    """I 12 mesi della tabella: tempMax, tempMin, precipMm, rainDays come numeri o None."""
+    def first(*keys):
+        for key in keys:
+            if (n := _number(params.get(key), lang)) is not None:
+                return n
+        return None
+
+    def celsius(c, f):
+        n = first(c)
+        if n is None and (n := first(f)) is not None:
+            n = round((n - 32) * 5 / 9, 1)
+        return n
+
+    def listed(key, m):
+        # Forma con i 12 mesi in un solo parametro ("tempmax = 12, 12, 15, ..."), decimali col punto.
+        values = (params.get(key) or "").split(",")
+        return _number(values[m], "en") if len(values) == 12 else None
+
+    months = []
+    for m in range(12):
+        if lang == "it":
+            k = f"{m + 1:02d}"
+            row = [n if (n := first(key + k)) is not None else listed(key, m)
+                   for key in ("tempmax", "tempmin", "pioggia", "giornipioggia")]
+        else:
+            e = MONTHS_EN[m]
+            precip = first(f"{e} precipitation mm", f"{e} rain mm")
+            if precip is None and (inch := first(f"{e} precipitation inch", f"{e} rain inch")) is not None:
+                precip = round(inch * 25.4, 1)
+            row = [celsius(f"{e} high c", f"{e} high f"), celsius(f"{e} low c", f"{e} low f"), precip,
+                   first(f"{e} precipitation days", f"{e} rain days")]
+        months.append(dict(zip(FIELDS, row)))
+    return months
+
+
+def climate(text, lang):
+    """Le 12 medie mensili della prima tabella climatica con valori nel wikitext [text] di una voce [lang], da gennaio:
+    [{"tempMax", "tempMin", "precipMm", "rainDays"}, ...] con numeri o None; None se non c'e' una tabella con valori.
+    Senza commenti prima di contare le graffe: "}}" dentro un commento non chiude il template (Torino)."""
+    text = COMMENT.sub("", text)
+    for m in TABLE[lang].finditer(text):
+        if (body := _template_body(text, m.start())) is not None:
+            months = _months(_params(body), lang)
+            if any(v is not None for month in months for v in month.values()):
+                return months
+    return None
+
+
+def weatherbox_template(text):
+    """Nome del primo template inglese a parte con la tabella (come "Paris weatherbox") nel wikitext [text], o None."""
+    for m in SEPARATE_TABLE.finditer(text):
+        name = m.group(1).strip()
+        if re.sub(r"\s+", "", name).lower() != "weatherbox":
+            return name
+    return None
+
+
 def _expired(deadline, what, left):
     if deadline is not None and time.monotonic() > deadline:
         print(f"-- Wikipedia: tempo esaurito, {left} {what} non scaricati (restano senza le sezioni di Wikipedia)", file=sys.stderr)
@@ -90,10 +228,12 @@ def wikipedia_titles(titles, lang, deadline=None, voyage_lang=None):
     return {t: title_of_item[q] for t, q in item_of.items() if q in title_of_item}
 
 
-def wikipedia_sections(titles, lang, deadline=None, names=None, keep_empty=False):
+def wikipedia_sections(titles, lang, deadline=None, names=None, keep_empty=False, climates=None):
     """{titolo della voce: wikitext delle sezioni [names] (default Storia e Clima, SECTIONS)} per le voci di Wikipedia
     [lang] in [titles] che ne hanno, con [keep_empty] anche le voci lette senza sezioni (testo vuoto); tiene solo le
-    sezioni, non le voci intere. Dopo [deadline] (time.monotonic()) non inizia altri lotti."""
+    sezioni, non le voci intere. Se [climates] e' un dict, dalle stesse voci ci mette {titolo: mesi di climate()}, o il
+    nome di un template a parte da leggere con weatherbox_tables(). Dopo [deadline] (time.monotonic()) non inizia altri
+    lotti."""
     names = names or SECTIONS[lang]
     titles = sorted(set(titles))
     out = {}
@@ -111,7 +251,13 @@ def wikipedia_sections(titles, lang, deadline=None, names=None, keep_empty=False
                 break
             for page in data.get("query", {}).get("pages", []):
                 if revisions := page.get("revisions"):
-                    text = sections(revisions[0]["slots"]["main"]["content"], names)
+                    content = revisions[0]["slots"]["main"]["content"]
+                    if climates is not None:
+                        if months := climate(content, lang):
+                            climates[page["title"]] = months
+                        elif lang == "en" and (template := weatherbox_template(content)):
+                            climates[page["title"]] = template
+                    text = sections(content, names)
                     if text or keep_empty:
                         out[page["title"]] = text
             if "continue" not in data:
@@ -121,22 +267,59 @@ def wikipedia_sections(titles, lang, deadline=None, names=None, keep_empty=False
     return out
 
 
+def weatherbox_tables(climates, lang, deadline=None):
+    """Sostituisce in [climates] i nomi di template a parte con i mesi della tabella che contengono (letti a lotti da
+    Template:<nome>); le voci la cui tabella non si legge escono dal dict. Dopo [deadline] non inizia altri lotti."""
+    def normal(name):
+        name = " ".join(name.replace("_", " ").split())
+        return name[:1].upper() + name[1:]
+
+    wanted = {t: normal(n) for t, n in climates.items() if isinstance(n, str)}
+    names = sorted(set(wanted.values()))
+    months_of = {}
+    for i in range(0, len(names), CONTENT_BATCH):
+        if _expired(deadline, "template", len(names) - i):
+            break
+        params = {"action": "query", "prop": "revisions", "rvprop": "content", "rvslots": "main", "format": "json",
+                  "formatversion": "2", "titles": "|".join("Template:" + n for n in names[i:i + CONTENT_BATCH])}
+        try:
+            data = city_population._get(f"https://{lang}.wikipedia.org/w/api.php?" + urllib.parse.urlencode(params))
+        except Exception as e:
+            print(f"-- Wikipedia: lotto di template saltato ({e})", file=sys.stderr)
+            continue
+        for page in data.get("query", {}).get("pages", []):
+            if revisions := page.get("revisions"):
+                if months := climate(revisions[0]["slots"]["main"]["content"], lang):
+                    months_of[normal(page["title"].partition(":")[2])] = months
+        time.sleep(0.2)
+    for title, name in wanted.items():
+        if name in months_of:
+            climates[title] = months_of[name]
+        else:
+            del climates[title]
+
+
 def annotate(paths, lang, max_seconds=MAX_SECONDS):
-    """Aggiunge "wikipedia" alle righe dei JSONL [paths] le cui citta' hanno una voce con Storia o Clima, entro
-    [max_seconds] per le voci."""
+    """Aggiunge "wikipedia" alle righe dei JSONL [paths] le cui citta' hanno una voce con Storia o Clima, e "climate"
+    a quelle con una tabella climatica, entro [max_seconds] per le voci."""
     deadline = time.monotonic() + max_seconds
     rows = {p: [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()] for p in paths}
+    climates = {}
     try:
         title_of = wikipedia_titles({r["city"] for lines in rows.values() for r in lines}, lang, deadline)
-        text_of = wikipedia_sections(title_of.values(), lang, deadline)
+        text_of = wikipedia_sections(title_of.values(), lang, deadline, climates=climates)
+        weatherbox_tables(climates, lang, deadline)
     except Exception as e:
         print(f"-- Wikipedia non disponibile ({e}): le citta' restano senza Storia e Clima", file=sys.stderr)
-        title_of, text_of = {}, {}
+        title_of, text_of, climates = {}, {}, {}
     for path, lines in rows.items():
         for r in lines:
             if (title := title_of.get(r["city"])) in text_of:
                 r["wikipedia"] = {"title": title, "text": text_of[title]}
+            if (title := title_of.get(r["city"])) in climates:
+                r["climate"] = {"title": title, "months": climates[title]}
         path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in lines), encoding="utf-8")
     total = sum(len(lines) for lines in rows.values())
     found = sum("wikipedia" in r for lines in rows.values() for r in lines)
     print(f"citta': Storia/Clima da Wikipedia per {found}/{total}")
+    print(f"citta': tabella climatica da Wikipedia per {sum('climate' in r for lines in rows.values() for r in lines)}/{total}")

@@ -17,7 +17,7 @@ data class CitySectionMatch(
 )
 
 @Dao
-interface CityDao {
+interface CityDao : CityClimateDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(sections: List<CitySectionEntity>)
 

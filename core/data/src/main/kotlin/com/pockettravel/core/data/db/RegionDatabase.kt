@@ -18,6 +18,7 @@ import androidx.room.TypeConverters
         NoCentralEmergencyNumberEntity::class,
         CitySectionEntity::class,
         CitySectionFts::class,
+        CityClimateEntity::class,
         NoteEntity::class,
         DiplomaticMissionEntity::class,
         VaccYfRiskEntity::class,
@@ -30,7 +31,7 @@ import androidx.room.TypeConverters
         ConversationEntity::class,
         ConversationTurnEntity::class,
     ],
-    version = 26,
+    version = 27,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

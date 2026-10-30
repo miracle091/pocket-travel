@@ -292,6 +292,9 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   (P1082); la capitale della regione da Wikidata (P36). Finiscono nelle colonne `population` e `capital` di
   `cities.db`; senza dati la città resta senza popolazione. Le coordinate (Wikidata P625) finiscono nelle colonne
   `latitude` e `longitude`: con queste l'assistente calcola la distanza tra due città nominate in una domanda.
+  Il campo facoltativo `climate` (`title`, `months`: 12 oggetti da gennaio con `tempMax`, `tempMin`, `precipMm`,
+  `rainDays`) diventa la tabella `city_climate` di `cities.db` (una riga per città e mese, con `sourceUrl` della voce),
+  scritta sempre, anche vuota; non cambia `city_sections`.
   Wikidata e Wikipedia non fanno fallire la regione: con un errore di rete o il tetto di tempo il `cities.db` esce senza
   quei dati. Per questo la voce `cities`/`citiesEn` del catalogo ha `stats` (`scripts/cities_db_stats.py`: città con
   popolazione, città con coordinate, sezioni di Wikipedia) e `build-cities.sh` tiene il pacchetto pubblicato, con un

@@ -1,5 +1,6 @@
 package com.pockettravel.core.data
 
+import com.pockettravel.core.data.db.CityClimateEntity
 import com.pockettravel.core.data.db.CityCoordinates
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.CitySectionEntity
@@ -32,6 +33,10 @@ class CityRepository @Inject constructor(
 
     /** Coordinate della citta', null se il cities.db installato non le ha (per la distanza tra due citta' dell'assistente). */
     suspend fun coordinatesFor(regionId: String, city: String): CityCoordinates? = cityDao.coordinatesFor(regionId, city)
+
+    /** Clima mensile della citta' (tabella di Wikipedia), da gennaio a dicembre; vuoto se il cities.db installato non lo ha. */
+    suspend fun climateFor(regionId: String, city: String): List<CityClimate> =
+        cityDao.climateFor(regionId, city).map { it.toDomain() }
 
     /** I nomi delle citta' della regione, una volta sola (per riconoscerle nelle domande dell'assistente). */
     suspend fun cityNamesFor(regionId: String): List<String> = cityDao.citiesForRegion(regionId).first()
@@ -74,6 +79,18 @@ private fun CitySectionEntity.toDomain() = CitySection(
     sourceUrl = sourceUrl,
     translated = translated,
 )
+
+/** Medie di un mese del clima di una citta': gradi Celsius, millimetri di pioggia e giorni di pioggia, null se assenti. */
+data class CityClimate(
+    val month: Int,
+    val tempMax: Double?,
+    val tempMin: Double?,
+    val precipMm: Double?,
+    val rainDays: Double?,
+    val sourceUrl: String,
+)
+
+private fun CityClimateEntity.toDomain() = CityClimate(month, tempMax, tempMin, precipMm, rainDays, sourceUrl)
 
 /** Una delle citta' principali di una regione: nome, abitanti (null se ignoti) e se e' la capitale. */
 data class MainCity(val name: String, val population: Long?, val capital: Boolean = false)

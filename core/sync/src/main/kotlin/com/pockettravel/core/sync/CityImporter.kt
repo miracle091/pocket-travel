@@ -4,6 +4,7 @@ import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.withTransaction
 import com.pockettravel.core.data.IoDispatcher
+import com.pockettravel.core.data.db.CityClimateEntity
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.CitySectionEntity
 import com.pockettravel.core.data.db.RegionDatabase
@@ -12,6 +13,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
+
+/** Il contenuto di un cities.db letto: sezioni delle guide e clima mensile (vuoto da un cities.db senza city_climate). */
+class CityPackage(val sections: List<CitySectionEntity>, val climate: List<CityClimateEntity>)
 
 /**
  * Importa il cities.db scaricato di una regione (guide delle citta', generato da
@@ -26,11 +30,10 @@ class CityImporter @Inject constructor(
 ) {
     /**
      * Solo per i test (PackageImporterDeviceTest): legge, sostituisce e cancella [citiesDbFile]. L'installazione
-     * vera usa [readSections] fuori dalla transazione e [replace] dentro RegionRepository.inInstallTransaction.
+     * vera usa [read] fuori dalla transazione e [replace] dentro RegionRepository.inInstallTransaction.
      */
     suspend fun import(regionId: String, citiesDbFile: File) = withContext(ioDispatcher) {
-        val sections = readSections(regionId, citiesDbFile)
-        replace(regionId, sections)
+        replace(regionId, read(regionId, citiesDbFile))
         citiesDbFile.delete()
     }
 
@@ -38,18 +41,20 @@ class CityImporter @Inject constructor(
      * Legge e fa il parsing del file senza toccare region.db: va chiamata fuori da
      * RegionRepository.inInstallTransaction, per non tenere occupato il lock di scrittura del database durante l'IO sul file.
      */
-    suspend fun readSections(regionId: String, citiesDbFile: File): List<CitySectionEntity> =
+    suspend fun read(regionId: String, citiesDbFile: File): CityPackage =
         withContext(ioDispatcher) {
             SQLiteDatabase.openDatabase(citiesDbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                readSections(regionId, db)
+                CityPackage(readSections(regionId, db), readClimate(regionId, db))
             }
         }
 
     /** Sostituisce le guide delle citta' della regione: va chiamata dentro RegionRepository.inInstallTransaction. */
-    suspend fun replace(regionId: String, sections: List<CitySectionEntity>) {
+    suspend fun replace(regionId: String, cityPackage: CityPackage) {
         database.withTransaction {
             cityDao.deleteForRegion(regionId)
-            cityDao.insertAll(sections)
+            cityDao.insertAll(cityPackage.sections)
+            cityDao.deleteClimateForRegion(regionId)
+            cityDao.insertClimate(cityPackage.climate)
             cityDao.optimizeFts()
         }
     }
@@ -83,6 +88,35 @@ class CityImporter @Inject constructor(
         return sections
     }
 
+    // city_climate manca nei cities.db generati prima del clima mensile: nessuna riga.
+    private fun readClimate(regionId: String, db: SQLiteDatabase): List<CityClimateEntity> {
+        val exists = db.rawQuery("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", arrayOf("city_climate")).use { it.moveToFirst() }
+        if (!exists) return emptyList()
+        val rows = mutableListOf<CityClimateEntity>()
+        db.rawQuery(CITY_CLIMATE_QUERY, null).use { cursor ->
+            val tempMax = cursor.getColumnIndexOrThrow("tempMax")
+            val tempMin = cursor.getColumnIndexOrThrow("tempMin")
+            val precipMm = cursor.getColumnIndexOrThrow("precipMm")
+            val rainDays = cursor.getColumnIndexOrThrow("rainDays")
+            val sourceUrl = cursor.getColumnIndexOrThrow("sourceUrl")
+            while (cursor.moveToNext()) {
+                val month = cursor.getInt(1)
+                if (month !in 1..MONTHS) continue
+                rows += CityClimateEntity(
+                    regionId = regionId,
+                    city = cursor.getString(0),
+                    month = month,
+                    tempMax = cursor.doubleOrNull(tempMax),
+                    tempMin = cursor.doubleOrNull(tempMin),
+                    precipMm = cursor.doubleOrNull(precipMm),
+                    rainDays = cursor.doubleOrNull(rainDays),
+                    sourceUrl = cursor.getString(sourceUrl),
+                )
+            }
+        }
+        return rows
+    }
+
     // population e capital ci sono solo nei cities.db generati dopo il 2026-10-03, latitude e longitude dopo il 2026-10-04,
     // translated (con tutte le altre) dopo le sezioni tradotte
     private fun queryFor(db: SQLiteDatabase): String {
@@ -102,6 +136,10 @@ class CityImporter @Inject constructor(
     private fun Cursor.doubleOrNull(index: Int): Double? = if (index < 0 || isNull(index)) null else getDouble(index)
 
     companion object {
+        private const val MONTHS = 12
+
+        internal const val CITY_CLIMATE_QUERY = "SELECT city, month, tempMax, tempMin, precipMm, rainDays, sourceUrl FROM city_climate"
+
         // Costante (invece che inline) cosi' un test JVM puro puo' eseguirla via JDBC contro un
         // file prodotto dalla pipeline dati, senza android.database.sqlite — vedi PackageImporterSchemaTest.
         internal const val CITY_SECTIONS_QUERY = "SELECT city, category, title, body, sourceUrl FROM city_sections"

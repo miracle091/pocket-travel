@@ -159,5 +159,134 @@ class AnnotateTest(unittest.TestCase):
         self.assertIn("non disponibile", err.getvalue())
 
 
+def _it_table(**extra):
+    params = {f"tempmax{m:02d}": f"{10 + m},5" for m in range(1, 13)}
+    params.update({f"tempmin{m:02d}": f"{m - 3}.0" for m in range(1, 13)})
+    params.update({f"pioggia{m:02d}": "1.234,5" if m == 1 else "50" for m in range(1, 13)})
+    params.update({f"giornipioggia{m:02d}": "7" for m in range(1, 13)})
+    params.update(extra)
+    return "{{ClimaAnnuale\n" + "\n".join(f"|{k} = {v}" for k, v in params.items()) + "\n}}"
+
+
+EN_C = """Intro.
+{{Weather box
+|location = Paris
+|Jan high C = 7.2
+|Jan low C = &minus;1.5
+|Jan precipitation mm = 1,234.5 <ref>{{cite web|url=http://x|title=y}}</ref>
+|Jan precipitation days = 9<!-- nota -->
+|Feb high C = {{convert|8|C|F}}
+|Feb low C = {{refn|solo stima}}
+|Feb rain days = 8
+|Dec low C = −3.0
+|Dec precipitation mm = trace
+}}
+{{Weather box
+|Jan high C = 99
+}}
+"""
+
+EN_F = "{{weather box|Jan high F = 50|Jan low F = 32|Jan precipitation inch = 2|Jan precipitation days = 3}}"
+
+
+class ClimateTest(unittest.TestCase):
+    def test_italiano_con_virgola_decimale_e_migliaia(self):
+        months = city_wikipedia.climate("== Clima ==\n" + _it_table(giornipioggia03=""), "it")
+        self.assertEqual(12, len(months))
+        self.assertEqual({"tempMax": 11.5, "tempMin": -2.0, "precipMm": 1234.5, "rainDays": 7.0}, months[0])
+        self.assertIsNone(months[2]["rainDays"])
+
+    def test_italiano_nome_con_maiuscole_e_spazi_diversi(self):
+        for name in ("{{Clima annuale|", "{{ clima  Annuale |"):
+            self.assertIsNotNone(city_wikipedia.climate(name + "tempmax01=5}}", "it"), name)
+
+    def test_inglese_celsius_meno_unicode_template_annidati_e_prima_tabella(self):
+        months = city_wikipedia.climate(EN_C, "en")
+        self.assertEqual({"tempMax": 7.2, "tempMin": -1.5, "precipMm": 1234.5, "rainDays": 9.0}, months[0])
+        self.assertEqual({"tempMax": 8.0, "tempMin": None, "precipMm": None, "rainDays": 8.0}, months[1])
+        self.assertEqual(-3.0, months[11]["tempMin"])
+        self.assertIsNone(months[11]["precipMm"])
+        self.assertIsNone(months[2]["tempMax"])  # la seconda tabella (99) non conta
+
+    def test_inglese_solo_fahrenheit_e_pollici(self):
+        self.assertEqual({"tempMax": 10.0, "tempMin": 0.0, "precipMm": 50.8, "rainDays": 3.0},
+                         city_wikipedia.climate(EN_F, "en")[0])
+
+    def test_italiano_commento_con_graffe_e_valori_in_elenco(self):
+        # Come Torino: "}}" dentro un commento non chiude il template.
+        torino = "{{ClimaAnnuale\n<!-- misurato in|u=°C}}) -->\n| tempmax01 = 3.7\n| tempmin01 = -1.9\n}}"
+        self.assertEqual({"tempMax": 3.7, "tempMin": -1.9, "precipMm": None, "rainDays": None},
+                         city_wikipedia.climate(torino, "it")[0])
+        # Come Napoli e Brescia: i 12 mesi in un solo parametro, separati da virgole.
+        napoli = "{{ClimaAnnuale\n| tempmax = 12, 12, 15, 21, 26, 30, 33, 33, 28, 24, 16, 13.5\n| pioggia = 1,2\n}}"
+        months = city_wikipedia.climate(napoli, "it")
+        self.assertEqual((12.0, 33.0, 13.5), (months[0]["tempMax"], months[6]["tempMax"], months[11]["tempMax"]))
+        # Un elenco che non ha 12 valori non vale come elenco.
+        self.assertIsNone(months[0]["precipMm"])
+
+    def test_senza_tabella_o_senza_valori_nessun_clima(self):
+        self.assertIsNone(city_wikipedia.climate("== Climate ==\nMite {{convert|5|km}}.", "en"))
+        self.assertIsNone(city_wikipedia.climate("{{Weather box|location=x|Jan high C = n/a}}", "en"))
+        self.assertIsNone(city_wikipedia.climate("{{ClimaAnnuale|tempmax01=", "it"))
+
+    def test_template_a_parte(self):
+        self.assertEqual("Paris weatherbox", city_wikipedia.weatherbox_template("x {{Paris weatherbox}} y"))
+        self.assertIsNone(city_wikipedia.weatherbox_template("{{Weather box|Jan high C=1}}"))
+        self.assertIsNone(city_wikipedia.weatherbox_template("nulla"))
+
+
+def _page(title, text):
+    return {"title": title, "revisions": [{"slots": {"main": {"content": text}}}]}
+
+
+class WeatherboxTablesTest(unittest.TestCase):
+    def test_clima_dalle_voci_e_dai_template_a_parte_senza_riscaricare_le_voci(self):
+        responses = [
+            {"query": {"pages": [_page("Rimini", "== Climate ==\n" + EN_F), _page("Paris", "x {{Paris weatherbox}}"),
+                                 _page("Borgo", "== History ==\nx")]}},
+            {"query": {"pages": [_page("Template:Paris weatherbox", EN_F)]}},
+        ]
+        climates = {}
+        with mock.patch("city_wikipedia.city_population._get", side_effect=responses) as get, \
+                mock.patch("city_wikipedia.time.sleep"):
+            result = city_wikipedia.wikipedia_sections(["Rimini", "Paris", "Borgo"], "en", climates=climates)
+            self.assertEqual({"Rimini", "Borgo"}, set(result))
+            self.assertEqual("Paris weatherbox", climates["Paris"])
+            city_wikipedia.weatherbox_tables(climates, "en")
+        self.assertEqual({"Rimini", "Paris"}, set(climates))
+        self.assertEqual(10.0, climates["Paris"][0]["tempMax"])
+        self.assertIn("Template%3AParis+weatherbox", get.call_args_list[1][0][0])
+
+    def test_template_illeggibile_o_lotto_fallito_tolgono_la_voce(self):
+        climates = {"Paris": "Paris weatherbox"}
+        with mock.patch("city_wikipedia.city_population._get", side_effect=OSError("rete")), \
+                mock.patch("city_wikipedia.time.sleep"), redirect_stderr(io.StringIO()) as err:
+            city_wikipedia.weatherbox_tables(climates, "en")
+        self.assertEqual({}, climates)
+        self.assertIn("lotto di template saltato", err.getvalue())
+
+
+class AnnotateClimateTest(unittest.TestCase):
+    def test_climate_nelle_righe_anche_senza_sezioni(self):
+        months = city_wikipedia.climate(EN_F, "en")
+
+        def sections_of(titles, lang, deadline=None, climates=None):
+            climates["Rimini"] = months
+            return {"Borgo": "== History ==\nx"}
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "x.jsonl"
+            path.write_text('{"city": "Rimini"}\n{"city": "Borgo"}\n', encoding="utf-8")
+            with mock.patch("city_wikipedia.wikipedia_titles", return_value={"Rimini": "Rimini", "Borgo": "Borgo"}), \
+                    mock.patch("city_wikipedia.wikipedia_sections", side_effect=sections_of), \
+                    redirect_stdout(io.StringIO()) as out:
+                city_wikipedia.annotate([path], "en")
+            rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual({"title": "Rimini", "months": months}, rows[0]["climate"])
+        self.assertNotIn("wikipedia", rows[0])
+        self.assertNotIn("climate", rows[1])
+        self.assertIn("wikipedia", rows[1])
+        self.assertIn("tabella climatica da Wikipedia per 1/2", out.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

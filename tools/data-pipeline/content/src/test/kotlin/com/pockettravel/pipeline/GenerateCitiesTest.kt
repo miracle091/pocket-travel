@@ -369,6 +369,56 @@ class GenerateCitiesTest {
         assertEquals(listOf(listOf<String?>("1")), rowsOf(db, "SELECT COUNT(*) FROM city_sections"))
     }
 
+    // --- clima ---
+
+    private fun climateLine(city: String, title: String, months: List<org.json.JSONObject>): String =
+        cityLine(city, "") { put("climate", org.json.JSONObject().put("title", title).put("months", org.json.JSONArray(months))) }
+
+    private fun month(tempMax: Any? = org.json.JSONObject.NULL, tempMin: Any? = org.json.JSONObject.NULL, precipMm: Any? = org.json.JSONObject.NULL, rainDays: Any? = org.json.JSONObject.NULL) =
+        org.json.JSONObject().put("tempMax", tempMax).put("tempMin", tempMin).put("precipMm", precipMm).put("rainDays", rainDays)
+
+    @Test
+    fun `il clima ha una riga per mese con almeno un valore e la sorgente della voce`() {
+        val months = List(12) { index -> if (index == 1) month() else month(tempMax = 10.0 + index, tempMin = 2.5, precipMm = 90.0, rainDays = 9.0) }
+
+        val rows = parseCitiesClimateJsonl(climateLine("Roma", "Clima di Roma", months))
+
+        assertEquals((1..12).filter { it != 2 }, rows.map { it.month })
+        assertEquals(CityClimateRow("Roma", 1, 10.0, 2.5, 90.0, 9.0, "https://it.wikipedia.org/wiki/Clima_di_Roma"), rows.first())
+        assertEquals("https://en.wikipedia.org/wiki/Clima_di_Roma", parseCitiesClimateJsonl(climateLine("Roma", "Clima di Roma", months), english = true).first().sourceUrl)
+    }
+
+    @Test
+    fun `il clima ignora i valori nulli o non validi, i mesi oltre il dodicesimo e il campo assente`() {
+        val months = List(13) { month(tempMax = if (it == 0) 5.0 else org.json.JSONObject.NULL, rainDays = if (it == 12) 3.0 else org.json.JSONObject.NULL) }
+        val line = climateLine("Asti", "Asti", months)
+
+        val rows = parseCitiesClimateJsonl(listOf(line, cityLine("Roma", "== Sicurezza ==\nOk.")).joinToString("\n"))
+
+        assertEquals(listOf(CityClimateRow("Asti", 1, 5.0, null, null, null, "https://it.wikipedia.org/wiki/Asti")), rows)
+        assertEquals(emptyList<CityClimateRow>(), parseCitiesClimateJsonl(""))
+    }
+
+    @Test
+    fun `city_climate ha le colonne attese, i valori mancanti sono null e riscrivere sostituisce le righe`() = withDb { db ->
+        val climate = listOf(CityClimateRow("Roma", 1, 12.5, null, 70.0, 8.0, "https://it.wikipedia.org/wiki/Roma"))
+        writeCitiesDb(emptyList(), db)
+        assertEquals(listOf(listOf<String?>("0")), rowsOf(db, "SELECT COUNT(*) FROM city_climate"))
+
+        writeCitiesDb(listOf(CitySectionRow("Roma", "STORIA", "Storia", "x", "u")), db, climate + climate)
+        writeCitiesDb(listOf(CitySectionRow("Roma", "STORIA", "Storia", "x", "u")), db, climate)
+
+        assertEquals(
+            listOf("city", "month", "tempMax", "tempMin", "precipMm", "rainDays", "sourceUrl"),
+            rowsOf(db, "SELECT name FROM pragma_table_info('city_climate')").map { it[0] },
+        )
+        assertEquals(
+            listOf(listOf<String?>("Roma", "1", "12.5", null, "70.0", "8.0", "https://it.wikipedia.org/wiki/Roma")),
+            rowsOf(db, "SELECT * FROM city_climate"),
+        )
+        assertEquals(listOf(listOf<String?>("1")), rowsOf(db, "SELECT COUNT(*) FROM city_sections"))
+    }
+
     @Test
     fun `testo unicode, apici e SQL nelle sezioni si salvano alla lettera`() = withDb { db ->
         val body = "Robert'); DROP TABLE city_sections;-- 東京 🍕 è"

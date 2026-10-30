@@ -101,6 +101,13 @@ guides.db vacc_yf_risk.areasEn #3 TEXT notnull=1 default=null pk=0
 guides.db vacc_yf_risk.sources #4 TEXT notnull=1 default=null pk=0
 guides.db vacc_yf_risk.verified #5 TEXT notnull=1 default=null pk=0
 cities.db user_version 0
+cities.db city_climate.city #0 TEXT notnull=1 default=null pk=0
+cities.db city_climate.month #1 INTEGER notnull=1 default=null pk=0
+cities.db city_climate.tempMax #2 REAL notnull=0 default=null pk=0
+cities.db city_climate.tempMin #3 REAL notnull=0 default=null pk=0
+cities.db city_climate.precipMm #4 REAL notnull=0 default=null pk=0
+cities.db city_climate.rainDays #5 REAL notnull=0 default=null pk=0
+cities.db city_climate.sourceUrl #6 TEXT notnull=1 default=null pk=0
 cities.db city_sections.city #0 TEXT notnull=1 default=null pk=0
 cities.db city_sections.category #1 TEXT notnull=1 default=null pk=0
 cities.db city_sections.title #2 TEXT notnull=1 default=null pk=0

@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import android.location.Location
+import com.pockettravel.core.data.CityClimate
 import com.pockettravel.core.data.CityRepository
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.LastKnownPosition
@@ -14,6 +15,8 @@ import com.pockettravel.core.ui.PlaceWeather
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
+import java.time.Month
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -46,7 +49,9 @@ internal class ForecastQuery(
  * Per una domanda di previsione (isForecastQuestion), le previsioni della citta' nominata nella domanda o, in ordine:
  * la piu' vicina alla posizione dell'utente e quella dell'ultima guida di citta' aperta (solo sul dispositivo), la capitale
  * della regione (o la prima citta' principale), la citta' delle domande precedenti. Null per le altre domande, se la domanda nomina una nazione (le citta' della regione
- * non c'entrano), senza codice paese o senza previsioni (ForecastProvider). Il blocco dice la citta' usata.
+ * non c'entrano) o senza codice paese. Senza previsioni (ForecastProvider: niente rete e nessuna previsione salvata ancora
+ * valida) il blocco dice che mancano e da' le medie del mese della citta' dalla tabella climatica di Wikipedia, se c'e';
+ * altrimenti la sezione Clima trovata dalla ricerca resta l'unica fonte. Il blocco dice la citta' usata.
  */
 class ForecastSections @Inject constructor(
     private val forecastProvider: ForecastProvider,
@@ -55,6 +60,7 @@ class ForecastSections @Inject constructor(
     private val poiRepository: PoiRepository,
     private val lastKnownPosition: LastKnownPosition,
     private val lastOpenedCityGuide: LastOpenedCityGuide,
+    private val clock: Clock,
 ) {
     internal suspend fun forQuestion(query: ForecastQuery): ForecastBlock? {
         val countryCode = if (isForecastQuestion(query.question, query.modelGroups) && !query.namesCountry) {
@@ -70,7 +76,11 @@ class ForecastSections @Inject constructor(
                 main = { mainCity(query.regionId) },
             )
         }
-        return if (city != null) forecastProvider.section(city, countryCode, query.language) else null
+        if (city == null) return null
+        return forecastProvider.section(city, countryCode, query.language) ?: ForecastBlock(
+            offlineWeatherSection(city, cityRepository.climateFor(query.regionId, city), LocalDate.now(clock).monthValue, query.language),
+            weather = null,
+        )
     }
 
     // La citta' della regione piu' vicina all'ultima posizione nota, se l'utente e' nella regione (POI del pacchetto entro
@@ -118,8 +128,11 @@ internal suspend fun forecastCity(
     ?: main()
     ?: query.previousQuestion?.let { previous -> namedCities(previous, query.cityNames, query.language).firstOrNull() }
 
-/** Le previsioni nel contesto e quelle mostrate sotto la risposta nel riquadro meteo, con la citta' usata. */
-internal class ForecastBlock(val section: AssistantSection, val weather: PlaceWeather)
+/**
+ * Le previsioni nel contesto e quelle mostrate sotto la risposta nel riquadro meteo, con la citta' usata; [weather] null
+ * senza previsioni (offlineWeatherSection).
+ */
+internal class ForecastBlock(val section: AssistantSection, val weather: PlaceWeather?)
 
 /**
  * Le previsioni di una citta' come sezione di contesto. Stessa cache e stesso limite per luogo del riquadro meteo della
@@ -176,6 +189,40 @@ internal fun forecastContext(city: String, result: WeatherResult, language: Stri
         "Forecast for $city (Open-Meteo, updated at $updatedText):$days"
     } else {
         "Previsioni per $city (Open-Meteo, aggiornate alle $updatedText):$days"
+    }
+}
+
+/**
+ * Il blocco senza previsioni: la frase che mancano e, se [climate] ha il mese [month], le medie della tabella climatica di
+ * Wikipedia (massima, minima, pioggia in mm e giorni di pioggia, quelle che ci sono). Senza medie la citazione e' quella
+ * delle previsioni: il modello non la cita, perche' la frase non contiene dati.
+ */
+internal fun offlineWeatherSection(city: String, climate: List<CityClimate>, month: Int, language: String): AssistantSection {
+    val en = language == "en"
+    val missing = if (en) "No forecast for $city: no connection and no saved forecast." else "Previsioni per $city non disponibili: niente rete e nessuna previsione salvata."
+    val averages = climate.firstOrNull { it.month == month }?.let { averagesText(city, it, language) }
+    val citation = when {
+        averages == null -> if (en) "Source: weather forecasts by Open-Meteo.com" else "Fonte: previsioni del tempo di Open-Meteo.com"
+        en -> "Source: climate table of Wikipedia ($city)"
+        else -> "Fonte: tabella climatica di Wikipedia ($city)"
+    }
+    return AssistantSection(listOfNotNull(missing, averages).joinToString("\n"), GuideCategory.DA_SAPERE, citation)
+}
+
+private fun averagesText(city: String, climate: CityClimate, language: String): String? {
+    val en = language == "en"
+    val values = listOfNotNull(
+        climate.tempMax?.let { (if (en) "high " else "massima ") + "${it.roundToInt()} °C" },
+        climate.tempMin?.let { (if (en) "low " else "minima ") + "${it.roundToInt()} °C" },
+        climate.precipMm?.let { (if (en) "precipitation " else "pioggia ") + "${it.roundToInt()} mm" },
+        climate.rainDays?.let { (if (en) "rainy days " else "giorni di pioggia ") + "${it.roundToInt()}" },
+    )
+    if (values.isEmpty()) return null
+    val monthName = Month.of(climate.month).getDisplayName(TextStyle.FULL_STANDALONE, Locale.forLanguageTag(language))
+    return if (en) {
+        "Average for $monthName in $city (Wikipedia): ${values.joinToString(", ")}."
+    } else {
+        "Medie di $monthName a $city (Wikipedia): ${values.joinToString(", ")}."
     }
 }
 

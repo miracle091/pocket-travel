@@ -1,5 +1,6 @@
 package com.pockettravel.core.data
 
+import com.pockettravel.core.data.db.CityClimateEntity
 import com.pockettravel.core.data.db.CityCoordinates
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.CityPopulation
@@ -16,10 +17,22 @@ import org.junit.Test
  * in GuideRepositoryTest. */
 private class FakeCityDao : CityDao {
     val stored = mutableListOf<CitySectionEntity>()
+    val climate = mutableListOf<CityClimateEntity>()
     private val matchInfoBySection = mutableMapOf<CitySectionEntity, ByteArray>()
 
     override suspend fun insertAll(sections: List<CitySectionEntity>) {
         stored += sections
+    }
+
+    override suspend fun insertClimate(rows: List<CityClimateEntity>) {
+        climate += rows
+    }
+
+    override suspend fun climateFor(regionId: String, city: String): List<CityClimateEntity> =
+        climate.filter { it.regionId == regionId && it.city == city }.sortedBy { it.month }
+
+    override suspend fun deleteClimateForRegion(regionId: String) {
+        climate.removeAll { it.regionId == regionId }
     }
 
     override fun citiesForRegion(regionId: String): Flow<List<String>> =
@@ -59,6 +72,27 @@ private class FakeCityDao : CityDao {
 }
 
 class CityRepositoryTest {
+
+    @Test
+    fun `climateFor restituisce i mesi della citta' in ordine, con i valori assenti a null`() = runBlocking {
+        val dao = FakeCityDao()
+        val url = "https://it.wikipedia.org/wiki/Roma"
+        dao.insertClimate(
+            listOf(
+                CityClimateEntity("italia", "Roma", 2, 13.0, 3.0, 70.0, 7.0, url),
+                CityClimateEntity("italia", "Roma", 1, 12.0, 2.0, null, null, url),
+                CityClimateEntity("italia", "Bari", 1, 11.0, 4.0, 40.0, 6.0, url),
+                CityClimateEntity("francia", "Roma", 1, 0.0, 0.0, 0.0, 0.0, url),
+            ),
+        )
+
+        val result = CityRepository(dao).climateFor("italia", "Roma")
+
+        assertEquals(listOf(1, 2), result.map { it.month })
+        assertEquals(CityClimate(1, 12.0, 2.0, null, null, url), result[0])
+        assertEquals(CityClimate(2, 13.0, 3.0, 70.0, 7.0, url), result[1])
+        assertEquals(emptyList<CityClimate>(), CityRepository(dao).climateFor("italia", "Milano"))
+    }
 
     private fun section(
         regionId: String,

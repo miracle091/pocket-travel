@@ -14,8 +14,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17, 24, 25) e quella corrente (26),
- * sugli schemi esportati in core/data/schemas, piu' la catena completa da 3 a 26.
+ * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17, 24, 25, 26) e quella corrente (27),
+ * sugli schemi esportati in core/data/schemas, piu' la catena completa da 3 a 27.
  */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
@@ -406,6 +406,17 @@ class RegionDatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun migrazione26a27CreaIlClimaVuotoSenzaToccareIDati() {
+        helper.createDatabase(DB_NAME, 26).use { db ->
+            db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
+        }
+        helper.runMigrationsAndValidate(DB_NAME, 27, true, MIGRATION_26_27).use { db ->
+            assertEquals(0, scalar(db, "SELECT COUNT(*) FROM city_climate"))
+            assertEquals(1, scalar(db, "SELECT COUNT(*) FROM passport_vault"))
+        }
+    }
+
     // La stima di PoiRow.estimatedStorageBytes per un POI con quel nome (e l'accessibilita'): la migrazione deve dare lo stesso numero.
     private fun estimate(name: String, wheelchair: String? = null): Long =
         PoiRow(regionRef = 1, code = 1, latE6 = 0, lonE6 = 0, name = name, wheelchair = wheelchair).estimatedStorageBytes()
@@ -438,7 +449,7 @@ class RegionDatabaseMigrationTest {
 
     // Chi aggiorna dalla prima versione pubblicata (v0.2.0) all'ultima: nessun dato perso.
     @Test
-    fun catenaCompletaDa3a26ConservaCassaforteRegioniPoiEGuide() {
+    fun catenaCompletaDa3a27ConservaCassaforteRegioniPoiEGuide() {
         helper.createDatabase(DB_NAME, 3).use { db ->
             db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
             db.execSQL("INSERT INTO installed_regions VALUES ('italia', 'Italia', '2026.09.01', 1000, 42)")
@@ -446,7 +457,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('italia', 'TRASPORTI', 'In treno', 'corpo', 'https://example.org')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 26, true, *ALL_MIGRATIONS).use { db ->
+        helper.runMigrationsAndValidate(DB_NAME, 27, true, *ALL_MIGRATIONS).use { db ->
             db.query("SELECT encryptedPayload FROM passport_vault WHERE id = 'p1'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("cifrato", cursor.getString(0))

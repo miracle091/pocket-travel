@@ -219,6 +219,30 @@ class RegionDatabaseDaoTest {
         assertEquals(1, db.cityDao().searchInRegionRanked("spagna", "anfiteatro", null, 10).size)
     }
 
+    // --- CityClimateDao ---
+
+    @Test
+    fun cityClimateDaPerMeseDellaCittaESiCancellaPerRegione() = runBlocking {
+        val dao = db.cityDao()
+        val url = "https://it.wikipedia.org/wiki/Roma"
+        dao.insertClimate(
+            listOf(
+                CityClimateEntity("italia", "Roma", 2, 13.0, 3.0, 70.0, 7.0, url),
+                CityClimateEntity("italia", "Roma", 1, 12.0, 2.0, null, null, url),
+                CityClimateEntity("italia", "Bari", 1, 11.0, 4.0, 40.0, 6.0, url),
+                CityClimateEntity("spagna", "Roma", 1, 0.0, 0.0, 0.0, 0.0, url),
+            ),
+        )
+
+        val roma = dao.climateFor("italia", "Roma")
+        assertEquals(listOf(1, 2), roma.map { it.month })
+        assertNull(roma[0].precipMm)
+
+        dao.deleteClimateForRegion("italia")
+        assertEquals(emptyList<CityClimateEntity>(), dao.climateFor("italia", "Roma"))
+        assertEquals(1, dao.climateFor("spagna", "Roma").size)
+    }
+
     // --- NoteDao ---
 
     @Test

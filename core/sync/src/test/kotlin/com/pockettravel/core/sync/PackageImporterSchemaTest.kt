@@ -363,4 +363,29 @@ class PackageImporterSchemaTest {
             assertEquals(1, rs.getInt("translated"))
         }
     }
+
+    // Schema della tabella city_climate di writeCitiesDb in tools/data-pipeline (GenerateCities.kt): valori assenti a NULL.
+    @Test
+    fun `la query city_climate legge i mesi con i valori assenti a null`() = withDb { conn ->
+        conn.createStatement().use { statement ->
+            statement.execute(
+                "CREATE TABLE city_climate (city TEXT NOT NULL, month INTEGER NOT NULL, tempMax REAL, tempMin REAL, " +
+                    "precipMm REAL, rainDays REAL, sourceUrl TEXT NOT NULL)",
+            )
+            statement.execute("INSERT INTO city_climate VALUES ('Roma', 1, 12.5, 3.2, NULL, NULL, 'https://it.wikipedia.org/wiki/Roma')")
+        }
+        conn.createStatement().use { statement ->
+            val rs = statement.executeQuery(CityImporter.CITY_CLIMATE_QUERY)
+            assertEquals(true, rs.next())
+            assertEquals("Roma", rs.getString(1))
+            assertEquals(1, rs.getInt(2))
+            assertEquals(12.5, rs.getDouble(3), 0.0)
+            assertEquals(3.2, rs.getDouble(4), 0.0)
+            rs.getDouble(5)
+            assertEquals(true, rs.wasNull())
+            rs.getDouble(6)
+            assertEquals(true, rs.wasNull())
+            assertEquals("https://it.wikipedia.org/wiki/Roma", rs.getString(7))
+        }
+    }
 }

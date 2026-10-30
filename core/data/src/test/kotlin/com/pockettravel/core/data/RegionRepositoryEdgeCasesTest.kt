@@ -1,6 +1,7 @@
 package com.pockettravel.core.data
 
 import androidx.room.InvalidationTracker
+import com.pockettravel.core.data.db.CityClimateEntity
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.ConversationDao
 import com.pockettravel.core.data.db.CitySectionEntity
@@ -99,6 +100,9 @@ class RegionRepositoryEdgeCasesTest {
 
     private object NoCities : CityDao {
         override suspend fun insertAll(sections: List<CitySectionEntity>) = Unit
+        override suspend fun insertClimate(rows: List<CityClimateEntity>) = Unit
+        override suspend fun climateFor(regionId: String, city: String): List<CityClimateEntity> = emptyList()
+        override suspend fun deleteClimateForRegion(regionId: String) = Unit
         override fun citiesForRegion(regionId: String) = throw UnsupportedOperationException()
         override fun mainCitiesForRegion(regionId: String, limit: Int) = throw UnsupportedOperationException()
         override suspend fun coordinatesFor(regionId: String, city: String) = null
