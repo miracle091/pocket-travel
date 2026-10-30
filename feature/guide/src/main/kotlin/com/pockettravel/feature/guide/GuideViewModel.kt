@@ -37,7 +37,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -302,8 +301,7 @@ class GuideViewModel @Inject constructor(
 
     private suspend fun capitalWeather(regionId: String): PlaceWeather? {
         val country = regionRepository.installed(regionId)?.countryCode
-        val city = cityRepository.mainCitiesFor(regionId, MAIN_CITIES).first()
-            .let { cities -> cities.firstOrNull { it.capital } ?: cities.firstOrNull() }?.name
+        val city = cityRepository.capitalFor(regionId)
         if (country == null || city == null) return null
         return weatherRepository.weather("city|$country|$city") { weatherRepository.coordinatesOf(city, country) }
             ?.let { PlaceWeather(city, it) }

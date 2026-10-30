@@ -12,7 +12,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA: le fonti di una risposta che vengono dalla guida della regione si toccano. La scheda Guida si apre sulla sezione (della nazione o della città) con le frasi usate dalla risposta evidenziate; vale anche per le conversazioni riprese dalla cronologia, se la regione è installata.
 - Assistente IA: la risposta continua anche a schermo spento o con l'app in background. Mentre l'assistente risponde, la notifica "Risposta dell'assistente in corso" tiene l'app attiva, e il suo pulsante "Ferma" interrompe la risposta; a fine risposta la notifica sparisce.
 - Assistente IA: sotto la barra di avanzamento del download del modello c'è "Annulla". Dopo un download fallito il pulsante diventa "Riprova".
-- Assistente IA: alle domande sul clima o sul periodo migliore per partire che non nominano una città ("Quando conviene andare a Malta?"), se la guida della nazione non ha una sezione sul clima, l'assistente usa la sezione Clima della capitale.
+- Assistente IA: alle domande sul clima o sul periodo migliore per partire che non nominano una città ("Quando conviene andare a Malta?"), se la guida della nazione non ha una sezione sul clima, l'assistente usa la sezione Clima della capitale. Per le domande solo sul clima la sezione Clima trovata va in testa al contesto: prima, dopo una sezione lunga come "Do" della guida della nazione, non ci entrava ("Is it hot in Malta in July?").
 - Aggiornamenti: il controllo periodico delle regioni installate segnala anche i numeri civici e gli orari dei mezzi pubblici cambiati, come già l'elenco delle nazioni.
 
 ### Modificato
@@ -23,6 +23,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Download del modello IA: dopo 5 tentativi falliti si ferma con un errore, e con la memoria piena lo dice invece di riprovare. Il download resta quello del modello richiesto anche se nel frattempo se ne sceglie un altro.
 
 ### Corretto
+- Meteo nella Guida e previsioni dell'assistente: senza una città nella domanda e lontano dalla regione si usa la capitale anche quando ha meno abitanti di altre città. Prima a Malta comparivano il meteo e le previsioni di Mosta invece di quelli della Valletta.
 - Assistente IA: le città con l'articolo nel nome (La Valletta, L'Aquila, La Spezia) si riconoscono anche dopo una preposizione articolata, come in "Storia della Valletta?". Prima la domanda non cercava nella guida della città e la risposta veniva dalla guida della nazione.
 - Dopo l'eliminazione di una regione, o del suo ultimo pacchetto, l'app non la riapre più all'avvio.
 - Regioni: un download fallito faceva fallire anche quelli della stessa regione accodati dopo.

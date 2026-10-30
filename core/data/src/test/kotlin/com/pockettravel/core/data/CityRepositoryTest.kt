@@ -29,7 +29,7 @@ private class FakeCityDao : CityDao {
         MutableStateFlow(
             stored.filter { it.regionId == regionId }.groupBy { it.city }
                 .entries.sortedByDescending { (_, sections) -> sections.sumOf { it.body.length } }
-                .take(limit).map { (city, sections) -> CityPopulation(city, sections.mapNotNull { it.population }.maxOrNull()) },
+                .take(limit).map { (city, sections) -> CityPopulation(city, sections.mapNotNull { it.population }.maxOrNull(), sections.any { it.capital }) },
         )
 
     override suspend fun coordinatesFor(regionId: String, city: String): CityCoordinates? =
@@ -74,6 +74,26 @@ class CityRepositoryTest {
         body = body,
         sourceUrl = "https://it.wikivoyage.org/wiki/$city",
     )
+
+    @Test
+    fun `capitalFor trova la capitale anche fuori dalle citta' principali`() = runBlocking {
+        val dao = FakeCityDao()
+        // Come Malta nelle guide inglesi: La Valletta ha meno abitanti di cinque altre citta'.
+        dao.stored += (1..6).map { section("malta", "Citta' $it", "Cosa vedere", body = "x".repeat(100 * it)) } +
+            section("malta", "Valletta", "Cosa vedere").copy(capital = true)
+        val repository = CityRepository(dao)
+
+        assertEquals("Valletta", repository.capitalFor("malta"))
+    }
+
+    @Test
+    fun `capitalFor senza capitale prende la prima citta' principale`() = runBlocking {
+        val dao = FakeCityDao()
+        dao.stored += listOf(section("italia", "Bologna", "Cosa vedere"), section("italia", "Roma", "Cosa vedere", body = "corpo piu' lungo"))
+        val repository = CityRepository(dao)
+
+        assertEquals("Roma", repository.capitalFor("italia"))
+    }
 
     @Test
     fun `citiesFor ritorna i nomi delle citta' della regione, ordinati`() = runBlocking {

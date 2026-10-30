@@ -237,7 +237,7 @@ class TravelAssistant @Inject constructor(
             comparePhrases = questionPhrases(baseQuery, modelGroups),
         )
         val groups = (questionGroups(question) + modelGroups).takeIf { wordLists }.orEmpty()
-        return SectionSearch(cityRepository.withCapitalClimate(regionId, sections, cities.firstOrNull() ?: country?.name, groups, language), baseQuery, country)
+        return SectionSearch(cityRepository.withClimateFirst(regionId, sections, cities.firstOrNull() ?: country?.name, groups, language), baseQuery, country)
     }
 
     private class SectionSearch(val sections: List<AssistantSection>, val baseQuery: String, val country: NamedPlace?)
@@ -783,22 +783,35 @@ internal fun wantsCapitalClimate(groups: Set<String>, sections: List<AssistantSe
 private val CLIMATE_GROUPS = setOf("CLIMA", "PERIODI", "METEO")
 
 /**
- * [sections] con in testa la sezione Clima della capitale della regione (capitalFor) quando la domanda non nomina un
- * luogo ([place] null) e wantsCapitalClimate; com'e' altrimenti, o se la capitale non ha il Clima.
+ * [sections] con in testa la sezione Clima trovata, per le domande solo di clima, periodi o previsioni ([groups]): in coda,
+ * dopo sezioni lunghe come "Do", non entrerebbe nel contesto. Se il Clima manca, [capitalClimate] in testa per ogni domanda
+ * di clima, anche con altri gruppi ("When is the best time to visit Malta?"). Com'e' per le altre domande: con altri
+ * gruppi un Clima gia' trovato in testa toglierebbe il primo posto alla sezione attesa (misura di eval_retrieval.py).
  */
-private suspend fun CityRepository.withCapitalClimate(
+internal fun climateFirst(groups: Set<String>, sections: List<AssistantSection>, capitalClimate: AssistantSection?): List<AssistantSection> {
+    val onlyClimate = groups.isNotEmpty() && groups.all { it in CLIMATE_GROUPS }
+    val found = sections.firstOrNull { it.category == GuideCategory.CLIMA }?.takeIf { onlyClimate }
+    val climate = (found ?: capitalClimate).takeIf { groups.any { it in CLIMATE_GROUPS } }
+    return climate?.let { (listOf(it) + (sections - it)).take(MAX_SECTIONS) } ?: sections
+}
+
+/**
+ * [sections] con la sezione Clima in testa (climateFirst); quando la domanda non nomina un luogo ([place] null) e
+ * wantsCapitalClimate, quella della capitale della regione (capitalFor), se ce l'ha.
+ */
+private suspend fun CityRepository.withClimateFirst(
     regionId: String,
     sections: List<AssistantSection>,
     place: String?,
     groups: Set<String>,
     language: String,
 ): List<AssistantSection> {
-    val climate = if (place == null && wantsCapitalClimate(groups, sections)) {
+    val capitalClimate = if (place == null && wantsCapitalClimate(groups, sections)) {
         capitalFor(regionId)?.let { capital -> sectionsFor(regionId, capital).firstOrNull { it.category == GuideCategory.CLIMA } }
     } else {
         null
     }
-    return climate?.let { (listOf(it.toAssistantSection(language)) + sections).take(MAX_SECTIONS) } ?: sections
+    return climateFirst(groups, sections, capitalClimate?.toAssistantSection(language))
 }
 
 /** Candidati delle guide delle citta' [cities] (di ognuna, per "quanto dista X da Y"), o di tutte se e' vuota. */

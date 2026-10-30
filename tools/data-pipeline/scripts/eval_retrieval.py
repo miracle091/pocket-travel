@@ -774,6 +774,19 @@ def relevant_paragraphs(body, stems, budget):
     return "\n".join(paragraphs[i] for i in sorted(kept)) if kept else body[:budget]
 
 
+CLIMATE_GROUPS = {"CLIMA", "PERIODI", "METEO"}  # come CLIMATE_GROUPS in TravelAssistant.kt
+
+
+def climate_first(groups, sections):
+    """climateFirst dell'app: per le domande solo di clima, periodi o previsioni la sezione Clima trovata va in testa,
+    perche' in coda a sezioni lunghe non entrerebbe nel contesto. Il Clima della capitale, che l'app aggiunge alle domande
+    senza citta' quando manca, qui non c'e'."""
+    climate = next((s for s in sections if s["category"] == "CLIMA"), None)
+    if climate is None or not groups & CLIMATE_GROUPS or groups - CLIMATE_GROUPS:
+        return sections
+    return [climate] + [s for s in sections if s is not climate]
+
+
 def select_context(bodies, stems, max_chars=MAX_CONTEXT):
     """selectContext."""
     parts, remaining = [], max_chars
@@ -888,7 +901,7 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
         rank = lambda limit=None, general_extra=0: within[:limit]  # le sezioni di oggi, anche la quarta della guida generale
     if pool:
         return rank(limit=pool), focus_stems(base, city)
-    sections, stems = rank(), focus_stems(base, city)
+    sections, stems = climate_first(groups | model, rank()), focus_stems(base, city)
     if RERANK["scorer"]:
         sections = reranked(question, sections, rank(limit=RERANK["candidates"], general_extra=RERANK["general"]), stems, lang)
     return sections, stems
