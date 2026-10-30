@@ -11,7 +11,6 @@ import com.pockettravel.core.data.WeatherCondition
 import com.pockettravel.core.data.WeatherRepository
 import com.pockettravel.core.data.WeatherResult
 import com.pockettravel.core.ui.PlaceWeather
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Clock
 import java.time.Instant
@@ -93,16 +92,13 @@ class ForecastSections @Inject constructor(
         }.minByOrNull { it.second }?.takeIf { it.second <= MAX_CITY_KM * METERS_PER_KM }?.first
     }
 
-    private suspend fun mainCity(regionId: String): String? =
-        cityRepository.mainCitiesFor(regionId, MAIN_CITIES).first()
-            .let { cities -> cities.firstOrNull { it.capital } ?: cities.firstOrNull() }?.name
+    private suspend fun mainCity(regionId: String): String? = cityRepository.capitalFor(regionId)
 
     private companion object {
         const val POSITION_MAX_AGE_MILLIS = 3 * 60 * 60 * 1_000L
         const val NEAR_DEGREES = 0.05
         const val MAX_CITY_KM = 50
         const val METERS_PER_KM = 1_000
-        const val MAIN_CITIES = 5
     }
 }
 

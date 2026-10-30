@@ -48,6 +48,9 @@ class CategoryWordsTest {
         assertEquals(setOf("COSA_VEDERE"), questionGroups("Cosa vedere sulla costa?"))
         assertTrue(isHistoryOrClimateQuestion("Quali popoli hanno abitato Spalato?"))
         assertTrue(isHistoryOrClimateQuestion("How old is Lagos?"))
+        assertEquals(setOf("CLIMA"), questionGroups("Quando conviene andare a Malta?"))
+        assertTrue("CLIMA" in questionGroups("When to visit Malta?"))
+        assertTrue(isHistoryOrClimateQuestion("Quando conviene andare a Malta?"))
     }
 
     @Test

@@ -100,7 +100,7 @@ STOPWORDS = {
     "dagli", "sulla", "sulle", "sullo", "sugli", "questo", "questa", "questi", "queste", "quello", "quella", "quelli",
     "quelle", "anche", "molto", "molti", "molte", "posso", "puoi", "possono", "devo", "deve", "devono", "serve", "servono",
     "essere", "fatto", "avere", "hanno", "ogni", "tutto", "tutti", "tutte", "altro", "altri", "loro", "dire", "cosi",
-    "ancora", "oppure", "mentre",
+    "ancora", "oppure", "mentre", "conviene",
     "what", "which", "where", "when", "does", "there", "with", "from", "that", "this", "have", "should", "about", "much",
     "many", "could", "would", "your", "some", "into", "they", "them", "were", "been", "will", "also", "very", "need",
 }
@@ -115,7 +115,7 @@ GENERAL_TRAVEL_WORDS = re.compile(r"\b(ester[oi]|in viaggio|viaggiando|abroad|ov
 HISTORY_CLIMATE_WORDS = re.compile(
     r"\b((?<!centr[oi] )stori|fondat|fondò|secol|guerr|antic(?:[oa]\b|h)|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|"
     r"invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season|"
-    r"passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|best time|when to go|establish|ruled|"
+    r"passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|conviene andare|best time|when to go|establish|ruled|"
     r"costru|mura\b|built|walls?\b|ottocent|novecent|settecent|seicent|cinquecent|quattrocent|trecent|gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|mesi\b|january|february|march|april|june|july|august|september|october|november|december|months?\b|middle ages|past\b|origins?\b|natale\b|natalizi|capodanno|pasqua|ferragosto|christmas|xmas|easter|new year|che tempo|"
     r"popol|abitat|inhabit|settl|peoples\b|how old)",
     re.IGNORECASE)
@@ -245,7 +245,7 @@ CATEGORY_TRIGGERS = {
               "popol abitat inhabit settl peoples= how+old",
     "CLIMA": "clima meteo piog piov ombrel tempera primav estat invern autun nevic neve caldo fredd stagion "
              "climat weather rain umbrel spring summer winter= autumn snow hot cold season "
-             "periodo+migliore quando+andare best+time when+to+go gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre mesi january february march april june july august september october november december months",
+             "periodo+migliore quando+andare conviene+andare best+time when+to+go when+to+visit gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre mesi january february march april june july august september october november december months",
     "CONSIGLI": "combat evitar preven curar rimed superar affront deal cope avoid prevent cure treat overcom",
     "EMERGENZE": "perdo perso= persa smarr rubat lose lost stolen",
     "PERIODI": "natale= natalizi capodann pasqua ferragost christmas xmas easter new+year che+tempo",

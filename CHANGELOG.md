@@ -12,6 +12,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA: le fonti di una risposta che vengono dalla guida della regione si toccano. La scheda Guida si apre sulla sezione (della nazione o della città) con le frasi usate dalla risposta evidenziate; vale anche per le conversazioni riprese dalla cronologia, se la regione è installata.
 - Assistente IA: la risposta continua anche a schermo spento o con l'app in background. Mentre l'assistente risponde, la notifica "Risposta dell'assistente in corso" tiene l'app attiva, e il suo pulsante "Ferma" interrompe la risposta; a fine risposta la notifica sparisce.
 - Assistente IA: sotto la barra di avanzamento del download del modello c'è "Annulla". Dopo un download fallito il pulsante diventa "Riprova".
+- Assistente IA: alle domande sul clima o sul periodo migliore per partire che non nominano una città ("Quando conviene andare a Malta?"), se la guida della nazione non ha una sezione sul clima, l'assistente usa la sezione Clima della capitale.
 - Aggiornamenti: il controllo periodico delle regioni installate segnala anche i numeri civici e gli orari dei mezzi pubblici cambiati, come già l'elenco delle nazioni.
 
 ### Modificato

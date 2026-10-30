@@ -18,6 +18,10 @@ class CityRepository @Inject constructor(
     fun mainCitiesFor(regionId: String, limit: Int): Flow<List<MainCity>> =
         cityDao.mainCitiesForRegion(regionId, limit).map { rows -> rows.map { MainCity(it.city, it.population, it.capital) } }
 
+    /** La capitale della regione, o se non e' tra le sue citta' principali la piu' ricca; null senza citta'. */
+    suspend fun capitalFor(regionId: String): String? =
+        mainCitiesFor(regionId, MAIN_CITIES).first().let { cities -> cities.firstOrNull { it.capital } ?: cities.firstOrNull() }?.name
+
     /** Sezioni della citta': prima quelle di Wikivoyage (per categoria), poi Storia e Clima di Wikipedia. */
     suspend fun sectionsFor(regionId: String, city: String): List<CitySection> =
         cityDao.sectionsFor(regionId, city).map { it.toDomain() }
@@ -41,6 +45,7 @@ class CityRepository @Inject constructor(
     private companion object {
         const val CANDIDATE_CAP = 100
         const val CITY_CANDIDATE_CAP = 100
+        const val MAIN_CITIES = 5
 
         // In coda alla guida della citta', in quest'ordine; indexOf = -1 lascia le altre in testa nel loro ordine.
         val WIKIPEDIA_CATEGORIES = listOf(GuideCategory.STORIA, GuideCategory.CLIMA)

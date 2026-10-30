@@ -236,7 +236,8 @@ class TravelAssistant @Inject constructor(
             generalQuestion = isGeneralTravelQuestion(question),
             comparePhrases = questionPhrases(baseQuery, modelGroups),
         )
-        return SectionSearch(sections, baseQuery, country)
+        val groups = (questionGroups(question) + modelGroups).takeIf { wordLists }.orEmpty()
+        return SectionSearch(cityRepository.withCapitalClimate(regionId, sections, cities.firstOrNull() ?: country?.name, groups, language), baseQuery, country)
     }
 
     private class SectionSearch(val sections: List<AssistantSection>, val baseQuery: String, val country: NamedPlace?)
@@ -392,7 +393,6 @@ class TravelAssistant @Inject constructor(
     }
 
     private companion object {
-        const val MAX_SECTIONS = 3
         // Un aggiornamento del testo parziale ogni ~80 ms (~12 al secondo): fluido, senza ricomporre a ogni token.
         const val PARTIAL_INTERVAL_MS = 80L
         const val NEARBY_MAX_AGE_MILLIS = 15 * 60 * 1_000L
@@ -458,7 +458,7 @@ private val historyClimateWords = Regex(
     """\b((?<!centr[oi] )stori|fondat|fondò|secol|guerr|antic(?:[oa]\b|h)|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|""" +
         """invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season|""" +
         // Le stesse richieste dette con altre parole ("Quando e' nata X?", "When is the best time to go to X?").
-        """passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|best time|when to go|establish|ruled|""" +
+        """passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|conviene andare|best time|when to go|establish|ruled|""" +
         """costru|mura\b|built|walls?\b|ottocent|novecent|settecent|seicent|cinquecent|quattrocent|trecent|gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|mesi\b|january|february|march|april|june|july|august|september|october|november|december|months?\b|middle ages|past\b|origins?\b|natale\b|natalizi|capodanno|pasqua|ferragosto|christmas|xmas|easter|new year|che tempo|""" +
         // Chi ha abitato la citta' e quanto e' antica ("Quali popoli hanno abitato X?", "How old is X?").
         """popol|abitat|inhabit|settl|peoples\b|how old)""",
@@ -771,6 +771,35 @@ private class RankedSection(val section: AssistantSection, val score: Double, va
 // (se non c'e' altro), ma non scavalcano le sezioni pratiche.
 private val WIKIPEDIA_CATEGORIES = setOf(GuideCategory.STORIA, GuideCategory.CLIMA)
 private const val WIKIPEDIA_OFF_TOPIC_WEIGHT = 0.1
+private const val MAX_SECTIONS = 3
+
+/**
+ * True se una domanda di clima, periodi o previsioni ([groups]) senza citta' nominata non ha trovato una sezione Clima
+ * ([sections]): molte guide delle nazioni non ne hanno ("Quando conviene andare a Malta?"), e si usa quella della capitale.
+ */
+internal fun wantsCapitalClimate(groups: Set<String>, sections: List<AssistantSection>): Boolean =
+    groups.any { it in CLIMATE_GROUPS } && sections.none { it.category == GuideCategory.CLIMA }
+
+private val CLIMATE_GROUPS = setOf("CLIMA", "PERIODI", "METEO")
+
+/**
+ * [sections] con in testa la sezione Clima della capitale della regione (capitalFor) quando la domanda non nomina un
+ * luogo ([place] null) e wantsCapitalClimate; com'e' altrimenti, o se la capitale non ha il Clima.
+ */
+private suspend fun CityRepository.withCapitalClimate(
+    regionId: String,
+    sections: List<AssistantSection>,
+    place: String?,
+    groups: Set<String>,
+    language: String,
+): List<AssistantSection> {
+    val climate = if (place == null && wantsCapitalClimate(groups, sections)) {
+        capitalFor(regionId)?.let { capital -> sectionsFor(regionId, capital).firstOrNull { it.category == GuideCategory.CLIMA } }
+    } else {
+        null
+    }
+    return climate?.let { (listOf(it.toAssistantSection(language)) + sections).take(MAX_SECTIONS) } ?: sections
+}
 
 /** Candidati delle guide delle citta' [cities] (di ognuna, per "quanto dista X da Y"), o di tutte se e' vuota. */
 private suspend fun CityRepository.candidates(regionId: String, ftsQuery: String, cities: List<String>) =
@@ -1043,7 +1072,7 @@ private val questionStopwords = setOf(
     "dagli", "sulla", "sulle", "sullo", "sugli", "questo", "questa", "questi", "queste", "quello", "quella", "quelli",
     "quelle", "anche", "molto", "molti", "molte", "posso", "puoi", "possono", "devo", "deve", "devono", "serve", "servono",
     "essere", "fatto", "avere", "hanno", "ogni", "tutto", "tutti", "tutte", "altro", "altri", "loro", "dire", "cosi",
-    "ancora", "oppure", "mentre",
+    "ancora", "oppure", "mentre", "conviene",
     "what", "which", "where", "when", "does", "there", "with", "from", "that", "this", "have", "should", "about", "much",
     "many", "could", "would", "your", "some", "into", "they", "them", "were", "been", "will", "also", "very", "need",
 )

@@ -32,7 +32,7 @@ private val categoryTriggers = mapOf(
         "popol abitat inhabit settl peoples= how+old",
     "CLIMA" to "clima meteo piog piov ombrel tempera primav estat invern autun nevic neve caldo fredd stagion " +
         "climat weather rain umbrel spring summer winter= autumn snow hot cold season " +
-        "periodo+migliore quando+andare best+time when+to+go gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre mesi january february march april june july august september october november december months",
+        "periodo+migliore quando+andare conviene+andare best+time when+to+go when+to+visit gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre mesi january february march april june july august september october november december months",
     // Non categorie ma momenti dell'anno: "Che tempo trovo a Roma a Natale?" chiede il clima di quel periodo.
     "PERIODI" to "natale= natalizi capodann pasqua ferragost christmas xmas easter new+year che+tempo",
     // Non categorie ma richieste: cosa fare contro un problema e dopo una perdita o un furto. Portano alle sottosezioni
