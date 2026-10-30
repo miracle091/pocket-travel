@@ -117,6 +117,8 @@ DATA_USE = {
                   "city history and climate; cuisine, traditions, media and telecommunications in the guides"),
     "Wikidata": ("fatti rapidi, ambasciate, compagnie aeree", "quick facts, embassies, airlines"),
     "Open-Meteo.com, GeoNames": ("meteo e coordinate delle città, uso non commerciale", "weather and city coordinates, non-commercial use"),
+    "Open English WordNet, MultiWordNet": ("parole per riconoscere l'argomento delle domande all'assistente IA",
+                                           "words for recognizing the topic of questions to the AI assistant"),
     "Global Disaster Alert and Coordination System, GDACS": ("allerte in corso: catastrofi (allerte automatiche, non ufficiali)",
                                                              "active alerts: disasters (automatic alerts, not official)"),
     "U.S. Geological Survey": ("allerte in corso: terremoti", "active alerts: earthquakes"),

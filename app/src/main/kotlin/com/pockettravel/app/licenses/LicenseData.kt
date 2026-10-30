@@ -103,6 +103,7 @@ val licenseLabels: Map<String, LicenseLabel> = mapOf(
     "pockettravel.data:wikipedia" to LicenseLabel(R.string.licenses_component_wikipedia, note = R.string.licenses_note_wikipedia),
     "pockettravel.data:wikidata" to LicenseLabel(R.string.licenses_component_wikidata, note = R.string.licenses_note_wikidata),
     "pockettravel.data:weather" to LicenseLabel(R.string.licenses_component_weather, note = R.string.licenses_note_weather),
+    "pockettravel.data:wordnet" to LicenseLabel(R.string.licenses_component_wordnet, note = R.string.licenses_note_wordnet),
     "pockettravel.data:alerts-gdacs" to LicenseLabel(R.string.licenses_component_alerts_gdacs, note = R.string.licenses_note_alerts_gdacs),
     "pockettravel.data:alerts-usgs" to LicenseLabel(R.string.licenses_component_alerts_usgs, note = R.string.licenses_note_alerts_usgs),
     "pockettravel.data:alerts-meteoalarm" to LicenseLabel(R.string.licenses_component_alerts_meteoalarm, note = R.string.licenses_note_alerts_meteoalarm),

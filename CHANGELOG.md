@@ -23,6 +23,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA: la domanda ha al massimo 300 caratteri, anche quando è incollata o dettata. Da 250 caratteri sotto il campo compare il conteggio ("280/300").
 - Download della mappa con la rete mobile: l'avviso compare sempre, perché il peso della mappa si conosce solo dopo l'estrazione sul dispositivo.
 - Download del modello IA: dopo 5 tentativi falliti si ferma con un errore, e con la memoria piena lo dice invece di riprovare. Il download resta quello del modello richiesto anche se nel frattempo se ne sceglie un altro.
+- Assistente IA: riconosce l'argomento di più domande e cerca nelle sezioni giuste della guida. Le domande sulle distanze ("Quanto dista Katerini da Atene?", "How far is Sintra from Lisbon?") trovano Come arrivare e Trasporti; parcheggi, agriturismi, battaglie, malattie, sole e vento trovano le loro sezioni. Le parole nuove vengono dalle guide stesse e da WordNet, citato nella schermata Licenze. "Meteo" vale solo come parola intera, e le Meteore non sono più una domanda sul clima.
 
 ### Corretto
 - Assistente IA: le domande in inglese con "further" ("Is Sintra further than Cascais?") non contano più come domande sulla sicurezza. La radice di "furto" ora vale solo per "furto" e "furti".

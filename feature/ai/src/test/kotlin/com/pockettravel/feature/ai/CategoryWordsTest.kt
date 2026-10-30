@@ -18,14 +18,14 @@ class CategoryWordsTest {
         // Espressioni di piu' parole: "best time" e "periodo migliore" sono il clima, "best" da solo no.
         assertEquals(setOf("CLIMA"), questionGroups("When is the best time to go to Porto?"))
         assertEquals(setOf("CLIMA"), questionGroups("Qual è il periodo migliore per andare a Lisbona?"))
-        assertEquals(emptySet<String>(), questionGroups("Which is the best beach?"))
+        assertEquals(setOf("COSA_VEDERE"), questionGroups("Which is the best beach?"))
         // Richieste di consigli e di cosa fare dopo una perdita, oltre alle categorie.
         assertEquals(setOf("CONSIGLI"), questionGroups("Come si combatte il jet lag?"))
         assertEquals(setOf("DOGANE", "EMERGENZE"), questionGroups("What do I do if I lose my passport abroad?"))
         // Con "=" la parola e' intera: nomi di citta' e parole comuni che cominciano come una radice non contano.
         assertEquals(setOf("ALLOGGIO"), questionGroups("Un hotel per due persone a Campobasso?"))
         assertEquals(setOf("CIBO_BEVANDE"), questionGroups("Where to eat pasta in Cardiff?"))
-        assertEquals(setOf("EMERGENZE"), questionGroups("Ho perso il portafoglio"))
+        assertEquals(setOf("SICUREZZA", "EMERGENZE"), questionGroups("Ho perso il portafoglio"))
         // "furto" e "furti" interi: "further" non e' una domanda sulla sicurezza.
         assertEquals(setOf("SICUREZZA"), questionGroups("Ci sono molti furti a Napoli?"))
         assertEquals(emptySet<String>(), questionGroups("Is Sintra further than Cascais?"))
@@ -54,6 +54,17 @@ class CategoryWordsTest {
         assertEquals(setOf("CLIMA"), questionGroups("Quando conviene andare a Malta?"))
         assertTrue("CLIMA" in questionGroups("When to visit Malta?"))
         assertTrue(isHistoryOrClimateQuestion("Quando conviene andare a Malta?"))
+        // Distanze e tempi di viaggio: Come arrivare e Trasporti.
+        assertEquals(setOf("TRASPORTI"), questionGroups("Quanto dista Katerini da Atene?"))
+        assertEquals(setOf("TRASPORTI"), questionGroups("How far is Sintra from Lisbon?"))
+        // Sinonimi delle categorie (da WordNet e dalle guide).
+        assertEquals(setOf("TRASPORTI"), questionGroups("Dove parcheggiare a Lucca?"))
+        assertEquals(setOf("ALLOGGIO"), questionGroups("Un agriturismo vicino a Siena?"))
+        assertEquals(setOf("STORIA"), questionGroups("Which battle was fought at Aljubarrota?"))
+        // "meteo" intero: le Meteore non sono il clima.
+        assertEquals(setOf("COSA_VEDERE"), questionGroups("Cosa vedere alle Meteore?"))
+        assertFalse(isHistoryOrClimateQuestion("Cosa vedere alle Meteore?"))
+        assertTrue(isHistoryOrClimateQuestion("Cosa dice il meteo a Kalambaka?"))
     }
 
     @Test

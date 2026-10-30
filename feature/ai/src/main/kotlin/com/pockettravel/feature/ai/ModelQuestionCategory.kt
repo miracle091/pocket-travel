@@ -5,7 +5,7 @@ import java.io.IOException
 
 /**
  * La categoria di [question] scelta dal modello sul dispositivo, per le domande in cui le liste di parole
- * (questionGroups) non ne riconoscono nessuna ("C'e' un agriturismo a X?", "Tira vento a X?"): un gruppo di
+ * (questionGroups) non ne riconoscono nessuna ("Ci sono voli interni?", "Dove trovo un B&B a X?"): un gruppo di
  * CategoryWords, o null per il viaggio in generale. L'output e' vincolato ai nomi delle categorie (modelCategoryGrammar),
  * cosi' la risposta e' sempre una di loro, e la scelta e' greedy (ai_chat.cpp); gli esempi tra parentesi nel prompt aiutano il
  * modello piccolo. Se la classificazione fallisce la ricerca procede senza categoria.

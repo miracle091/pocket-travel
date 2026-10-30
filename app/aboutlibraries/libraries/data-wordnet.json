@@ -1,0 +1,10 @@
+{
+  "uniqueId": "pockettravel.data:wordnet",
+  "name": "Open English WordNet, MultiWordNet",
+  "website": "https://en-word.net",
+  "licenses": [
+    "CC-BY-4.0-wordnet",
+    "CC-BY-3.0-multiwordnet"
+  ],
+  "tag": "data"
+}

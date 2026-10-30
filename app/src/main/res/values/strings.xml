@@ -269,6 +269,8 @@
     <string name="licenses_note_wikidata">Dati dedicati al pubblico dominio</string>
     <string name="licenses_component_weather">Meteo: Open-Meteo.com (previsioni) e GeoNames (posizione delle città)</string>
     <string name="licenses_note_weather">Weather data by Open-Meteo.com, uso non commerciale. Coordinate delle città dal geocoding di Open-Meteo, basato su GeoNames</string>
+    <string name="licenses_component_wordnet">Assistente IA: Open English WordNet e MultiWordNet (argomento delle domande)</string>
+    <string name="licenses_note_wordnet">Parole per riconoscere l\'argomento delle domande, scelte tra i sinonimi di Open English WordNet 2025 (Open English WordNet team, derivato da Princeton WordNet) e di MultiWordNet (E. Pianta, L. Bentivogli, C. Girardi, MultiWordNet: Developing an Aligned Multilingual Database, 2002)</string>
     <string name="licenses_component_alerts_gdacs">Allerte in corso: catastrofi da GDACS</string>
     <string name="licenses_note_alerts_gdacs">Allerte di catastrofi da Global Disaster Alert and Coordination System, GDACS (Commissione europea e Nazioni Unite). Avvisi automatici, non rivisti da esperti e non sostitutivi delle allerte ufficiali</string>
     <string name="licenses_component_alerts_usgs">Allerte in corso: terremoti dal U.S. Geological Survey</string>
