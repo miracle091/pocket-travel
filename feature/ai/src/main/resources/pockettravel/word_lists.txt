@@ -20,7 +20,7 @@ they them were been will also very need
 # solo nelle sezioni della categoria; in TRASPORTI le distanze ("Quanto dista Katerini da Atene?", "How far is X?") e in
 # SICUREZZA "portafogl" vengono da build_word_lists.py.
 [triggers ALLOGGIO]
-allogg dormi pernot notte alberg hotel ostell campeg stay sleep accomm lodg hostel night= camp= camping
+allogg dormi pernot notte alberg hotel ostell campeg stay sleep accomm lodg hostel a+night spend+the+night nights= per+night camp= camping
 campsite camera prenot room rooms
 locanda pensione= pensioni= pension= appartam suite= motel soggiornar agrituris apartment guesthouse bedroom
 campground inn= bed= homestay
@@ -45,7 +45,7 @@ supermerc libreria panific supermarket grocery mall= bargain haggl bazaar handic
 monete= moneta= bancarell artigianat gratuity
 [triggers TRASPORTI]
 arriv spost muov treno treni autob macchin auto nolegg guidar raggiun bus train car drive rent transp metro
-reach around stazion station aeroport airport taxi tassi= tram= traghett ferry
+reach get+around getting+around move+around moving+around travel+around stazion station aeroport airport taxi tassi= tram= traghett ferry
 aere pullman nave= parcheg bici navett superstrad autostr pedagg autist conducent battell scooter vaporett funivi
 corrier shuttle timetable highway motorway freeway bike bicycle coach subway cab= parking toll= hitchhik rail
 funicular terminal

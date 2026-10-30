@@ -61,6 +61,10 @@ class CategoryWordsTest {
         assertEquals(setOf("TRASPORTI"), questionGroups("Dove parcheggiare a Lucca?"))
         assertEquals(setOf("ALLOGGIO"), questionGroups("Un agriturismo vicino a Siena?"))
         assertEquals(setOf("STORIA"), questionGroups("Which battle was fought at Aljubarrota?"))
+        // "night" e "around" solo nelle espressioni: girare di notte e' sicurezza, non alloggio e trasporti.
+        assertEquals(setOf("SICUREZZA"), questionGroups("Is it dangerous to walk around at night?"))
+        assertEquals(setOf("ALLOGGIO"), questionGroups("Where to spend the night in Porto?"))
+        assertEquals(setOf("TRASPORTI"), questionGroups("How do I get around Lisbon?"))
         // "meteo" intero: le Meteore non sono il clima.
         assertEquals(setOf("COSA_VEDERE"), questionGroups("Cosa vedere alle Meteore?"))
         assertFalse(isHistoryOrClimateQuestion("Cosa vedere alle Meteore?"))

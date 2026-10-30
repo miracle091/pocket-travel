@@ -27,6 +27,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ### Corretto
 - Assistente IA: le domande in inglese con "further" ("Is Sintra further than Cascais?") non contano più come domande sulla sicurezza. La radice di "furto" ora vale solo per "furto" e "furti".
+- Assistente IA: "Is it dangerous to walk around at night?" è una domanda sulla sicurezza, non più anche su alloggio e trasporti. "Night" e "around" contano solo in espressioni come "spend the night" e "get around".
 - Meteo nella Guida e previsioni dell'assistente: senza una città nella domanda e lontano dalla regione si usa la capitale anche quando ha meno abitanti di altre città. Prima a Malta comparivano il meteo e le previsioni di Mosta invece di quelli della Valletta.
 - Assistente IA: le città con l'articolo nel nome (La Valletta, L'Aquila, La Spezia) si riconoscono anche dopo una preposizione articolata, come in "Storia della Valletta?". Prima la domanda non cercava nella guida della città e la risposta veniva dalla guida della nazione.
 - Dopo l'eliminazione di una regione, o del suo ultimo pacchetto, l'app non la riapre più all'avvio.
