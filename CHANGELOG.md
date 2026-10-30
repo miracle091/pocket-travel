@@ -13,6 +13,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Aggiornamenti: il controllo periodico delle regioni installate segnala anche i numeri civici e gli orari dei mezzi pubblici cambiati, come già l'elenco delle nazioni.
 
 ### Modificato
+- Assistente IA, motore Sul dispositivo: il modello esce dalla memoria 5 minuti dopo l'ultima domanda, 10 secondi dopo che l'app passa in background o lo schermo si spegne, e subito quando il sistema ha poca memoria. Mappa e Navigatore hanno più memoria e il sistema chiude meno spesso l'app; la domanda dopo ricarica il modello, in qualche secondo.
 - Assistente IA, motore Online: per le previsioni senza una città nella domanda l'assistente non usa più la città dell'ultima guida aperta, che arrivava al servizio online come già la posizione; usa la capitale della regione o la città della domanda precedente.
 - Assistente IA: la domanda ha al massimo 300 caratteri, anche quando è incollata o dettata. Da 250 caratteri sotto il campo compare il conteggio ("280/300").
 - Download della mappa con la rete mobile: l'avviso compare sempre, perché il peso della mappa si conosce solo dopo l'estrazione sul dispositivo.

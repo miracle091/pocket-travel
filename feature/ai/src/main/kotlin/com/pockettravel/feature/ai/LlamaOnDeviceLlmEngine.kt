@@ -8,7 +8,9 @@ import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl
 import com.pockettravel.feature.ai.llamacpp.isModelLoaded
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +44,14 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
     private val engine: InferenceEngine by lazy { InferenceEngineImpl.getInstance(context) }
     private val breadcrumb = LoadedModelBreadcrumb.forContext(context)
 
+    /**
+     * Toglie il modello dalla memoria quando l'assistente non lo usa; ogni uso del modello passa da qui. Rilascia gia'
+     * sotto il lock del modello; il mutex del motore e' libero, perche' ogni uso li prende tutti e due.
+     */
+    val idleReleaser = ModelIdleReleaser(CoroutineScope(SupervisorJob() + ioDispatcher), coordinator) {
+        mutex.withLock { releaseWithoutLock() }
+    }
+
     // File del modello oggi in memoria (null se nessuno): senza, dopo un cambio di modello scelto
     // il motore resterebbe sul precedente, perche' isModelLoaded non dice quale sia.
     private var loadedModelPath: String? = null
@@ -57,7 +67,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
     override val cpuBackend: StateFlow<CpuBackendInfo?> get() = engine.cpuBackend
 
     override suspend fun ensureLoaded(): Long = withContext(ioDispatcher) {
-        coordinator.withModelLock {
+        idleReleaser.withModelUse {
             mutex.withLock {
                 if (isSelectedModelLoaded()) {
                     0L
@@ -71,7 +81,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
     }
 
     override suspend fun generateAll(prompts: List<String>): OnDeviceLlmEngine.GenerationBatch = withContext(ioDispatcher) {
-        coordinator.withModelLock {
+        idleReleaser.withModelUse {
             mutex.withLock {
                 val loadStart = System.currentTimeMillis()
                 val wasLoaded = isSelectedModelLoaded()
@@ -90,7 +100,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
     override suspend fun generate(prompt: String): String = generateStream(prompt).toList().joinToString(separator = "")
 
     override fun generateStream(prompt: String): Flow<String> = flow {
-        coordinator.withModelLock {
+        idleReleaser.withModelUse {
             mutex.withLock {
                 loadModelIfNeeded()
                 // Reset esplicito: i dati di training (generate_sft_dataset.py) non hanno mai
@@ -104,7 +114,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
     }.flowOn(ioDispatcher)
 
     override suspend fun generateWithGrammar(prompt: String, grammar: String, maxTokens: Int): String = withContext(ioDispatcher) {
-        coordinator.withModelLock {
+        idleReleaser.withModelUse {
             mutex.withLock {
                 loadModelIfNeeded()
                 engine.resetConversation()

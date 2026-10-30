@@ -10,4 +10,7 @@ import javax.inject.Singleton
 class AiModelCoordinator @Inject constructor() {
     private val mutex = Mutex()
     suspend fun <T> withModelLock(block: suspend () -> T): T = mutex.withLock { block() }
+
+    /** true mentre un'operazione sul modello (caricamento, generazione, download, eliminazione) tiene il lock. */
+    val isLocked: Boolean get() = mutex.isLocked
 }

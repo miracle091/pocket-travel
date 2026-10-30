@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import org.junit.After
@@ -135,6 +137,17 @@ class MultiTurnDeviceTest {
         assertFalse("la risposta su Lisbona parla dei luoghi di Roma: $answer", "Colosseo" in answer || "Pantheon" in answer)
     }
 
+    // L'app va in background (ModelIdleReleaser): il modello esce dalla memoria e la domanda dopo lo ricarica.
+    @Test
+    fun domandaDopoIlRilascioDelModello() = runBlocking<Unit> {
+        turn("prima del rilascio", "Cosa vedere a Roma?", ROME)
+        engine.idleReleaser.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
+        withTimeout(RELEASE_TIMEOUT_MS) { native.state.first { it !is InferenceEngine.State.ModelReady } }
+        Log.i(TAG, "rilasciato: ${native.state.value}")
+        turn("dopo il rilascio", "Cosa vedere a Lisbona?", LISBON)
+        Log.i(TAG, "ricaricamento: ${engine.stats.value.loadTimeMs} ms")
+    }
+
     @Test
     fun domandaInterrottaEPoiUnAltra() = runBlocking<Unit> {
         val partial = engine.generateStream(PromptTemplates.onDevicePrompt(ROME, "Cosa vedere a Roma?")).take(3).toList()
@@ -225,6 +238,7 @@ class MultiTurnDeviceTest {
         const val NAVIGATION_TOKENS = 64
         const val SHORT_ANSWER = 96
         const val CANCEL_AFTER_MS = 30_000L
+        const val RELEASE_TIMEOUT_MS = 30_000L
 
         const val JAPAN = "Visti: i cittadini italiani possono entrare in Giappone senza visto per turismo fino a 90 giorni. " +
             "Serve il passaporto valido per tutta la durata del soggiorno."
