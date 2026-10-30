@@ -25,6 +25,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Download del modello IA: dopo 5 tentativi falliti si ferma con un errore, e con la memoria piena lo dice invece di riprovare. Il download resta quello del modello richiesto anche se nel frattempo se ne sceglie un altro.
 
 ### Corretto
+- Assistente IA: le domande in inglese con "further" ("Is Sintra further than Cascais?") non contano più come domande sulla sicurezza. La radice di "furto" ora vale solo per "furto" e "furti".
 - Meteo nella Guida e previsioni dell'assistente: senza una città nella domanda e lontano dalla regione si usa la capitale anche quando ha meno abitanti di altre città. Prima a Malta comparivano il meteo e le previsioni di Mosta invece di quelli della Valletta.
 - Assistente IA: le città con l'articolo nel nome (La Valletta, L'Aquila, La Spezia) si riconoscono anche dopo una preposizione articolata, come in "Storia della Valletta?". Prima la domanda non cercava nella guida della città e la risposta veniva dalla guida della nazione.
 - Dopo l'eliminazione di una regione, o del suo ultimo pacchetto, l'app non la riapre più all'avvio.

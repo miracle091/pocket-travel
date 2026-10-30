@@ -39,7 +39,7 @@ passap docum front dogan visto alcol sigar passport border custom visa alcoh cig
 vacci ammal malat medic osped salute farmac sanit sick ill doctor hospit health jab pharm pronto+soccorso
 first+aid rubinett tap+water
 [triggers SICUREZZA]
-sicur peric derub furt borseg ladr crimin truffa truffe safe danger rob theft thief pickp crime scam
+sicur peric derub furto= furti= borseg ladr crimin truffa truffe safe danger rob theft thief pickp crime scam
 [triggers CONNETTIVITA]
 internet telef cellul sim wifi collegar roami online phone mobile connec
 [triggers STORIA]

@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """Liste di parole dell'assistente, dallo stesso file che legge l'app (WordLists.kt):
 feature/ai/src/main/resources/pockettravel/word_lists.txt. Righe "#": commenti; ogni sezione comincia con [nome] e le
-sue righe si uniscono con uno spazio, salvo [history-climate] (senza spazio)."""
+sue righe si uniscono con uno spazio, salvo [history-climate] (senza spazio). Con la variabile WORD_LISTS si legge un'altra
+copia del file."""
+import os
 import re
 from pathlib import Path
 
 PATH = Path(__file__).resolve().parents[3] / "feature" / "ai" / "src" / "main" / "resources" / "pockettravel" / "word_lists.txt"
+# Con WORD_LISTS=<file> gli script leggono un'altra copia: per misurare liste candidate (eval_retrieval.py --baseline)
+# senza toccare quella dell'app.
+PATH = Path(os.environ.get("WORD_LISTS") or PATH)
 
 
 def sections(text):

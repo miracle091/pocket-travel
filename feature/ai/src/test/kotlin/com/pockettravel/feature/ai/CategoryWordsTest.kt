@@ -26,6 +26,9 @@ class CategoryWordsTest {
         assertEquals(setOf("ALLOGGIO"), questionGroups("Un hotel per due persone a Campobasso?"))
         assertEquals(setOf("CIBO_BEVANDE"), questionGroups("Where to eat pasta in Cardiff?"))
         assertEquals(setOf("EMERGENZE"), questionGroups("Ho perso il portafoglio"))
+        // "furto" e "furti" interi: "further" non e' una domanda sulla sicurezza.
+        assertEquals(setOf("SICUREZZA"), questionGroups("Ci sono molti furti a Napoli?"))
+        assertEquals(emptySet<String>(), questionGroups("Is Sintra further than Cascais?"))
         // Momenti dell'anno: il clima di quel periodo. Natal, citta' del Brasile, non e' Natale.
         assertEquals(setOf("PERIODI"), questionGroups("Che tempo trovo a Roma a Natale?"))
         assertEquals(setOf("ALLOGGIO"), questionGroups("Dove dormire a Natal?"))
