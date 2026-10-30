@@ -629,10 +629,22 @@ PLACE_PREPOSITIONS = {
 }
 
 
+ITALIAN_ARTICLES = {"il", "lo", "la", "i", "gli", "le", "l"}
+
+ARTICULATED_PREPOSITIONS = {
+    "del", "dello", "della", "dei", "degli", "delle", "dell",
+    "al", "allo", "alla", "ai", "agli", "alle", "all",
+    "dal", "dallo", "dalla", "dai", "dagli", "dalle", "dall",
+    "nel", "nello", "nella", "nei", "negli", "nelle", "nell",
+    "sul", "sullo", "sulla", "sui", "sugli", "sulle", "sull",
+}
+
+
 def named_cities(question, cities, lang="it"):
     """namedCities: le citta' nominate nella domanda (a parole intere), dal nome piu' lungo, senza quelle comprese in un
     nome piu' lungo gia' trovato. Un nome di una sola parola conta solo con l'iniziale maiuscola o dopo una
-    preposizione di luogo (PLACE_PREPOSITIONS)."""
+    preposizione di luogo (PLACE_PREPOSITIONS). In italiano un nome con l'articolo ("La Valletta") vale anche senza,
+    dopo una preposizione articolata ("della Valletta", "dell'Aquila")."""
     words = normalized_words(question)
     tokens = [w for w in re.split(r"[^\w]+|_", question) if w]
     folded_tokens = [folded(t) for t in tokens]
@@ -642,10 +654,19 @@ def named_cities(question, cities, lang="it"):
         return any(t == name and (tokens[i][0].isupper() or (i > 0 and folded_tokens[i - 1] in prepositions))
                    for i, t in enumerate(folded_tokens))
 
+    def named_without_article(name):
+        first, _, rest = name.partition(" ")
+        if lang != "it" or first not in ITALIAN_ARTICLES or not rest:
+            return False
+        rest_words = rest.split(" ")
+        return any(folded_tokens[i:i + len(rest_words)] == rest_words and folded_tokens[i - 1] in ARTICULATED_PREPOSITIONS
+                   for i in range(1, len(folded_tokens)))
+
     found = []
     for c in cities:
         name = normalized_words(spoken_city_name(c)).strip()
-        if len(spoken_city_name(c)) >= MIN_CITY_NAME_CHARS and f" {name} " in words and (" " in name or named_as_place(name)):
+        if len(spoken_city_name(c)) >= MIN_CITY_NAME_CHARS and (
+                (f" {name} " in words and (" " in name or named_as_place(name))) or named_without_article(name)):
             found.append(c)
     kept = []
     for c in sorted(found, key=lambda c: -len(spoken_city_name(c))):

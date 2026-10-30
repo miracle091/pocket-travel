@@ -121,6 +121,15 @@ class ReplicaTest(unittest.TestCase):
         self.assertEqual(ev.named_cities("Cosa vedere a male?", homonyms), ["Malé"])
         self.assertEqual(ev.named_cities("Quanto dista Siena da Firenze?", ["Firenze", "Roma", "Siena"]), ["Firenze", "Siena"])
 
+    def test_named_cities_con_l_articolo_dopo_una_preposizione_articolata(self):
+        cities = ["La Valletta", "L'Aquila", "La Spezia", "Sliema"]
+        self.assertEqual(ev.named_cities("Storia della Valletta?", cities), ["La Valletta"])
+        self.assertEqual(ev.named_cities("Musei dell'Aquila", cities), ["L'Aquila"])
+        self.assertEqual(ev.named_cities("Come arrivare alla Spezia?", cities), ["La Spezia"])
+        self.assertEqual(ev.named_cities("Cosa vedere a La Valletta?", cities), ["La Valletta"])
+        self.assertEqual(ev.named_cities("Una valletta verde", cities), [])
+        self.assertEqual(ev.named_cities("History of the Valletta harbour", cities, "en"), [])
+
     def test_focus_stems_senza_la_citta(self):
         self.assertEqual(ev.focus_stems("estate OR piove OR rimini", "Rimini"), {"estat", "piove"})
         self.assertEqual(ev.focus_stems("cosa OR mangi* OR passap*", "Napoli"), {"cosa", "mangi", "passa"})

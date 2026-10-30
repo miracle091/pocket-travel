@@ -22,6 +22,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ### Corretto
 - Dopo l'eliminazione di una regione, o del suo ultimo pacchetto, l'app non la riapre più all'avvio.
+- Assistente IA: le città con l'articolo nel nome (La Valletta, L'Aquila, La Spezia) si riconoscono anche dopo una preposizione articolata, come in "Storia della Valletta?". Prima la domanda non cercava nella guida della città e la risposta veniva dalla guida della nazione.
 - Regioni: un download fallito faceva fallire anche quelli della stessa regione accodati dopo.
 - Regioni: eliminare un pacchetto mentre se ne installava un altro della stessa regione poteva cancellare l'intera regione.
 - Regioni: la lettura del catalogo e la verifica della sua firma non avvengono più sul thread dell'interfaccia.
