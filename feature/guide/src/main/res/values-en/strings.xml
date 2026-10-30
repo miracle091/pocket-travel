@@ -197,4 +197,26 @@
     <!-- Weather card (WeatherCard): Open-Meteo data, CC BY 4.0 -->
     <string name="guide_travel_advice_updated">Travel advice updated on %1$s</string>
     <string name="guide_travel_advice_open">Open</string>
+    <!-- Monthly averages card (ClimateCard): Wikipedia climate table -->
+    <string name="guide_climate_title">Monthly averages</string>
+    <string name="guide_climate_month_line">%1$s: %2$s</string>
+    <string name="guide_climate_high">high %1$d °C</string>
+    <string name="guide_climate_low">low %1$d °C</string>
+    <string name="guide_climate_rain">%1$d mm of rain</string>
+    <plurals name="guide_climate_rain_and_days">
+        <item quantity="one">%1$d mm of rain over %2$d day</item>
+        <item quantity="other">%1$d mm of rain over %2$d days</item>
+    </plurals>
+    <plurals name="guide_climate_days">
+        <item quantity="one">%1$d rainy day</item>
+        <item quantity="other">%1$d rainy days</item>
+    </plurals>
+    <string name="guide_climate_all_months">All months</string>
+    <string name="guide_climate_hide">Hide</string>
+    <string name="guide_climate_col_high">High</string>
+    <string name="guide_climate_col_low">Low</string>
+    <string name="guide_climate_col_rain">mm</string>
+    <string name="guide_climate_col_days">Days</string>
+    <string name="guide_climate_source">Source: Wikipedia, climate table (%1$s)</string>
+    <string name="guide_climate_source_open">Open the Wikipedia page</string>
 </resources>

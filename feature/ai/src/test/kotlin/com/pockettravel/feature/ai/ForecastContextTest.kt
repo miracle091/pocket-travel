@@ -136,7 +136,7 @@ class ForecastContextTest {
                 "Medie di ottobre a Roma (Wikipedia): massima 22 °C, minima 13 °C, pioggia 113 mm, giorni di pioggia 8.",
             october.body,
         )
-        assertEquals("Fonte: tabella climatica di Wikipedia (Roma)", october.citation)
+        assertEquals("Fonte: Wikipedia, tabella climatica (Roma)", october.citation)
         assertEquals(
             "No forecast for Rome: no connection and no saved forecast.\nAverage for November in Rome (Wikipedia): high 17 °C.",
             offlineWeatherSection("Rome", climate, 11, "en").body,

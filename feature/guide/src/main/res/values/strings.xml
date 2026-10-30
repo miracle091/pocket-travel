@@ -208,4 +208,26 @@
     <!-- Riquadro meteo (WeatherCard): dati Open-Meteo, CC BY 4.0 -->
     <string name="guide_travel_advice_updated">Consigli di viaggio aggiornati il %1$s</string>
     <string name="guide_travel_advice_open">Apri</string>
+    <!-- Riquadro delle medie mensili (ClimateCard): tabella climatica di Wikipedia -->
+    <string name="guide_climate_title">Medie mensili</string>
+    <string name="guide_climate_month_line">%1$s: %2$s</string>
+    <string name="guide_climate_high">massima %1$d °C</string>
+    <string name="guide_climate_low">minima %1$d °C</string>
+    <string name="guide_climate_rain">pioggia %1$d mm</string>
+    <plurals name="guide_climate_rain_and_days">
+        <item quantity="one">pioggia %1$d mm in %2$d giorno</item>
+        <item quantity="other">pioggia %1$d mm in %2$d giorni</item>
+    </plurals>
+    <plurals name="guide_climate_days">
+        <item quantity="one">%1$d giorno di pioggia</item>
+        <item quantity="other">%1$d giorni di pioggia</item>
+    </plurals>
+    <string name="guide_climate_all_months">Tutti i mesi</string>
+    <string name="guide_climate_hide">Nascondi</string>
+    <string name="guide_climate_col_high">Max</string>
+    <string name="guide_climate_col_low">Min</string>
+    <string name="guide_climate_col_rain">mm</string>
+    <string name="guide_climate_col_days">Giorni</string>
+    <string name="guide_climate_source">Fonte: Wikipedia, tabella climatica (%1$s)</string>
+    <string name="guide_climate_source_open">Apri la pagina di Wikipedia</string>
 </resources>

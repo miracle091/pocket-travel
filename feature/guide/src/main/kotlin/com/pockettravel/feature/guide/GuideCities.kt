@@ -209,6 +209,7 @@ internal fun CitiesDialog(
                     LaunchedEffect(regionId, city) { viewModel.loadCity(regionId, city) }
                     val cityUiState by viewModel.cityUiState.collectAsStateWithLifecycle()
                     CityGuideContent(
+                        city = city,
                         uiState = cityUiState,
                         onOpenSource = onOpenSource,
                         excludedTransit = excludedTransitCityNotes(city),
@@ -237,6 +238,7 @@ private fun CityListContent(cities: List<String>, onCityClick: (String) -> Unit)
 
 @Composable
 private fun CityGuideContent(
+    city: String,
     uiState: CityGuideUiState,
     onOpenSource: (url: String, title: String) -> Unit,
     excludedTransit: List<Int>,
@@ -267,13 +269,18 @@ private fun CityGuideContent(
             onSelectedCategoryChange = { selectedCategory = it },
             onOpenSource = onOpenSource,
             focus = focus,
-            extraContent = if (excludedTransit.isEmpty() && uiState.weather == null) {
+            extraContent = if (excludedTransit.isEmpty() && uiState.weather == null && uiState.climate.isEmpty()) {
                 null
             } else {
                 {
                     uiState.weather?.let { weather ->
                         item(key = "weather") {
                             WeatherCard(weather, onOpenSource = onOpenSource, onRefresh = onRefreshWeather, modifier = Modifier.padding(horizontal = Spacing.l))
+                        }
+                    }
+                    if (uiState.climate.isNotEmpty()) {
+                        item(key = "climate") {
+                            ClimateCard(city, uiState.climate, onOpenSource = onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
                         }
                     }
                     if (excludedTransit.isNotEmpty()) {

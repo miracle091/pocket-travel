@@ -14,6 +14,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA: sotto la barra di avanzamento del download del modello c'è "Annulla". Dopo un download fallito il pulsante diventa "Riprova".
 - Assistente IA: alle domande sul clima o sul periodo migliore per partire che non nominano una città ("Quando conviene andare a Malta?"), se la guida della nazione non ha una sezione sul clima, l'assistente usa la sezione Clima della capitale. Per le domande solo sul clima la sezione Clima trovata va in testa al contesto: prima, dopo una sezione lunga come "Do" della guida della nazione, non ci entrava ("Is it hot in Malta in July?").
 - Assistente IA: alle domande di previsione senza rete e senza previsioni salvate ancora valide, l'assistente dice che le previsioni mancano e risponde con le medie del mese della città (massima, minima, pioggia e giorni di pioggia) dalla tabella climatica della sua voce di Wikipedia, che ora arriva con le guide delle città. Senza la tabella risponde con la sezione Clima.
+- Guide delle città: il riquadro "Medie mensili", sotto il meteo, con massima, minima, pioggia e giorni di pioggia del mese in corso dalla tabella climatica di Wikipedia. "Tutti i mesi" apre la tabella dei dodici mesi, con il mese in corso evidenziato; funziona anche senza rete. Compare nelle città la cui voce di Wikipedia ha la tabella.
 - Aggiornamenti: il controllo periodico delle regioni installate segnala anche i numeri civici e gli orari dei mezzi pubblici cambiati, come già l'elenco delle nazioni.
 
 ### Modificato

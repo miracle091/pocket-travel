@@ -4,6 +4,7 @@ import com.pockettravel.core.data.LastKnownPosition
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pockettravel.core.data.CityClimate
 import com.pockettravel.core.data.CityRepository
 import com.pockettravel.core.data.CitySection
 import com.pockettravel.core.data.DiplomaticMission
@@ -75,6 +76,8 @@ data class GuideUiState(
 data class CityGuideUiState(
     val sections: List<CitySection> = emptyList(),
     val weather: PlaceWeather? = null,
+    // Medie mensili della tabella climatica di Wikipedia, dal pacchetto; vuote se la citta' non le ha.
+    val climate: List<CityClimate> = emptyList(),
     val isLoading: Boolean = true,
     @StringRes val loadError: Int? = null,
 )
@@ -243,6 +246,8 @@ class GuideViewModel @Inject constructor(
             try {
                 val sections = cityRepository.sectionsFor(regionId, city)
                 _cityUiState.update { it.copy(sections = sections, isLoading = false) }
+                val climate = cityRepository.climateOrEmpty(regionId, city)
+                _cityUiState.update { it.copy(climate = climate) }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Exception) {
@@ -317,3 +322,12 @@ private const val NEAR_DEGREES = 0.05
 private const val TENTHS = 10.0
 
 private fun Double.roundToTenth(): Double = Math.round(this * TENTHS) / TENTHS
+
+// Il riquadro delle medie mensili e' accessorio: un errore di lettura lo lascia nascosto, senza fermare la guida.
+private suspend fun CityRepository.climateOrEmpty(regionId: String, city: String): List<CityClimate> = try {
+    climateFor(regionId, city)
+} catch (cancellation: CancellationException) {
+    throw cancellation
+} catch (_: Exception) {
+    emptyList()
+}

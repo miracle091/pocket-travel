@@ -203,8 +203,8 @@ internal fun offlineWeatherSection(city: String, climate: List<CityClimate>, mon
     val averages = climate.firstOrNull { it.month == month }?.let { averagesText(city, it, language) }
     val citation = when {
         averages == null -> if (en) "Source: weather forecasts by Open-Meteo.com" else "Fonte: previsioni del tempo di Open-Meteo.com"
-        en -> "Source: climate table of Wikipedia ($city)"
-        else -> "Fonte: tabella climatica di Wikipedia ($city)"
+        en -> "Source: Wikipedia, climate table ($city)"
+        else -> "Fonte: Wikipedia, tabella climatica ($city)"
     }
     return AssistantSection(listOfNotNull(missing, averages).joinToString("\n"), GuideCategory.DA_SAPERE, citation)
 }
