@@ -140,6 +140,7 @@ class AiAssistantViewModel @Inject constructor(
     private val onlineModelCatalog: OnlineModelCatalog,
     private val onlineModelAvailability: OnlineModelAvailability,
     private val emergencyCards: EmergencyCardProvider,
+    private val answerKeepAlive: AnswerKeepAlive,
 ) : ViewModel() {
 
     // Nomi dei modelli che la chiave salvata vede, per servizio; assente = non letti (si mostrano tutti).
@@ -172,6 +173,10 @@ class AiAssistantViewModel @Inject constructor(
     val uiState: StateFlow<AiUiState> = _uiState.asStateFlow()
 
     init {
+        // "Ferma" della notifica della risposta in corso (AnswerService).
+        viewModelScope.launch {
+            answerKeepAlive.stopRequests.collect { cancelAsk() }
+        }
         // Elenco dei modelli online: quello pubblicato sostituisce quello dell'APK appena scaricato.
         viewModelScope.launch {
             onlineModelCatalog.list.collect { updateOnlineModels() }
@@ -545,13 +550,15 @@ class AiAssistantViewModel @Inject constructor(
         onDone: (AssistantAnswer) -> Unit,
     ) {
         try {
-            travelAssistant.ask(region, question, mode, previous).collect { progress ->
-                when (progress) {
-                    is AssistantProgress.Partial -> _uiState.update { it.copy(streamingText = progress.text) }
-                    is AssistantProgress.Done -> {
-                        _uiState.update { it.copy(isThinking = false, streamingText = "", answer = progress.answer) }
-                        onDone(progress.answer)
-                        watchForecast(progress.answer)
+            answerKeepAlive.during {
+                travelAssistant.ask(region, question, mode, previous).collect { progress ->
+                    when (progress) {
+                        is AssistantProgress.Partial -> _uiState.update { it.copy(streamingText = progress.text) }
+                        is AssistantProgress.Done -> {
+                            _uiState.update { it.copy(isThinking = false, streamingText = "", answer = progress.answer) }
+                            onDone(progress.answer)
+                            watchForecast(progress.answer)
+                        }
                     }
                 }
             }

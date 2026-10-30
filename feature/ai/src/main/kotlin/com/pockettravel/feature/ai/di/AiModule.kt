@@ -5,6 +5,8 @@ import com.pockettravel.core.data.AppInitializer
 import com.pockettravel.core.data.UpdateCheck
 import com.pockettravel.feature.ai.AiInitializer
 import com.pockettravel.feature.ai.AndroidAppRestarter
+import com.pockettravel.feature.ai.AnswerKeepAlive
+import com.pockettravel.feature.ai.AnswerService
 import com.pockettravel.feature.ai.AndroidCpuBackendStore
 import com.pockettravel.feature.ai.AppRestarter
 import com.pockettravel.feature.ai.CpuBackendStore
@@ -37,6 +39,11 @@ object AiModule {
     @AiModelsDir
     fun provideAiModelsDir(@ApplicationContext context: Context): File =
         File(context.filesDir, "models").apply { mkdirs() }
+
+    @Provides
+    @Singleton
+    fun provideAnswerKeepAlive(@ApplicationContext context: Context): AnswerKeepAlive =
+        AnswerKeepAlive { AnswerService.start(context) }
 
     @Provides
     fun provideTaskMonitor(monitor: LlmTaskMonitor): TaskMonitor = monitor

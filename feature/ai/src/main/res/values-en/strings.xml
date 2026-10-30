@@ -38,6 +38,9 @@
     <string name="ai_voice_error">Voice recognition failed</string>
     <string name="ai_read_aloud_listen">Listen</string>
     <string name="ai_read_aloud_stop">Stop</string>
+    <string name="ai_answer_channel">Assistant answers</string>
+    <string name="ai_answer_notification_title">Assistant answer in progress</string>
+    <string name="ai_answer_notification_stop">Stop</string>
     <string name="ai_read_aloud_language_unavailable">No voice installed for this language. Add one in the device\'s text-to-speech settings</string>
     <string name="ai_read_aloud_error">Reading aloud failed</string>
     <string name="ai_thinking">Generating the answer…</string>

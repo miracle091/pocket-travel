@@ -38,6 +38,9 @@
     <string name="ai_voice_error">Riconoscimento vocale non riuscito</string>
     <string name="ai_read_aloud_listen">Ascolta</string>
     <string name="ai_read_aloud_stop">Ferma</string>
+    <string name="ai_answer_channel">Risposte dell\'assistente</string>
+    <string name="ai_answer_notification_title">Risposta dell\'assistente in corso</string>
+    <string name="ai_answer_notification_stop">Ferma</string>
     <string name="ai_read_aloud_language_unavailable">Voce di questa lingua non installata. Si aggiunge nelle impostazioni della sintesi vocale del dispositivo</string>
     <string name="ai_read_aloud_error">Lettura ad alta voce non riuscita</string>
     <string name="ai_thinking">Elaborazione della risposta…</string>
