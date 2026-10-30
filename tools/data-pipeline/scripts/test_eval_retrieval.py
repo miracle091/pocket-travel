@@ -38,24 +38,7 @@ class ReplicaTest(unittest.TestCase):
         self.assertEqual(ev.fts_query("Cosa vedere a Forli?", "italia", "Forlì"), "cosa OR veder*")
         self.assertEqual(ev.fts_query("Napoli?", "italia", "Napoli"), "napol*")
 
-    def test_stopwords_come_l_app(self):
-        kotlin = (Path(__file__).resolve().parents[3] / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/TravelAssistant.kt")
-        block = kotlin.read_text(encoding="utf-8").split("private val questionStopwords = setOf(")[1].split(")")[0]
-        self.assertEqual(set(re.findall(r'"(\w+)"', block)), ev.STOPWORDS)
-
-    def test_liste_di_parole_come_l_app(self):
-        kotlin = (Path(__file__).resolve().parents[3] / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/CategoryWords.kt")
-        text = kotlin.read_text(encoding="utf-8")
-        pairs = lambda block: {cat: "".join(re.findall(r'"([^"]*)"', value))
-                               for cat, value in re.findall(r'"([A-Z_]+)" to ((?:"[^"]*"(?:\s*\+\s*)?)+)', block)}
-        triggers = text.split("private val categoryTriggers = mapOf(")[1].split(").mapValues")[0]
-        self.assertEqual(pairs(triggers), ev.CATEGORY_TRIGGERS)
-        for lang in ("it", "en"):
-            block = text.split(f'"{lang}" to mapOf(')[1].split("),")[0]
-            self.assertEqual(pairs(block), ev.CATEGORY_GUIDE_WORDS[lang])
-        stems = lambda name: "".join(re.findall(r'"([^"]*)"', text.split(f"private val {name} = ")[1].split(".split")[0]))
-        self.assertEqual(stems("forecastStems"), ev.FORECAST_STEMS)
-        self.assertEqual(stems("nearTimeStems"), ev.NEAR_TIME_STEMS)
+    def test_liste_di_parole(self):
         # Previsioni separate dal clima, come CategoryWordsTest
         self.assertEqual(ev.question_groups("Pioverà sabato a Lisbona?"), {"METEO"})
         self.assertEqual(ev.question_groups("Che tempo trovo a Roma a Natale?"), {"PERIODI"})
@@ -195,11 +178,6 @@ class SearchTest(unittest.TestCase):
         self.assertTrue(ev.HISTORY_CLIMATE_WORDS.search("Does it rain a lot in Porto?"))
         self.assertFalse(ev.HISTORY_CLIMATE_WORDS.search("How do I get to Porto by train?"))
         self.assertTrue(ev.HISTORY_CLIMATE_WORDS.search("How old is Lagos?"))
-
-    def test_parole_di_storia_e_clima_come_l_app(self):
-        kotlin = (Path(__file__).resolve().parents[3] / "feature/ai/src/main/kotlin/com/pockettravel/feature/ai/TravelAssistant.kt")
-        block = kotlin.read_text(encoding="utf-8").split("private val historyClimateWords = Regex(")[1].split("RegexOption")[0]
-        self.assertEqual("".join(re.findall(r'"""(.*?)"""', block)), ev.HISTORY_CLIMATE_WORDS.pattern)
 
     def test_due_citta_nominate_e_ripiego_sul_nome(self):
         rows = [
@@ -584,6 +562,32 @@ class MeasureTest(unittest.TestCase):
             with contextlib.redirect_stderr(err):
                 ev.check_history(history, {"lang": "en", "series": "control"}, ev.fingerprint([a]))
             self.assertEqual(err.getvalue(), "")
+
+    def test_riferimento_scritto_poi_confrontato(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            baseline = Path(tmp) / "rif" / "control-it.json"
+            config, data = {"lang": "it", "series": "control"}, {"guides.db": "abc"}
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(ev.compare_baseline(baseline, config, data, {"a": True, "b": False, "c": True}), 0)
+            self.assertIn("2/3 domande trovate", out.getvalue())
+            # Una guadagnata (b) e due perse (a, c): saldo -1, con le domande stampate.
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(ev.compare_baseline(baseline, config, data, {"a": False, "b": True, "c": False}), -1)
+            self.assertIn("guadagnate rispetto al riferimento: 1\n  b\n", out.getvalue())
+            self.assertIn("perse rispetto al riferimento: 2\n  a\n  c\n", out.getvalue())
+            # Con --write-baseline la misura nuova diventa il riferimento.
+            with contextlib.redirect_stdout(io.StringIO()):
+                ev.compare_baseline(baseline, config, data, {"a": False, "b": True, "c": False}, write=True)
+                self.assertEqual(ev.compare_baseline(baseline, config, data, {"a": False, "b": True, "c": False}), 0)
+            # Dati diversi: avviso; configurazione diversa: errore.
+            err = io.StringIO()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                ev.compare_baseline(baseline, config, {"guides.db": "def"}, {"b": True})
+            self.assertIn("dati diversi", err.getvalue())
+            with self.assertRaises(SystemExit):
+                ev.compare_baseline(baseline, {"lang": "en", "series": "control"}, data, {"b": True})
 
     def test_paragrafi_uniti_e_divisi(self):
         body = "Hotel Uno, centro.\nHotel Due, mare.\n\n" + "Frase lunga del paragrafo. " * 60

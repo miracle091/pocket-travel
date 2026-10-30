@@ -341,9 +341,12 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   `--questions control` le domande di controllo (mai usate per costruire le liste di parole), `--questions dev` e `dev2`
   i controlli di prima, diventati serie di sviluppo, `--questions other-country` le domande che nominano un'altra nazione (cercate nella sua guida, `CountryGuides.kt`),
   `--guides-db` un `guides.db` locale al posto di quello pubblicato, `--word-lists` la ricerca con le liste di parole
-  che l'app usa (`CategoryWords.kt`; senza l'opzione si misura la ricerca senza liste), `--model-categories` le categorie
+  che l'app usa (`word_lists.txt` in `feature/ai/src/main/resources/pockettravel/`, letto da `scripts/word_lists.py`;
+  senza l'opzione si misura la ricerca senza liste), `--model-categories` le categorie
   che il modello sceglie quando le liste non ne riconoscono nessuna (`ModelQuestionCategory.kt`), scritte da
-  `scripts/model_categories.py` con un GGUF e lo stesso prompt dell'app. La tabella delle guide contiene tutte le regioni,
+  `scripts/model_categories.py` con un GGUF e lo stesso prompt dell'app, `--baseline FILE` il confronto con una misura
+  di riferimento (scritta la prima volta, o con `--write-baseline`): stampa le domande guadagnate e perse, e con
+  `--questions control` un saldo negativo fa uscire con errore. La tabella delle guide contiene tutte le regioni,
   come nell'app, perché le statistiche di BM25 valgono per tutta la tabella. Anche `make_context`
   (`generate_sft_dataset.py`), che costruisce il contesto dei dataset SFT e dei set di valutazione, sceglie i paragrafi
   come l'app (`test_make_context.py` lo confronta con la replica di `eval_retrieval.py`).
@@ -414,7 +417,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   delle release `<regionId>--<versione>--cities.db`, oppure si scrive `<regionId>=<file>`) aggiunge domande di storia e
   clima sulle sezioni `STORIA` e `CLIMA` di Wikipedia, per al massimo `--wikipedia-cities` città (1500): positivi con la
   sezione nel contesto, rifiuti per le città che non l'hanno, e domande pratiche con Storia o Clima in coda al contesto
-  (le domande di storia e clima hanno una parola di `historyClimateWords` in `TravelAssistant.kt`, che altrimenti
+  (le domande di storia e clima hanno una parola di `historyClimateWords`, in `word_lists.txt` come le altre liste dell'app, che altrimenti
   declassa quelle sezioni). Con `--emergency <quota>` (per esempio 0.01) aggiunge domande sui numeri di emergenza con la
   riga dell'app (`emergencyNumbersContext`, da `emergency-numbers.tsv`) in testa al contesto e come risposta, e il
   rifiuto per le regioni senza numero centralizzato. Di default (`--user-style-questions 0.2`) nelle categorie Cosa vedere,

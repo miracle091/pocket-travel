@@ -84,6 +84,9 @@ import wiki_dump
 from eval_common import TEST_REGIONS
 from status import Progress, phase
 from translate_dataset import LICENSE as MT_LICENSE, MODELS as MT_MODELS, Translator, needs_translation
+# historyClimateWords dell'app: con una di queste parole nella domanda le sezioni Storia e Clima pesano come le altre
+# nella classifica dell'app.
+from word_lists import HISTORY_CLIMATE_WORDS
 
 # Parole delle domande che non dicono nulla sul tema (vedi en.answer_for): "come", "dove", "quali" sono in quasi ogni frase
 IT_STOPWORDS = {"quali", "quale", "come", "dove", "quando", "sono", "devo", "posso", "cosa", "serve", "servono", "sapere",
@@ -568,15 +571,6 @@ WIKI_LICENSE = "CC BY-SA 4.0 (Wikipedia)"
 DB_QUESTION_CATS = {"TRASPORTI": ("ARRIVARE", "TRASPORTI"), "COSA_VEDERE": ("COSA_VEDERE",), "CIBO_BEVANDE": ("CIBO_BEVANDE",),
                     "ALLOGGIO": ("ALLOGGIO",), "SICUREZZA": ("SICUREZZA",), "CONNETTIVITA": ("CONNETTIVITA",),
                     "ACQUISTI": ("SHOPPING",)}
-# Copia di historyClimateWords in TravelAssistant.kt (da cambiare insieme): con una di queste parole nella domanda le
-# sezioni Storia e Clima pesano come le altre nella classifica dell'app
-HISTORY_CLIMATE_WORDS = re.compile(
-    r"\b((?<!centr[oi] )stori|fondat|fondò|secol|guerr|antic(?:[oa]\b|h)|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|"
-    r"invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season|"
-    r"passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|conviene andare|best time|when to go|establish|ruled|"
-    r"costru|mura\b|built|walls?\b|ottocent|novecent|settecent|seicent|cinquecent|quattrocent|trecent|gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|mesi\b|january|february|march|april|june|july|august|september|october|november|december|months?\b|middle ages|past\b|origins?\b|natale\b|natalizi|capodanno|pasqua|ferragosto|christmas|xmas|easter|new year|che tempo|"
-    r"popol|abitat|inhabit|settl|peoples\b|how old)",
-    re.I)
 
 
 def city_db_region(spec):

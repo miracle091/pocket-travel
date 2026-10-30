@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Test degli esempi --cities-db di generate_sft.py (Storia e Clima delle citta' da Wikipedia) e delle righe pos_wiki e
-neg_wiki di generate_eval_set.py: ogni domanda ha una parola di historyClimateWords (TravelAssistant.kt, di cui
-HISTORY_CLIMATE_WORDS e' la copia), le domande del test non sono in quelle del training, la regione di un cities.db si ricava
+neg_wiki di generate_eval_set.py: ogni domanda ha una parola di historyClimateWords (word_lists.txt, lo stesso file
+dell'app), le domande del test non sono in quelle del training, la regione di un cities.db si ricava
 dal nome del file, positivi, rifiuti e distrattori hanno il contesto e la risposta che l'app darebbe.
 
 Uso: python test_sft_wikipedia_cities.py
 """
 import random
-import re
 import sqlite3
 import tempfile
 import unittest
@@ -21,7 +20,6 @@ from eval_common import TEST_REGIONS
 from generate_sft import (HISTORY_CLIMATE_WORDS, WIKI_CATS, city_db_region, load_city_sections, make_answer_for,
                           wikipedia_distractor, wikipedia_positive, wikipedia_refusal)
 
-KOTLIN = Path(__file__).resolve().parents[3] / "feature" / "ai" / "src" / "main" / "kotlin" / "com" / "pockettravel" / "feature" / "ai" / "TravelAssistant.kt"
 WV, WP = "https://it.wikivoyage.org/wiki/Torino", "https://it.wikipedia.org/wiki/Torino"
 
 TORINO = [
@@ -77,14 +75,6 @@ class QuestionsTest(unittest.TestCase):
                 self.assertTrue(L["wiki_keywords"][cat])
                 self.assertIn(cat, L["topic"])
                 self.assertNotIn(cat, L["keywords"])  # KEYWORDS filtra anche le domande fuori tema: non va toccato
-
-    @unittest.skipUnless(KOTLIN.exists(), "TravelAssistant.kt non trovato")
-    def test_regex_come_quella_dell_app(self):
-        source = KOTLIN.read_text(encoding="utf-8")
-        block = source.split("private val historyClimateWords = Regex(", 1)[1].split("RegexOption", 1)[0]
-        self.assertEqual("".join(re.findall(r'"""(.*?)"""', block, re.S)), HISTORY_CLIMATE_WORDS.pattern)
-        self.assertEqual(HISTORY_CLIMATE_WORDS.flags & re.I, re.I)
-
 
 class CityDbTest(unittest.TestCase):
     def test_regione_dal_nome_del_file(self):

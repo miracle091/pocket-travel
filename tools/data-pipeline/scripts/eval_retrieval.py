@@ -41,12 +41,15 @@ quella con le parole della categoria; con --paragraphs la ricerca per paragrafi 
 dentro le sezioni di oggi (within, within-country). Ogni misura stampa l'impronta dei dati e la configurazione, il
 margine al 95% di "trovata" e Hit@5 per tipo; con --history FILE la aggiunge a uno storico JSONL e avvisa se una misura
 con la stessa configurazione era stata fatta su dati diversi; con --explain FILE scrive le domande senza la sezione
-attesa, con le sezioni scelte e il posto di quella attesa.
+attesa, con le sezioni scelte e il posto di quella attesa. Con --baseline FILE confronta la misura con quella di
+riferimento (scritta la prima volta, o con --write-baseline) e stampa le domande guadagnate e perse: per provare una
+modifica di word_lists.txt; con --questions control un saldo negativo fa uscire con errore.
 
 Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|dev2|other-lang|control|general|other-country] [--regions italia ...]
 [--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists [--model-categories FILE]] [--before-rag] [--contexts FILE [--contexts-sample N]]
 [--rerank GGUF --llama-cpp DIR [--rerank-scoring yesno|refusal] [--rerank-mode replace|add|blend] [--gpu-layers 99 --device Vulkan0]]
 [--rrf [--rrf-weight W]] [--paragraphs rank|within|within-country [--paragraph-chars N]] [--history FILE] [--explain FILE]
+[--baseline FILE [--write-baseline]]
 (la cache dei file scaricati sta di default nella cartella temporanea di sistema)
 Richiede rete (`manifest.json`, release, API di Wikipedia) e, per Storia e Clima, il gradle wrapper dalla root del repo.
 """
@@ -74,6 +77,9 @@ from contextlib import closing
 from pathlib import Path
 
 import city_wikipedia
+# Liste di parole dell'app (stopword sempre; categorie e previsioni solo con --word-lists), dal file che legge anche l'app.
+from word_lists import (CATEGORY_GUIDE_WORDS, CATEGORY_TRIGGERS, FORECAST_STEMS, HISTORY_CLIMATE_WORDS, NEAR_TIME_STEMS,
+                        STOPWORDS)
 
 MANIFEST_URL = "https://miracle091.github.io/pocket-travel/manifest.json"
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -93,17 +99,6 @@ MIN_CITY_NAME_CHARS = 3          # TravelAssistant.MIN_CITY_NAME_CHARS
 STEM_CHARS = 5                   # TravelAssistant.STEM_CHARS
 LONG_WORD_CHARS = 8              # TravelAssistant.LONG_WORD_CHARS
 SHORT_QUERY_TERMS = ["jet lag", "wi fi", "tip", "tips", "sim", "atm", "first aid", "pronto soccorso"]  # TravelAssistant.shortQueryTerms
-# TravelAssistant.questionStopwords
-STOPWORDS = {
-    "quale", "quali", "quanto", "quanta", "quanti", "quante", "quando", "perche", "sono", "della", "delle", "dello",
-    "degli", "dell", "nella", "nelle", "nello", "negli", "nell", "alla", "alle", "allo", "agli", "dalla", "dalle", "dallo",
-    "dagli", "sulla", "sulle", "sullo", "sugli", "questo", "questa", "questi", "queste", "quello", "quella", "quelli",
-    "quelle", "anche", "molto", "molti", "molte", "posso", "puoi", "possono", "devo", "deve", "devono", "serve", "servono",
-    "essere", "fatto", "avere", "hanno", "ogni", "tutto", "tutti", "tutte", "altro", "altri", "loro", "dire", "cosi",
-    "ancora", "oppure", "mentre", "conviene",
-    "what", "which", "where", "when", "does", "there", "with", "from", "that", "this", "have", "should", "about", "much",
-    "many", "could", "would", "your", "some", "into", "they", "them", "were", "been", "will", "also", "very", "need",
-}
 TITLE_WEIGHT, BODY_WEIGHT = 3.0, 1.0
 BM25_K1, BM25_B, BM25_IDF_SMOOTHING = 1.2, 0.75, 0.5
 WIKI = {"STORIA", "CLIMA"}
@@ -111,14 +106,6 @@ WIKIPEDIA_OFF_TOPIC_WEIGHT = 0.1  # TravelAssistant.WIKIPEDIA_OFF_TOPIC_WEIGHT
 GENERAL_GUIDE_FIRST_RATIO = 2.0          # TravelAssistant.GENERAL_GUIDE_FIRST_RATIO (guide inglesi)
 # TravelAssistant.generalTravelWords: con queste parole la soglia della guida generale scende a 1
 GENERAL_TRAVEL_WORDS = re.compile(r"\b(ester[oi]|in viaggio|viaggiando|abroad|overseas|travell?ing)\b", re.IGNORECASE)
-# TravelAssistant.historyClimateWords
-HISTORY_CLIMATE_WORDS = re.compile(
-    r"\b((?<!centr[oi] )stori|fondat|fondò|secol|guerr|antic(?:[oa]\b|h)|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|"
-    r"invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season|"
-    r"passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|conviene andare|best time|when to go|establish|ruled|"
-    r"costru|mura\b|built|walls?\b|ottocent|novecent|settecent|seicent|cinquecent|quattrocent|trecent|gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|mesi\b|january|february|march|april|june|july|august|september|october|november|december|months?\b|middle ages|past\b|origins?\b|natale\b|natalizi|capodanno|pasqua|ferragosto|christmas|xmas|easter|new year|che tempo|"
-    r"popol|abitat|inhabit|settl|peoples\b|how old)",
-    re.IGNORECASE)
 
 CITY_Q = {
     "COSA_VEDERE": ["Cosa vedere a {c}?", "Quali monumenti visitare a {c}?", "Quali musei ci sono a {c}?"],
@@ -220,46 +207,6 @@ COUNTRY_Q_REWORDED_EN = {
     "TRASPORTI": ["How do people travel between cities?", "Can I get around by car?"],
     "CIBO_BEVANDE": ["What do people usually eat?"],
 }
-# Liste di parole (CategoryWords.kt, solo con --word-lists): radici che nella domanda indicano la
-# categoria e parole dei titoli delle guide da aggiungere alla query. test_eval_retrieval.py le confronta con l'app.
-CATEGORY_TRIGGERS = {
-    "ALLOGGIO": "allogg dormi pernot notte alberg hotel ostell campeg stay sleep accomm lodg hostel night= camp= camping campsite camera prenot room rooms",
-    "CIBO_BEVANDE": "mangi cibo cucin piatt assag ristor pranz cena cenar colaz specia bere vino birra "
-                    "food eat dish cuisin restaurant lunch dinner breakf tast drink wine beer beve bevi bevan "
-                    "dolci= dolce= dessert sweets= pastic pastry trattor osteri tavern",
-    "COSA_VEDERE": "veder visit attraz monum muse perder merit see sight attract worth miss to+do things+to+do "
-                   "castell castle palazz palace chies church cattedr cathedr duomo",
-    "ACQUISTI": "acqui compr souven negoz mercat manci camerier pagar contan bancom soldi valut "
-                "shop buy market tip waiter pay cash card= money curren atm paga euro= dollar "
-                "ricord regal gift cost= costs= costo= costi= expens costa+la+vita costo+della+vita cost+of+living",
-    "TRASPORTI": "arriv spost muov treno treni autob macchin auto nolegg guidar raggiun "
-                 "bus train car drive rent transp metro reach around stazion station aeroport airport "
-                 "taxi tassi= tram= traghett ferry",
-    "DOGANE": "passap docum front dogan visto alcol sigar passport border custom visa alcoh cigar identit id+card",
-    "SALUTE": "vacci ammal malat medic osped salute farmac sanit sick ill doctor hospit health jab pharm pronto+soccorso first+aid "
-              "rubinett tap+water",
-    "SICUREZZA": "sicur peric derub furt borseg ladr crimin truffa truffe safe danger rob theft thief pickp crime scam",
-    "CONNETTIVITA": "internet telef cellul sim wifi collegar roami online phone mobile connec",
-    "STORIA": "stori origin nata= nato= fondat fondo= passat medioev govern antico antica antich roman guerr "
-              "histor found establ past= ancien rule= ruled ruler middl war middle+ages costru mura= built wall= ottocent novecent settecent seicent cinquecent quattrocent trecent secol centur "
-              "popol abitat inhabit settl peoples= how+old",
-    "CLIMA": "clima meteo piog piov ombrel tempera primav estat invern autun nevic neve caldo fredd stagion "
-             "climat weather rain umbrel spring summer winter= autumn snow hot cold season "
-             "periodo+migliore quando+andare conviene+andare best+time when+to+go when+to+visit gennaio febbraio marzo aprile maggio giugno luglio agosto settembre ottobre novembre dicembre mesi january february march april june july august september october november december months",
-    "CONSIGLI": "combat evitar preven curar rimed superar affront deal cope avoid prevent cure treat overcom",
-    "EMERGENZE": "perdo perso= persa smarr rubat lose lost stolen",
-    "PERIODI": "natale= natalizi capodann pasqua ferragost christmas xmas easter new+year che+tempo",
-}
-CATEGORY_GUIDE_WORDS = {
-    "it": {"ALLOGGIO": "allogg*", "CIBO_BEVANDE": "mangi*, tavola", "COSA_VEDERE": "veder*", "ACQUISTI": "acqui*, valut*",
-           "TRASPORTI": "arriv*, spost*", "DOGANE": "arriv*, dogan*", "SALUTE": "sanit*, salut*", "SICUREZZA": "sicur*",
-           "CONNETTIVITA": "contat*", "STORIA": "stori*", "CLIMA": "clima",
-           "CONSIGLI": "prepar*, recupe*, preven*, tratta*", "EMERGENZE": "emerg*", "PERIODI": "clima", "METEO": "clima"},
-    "en": {"ALLOGGIO": "sleep", "CIBO_BEVANDE": "eat, drink", "COSA_VEDERE": "see", "ACQUISTI": "buy",
-           "TRASPORTI": "get in, get around", "DOGANE": "get in, customs", "SALUTE": "health*", "SICUREZZA": "safe*",
-           "CONNETTIVITA": "connect*", "STORIA": "history", "CLIMA": "climate",
-           "CONSIGLI": "prepar*, cope, recover*, prevent*, treat*", "EMERGENZE": "lose, lost, stolen", "PERIODI": "climate", "METEO": "climate"},
-}
 SHORT_STEM_CHARS = 4             # CategoryWords.SHORT_STEM_CHARS
 # Categoria scelta dal modello quando le liste non ne riconoscono nessuna (ModelQuestionCategory.kt): (nome, esempi, gruppo).
 # Con --model-categories FILE le categorie gia' scelte dal modello per ogni domanda (model_categories.py).
@@ -278,13 +225,8 @@ MODEL_CATEGORY_LABELS = {
            ("climate", "weather, seasons, temperatures", "CLIMA"), ("travel in general", "jet lag, luggage, lost items", None)],
 }
 HISTORY_CLIMATE_GROUPS = {"STORIA", "CLIMA", "PERIODI", "METEO"}  # ModelQuestionCategory.HISTORY_CLIMATE_GROUPS
-# Previsioni del tempo (CategoryWords.forecastStems e nearTimeStems): una parola di previsione, o una del clima con un
-# momento vicino; METEO prende il posto di CLIMA e PERIODI.
-FORECAST_STEMS = "previs forecast"
-NEAR_TIME_STEMS = ("oggi domani dopodomani stasera stanotte stamattina weekend= fine+settimana lunedi martedi "
-                   "mercoledi giovedi venerdi sabato domenica prossimi+giorni settimana+prossima questa+settimana today tomorrow "
-                   "tonight this+week next+week next+days monday tuesday wednesday thursday friday saturday sunday")
 MODEL_CATEGORIES = {}  # domanda -> gruppo, da --model-categories
+OUTCOMES = {}  # "regione | tipo | domanda" -> sezione attesa nel contesto, per --baseline
 MODEL_CATEGORY_MISSES = set()  # domande senza categoria dalle liste e assenti dal file di --model-categories
 
 
@@ -1350,6 +1292,7 @@ def general(guides_db, regions, lang, word_lists=False, before_rag=False, rows=N
             match = [s for s in top if s.get("general_guide") and s["title"].split(": ")[0] == page]
             n += 1
             found += bool(match)
+            OUTCOMES[f"{region} | domande generali | {question}"] = bool(match)
             first += bool(top) and top[0] in match
             if match:
                 in_context += answer_paragraph(match[0].get("section_body", match[0]["body"]), stems)[:150] in select_context([s["body"] for s in top], stems)
@@ -1381,6 +1324,7 @@ def other_country(guides_db, regions, lang, word_lists=False, before_rag=False, 
                 match = [s for s in top if s["category"] == cat and s.get("region") in COUNTRY_REGIONS[target]]
                 n += 1
                 found += bool(match)
+                OUTCOMES[f"{region} | paese nominato | {q.format(p=name)}"] = bool(match)
                 first += bool(top) and top[0] in match
         db.close()
     print(f"paese nominato ({n} domande): trovata {100 * found / max(n, 1):.1f}%, prima {100 * first / max(n, 1):.1f}%; "
@@ -1434,6 +1378,35 @@ def record_history(history, config, data, results):
                                   "results": results}, ensure_ascii=False, sort_keys=True) + "\n")
 
 
+def compare_baseline(baseline, config, data, outcomes, write=False):
+    """Confronto con la misura di riferimento in [baseline] (JSON con configurazione, dati e domande trovate): stampa le
+    domande guadagnate e perse e torna il saldo (guadagnate - perse). Se il file manca, o con [write], ci scrive la misura
+    di adesso e torna 0. Con configurazione diversa il confronto non vale: errore."""
+    if write or not baseline.exists():
+        baseline.parent.mkdir(parents=True, exist_ok=True)
+        baseline.write_text(json.dumps({"config": config, "data": data, "outcomes": outcomes}, ensure_ascii=False,
+                                       sort_keys=True, indent=1) + "\n", encoding="utf-8")
+        print(f"riferimento: {sum(outcomes.values())}/{len(outcomes)} domande trovate scritte in {baseline}")
+        return 0
+    old = json.loads(baseline.read_text(encoding="utf-8"))
+    if old["config"] != config:
+        sys.exit(f"riferimento {baseline}: configurazione diversa ({json.dumps(old['config'], sort_keys=True)}); "
+                 "rifallo con --write-baseline")
+    if old["data"] != data:
+        print(f"attenzione: riferimento {baseline} misurato su dati diversi: le differenze non vengono solo dalle liste",
+              file=sys.stderr)
+    gained = sorted(k for k, v in outcomes.items() if v and not old["outcomes"].get(k))
+    lost = sorted(k for k, v in outcomes.items() if not v and old["outcomes"].get(k))
+    for label, keys in (("guadagnate", gained), ("perse", lost)):
+        print(f"{label} rispetto al riferimento: {len(keys)}")
+        for key in keys:
+            print(f"  {key}")
+    missing = len(set(old["outcomes"]) - set(outcomes))
+    if missing:
+        print(f"attenzione: {missing} domande del riferimento non misurate ora", file=sys.stderr)
+    return len(gained) - len(lost)
+
+
 def check_history(history, config, data):
     """Avviso se lo storico ha gia' una misura con la stessa configurazione ma dati diversi (guide ripubblicate)."""
     if not history.exists():
@@ -1447,6 +1420,12 @@ def check_history(history, config, data):
             return
 
 
+def finish_baseline(a, config, data):
+    """--baseline: confronto con il riferimento; con la serie control un peggioramento esce con errore."""
+    if a.baseline and compare_baseline(a.baseline, config, data, OUTCOMES, a.write_baseline) < 0 and a.questions == "control":
+        sys.exit("le domande di controllo peggiorano rispetto al riferimento: liste rifiutate")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--lang", choices=sorted(LANGS), default="it")
@@ -1456,7 +1435,7 @@ def main():
     ap.add_argument("--cache", type=Path, default=Path(tempfile.gettempdir()) / "pocket-travel-eval-retrieval")
     ap.add_argument("--no-wikipedia", action="store_true", help="senza Storia e Clima (per confronto)")
     ap.add_argument("--guides-db", type=Path, help="un guides.db locale al posto di quello pubblicato (per misurare prima di pubblicare)")
-    ap.add_argument("--word-lists", action="store_true", help="con le liste di parole per categoria (CategoryWords.kt)")
+    ap.add_argument("--word-lists", action="store_true", help="con le liste di parole per categoria (word_lists.txt)")
     ap.add_argument("--before-rag", action="store_true",
                     help="ricerca senza guida generale e senza nazione nominata (con le liste spente: com'era prima del RAG)")
     ap.add_argument("--contexts", type=Path,
@@ -1469,6 +1448,10 @@ def main():
     ap.add_argument("--history", type=Path,
                     help="storico JSONL: aggiunge data, impronta dei dati, configurazione e risultati, e avvisa se una misura "
                          "con la stessa configurazione e' stata fatta su dati diversi")
+    ap.add_argument("--baseline", type=Path,
+                    help="misura di riferimento (JSON): stampa le domande guadagnate e perse rispetto a quella; se manca la "
+                         "scrive. Con --questions control un saldo negativo fa uscire con errore")
+    ap.add_argument("--write-baseline", action="store_true", help="con --baseline: sostituisce il riferimento con questa misura")
     ap.add_argument("--explain", type=Path,
                     help="JSONL con le domande senza la sezione attesa nel contesto: sezioni scelte e posto di quella attesa")
     ap.add_argument("--paragraph-chars", type=int, default=PARAGRAPHS["chars"],
@@ -1513,6 +1496,8 @@ def main():
                                         a.cache / f"rerank-{a.rerank.stem}-{a.lang}-{RERANK['snippet']}.json")
     if a.before_rag and a.word_lists:
         ap.error("--before-rag misura la ricerca senza le liste di parole")
+    if a.write_baseline and not a.baseline:
+        ap.error("--write-baseline richiede --baseline")
     if a.model_categories and not a.word_lists:
         ap.error("--model-categories vale solo con --word-lists, come nell'app")
     if a.model_categories:
@@ -1539,10 +1524,12 @@ def main():
         if a.contexts:
             write_contexts(a.contexts, [{**labels, **r} for r in context_rows], a.contexts_sample)
         record_history(a.history, config, data, results)
+        finish_baseline(a, config, data)
         return
     if a.questions == "other-country":
         other_country(guides_db, a.regions, a.lang, a.word_lists, a.before_rag, results)
         record_history(a.history, config, data, results)
+        finish_baseline(a, config, data)
         return
     rng, pick = random.Random(7), random.Random(8)
     questions = questions_of(a.lang, a.questions)
@@ -1560,6 +1547,7 @@ def main():
             # Una sezione della guida generale con la stessa categoria non e' quella del paese attesa.
             match = [s for s in top if s["category"] == cat and (city is None or s["city"] == city) and not s.get("general_guide")]
             r["trovata"] += bool(match)
+            OUTCOMES[f"{region} | {kind} | {q}"] = bool(match)
             r["prima"] += bool(top) and top[0] in match
             r["Storia/Clima di troppo"] += kind != KINDS[2] and any(s["category"] in WIKI for s in top)
             # Posto della sezione attesa nella classifica della ricerca (senza riordino): Hit@1, Hit@5, MRR@10.
@@ -1596,6 +1584,7 @@ def main():
               f"margine al 95% di trovata ±{margin(r['trovata'], r['n']):.1f} e di Hit@5 ±{margin(r['hit5'], r['n']):.1f} punti")
         results[kind] = {k: (round(v, 4) if isinstance(v, float) else v) for k, v in r.items()}
     record_history(a.history, config, data, results)
+    finish_baseline(a, config, data)
 
 
 if __name__ == "__main__":

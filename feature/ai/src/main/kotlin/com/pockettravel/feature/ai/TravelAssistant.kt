@@ -453,17 +453,8 @@ private val nearbyWords = Regex(
     RegexOption.IGNORE_CASE,
 )
 
-// Radici di parole di storia o clima, a inizio parola ("rain" non deve trovare "train").
-private val historyClimateWords = Regex(
-    """\b((?<!centr[oi] )stori|fondat|fondò|secol|guerr|antic(?:[oa]\b|h)|roman[oaie]?\b|mediev|clima|temperatur|piov|piogg|neve|nevic|cald|fredd|estat|""" +
-        """invern|meteo|stagion|histor|found|centur|wars?\b|ancient|medieval|weather|rain|snow|hot\b|cold\b|summer|winter|season|""" +
-        // Le stesse richieste dette con altre parole ("Quando e' nata X?", "When is the best time to go to X?").
-        """passat|origin|govern|medioev|nascit|nata\b|nato\b|period|quando andare|conviene andare|best time|when to go|establish|ruled|""" +
-        """costru|mura\b|built|walls?\b|ottocent|novecent|settecent|seicent|cinquecent|quattrocent|trecent|gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|mesi\b|january|february|march|april|june|july|august|september|october|november|december|months?\b|middle ages|past\b|origins?\b|natale\b|natalizi|capodanno|pasqua|ferragosto|christmas|xmas|easter|new year|che tempo|""" +
-        // Chi ha abitato la citta' e quanto e' antica ("Quali popoli hanno abitato X?", "How old is X?").
-        """popol|abitat|inhabit|settl|peoples\b|how old)""",
-    RegexOption.IGNORE_CASE,
-)
+// Radici di parole di storia o clima (word_lists.txt).
+private val historyClimateWords = WordLists.historyClimateWords
 
 /**
  * True se la domanda parla di storia o di clima (italiano o inglese). Senza, le sezioni Storia e Clima di Wikipedia
@@ -1077,18 +1068,8 @@ private fun ftsPrefix(word: String): String = when {
 
 private const val LONG_WORD_CHARS = 8
 
-// Parole della domanda (senza accenti) che compaiono in quasi ogni sezione e non dicono di cosa si parla. "cosa",
-// "dove" e "come" restano: sono nei titoli delle sezioni ("Cosa vedere", "Dove mangiare", "Come arrivare").
-private val questionStopwords = setOf(
-    "quale", "quali", "quanto", "quanta", "quanti", "quante", "quando", "perche", "sono", "della", "delle", "dello",
-    "degli", "dell", "nella", "nelle", "nello", "negli", "nell", "alla", "alle", "allo", "agli", "dalla", "dalle", "dallo",
-    "dagli", "sulla", "sulle", "sullo", "sugli", "questo", "questa", "questi", "queste", "quello", "quella", "quelli",
-    "quelle", "anche", "molto", "molti", "molte", "posso", "puoi", "possono", "devo", "deve", "devono", "serve", "servono",
-    "essere", "fatto", "avere", "hanno", "ogni", "tutto", "tutti", "tutte", "altro", "altri", "loro", "dire", "cosi",
-    "ancora", "oppure", "mentre", "conviene",
-    "what", "which", "where", "when", "does", "there", "with", "from", "that", "this", "have", "should", "about", "much",
-    "many", "could", "would", "your", "some", "into", "they", "them", "were", "been", "will", "also", "very", "need",
-)
+// Parole della domanda (senza accenti) che compaiono in quasi ogni sezione e non dicono di cosa si parla (word_lists.txt).
+private val questionStopwords = WordLists.questionStopwords
 
 // maxChars di default ~2000 = ~500 token (stima 4 caratteri/token) per il chunk RAG.
 internal fun truncateContext(context: String, maxChars: Int = 2_000): String =

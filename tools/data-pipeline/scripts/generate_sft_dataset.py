@@ -42,6 +42,8 @@ from eval_common import TEST_REGIONS
 from status import Progress, phase
 from travel_questions import require_revision
 import wiki_dump
+# questionStopwords dell'app: parole della domanda che l'app non cerca.
+from word_lists import STOPWORDS
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent / "data" / "sft"
@@ -392,17 +394,6 @@ def covers(cat, text, keywords=KEYWORDS):
 # residuo una sezione in piu' sarebbe solo un frammento.
 STEM_CHARS = 5
 MIN_SECTION_CHARS = 50
-# Come questionStopwords in TravelAssistant.kt: parole della domanda che l'app non cerca.
-STOPWORDS = {
-    "quale", "quali", "quanto", "quanta", "quanti", "quante", "quando", "perche", "sono", "della", "delle", "dello",
-    "degli", "dell", "nella", "nelle", "nello", "negli", "nell", "alla", "alle", "allo", "agli", "dalla", "dalle", "dallo",
-    "dagli", "sulla", "sulle", "sullo", "sugli", "questo", "questa", "questi", "queste", "quello", "quella", "quelli",
-    "quelle", "anche", "molto", "molti", "molte", "posso", "puoi", "possono", "devo", "deve", "devono", "serve", "servono",
-    "essere", "fatto", "avere", "hanno", "ogni", "tutto", "tutti", "tutte", "altro", "altri", "loro", "dire", "cosi",
-    "ancora", "oppure", "mentre", "conviene",
-    "what", "which", "where", "when", "does", "there", "with", "from", "that", "this", "have", "should", "about", "much",
-    "many", "could", "would", "your", "some", "into", "they", "them", "were", "been", "will", "also", "very", "need",
-}
 
 def _folded(text):
     """Minuscolo e senza accenti, come folded in TravelAssistant.kt."""
