@@ -122,7 +122,8 @@ class Timetable:
         calendar, calendar_dates = read_csv(zf, "calendar.txt"), read_csv(zf, "calendar_dates.txt")
         services = active_services(calendar, calendar_dates, date)
         frequent = {f["trip_id"] for f in read_csv(zf, "frequencies.txt")}
-        self.stop_name = {s["stop_id"]: s["stop_name"].strip() for s in read_csv(zf, "stops.txt")}
+        # Alcuni feed chiudono il nome con "/" senza la seconda parte ("MANSUETO 1/").
+        self.stop_name = {s["stop_id"]: s["stop_name"].strip().rstrip("/").strip() for s in read_csv(zf, "stops.txt")}
         self.route_name = {r["route_id"]: (r["route_short_name"] or r["route_long_name"]).strip()
                            for r in read_csv(zf, "routes.txt")}
         self.trip = {t["trip_id"]: (t["route_id"], (t.get("trip_headsign") or "").strip())
