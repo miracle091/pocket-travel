@@ -1,9 +1,10 @@
 """Benchmark pp/tg in token/s di un GGUF con llama-bench, nello stesso schema JSON dell'app.
 
 Lo schema (versione 1) e' documentato in testa a BenchmarkStats.kt (feature/ai): qui `source` e' "eval_gguf", `seed` e'
-null (llama-bench non lo espone), `overheating` e' false e `load_time_ms` null. Stesso protocollo dell'app: un
+null (llama-bench non ha l'opzione: usa rand() senza seme, quindi sempre gli stessi token, ma non quelli dell'app),
+`overheating` e' false e `load_time_ms` null. Stesso protocollo dell'app: un
 riscaldamento (lo fa llama-bench), 5 ripetizioni; con CV oltre il 5% altre 5 unite alle prime; con CV oltre il 10% la misura e'
-instabile. `comparison_key` e' "<sha256[:12]>/<llama_cpp>/<device>/t<thread>/pp<n>tg<n>/seed<seed>".
+instabile. `comparison_key` e' "<sha256[:12]>/<llama_cpp>/<device>/t<thread>/pp<n>tg<n>", come nell'app.
 """
 import hashlib
 import json
@@ -43,8 +44,8 @@ def file_sha256(path):
     return digest.hexdigest()
 
 
-def comparison_key(sha256, llama_cpp, device, threads, n_prompt, n_gen, seed):
-    return f"{sha256[:12]}/{llama_cpp}/{device}/t{threads}/pp{n_prompt}tg{n_gen}/seed{'' if seed is None else seed}"
+def comparison_key(sha256, llama_cpp, device, threads, n_prompt, n_gen):
+    return f"{sha256[:12]}/{llama_cpp}/{device}/t{threads}/pp{n_prompt}tg{n_gen}"
 
 
 def build_record(model, sha256, rows, now_ms):
@@ -60,7 +61,7 @@ def build_record(model, sha256, rows, now_ms):
         "llama_cpp": llama_cpp, "sampler": "none", "seed": None, "device": device, "threads": pp["n_threads"],
         "n_prompt": N_PROMPT, "n_gen": N_GEN, "warmup": 1, "pp": pp_measure, "tg": tg_measure,
         "unstable": pp_measure["unstable"] or tg_measure["unstable"], "overheating": False, "load_time_ms": None,
-        "comparison_key": comparison_key(sha256, llama_cpp, device, pp["n_threads"], N_PROMPT, N_GEN, None),
+        "comparison_key": comparison_key(sha256, llama_cpp, device, pp["n_threads"], N_PROMPT, N_GEN),
         "ran_at": now_ms,
     }
 

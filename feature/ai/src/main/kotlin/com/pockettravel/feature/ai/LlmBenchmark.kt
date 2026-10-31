@@ -95,7 +95,7 @@ class LlmBenchmark @Inject constructor(
                 nGen = BENCH_N_GEN,
                 pp = pp,
                 tg = tg,
-                overheating = hotBefore || isOverheating(thermalStatus()),
+                overheating = hotBefore || isOverheating(thermalStatus()) || isThrottled(pp.samples) || isThrottled(tg.samples),
                 loadTimeMs = runner.loadTimeMs,
                 ranAt = System.currentTimeMillis(),
             )

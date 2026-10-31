@@ -18,16 +18,18 @@ import kotlin.math.sqrt
  *   model.sha256      impronta del GGUF (sha256 del file: quella del catalogo, o calcolata)
  *   llama_cpp         versione di llama.cpp, "b<build>-<commit>"
  *   sampler           "none": nessun campionamento, si decodificano token casuali del seme (come llama-bench)
- *   seed              seme dei token casuali
+ *   seed              seme dei token casuali; null nella pipeline: llama-bench usa rand() senza seme, quindi sempre gli
+ *                     stessi token, ma non quelli dell'app. La velocita' non dipende da quali token si decodificano
  *   device            modello del dispositivo (app) o della macchina (pipeline)
  *   threads           thread usati
  *   n_prompt, n_gen   token di pp e di tg (512 e 128)
  *   warmup            esecuzioni di riscaldamento scartate (1)
  *   pp, tg            { median_tps, cv_percent, samples_tps: [...], unstable }
  *   unstable          true se pp o tg hanno CV oltre il 10% dopo le ripetizioni extra
- *   overheating       true se il telefono era in surriscaldamento (sempre false nella pipeline)
+ *   overheating       true se il telefono era in surriscaldamento o la velocita' e' calata oltre il 15% tra le prime e le
+ *                     ultime ripetizioni (isThrottled); sempre false nella pipeline
  *   load_time_ms      caricamento del modello, fuori dalle misure (null se non misurato)
- *   comparison_key    "<sha256[:12]>/<llama_cpp>/<device>/t<threads>/pp<n>tg<n>/seed<seed>": due risultati con la stessa
+ *   comparison_key    "<sha256[:12]>/<llama_cpp>/<device>/t<threads>/pp<n>tg<n>": due risultati con la stessa
  *                     chiave si possono confrontare direttamente
  *   ran_at            millisecondi dall'epoca
  */
@@ -68,6 +70,19 @@ internal suspend fun measureStable(run: suspend () -> Double): StableMeasure {
     val cv = cvPercent(samples)
     return StableMeasure(samples.toList(), median(samples), cv, cv > BENCH_CV_UNSTABLE_PERCENT)
 }
+
+/**
+ * True se la velocita' cala oltre [BENCH_THROTTLE_PERCENT] tra le prime e le ultime [THROTTLE_WINDOW] ripetizioni: la CPU
+ * rallenta per il calore anche prima che lo stato termico lo segnali.
+ */
+internal fun isThrottled(samples: List<Double>): Boolean {
+    if (samples.size < 2 * THROTTLE_WINDOW) return false
+    val first = median(samples.take(THROTTLE_WINDOW))
+    return median(samples.takeLast(THROTTLE_WINDOW)) < first * (1 - BENCH_THROTTLE_PERCENT / PERCENT)
+}
+
+internal const val BENCH_THROTTLE_PERCENT = 15.0
+private const val THROTTLE_WINDOW = 2
 
 /** Token al secondo di un'esecuzione che ha decodificato [tokens] token in [nanos] nanosecondi. */
 internal fun tokensPerSecond(tokens: Int, nanos: Long): Double = tokens * NANOS_PER_SECOND / nanos.coerceAtLeast(1L)
@@ -110,7 +125,7 @@ internal data class BenchRecord(
     val unstable: Boolean get() = pp.unstable || tg.unstable
 
     val comparisonKey: String
-        get() = "${modelSha256.take(KEY_SHA_LENGTH)}/$llamaCpp/$device/t$threads/pp${nPrompt}tg$nGen/seed$seed"
+        get() = "${modelSha256.take(KEY_SHA_LENGTH)}/$llamaCpp/$device/t$threads/pp${nPrompt}tg$nGen"
 
     fun toJson(): JsonObject = buildJsonObject {
         put("schema", SCHEMA_VERSION)

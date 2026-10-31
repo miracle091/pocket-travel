@@ -65,6 +65,15 @@ class BenchmarkStatsTest {
     }
 
     @Test
+    fun `velocita' calata oltre il 15 per cento tra le prime e le ultime ripetizioni`() {
+        assertTrue(isThrottled(listOf(60.0, 61.0, 58.0, 50.0, 49.0)))
+        assertFalse(isThrottled(listOf(60.0, 61.0, 58.0, 55.0, 54.0)))
+        // Una ripetizione lenta da sola non basta: le ultime due insieme.
+        assertFalse(isThrottled(listOf(60.0, 61.0, 58.0, 45.0, 60.0)))
+        assertFalse(isThrottled(listOf(60.0, 40.0, 30.0)))
+    }
+
+    @Test
     fun `token al secondo`() {
         assertEquals(100.0, tokensPerSecond(128, 1_280_000_000L), 1e-9)
     }
@@ -94,7 +103,7 @@ class BenchmarkStatsTest {
         val json = record.toJson()
         assertEquals(1, json.getValue("schema").jsonPrimitive.int)
         assertEquals("none", json.getValue("sampler").jsonPrimitive.content)
-        assertEquals("aaaaaaaaaaaa/b1-abc/Google Pixel 8/t5/pp512tg128/seed42", json.getValue("comparison_key").jsonPrimitive.content)
+        assertEquals("aaaaaaaaaaaa/b1-abc/Google Pixel 8/t5/pp512tg128", json.getValue("comparison_key").jsonPrimitive.content)
         assertEquals("qwen3.5-0.8b", json.getValue("model").jsonObject.getValue("id").jsonPrimitive.content)
         assertEquals(101.0, json.getValue("pp").jsonObject.getValue("median_tps").jsonPrimitive.double, 0.0)
         assertEquals(2, json.getValue("pp").jsonObject.getValue("samples_tps").jsonArray.size)

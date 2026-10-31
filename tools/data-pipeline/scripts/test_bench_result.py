@@ -39,7 +39,7 @@ class BenchResultTest(unittest.TestCase):
         self.assertEqual("eval_gguf", record["source"])
         self.assertEqual("m.gguf", record["model"]["file"])
         self.assertEqual("b7000-abc1234", record["llama_cpp"])
-        self.assertEqual("aaaaaaaaaaaa/b7000-abc1234/AMD Ryzen/t8/pp512tg128/seed", record["comparison_key"])
+        self.assertEqual("aaaaaaaaaaaa/b7000-abc1234/AMD Ryzen/t8/pp512tg128", record["comparison_key"])
         self.assertEqual(100.0, record["pp"]["median_tps"])
         self.assertFalse(record["unstable"])
 
