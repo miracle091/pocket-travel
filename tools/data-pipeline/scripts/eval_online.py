@@ -161,7 +161,7 @@ def main():
     base, default_model, key_var, temperature = SERVICES[a.service]
     key = os.environ.get(key_var)
     if not key:
-        raise SystemExit(f"{key_var} assente nell'ambiente (node .claude/scripts/with-env.mjs -- ...)")
+        raise SystemExit(f"{key_var} assente nell'ambiente: serve la chiave API del servizio")
     model = a.model or default_model
     rows, _ = load_test_rows(True, a.dataset)
     rows = sample(rows, a.limit)
