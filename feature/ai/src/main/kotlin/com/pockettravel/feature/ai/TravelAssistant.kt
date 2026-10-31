@@ -270,9 +270,7 @@ class TravelAssistant @Inject constructor(
     private class OnDevicePlan(val prompt: String, val citations: List<String>)
 
     private suspend fun planOnDevice(question: String, sections: List<AssistantSection>, language: String, focusStems: Set<String>): OnDevicePlan {
-        // Ricerca sulla domanda in linguaggio naturale, non sulla ftsQuery (sintassi OR specifica
-        // delle guide): NoteRepository.search fa la sua tokenizzazione, vedi rankNotesByQuery.
-        val note = noteRepository.search(question, limit = 1).firstOrNull()
+        val note = noteRepository.relevantNote(question)
         val context = buildOnDeviceContext(sections, note, language = language, focusStems = focusStems)
         val prompt = PromptTemplates.onDevicePrompt(
             context = context.ifBlank { PromptTemplates.emptyContext(language) },
@@ -396,7 +394,7 @@ class TravelAssistant @Inject constructor(
         val apiKey = aiSettingsStore.apiKey() ?: error("Nessuna chiave API online configurata")
         val provider = aiSettingsStore.onlineProvider()
         val model = onlineModelCatalog.modelFor(provider, aiSettingsStore.onlineModelSetting(provider))
-        val note = if (sharePersonal) noteRepository.search(question, limit = 1).firstOrNull() else null
+        val note = if (sharePersonal) noteRepository.relevantNote(question) else null
         val context = buildOnlineContext(sections, note, language = language, focusStems = focusStems)
         val text = onlineLlmClient.generate(
             baseUrl = provider.baseUrl,
@@ -981,6 +979,30 @@ private fun asksMoreThanPlaces(question: String, cities: List<String>): Boolean 
     return question.split(nonWord).map(::folded)
         .any { it.length >= MIN_CONTENT_WORD_CHARS && it !in questionStopwords && it !in followUpWords && it !in cityWords }
 }
+
+/**
+ * La nota piu' vicina alla domanda, se ha in comune una parola di contenuto (sharesContentWord). Ricerca sulla domanda
+ * in linguaggio naturale, non sulla ftsQuery (sintassi OR specifica delle guide): NoteRepository.search conta anche
+ * parole come "per" o "come", che da sole non rendono pertinente una nota.
+ */
+private suspend fun NoteRepository.relevantNote(question: String): Note? =
+    search(question, limit = NOTE_CANDIDATES).firstOrNull { sharesContentWord(question, "${it.title} ${it.body}") }
+
+/**
+ * True se [question] e [text] hanno in comune una parola di contenuto: lunga almeno MIN_CONTENT_WORD_CHARS, non in
+ * questionStopwords e non in noteIgnoredWords.
+ */
+internal fun sharesContentWord(question: String, text: String): Boolean {
+    val questionWords = question.split(nonWord).map(::folded)
+        .filter { it.length >= MIN_CONTENT_WORD_CHARS && it !in questionStopwords && it !in noteIgnoredWords }.toSet()
+    return questionWords.isNotEmpty() && text.split(nonWord).any { folded(it) in questionWords }
+}
+
+// Fuori da questionStopwords perche' sono nei titoli delle sezioni ("Dove mangiare"), ma non rendono pertinente una nota.
+private val noteIgnoredWords = setOf("cosa", "dove", "come")
+
+// Note candidate di NoteRepository.search tra cui cercare la prima con una parola di contenuto in comune.
+private const val NOTE_CANDIDATES = 5
 
 private const val STEM_CHARS = 5
 

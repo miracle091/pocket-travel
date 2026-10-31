@@ -71,6 +71,26 @@ class AssistantConversationTest {
     }
 
     @Test
+    fun `online il seguito usa solo una domanda fatta online`() = runTest {
+        val repository = repository()
+        val conversation = conversation(repository)
+        conversation.ask(AiEngineMode.ON_DEVICE, "Come arrivo a Lisbona?")
+        assertNull(conversation.previousQuestion(AiEngineMode.ONLINE))
+        assertEquals("Come arrivo a Lisbona?", conversation.previousQuestion(AiEngineMode.ON_DEVICE))
+
+        conversation.ask(AiEngineMode.ONLINE, "Serve il visto?")
+        assertEquals("Serve il visto?", conversation.previousQuestion(AiEngineMode.ONLINE))
+        conversation.end()
+        testScheduler.advanceUntilIdle()
+
+        // Ripresa dalla cronologia: le domande salvate restano sul telefono.
+        val resumed = conversation(repository)
+        checkNotNull(resumed.resume(repository.unlock(), repository.list(repository.unlock()).single().id))
+        assertNull(resumed.previousQuestion(AiEngineMode.ONLINE))
+        assertEquals("Come arrivo a Lisbona?", resumed.previousQuestion(AiEngineMode.ON_DEVICE))
+    }
+
+    @Test
     fun `una conversazione cominciata sul dispositivo e continuata Online non salva i turni Online`() = runTest {
         val repository = repository()
         val conversation = conversation(repository)

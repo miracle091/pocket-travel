@@ -525,7 +525,7 @@ class AiAssistantViewModel @Inject constructor(
 
         resumeJob?.cancel()
         forecastJob?.cancel()
-        val previous = conversation.previousQuestion
+        val previous = conversation.previousQuestion(state.mode)
         // Una conversazione ripresa resta nella sua regione, anche aperta dalla scheda IA di un'altra.
         val region = conversation.regionId ?: regionId
         // Subito, prima di ogni attesa: un secondo tocco su Invia trova la domanda gia' in corso.

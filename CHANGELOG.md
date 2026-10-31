@@ -28,6 +28,8 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA: riconosce l'argomento di più domande e cerca nelle sezioni giuste della guida. Le domande sulle distanze ("Quanto dista Katerini da Atene?", "How far is Sintra from Lisbon?") trovano Come arrivare e Trasporti; parcheggi, agriturismi, battaglie, malattie, sole e vento trovano le loro sezioni. Le parole nuove vengono dalle guide stesse e da WordNet, citato nella schermata Licenze. "Meteo" vale solo come parola intera, e le Meteore non sono più una domanda sul clima.
 
 ### Corretto
+- Assistente IA, motore Online: un seguito ("E a Porto?") si unisce solo a una domanda fatta online. Prima poteva unirsi a una domanda fatta sul dispositivo o ripresa dalla cronologia, che così arrivava al servizio.
+- Assistente IA: una nota personale accompagna la domanda solo se ha in comune con lei una parola che dice di cosa si parla. Prima bastava una parola come "come", "dove" o "per".
 - Assistente IA: le domande in inglese con "further" ("Is Sintra further than Cascais?") non contano più come domande sulla sicurezza. La radice di "furto" ora vale solo per "furto" e "furti".
 - Assistente IA: "Is it dangerous to walk around at night?" è una domanda sulla sicurezza, non più anche su alloggio e trasporti. "Night" e "around" contano solo in espressioni come "spend the night" e "get around".
 - Meteo nella Guida e previsioni dell'assistente: senza una città nella domanda e lontano dalla regione si usa la capitale anche quando ha meno abitanti di altre città. Prima a Malta comparivano il meteo e le previsioni di Mosta invece di quelli della Valletta.

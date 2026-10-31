@@ -80,6 +80,9 @@ class AssistantConversation @Inject constructor(
     // L'ultimo turno e' nella cronologia: solo allora una risposta rifatta lo sostituisce anche li'.
     private var lastTurnSaved = false
 
+    // Il motore dell'ultimo turno; ON_DEVICE per una conversazione ripresa dalla cronologia.
+    private var lastTurnMode: AiEngineMode? = null
+
     /** La conversazione salvata aperta; null finche' non ha un turno salvato. */
     val id: String? get() = handle?.id
 
@@ -95,6 +98,15 @@ class AssistantConversation @Inject constructor(
 
     /** L'ultima domanda con risposta (con quella prima se era un seguito): la base di un seguito ("E a Lisbona?"). */
     val previousQuestion: String? get() = state?.lastQuestion
+
+    /**
+     * La base di un seguito con il motore [mode]. Online vale solo una domanda fatta online: quelle fatte sul dispositivo
+     * o riprese dalla cronologia non escono dal telefono.
+     */
+    fun previousQuestion(mode: AiEngineMode): String? = when (mode) {
+        AiEngineMode.ON_DEVICE -> previousQuestion
+        AiEngineMode.ONLINE -> previousQuestion?.takeIf { lastTurnMode == AiEngineMode.ONLINE }
+    }
 
     /** Regione di una conversazione ripresa: le domande dopo la usano al posto di quella della schermata. */
     var regionId: String? = null
@@ -114,6 +126,7 @@ class AssistantConversation @Inject constructor(
             AiEngineMode.ON_DEVICE -> historyAvailability.isAvailable()
         }
         lastTurnSaved = saves
+        lastTurnMode = mode
         if (saves) {
             val current = handle
             if (current != null) {
@@ -167,6 +180,7 @@ class AssistantConversation @Inject constructor(
         handle?.let(repository::archive)
         handle = null
         lastTurnSaved = false
+        lastTurnMode = null
         state = null
         regionId = null
         readOnlyRegionName = null
@@ -198,6 +212,7 @@ class AssistantConversation @Inject constructor(
     private fun continueWith(resumed: ResumedConversation) {
         handle = resumed.handle
         state = ConversationState.of(resumed.summary.regionId, resumed.turns)
+        lastTurnMode = AiEngineMode.ON_DEVICE
         regionId = resumed.summary.regionId
         publish(
             ConversationDebugInfo(
