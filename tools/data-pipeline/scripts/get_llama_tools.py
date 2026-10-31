@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Scarica i binari ufficiali di llama.cpp per Windows x64 (llama-server, llama-imatrix, llama-quantize,
-llama-completion) per il backend scelto, alla build fissata LLAMA_BUILD: la b11960 e' lo stesso commit
+llama-completion, llama-bench) per il backend scelto, alla build fissata LLAMA_BUILD: la b11960 e' lo stesso commit
 del tag v0.8.0 dell'app e del clone di llama.cpp da cui convert_gguf.py usa convert_hf_to_gguf.py.
 
 Backend:
@@ -88,7 +88,7 @@ def main():
             sys.exit("hipblas.dll non trovata: installa l'HIP SDK di AMD o lancia lo script con un Python che ha "
                      "PyTorch per ROCm (wheel _rocm_sdk_*)")
         (dest / "extra-path.txt").write_text("\n".join(dirs), encoding="utf-8")
-    missing = [n for n in ("llama-server", "llama-imatrix", "llama-quantize", "llama-completion")
+    missing = [n for n in ("llama-server", "llama-imatrix", "llama-quantize", "llama-completion", "llama-bench")
                if not (dest / f"{n}.exe").exists()]
     if missing:
         sys.exit(f"{dest}: mancano {', '.join(missing)}")

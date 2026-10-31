@@ -17,7 +17,7 @@ from unittest import mock
 
 import get_llama_tools as g
 
-NAMES = ("llama-server", "llama-imatrix", "llama-quantize", "llama-completion")
+NAMES = ("llama-server", "llama-imatrix", "llama-quantize", "llama-completion", "llama-bench")
 
 
 def make_zip(names):
@@ -142,7 +142,7 @@ class MainTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(SystemExit) as ctx:
                 run_main(["cpu"], tmp, files=("llama-server", "llama-imatrix"))
-        self.assertIn("llama-quantize, llama-completion", str(ctx.exception))
+        self.assertIn("llama-quantize, llama-completion, llama-bench", str(ctx.exception))
 
     def test_rocm_senza_hipblas_esce(self):
         with tempfile.TemporaryDirectory() as tmp, mock.patch.object(g, "rocm_lib_dirs", return_value=[tmp]):
