@@ -17,7 +17,9 @@ TEMPLATES = (Path(__file__).resolve().parents[3] / "feature" / "ai" / "src" / "m
 def kotlin_strings():
     """I letterali di OnlinePromptTemplates.kt uniti come li unisce Kotlin (concatenazioni di "..." + "...")."""
     source = TEMPLATES.read_text(encoding="utf-8")
-    return [s.encode().decode("unicode_escape") for s in re.findall(r'"((?:[^"\\]|\\.)*)"', source)]
+    # Solo gli escape dei letterali (\n, \", \\): unicode_escape rovinerebbe le lettere accentate.
+    return [re.sub(r"\\(.)", lambda m: "\n" if m.group(1) == "n" else m.group(1), s)
+            for s in re.findall(r'"((?:[^"\\]|\\.)*)"', source)]
 
 
 def row(kind, question, context="Il museo apre alle 9."):

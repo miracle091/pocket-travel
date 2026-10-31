@@ -25,6 +25,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 ### Modificato
 - Assistente IA, motore Sul dispositivo: il modello esce dalla memoria 5 minuti dopo l'ultima domanda, 10 secondi dopo che l'app passa in background o lo schermo si spegne, e subito quando il sistema ha poca memoria. Mappa e Navigatore hanno più memoria e il sistema chiude meno spesso l'app; la domanda dopo ricarica il modello, in qualche secondo.
 - Assistente IA, motore Online: per le previsioni senza una città nella domanda l'assistente usa la posizione o la città dell'ultima guida aperta solo con "Invia dati personali al servizio" acceso; spento, usa la capitale della regione o la città della domanda precedente.
+- Assistente IA, motore Online: quando le guide dell'app non rispondono alla domanda, la risposta lo dice per prima cosa; quello che il servizio aggiunge dopo è presentato come conoscenza generale da verificare.
 - Assistente IA: la domanda ha al massimo 300 caratteri, anche quando è incollata o dettata. Da 250 caratteri sotto il campo compare il conteggio ("280/300").
 - Download della mappa con la rete mobile: l'avviso compare sempre, perché il peso della mappa si conosce solo dopo l'estrazione sul dispositivo.
 - Download del modello IA: dopo 5 tentativi falliti si ferma con un errore, e con la memoria piena lo dice invece di riprovare. Il download resta quello del modello richiesto anche se nel frattempo se ne sceglie un altro.

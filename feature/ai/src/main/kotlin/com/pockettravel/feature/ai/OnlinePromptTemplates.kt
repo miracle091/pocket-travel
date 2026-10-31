@@ -16,7 +16,10 @@ object OnlinePromptTemplates {
                     ""
                 } else {
                     "\nAnswer using the context blocks below, taken from the app's guides, and cite the section you use, " +
-                        "for example (Wikivoyage, section What to see). If the context is not enough, say so.\n\n$context"
+                        "for example (Wikivoyage, section What to see). If the context does not answer the question " +
+                        "(another city, another topic or no useful context), start by saying that the information is not " +
+                        "included in the app's guides; only then you may add what you know, presenting it as general " +
+                        "knowledge to check.\n\n$context"
                 }
         } else {
             "Sei un assistente di viaggio.\n" +
@@ -26,7 +29,10 @@ object OnlinePromptTemplates {
                     ""
                 } else {
                     "\nRispondi usando i blocchi di contesto qui sotto, presi dalle guide dell'app, e cita la sezione che usi, " +
-                        "per esempio (Wikivoyage, sezione Cosa vedere). Se il contesto non basta, dillo.\n\n$context"
+                        "per esempio (Wikivoyage, sezione Cosa vedere). Se il contesto non risponde alla domanda (un'altra " +
+                        "città, un altro argomento o nessun contesto utile), comincia dicendo che l'informazione non è " +
+                        "presente nelle guide dell'app; solo dopo puoi aggiungere quello che sai, presentandolo come " +
+                        "conoscenza generale da verificare.\n\n$context"
                 }
         }
 
