@@ -24,7 +24,7 @@ def rows(pp, tg):
 
 
 def completed(data):
-    return mock.Mock(stdout=json.dumps(data).encode("utf-8"))
+    return mock.Mock(returncode=0, stdout=json.dumps(data).encode("utf-8"))
 
 
 class BenchResultTest(unittest.TestCase):
@@ -42,6 +42,21 @@ class BenchResultTest(unittest.TestCase):
         self.assertEqual("aaaaaaaaaaaa/b7000-abc1234/AMD Ryzen/t8/pp512tg128", record["comparison_key"])
         self.assertEqual(100.0, record["pp"]["median_tps"])
         self.assertFalse(record["unstable"])
+
+    def test_con_strati_sulla_gpu_la_chiave_e_della_gpu(self):
+        gpu = [{**r, "n_gpu_layers": 99, "gpu_info": "AMD Radeon RX"} for r in rows([100.0] * 5, [10.0] * 5)]
+        self.assertEqual("aaaaaaaaaaaa/b7000-abc1234/AMD Radeon RX/t8/pp512tg128",
+                         bench_result.build_record("/x/m.gguf", "a" * 64, gpu, 1)["comparison_key"])
+        cpu = [{**r, "n_gpu_layers": 0, "gpu_info": "AMD Radeon RX"} for r in rows([100.0] * 5, [10.0] * 5)]
+        self.assertEqual("AMD Ryzen", bench_result.build_record("/x/m.gguf", "a" * 64, cpu, 1)["device"])
+
+    def test_llama_bench_fallito_mostra_lo_stderr(self):
+        failed = mock.Mock(returncode=1, stdout=b"", stderr=b"device Vulkan9 not found")
+        with mock.patch.object(bench_result, "find_llama_bin", return_value="llama-bench"), \
+                mock.patch.object(bench_result.subprocess, "run", return_value=failed):
+            with self.assertRaises(SystemExit) as error:
+                bench_result.run_llama_bench("/x/m.gguf", "/bin")
+        self.assertIn("device Vulkan9 not found", str(error.exception))
 
     def test_cv_oltre_il_10_per_cento_e_instabile(self):
         record = bench_result.build_record("m.gguf", "a" * 64, rows([10.0, 20.0, 10.0, 20.0, 10.0], [10.0] * 5), 1)

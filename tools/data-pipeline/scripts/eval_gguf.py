@@ -90,6 +90,9 @@ gpu_lock.gpu_job("eval_gguf.py", gpu=a.gpu_layers > 0)
 
 if a.bench:
     import bench_result
+    if a.gpu_layers:
+        bench_exe = find_llama_bin("llama-bench", a.llama_cpp)
+        vram.check_llama(bench_exe, llama_env(bench_exe), a.device, a.max_vram_held)
     record = json.dumps(bench_result.bench(a.model, a.llama_cpp, a.threads, a.gpu_layers, a.device), indent=2)
     if str(a.bench) == "-":
         print(record)

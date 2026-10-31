@@ -4,7 +4,8 @@ Lo schema (versione 1) e' documentato in testa a BenchmarkStats.kt (feature/ai):
 null (llama-bench non ha l'opzione: usa rand() senza seme, quindi sempre gli stessi token, ma non quelli dell'app),
 `overheating` e' false e `load_time_ms` null. Stesso protocollo dell'app: un
 riscaldamento (lo fa llama-bench), 5 ripetizioni; con CV oltre il 5% altre 5 unite alle prime; con CV oltre il 10% la misura e'
-instabile. `comparison_key` e' "<sha256[:12]>/<llama_cpp>/<device>/t<thread>/pp<n>tg<n>", come nell'app.
+instabile. `comparison_key` e' "<sha256[:12]>/<llama_cpp>/<device>/t<thread>/pp<n>tg<n>", come nell'app; `device` e' la GPU
+(`gpu_info` di llama-bench) se ci sono strati sulla GPU, altrimenti la CPU.
 """
 import hashlib
 import json
@@ -53,7 +54,9 @@ def build_record(model, sha256, rows, now_ms):
     pp = next(r for r in rows if r["n_prompt"] == N_PROMPT and r["n_gen"] == 0)
     tg = next(r for r in rows if r["n_gen"] == N_GEN and r["n_prompt"] == 0)
     llama_cpp = f"b{pp['build_number']}-{pp['build_commit']}"
-    device = str(pp.get("cpu_info") or "unknown").strip()
+    # Con strati sulla GPU la misura e' della GPU: senza, CPU e GPU avrebbero la stessa comparison_key.
+    gpu = pp.get("n_gpu_layers", 0) > 0 and pp.get("gpu_info")
+    device = str(gpu or pp.get("cpu_info") or "unknown").strip()
     pp_measure, tg_measure = stable_measure(pp["samples_ts"]), stable_measure(tg["samples_ts"])
     return {
         "schema": SCHEMA_VERSION, "source": "eval_gguf",
@@ -70,8 +73,10 @@ def run_llama_bench(model, llama_cpp_dir, threads=0, gpu_layers=0, device=None):
     exe = find_llama_bin("llama-bench", llama_cpp_dir)
     cmd = [exe, "-m", str(model), "-p", str(N_PROMPT), "-n", str(N_GEN), "-r", str(RUNS), "-ngl", str(gpu_layers),
            "-o", "json", *(["-t", str(threads)] if threads else []), *(["--device", device] if device else [])]
-    out = subprocess.run(cmd, capture_output=True, check=True, env=llama_env(exe)).stdout
-    return json.loads(out.decode("utf-8"))
+    done = subprocess.run(cmd, capture_output=True, env=llama_env(exe))
+    if done.returncode != 0:
+        raise SystemExit(f"llama-bench uscito con codice {done.returncode}: {done.stderr.decode('utf-8', 'replace')}")
+    return json.loads(done.stdout.decode("utf-8"))
 
 
 def bench(model, llama_cpp_dir, threads=0, gpu_layers=0, device=None):
