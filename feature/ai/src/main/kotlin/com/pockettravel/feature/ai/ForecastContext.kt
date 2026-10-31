@@ -47,7 +47,7 @@ internal class ForecastQuery(
 
 /**
  * Per una domanda di previsione (isForecastQuestion), le previsioni della citta' nominata nella domanda o, in ordine:
- * la piu' vicina alla posizione dell'utente e quella dell'ultima guida di citta' aperta (solo sul dispositivo), la capitale
+ * la piu' vicina alla posizione dell'utente e quella dell'ultima guida di citta' aperta (sul dispositivo o con il consenso), la capitale
  * della regione (o la prima citta' principale), la citta' delle domande precedenti. Null per le altre domande, se la domanda nomina una nazione (le citta' della regione
  * non c'entrano) o senza codice paese. Senza previsioni (ForecastProvider: niente rete e nessuna previsione salvata ancora
  * valida) il blocco dice che mancano e da' le medie del mese della citta' dalla tabella climatica di Wikipedia, se c'e';

@@ -66,8 +66,9 @@ import java.time.LocalDate
 import java.util.Locale
 
 /**
- * L'interruttore "Invia dati personali al servizio": la richiesta al servizio online contiene nota, POI vicini,
- * vaccinazioni e sezioni per nazionalita' solo con il consenso. Usa database Room in memoria con i dati di una
+ * L'interruttore "Invia dati personali al servizio": la richiesta al servizio online contiene nota, POI e fermate vicine,
+ * vaccinazioni, sezioni per nazionalita' e la citta' delle previsioni dalla posizione o dall'ultima guida aperta solo con
+ * il consenso. Usa database Room in memoria con i dati di una
  * regione, la chiave del Keystore e un OkHttp che registra il corpo della richiesta senza uscire dal dispositivo.
  */
 @RunWith(AndroidJUnit4::class)
@@ -79,6 +80,8 @@ class OnlineConsentDeviceTest {
     private lateinit var settings: AiSettingsStore
     private lateinit var assistant: TravelAssistant
     private val requests = mutableListOf<String>()
+    private val position = FakeLastKnownPosition(LATITUDE to LONGITUDE)
+    private val lastOpenedCityGuide = LastOpenedCityGuide()
     private val transit = FakeTransitRepository().apply {
         val feed = TransitFeedInfo("rete-di-prova", "Rete di prova", "Orari di prova")
         val departure = TransitDeparture(TRANSIT_LINE, TransitMode.BUS, null, null, "Capolinea", 600, 5)
@@ -95,7 +98,6 @@ class OnlineConsentDeviceTest {
         settings = AiSettingsStore(preferences, File(context.filesDir, "models")) { RamTier.CONFORTEVOLE }.apply { setApiKey("chiave-di-prova") }
         val nationality = NationalityPreferences(preferences).apply { setNationality("GB") }
         VaccinationPreferences(preferences).departure = "IT"
-        val position = FakeLastKnownPosition(LATITUDE to LONGITUDE)
         val region = InstalledRegion(REGION, "Giappone", "JP", null, null, null, null, null, null, null, 0L)
         val regions = FakeRegionRepository(listOf(region))
         val cities = CityRepository(db.cityDao())
@@ -135,7 +137,7 @@ class OnlineConsentDeviceTest {
             carRouteCalculator = CarRouteCalculator { _, _, _ -> null },
             context = context,
             wordListsOverride = WordListsOverride(preferences, false),
-            forecastSections = ForecastSections(ForecastProvider(weather, clock), regions, cities, pois, position, LastOpenedCityGuide(), clock),
+            forecastSections = ForecastSections(ForecastProvider(weather, clock), regions, cities, pois, position, lastOpenedCityGuide, clock),
             alertsSections = AlertsSections(alerts, context, clock),
             defaultDispatcher = Dispatchers.Default,
         )
@@ -192,6 +194,31 @@ class OnlineConsentDeviceTest {
         val request = askOnline(FORECAST_QUESTION)
 
         assertTrue("citta' vicina alla posizione: $request", "Previsioni per $NEAREST_CITY" in request)
+        assertFalse(request, "Previsioni per $CAPITAL" in request)
+    }
+
+    @Test
+    fun senzaConsensoLePrevisioniNonUsanoLUltimaGuidaAperta() = runBlocking<Unit> {
+        settings.setSharesPersonalData(false)
+        position.position = FAR_POSITION
+        lastOpenedCityGuide.opened(REGION, NEAREST_CITY)
+
+        val request = askOnline(FORECAST_QUESTION)
+
+        assertTrue(request, "Previsioni per $CAPITAL" in request)
+        assertFalse("ultima guida aperta: $request", "Previsioni per $NEAREST_CITY" in request)
+    }
+
+    @Test
+    fun conConsensoLePrevisioniUsanoLUltimaGuidaAperta() = runBlocking<Unit> {
+        settings.setSharesPersonalData(true)
+        // Lontano dalla regione la citta' vicina non c'e': la sceglie solo l'ultima guida aperta.
+        position.position = FAR_POSITION
+        lastOpenedCityGuide.opened(REGION, NEAREST_CITY)
+
+        val request = askOnline(FORECAST_QUESTION)
+
+        assertTrue("ultima guida aperta: $request", "Previsioni per $NEAREST_CITY" in request)
         assertFalse(request, "Previsioni per $CAPITAL" in request)
     }
 
@@ -294,6 +321,7 @@ class OnlineConsentDeviceTest {
         const val REGION = "giappone"
         const val LATITUDE = 35.0
         const val LONGITUDE = 135.0
+        val FAR_POSITION = 0.0 to 0.0
         const val HTTP_OK = 200
         const val PUBLIC_SECTION = "SEZIONE-PUBBLICA-4417"
         const val NATIONALITY_SECTION = "SEZIONE-SOLO-GB-9023"
