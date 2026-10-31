@@ -27,7 +27,7 @@ class CapitalClimateTest {
         val clima = AssistantSection("clima della citta'", GuideCategory.CLIMA, "Climate")
         val capitale = AssistantSection("clima della capitale", GuideCategory.CLIMA, "Climate (Valletta)")
 
-        // Come "Is it hot in Malta in July?": il Clima trovato era terzo e non entrava nel contesto.
+        // Come "Is it hot in Malta in July?": il Clima trovato e' terzo e, lasciato li', resterebbe fuori dal contesto.
         assertEquals(listOf(clima, avvisi, altro), climateFirst(setOf("CLIMA"), listOf(avvisi, altro, clima), capitale))
         assertEquals(listOf(capitale, avvisi, altro), climateFirst(setOf("CLIMA"), listOf(avvisi, altro), capitale))
         assertEquals(listOf(avvisi, altro), climateFirst(setOf("CLIMA"), listOf(avvisi, altro), null))
