@@ -15,10 +15,18 @@ import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.Note
 import com.pockettravel.core.data.NoteRepository
 import com.pockettravel.core.data.PoiRepository
+import com.pockettravel.core.data.TransitBoard
+import com.pockettravel.core.data.TransitDeparture
+import com.pockettravel.core.data.TransitFeedInfo
+import com.pockettravel.core.data.TransitMode
+import com.pockettravel.core.data.Weather
+import com.pockettravel.core.data.WeatherCondition
+import com.pockettravel.core.data.WeatherDay
 import com.pockettravel.core.data.WeatherRepository
 import com.pockettravel.core.data.WeatherResult
 import com.pockettravel.core.data.alerts.AlertsRepository
 import com.pockettravel.core.data.alerts.RegionAlerts
+import com.pockettravel.core.data.db.CitySectionEntity
 import com.pockettravel.core.data.db.GuideSectionEntity
 import com.pockettravel.core.data.db.PoiRow
 import com.pockettravel.core.data.db.RegionDatabase
@@ -54,6 +62,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.time.Clock
+import java.time.LocalDate
 import java.util.Locale
 
 /**
@@ -70,6 +79,11 @@ class OnlineConsentDeviceTest {
     private lateinit var settings: AiSettingsStore
     private lateinit var assistant: TravelAssistant
     private val requests = mutableListOf<String>()
+    private val transit = FakeTransitRepository().apply {
+        val feed = TransitFeedInfo("rete-di-prova", "Rete di prova", "Orari di prova")
+        val departure = TransitDeparture(TRANSIT_LINE, TransitMode.BUS, null, null, "Capolinea", 600, 5)
+        defaultBoard = TransitBoard.Departures(listOf(departure), LocalDate.now().plusDays(30), 30, listOf(feed))
+    }
 
     @Before
     fun setUp() = runBlocking<Unit> {
@@ -87,8 +101,13 @@ class OnlineConsentDeviceTest {
         val cities = CityRepository(db.cityDao())
         val pois = PoiRepository(db.poiDao())
         val clock = Clock.systemUTC()
+        // Previsioni per qualsiasi citta': l'intestazione del blocco ("Previsioni per <citta'>") dice quale e' stata scelta.
         val weather = object : WeatherRepository {
-            override suspend fun weather(cacheKey: String, coordinates: suspend () -> Pair<Double, Double>?): WeatherResult? = null
+            override suspend fun weather(cacheKey: String, coordinates: suspend () -> Pair<Double, Double>?): WeatherResult {
+                val today = LocalDate.now(clock)
+                val day = WeatherDay(today, WeatherCondition.CLEAR, 25.0, 15.0, 10)
+                return WeatherResult(Weather(20.0, WeatherCondition.CLEAR, listOf(day), today), clock.millis())
+            }
             override suspend fun coordinatesOf(city: String, countryCode: String): Pair<Double, Double>? = null
         }
         val alerts = object : AlertsRepository {
@@ -112,7 +131,7 @@ class OnlineConsentDeviceTest {
             emergencyNumbersRepository = EmergencyNumbersRepository(db.emergencyNumbersDao()),
             poiRepository = pois,
             lastKnownPosition = position,
-            transitRepository = FakeTransitRepository(),
+            transitRepository = transit,
             carRouteCalculator = CarRouteCalculator { _, _, _ -> null },
             context = context,
             wordListsOverride = WordListsOverride(preferences, false),
@@ -155,9 +174,49 @@ class OnlineConsentDeviceTest {
         assertTrue("sezione per nazionalita': $request", NATIONALITY_SECTION in request)
     }
 
+    @Test
+    fun senzaConsensoLePrevisioniNonUsanoLaCittaVicinaAllaPosizione() = runBlocking<Unit> {
+        settings.setSharesPersonalData(false)
+
+        val request = askOnline(FORECAST_QUESTION)
+
+        // Le previsioni ci sono, ma per la capitale e non per la citta' vicina all'utente.
+        assertTrue(request, "Previsioni per $CAPITAL" in request)
+        assertFalse("citta' vicina alla posizione: $request", "Previsioni per $NEAREST_CITY" in request)
+    }
+
+    @Test
+    fun conConsensoLePrevisioniUsanoLaCittaVicinaAllaPosizione() = runBlocking<Unit> {
+        settings.setSharesPersonalData(true)
+
+        val request = askOnline(FORECAST_QUESTION)
+
+        assertTrue("citta' vicina alla posizione: $request", "Previsioni per $NEAREST_CITY" in request)
+        assertFalse(request, "Previsioni per $CAPITAL" in request)
+    }
+
+    @Test
+    fun senzaConsensoLaRichiestaNonHaLeFermateVicine() = runBlocking<Unit> {
+        settings.setSharesPersonalData(false)
+
+        val request = askOnline(TRANSIT_QUESTION)
+
+        assertFalse("fermate vicine: $request", TRANSIT_LINE in request)
+        assertTrue("senza posizione nessuna richiesta di orari: ${transit.requests}", transit.requests.isEmpty())
+    }
+
+    @Test
+    fun conConsensoLaRichiestaHaLeFermateVicine() = runBlocking<Unit> {
+        settings.setSharesPersonalData(true)
+
+        val request = askOnline(TRANSIT_QUESTION)
+
+        assertTrue("fermate vicine: $request", TRANSIT_LINE in request)
+    }
+
     // Una domanda che accende la ricerca nelle guide, la nota, i POI vicini e le vaccinazioni; ritorna il corpo inviato.
-    private suspend fun askOnline(): String {
-        val answers = assistant.ask(REGION, "Quali vaccini servono e dov'è la farmacia qui vicino?", AiEngineMode.ONLINE).toList()
+    private suspend fun askOnline(question: String = "Quali vaccini servono e dov'è la farmacia qui vicino?"): String {
+        val answers = assistant.ask(REGION, question, AiEngineMode.ONLINE).toList()
         assertTrue(answers.last() is AssistantProgress.Done)
         return requests.single()
     }
@@ -172,6 +231,19 @@ class OnlineConsentDeviceTest {
                 GuideSectionEntity(
                     regionId = REGION, category = GuideCategory.DA_SAPERE, title = "Farmacia per i britannici",
                     body = "Farmacia: $NATIONALITY_SECTION.", sourceUrl = "https://www.gov.uk/foreign-travel-advice/japan#for-nationality=GB",
+                ),
+            ),
+        )
+        // La capitale e' lontana dalla posizione, l'altra citta' ci e' vicina (il meteo "vicino a te" sceglie quella).
+        db.cityDao().insertAll(
+            listOf(
+                CitySectionEntity(
+                    regionId = REGION, city = CAPITAL, category = GuideCategory.DA_SAPERE, title = "Info", body = "Citta' di prova.",
+                    sourceUrl = "https://it.wikivoyage.org/wiki/Capitale", capital = true, latitude = 40.0, longitude = 140.0,
+                ),
+                CitySectionEntity(
+                    regionId = REGION, city = NEAREST_CITY, category = GuideCategory.DA_SAPERE, title = "Info", body = "Citta' di prova.",
+                    sourceUrl = "https://it.wikivoyage.org/wiki/Vicina", latitude = LATITUDE + 0.1, longitude = LONGITUDE,
                 ),
             ),
         )
@@ -228,5 +300,10 @@ class OnlineConsentDeviceTest {
         const val NOTE_MARKER = "NOTA-PERSONALE-7731"
         const val NEARBY_POI = "Farmacia Tanuki"
         const val VACCINATION_HEADER = "Vaccinazioni per il viaggio"
+        const val CAPITAL = "Capitalia"
+        const val NEAREST_CITY = "Vicinopoli"
+        const val TRANSIT_LINE = "LINEA-BUS-5521"
+        const val FORECAST_QUESTION = "Che tempo fa domani?"
+        const val TRANSIT_QUESTION = "Quando passa il prossimo bus qui vicino?"
     }
 }
