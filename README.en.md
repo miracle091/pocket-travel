@@ -92,7 +92,7 @@ The model runs on the device and no data leaves it. Conversations are saved in t
 
 ### ☁️ Online (with a personal API key)
 
-The assistant uses an AI service with the user's own API key, which stays encrypted on the device. The question goes to the service **without the downloaded guide** and usage is billed to the user's account with the service. In the app, choose the service, paste the key and tap **Save key**; **Create the key on …** opens the right page.
+The assistant uses an AI service with the user's own API key, which stays encrypted on the device. The question goes to the service with the most relevant texts from the downloaded guides, and the answer cites the section used. The personal note, the location and the nationality are sent only with **Send personal data to the service** on (off at first). Usage is billed to the user's account with the service. In the app, choose the service, paste the key and tap **Save key**; **Create the key on …** opens the right page.
 
 The models offered for each service, with the estimated cost of 100 questions, come from a signed list that the app downloads when the assistant opens with the Online engine: the list changes without updating the app. With the saved key the app hides the models the account cannot use. Current models:
 

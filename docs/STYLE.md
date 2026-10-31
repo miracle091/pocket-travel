@@ -82,7 +82,7 @@ Le regole riprendono, adattate al registro formale di questo progetto, i catalog
 Alcuni testi sono anche il formato su cui sono addestrati i modelli dell'assistente: cambiarli peggiorerebbe le
 risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo errori veri:
 
-- i prompt in `PromptTemplates.kt` e `OnlinePromptTemplates.kt`;
+- i prompt in `PromptTemplates.kt` (non quelli di `OnlinePromptTemplates.kt`, che vanno ai servizi esterni);
 - le etichette del contesto in `TravelAssistant.kt` ("Nota personale", "Personal note");
 - il riassunto delle vaccinazioni in `VaccinationSummary.kt`;
 - le etichette dei fatti rapidi generate dalla pipeline (`GenerateGuideContent.kt`, `GenerateEmergencyNumbers.kt`)
@@ -120,6 +120,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Chiave personale per il motore Online | chiave API | API key |
 | Fornitore del motore Online (ChatGPT, Mistral...) | servizio | service |
 | Interruttore che lascia mandare le foto al motore Online | Invia le foto al servizio | Send photos to the service |
+| Interruttore che lascia mandare al motore Online nota, posizione, partenza e nazionalità | Invia dati personali al servizio | Send personal data to the service |
 | Dati EXIF della foto (data, luogo, modello del telefono), tolti prima dell'invio | dati della foto (mai "EXIF" nell'interfaccia) | photo details |
 | Evento reale in corso (terremoto, alluvione, allerta meteo...) letto dalle fonti online | allerta, allerte (mai "avviso", "allarme" o "notifica") | alert, alerts |
 | Riquadro della guida con le allerte della regione | Allerte in corso | Active alerts |

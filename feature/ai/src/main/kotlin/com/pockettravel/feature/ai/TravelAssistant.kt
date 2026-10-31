@@ -82,9 +82,10 @@ sealed interface AssistantProgress {
  * guide della nazione e delle città in region.db (ricerca full-text come CONTESTO del prompt sul dispositivo),
  * più la nota personale più pertinente se ce n'è una e, per le domande su cosa c'è "qui vicino" o sui mezzi
  * pubblici, i POI e le prossime partenze attorno all'ultima posizione nota, e per la distanza tra due citta' quella
- * calcolata dalle coordinate (e su strada con la rete stradale scaricata); "Online" invia solo la domanda a un servizio
- * esterno con la chiave personale dell'utente, senza contesto RAG e senza note — per questo non
- * produce citazioni di sezione. Con entrambi i motori, le sezioni trovate su dogane, salute o sicurezza
+ * calcolata dalle coordinate (e su strada con la rete stradale scaricata); "Online" invia la domanda e lo stesso
+ * contesto a un servizio esterno con la chiave personale dell'utente, un blocco per sezione citato nella risposta
+ * (buildOnlineContext); nota, POI vicini, mezzi pubblici, citta' delle previsioni dalla posizione,
+ * vaccinazioni e sezioni per nazionalita' solo con l'interruttore "Invia dati personali al servizio". Con entrambi i motori, le sezioni trovate su dogane, salute o sicurezza
  * attivano il banner "Verifica sempre sulla fonte ufficiale" con link diretto alla fonte pertinente.
  */
 class TravelAssistant @Inject constructor(
@@ -131,7 +132,11 @@ class TravelAssistant @Inject constructor(
         } else {
             emptySet()
         }
-        val search = searchSections(regionId, question, cities, language, modelGroups)
+        // Nota, posizione, partenza e nazionalita' escono dal telefono solo con il consenso (interruttore nelle impostazioni dell'assistente).
+        val sharePersonal = mode == AiEngineMode.ON_DEVICE || aiSettingsStore.sharesPersonalData()
+        // Senza consenso, online niente sezioni scelte per nazionalita' (#for-nationality): ne rivelerebbero una.
+        val nationality = nationalityPreferences.nationality.value.takeIf { sharePersonal }
+        val search = searchSections(regionId, question, cities, language, modelGroups, if (mode == AiEngineMode.ONLINE) ONLINE_MAX_SECTIONS else MAX_SECTIONS, nationality)
         val sections = search.sections
         val regulatedMatch = sections.firstOrNull { !it.fromGeneralGuide && it.isRegulatedTopic() }
         // Per Viaggiare Sicuri il banner apre la pagina della nazione nominata nella domanda, o di quella della regione.
@@ -140,7 +145,7 @@ class TravelAssistant @Inject constructor(
         val forecast = forecastSections.forQuestion(
             ForecastQuery(
                 regionId, question, previousQuestion, modelGroups, cities, cityNames, search.country != null, language,
-                usePosition = mode == AiEngineMode.ON_DEVICE,
+                usePosition = sharePersonal,
             ),
         )
         // Con la rete (o l'ultima risposta salvata), le allerte della regione per le domande su una catastrofe.
@@ -156,23 +161,11 @@ class TravelAssistant @Inject constructor(
                 forecast = forecast?.weather,
             )
         }
+        val contextSections = contextSections(regionId, question, language, cities, search, listOfNotNull(forecast?.section, alerts), sharePersonal)
+        val focus = focusStems(search.baseQuery, city)
         when (mode) {
             AiEngineMode.ON_DEVICE -> {
-                val emergency = emergencySection(search.country?.regionIds?.first() ?: regionId, question, language)
-                val plan = planOnDevice(
-                    question,
-                    listOfNotNull(
-                        forecast?.section,
-                        alerts,
-                        cityDistanceSection(regionId, cities, question, language),
-                        vaccinationSection(regionId, question, language, search.country),
-                        emergency,
-                        nearbyPoiSection(regionId, question, language),
-                        transitSection(regionId, question, language),
-                    ) + (emergency?.let { withoutEmergencyLine(sections, it.body) } ?: sections),
-                    language,
-                    focusStems(search.baseQuery, city),
-                )
+                val plan = planOnDevice(question, contextSections, language, focus)
                 var text = ""
                 engine.generateStream(plan.prompt).accumulated(PARTIAL_INTERVAL_MS).collect {
                     text = it
@@ -180,10 +173,34 @@ class TravelAssistant @Inject constructor(
                 }
                 emit(AssistantProgress.Done(withSource(AssistantAnswer(text, plan.citations, showOfficialSourceBanner = false))))
             }
-            AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language, listOfNotNull(forecast?.section, alerts)))))
+            AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language, contextSections, focus, sharePersonal))))
         }
         // Nomi da riconoscere, query e paragrafi da normalizzare: lavoro di CPU fuori dal main thread del chiamante.
     }.flowOn(defaultDispatcher)
+
+    /**
+     * Lo stesso contesto per i due motori: [leading] (previsioni e allerte), le sezioni calcolate e quelle della ricerca.
+     * I POI vicini e i mezzi pubblici vengono dalla posizione esatta, le vaccinazioni dalla partenza o dalla nazionalita':
+     * solo con [sharePersonal].
+     */
+    private suspend fun contextSections(
+        regionId: String,
+        question: String,
+        language: String,
+        cities: List<String>,
+        search: SectionSearch,
+        leading: List<AssistantSection>,
+        sharePersonal: Boolean,
+    ): List<AssistantSection> {
+        val emergency = emergencySection(search.country?.regionIds?.first() ?: regionId, question, language)
+        return leading + listOfNotNull(
+            cityDistanceSection(regionId, cities, question, language),
+            if (sharePersonal) vaccinationSection(regionId, question, language, search.country) else null,
+            emergency,
+            if (sharePersonal) nearbyPoiSection(regionId, question, language) else null,
+            if (sharePersonal) transitSection(regionId, question, language) else null,
+        ) + (emergency?.let { withoutEmergencyLine(search.sections, it.body) } ?: search.sections)
+    }
 
     /**
      * La domanda da cercare e da mandare al modello: [question] unita a [previous] (followUpQuestion) se ne e' il
@@ -210,7 +227,15 @@ class TravelAssistant @Inject constructor(
      * scelta dal modello ([modelGroups]); storia, clima e periodi delle liste o del modello valgono come domanda di storia
      * o clima (le sezioni di Wikipedia non si abbassano).
      */
-    private suspend fun searchSections(regionId: String, question: String, cities: List<String>, language: String, modelGroups: Set<String>): SectionSearch {
+    private suspend fun searchSections(
+        regionId: String,
+        question: String,
+        cities: List<String>,
+        language: String,
+        modelGroups: Set<String>,
+        maxSections: Int,
+        nationality: String?,
+    ): SectionSearch {
         val country = if (cities.isEmpty()) namedPlace(question, regionId, language) else null
         val city = cities.singleOrNull()
         val wordLists = wordListsOverride.enabled()
@@ -224,11 +249,10 @@ class TravelAssistant @Inject constructor(
         val baseQuery = if (withCityName) buildFtsQuery(question, regionId) else topicBase
         val ftsQuery = withCategoryWords(baseQuery, question, language, wordLists, modelGroups)
         if (ftsQuery.isBlank()) return SectionSearch(emptyList(), baseQuery, country)
-        val nationality = nationalityPreferences.nationality.value
         val sections = rankSections(
             guideRepository.searchCandidates(country?.regionIds ?: listOf(regionId), ftsQuery).filter { isGuideSectionFor(it.first.sourceUrl, nationality) },
             if (withCityName) cityRepository.candidates(regionId, ftsQuery, cities) else topicMatches,
-            MAX_SECTIONS,
+            maxSections,
             countryFirst = cities.isEmpty(),
             historyOrClimate = isHistoryOrClimateSearch(question, wordLists, modelGroups),
             language = language,
@@ -237,7 +261,7 @@ class TravelAssistant @Inject constructor(
             comparePhrases = questionPhrases(baseQuery, modelGroups),
         )
         val groups = (questionGroups(question) + modelGroups).takeIf { wordLists }.orEmpty()
-        return SectionSearch(cityRepository.withClimateFirst(regionId, sections, cities.firstOrNull() ?: country?.name, groups, language), baseQuery, country)
+        return SectionSearch(cityRepository.withClimateFirst(regionId, sections, cities.firstOrNull() ?: country?.name, groups, language, maxSections), baseQuery, country)
     }
 
     private class SectionSearch(val sections: List<AssistantSection>, val baseQuery: String, val country: NamedPlace?)
@@ -276,22 +300,6 @@ class TravelAssistant @Inject constructor(
         val (a, b) = coordinates
         val car = withTimeoutOrNull(CAR_ROUTE_TIMEOUT_MILLIS) { carRouteCalculator.carRoute(regionId, a, b) }
         return if (car == null && !distance) null else distanceSection(cities[0], cities[1], a, b, car, language)
-    }
-
-    private fun distanceSection(from: String, to: String, a: CityCoordinates, b: CityCoordinates, car: CarRoute?, language: String): AssistantSection {
-        val straight = FloatArray(1)
-        Location.distanceBetween(a.latitude, a.longitude, b.latitude, b.longitude, straight)
-        val en = language == "en"
-        return AssistantSection(
-            body = cityDistanceContext(from, to, straight[0].toDouble(), car, language),
-            category = GuideCategory.TRASPORTI,
-            citation = when {
-                car != null && en -> "Source: route calculated on the phone with BRouter, © OpenStreetMap contributors"
-                car != null -> "Fonte: percorso calcolato sul telefono con BRouter, © contributori di OpenStreetMap"
-                en -> "Source: coordinates of the cities from Wikidata (straight-line distance)"
-                else -> "Fonte: coordinate delle città da Wikidata (distanza in linea d'aria)"
-            },
-        )
     }
 
     /**
@@ -377,19 +385,28 @@ class TravelAssistant @Inject constructor(
         )
     }
 
-    private suspend fun askOnline(question: String, language: String, live: List<AssistantSection>): AssistantAnswer {
+    /** Il contesto è quello del dispositivo; la nota personale entra solo con il consenso ([sharePersonal]). */
+    private suspend fun askOnline(
+        question: String,
+        language: String,
+        sections: List<AssistantSection>,
+        focusStems: Set<String>,
+        sharePersonal: Boolean,
+    ): AssistantAnswer {
         val apiKey = aiSettingsStore.apiKey() ?: error("Nessuna chiave API online configurata")
         val provider = aiSettingsStore.onlineProvider()
         val model = onlineModelCatalog.modelFor(provider, aiSettingsStore.onlineModelSetting(provider))
+        val note = if (sharePersonal) noteRepository.search(question, limit = 1).firstOrNull() else null
+        val context = buildOnlineContext(sections, note, language = language, focusStems = focusStems)
         val text = onlineLlmClient.generate(
             baseUrl = provider.baseUrl,
             apiKey = apiKey,
             model = model,
-            // Il template resta com'e': i blocchi delle previsioni e delle allerte lo precedono.
-            prompt = (live.map { it.body } + OnlinePromptTemplates.onlinePrompt(question, language)).joinToString("\n\n"),
+            prompt = question,
+            system = OnlinePromptTemplates.systemPrompt(context.text, language),
             sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
         )
-        return AssistantAnswer(text = text, sourceCitations = live.map { it.citation }, showOfficialSourceBanner = false)
+        return AssistantAnswer(text = text, sourceCitations = context.citations, showOfficialSourceBanner = false)
     }
 
     private companion object {
@@ -403,6 +420,22 @@ class TravelAssistant @Inject constructor(
         const val CAR_ROUTE_TIMEOUT_MILLIS = 30_000L
         // Posizione per le previsioni "dove sono": come il riquadro meteo della guida (3 ore, POI entro ~5 km).
     }
+}
+
+private fun distanceSection(from: String, to: String, a: CityCoordinates, b: CityCoordinates, car: CarRoute?, language: String): AssistantSection {
+    val straight = FloatArray(1)
+    Location.distanceBetween(a.latitude, a.longitude, b.latitude, b.longitude, straight)
+    val en = language == "en"
+    return AssistantSection(
+        body = cityDistanceContext(from, to, straight[0].toDouble(), car, language),
+        category = GuideCategory.TRASPORTI,
+        citation = when {
+            car != null && en -> "Source: route calculated on the phone with BRouter, © OpenStreetMap contributors"
+            car != null -> "Fonte: percorso calcolato sul telefono con BRouter, © contributori di OpenStreetMap"
+            en -> "Source: coordinates of the cities from Wikidata (straight-line distance)"
+            else -> "Fonte: coordinate delle città da Wikidata (distanza in linea d'aria)"
+        },
+    )
 }
 
 private val vaccinationWords = Regex("""vaccin|febbre gialla|yellow fever|polio|meningococc|meningitis|profilassi|certificat|hajj|umrah""", RegexOption.IGNORE_CASE)
@@ -763,6 +796,7 @@ private class RankedSection(val section: AssistantSection, val score: Double, va
 private val WIKIPEDIA_CATEGORIES = setOf(GuideCategory.STORIA, GuideCategory.CLIMA)
 private const val WIKIPEDIA_OFF_TOPIC_WEIGHT = 0.1
 private const val MAX_SECTIONS = 3
+private const val ONLINE_MAX_SECTIONS = 6
 
 /**
  * True se una domanda di clima, periodi o previsioni ([groups]) senza citta' nominata non ha trovato una sezione Clima
@@ -779,11 +813,16 @@ private val CLIMATE_GROUPS = setOf("CLIMA", "PERIODI", "METEO")
  * di clima, anche con altri gruppi ("When is the best time to visit Malta?"). Com'e' per le altre domande: con altri
  * gruppi un Clima gia' trovato in testa toglierebbe il primo posto alla sezione attesa (misura di eval_retrieval.py).
  */
-internal fun climateFirst(groups: Set<String>, sections: List<AssistantSection>, capitalClimate: AssistantSection?): List<AssistantSection> {
+internal fun climateFirst(
+    groups: Set<String>,
+    sections: List<AssistantSection>,
+    capitalClimate: AssistantSection?,
+    limit: Int = MAX_SECTIONS,
+): List<AssistantSection> {
     val onlyClimate = groups.isNotEmpty() && groups.all { it in CLIMATE_GROUPS }
     val found = sections.firstOrNull { it.category == GuideCategory.CLIMA }?.takeIf { onlyClimate }
     val climate = (found ?: capitalClimate).takeIf { groups.any { it in CLIMATE_GROUPS } }
-    return climate?.let { (listOf(it) + (sections - it)).take(MAX_SECTIONS) } ?: sections
+    return climate?.let { (listOf(it) + (sections - it)).take(limit) } ?: sections
 }
 
 /**
@@ -796,13 +835,14 @@ private suspend fun CityRepository.withClimateFirst(
     place: String?,
     groups: Set<String>,
     language: String,
+    limit: Int,
 ): List<AssistantSection> {
     val capitalClimate = if (place == null && wantsCapitalClimate(groups, sections)) {
         capitalFor(regionId)?.let { capital -> sectionsFor(regionId, capital).firstOrNull { it.category == GuideCategory.CLIMA } }
     } else {
         null
     }
-    return climateFirst(groups, sections, capitalClimate?.toAssistantSection(language))
+    return climateFirst(groups, sections, capitalClimate?.toAssistantSection(language), limit)
 }
 
 /** Candidati delle guide delle citta' [cities] (di ognuna, per "quanto dista X da Y"), o di tutte se e' vuota. */
@@ -981,6 +1021,45 @@ internal fun buildOnDeviceContext(
     val sectionsBudget = maxChars - (noteText?.let { it.length + 2 } ?: 0)
     val sectionsText = selectContext(sections.map { it.body }, focusStems, sectionsBudget.coerceAtLeast(0))
     return listOfNotNull(sectionsText.takeIf { it.isNotBlank() }, noteText).joinToString("\n\n")
+}
+
+// I modelli online hanno contesti molto piu' larghi di quelli sul dispositivo: circa 2000 token invece di 500.
+internal const val ONLINE_MAX_CHARS = 8_000
+
+/** Il contesto per i modelli online: [text] in blocchi marcati con la fonte, [citations] delle sezioni che ci sono entrate. */
+internal class OnlineContext(val text: String, val citations: List<String>)
+
+/**
+ * Come [buildOnDeviceContext], ma con un blocco per sezione (OnlinePromptTemplates.contextBlock) e il budget [maxChars]
+ * che comprende i marcatori. La nota ha il suo spazio (NOTE_MAX_CHARS) e va in fondo; senza [note] non c'e' nessun blocco.
+ */
+internal fun buildOnlineContext(
+    sections: List<AssistantSection>,
+    note: Note?,
+    maxChars: Int = ONLINE_MAX_CHARS,
+    language: String = "it",
+    focusStems: Set<String> = emptySet(),
+): OnlineContext {
+    val noteBlock = note?.let {
+        val label = if (language == "en") "Personal note" else "Nota personale"
+        OnlinePromptTemplates.contextBlock(label, truncateContext("${it.title}\n${it.body}", NOTE_MAX_CHARS), language)
+    }
+    var remaining = maxChars - (noteBlock?.let { it.length + 2 } ?: 0)
+    val blocks = mutableListOf<String>()
+    val cited = mutableListOf<AssistantSection>()
+    for (section in sections) {
+        val source = OnlinePromptTemplates.sourceOf(section.citation)
+        val budget = remaining - OnlinePromptTemplates.contextBlock(source, "", language).length
+        if (budget < MIN_SECTION_CHARS) break
+        val part = relevantParagraphs(section.body, focusStems, budget)
+        if (part.isNotBlank()) {
+            val block = OnlinePromptTemplates.contextBlock(source, part, language)
+            blocks += block
+            cited += section
+            remaining -= block.length + 2
+        }
+    }
+    return OnlineContext((blocks + listOfNotNull(noteBlock)).joinToString("\n\n"), cited.map { it.citation })
 }
 
 // Sotto questo spazio residuo una sezione in piu' sarebbe solo un frammento.

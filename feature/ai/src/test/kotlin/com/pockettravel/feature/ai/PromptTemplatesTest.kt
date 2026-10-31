@@ -47,6 +47,6 @@ class PromptTemplatesTest {
             PromptTemplates.onDevicePrompt(context = context, question = "q"),
         )
         assertTrue(PromptTemplates.onDevicePrompt(context = context, question = "q", language = "en").startsWith("You are an offline travel guide.\n"))
-        assertTrue(OnlinePromptTemplates.onlinePrompt("riga 1\nriga 2").startsWith("Sei un assistente di viaggio.\n"))
+        assertTrue(OnlinePromptTemplates.systemPrompt("riga 1\nriga 2").startsWith("Sei un assistente di viaggio.\n"))
     }
 }

@@ -30,8 +30,8 @@ internal fun isForecastQuestion(question: String, modelGroups: Set<String> = emp
 
 /**
  * Cosa serve a [ForecastSections] dalla domanda: [namesCountry] se la domanda nomina una nazione; [usePosition] solo sul
- * dispositivo, perche' con i modelli online il nome della citta' vicina all'utente o dell'ultima guida aperta arriverebbe
- * al servizio.
+ * dispositivo o con il consenso a mandare la posizione ai servizi online, perche' altrimenti il nome della citta' vicina
+ * all'utente o dell'ultima guida aperta arriverebbe al servizio.
  */
 internal class ForecastQuery(
     val regionId: String,

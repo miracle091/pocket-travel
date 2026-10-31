@@ -93,7 +93,7 @@ Il modello gira sul dispositivo e nessun dato ne esce. Le conversazioni si salva
 
 ### ☁️ Online (con una chiave API personale)
 
-L'assistente usa un servizio di IA con la chiave API personale dell'utente, che resta cifrata sul dispositivo. La domanda va al servizio **senza la guida scaricata** e l'uso si paga sull'account del servizio. Nell'app si sceglie il servizio, si incolla la chiave e si tocca **Salva la chiave**; **Crea la chiave su …** apre la pagina giusta.
+L'assistente usa un servizio di IA con la chiave API personale dell'utente, che resta cifrata sul dispositivo. La domanda va al servizio con i testi più pertinenti delle guide scaricate, e la risposta cita la sezione usata. La nota personale, la posizione e la nazionalità partono solo con **Invia dati personali al servizio** acceso (spento all'inizio). L'uso si paga sull'account del servizio. Nell'app si sceglie il servizio, si incolla la chiave e si tocca **Salva la chiave**; **Crea la chiave su …** apre la pagina giusta.
 
 I modelli proposti per ogni servizio, con il costo stimato di 100 domande, vengono da un elenco firmato che l'app scarica all'apertura dell'assistente con il motore Online: l'elenco cambia senza aggiornare l'app. Con la chiave salvata l'app nasconde i modelli che l'account non può usare. Modelli attuali:
 

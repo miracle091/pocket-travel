@@ -81,6 +81,11 @@ class AiSettingsStore(
         prefs.edit { putString(KEY_MODEL_PREFIX + provider.name, setting) }
     }
 
+    /** Consenso a mandare ai servizi online nota personale, dati dalla posizione (POI vicini, mezzi pubblici, previsioni), partenza e nazionalita': spento di default. */
+    fun sharesPersonalData(): Boolean = prefs.getBoolean(KEY_SHARE_NOTE_POSITION, false)
+
+    fun setSharesPersonalData(enabled: Boolean) = prefs.edit { putBoolean(KEY_SHARE_NOTE_POSITION, enabled) }
+
     // Un solo modello sul dispositivo installabile alla volta (vedi LlmModelManager.selectAndDownload):
     // questo e' l'id del modello scelto dall'utente in LlmModelCatalog.ALL, non necessariamente
     // ancora scaricato. Senza una scelta, o con un id salvato che non e' piu' nel catalogo dei modelli (es. un
@@ -139,6 +144,7 @@ class AiSettingsStore(
         const val KEY_MODE = "engine_mode"
         const val KEY_PROVIDER = "online_provider"
         const val KEY_MODEL_PREFIX = "online_model_"
+        const val KEY_SHARE_NOTE_POSITION = "online_share_personal_data"
         const val API_KEY_ALIAS = "pocket_travel_ai_api_key_v2"
         const val API_KEY_PAYLOAD = "api_key_payload"
         const val KEY_SELECTED_MODEL_ID = "selected_model_id"

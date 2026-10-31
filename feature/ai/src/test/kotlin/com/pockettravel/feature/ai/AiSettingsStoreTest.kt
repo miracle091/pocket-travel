@@ -5,6 +5,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeNotNull
 import org.junit.Before
 import org.junit.Test
@@ -52,6 +53,17 @@ class AiSettingsStoreTest {
 
         assertEquals(AiEngineMode.ONLINE, newStore().engineMode())
         assertEquals("ONLINE", raw.getString("engine_mode", null))
+    }
+
+    @Test
+    fun `nota e posizione non vanno ai servizi online finche' l'utente non acconsente`() {
+        assertFalse(newStore().sharesPersonalData())
+
+        newStore().setSharesPersonalData(true)
+        assertTrue(newStore().sharesPersonalData())
+
+        newStore().setSharesPersonalData(false)
+        assertFalse(newStore().sharesPersonalData())
     }
 
     @Test

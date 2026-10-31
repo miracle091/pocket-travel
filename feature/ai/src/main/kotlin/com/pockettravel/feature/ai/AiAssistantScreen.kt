@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -49,6 +51,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -235,6 +238,7 @@ data class AiActions(
     val onHideBenchmarkComparison: () -> Unit,
     val onProviderSelected: (OnlineProvider) -> Unit = {},
     val onOnlineModelChanged: (String) -> Unit = {},
+    val onSharesPersonalDataChanged: (Boolean) -> Unit = {},
     val onVoiceStart: () -> Unit = {},
     val onVoiceStop: () -> Unit = {},
     val onVoicePermissionDenied: () -> Unit = {},
@@ -271,6 +275,7 @@ private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
     onSaveApiKey = ::saveApiKey,
     onProviderSelected = ::onProviderSelected,
     onOnlineModelChanged = ::onOnlineModelChanged,
+    onSharesPersonalDataChanged = ::onSharesPersonalDataChanged,
     onQuestionChanged = ::onQuestionChanged,
     onAsk = { ask(regionId) },
     onDeleteModel = ::deleteModel,
@@ -551,6 +556,7 @@ internal fun AiSettingsContent(uiState: AiUiState, actions: AiActions) {
                         TextButton(onClick = { showRemoveKeyConfirm = true }) { Text(stringResource(R.string.ai_remove_key)) }
                     }
                 }
+                SharePersonalDataSwitch(uiState.sharesPersonalData, actions.onSharesPersonalDataChanged)
             }
         }
         // Anche con il motore Online: le conversazioni salvate prima restano finche' non si cancellano.
@@ -1108,6 +1114,28 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
             onConfirm = { showLargeDownloadWarning = false; actions.onDownloadModel() },
             onDismiss = { showLargeDownloadWarning = false },
         )
+    }
+}
+
+// Consenso a mandare al servizio i dati personali (nota, posizione, partenza e nazionalita'): spento di default.
+@Composable
+private fun SharePersonalDataSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = Spacing.s)) {
+            Text(stringResource(R.string.ai_online_share_title), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                stringResource(R.string.ai_online_share_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

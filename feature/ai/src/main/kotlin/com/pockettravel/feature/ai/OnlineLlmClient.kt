@@ -31,12 +31,23 @@ class OnlineLlmClient @Inject constructor(
     private val json: Json,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
-    /** [sendTemperature]: false per i modelli che rifiutano una temperatura impostata (OnlineModelCatalog.sendsTemperature). */
-    suspend fun generate(baseUrl: String, apiKey: String, model: String, prompt: String, sendTemperature: Boolean): String =
+    /**
+     * [prompt] e' il messaggio user; [system], se c'e', un solo messaggio system prima di lui.
+     * [sendTemperature]: false per i modelli che rifiutano una temperatura impostata (OnlineModelCatalog.sendsTemperature).
+     */
+    suspend fun generate(
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+        prompt: String,
+        sendTemperature: Boolean,
+        system: String? = null,
+    ): String =
         withContext(ioDispatcher) {
             val requestBody = OpenAiChatRequest(
                 model = model,
-                messages = listOf(OpenAiChatMessage(role = "user", content = prompt)),
+                messages = listOfNotNull(system?.let { OpenAiChatMessage(role = "system", content = it) }) +
+                    OpenAiChatMessage(role = "user", content = prompt),
                 temperature = TEMPERATURE.takeIf { sendTemperature },
             )
             val request = Request.Builder()

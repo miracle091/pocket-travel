@@ -93,7 +93,7 @@
     <string name="ai_provider_title">Servizio</string>
     <string name="ai_provider_get_key">Crea la chiave su %1$s</string>
     <string name="ai_api_key_placeholder">Inizia con %1$s…</string>
-    <string name="ai_empty_subtitle_online">La domanda viene inviata a %1$s così com\'è, senza la guida scaricata: le risposte, generate da un modello IA, sono più generali. Alle domande sul tempo si aggiungono le previsioni di Open-Meteo della città nominata o della capitale della regione. Per dogane, salute e sicurezza verifica sempre sulla fonte ufficiale</string>
+    <string name="ai_empty_subtitle_online">La domanda viene inviata a %1$s con i testi più pertinenti delle guide scaricate. Le risposte sono generate da un modello IA e citano la sezione usata. Alle domande sul tempo si aggiungono le previsioni di Open-Meteo della città nominata o della capitale della regione. Per dogane, salute e sicurezza verifica sempre sulla fonte ufficiale</string>
     <string name="ai_online_model_title">Modello</string>
     <string name="ai_error_model">Il servizio non riconosce questo modello: controlla il nome in Assistente IA → Online o scegli Automatico</string>
     <string name="ai_provider_model">Modello: %1$s</string>
@@ -106,6 +106,8 @@
     <string name="ai_online_model_other">Altro modello</string>
     <string name="ai_online_model_other_desc">Inserisci il nome esatto di un altro modello del servizio</string>
     <string name="ai_online_model_label">Nome del modello</string>
+    <string name="ai_online_share_title">Invia dati personali al servizio</string>
+    <string name="ai_online_share_hint">Acceso: insieme alla domanda arrivano al servizio la nota più pertinente, i dati vicini alla posizione o all\'ultima guida aperta (punti di interesse, mezzi pubblici, previsioni) e, per i vaccini, la partenza o la nazionalità. Spento: arrivano solo la domanda, i testi delle guide e i dati senza informazioni personali (allerte, numeri di emergenza, distanze tra le città nominate)</string>
     <string name="ai_error_key_rejected">Il servizio ha rifiutato la chiave API: potrebbe essere scaduta o revocata. Rimuovila e inseriscine una nuova</string>
     <string name="ai_saved_key_reminder">È salvata una chiave API di %1$s: l\'assistente online è utilizzabile subito, senza scaricare un modello</string>
     <string name="ai_use_online">Usa online</string>

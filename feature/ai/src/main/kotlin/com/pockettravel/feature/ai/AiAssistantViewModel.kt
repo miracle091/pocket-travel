@@ -54,6 +54,8 @@ data class AiUiState(
     // chiave salvata non vede (OnlineModelAvailability).
     val onlineModelOptions: List<OnlineModelEntry> = emptyList(),
     val apiKeyInput: String = "",
+    // Consenso a mandare ai servizi online i dati personali (AiSettingsStore.sharesPersonalData).
+    val sharesPersonalData: Boolean = false,
     val benchmarkResult: BenchmarkResult? = null,
     val isBenchmarking: Boolean = false,
     val allBenchmarkResults: List<BenchmarkResult> = emptyList(),
@@ -168,6 +170,7 @@ class AiAssistantViewModel @Inject constructor(
             isApiKeyConfigured = aiSettingsStore.hasApiKey(),
             onlineProvider = aiSettingsStore.onlineProvider(),
             onlineModelSetting = aiSettingsStore.onlineModelSetting(),
+            sharesPersonalData = aiSettingsStore.sharesPersonalData(),
             benchmarkResult = aiSettingsStore.benchmarkResult(aiSettingsStore.selectedModelId()),
             allBenchmarkResults = aiSettingsStore.allBenchmarkResults(),
         ),
@@ -306,6 +309,11 @@ class AiAssistantViewModel @Inject constructor(
         aiSettingsStore.setOnlineModelSetting(provider, setting)
         _uiState.update { it.copy(onlineModelSetting = setting) }
         updateOnlineModels()
+    }
+
+    fun onSharesPersonalDataChanged(enabled: Boolean) {
+        aiSettingsStore.setSharesPersonalData(enabled)
+        _uiState.update { it.copy(sharesPersonalData = enabled) }
     }
 
     // Solo con il motore Online, l'unico che usa l'elenco.
