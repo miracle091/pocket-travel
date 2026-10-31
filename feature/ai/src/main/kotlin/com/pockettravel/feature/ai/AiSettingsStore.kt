@@ -38,7 +38,14 @@ class AiSettingsStore(
     fun engineMode(): AiEngineMode =
         AiEngineMode.valueOf(prefs.getString(KEY_MODE, AiEngineMode.ON_DEVICE.name) ?: AiEngineMode.ON_DEVICE.name)
 
-    fun setEngineMode(mode: AiEngineMode) = prefs.edit { putString(KEY_MODE, mode.name) }
+    // Segue setEngineMode: chi tiene aperta una schermata dell'assistente vede il motore cambiato dalle Impostazioni.
+    private val _engineModeFlow = MutableStateFlow(engineMode())
+    val engineModeFlow: StateFlow<AiEngineMode> = _engineModeFlow.asStateFlow()
+
+    fun setEngineMode(mode: AiEngineMode) {
+        prefs.edit { putString(KEY_MODE, mode.name) }
+        _engineModeFlow.value = mode
+    }
 
     fun hasApiKey(): Boolean = !apiKey().isNullOrBlank()
 

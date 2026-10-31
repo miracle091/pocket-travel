@@ -121,6 +121,52 @@ class ModelIdleReleaserTest {
     }
 
     @Test
+    fun returningToForegroundRestartsTheIdleTime() = runTest {
+        val releaser = releaser()
+        releaser.use()
+        releaser.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
+        advanceTimeBy(1_000)
+        releaser.onForeground()
+        advanceTimeBy(ModelIdleReleaser.HIDDEN_DELAY_MILLIS + 1)
+        runCurrent()
+        assertEquals(0, releases)
+        advanceTimeBy(ModelIdleReleaser.IDLE_MILLIS)
+        runCurrent()
+        assertEquals(1, releases)
+    }
+
+    @Test
+    fun anAnswerAfterReturningToForegroundWaitsForTheIdleTime() = runTest {
+        val releaser = releaser()
+        releaser.use()
+        releaser.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
+        releaser.onForeground()
+        releaser.use()
+        advanceTimeBy(ModelIdleReleaser.HIDDEN_DELAY_MILLIS + 1)
+        runCurrent()
+        assertEquals(0, releases)
+        advanceTimeBy(ModelIdleReleaser.IDLE_MILLIS)
+        runCurrent()
+        assertEquals(1, releases)
+    }
+
+    @Test
+    fun noReleaseWhileAnAnswerIsActive() = runTest {
+        val releaser = releaser()
+        var answering = true
+        releaser.isAnswerActive = { answering }
+        releaser.use()
+        releaser.onTrimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
+        advanceTimeBy(3 * ModelIdleReleaser.HIDDEN_DELAY_MILLIS)
+        runCurrent()
+        assertEquals(0, releases)
+        answering = false
+        advanceTimeBy(ModelIdleReleaser.HIDDEN_DELAY_MILLIS + 1)
+        runCurrent()
+        assertEquals(1, releases)
+    }
+
+    @Test
     fun lowMemoryInForegroundReleasesOnlyWithoutAGeneration() = runTest {
         val releaser = releaser()
         val answer = CompletableDeferred<Unit>()

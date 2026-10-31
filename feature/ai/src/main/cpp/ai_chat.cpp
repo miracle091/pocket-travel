@@ -658,7 +658,7 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
 
     // Obtain and tokenize user prompt
     std::string user_prompt = jstring_to_utf8(env, juser_prompt);
-    LOGd("%s: User prompt received: \n%s", __func__, user_prompt.c_str());
+    LOGv("%s: User prompt received: \n%s", __func__, user_prompt.c_str());
     std::string formatted_user_prompt = user_prompt;
 
     // Format user prompt if applicable

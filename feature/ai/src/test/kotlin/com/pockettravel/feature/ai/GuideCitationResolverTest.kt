@@ -69,4 +69,28 @@ class GuideCitationResolverTest {
         assertNull(resolve("Fonte: numeri di emergenza (Travel.gc.ca, Wikipedia, Wikidata, gov.uk)"))
         assertNull(resolve("Source: weather forecasts by Open-Meteo.com"))
     }
+
+    @Test
+    fun `piu' fonti caricano una volta sola nazione, nomi e sezioni di ogni citta'`() = runTest {
+        var countryLoads = 0
+        var nameLoads = 0
+        val loaded = mutableListOf<String>()
+        val citations = listOf(salute.citation("it"), duomoMilano.citation("it"), storiaRoma.citation("it"), duomoMilano.citation("it"))
+
+        val targets = resolveGuideCitations(
+            citations = citations,
+            answer = "risposta",
+            countrySections = { countryLoads++; listOf(salute, cibo) },
+            cityNames = { nameLoads++; listOf("Roma", "Milano") },
+            citySections = { city ->
+                loaded += city
+                listOf(storiaRoma, duomoMilano).filter { it.city == city }
+            },
+        )
+
+        assertEquals(3, targets.size)
+        assertEquals(1, countryLoads)
+        assertEquals(1, nameLoads)
+        assertEquals(listOf("Milano", "Roma"), loaded)
+    }
 }

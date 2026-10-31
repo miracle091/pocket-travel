@@ -56,6 +56,16 @@ class AiSettingsStoreTest {
     }
 
     @Test
+    fun `il flusso del motore segue la scelta fatta dalle Impostazioni`() {
+        val store = newStore()
+        assertEquals(AiEngineMode.ON_DEVICE, store.engineModeFlow.value)
+
+        store.setEngineMode(AiEngineMode.ONLINE)
+
+        assertEquals(AiEngineMode.ONLINE, store.engineModeFlow.value)
+    }
+
+    @Test
     fun `nota e posizione non vanno ai servizi online finche' l'utente non acconsente`() {
         assertFalse(newStore().sharesPersonalData())
 

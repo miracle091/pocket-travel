@@ -253,7 +253,7 @@ data class AiActions(
     val onImportModel: (displayName: String?, sizeBytes: Long, open: () -> InputStream?) -> Unit = { _, _, _ -> },
     val sendableModelFile: (LlmModelDefinition) -> File? = { null },
     // Fonte di una sezione della guida sotto una risposta (con il testo della risposta): la sezione, se c'è, e la sua apertura.
-    val resolveGuideSource: suspend (citation: String, answer: String) -> GuideSourceTarget? = { _, _ -> null },
+    val resolveGuideSources: suspend (citations: List<String>, answer: String) -> Map<String, GuideSourceTarget> = { _, _ -> emptyMap() },
     val onOpenGuideSource: (GuideSourceTarget) -> Unit = {},
 )
 
@@ -290,7 +290,7 @@ private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
     onDeleteHistory = ::deleteHistory,
     onImportModel = ::importModel,
     sendableModelFile = ::sendableModelFile,
-    resolveGuideSource = { citation, answer -> resolveGuideSource(regionId, citation, answer) },
+    resolveGuideSources = { citations, answer -> resolveGuideSources(regionId, citations, answer) },
 )
 
 @Composable
@@ -694,13 +694,13 @@ private fun QuestionBubble(text: String) {
 private fun SourceCitations(
     citations: List<String>,
     answerText: String,
-    resolveGuideSource: suspend (citation: String, answer: String) -> GuideSourceTarget?,
+    resolveGuideSources: suspend (citations: List<String>, answer: String) -> Map<String, GuideSourceTarget>,
     onOpenGuideSource: (GuideSourceTarget) -> Unit,
 ) {
     var expanded by rememberSaveable(citations) { mutableStateOf(false) }
     // Le fonti che risalgono a una sezione della guida installata si toccano; si cercano solo quando l'elenco è aperto.
     val guideTargets by produceState(emptyMap<String, GuideSourceTarget>(), citations, answerText, expanded) {
-        value = if (expanded) citations.mapNotNull { citation -> resolveGuideSource(citation, answerText)?.let { citation to it } }.toMap() else emptyMap()
+        value = if (expanded) resolveGuideSources(citations, answerText) else emptyMap()
     }
     Column(modifier = Modifier.padding(top = Spacing.xs)) {
         Row(
@@ -861,7 +861,7 @@ private fun FinishedAnswer(answer: AssistantAnswer, credit: ModelCredit?, onOpen
     answer.forecast?.let { forecast ->
         WeatherCard(forecast, onOpenSource = { url, _ -> onOpenOfficialSource(url) }, modifier = Modifier.padding(top = Spacing.m))
     }
-    if (answer.sourceCitations.isNotEmpty()) SourceCitations(answer.sourceCitations, answer.text, actions.resolveGuideSource, actions.onOpenGuideSource)
+    if (answer.sourceCitations.isNotEmpty()) SourceCitations(answer.sourceCitations, answer.text, actions.resolveGuideSources, actions.onOpenGuideSource)
     if (answer.showOfficialSourceBanner) {
         val url = answer.officialSourceUrl
         AssistChip(

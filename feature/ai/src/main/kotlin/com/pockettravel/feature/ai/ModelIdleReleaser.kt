@@ -30,6 +30,13 @@ class ModelIdleReleaser(
     @Volatile
     private var releaseWhenHidden = false
 
+    /**
+     * Vero mentre una risposta e' in corso: tra un passo e l'altro (percorso, previsioni, allerte) il modello resta
+     * caricato anche oltre l'attesa, che riparte.
+     */
+    @Volatile
+    var isAnswerActive: () -> Boolean = { false }
+
     /** Un uso del modello (caricamento o generazione) sotto il lock del modello. */
     suspend fun <T> withModelUse(block: suspend () -> T): T {
         uses.incrementAndGet()
@@ -58,12 +65,22 @@ class ModelIdleReleaser(
         }
     }
 
+    /** L'app torna in primo piano: il rilascio chiesto per l'app nascosta non vale piu', l'attesa riparte da IDLE_MILLIS. */
+    fun onForeground() {
+        releaseWhenHidden = false
+        if (synchronized(this) { pending?.isActive == true } && !coordinator.isLocked) schedule(IDLE_MILLIS)
+    }
+
     private fun schedule(delayMillis: Long) {
         val seen = uses.get()
         synchronized(this) {
             pending?.cancel()
             pending = scope.launch {
                 delay(delayMillis)
+                if (isAnswerActive()) {
+                    schedule(delayMillis)
+                    return@launch
+                }
                 coordinator.withModelLock {
                     if (uses.get() == seen) {
                         release()

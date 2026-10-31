@@ -47,6 +47,8 @@ import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.label
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -122,7 +124,11 @@ class TravelAssistant @Inject constructor(
         // Lingua dell'interfaccia: prompt, testo di ripiego e citazioni (le guide installate la seguono).
         val language = currentGuidesLanguage()
         val cityNames = cityRepository.cityNamesFor(regionId)
-        val question = resolveQuestion(regionId, askedQuestion, previousQuestion, cityNames, language)
+        // Nota, posizione, partenza e nazionalita' escono dal telefono solo con il consenso (interruttore nelle impostazioni dell'assistente).
+        val sharePersonal = mode == AiEngineMode.ON_DEVICE || aiSettingsStore.sharesPersonalData()
+        // Senza consenso, online niente sezioni scelte per nazionalita' (#for-nationality): ne rivelerebbero una.
+        val nationality = nationalityPreferences.nationality.value.takeIf { sharePersonal }
+        val question = resolveQuestion(regionId, askedQuestion, previousQuestion, cityNames, language, nationality)
         // Le citta' nominate nella domanda: le sezioni delle citta' candidate sono solo le loro (due per "quanto dista X da Y").
         val cities = namedCities(question, cityNames, language)
         val city = cities.singleOrNull()
@@ -132,24 +138,27 @@ class TravelAssistant @Inject constructor(
         } else {
             emptySet()
         }
-        // Nota, posizione, partenza e nazionalita' escono dal telefono solo con il consenso (interruttore nelle impostazioni dell'assistente).
-        val sharePersonal = mode == AiEngineMode.ON_DEVICE || aiSettingsStore.sharesPersonalData()
-        // Senza consenso, online niente sezioni scelte per nazionalita' (#for-nationality): ne rivelerebbero una.
-        val nationality = nationalityPreferences.nationality.value.takeIf { sharePersonal }
         val search = searchSections(regionId, question, cities, language, modelGroups, if (mode == AiEngineMode.ONLINE) ONLINE_MAX_SECTIONS else MAX_SECTIONS, nationality)
         val sections = search.sections
         val regulatedMatch = sections.firstOrNull { !it.fromGeneralGuide && it.isRegulatedTopic() }
         // Per Viaggiare Sicuri il banner apre la pagina della nazione nominata nella domanda, o di quella della regione.
         val destination = regulatedMatch?.let { search.country?.code ?: regionRepository.installed(regionId)?.countryCode }
         // Con la rete (o un'ultima risposta ancora valida), le previsioni per le domande di previsione, in entrambi i motori.
-        val forecast = forecastSections.forQuestion(
-            ForecastQuery(
-                regionId, question, previousQuestion, modelGroups, cities, cityNames, search.country != null, language,
-                usePosition = sharePersonal,
-            ),
-        )
-        // Con la rete (o l'ultima risposta salvata), le allerte della regione per le domande su una catastrofe.
-        val alerts = alertsSections.forQuestion(regionId, question, language)
+        // Previsioni, allerte della regione (domande su una catastrofe) e percorso in auto tra due citta' nominate sono
+        // indipendenti e ognuno ha la sua attesa: si calcolano insieme, non uno dopo l'altro.
+        val (forecast, alerts, distance) = coroutineScope {
+            val forecastJob = async {
+                forecastSections.forQuestion(
+                    ForecastQuery(
+                        regionId, question, previousQuestion, modelGroups, cities, cityNames, search.country != null, language,
+                        usePosition = sharePersonal,
+                    ),
+                )
+            }
+            val alertsJob = async { alertsSections.forQuestion(regionId, question, language) }
+            val distanceJob = async { cityDistanceSection(regionId, cities, question, language) }
+            Triple(forecastJob.await(), alertsJob.await(), distanceJob.await())
+        }
 
         val withSource = { answer: AssistantAnswer ->
             answer.copy(
@@ -161,7 +170,7 @@ class TravelAssistant @Inject constructor(
                 forecast = forecast?.weather,
             )
         }
-        val contextSections = contextSections(regionId, question, language, cities, search, listOfNotNull(forecast?.section, alerts), sharePersonal)
+        val contextSections = contextSections(regionId, question, language, search, listOfNotNull(forecast?.section, alerts), distance, sharePersonal)
         val focus = focusStems(search.baseQuery, city)
         when (mode) {
             AiEngineMode.ON_DEVICE -> {
@@ -187,14 +196,14 @@ class TravelAssistant @Inject constructor(
         regionId: String,
         question: String,
         language: String,
-        cities: List<String>,
         search: SectionSearch,
         leading: List<AssistantSection>,
+        distance: AssistantSection?,
         sharePersonal: Boolean,
     ): List<AssistantSection> {
         val emergency = emergencySection(search.country?.regionIds?.first() ?: regionId, question, language)
         return leading + listOfNotNull(
-            cityDistanceSection(regionId, cities, question, language),
+            distance,
             if (sharePersonal) vaccinationSection(regionId, question, language, search.country) else null,
             emergency,
             if (sharePersonal) nearbyPoiSection(regionId, question, language) else null,
@@ -207,11 +216,17 @@ class TravelAssistant @Inject constructor(
      * seguito, cioe' se comincia come un seguito (isFollowUpQuestion) oppure non nomina citta' e la ricerca nelle
      * guide non trova niente con le sue parole.
      */
-    private suspend fun resolveQuestion(regionId: String, question: String, previous: String?, cityNames: List<String>, language: String): String {
+    private suspend fun resolveQuestion(
+        regionId: String,
+        question: String,
+        previous: String?,
+        cityNames: List<String>,
+        language: String,
+        nationality: String?,
+    ): String {
         if (previous == null) return question
         val followUp = isFollowUpQuestion(question) || namedCities(question, cityNames, language).isEmpty() &&
             buildFtsQuery(question, regionId).let { query ->
-                val nationality = nationalityPreferences.nationality.value
                 query.isBlank() ||
                     guideRepository.searchCandidates(regionId, query).none { isGuideSectionFor(it.first.sourceUrl, nationality) } &&
                     cityRepository.candidates(regionId, query, emptyList()).isEmpty()

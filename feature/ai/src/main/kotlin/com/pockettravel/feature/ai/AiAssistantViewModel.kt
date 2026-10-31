@@ -182,7 +182,12 @@ class AiAssistantViewModel @Inject constructor(
     init {
         // "Ferma" della notifica della risposta in corso (AnswerService).
         viewModelScope.launch {
-            answerKeepAlive.stopRequests.collect { cancelAsk() }
+            answerKeepAlive.stopRequests.collect { stopAnswer() }
+        }
+        viewModelScope.launch {
+            aiSettingsStore.engineModeFlow.collect { mode ->
+                if (deviceAiCapability.isOnDeviceAiSupported() && mode != _uiState.value.mode) applyMode(mode)
+            }
         }
         // Elenco dei modelli online: quello pubblicato sostituisce quello dell'APK appena scaricato.
         viewModelScope.launch {
@@ -269,8 +274,13 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     fun onModeChanged(mode: AiEngineMode) {
-        cancelAsk()
         aiSettingsStore.setEngineMode(mode)
+        applyMode(mode)
+    }
+
+    // Anche per il motore cambiato dalle Impostazioni mentre questa schermata resta nello stack.
+    private fun applyMode(mode: AiEngineMode) {
+        cancelAsk()
         _uiState.update { it.copy(mode = mode, answer = null, askedQuestion = null, emergencyCard = null, errorMessage = null) }
         refreshOnlineModels()
         checkOnlineModelAvailability()
@@ -494,17 +504,18 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     /**
-     * La sezione della guida di [regionId] che [citation] cita sotto la risposta [answer]. Null se la fonte è di altro
-     * tipo, se la regione della conversazione ripresa non è più installata o se la sezione non c'è più.
+     * Le sezioni della guida citate da [citations] sotto la risposta [answer], per fonte. Mancano le fonti di altro
+     * tipo, quelle di una regione non più installata o di una sezione che non c'è più. Si cerca nella regione della
+     * conversazione ripresa, altrimenti in [regionId].
      */
-    suspend fun resolveGuideSource(regionId: String, citation: String, answer: String): GuideSourceTarget? {
-        if (_uiState.value.readOnlyRegion != null) return null
+    suspend fun resolveGuideSources(regionId: String, citations: List<String>, answer: String): Map<String, GuideSourceTarget> {
+        if (_uiState.value.readOnlyRegion != null) return emptyMap()
         return try {
-            guideCitationResolver.resolve(regionId, citation, answer)
+            guideCitationResolver.resolveAll(conversation.regionId ?: regionId, citations, answer)
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {
-            null
+            emptyMap()
         }
     }
 
@@ -617,6 +628,17 @@ class AiAssistantViewModel @Inject constructor(
 
     // La domanda in corso (generazione o richiesta online).
     private var askJob: Job? = null
+
+    // "Ferma" della notifica: interrompe solo la risposta di questo ViewModel, se c'e', e la segna come non riuscita.
+    // Turni precedenti e conversazione restano; gli altri ViewModel (il servizio e' unico) non hanno niente da fermare.
+    private fun stopAnswer() {
+        val job = askJob?.takeIf { it.isActive } ?: return
+        job.cancel()
+        askJob = null
+        forecastJob?.cancel()
+        conversation.onFailed()
+        _uiState.update { it.copy(isThinking = false, streamingText = "", canRefreshForecast = false) }
+    }
 
     /** Chiude la conversazione aperta (si archivia) e svuota la schermata per una nuova. */
     fun newConversation() {
