@@ -123,6 +123,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Dati EXIF della foto (data, luogo, modello del telefono), tolti prima dell'invio | dati della foto (mai "EXIF" nell'interfaccia) | photo details |
 | Evento reale in corso (terremoto, alluvione, allerta meteo...) letto dalle fonti online | allerta, allerte (mai "avviso", "allarme" o "notifica") | alert, alerts |
 | Riquadro della guida con le allerte della regione | Allerte in corso | Active alerts |
+| Riquadro della guida della città con le medie del mese dalla tabella climatica di Wikipedia | Medie mensili, con Tutti i mesi; fonte: Wikipedia, tabella climatica | Monthly averages, with All months; source: Wikipedia, climate table |
 | Riquadro in cima alla risposta dell'assistente quando la domanda parla di un pericolo per la vita | riquadro di emergenza (titolo: Emergenza? Chiama subito) | emergency card (title: Emergency? Call now) |
 | Frase sotto ogni allerta | Informazioni non ufficiali e non in tempo reale: segui sempre le direttive delle autorità locali | Unofficial and not in real time: always follow the instructions of the local authorities |
 | Fonte e ora delle allerte | Fonte: %1$s · aggiornate alle %2$s; senza rete: Ultime allerte scaricate alle %1$s | Source: %1$s · updated at %2$s; offline: Last alerts downloaded at %1$s |

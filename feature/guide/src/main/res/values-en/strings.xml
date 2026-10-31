@@ -194,7 +194,7 @@
     <string name="vacc_vaccine_chik">Chikungunya</string>
     <string name="vacc_vaccine_routine">Routine vaccinations</string>
 
-    <!-- Weather card (WeatherCard): Open-Meteo data, CC BY 4.0 -->
+    <!-- Travel advice date card (TravelAdviceNotice) -->
     <string name="guide_travel_advice_updated">Travel advice updated on %1$s</string>
     <string name="guide_travel_advice_open">Open</string>
     <!-- Monthly averages card (ClimateCard): Wikipedia climate table -->

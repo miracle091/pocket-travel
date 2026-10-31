@@ -205,7 +205,7 @@
     <string name="vacc_vaccine_chik">Chikungunya</string>
     <string name="vacc_vaccine_routine">Vaccinazioni di routine</string>
 
-    <!-- Riquadro meteo (WeatherCard): dati Open-Meteo, CC BY 4.0 -->
+    <!-- Riquadro della data dei consigli di viaggio (TravelAdviceNotice) -->
     <string name="guide_travel_advice_updated">Consigli di viaggio aggiornati il %1$s</string>
     <string name="guide_travel_advice_open">Apri</string>
     <!-- Riquadro delle medie mensili (ClimateCard): tabella climatica di Wikipedia -->
