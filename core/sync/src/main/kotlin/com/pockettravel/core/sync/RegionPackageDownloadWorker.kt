@@ -13,7 +13,6 @@ import androidx.work.WorkInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.pockettravel.core.data.PackageKind
-import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.RegionZonePreferences
 import com.pockettravel.core.data.RoutingVariantPreferences
 import dagger.assisted.Assisted
@@ -29,7 +28,6 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val installer: RegionPackageInstaller,
-    private val regionStorage: RegionStorage,
     private val regionZonePreferences: RegionZonePreferences,
     private val routingVariantPreferences: RoutingVariantPreferences,
     private val json: Json,
@@ -137,7 +135,8 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && stopReason == WorkInfo.STOP_REASON_CANCELLED_BY_APP
 
     private fun cleanUp(regionId: String?, requestFile: String?) {
-        regionId?.let(regionStorage::deleteStaging)
+        // Mai sotto i piedi di un altro download della stessa regione, che puo' partire appena questo lascia il lock.
+        regionId?.let(installer::deleteStagingIfIdle)
         requestFile?.let { requestFiles(applicationContext).delete(it) }
     }
 

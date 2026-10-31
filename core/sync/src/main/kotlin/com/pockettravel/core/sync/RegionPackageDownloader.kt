@@ -40,6 +40,21 @@ class RegionPackageDownloader @Inject constructor(
     suspend fun <T> withStagingLock(stagingId: String, block: suspend () -> T): T =
         locks.getOrPut(stagingId) { Mutex() }.withLock { block() }
 
+    /**
+     * [block] sotto il lock di [stagingId] solo se e' libero, senza aspettare: false se un altro lavoro lo tiene.
+     * Non sospende, quindi si puo' chiamare anche da un lavoro annullato.
+     */
+    fun tryWithStagingLock(stagingId: String, block: () -> Unit): Boolean {
+        val mutex = locks.getOrPut(stagingId) { Mutex() }
+        if (!mutex.tryLock()) return false
+        try {
+            block()
+        } finally {
+            mutex.unlock()
+        }
+        return true
+    }
+
     suspend fun download(
         regionId: String,
         stagingVersion: String,

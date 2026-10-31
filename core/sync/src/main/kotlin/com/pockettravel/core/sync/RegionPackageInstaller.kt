@@ -35,6 +35,14 @@ class RegionPackageInstaller @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val clock: Clock,
 ) {
+    /**
+     * Cancella lo staging della regione (file .part compresi) se nessun altro lavoro lo sta usando. Se e' occupato
+     * non lo tocca: chi lo tiene lo ripulisce alla fine, e un nuovo tentativo riparte dalla propria cartella.
+     */
+    fun deleteStagingIfIdle(regionId: String) {
+        downloader.tryWithStagingLock(regionId) { regionStorage.deleteStaging(regionId) }
+    }
+
     suspend fun install(
         entry: RegionManifestEntry,
         kinds: Set<PackageKind>,
@@ -63,9 +71,6 @@ class RegionPackageInstaller @Inject constructor(
             if (PackageKind.TRANSIT in kinds) addAll(entry.transit!!.feeds.map { it.stagedDownloadFile })
             if (installPreview) add(entry.preview.downloadFile)
         }
-        // Prima di tutto: un tentativo precedente interrotto da un crash puo' aver lasciato backup da
-        // chiudere, che activatePackage sovrascriverebbe (RegionStartupRecovery salta le regioni in download).
-        withContext(ioDispatcher) { regionRepository.recoverInterruptedActivations(entry.regionId) }
         // Una cartella di staging per combinazione di pacchetti e versioni: un download interrotto
         // riprende dai file .part della stessa richiesta, una richiesta diversa riparte da zero. La rete stradale
         // "solo auto" ha la stessa versione e gli stessi nomi di quella completa: "car" li tiene separati.
@@ -76,6 +81,10 @@ class RegionPackageInstaller @Inject constructor(
         // Download, decompressione, attivazione e pulizia sotto lo stesso lock dello staging della regione: un altro
         // lavoro con una versione diversa non cancella (cleanupStagingExcept) i file mentre questo li usa.
         downloader.withStagingLock(entry.regionId) {
+            // Prima di tutto: un tentativo precedente interrotto da un crash puo' aver lasciato backup da
+            // chiudere, che activatePackage sovrascriverebbe (RegionStartupRecovery salta le regioni in download).
+            // Sotto il lock: fuori, annullerebbe l'attivazione in corso di un altro lavoro sulla stessa regione.
+            withContext(ioDispatcher) { regionRepository.recoverInterruptedActivations(entry.regionId) }
             val staging = downloader.downloadLocked(entry.regionId, stagingVersion, files, onProgress)
             if (PackageKind.POI in kinds) unpackXz(staging, entry.poi.file, entry.poi.fileXz, ioDispatcher)
             if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz, ioDispatcher)

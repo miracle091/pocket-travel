@@ -508,6 +508,22 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
     }
 
     @Test
+    fun `aggiornare la mappa richiede lo spazio della mappa installata`() = runTest {
+        val mapBytes = 300L * 1024 * 1024
+        repository.installedRegions.value = listOf(installed())
+        repository.packageSizes["italia" to PackageKind.MAP] = mapBytes
+        repository.availableBytes = mapBytes - 1
+        val viewModel = viewModel()
+        observe(viewModel)
+
+        viewModel.downloadPackage("italia", PackageKind.MAP)
+        advanceUntilIdle()
+
+        assertTrue(scheduler.enqueued.isEmpty())
+        assertEquals(R.string.regions_not_enough_space, viewModel.uiState.value.message)
+    }
+
+    @Test
     fun `scaricare i pacchetti scelti dice se e' partito`() = runTest {
         val viewModel = viewModel()
         advanceUntilIdle()

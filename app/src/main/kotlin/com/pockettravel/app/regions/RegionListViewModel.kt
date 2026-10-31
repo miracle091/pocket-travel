@@ -393,8 +393,14 @@ class RegionListViewModel @Inject constructor(
         if (kinds.isEmpty()) return false
         val entry = if (PackageKind.CITIES in kinds) withCitiesInCurrentLanguage(listed) else listed
         // StorageManager.getAllocatableBytes puo' bloccare: fuori dal thread principale.
-        // La mappa non ha un peso noto in anticipo (si estrae sul dispositivo): se non c'e' ancora, se ne stima un minimo.
-        val mapEstimate = if (PackageKind.MAP in kinds && regionRepository.installed(entry.regionId)?.versionOf(PackageKind.MAP) == null) MAP_MIN_FREE_BYTES else 0L
+        // La mappa non ha un peso noto in anticipo (si estrae sul dispositivo): se non c'e' ancora, se ne stima un minimo;
+        // un aggiornamento ne estrae una nuova in staging mentre la vecchia resta fino all'attivazione, quindi vale il suo peso.
+        val installedRegion = regionRepository.installed(entry.regionId)
+        val mapEstimate = when {
+            PackageKind.MAP !in kinds -> 0L
+            installedRegion?.versionOf(PackageKind.MAP) == null -> MAP_MIN_FREE_BYTES
+            else -> withContext(ioDispatcher) { regionRepository.packageBytes(installedRegion, PackageKind.MAP) } ?: MAP_MIN_FREE_BYTES
+        }
         val enoughSpace = withContext(ioDispatcher) { regionRepository.availableStorageBytes() } >= entry.downloadBytes(kinds) + mapEstimate
         if (enoughSpace) {
             transitNetworkPreferences.rememberChoice(entry, kinds)

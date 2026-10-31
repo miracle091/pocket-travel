@@ -308,4 +308,24 @@ class RegionPackageDownloaderTest {
         assertTrue(firstMarkerSurvived)
         assertEquals(listOf("first-start", "first-end", "second-start", "second-end"), events.toList())
     }
+
+    @Test
+    fun `la pulizia senza attesa non entra mentre un altro lavoro tiene il lock`() = runBlocking {
+        val inside = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val holder = launch(Dispatchers.Default) {
+            downloader.withStagingLock("it") {
+                inside.complete(Unit)
+                release.await()
+            }
+        }
+        inside.await()
+        var cleaned = false
+        assertFalse(downloader.tryWithStagingLock("it") { cleaned = true })
+        assertFalse(cleaned)
+        release.complete(Unit)
+        holder.join()
+        assertTrue(downloader.tryWithStagingLock("it") { cleaned = true })
+        assertTrue(cleaned)
+    }
 }
