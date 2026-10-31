@@ -192,10 +192,10 @@ class RegionDatabaseMigrationPathsTest {
 
     private companion object {
         const val DB_NAME = "migration-paths-test.db"
-        const val CURRENT_VERSION = 26
+        const val CURRENT_VERSION = 27
 
-        // Le versioni da cui parte una migrazione di ALL_MIGRATIONS (le pubblicate, 25 compresa, la precedente alla corrente).
-        val RELEASED_STARTS = listOf(3, 5, 6, 9, 11, 15, 17, 24, 25)
+        // Le versioni da cui parte una migrazione di ALL_MIGRATIONS (le pubblicate, 26 compresa, la precedente alla corrente).
+        val RELEASED_STARTS = listOf(3, 5, 6, 9, 11, 15, 17, 24, 25, 26)
 
         // Versioni di sviluppo di cui core/data/schemas ha lo schema esportato.
         val EXPORTED_UNRELEASED = setOf(16, 18, 19, 20, 21, 22, 23)
