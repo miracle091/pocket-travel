@@ -1021,7 +1021,12 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
     val context = LocalContext.current
     var showLargeDownloadWarning by rememberSaveable { mutableStateOf(false) }
     var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
-    val size = Formatter.formatShortFileSize(context, definition.sizeBytes)
+    // Peso del file e, quando e' stimata, la RAM che il modello usa (ModelRamEstimates).
+    val size = Formatter.formatShortFileSize(context, definition.sizeBytes).let { file ->
+        uiState.ramEstimates[definition.id]?.let {
+            "$file · ${stringResource(R.string.ai_model_ram_estimate, Formatter.formatShortFileSize(context, it))}"
+        } ?: file
+    }
     val available = definition.sha256 != null
 
     Column {
@@ -1035,10 +1040,10 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
                             else -> size
                         },
                     )
-                    // Modello della fascia di RAM sopra quella del dispositivo (LlmModelCatalog.needsMoreRam).
+                    // Modello di una fascia di RAM sopra quella del dispositivo, dalla stima o dal catalogo.
                     if (definition.id in uiState.modelsNeedingMoreRam) {
                         Text(
-                            stringResource(R.string.ai_model_needs_more_ram, definition.minRamTier.gigabytes),
+                            stringResource(R.string.ai_model_needs_more_ram, uiState.minRamTier(definition).gigabytes),
                             color = MaterialTheme.colorScheme.error,
                         )
                     }

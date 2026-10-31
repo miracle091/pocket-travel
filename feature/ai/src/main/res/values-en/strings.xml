@@ -12,6 +12,7 @@
     <string name="ai_model_coming_soon">Coming soon</string>
     <string name="ai_model_selected">Selected</string>
     <!-- Under a model of the RAM tier above the device's; %1$d = GB of RAM of the model's tier. -->
+    <string name="ai_model_ram_estimate">about %1$s of RAM</string>
     <string name="ai_model_needs_more_ram">The model needs at least %1$d GB of RAM. The app may slow down or close on this device</string>
     <string name="ai_model_download">Download model</string>
     <string name="ai_model_retry">Retry</string>

@@ -41,6 +41,8 @@ data class AiUiState(
     val availableModels: List<LlmModelDefinition> = emptyList(),
     // Modelli della lista della fascia sopra quella del dispositivo: si scelgono con l'avviso "puo' essere lento".
     val modelsNeedingMoreRam: Set<String> = emptySet(),
+    // RAM stimata dai metadati del GGUF (ModelRamEstimates), per id; assente finche' non e' letta o senza rete.
+    val ramEstimates: Map<String, Long> = emptyMap(),
     val selectedModelId: String = "",
     val isModelDownloaded: Boolean,
     // Modelli gia' sul dispositivo: se quello scelto non c'e', se ne propone uno di questi.
@@ -97,6 +99,10 @@ data class AiUiState(
 /** Un turno gia' concluso della conversazione mostrata; [credit] e' il modello che ha scritto la risposta. */
 data class ShownTurn(val askedQuestion: String, val answer: AssistantAnswer, val credit: ModelCredit? = null)
 
+/** La fascia di RAM di [definition]: dalla RAM stimata se c'e', altrimenti quella del catalogo. */
+internal fun AiUiState.minRamTier(definition: LlmModelDefinition): RamTier =
+    ramEstimates[definition.id]?.let(::minRamTierFor) ?: definition.minRamTier
+
 /** Il modello di una risposta: [name] nell'etichetta "Generata da un modello IA", [url] la sua pagina. */
 data class ModelCredit(val name: String, val url: String)
 
@@ -147,6 +153,7 @@ class AiAssistantViewModel @Inject constructor(
     private val guideCitationResolver: GuideCitationResolver,
     private val emergencyCards: EmergencyCardProvider,
     private val answerKeepAlive: AnswerKeepAlive,
+    private val modelRamEstimates: ModelRamEstimates,
 ) : ViewModel() {
 
     // Nomi dei modelli che la chiave salvata vede, per servizio; assente = non letti (si mostrano tutti).
@@ -229,9 +236,29 @@ class AiAssistantViewModel @Inject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {
-                return@launch
+                null
             }
-            _uiState.update { state -> state.copy(availableModels = state.availableModels.map { it.withPublishedFingerprint(published) }) }
+            if (published != null) {
+                _uiState.update { state -> state.copy(availableModels = state.availableModels.map { it.withPublishedFingerprint(published) }) }
+            }
+            // Dopo le impronte pubblicate: un modello ricaricato puo' avere metadati diversi da quelli dell'APK.
+            estimateModelRam()
+        }
+    }
+
+    // La RAM stimata di ogni modello della lista; con la stima, l'avviso "richiede almeno N GB" lo decide lei e non la
+    // fascia scritta nel catalogo.
+    private suspend fun estimateModelRam() {
+        val tier = deviceAiCapability.ramTier()
+        for (definition in _uiState.value.availableModels) {
+            val estimate = modelRamEstimates.estimate(definition) ?: continue
+            val needsMoreRam = minRamTierFor(estimate) > tier
+            _uiState.update {
+                it.copy(
+                    ramEstimates = it.ramEstimates + (definition.id to estimate),
+                    modelsNeedingMoreRam = if (needsMoreRam) it.modelsNeedingMoreRam + definition.id else it.modelsNeedingMoreRam - definition.id,
+                )
+            }
         }
     }
 

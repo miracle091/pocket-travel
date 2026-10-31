@@ -12,6 +12,7 @@
     <string name="ai_model_coming_soon">Presto disponibile</string>
     <string name="ai_model_selected">Selezionato</string>
     <!-- Sotto un modello della fascia di RAM sopra quella del dispositivo; %1$d = GB di RAM della fascia del modello. -->
+    <string name="ai_model_ram_estimate">circa %1$s di RAM</string>
     <string name="ai_model_needs_more_ram">Il modello richiede almeno %1$d GB di RAM. L\'app può rallentare o chiudersi su questo dispositivo</string>
     <string name="ai_model_download">Scarica il modello</string>
     <string name="ai_model_retry">Riprova</string>
