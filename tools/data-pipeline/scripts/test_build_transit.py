@@ -121,6 +121,17 @@ class BuildTransitTest(unittest.TestCase):
         self.assertEqual(("Rete A", ["it", "fr"], "Attribuzione A"), (entry["name"], entry["regions"], entry["attribution"]))
         self.assertEqual(published_entry(data)["version"], entry["version"])
 
+    def test_tempo_reale_non_scaricato_avvisa_senza_rompere_la_voce(self):
+        data = feed_zip()
+        self.run_script = lambda args, rows=None, **env: BuildTransitTest.run_script(
+            self, args, feeds_row(realtime="https://127.0.0.1:9/rt.pb"), **env)
+        proc = self.build(data, {"feeds": [published_entry(data, gtfsIds=True)]})
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        self.assertIn("feed del tempo reale non scaricato", proc.stderr)
+        (entry,) = self.lines("transit-entries.jsonl")
+        self.assertEqual("https://127.0.0.1:9/rt.pb", entry["realtimeUrl"])
+        self.assertNotIn("realtimeSizeBytes", entry)
+
     def test_feed_invariato_ma_voce_vecchia_si_ricostruisce(self):
         data = feed_zip()
         fx.write(self.tree / "gradlew", FAILING_GRADLE, executable=True)

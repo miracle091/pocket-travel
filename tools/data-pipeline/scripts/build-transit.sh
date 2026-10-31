@@ -185,7 +185,7 @@ realtime_fields() {
     # Stesso Accept dell'app (HttpTransitRealtimeClient): Open Data Hub senza x-protobuf risponde in JSON.
     size="$(curl -sSfL --compressed --max-time 120 -A "$PIPELINE_USER_AGENT" -H 'Accept: application/x-protobuf, application/octet-stream, */*' \
       -o /dev/null -w '%{size_download}' "$REALTIME_URL")" || size=""
-    [ "${size:-0}" -gt 0 ] || { echo "::warning::$FEED_ID: feed del tempo reale non scaricato o vuoto ($REALTIME_URL)"; size=""; }
+    [ "${size:-0}" -gt 0 ] || { echo "::warning::$FEED_ID: feed del tempo reale non scaricato o vuoto ($REALTIME_URL)" >&2; size=""; }
   fi
   jq -c --arg url "$REALTIME_URL" --arg size "$size" \
     'del(.realtimeUrl, .realtimeSizeBytes)
