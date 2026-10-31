@@ -97,6 +97,23 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
         }
     }
 
+    override suspend fun <T> withBench(block: suspend (OnDeviceLlmEngine.BenchRunner) -> T): T = withContext(ioDispatcher) {
+        idleReleaser.withModelUse {
+            mutex.withLock {
+                val loadStart = System.currentTimeMillis()
+                val wasLoaded = isSelectedModelLoaded()
+                loadModelIfNeeded()
+                val loaded = if (wasLoaded) 0L else System.currentTimeMillis() - loadStart
+                val version = engine.llamaVersion()
+                try {
+                    block(LlamaBenchRunner(engine, version, loaded))
+                } finally {
+                    withContext(NonCancellable) { if (engine.state.value is InferenceEngine.State.ModelReady) engine.resetConversation() }
+                }
+            }
+        }
+    }
+
     override suspend fun generate(prompt: String): String = generateStream(prompt).toList().joinToString(separator = "")
 
     override fun generateStream(prompt: String): Flow<String> = flow {
@@ -150,11 +167,11 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
         }
     }
 
-    private fun selectedModelPath(): String =
-        modelManager.modelFile(aiSettingsStore.selectedModelDefinition()).absolutePath
+    private val selectedModelPath: String
+        get() = modelManager.modelFile(aiSettingsStore.selectedModelDefinition()).absolutePath
 
     private fun isSelectedModelLoaded(): Boolean =
-        engine.state.value.isModelLoaded && loadedModelPath == selectedModelPath()
+        engine.state.value.isModelLoaded && loadedModelPath == selectedModelPath
 
     private suspend fun loadModelIfNeeded() {
         if (isSelectedModelLoaded()) return
@@ -198,5 +215,17 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
         // (ai_chat.cpp: DEFAULT_SAMPLER_TEMP), non e' un parametro di loadModel().
         const val TOP_K = 10
         const val TOP_P = 0.95f
+    }
+}
+
+/** Le esecuzioni del benchmark sul modello gia' caricato da [LlamaOnDeviceLlmEngine.withBench]. */
+private class LlamaBenchRunner(
+    private val engine: InferenceEngine,
+    override val llamaVersion: String,
+    override val loadTimeMs: Long,
+) : OnDeviceLlmEngine.BenchRunner {
+    override suspend fun run(nPrompt: Int, nGen: Int, threads: Int, seed: Int): OnDeviceLlmEngine.BenchRun {
+        val nanos = engine.bench(nPrompt, nGen, threads, seed)
+        return OnDeviceLlmEngine.BenchRun(nPrompt, nGen, nanos[0], nanos[1])
     }
 }

@@ -55,6 +55,17 @@ interface InferenceEngine {
     suspend fun setGrammar(grammar: String)
 
     /**
+     * Un'esecuzione del benchmark nativo (ai_chat.cpp, bench_impl): [nPrompt] token di prompt e [nGen] token generati
+     * uno alla volta con token casuali del [seed], su [nThreads] thread (<= 0: quelli del contesto). Restituisce
+     * {ns di pp, ns di tg}. Svuota KV cache e conversazione: dopo, il chiamante riparte da [resetConversation].
+     */
+    suspend fun bench(nPrompt: Int, nGen: Int, nThreads: Int, seed: Int): LongArray =
+        throw UnsupportedOperationException("benchmark nativo non disponibile")
+
+    /** Versione di llama.cpp compilata nel motore, "b<build>-<commit>". */
+    suspend fun llamaVersion(): String = throw UnsupportedOperationException("versione non disponibile")
+
+    /**
      * Sends a user prompt to the loaded model and returns a Flow of generated tokens.
      */
     fun sendUserPrompt(message: String, predictLength: Int = DEFAULT_PREDICT_LENGTH): Flow<String>

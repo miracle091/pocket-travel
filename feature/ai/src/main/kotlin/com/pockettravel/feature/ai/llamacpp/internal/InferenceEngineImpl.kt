@@ -135,6 +135,11 @@ internal class InferenceEngineImpl private constructor(
     // come una risposta, fermandosi dopo maxTokens token.
     private external fun streamTokensNative(text: String, maxTokens: Int): String?
 
+    /** {ns di pp, ns di tg} di un'esecuzione del benchmark nativo, null se fallisce (ai_chat.cpp, bench_impl). */
+    private external fun benchNative(nPrompt: Int, nGen: Int, nThreads: Int, seed: Int): LongArray?
+
+    private external fun llamaVersionNative(): String?
+
     private external fun unload()
 
     private external fun shutdown()
@@ -270,6 +275,14 @@ internal class InferenceEngineImpl private constructor(
             check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
             checkNotNull(streamTokensNative(text, maxTokens)) { "Tokenization failed" }
         }
+
+    override suspend fun bench(nPrompt: Int, nGen: Int, nThreads: Int, seed: Int): LongArray =
+        withContext(llamaDispatcher) {
+            check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
+            checkNotNull(benchNative(nPrompt, nGen, nThreads, seed)) { "Benchmark failed" }
+        }
+
+    override suspend fun llamaVersion(): String = withContext(llamaDispatcher) { checkNotNull(llamaVersionNative()) { "Versione di llama.cpp non disponibile" } }
 
     override suspend fun setGrammar(grammar: String) =
         withContext(llamaDispatcher) {

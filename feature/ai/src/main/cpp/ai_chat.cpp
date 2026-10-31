@@ -7,14 +7,17 @@
 #include <sys/auxv.h>
 #include <sys/prctl.h>
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <deque>
+#include <random>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <sampling.h>
 
 #include "logging.h"
+#include "build-info.h"
 #include "chat.h"
 #include "common.h"
 #include "llama.h"
@@ -1238,4 +1241,106 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_cpuFeatur
     if (result == nullptr) return nullptr;  // OutOfMemoryError gia' pendente in Java
     env->SetIntArrayRegion(result, 0, count, values);
     return result;
+}
+
+// Un'esecuzione del benchmark pp/tg, come llama-bench: pp = n_prompt token di prompt in batch da BATCH_SIZE, tg = n_gen
+// token decodificati uno alla volta, ognuno su una KV cache vuota. Con n_prompt o n_gen a 0 la fase manca (tempo trascurabile): il
+// chiamante misura una grandezza per volta. I token sono casuali (seme fisso, senza token
+// speciali) e non c'e' campionamento: ogni esecuzione fa lo stesso lavoro. Il modello e' gia' caricato (fuori dal
+// tempo); llama_synchronize chiude il tempo solo a calcolo finito. Restituisce {ns di pp, ns di tg}, null se i
+// parametri non valgono o la decodifica fallisce. Svuota la KV cache e la conversazione (anche alla fine) e rimette i
+// thread del contesto com'erano: dopo il benchmark serve resetConversation come dopo ogni generazione. Va chiamata sul
+// thread del motore, sotto il lock del modello come le altre funzioni.
+static jlongArray bench_impl(JNIEnv *env, jint n_prompt, jint n_gen, jint n_threads, jint seed) {
+    const int max_tokens = DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM;
+    if (!g_context || n_prompt < 0 || n_gen < 0 || n_prompt + n_gen == 0 || n_prompt > max_tokens || n_gen > max_tokens) return nullptr;
+
+    // Alla fine, anche con un'eccezione: cache e conversazione azzerate, thread di prima.
+    struct Restore {
+        int32_t threads = llama_n_threads(g_context);
+        int32_t threads_batch = llama_n_threads_batch(g_context);
+        ~Restore() {
+            llama_set_n_threads(g_context, threads, threads_batch);
+            reset_long_term_states();
+            reset_short_term_states();
+        }
+    } restore;
+    reset_long_term_states();
+    reset_short_term_states();
+    if (n_threads > 0) llama_set_n_threads(g_context, n_threads, n_threads);
+
+    const llama_vocab *vocab = llama_model_get_vocab(g_model);
+    std::mt19937 rng((uint32_t) seed);
+    std::uniform_int_distribution<llama_token> pick(0, llama_vocab_n_tokens(vocab) - 1);
+    const auto random_token = [&]() {
+        llama_token token;
+        do { token = pick(rng); } while (llama_vocab_is_control(vocab, token) || llama_vocab_is_eog(vocab, token));
+        return token;
+    };
+    llama_tokens prompt(n_prompt);
+    for (auto &token : prompt) token = random_token();
+    llama_tokens generated(n_gen);
+    for (auto &token : generated) token = random_token();
+
+    llama_memory_t mem = llama_get_memory(g_context);
+    llama_synchronize(g_context);
+    const auto pp_start = std::chrono::steady_clock::now();
+    for (int i = 0; i < n_prompt; i += BATCH_SIZE) {
+        const int count = std::min(n_prompt - i, BATCH_SIZE);
+        g_batch.clear();
+        for (int j = 0; j < count; j++) g_batch.add(prompt[i + j], i + j, 0, i + j == n_prompt - 1);
+        if (llama_process(g_context, LLAMA_PROCESS_TYPE_DECODE, g_batch.get()) != 0) throw std::runtime_error("bench: pp decode failed");
+    }
+    llama_synchronize(g_context);
+    const auto pp_end = std::chrono::steady_clock::now();
+
+    llama_memory_clear(mem, false);
+    llama_synchronize(g_context);
+    const auto tg_start = std::chrono::steady_clock::now();
+    for (int i = 0; i < n_gen; i++) {
+        g_batch.clear();
+        g_batch.add(generated[i], i, 0, true);
+        if (llama_process(g_context, LLAMA_PROCESS_TYPE_DECODE, g_batch.get()) != 0) throw std::runtime_error("bench: tg decode failed");
+    }
+    llama_synchronize(g_context);
+    const auto tg_end = std::chrono::steady_clock::now();
+
+    const jlong values[] = {
+            (jlong) std::chrono::duration_cast<std::chrono::nanoseconds>(pp_end - pp_start).count(),
+            (jlong) std::chrono::duration_cast<std::chrono::nanoseconds>(tg_end - tg_start).count()};
+    jlongArray result = env->NewLongArray(2);
+    if (result == nullptr) return nullptr;  // OutOfMemoryError gia' pendente in Java
+    env->SetLongArrayRegion(result, 0, 2, values);
+    return result;
+}
+
+extern "C"
+JNIEXPORT jlongArray JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_benchNative(JNIEnv *env, jobject /*unused*/, jint n_prompt, jint n_gen,
+                                                                                  jint n_threads, jint seed) {
+    try {
+        return bench_impl(env, n_prompt, n_gen, n_threads, seed);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        return nullptr;
+    }
+}
+
+// Versione di llama.cpp compilata nella libreria, per i risultati del benchmark: "b<numero>-<commit>" se il commit ha un
+// tag bNNNN, altrimenti il solo commit corto (CMakeLists.txt la fissa dal submodule). null se la stringa non si crea.
+static jstring llama_version_impl(JNIEnv *env) {
+    const int number = llama_build_number();
+    const std::string version = number > 0 ? "b" + std::to_string(number) + "-" + llama_commit() : std::string(llama_commit());
+    return env->NewStringUTF(version.c_str());  // ASCII
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_llamaVersionNative(JNIEnv *env, jobject /*unused*/) {
+    try {
+        return llama_version_impl(env);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        return nullptr;
+    }
 }

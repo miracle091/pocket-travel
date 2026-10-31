@@ -74,6 +74,9 @@ ap.add_argument("--system", help="turno system prima del turno utente, nel forma
 ap.add_argument("--knowledge-system", action="store_true",
                 help="il contesto nel turno system nel formato di Qwen-Agent (\"# Knowledge Base\"), istruzioni e domanda nel "
                      "turno utente: per misurarlo sugli Ufficiali (knowledge_turns di eval_common.py)")
+ap.add_argument("--bench", type=Path, nargs="?", const=Path("-"), metavar="FILE",
+                help="invece del test: benchmark pp512/tg128 in token/s con llama-bench (solo --llama-cpp, --threads, "
+                     "--gpu-layers, --device), risultato JSON nello schema dell'app (bench_result.py) su FILE o su stdout")
 a = ap.parse_args()
 if a.answer_position and not a.contexts:
     ap.error("--answer-position vale con --contexts")
@@ -84,6 +87,15 @@ if a.samples and not a.app_sampling:
 if a.system and a.knowledge_system:
     ap.error("--system e --knowledge-system mettono tutti e due il turno system: uno solo")
 gpu_lock.gpu_job("eval_gguf.py", gpu=a.gpu_layers > 0)
+
+if a.bench:
+    import bench_result
+    record = json.dumps(bench_result.bench(a.model, a.llama_cpp, a.threads, a.gpu_layers, a.device), indent=2)
+    if str(a.bench) == "-":
+        print(record)
+    else:
+        a.bench.write_text(record + "\n", encoding="utf-8")
+    raise SystemExit(0)
 
 # Come ai_chat.cpp: i template con enable_thinking (Qwen3.5 del v10) ricevono il blocco <think> vuoto che il training
 # (enable_thinking=False) mette nel turno assistente.

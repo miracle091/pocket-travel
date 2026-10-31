@@ -39,6 +39,26 @@ interface OnDeviceLlmEngine {
      */
     suspend fun generateAll(prompts: List<String>): GenerationBatch
 
+    /** Esito di un'esecuzione del benchmark nativo: nanosecondi dei [nPrompt] token di prompt e dei [nGen] generati. */
+    class BenchRun(val nPrompt: Int, val nGen: Int, val ppNanos: Long, val tgNanos: Long)
+
+    /** Esecuzioni del benchmark nativo sul modello caricato da [withBench]. */
+    interface BenchRunner {
+        val llamaVersion: String
+
+        /** Tempo di caricamento del modello (0 se era gia' in memoria), fuori dalle misure. */
+        val loadTimeMs: Long
+
+        suspend fun run(nPrompt: Int, nGen: Int, threads: Int, seed: Int): BenchRun
+    }
+
+    /**
+     * Carica il modello scelto e tiene il lock del modello per tutta la misura ([block]): nessun altro uso del motore
+     * si inserisce tra le esecuzioni. Il benchmark azzera la conversazione in corso.
+     */
+    suspend fun <T> withBench(block: suspend (BenchRunner) -> T): T =
+        throw UnsupportedOperationException("benchmark nativo non disponibile")
+
     suspend fun generate(prompt: String): String
 
     /**

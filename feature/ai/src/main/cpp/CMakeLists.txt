@@ -120,6 +120,18 @@ set(CMAKE_POLICY_DEFAULT_CMP0169 OLD)
 # il codice che ai_chat.cpp non usa (download, server HTTP, parser degli argomenti...).
 add_subdirectory(${LLAMA_SRC}/ggml build-llama/ggml)
 set(BUILD_SHARED_LIBS OFF)
+# Versione che llama.cpp scrive nel build info (llama_build_info, usata nei risultati del benchmark): la copia in
+# .cache non ha .git e il suo cmake/build-info.cmake leggerebbe il commit del progetto. Qui si danno quelli del submodule:
+# commit corto e, se il commit ha un tag bNNNN, il suo numero (altrimenti 0, il numero di commit non si conta: i
+# cloni del submodule sono superficiali).
+string(SUBSTRING ${LLAMA_COMMIT} 0 7 LLAMA_BUILD_COMMIT)
+set(LLAMA_BUILD_NUMBER 0)
+# Sullo stesso commit possono stare piu' tag (b11960 e v0.8.0): si leggono solo i bNNNN.
+execute_process(COMMAND ${GIT_EXECUTABLE} tag --points-at HEAD --list "b[0-9]*" WORKING_DIRECTORY ${LLAMA_UPSTREAM}
+        OUTPUT_VARIABLE LLAMA_TAG OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE LLAMA_TAG_FAILED ERROR_QUIET)
+if(NOT LLAMA_TAG_FAILED AND LLAMA_TAG MATCHES "^b([0-9]+)")
+    set(LLAMA_BUILD_NUMBER ${CMAKE_MATCH_1})
+endif()
 add_subdirectory(${LLAMA_SRC} build-llama)
 
 # ggml/src aggiunge -Wdouble-promotion a livello di cartella, che arriva anche ai sorgenti KleidiAI

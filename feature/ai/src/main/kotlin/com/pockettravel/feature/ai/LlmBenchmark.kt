@@ -3,7 +3,12 @@ package com.pockettravel.feature.ai
 import android.content.Context
 import android.os.Build
 import android.os.PowerManager
+import com.pockettravel.core.data.IoDispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,6 +43,10 @@ data class BenchmarkResult(
 class LlmBenchmark @Inject constructor(
     private val engine: OnDeviceLlmEngine,
     @ApplicationContext context: Context,
+    private val aiSettingsStore: AiSettingsStore,
+    private val modelManager: LlmModelManager,
+    private val deviceAiCapability: DeviceAiCapability,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     private val powerManager = context.getSystemService(PowerManager::class.java)
 
@@ -50,9 +59,48 @@ class LlmBenchmark @Inject constructor(
             .copy(overheating = hotBefore || isOverheating(thermalStatus()))
     }
 
+    /**
+     * Benchmark pp512/tg128 in token/s sul modello scelto (protocollo di [measureStable]), nello schema di
+     * [BenchRecord]. Thread: i core veloci ([fastCoreCount]). Tiene il lock del modello per tutta la misura e azzera
+     * la conversazione in corso: da lanciare a modello libero, a telefono fresco.
+     */
+    internal suspend fun runTokens(): BenchRecord {
+        val definition = aiSettingsStore.selectedModelDefinition()
+        val file = modelManager.modelFile(definition)
+        val threads = fastCoreCount(withContext(ioDispatcher) { readCoreMaxFreqsKhz() }, deviceAiCapability.inferenceThreadCount())
+        val hotBefore = isOverheating(thermalStatus())
+        val sha256 = definition.sha256 ?: withContext(ioDispatcher) { sha256Of(file) }
+        return engine.withBench { runner ->
+            val pp = measureStable { tokensPerSecond(BENCH_N_PROMPT, runner.run(BENCH_N_PROMPT, 0, threads, BENCH_SEED).ppNanos) }
+            val tg = measureStable { tokensPerSecond(BENCH_N_GEN, runner.run(0, BENCH_N_GEN, threads, BENCH_SEED).tgNanos) }
+            BenchRecord(
+                source = "app",
+                modelId = definition.id,
+                modelFile = file.name,
+                modelSha256 = sha256,
+                llamaCpp = runner.llamaVersion,
+                seed = BENCH_SEED,
+                device = "${Build.MANUFACTURER} ${Build.MODEL}",
+                threads = threads,
+                nPrompt = BENCH_N_PROMPT,
+                nGen = BENCH_N_GEN,
+                pp = pp,
+                tg = tg,
+                overheating = hotBefore || isOverheating(thermalStatus()),
+                loadTimeMs = runner.loadTimeMs,
+                ranAt = System.currentTimeMillis(),
+            )
+        }
+    }
+
     private fun thermalStatus(): Int? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) powerManager?.currentThermalStatus else null
 
     internal companion object {
+        // Come llama-bench: pp512 e tg128. Il seme fissa i token casuali (ai_chat.cpp, bench_impl).
+        const val BENCH_N_PROMPT = 512
+        const val BENCH_N_GEN = 128
+        const val BENCH_SEED = 42
+
         // Domande generiche sul dominio viaggio, non legate a una regione specifica: il
         // benchmark valuta il modello grezzo via OnDeviceLlmEngine.generate(), non la
         // scelta del contesto di TravelAssistant (che dipende dai contenuti di una regione scaricata).
@@ -142,3 +190,21 @@ internal fun isOverheating(thermalStatus: Int?): Boolean = thermalStatus != null
 
 // PowerManager.THERMAL_STATUS_MODERATE, scritto qui perche' la costante esiste solo da Android 10.
 private const val THERMAL_STATUS_MODERATE = 2
+
+// Frequenza massima di ogni core in kHz; vuota se il sistema non lascia leggere i file (allora vale il numero di thread di sempre).
+private fun readCoreMaxFreqsKhz(): List<Long> =
+    (File("/sys/devices/system/cpu").listFiles { f -> f.name.matches(Regex("cpu[0-9]+")) } ?: emptyArray())
+        .mapNotNull { runCatching { File(it, "cpufreq/cpuinfo_max_freq").readText().trim().toLong() }.getOrNull() }
+
+private fun sha256Of(file: File): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    file.inputStream().use { input ->
+        val buffer = ByteArray(1 shl 20)
+        while (true) {
+            val n = input.read(buffer)
+            if (n < 0) break
+            digest.update(buffer, 0, n)
+        }
+    }
+    return digest.digest().joinToString("") { "%02x".format(it) }
+}
