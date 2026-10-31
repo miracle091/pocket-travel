@@ -50,6 +50,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -114,8 +115,8 @@ class TravelAssistant @Inject constructor(
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) {
     /**
-     * La risposta come flusso: sul dispositivo una serie di [AssistantProgress.Partial] (testo accumulato, al massimo
-     * uno ogni PARTIAL_INTERVAL_MS) e in fondo [AssistantProgress.Done] con citazioni e banner; online solo il Done.
+     * La risposta come flusso, con i due motori: una serie di [AssistantProgress.Partial] (testo accumulato, al massimo
+     * uno ogni PARTIAL_INTERVAL_MS) e in fondo [AssistantProgress.Done] con citazioni e banner.
      * Gli errori escono dal flusso (anche a meta': il chiamante decide che farne del parziale); la cancellazione
      * del collector ferma la generazione. Se [askedQuestion] e' il seguito di [previousQuestion] (resolveQuestion), ricerca e
      * prompt usano le due unite (followUpQuestion): i modelli sono addestrati su un turno solo.
@@ -182,7 +183,7 @@ class TravelAssistant @Inject constructor(
                 }
                 emit(AssistantProgress.Done(withSource(AssistantAnswer(text, plan.citations, showOfficialSourceBanner = false))))
             }
-            AiEngineMode.ONLINE -> emit(AssistantProgress.Done(withSource(askOnline(question, language, contextSections, focus, sharePersonal))))
+            AiEngineMode.ONLINE -> emitAll(askOnline(question, language, contextSections, focus, sharePersonal).progress(withSource))
         }
         // Nomi da riconoscere, query e paragrafi da normalizzare: lavoro di CPU fuori dal main thread del chiamante.
     }.flowOn(defaultDispatcher)
@@ -398,6 +399,19 @@ class TravelAssistant @Inject constructor(
         )
     }
 
+    private class OnlineAnswer(private val text: Flow<String>, private val citations: List<String>) {
+        // Come sul dispositivo: il testo accumulato al massimo ogni PARTIAL_INTERVAL_MS, poi la risposta con le fonti mandate al servizio.
+        fun progress(withSource: (AssistantAnswer) -> AssistantAnswer): Flow<AssistantProgress> = flow {
+            var answer = ""
+            text.accumulated(PARTIAL_INTERVAL_MS).collect {
+                answer = it
+                emit(AssistantProgress.Partial(it))
+            }
+            if (answer.isBlank()) error("Il servizio online non ha restituito una risposta")
+            emit(AssistantProgress.Done(withSource(AssistantAnswer(answer, citations, showOfficialSourceBanner = false))))
+        }
+    }
+
     /** Il contesto è quello del dispositivo; la nota personale entra solo con il consenso ([sharePersonal]). */
     private suspend fun askOnline(
         question: String,
@@ -405,13 +419,13 @@ class TravelAssistant @Inject constructor(
         sections: List<AssistantSection>,
         focusStems: Set<String>,
         sharePersonal: Boolean,
-    ): AssistantAnswer {
+    ): OnlineAnswer {
         val apiKey = aiSettingsStore.apiKey() ?: error("Nessuna chiave API online configurata")
         val provider = aiSettingsStore.onlineProvider()
         val model = onlineModelCatalog.modelFor(provider, aiSettingsStore.onlineModelSetting(provider))
         val note = if (sharePersonal) noteRepository.relevantNote(question) else null
         val context = buildOnlineContext(sections, note, language = language, focusStems = focusStems)
-        val text = onlineLlmClient.generate(
+        val text = onlineLlmClient.stream(
             baseUrl = provider.baseUrl,
             apiKey = apiKey,
             model = model,
@@ -419,7 +433,7 @@ class TravelAssistant @Inject constructor(
             system = OnlinePromptTemplates.systemPrompt(context.text, language),
             sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
         )
-        return AssistantAnswer(text = text, sourceCitations = context.citations, showOfficialSourceBanner = false)
+        return OnlineAnswer(text, context.citations)
     }
 
     private companion object {

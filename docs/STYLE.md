@@ -155,7 +155,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Widget della schermata Home | Emergenza, Scorciatoie | Emergency, Shortcuts |
 | Foglio al lancio dopo una chiusura inattesa | L'app si è chiusa in modo inatteso, con Condividi il rapporto e Apri una segnalazione su GitHub | The app closed unexpectedly, with Share the report and Report on GitHub |
 | Proposta dopo una chiusura per memoria | Il modello %1$s richiede più RAM di questo dispositivo. Scarica %2$s | The %1$s model needs more RAM than this device has. Download %2$s |
-| Errori del motore Online | Credito del servizio esaurito. Ricarica l'account su %1$s; Servizio occupato. Riprova tra poco | The service credit has run out. Top up your account on %1$s; The service is busy. Try again shortly |
+| Errori del motore Online | Credito del servizio esaurito. Ricarica l'account su %1$s; Servizio occupato. Riprova tra poco; La risposta si è interrotta. Riprova | The service credit has run out. Top up your account on %1$s; The service is busy. Try again shortly; The answer was cut off. Try again |
 | Telefono o tablet dell'utente | dispositivo | device |
 | Colori presi dal sistema (colore dinamico, da Android 12) al posto di quelli dell'app | colori del sistema | system colors |
 | Dove si trova l'utente | posizione | location |

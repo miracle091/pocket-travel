@@ -28,9 +28,9 @@ class OnlineRequestTest {
     fun tearDown() = server.shutdown()
 
     private fun sentMessages(system: String?): List<Pair<String, String>> {
-        server.enqueue(MockResponse().setBody("""{"choices":[{"message":{"role":"assistant","content":"ok"}}]}"""))
+        server.enqueue(sseResponse("ok"))
         val answer = runBlocking {
-            client.generate(server.url("/v1").toString(), apiKey = "k", model = "m", prompt = "Cosa vedere a Roma?", sendTemperature = true, system = system)
+            client.answerText(server.url("/v1").toString(), apiKey = "k", model = "m", prompt = "Cosa vedere a Roma?", sendTemperature = true, system = system)
         }
         assertEquals("ok", answer)
         val body = json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject

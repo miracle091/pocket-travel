@@ -110,6 +110,9 @@
     <string name="ai_online_share_title">Send personal data to the service</string>
     <string name="ai_online_share_hint">On: the most relevant note, the data near your location or the last guide opened (points of interest, public transport, forecast) and, for vaccines, your departure country or nationality are sent to the service with the question. Off: only the question, the guide texts except the parts written for the chosen nationality (such as visas) and data with no personal information (alerts, emergency numbers, distances between the cities named) are sent</string>
     <string name="ai_error_key_rejected">The service rejected the API key: it may have expired or been revoked. Remove it and enter a new one</string>
+    <string name="ai_error_credit">The service credit has run out. Top up your account on %1$s</string>
+    <string name="ai_error_busy">The service is busy. Try again shortly</string>
+    <string name="ai_error_interrupted">The answer was cut off. Try again</string>
     <string name="ai_saved_key_reminder">A %1$s API key is saved: the online assistant is available right away, without downloading a model</string>
     <string name="ai_use_online">Use online</string>
     <string name="ai_downloaded_model_choice">%1$s is already on the device. Use it now or download %2$s, the model chosen earlier?</string>

@@ -110,6 +110,9 @@
     <string name="ai_online_share_title">Invia dati personali al servizio</string>
     <string name="ai_online_share_hint">Acceso: insieme alla domanda arrivano al servizio la nota più pertinente, i dati vicini alla posizione o all\'ultima guida aperta (punti di interesse, mezzi pubblici, previsioni) e, per i vaccini, la partenza o la nazionalità. Spento: arrivano solo la domanda, i testi delle guide tranne le parti scritte per la nazionalità scelta (come i visti) e i dati senza informazioni personali (allerte, numeri di emergenza, distanze tra le città nominate)</string>
     <string name="ai_error_key_rejected">Il servizio ha rifiutato la chiave API: potrebbe essere scaduta o revocata. Rimuovila e inseriscine una nuova</string>
+    <string name="ai_error_credit">Credito del servizio esaurito. Ricarica l\'account su %1$s</string>
+    <string name="ai_error_busy">Servizio occupato. Riprova tra poco</string>
+    <string name="ai_error_interrupted">La risposta si è interrotta. Riprova</string>
     <string name="ai_saved_key_reminder">È salvata una chiave API di %1$s: l\'assistente online è utilizzabile subito, senza scaricare un modello</string>
     <string name="ai_use_online">Usa online</string>
     <string name="ai_downloaded_model_choice">%1$s è già sul dispositivo. Usarlo subito o scaricare %2$s, il modello scelto in precedenza?</string>

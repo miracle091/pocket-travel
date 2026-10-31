@@ -9,20 +9,12 @@ data class OpenAiChatRequest(
     val messages: List<OpenAiChatMessage>,
     // Assente (null, non serializzato: encodeDefaults e' false) per i modelli che non la accettano.
     val temperature: Double? = null,
+    // L'app chiede sempre la risposta in streaming (OnlineLlmClient.stream).
+    val stream: Boolean = false,
 )
 
 @Serializable
 data class OpenAiChatMessage(
     val role: String,
     val content: String,
-)
-
-@Serializable
-data class OpenAiChatResponse(
-    val choices: List<OpenAiChatChoice> = emptyList(),
-)
-
-@Serializable
-data class OpenAiChatChoice(
-    val message: OpenAiChatMessage,
 )

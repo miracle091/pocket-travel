@@ -296,7 +296,10 @@ class OnlineConsentDeviceTest {
             val body = Buffer().also { chain.request().body?.writeTo(it) }.readUtf8()
             requests += body
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(HTTP_OK).message("OK")
-                .body("""{"choices":[{"message":{"role":"assistant","content":"ok"}}]}""".toResponseBody("application/json".toMediaType()))
+                .body(
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+                        .toResponseBody("text/event-stream".toMediaType()),
+                )
                 .build()
         },
     ).build()

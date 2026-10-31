@@ -31,7 +31,7 @@ class OnlineModelErrorTest {
     fun tearDown() = server.shutdown()
 
     private fun generate(): String = runBlocking {
-        client.generate(server.url("/v1").toString(), apiKey = "test-key", model = "modello-inesistente", prompt = "ciao", sendTemperature = true)
+        client.answerText(server.url("/v1").toString(), apiKey = "test-key", model = "modello-inesistente", prompt = "ciao", sendTemperature = true)
     }
 
     private fun errorOf(response: MockResponse): Exception {
@@ -64,6 +64,14 @@ class OnlineModelErrorTest {
     }
 
     @Test
+    fun `Mistral 400 with type invalid_model is an unknown model`() {
+        // Il corpo vero di Mistral per un modello sbagliato (2026-10-31).
+        val body = """{"object":"error","message":"Invalid model: x","type":"invalid_model","param":null,"code":"1500","raw_status_code":400}"""
+        val error = errorOf(MockResponse().setResponseCode(400).setBody(body))
+        assertEquals(R.string.ai_error_model, askErrorMessage(error))
+    }
+
+    @Test
     fun `400 that only mentions the model keeps the generic message`() {
         val error = errorOf(MockResponse().setResponseCode(400).setBody("""{"error":{"message":"Invalid value for parameter of model request"}}"""))
         assertFalse(error is OnlineModelNotFoundException)
@@ -84,9 +92,10 @@ class OnlineModelErrorTest {
     }
 
     @Test
-    fun `server error keeps the generic message`() {
-        val error = errorOf(MockResponse().setResponseCode(500))
-        assertEquals(R.string.ai_error_answer, askErrorMessage(error))
+    fun `server error twice is the busy message`() {
+        server.enqueue(MockResponse().setResponseCode(500).setHeader("Retry-After", "0"))
+        val error = errorOf(MockResponse().setResponseCode(500).setHeader("Retry-After", "0"))
+        assertEquals(R.string.ai_error_busy, askErrorMessage(error))
     }
 
     @Test
@@ -94,7 +103,7 @@ class OnlineModelErrorTest {
         // Nessuna risposta per 10 s: senza call.cancel() il job annullato resterebbe bloccato nell'attesa.
         server.enqueue(MockResponse().setBody("""{"choices":[]}""").setHeadersDelay(10, TimeUnit.SECONDS))
         val job = launch(Dispatchers.Default) {
-            client.generate(server.url("/v1").toString(), apiKey = "test-key", model = "m", prompt = "ciao", sendTemperature = true)
+            client.answerText(server.url("/v1").toString(), apiKey = "test-key", model = "m", prompt = "ciao", sendTemperature = true)
         }
         server.takeRequest()
         val start = System.currentTimeMillis()
@@ -104,7 +113,7 @@ class OnlineModelErrorTest {
 
     @Test
     fun `successful answer returns the text and sends the key as Bearer`() {
-        server.enqueue(MockResponse().setBody("""{"choices":[{"message":{"role":"assistant","content":"Risposta"}}]}"""))
+        server.enqueue(sseResponse("Risposta"))
         assertEquals("Risposta", generate())
         assertEquals("Bearer test-key", server.takeRequest().getHeader("Authorization"))
     }

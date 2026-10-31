@@ -765,7 +765,8 @@ private fun AnswerContent(
     val error = uiState.errorMessage
     when {
         streaming -> Column {
-            Text(uiState.streamingText, style = MaterialTheme.typography.bodyLarge)
+            // Come la risposta finita: le risposte online arrivano in markdown, che non deve vedersi durante lo streaming.
+            Text(remember(uiState.streamingText) { markdownToDisplayText(uiState.streamingText) }, style = MaterialTheme.typography.bodyLarge)
             AiGeneratedLabel(uiState.answerCredit, onOpenOfficialSource)
         }
         // Alla prima domanda il modello si carica in memoria (fino a qualche decina di secondi per il 4B): una barra
@@ -782,7 +783,8 @@ private fun AnswerContent(
         }
         error != null -> Column {
             Text(
-                stringResource(error),
+                // Il credito esaurito nomina il servizio da ricaricare.
+                if (error == R.string.ai_error_credit) stringResource(error, uiState.onlineProvider.displayName) else stringResource(error),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.error,
             )

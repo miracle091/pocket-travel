@@ -866,6 +866,9 @@ internal fun AiUiState.startingTurn(question: String): AiUiState? {
 internal fun askErrorMessage(error: Exception): Int = when (error) {
     is OnlineModelNotFoundException -> R.string.ai_error_model
     is OnlineApiKeyRejectedException -> R.string.ai_error_key_rejected
+    is OnlineCreditExhaustedException -> R.string.ai_error_credit
+    is OnlineServiceBusyException -> R.string.ai_error_busy
+    is OnlineAnswerInterruptedException -> R.string.ai_error_interrupted
     else -> R.string.ai_error_answer
 }
 

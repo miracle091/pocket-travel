@@ -51,3 +51,16 @@ class OnlineModelNotFoundException(message: String) : IllegalStateException(mess
 
 /** Il servizio rifiuta la chiave (HTTP 401/403): scaduta, revocata o sbagliata. */
 class OnlineApiKeyRejectedException(message: String) : IllegalStateException(message)
+
+/** L'account del servizio non ha piu' credito o quota: nessun nuovo tentativo, va ricaricato. */
+class OnlineCreditExhaustedException(message: String) : IllegalStateException(message)
+
+/**
+ * Errore temporaneo (servizio sovraccarico, limite di richieste, timeout) rimasto anche dopo il nuovo tentativo.
+ * [retryAfterMillis]: quanto aspettare prima di riprovare, null se il servizio chiede di aspettare oltre il limite.
+ */
+class OnlineServiceBusyException(message: String, val retryAfterMillis: Long?, cause: Throwable? = null) :
+    IllegalStateException(message, cause)
+
+/** La connessione si e' chiusa, o il servizio ha mandato un errore, dopo una parte della risposta. */
+class OnlineAnswerInterruptedException(message: String, cause: Throwable) : IllegalStateException(message, cause)
