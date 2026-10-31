@@ -37,6 +37,9 @@ data class BenchmarkResult(
     // Telefono in surriscaldamento all'inizio o alla fine della misura: il sistema rallenta la CPU e la velocita'
     // misurata e' piu' bassa del solito. Solo per la misura appena fatta, non salvato.
     val overheating: Boolean = false,
+    // Mediane di runTokens in token/s: domanda (pp512) e risposta (tg128). 0 nei risultati salvati prima di questa misura.
+    val promptTokensPerSecond: Float = 0f,
+    val genTokensPerSecond: Float = 0f,
 )
 
 @Singleton
@@ -50,13 +53,19 @@ class LlmBenchmark @Inject constructor(
 ) {
     private val powerManager = context.getSystemService(PowerManager::class.java)
 
+    /** Prima la velocita' in token/s ([runTokens]), poi la qualita' sulle domande di [PROMPTS], con il modello gia' caricato. */
     suspend fun run(modelId: String): BenchmarkResult {
-        val hotBefore = isOverheating(thermalStatus())
+        val tokens = runTokens()
+        check(tokens.modelId == modelId) { "Benchmark di ${tokens.modelId} al posto di $modelId" }
         // Caricamento e generazioni sotto un unico lock: tutte le risposte vengono dallo stesso modello.
         val batch = engine.generateAll(PROMPTS.map { it.prompt })
         val answers = batch.answers.map { it.trim() }
-        return scoreBenchmarkAnswers(modelId, PROMPTS, answers, batch.generationTimeMs.coerceAtLeast(1L), batch.loadTimeMs)
-            .copy(overheating = hotBefore || isOverheating(thermalStatus()))
+        return scoreBenchmarkAnswers(modelId, PROMPTS, answers, batch.generationTimeMs.coerceAtLeast(1L), tokens.loadTimeMs ?: batch.loadTimeMs)
+            .copy(
+                overheating = tokens.overheating || isOverheating(thermalStatus()),
+                promptTokensPerSecond = tokens.pp.median.toFloat(),
+                genTokensPerSecond = tokens.tg.median.toFloat(),
+            )
     }
 
     /**

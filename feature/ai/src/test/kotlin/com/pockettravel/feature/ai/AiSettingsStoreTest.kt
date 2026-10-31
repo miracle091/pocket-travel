@@ -146,6 +146,8 @@ class AiSettingsStoreTest {
             loadTimeMs = 900L,
             qualityScore = 7,
             ranAt = 1_700_000_000_000L,
+            promptTokensPerSecond = 661.5f,
+            genTokensPerSecond = 63.6f,
         )
         newStore().saveBenchmarkResult(result)
 
@@ -156,6 +158,8 @@ class AiSettingsStoreTest {
         assertEquals(900L, raw.getLong("benchmark_load_ms_m1", 0L))
         assertEquals(7, raw.getInt("benchmark_quality_m1", 0))
         assertEquals(1_700_000_000_000L, raw.getLong("benchmark_ran_at_m1", 0L))
+        assertEquals(661.5f, raw.getFloat("benchmark_prompt_tps_m1", 0f), 0f)
+        assertEquals(63.6f, raw.getFloat("benchmark_gen_tps_m1", 0f), 0f)
     }
 
     @Test

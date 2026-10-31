@@ -121,6 +121,8 @@ class AiSettingsStore(
             loadTimeMs = prefs.getLong(benchmarkKey(modelId, KEY_BENCHMARK_LOAD_MS), 0L),
             qualityScore = prefs.getInt(benchmarkKey(modelId, KEY_BENCHMARK_QUALITY), 0),
             ranAt = ranAt,
+            promptTokensPerSecond = prefs.getFloat(benchmarkKey(modelId, KEY_BENCHMARK_PROMPT_TPS), 0f),
+            genTokensPerSecond = prefs.getFloat(benchmarkKey(modelId, KEY_BENCHMARK_GEN_TPS), 0f),
         )
     }
 
@@ -135,6 +137,8 @@ class AiSettingsStore(
         putLong(benchmarkKey(result.modelId, KEY_BENCHMARK_LOAD_MS), result.loadTimeMs)
         putInt(benchmarkKey(result.modelId, KEY_BENCHMARK_QUALITY), result.qualityScore)
         putLong(benchmarkKey(result.modelId, KEY_BENCHMARK_RAN_AT), result.ranAt)
+        putFloat(benchmarkKey(result.modelId, KEY_BENCHMARK_PROMPT_TPS), result.promptTokensPerSecond)
+        putFloat(benchmarkKey(result.modelId, KEY_BENCHMARK_GEN_TPS), result.genTokensPerSecond)
     }
 
     private fun benchmarkKey(modelId: String, field: String) = "${field}_$modelId"
@@ -153,6 +157,8 @@ class AiSettingsStore(
         const val KEY_BENCHMARK_LOAD_MS = "benchmark_load_ms"
         const val KEY_BENCHMARK_QUALITY = "benchmark_quality"
         const val KEY_BENCHMARK_RAN_AT = "benchmark_ran_at"
+        const val KEY_BENCHMARK_PROMPT_TPS = "benchmark_prompt_tps"
+        const val KEY_BENCHMARK_GEN_TPS = "benchmark_gen_tps"
     }
 }
 

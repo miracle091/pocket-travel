@@ -409,7 +409,8 @@ class AiAssistantViewModel @Inject constructor(
                 }
             } catch (error: CancellationException) {
                 throw error
-            } catch (_: Exception) {
+            } catch (error: Exception) {
+                Log.w(TAG, "Benchmark non riuscito: ${error.javaClass.name}: ${error.message}")
                 _uiState.update { it.copy(isBenchmarking = false, errorMessage = R.string.ai_error_benchmark) }
             }
         }

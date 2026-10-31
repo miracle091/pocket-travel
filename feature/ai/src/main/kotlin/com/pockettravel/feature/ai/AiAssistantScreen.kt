@@ -115,6 +115,7 @@ import java.io.InputStream
 import java.text.NumberFormat
 import java.util.Currency
 import javax.crypto.Cipher
+import kotlin.math.roundToInt
 
 @Composable
 fun AiAssistantScreen(
@@ -410,7 +411,7 @@ private fun AssistantHeader(uiState: AiUiState, isReady: Boolean, actions: AiAct
     val result = uiState.benchmarkResult
     val showBenchmark = debugBuild && isReady && isOnDevice
     if (showBenchmark && result != null && result.modelId == uiState.selectedModelId) {
-        val base = stringResource(R.string.ai_benchmark_result, result.wordsPerSecond.toInt(), result.qualityScore)
+        val base = benchmarkLine(result)
         Text(
             text = if (result.loadTimeMs > 0) stringResource(R.string.ai_benchmark_load_time, base, result.loadTimeMs / MS_PER_SECOND) else base,
             style = MaterialTheme.typography.bodySmall,
@@ -1300,6 +1301,15 @@ private fun ModelChoiceRow(selected: Boolean, title: String, description: String
     )
 }
 
+// I risultati salvati prima della misura in token/s restano in parole al secondo fino a un nuovo benchmark.
+@Composable
+private fun benchmarkLine(result: BenchmarkResult): String =
+    if (result.genTokensPerSecond > 0f) {
+        stringResource(R.string.ai_benchmark_tokens, result.genTokensPerSecond.roundToInt(), result.promptTokensPerSecond.roundToInt(), result.qualityScore)
+    } else {
+        stringResource(R.string.ai_benchmark_result, result.wordsPerSecond.toInt(), result.qualityScore)
+    }
+
 @Composable
 private fun BenchmarkComparisonDialog(uiState: AiUiState, onDismiss: () -> Unit) {
     AlertDialog(
@@ -1320,7 +1330,7 @@ private fun BenchmarkComparisonDialog(uiState: AiUiState, onDismiss: () -> Unit)
                         Column(modifier = Modifier.padding(vertical = 6.dp)) {
                             Text(displayName, style = MaterialTheme.typography.titleSmall)
                             Text(
-                                stringResource(R.string.ai_benchmark_result, result.wordsPerSecond.toInt(), result.qualityScore),
+                                benchmarkLine(result),
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
