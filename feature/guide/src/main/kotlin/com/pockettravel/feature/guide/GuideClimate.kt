@@ -76,7 +76,8 @@ internal fun climateFacts(climate: CityClimate): List<ClimateFactValue> = buildL
     val millimeters = climate.precipMm?.roundToInt()
     val days = climate.rainDays?.roundToInt()
     when {
-        millimeters != null && days != null -> add(ClimateFactValue(ClimateFact.RAIN_AND_DAYS, millimeters, days))
+        // Meno di mezzo giorno si arrotonda a 0: "in 0 giorni" non ha senso, resta la sola pioggia.
+        millimeters != null && days != null && days > 0 -> add(ClimateFactValue(ClimateFact.RAIN_AND_DAYS, millimeters, days))
         millimeters != null -> add(ClimateFactValue(ClimateFact.RAIN, millimeters))
         days != null -> add(ClimateFactValue(ClimateFact.DAYS, days))
     }

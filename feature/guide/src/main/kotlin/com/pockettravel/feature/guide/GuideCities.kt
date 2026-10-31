@@ -269,6 +269,18 @@ private fun CityGuideContent(
             onSelectedCategoryChange = { selectedCategory = it },
             onOpenSource = onOpenSource,
             focus = focus,
+            // Con "Clima" scelto la tabella dei mesi resta: è la stessa informazione della sezione.
+            categoryExtras = if (uiState.climate.isEmpty()) {
+                emptyMap()
+            } else {
+                mapOf(
+                    GuideCategory.CLIMA to CategoryExtra(itemCount = 1) {
+                        item(key = "climate") {
+                            ClimateCard(city, uiState.climate, onOpenSource = onOpenSource, modifier = Modifier.padding(horizontal = Spacing.l))
+                        }
+                    },
+                )
+            },
             extraContent = if (excludedTransit.isEmpty() && uiState.weather == null && uiState.climate.isEmpty()) {
                 null
             } else {
