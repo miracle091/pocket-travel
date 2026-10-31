@@ -75,7 +75,11 @@ class VaultViewModel @Inject constructor(
         repository.lock()
         unlocked.value = false
         thumbnails.evictAll()
+        drafts.clear()
     }
+
+    // Testi del modulo del documento in modifica, scartati dal blocco.
+    internal val drafts = DocumentDrafts()
 
     // Vero solo dopo una rotazione (la schermata non blocca quando isChangingConfigurations):
     // la chiave di sessione e' ancora in memoria e non serve un nuovo prompt biometrico.

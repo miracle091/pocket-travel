@@ -122,16 +122,6 @@ private fun DocumentType.label(): Int = when (this) {
     DocumentType.OTHER -> R.string.vault_type_other
 }
 
-internal enum class GateStatus { NOT_ENROLLED, LOCKED, UNLOCKED }
-
-// Al ritorno in primo piano: la biometria forte puo' essere comparsa (NOT_ENROLLED -> LOCKED) o sparita
-// (LOCKED -> NOT_ENROLLED, impronte tolte a cassaforte bloccata: senza, lo sblocco non puo' riuscire).
-internal fun gateStatusOnResume(current: GateStatus, canAuthenticate: Boolean): GateStatus = when {
-    canAuthenticate && current == GateStatus.NOT_ENROLLED -> GateStatus.LOCKED
-    !canAuthenticate && current == GateStatus.LOCKED -> GateStatus.NOT_ENROLLED
-    else -> current
-}
-
 // Passaporto proprio e di altri, cifrati con una chiave di sessione (SessionAesCipher) sbloccata
 // tramite BiometricPrompt.CryptoObject: la vera operazione biometrica avviene una volta sola
 // all'ingresso, per avvolgere/svolgere quella chiave (vedi VaultKeyEnvelope/PassportRepository),
@@ -144,14 +134,8 @@ fun VaultScreen(
 ) {
     val context = LocalContext.current
     var gateStatus by remember {
-        val canAuthenticate = BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS)
-        mutableStateOf(
-            when {
-                canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS -> GateStatus.NOT_ENROLLED
-                viewModel.isUnlocked -> GateStatus.UNLOCKED
-                else -> GateStatus.LOCKED
-            },
-        )
+        val authCode = BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS)
+        mutableStateOf(initialGateStatus(authCode, viewModel.isUnlocked))
     }
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -164,8 +148,8 @@ fun VaultScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                val canAuthenticate = BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS)
-                gateStatus = gateStatusOnResume(gateStatus, canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS)
+                val authCode = BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS)
+                gateStatus = gateStatusOnResume(gateStatus, authCode)
             }
             if (event == Lifecycle.Event.ON_STOP && gateStatus == GateStatus.UNLOCKED && (context as? Activity)?.isChangingConfigurations != true) {
                 viewModel.lock()
@@ -276,8 +260,10 @@ private fun LockedContent(viewModel: VaultViewModel, onUnlock: () -> Unit, onNot
     fun showPrompt() {
         val activity = context as FragmentActivity
         // Senza biometria forte la chiave non si crea ne' si usa: si mostra la spiegazione, non un errore.
-        if (BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS) != BiometricManager.BIOMETRIC_SUCCESS) {
-            onNotEnrolled()
+        val authCode = BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS)
+        if (authCode != BiometricManager.BIOMETRIC_SUCCESS) {
+            // Biometria assente: la spiegazione. Sensore momentaneamente non disponibile: resta bloccata, si riprova.
+            if (isBiometricMissing(authCode)) onNotEnrolled() else errorMessage = unlockFailed
             return
         }
         val unlockIntent = viewModel.prepareUnlockCipher() ?: run {
@@ -593,13 +579,14 @@ private fun PassportEditDialog(
     onSave: (Passport) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // Con remember, non rememberSaveable: i dati del documento non devono finire nello stato salvato
-    // dell'activity (Bundle di onSaveInstanceState), che arriva prima del blocco.
-    var fullName by remember { mutableStateOf(existing?.fullName ?: "") }
-    var documentNumber by remember { mutableStateOf(existing?.documentNumber ?: "") }
-    var nationality by remember { mutableStateOf(existing?.nationality ?: "") }
-    var expiryDate by remember { mutableStateOf(existing?.expiryDate ?: "") }
-    var note by remember { mutableStateOf(existing?.note ?: "") }
+    // I testi stanno nella bozza del ViewModel, non in rememberSaveable: sopravvivono alla ricreazione
+    // dell'activity ma i dati del documento non finiscono nello stato salvato (Bundle), che arriva prima del blocco.
+    val draft = remember { viewModel.drafts.draftFor(existing) }
+    var fullName by draft::fullName
+    var documentNumber by draft::documentNumber
+    var nationality by draft::nationality
+    var expiryDate by draft::expiryDate
+    var note by draft::note
     var documentType by rememberSaveable { mutableStateOf(existing?.documentType ?: DocumentType.PASSPORT) }
     val initialPhotoFileNames = remember { existing?.photoFileNames ?: emptyList() }
     var photoFileNames by rememberSaveable { mutableStateOf(initialPhotoFileNames) }
@@ -654,6 +641,7 @@ private fun PassportEditDialog(
     }
     val cancel = {
         closed = true
+        viewModel.drafts.clear()
         (photoFileNames - initialPhotoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
         onDismiss()
     }
@@ -682,6 +670,7 @@ private fun PassportEditDialog(
                             enabled = canSave,
                             onClick = {
                                 closed = true
+                                viewModel.drafts.clear()
                                 (initialPhotoFileNames - photoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
                                 onSave(
                                     Passport(

@@ -154,6 +154,35 @@ class VaultViewModelTest {
     }
 
     @Test
+    fun `la bozza del modulo resta la stessa per lo stesso documento`() {
+        val viewModel = newViewModel()
+        viewModel.drafts.draftFor(null).fullName = "Anna"
+
+        assertEquals("Anna", viewModel.drafts.draftFor(null).fullName)
+    }
+
+    @Test
+    fun `la bozza parte dai dati del documento e cambia con un altro documento`() {
+        val viewModel = newViewModel()
+        val draft = viewModel.drafts.draftFor(passport)
+        assertEquals("AA1234567", draft.documentNumber)
+
+        assertEquals("", viewModel.drafts.draftFor(null).fullName)
+    }
+
+    @Test
+    fun `il blocco e la chiusura del modulo scartano la bozza`() {
+        val viewModel = newViewModel()
+        viewModel.drafts.draftFor(null).fullName = "Anna"
+        viewModel.drafts.clear()
+        assertEquals("", viewModel.drafts.draftFor(null).fullName)
+
+        viewModel.drafts.draftFor(null).fullName = "Anna"
+        viewModel.lock()
+        assertEquals("", viewModel.drafts.draftFor(null).fullName)
+    }
+
+    @Test
     fun `una miniatura finita dopo il blocco non entra in cache`() {
         val viewModel = newViewModel()
         viewModel.cacheThumbnail("a.jpg", FakeImageBitmap(4, 4))
