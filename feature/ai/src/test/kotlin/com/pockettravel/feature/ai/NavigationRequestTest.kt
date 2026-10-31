@@ -90,6 +90,31 @@ class NavigationRequestTest {
     }
 
     @Test
+    fun `dopo un trigger ambiguo un verbo o una durata non sono una destinazione`() {
+        assertNull(parseNavigationRequest("Indicazioni per ottenere il visto"))
+        assertNull(parseNavigationRequest("Percorso per 3 giorni in Toscana"))
+        assertNull(parseNavigationRequest("Directions to get a visa"))
+        assertNull(parseNavigationRequest("Route for 3 days in Tuscany"))
+        assertEquals(NavigationRequest("Bologna", null), parseNavigationRequest("Indicazioni per Bologna"))
+    }
+
+    @Test
+    fun `luoghi con la desinenza di un infinito restano destinazioni`() {
+        assertEquals(NavigationRequest("Torre del Greco", null), parseNavigationRequest("Indicazioni per Torre del Greco"))
+        assertEquals(NavigationRequest("torre del greco", null), parseNavigationRequest("indicazioni per torre del greco"))
+        assertEquals(NavigationRequest("Sestriere", NavigationRequestProfile.CAR), parseNavigationRequest("Percorso per Sestriere in auto"))
+        assertEquals(NavigationRequest("Belvedere Marittimo", null), parseNavigationRequest("Naviga per Belvedere Marittimo"))
+    }
+
+    @Test
+    fun `un verbo di movimento dopo il trigger porta alla destinazione`() {
+        assertEquals(NavigationRequest("Roma", null), parseNavigationRequest("Indicazioni per arrivare a Roma"))
+        assertEquals(NavigationRequest("Duomo", NavigationRequestProfile.WALK), parseNavigationRequest("Percorso a piedi per raggiungere il Duomo"))
+        assertEquals(NavigationRequest("station", null), parseNavigationRequest("Directions to get to the station"))
+        assertNull(parseNavigationRequest("Directions to get a visa"))
+    }
+
+    @Test
     fun `senza destinazione non e' una richiesta`() {
         assertNull(parseNavigationRequest("Portami"))
         assertNull(parseNavigationRequest("take me to"))

@@ -28,7 +28,8 @@ fun parseNavigationRequest(text: String): NavigationRequest? {
     val withoutTime = withTime.replace(TRAILING_TIME, "")
     // "Percorso consigliato di 3 giorni a Roma?", "Route 66 è bella?": questi trigger sono anche parole comuni, e
     // valgono solo con una preposizione di destinazione dopo ("percorso per", "route to"), anche dopo il modo.
-    val destination = withoutLeadingWords(withoutTime).takeUnless { trigger.groupValues[1].isNotEmpty() && !DESTINATION_START.containsMatchIn(withTime) }
+    // "Indicazioni per ottenere il visto", "percorso per 3 giorni": dopo la preposizione non c'e' un luogo.
+    val destination = withoutLeadingWords(withoutTime).takeUnless { trigger.groupValues[1].isNotEmpty() && !isDestination(withTime) }
     return destination?.takeIf { it.isNotEmpty() }
         ?.let { NavigationRequest(it, profileMatch?.second, withoutLeadingWords(withTime).takeIf { withoutTime != withTime }) }
 }
@@ -58,6 +59,20 @@ private val DESTINATION_START = Regex(
     RegexOption.IGNORE_CASE,
 )
 
+private fun isDestination(text: String) = DESTINATION_START.containsMatchIn(text) && !NOT_A_PLACE.containsMatchIn(text)
+
+// Dopo "per"/"for"/"to": un verbo che non porta a un luogo ("per ottenere", "to get a visa") o una durata ("per 3 giorni",
+// "for 3 days"). Elenco chiuso, non la desinenza dell'infinito: "per Torre del Greco", "per Sestriere" sono luoghi, e i verbi
+// di movimento ("per arrivare a Roma") li toglie LEADING_WORD.
+private val NOT_A_PLACE = Regex(
+    "^(?:stradali\\s+)?(?:per\\s+(?:(?:ottenere|fare|richiedere|rinnovare|prenotare|comprare|acquistare|pagare|trovare|cercare" +
+        "|chiedere|preparare|cucinare|compilare|scaricare|usare|utilizzare|aprire|attivare|cambiare|convertire|iscriversi" +
+        "|registrarsi|evitare|organizzare|pianificare)\\b|\\d+\\s+(?:giorn|ore|ora|settiman|nott|mes)\\p{L}*)" +
+        "|for\\s+\\d+\\s+(?:day|hour|week|night|month)s?\\b" +
+        "|to\\s+(?:get(?!\\s+to\\b)|obtain|apply|renew|find|buy|book|make|do|pay|use|cook|plan|avoid|register|change|exchange)\\b)",
+    RegexOption.IGNORE_CASE,
+)
+
 // Il modo con il verbo davanti, se c'e' ("vado a piedi", "I'm walking"): si toglie tutto dalla destinazione.
 private const val MODE_VERB = "(?:,?\\s*\\b(?:vado|andiamo|vengo|i'm|i am|we're|we are)\\s+)?"
 
@@ -78,8 +93,9 @@ private val TRAILING_TIME = Regex(
 )
 
 // Preposizioni, articoli e verbi di visita davanti alla destinazione, tolti uno alla volta: "fino alla stazione" -> "stazione",
-// "a vedere il Colosseo" -> "Colosseo". I verbi solo in minuscolo: con la maiuscola sono parte del nome ("See Hotel").
+// "a vedere il Colosseo" -> "Colosseo", "per arrivare a Roma" -> "Roma". I verbi solo in minuscolo: con la maiuscola sono parte
+// del nome ("See Hotel").
 private val LEADING_WORD = Regex(
-    "^\\s*(?:(?:subito|stradali|verso|fino|per|a|ad|al|allo|alla|ai|agli|alle|in|il|lo|la|i|gli|le|(?-i:vedere|visitare|see|visit)|to|towards?|for|the)(?:\\s+|$)|(?:all|dall|l)['’])",
+    "^\\s*(?:(?:subito|stradali|verso|fino|per|a|ad|al|allo|alla|ai|agli|alle|in|il|lo|la|i|gli|le|(?-i:vedere|visitare|arrivare|andare|raggiungere|tornare|recarsi|see|visit|reach|get(?=\\s+to\\b))|to|towards?|for|the)(?:\\s+|$)|(?:all|dall|l)['’])",
     RegexOption.IGNORE_CASE,
 )
