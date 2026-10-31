@@ -200,7 +200,7 @@ internal fun isOverheating(thermalStatus: Int?): Boolean = thermalStatus != null
 // PowerManager.THERMAL_STATUS_MODERATE, scritto qui perche' la costante esiste solo da Android 10.
 private const val THERMAL_STATUS_MODERATE = 2
 
-// Frequenza massima di ogni core in kHz; vuota se il sistema non lascia leggere i file (allora vale il numero di thread di sempre).
+// Frequenza massima di ogni core in kHz; vuota se il sistema non lascia leggere i file (allora vale il numero di thread predefinito).
 private fun readCoreMaxFreqsKhz(): List<Long> =
     (File("/sys/devices/system/cpu").listFiles { f -> f.name.matches(Regex("cpu[0-9]+")) } ?: emptyArray())
         .mapNotNull { runCatching { File(it, "cpufreq/cpuinfo_max_freq").readText().trim().toLong() }.getOrNull() }
