@@ -105,4 +105,6 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     // Cronologia in memoria (FakeConversationDao, chiavi software) per la ripresa in MultiTurnDeviceTest.
     androidTestImplementation(testFixtures(project(":core:data")))
+    // OnlineConsentDeviceTest apre un RegionDatabase in memoria.
+    androidTestImplementation(libs.room.runtime)
 }

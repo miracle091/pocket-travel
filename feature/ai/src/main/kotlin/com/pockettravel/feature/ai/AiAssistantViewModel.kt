@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import android.util.Log
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -27,6 +28,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.SerializationException
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -591,7 +593,10 @@ class AiAssistantViewModel @Inject constructor(
             throw error
         } catch (error: Exception) {
             // Errore a meta': il parziale si scarta, come l'errore sostituisce la risposta nella UI. Senza risposta
-            // visibile nemmeno la base dei seguiti.
+            // visibile nemmeno la base dei seguiti. Nel log il motore e il tipo d'errore con il messaggio (codice HTTP), mai
+            // domanda o chiave: il messaggio di un JSON non valido riporterebbe un pezzo della risposta, che puo' citare la nota.
+            val detail = if (error is SerializationException) "" else ": ${error.message}"
+            Log.w(TAG, "Risposta non riuscita ($mode): ${error.javaClass.name}$detail")
             conversation.onFailed()
             _uiState.update { it.copy(isThinking = false, streamingText = "", errorMessage = askErrorMessage(error)) }
         }
@@ -805,6 +810,8 @@ internal fun historyEmptied(counts: Flow<Int>, shown: () -> Boolean): Flow<Unit>
         if ((before ?: 0) > 0 && count == 0 && shown()) emit(Unit)
     }
 }
+
+private const val TAG = "AiAssistant"
 
 /** Quanto manca perche' le previsioni scaricate a [updatedAtMillis] si possano riscaricare; 0 se si puo' gia'. */
 internal fun forecastRefreshDelayMillis(updatedAtMillis: Long, nowMillis: Long): Long =

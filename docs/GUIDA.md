@@ -80,6 +80,8 @@ Il riconoscimento vocale sul dispositivo lo misura `SpeechRecognitionDeviceTest`
 
 L'importazione di un modello da file la prova `ModelImportDeviceTest`, senza un GGUF vero: un file di 2 MB al posto del modello si importa, la sua copia con un byte cambiato viene scartata, e l'indirizzo del `FileProvider` per "Invia a un altro telefono" si apre. Stessi comandi, con la classe `com.pockettravel.feature.ai.ModelImportDeviceTest`.
 
+L'interruttore "Invia dati personali al servizio" lo prova `OnlineConsentDeviceTest`, senza modello e senza rete: con i dati di una regione in un database in memoria, la richiesta al servizio online contiene la nota, i punti di interesse vicini, le vaccinazioni e le sezioni per nazionalità solo con l'interruttore acceso. Stessi comandi, con la classe `com.pockettravel.feature.ai.OnlineConsentDeviceTest`.
+
 L'avviso dopo una chiusura inattesa si prova nella build di debug con `adb shell am broadcast -n com.pockettravel.app/.crash.DebugCrashReceiver --es kind <tipo>` e un nuovo lancio dell'app: `jvm` lancia un'eccezione sul thread principale, `native` chiude il processo con SIGABRT (il rapporto non riporta la traccia nativa, che contiene memoria del processo), `lowmem` scrive il rapporto di una chiusura per memoria con il modello più grande del catalogo su un dispositivo di fascia minima, per vedere la proposta del modello adatto. Il ricevitore esiste solo nelle build di debug.
 
 ### Misurare l'assistente su un dispositivo fisico, senza adb
