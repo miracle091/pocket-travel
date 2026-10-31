@@ -147,10 +147,11 @@ if [ -n "$PUBLISHED_ENTRY" ] && [ "$HASH" = "$(printf '%s' "$PUBLISHED_ENTRY" | 
 fi
 
 # Un cities.db piu' povero del pubblicato (popolazione, coordinate, sezioni Wikipedia: errori di rete di Wikidata o
-# Wikipedia, tetto di tempo) non lo sostituisce: resta la voce pubblicata fino a una run completa.
+# Wikipedia, tetto di tempo) non lo sostituisce: resta la voce pubblicata fino a una run completa. Con FORCE_CITIES=1
+# (input force_cities di publish-regions.yml) lo sostituisce lo stesso: dati calati davvero alla fonte.
 STATS="$(python3 "$SCRIPT_DIR/cities_db_stats.py" "$CITIES_FILE")"
 PUBLISHED_STATS="$(printf '%s' "$PUBLISHED_ENTRY" | jq -c '.stats // empty' 2>/dev/null || true)"
-if [ -n "$PUBLISHED_STATS" ] && LOST="$(python3 "$SCRIPT_DIR/cities_db_stats.py" --poorer "$STATS" "$PUBLISHED_STATS")"; then
+if [ "${FORCE_CITIES:-}" != 1 ] && [ -n "$PUBLISHED_STATS" ] && LOST="$(python3 "$SCRIPT_DIR/cities_db_stats.py" --poorer "$STATS" "$PUBLISHED_STATS")"; then
   rm -f "$CITIES_FILE"
   echo "::warning::$REGION_ID: cities.db piu' povero del pubblicato ($LOST)"
   keep_published "dati mancanti: $LOST"

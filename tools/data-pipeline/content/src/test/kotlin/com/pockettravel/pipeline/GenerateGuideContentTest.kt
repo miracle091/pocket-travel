@@ -308,12 +308,15 @@ class GenerateGuideContentTest {
     fun `senza il dump italiano i fatti rapidi inglesi restano quelli pubblicati`() {
         val published = GuideSectionRow(category = "FATTI_RAPIDI", title = "Quick facts", body = "Language: Italian\nElectricity: 230V/50Hz (European plug)")
         val other = GuideSectionRow(category = "ALTRO", title = "Altro", body = "x")
-        assertEquals(published, englishQuickFactsOrPublished("italia", null, listOf(other, published)))
-        // Con il dump italiano si rigenerano, anche se c'e' una sezione pubblicata.
+        assertEquals(published, englishQuickFactsOrPublished("italia", null) { listOf(other, published) })
+        // Con il dump italiano si rigenerano, anche se c'e' una sezione pubblicata, che non si legge nemmeno.
         val dump = "{{QuickbarCountry\n|Lingua=Italiano\n}}"
-        assertEquals(englishQuickFactsSection("italia", dump), englishQuickFactsOrPublished("italia", dump, listOf(published)))
+        assertEquals(
+            englishQuickFactsSection("italia", dump),
+            englishQuickFactsOrPublished("italia", dump) { error("sezioni pubblicate lette senza bisogno") },
+        )
         // Niente dump e niente sezione pubblicata: i soli dati di Wikidata.
-        assertEquals(englishQuickFactsSection("italia", ""), englishQuickFactsOrPublished("italia", null, listOf(other)))
+        assertEquals(englishQuickFactsSection("italia", ""), englishQuickFactsOrPublished("italia", null) { listOf(other) })
     }
 
     @Test

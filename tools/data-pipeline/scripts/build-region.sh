@@ -609,36 +609,43 @@ if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
           [ -n "$tileFile" ] || continue
           fetch_rd5 "$tileFile" "$UPDATED_TSV"
         done <<< "$CHANGED_TILES"
-        jq -R -s -c "$RD5_TSV_TO_JSON" "$UPDATED_TSV" > "$WORKDIR/updated-rd5.json"
-        build_car_variant "$UPDATED_TSV" "$WORKDIR/updated-car.tsv"
-        jq -R -s -c "$RD5_TSV_TO_JSON" "$WORKDIR/updated-car.tsv" > "$WORKDIR/updated-car.json"
-        # Mappa e rete stradale hanno versioni indipendenti: una tile .rd5 cambiata non fa ri-estrarre
-        # la mappa.
-        jq -c --arg id "$REGION_ID" --arg version "$VERSION" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-          --arg src "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" --slurpfile upd "$WORKDIR/updated-rd5.json" --slurpfile updCar "$WORKDIR/updated-car.json" \
-          --arg fp "$MAP_FINGERPRINT" --argjson mapdue "$MAP_DUE" '
-          ($upd[0] | map({key: .name, value: .}) | from_entries) as $u
-          | ($updCar[0] | map({key: .name, value: .}) | from_entries) as $uc
-          | {manifestVersion: 2, regions: [(.regions // [])[] | select(.regionId == $id)
-              | .updatedAt = $now
-              | .map.source.sourceUrl = $src
-              | if $mapdue then .map.version = $version | .map.fingerprint = $fp
-                elif (.map.fingerprint // "") == "" and $fp != "" then .map.fingerprint = $fp
-                else . end
-              | if ($u | length) > 0 then
-                  .routing.version = $version | .routing.files |= map(if $u[.name] then $u[.name] else . end)
-                  | .routingCar.version = $version | .routingCar.files |= map(if $uc[.name] then $uc[.name] else . end)
-                else . end]}' \
-          "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
-        # Mappa d'insieme: si rigenera solo se la mappa e' davvero cambiata (MAP_DUE, non solo qualche
-        # tile .rd5) o se la regione non ne ha ancora una - non a ogni run incrementale.
-        PREVIEW_NEEDED=false
-        { [ "$MAP_DUE" = "true" ] || [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("preview")')" != "true" ]; } && PREVIEW_NEEDED=true
-        update_preview_entry "$OUTPUT_DIR/manifest-fragment.json" "$PREVIEW_NEEDED"
-        : > "$OUTPUT_DIR/.incremental"
-        if [ "$POI_ONLY" != "true" ]; then
-          echo "== [$REGION_ID] fatto (incrementale: solo tile cambiate, poi.db riusato) =="
-          exit 0
+        # Una tile cambiata che ora e' senza strade va tolta da routing.files e messa in routing.emptyTiles: lo fa la
+        # rigenerazione completa. Senza, la tile resterebbe "cambiata" e si riscaricherebbe a ogni run.
+        if [ -s "$UPDATED_TSV.empty" ]; then
+          echo "-- $REGION_ID: una tile cambiata ora e' senza strade: rigenerazione completa"
+          POI_ONLY=false
+        else
+          jq -R -s -c "$RD5_TSV_TO_JSON" "$UPDATED_TSV" > "$WORKDIR/updated-rd5.json"
+          build_car_variant "$UPDATED_TSV" "$WORKDIR/updated-car.tsv"
+          jq -R -s -c "$RD5_TSV_TO_JSON" "$WORKDIR/updated-car.tsv" > "$WORKDIR/updated-car.json"
+          # Mappa e rete stradale hanno versioni indipendenti: una tile .rd5 cambiata non fa ri-estrarre
+          # la mappa.
+          jq -c --arg id "$REGION_ID" --arg version "$VERSION" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg src "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" --slurpfile upd "$WORKDIR/updated-rd5.json" --slurpfile updCar "$WORKDIR/updated-car.json" \
+            --arg fp "$MAP_FINGERPRINT" --argjson mapdue "$MAP_DUE" '
+            ($upd[0] | map({key: .name, value: .}) | from_entries) as $u
+            | ($updCar[0] | map({key: .name, value: .}) | from_entries) as $uc
+            | {manifestVersion: 2, regions: [(.regions // [])[] | select(.regionId == $id)
+                | .updatedAt = $now
+                | .map.source.sourceUrl = $src
+                | if $mapdue then .map.version = $version | .map.fingerprint = $fp
+                  elif (.map.fingerprint // "") == "" and $fp != "" then .map.fingerprint = $fp
+                  else . end
+                | if ($u | length) > 0 then
+                    .routing.version = $version | .routing.files |= map(if $u[.name] then $u[.name] else . end)
+                    | .routingCar.version = $version | .routingCar.files |= map(if $uc[.name] then $uc[.name] else . end)
+                  else . end]}' \
+            "$PUBLISHED_MANIFEST" > "$OUTPUT_DIR/manifest-fragment.json"
+          # Mappa d'insieme: si rigenera solo se la mappa e' davvero cambiata (MAP_DUE, non solo qualche
+          # tile .rd5) o se la regione non ne ha ancora una - non a ogni run incrementale.
+          PREVIEW_NEEDED=false
+          { [ "$MAP_DUE" = "true" ] || [ "$(printf '%s' "$PUBLISHED_REGION" | jq 'has("preview")')" != "true" ]; } && PREVIEW_NEEDED=true
+          update_preview_entry "$OUTPUT_DIR/manifest-fragment.json" "$PREVIEW_NEEDED"
+          : > "$OUTPUT_DIR/.incremental"
+          if [ "$POI_ONLY" != "true" ]; then
+            echo "== [$REGION_ID] fatto (incrementale: solo tile cambiate, poi.db riusato) =="
+            exit 0
+          fi
         fi
       fi
     fi

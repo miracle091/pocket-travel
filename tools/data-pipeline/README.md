@@ -298,7 +298,8 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   Wikidata e Wikipedia non fanno fallire la regione: con un errore di rete o il tetto di tempo il `cities.db` esce senza
   quei dati. Per questo la voce `cities`/`citiesEn` del catalogo ha `stats` (`scripts/cities_db_stats.py`: città con
   popolazione, città con coordinate, sezioni di Wikipedia) e `build-cities.sh` tiene il pacchetto pubblicato, con un
-  `::warning::`, se un valore cala di oltre il 10%. Le voci pubblicate prima di `stats` non si confrontano.
+  `::warning::`, se un valore cala di oltre il 10%. Le voci pubblicate prima di `stats` non si confrontano. Quando i dati
+  sono calati davvero alla fonte, una run manuale con `force_cities` (`FORCE_CITIES=1`) pubblica lo stesso il pacchetto nuovo.
 - **Dati dei paesi**: `scripts/wikidata_countries.py --out content/src/main/resources/countries.tsv` scrive da
   Wikidata (CC0) una riga per regione di `regions.sh` con capitale, valuta, lato di guida, prefisso, lingue ufficiali,
   fusi orari, numeri di emergenza, prese e tensione, con le etichette in italiano e in inglese. I fusi orari sono

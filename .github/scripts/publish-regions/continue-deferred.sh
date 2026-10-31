@@ -2,8 +2,8 @@
 # Job "publish" di publish-regions.yml: rilancia in una run nuova (workflow_dispatch, che il GITHUB_TOKEN puo' fare) le
 # regioni che gli shard hanno rimandato per il budget di tempo (deferred-<shard>.txt) e, solo dalla run iniziale, quelle
 # fallite (failed-<shard>.txt). Al massimo 4 continuazioni in fila.
-# Ambiente: CONTINUATION, TIME_BUDGET_INPUT, POI_MAX_AGE_INPUT (input della run), REF_NAME (ramo; dall'ambiente perche'
-# il nome di un ramo puo' contenere $(...)), GITHUB_REPOSITORY, GH_TOKEN.
+# Ambiente: CONTINUATION, TIME_BUDGET_INPUT, POI_MAX_AGE_INPUT, FORCE_CITIES_INPUT (input della run), REF_NAME (ramo;
+# dall'ambiente perche' il nome di un ramo puo' contenere $(...)), GITHUB_REPOSITORY, GH_TOKEN.
 set -euo pipefail
 source .github/scripts/env.sh
 : "${REF_NAME:=$(git branch --show-current)}"  # fuori dal workflow, il ramo attuale
@@ -33,6 +33,7 @@ fi
 ARGS=(-f regions="$DEFERRED" -f continuation="$NEXT")
 [ -z "${TIME_BUDGET_INPUT:-}" ] || ARGS+=(-f time_budget_minutes="$TIME_BUDGET_INPUT")
 [ -z "${POI_MAX_AGE_INPUT:-}" ] || ARGS+=(-f poi_max_age_days="$POI_MAX_AGE_INPUT")
+[ "${FORCE_CITIES_INPUT:-}" != true ] || ARGS+=(-f force_cities=true)
 retry gh workflow run publish-regions.yml --repo "$GITHUB_REPOSITORY" --ref "$REF_NAME" "${ARGS[@]}"
 echo "-- continuazione $NEXT lanciata con $(tr ',' '\n' <<< "$DEFERRED" | wc -l) regioni"
 echo "Continuazione $NEXT lanciata con le regioni rimandate: $DEFERRED" >> "$GITHUB_STEP_SUMMARY"

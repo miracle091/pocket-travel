@@ -48,6 +48,12 @@ on:
           (job "build"). Vuoto = 280. Un valore piccolo serve a provare il rinvio.
         required: false
         default: ""
+      force_cities:
+        description: >
+          Pubblica il pacchetto delle citta' anche se ha meno dati di quello pubblicato (FORCE_CITIES di
+          build-cities.sh), per quando i dati sono calati davvero su Wikidata o Wikipedia.
+        type: boolean
+        default: false
       continuation:
         description: >
           Numero della continuazione automatica (la imposta il job "publish" quando rilancia le
@@ -490,6 +496,7 @@ jobs:
       # Ogni regione torna in rotazione ogni 7 giorni e si rigenera oltre POI_MAX_AGE_DAYS giorni:
       # 6 rinnova i POI a ogni turno (7 li rinnoverebbe ogni due settimane).
       POI_MAX_AGE_DAYS: ${{ github.event.inputs.poi_max_age_days || '6' }}
+      FORCE_CITIES: ${{ github.event.inputs.force_cities == 'true' && '1' || '' }}
       # Passato il budget lo shard non inizia altre regioni: le rimanda (deferred-<shard>.txt) e il
       # job "publish" le rilancia in una run nuova. Una regione oltre REGION_TIMEOUT_MINUTES e'
       # fallita (la piu' lenta misurata, cina-tibet alla prima generazione, 34 min).
@@ -839,6 +846,7 @@ jobs:
           CONTINUATION: ${{ github.event.inputs.continuation }}
           TIME_BUDGET_INPUT: ${{ github.event.inputs.time_budget_minutes }}
           POI_MAX_AGE_INPUT: ${{ github.event.inputs.poi_max_age_days }}
+          FORCE_CITIES_INPUT: ${{ github.event.inputs.force_cities }}
         run: bash .github/scripts/publish-regions/continue-deferred.sh
 
       # Dopo il deploy i frammenti in sospeso scaricati sono tutti sistemati: uniti, gia' superati dal
