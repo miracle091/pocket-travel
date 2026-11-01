@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:PoiRules.kt:fun poiCategoryOf: PoiCategory</ID>
+    <ID>LongMethod:PoiRules.kt:fun poiCategoryOf: PoiCategory</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -1,0 +1,188 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:GenerateDiplomaticMissions.kt:la != null &amp;&amp; lo != null &amp;&amp; la.isFinite() &amp;&amp; lo.isFinite() &amp;&amp; la in -90.0..90.0 &amp;&amp; lo in -180.0..180.0</ID>
+    <ID>ComplexCondition:GenerateGuideContent.kt:index &lt; text.length &amp;&amp; depth &gt; 0 &amp;&amp; !(singleOpen &gt; 0 &amp;&amp; text.startsWith("\n\n", index))</ID>
+    <ID>ComplexCondition:ValidateManifest.kt:!(minLon &gt;= -180.0 &amp;&amp; maxLon &lt;= 180.0 &amp;&amp; minLat &gt;= -90.0 &amp;&amp; maxLat &lt;= 90.0)</ID>
+    <ID>ComplexCondition:ValidateManifest.kt:!canonical || parts.size != 3 || z == null || x == null || y == null || z !in 0..14 || x !in 0 until (1 shl z) || y !in 0 until (1 shl z)</ID>
+    <ID>CyclomaticComplexMethod:GenerateCountryFacts.kt:internal fun countryFactFields: Map&lt;String, String&gt;</ID>
+    <ID>CyclomaticComplexMethod:GenerateGuideContent.kt:fun main</ID>
+    <ID>CyclomaticComplexMethod:GenerateGuideContent.kt:internal fun cleanBody: String</ID>
+    <ID>CyclomaticComplexMethod:GenerateGuideContent.kt:private fun removeMediaLinks: String</ID>
+    <ID>CyclomaticComplexMethod:GenerateGuideContent.kt:private fun resolveTemplate: String?</ID>
+    <ID>CyclomaticComplexMethod:GeneratePoi.kt:private fun poiFromKey: Poi?</ID>
+    <ID>CyclomaticComplexMethod:GenerateTransit.kt:fun generateTransit: TransitStats</ID>
+    <ID>CyclomaticComplexMethod:GenerateTransit.kt:internal fun readCsv</ID>
+    <ID>CyclomaticComplexMethod:GenerateTravelAdvice.kt:fun fcdoAdviceSections: List&lt;GuideSectionRow&gt;</ID>
+    <ID>CyclomaticComplexMethod:GenerateTravelAdvice.kt:fun readTravelAdvice: Map&lt;String, RegionAdvice&gt;</ID>
+    <ID>CyclomaticComplexMethod:GenerateTravelAdvice.kt:internal fun adviceHtmlToText: String</ID>
+    <ID>CyclomaticComplexMethod:MergeManifests.kt:fun mergeManifestJson: String</ID>
+    <ID>CyclomaticComplexMethod:SelectFragments.kt:internal fun selectFragments: FragmentSelection</ID>
+    <ID>CyclomaticComplexMethod:ValidateManifest.kt:fun validateAddressGridJson</ID>
+    <ID>CyclomaticComplexMethod:ValidateManifest.kt:fun validateManifestJson</ID>
+    <ID>CyclomaticComplexMethod:ValidateManifest.kt:fun validateTransitJson</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:GenerateAddresses.kt:val (minLon, minLat, maxLon, maxLat) = args.slice(1..4).map { it.toDouble() }</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:GenerateEmergencyNumbers.kt:(regionId, general, police, ambulance, fire)</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:GenerateEmergencyNumbers.kt:val (title, general, police, ambulance, fire) = if (english) { listOf("Emergency numbers", "General", "Police", "Ambulance", "Fire") } else { listOf("Numeri di emergenza", "Generale", "Polizia", "Ambulanza", "Vigili del fuoco") }</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:GenerateEmergencyNumbersTest.kt:GenerateEmergencyNumbersTest$(regionId, general, police, ambulance, fire)</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:GenerateGeneralGuide.kt:val (category, page, dumpPath, sourceUrl) = line.split('\t')</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:GenerateGuideContentTest.kt:GenerateGuideContentTest$(base, translated, otherUrl, otherCategory)</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:GeneratePoiTest.kt:GeneratePoiTest$val (ristorante, bar, museo, farmacia, supermercato) = pois</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:GenerateVaccinations.kt:VaccinationData$(a, b, c, d, e)</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:MapFingerprint.kt:val (minLon, minLat, maxLon, maxLat) = args.slice(1..4).map { it.toDouble() }</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:MapFingerprintTest.kt:(_, x0, x1, y0, y1)</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:MapFingerprintTest.kt:(z, x0, x1, y0, y1)</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:PublishedFormatTest.kt:PublishedFormatTest$(cid, column, columnType, notNull, default, pk)</ID>
+    <ID>LargeClass:GenerateGuideContentTest.kt:GenerateGuideContentTest</ID>
+    <ID>LargeClass:GeneratePoiTest.kt:GeneratePoiTest</ID>
+    <ID>LargeClass:GenerateTravelAdviceTest.kt:GenerateTravelAdviceTest</ID>
+    <ID>LargeClass:ValidateManifestTest.kt:ValidateManifestTest</ID>
+    <ID>LongMethod:AddressSearch.kt:fun writeAddressSearchDb: Int</ID>
+    <ID>LongMethod:GenerateGuideContent.kt:fun main</ID>
+    <ID>LongMethod:GeneratePoi.kt:fun writePoiDb</ID>
+    <ID>LongMethod:GenerateTransit.kt:fun generateTransit: TransitStats</ID>
+    <ID>LongMethod:GenerateTravelAdvice.kt:internal fun adviceHtmlToText: String</ID>
+    <ID>LongMethod:GenerateVaccinations.kt:fun writeVaccinationsTables</ID>
+    <ID>LongMethod:MergeManifests.kt:fun mergeManifestJson: String</ID>
+    <ID>LongMethod:SelectFragments.kt:internal fun selectFragments: FragmentSelection</ID>
+    <ID>LoopWithTooManyJumpStatements:GenerateTransit.kt:while</ID>
+    <ID>LoopWithTooManyJumpStatements:GenerateTravelAdvice.kt:for</ID>
+    <ID>LoopWithTooManyJumpStatements:SelectFragments.kt:for</ID>
+    <ID>MagicNumber:AddressSearch.kt:10_000</ID>
+    <ID>MagicNumber:AddressSearch.kt:3</ID>
+    <ID>MagicNumber:AddressSearch.kt:32</ID>
+    <ID>MagicNumber:AddressSearch.kt:4</ID>
+    <ID>MagicNumber:AddressSearch.kt:RoadIndex$111_320.0</ID>
+    <ID>MagicNumber:AddressSearch.kt:RoadIndex$1e6</ID>
+    <ID>MagicNumber:FilterRd5.kt:100</ID>
+    <ID>MagicNumber:FilterRd5.kt:3</ID>
+    <ID>MagicNumber:GenerateAddressGrid.kt:1000</ID>
+    <ID>MagicNumber:GenerateAddressGrid.kt:3</ID>
+    <ID>MagicNumber:GenerateAddressGrid.kt:5</ID>
+    <ID>MagicNumber:GenerateAddresses.kt:10</ID>
+    <ID>MagicNumber:GenerateAddresses.kt:180.0</ID>
+    <ID>MagicNumber:GenerateAddresses.kt:1e6</ID>
+    <ID>MagicNumber:GenerateAddresses.kt:256.0</ID>
+    <ID>MagicNumber:GenerateAddresses.kt:3</ID>
+    <ID>MagicNumber:GenerateAddresses.kt:360.0</ID>
+    <ID>MagicNumber:GenerateAddresses.kt:4</ID>
+    <ID>MagicNumber:GenerateAddresses.kt:5</ID>
+    <ID>MagicNumber:GenerateAddresses.kt:6</ID>
+    <ID>MagicNumber:GenerateCities.kt:10</ID>
+    <ID>MagicNumber:GenerateCities.kt:11</ID>
+    <ID>MagicNumber:GenerateCities.kt:12</ID>
+    <ID>MagicNumber:GenerateCities.kt:3</ID>
+    <ID>MagicNumber:GenerateCities.kt:4</ID>
+    <ID>MagicNumber:GenerateCities.kt:5</ID>
+    <ID>MagicNumber:GenerateCities.kt:6</ID>
+    <ID>MagicNumber:GenerateCities.kt:7</ID>
+    <ID>MagicNumber:GenerateCities.kt:8</ID>
+    <ID>MagicNumber:GenerateCities.kt:9</ID>
+    <ID>MagicNumber:GenerateDiplomaticMissions.kt:11</ID>
+    <ID>MagicNumber:GenerateDiplomaticMissions.kt:12</ID>
+    <ID>MagicNumber:GenerateDiplomaticMissions.kt:180.0</ID>
+    <ID>MagicNumber:GenerateDiplomaticMissions.kt:5</ID>
+    <ID>MagicNumber:GenerateDiplomaticMissions.kt:9</ID>
+    <ID>MagicNumber:GenerateDiplomaticMissions.kt:90.0</ID>
+    <ID>MagicNumber:GenerateEmergencyNumbers.kt:3</ID>
+    <ID>MagicNumber:GenerateEmergencyNumbers.kt:4</ID>
+    <ID>MagicNumber:GenerateEmergencyNumbers.kt:5</ID>
+    <ID>MagicNumber:GenerateGuideContent.kt:16</ID>
+    <ID>MagicNumber:GenerateGuideContent.kt:3</ID>
+    <ID>MagicNumber:GenerateGuideContent.kt:4</ID>
+    <ID>MagicNumber:GenerateGuideContent.kt:5</ID>
+    <ID>MagicNumber:GenerateGuideContent.kt:6</ID>
+    <ID>MagicNumber:GenerateGuideContent.kt:7</ID>
+    <ID>MagicNumber:GenerateManifest.kt:0xFF</ID>
+    <ID>MagicNumber:GenerateManifest.kt:5</ID>
+    <ID>MagicNumber:GenerateManifest.kt:6</ID>
+    <ID>MagicNumber:GeneratePoi.kt:10</ID>
+    <ID>MagicNumber:GeneratePoi.kt:100</ID>
+    <ID>MagicNumber:GeneratePoi.kt:11</ID>
+    <ID>MagicNumber:GeneratePoi.kt:12</ID>
+    <ID>MagicNumber:GeneratePoi.kt:13</ID>
+    <ID>MagicNumber:GeneratePoi.kt:14</ID>
+    <ID>MagicNumber:GeneratePoi.kt:15</ID>
+    <ID>MagicNumber:GeneratePoi.kt:16</ID>
+    <ID>MagicNumber:GeneratePoi.kt:1_000_000.0</ID>
+    <ID>MagicNumber:GeneratePoi.kt:3</ID>
+    <ID>MagicNumber:GeneratePoi.kt:4</ID>
+    <ID>MagicNumber:GeneratePoi.kt:5</ID>
+    <ID>MagicNumber:GeneratePoi.kt:6</ID>
+    <ID>MagicNumber:GeneratePoi.kt:7</ID>
+    <ID>MagicNumber:GeneratePoi.kt:8</ID>
+    <ID>MagicNumber:GeneratePoi.kt:9</ID>
+    <ID>MagicNumber:GenerateTransit.kt:16</ID>
+    <ID>MagicNumber:GenerateTransit.kt:1_000_000</ID>
+    <ID>MagicNumber:GenerateTransit.kt:20_000</ID>
+    <ID>MagicNumber:GenerateTransit.kt:3</ID>
+    <ID>MagicNumber:GenerateTransit.kt:366</ID>
+    <ID>MagicNumber:GenerateTransit.kt:4</ID>
+    <ID>MagicNumber:GenerateTransit.kt:5</ID>
+    <ID>MagicNumber:GenerateTransit.kt:6</ID>
+    <ID>MagicNumber:GenerateTransit.kt:60</ID>
+    <ID>MagicNumber:GenerateTransit.kt:7</ID>
+    <ID>MagicNumber:GenerateTransit.kt:8</ID>
+    <ID>MagicNumber:GenerateTravelAdvice.kt:3</ID>
+    <ID>MagicNumber:GenerateTravelAdvice.kt:4</ID>
+    <ID>MagicNumber:GenerateVaccinations.kt:10</ID>
+    <ID>MagicNumber:GenerateVaccinations.kt:3</ID>
+    <ID>MagicNumber:GenerateVaccinations.kt:4</ID>
+    <ID>MagicNumber:GenerateVaccinations.kt:5</ID>
+    <ID>MagicNumber:GenerateVaccinations.kt:6</ID>
+    <ID>MagicNumber:GenerateVaccinations.kt:7</ID>
+    <ID>MagicNumber:GenerateVaccinations.kt:8</ID>
+    <ID>MagicNumber:GenerateVaccinations.kt:9</ID>
+    <ID>MagicNumber:GenerateWorldMap.kt:1000</ID>
+    <ID>MagicNumber:GenerateWorldMap.kt:1000.0</ID>
+    <ID>MagicNumber:GenerateWorldMap.kt:5</ID>
+    <ID>MagicNumber:MapFingerprint.kt:2000L</ID>
+    <ID>MagicNumber:MapFingerprint.kt:206</ID>
+    <ID>MagicNumber:MapFingerprint.kt:4</ID>
+    <ID>MagicNumber:MapFingerprint.kt:56</ID>
+    <ID>MagicNumber:MapFingerprint.kt:7</ID>
+    <ID>MagicNumber:MapFingerprint.kt:8</ID>
+    <ID>MagicNumber:MergeManifests.kt:3</ID>
+    <ID>MagicNumber:MergeManifests.kt:5</ID>
+    <ID>MagicNumber:MergeManifests.kt:6</ID>
+    <ID>MagicNumber:PoiCategoryReport.kt:3</ID>
+    <ID>MagicNumber:ValidateManifest.kt:14</ID>
+    <ID>MagicNumber:ValidateManifest.kt:180.0</ID>
+    <ID>MagicNumber:ValidateManifest.kt:22</ID>
+    <ID>MagicNumber:ValidateManifest.kt:3</ID>
+    <ID>MagicNumber:ValidateManifest.kt:4</ID>
+    <ID>MagicNumber:ValidateManifest.kt:90.0</ID>
+    <ID>MatchingDeclarationName:GenerateEmergencyNumbers.kt:EmergencyNumbers</ID>
+    <ID>MatchingDeclarationName:GenerateTransit.kt:TransitStats</ID>
+    <ID>MatchingDeclarationName:TranslatedSections.kt:TranslatedCategory</ID>
+    <ID>NestedBlockDepth:GenerateTransit.kt:fun generateTransit: TransitStats</ID>
+    <ID>NestedBlockDepth:MergeManifests.kt:fun mergeManifestJson: String</ID>
+    <ID>NestedBlockDepth:PoiCategoryReport.kt:fun main</ID>
+    <ID>NestedBlockDepth:PublishedFormatTest.kt:PublishedFormatTest$private fun sqliteLines: List&lt;String&gt;</ID>
+    <ID>ReturnCount:GenerateAddressGrid.kt:internal fun isAncestorCell: Boolean</ID>
+    <ID>ReturnCount:GenerateAddresses.kt:private fun collectAddress</ID>
+    <ID>ReturnCount:GenerateCities.kt:internal fun truncateSection: String</ID>
+    <ID>ReturnCount:GenerateDiplomaticMissions.kt:fun keepPublishedGuides: Boolean</ID>
+    <ID>ReturnCount:GenerateGeneralGuide.kt:private fun foldIntroduction: List&lt;GuideSectionRow&gt;</ID>
+    <ID>ReturnCount:GenerateGuideContent.kt:internal fun englishElectricity: String?</ID>
+    <ID>ReturnCount:GeneratePoi.kt:&lt;no name provided&gt;$override fun endElement</ID>
+    <ID>ReturnCount:GeneratePoi.kt:private fun poiFromKey: Poi?</ID>
+    <ID>ReturnCount:GenerateTransit.kt:internal fun gtfsMinutes: Int?</ID>
+    <ID>ReturnCount:GenerateTravelAdvice.kt:fun canadianSections: List&lt;GuideSectionRow&gt;?</ID>
+    <ID>ReturnCount:GenerateTravelAdvice.kt:fun emergencyCentreContacts: String?</ID>
+    <ID>ReturnCount:GenerateTravelAdvice.kt:fun fcdoAdviceSections: List&lt;GuideSectionRow&gt;</ID>
+    <ID>ReturnCount:GenerateTravelAdvice.kt:fun fcdoBritishSections: List&lt;GuideSectionRow&gt;?</ID>
+    <ID>ReturnCount:GenerateTravelAdvice.kt:fun travelAdviceSections: List&lt;GuideSectionRow&gt;</ID>
+    <ID>ThrowsCount:ValidateManifest.kt:fun validateAddressGridJson</ID>
+    <ID>ThrowsCount:ValidateManifest.kt:fun validateManifestJson</ID>
+    <ID>ThrowsCount:ValidateManifest.kt:fun validateTransitJson</ID>
+    <ID>ThrowsCount:ValidateManifest.kt:private fun validateFile</ID>
+    <ID>ThrowsCount:ValidateManifest.kt:private fun validateMapSource</ID>
+    <ID>TooGenericExceptionCaught:MapFingerprint.kt:e: Exception</ID>
+    <ID>TooManyFunctions:GenerateAddresses.kt:com.pockettravel.pipeline.GenerateAddresses.kt</ID>
+    <ID>TooManyFunctions:GenerateGuideContent.kt:com.pockettravel.pipeline.GenerateGuideContent.kt</ID>
+    <ID>TooManyFunctions:GenerateTravelAdvice.kt:com.pockettravel.pipeline.GenerateTravelAdvice.kt</ID>
+    <ID>TooManyFunctions:ValidateManifest.kt:com.pockettravel.pipeline.ValidateManifest.kt</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -3,6 +3,7 @@
 // e le due non possono disallinearsi.
 plugins {
     id("org.jetbrains.kotlin.jvm")
+    id("pockettravel.detekt")
 }
 
 java {

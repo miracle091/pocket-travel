@@ -6,6 +6,7 @@
 // - poi.db e poi-extra.db (generatePoi): i POI di una regione, base ed extra (vedi core:poi).
 plugins {
     id("org.jetbrains.kotlin.jvm")
+    id("pockettravel.detekt")
 }
 
 java {
