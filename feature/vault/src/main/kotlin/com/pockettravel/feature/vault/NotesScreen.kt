@@ -32,6 +32,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -42,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.Note
@@ -59,6 +61,7 @@ import com.pockettravel.core.ui.R as UiR
 fun NotesScreen(viewModel: NotesViewModel = hiltViewModel()) {
     val notes by viewModel.notes.collectAsStateWithLifecycle()
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
+    SecureWindow()
 
     // Senza barra in alto: la ospita DocumentsScreen, sotto il selettore Documenti | Note.
     Scaffold(
@@ -104,6 +107,7 @@ fun NotesScreen(viewModel: NotesViewModel = hiltViewModel()) {
     if (showAddDialog) {
         NoteEditDialog(
             existing = null,
+            draft = viewModel.draft,
             onSave = { viewModel.save(it); showAddDialog = false },
             onDismiss = { showAddDialog = false },
         )
@@ -163,6 +167,7 @@ private fun NoteCard(viewModel: NotesViewModel, note: Note) {
     if (showEditDialog) {
         NoteEditDialog(
             existing = note,
+            draft = viewModel.draft,
             onSave = { viewModel.save(it); showEditDialog = false },
             onDismiss = { showEditDialog = false },
         )
@@ -173,21 +178,21 @@ private fun NoteCard(viewModel: NotesViewModel, note: Note) {
 // schermo intero come PassportEditDialog: chiudi a sinistra, Salva in alto a destra.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NoteEditDialog(existing: Note?, onSave: (Note) -> Unit, onDismiss: () -> Unit) {
-    var title by rememberSaveable { mutableStateOf(existing?.title ?: "") }
-    var body by rememberSaveable { mutableStateOf(existing?.body ?: "") }
-    val canSave = title.isNotBlank()
+private fun NoteEditDialog(existing: Note?, draft: NoteDrafts, onSave: (Note) -> Unit, onDismiss: () -> Unit) {
+    val fields = remember { draft.draftFor(existing) }
+    val canSave = fields.title.isNotBlank()
+    val close = { draft.clear(); onDismiss() }
 
     Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        onDismissRequest = close,
+        properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOn),
     ) {
         Scaffold(
             topBar = {
                 TopAppBar(
                     title = { Text(stringResource(if (existing == null) R.string.notes_new else R.string.notes_edit_title)) },
                     navigationIcon = {
-                        IconButton(onClick = onDismiss) {
+                        IconButton(onClick = close) {
                             Icon(AppIcons.Close, contentDescription = stringResource(R.string.notes_cancel))
                         }
                     },
@@ -198,11 +203,12 @@ private fun NoteEditDialog(existing: Note?, onSave: (Note) -> Unit, onDismiss: (
                                 onSave(
                                     Note(
                                         id = existing?.id ?: 0,
-                                        title = title,
-                                        body = body,
+                                        title = fields.title,
+                                        body = fields.body,
                                         updatedAt = System.currentTimeMillis(),
                                     ),
                                 )
+                                draft.clear()
                             },
                         ) { Text(stringResource(R.string.notes_save)) }
                     },
@@ -219,15 +225,15 @@ private fun NoteEditDialog(existing: Note?, onSave: (Note) -> Unit, onDismiss: (
                 verticalArrangement = Arrangement.spacedBy(Spacing.m),
             ) {
                 OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
+                    value = fields.title,
+                    onValueChange = { fields.title = it },
                     label = { Text(stringResource(R.string.notes_field_title)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
-                    value = body,
-                    onValueChange = { body = it },
+                    value = fields.body,
+                    onValueChange = { fields.body = it },
                     label = { Text(stringResource(R.string.notes_field_body)) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp),
                 )

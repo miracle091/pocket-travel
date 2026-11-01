@@ -1,6 +1,7 @@
 package com.pockettravel.app.browser
 
 import android.annotation.SuppressLint
+import android.graphics.Bitmap
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -83,6 +84,10 @@ fun InAppBrowserScreen(url: String, title: String, onBack: () -> Unit) {
                             // database scaricati e dai siti, non e' fidato.
                             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
                                 !isSafeWebUrl(request.url.toString())
+
+                            override fun onPageStarted(view: WebView, startedUrl: String, favicon: Bitmap?) {
+                                isLoading = true
+                            }
 
                             override fun onPageFinished(view: WebView, loadedUrl: String) {
                                 isLoading = false

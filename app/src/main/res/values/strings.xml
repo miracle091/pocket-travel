@@ -379,6 +379,8 @@
     <string name="settings_walking_haptics">Vibrazione a piedi</string>
     <string name="settings_walking_haptics_subtitle">Una vibrazione leggera a ogni svolta e due all\'arrivo, per seguire la navigazione senza guardare lo schermo</string>
     <string name="settings_alert_notifications">Notifiche delle allerte</string>
+    <string name="settings_alert_notifications_denied">Autorizzazione per le notifiche negata: le allerte non possono arrivare</string>
+    <string name="settings_open_app_settings">Impostazioni</string>
     <string name="settings_alert_notifications_subtitle">Con la rete, circa ogni ora: allerte arancioni, rosse e tsunami nelle regioni installate</string>
     <string name="regions_offline_installed">Catalogo non raggiungibile: sono mostrate solo le nazioni già scaricate</string>
     <string name="crash_notice_title">L\'app si è chiusa in modo inatteso</string>

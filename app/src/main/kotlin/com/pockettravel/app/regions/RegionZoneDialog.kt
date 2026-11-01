@@ -27,6 +27,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +52,14 @@ import com.pockettravel.core.ui.R as UiR
 private const val LARGE_REGION_KM2 = 200_000.0
 
 private const val KM_PER_DEGREE = 111.32
+
+private const val BOUNDS_VALUES = 4
+
+// Il rettangolo scelto (o nessuno) nello stato salvato: ovest, sud, est, nord.
+private val MapBoundsSaver = listSaver<MapBounds?, Double>(
+    save = { bounds -> bounds?.let { listOf(it.minLon, it.minLat, it.maxLon, it.maxLat) }.orEmpty() },
+    restore = { values -> if (values.size == BOUNDS_VALUES) MapBounds(values[0], values[1], values[2], values[3]) else null },
+)
 
 /** Larghezza e altezza in km di un rettangolo, a meta' della sua latitudine. */
 internal fun boundsSizeKm(minLon: Double, minLat: Double, maxLon: Double, maxLat: Double): Pair<Int, Int> {
@@ -116,9 +126,11 @@ internal fun ZonePickerDialog(
     onConfirm: (RegionZone) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var current by remember { mutableStateOf<MapBounds?>(null) }
+    var current by rememberSaveable(stateSaver = MapBoundsSaver) { mutableStateOf<MapBounds?>(null) }
+    // Dopo una rotazione la mappa riparte dalla zona che si stava guardando.
+    val restored = remember { current }
     val initial = remember(zone, regionBbox) {
-        zone?.let { MapBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) }
+        restored ?: zone?.let { MapBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) }
             ?: MapBounds(regionBbox.minLon, regionBbox.minLat, regionBbox.maxLon, regionBbox.maxLat)
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {

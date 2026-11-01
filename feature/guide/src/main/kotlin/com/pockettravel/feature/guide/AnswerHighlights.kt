@@ -5,6 +5,8 @@ import java.text.Normalizer
 // Sotto questa lunghezza (dopo la normalizzazione) una frase trova corrispondenze casuali: "Sì.", "Ecco.".
 private const val MIN_SENTENCE_LENGTH = 12
 
+private const val ASCII_LIMIT = 128
+
 private val sentenceBreak = Regex("""(?<=[.!?;:])\s+|\n+""")
 
 /** Testo ridotto a lettere e cifre minuscole senza accenti, con l'indice nel testo originale di ogni carattere tenuto. */
@@ -17,7 +19,9 @@ private class Normalized(original: String) {
         val indexes = mutableListOf<Int>()
         original.forEachIndexed { index, char ->
             // Spazi, apici, virgolette, trattini, elenchi e grassetti del Markdown non contano: cadono con la punteggiatura.
-            Normalizer.normalize(char.toString(), Normalizer.Form.NFD).lowercase().forEach { part ->
+            // L'ASCII non ha accenti da separare: evita la normalizzazione, costosa, sulla maggior parte dei caratteri.
+            val parts = if (char.code < ASCII_LIMIT) char.lowercaseChar().toString() else Normalizer.normalize(char.toString(), Normalizer.Form.NFD).lowercase()
+            parts.forEach { part ->
                 if (part.isLetterOrDigit()) {
                     letters.append(part)
                     indexes += index

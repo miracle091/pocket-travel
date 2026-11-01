@@ -116,6 +116,7 @@ internal fun RegionPreviewScreen(
                     icon = AppIcons.OfflineWifi,
                     title = stringResource(R.string.preview_error),
                     modifier = Modifier.fillMaxSize(),
+                    action = { FilledTonalButton(onClick = viewModel::load) { Text(stringResource(R.string.regions_retry)) } },
                 )
 
                 RegionPreviewState.Ready -> GuideScreen(regionId = regionId, onOpenSource = onOpenSource, catalogCountry = item?.countryCode)

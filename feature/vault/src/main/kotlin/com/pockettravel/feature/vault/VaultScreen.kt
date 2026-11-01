@@ -8,7 +8,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.provider.Settings
-import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -167,16 +166,8 @@ fun VaultScreen(
         onDispose { if (activity?.isChangingConfigurations != true) viewModel.lock() }
     }
 
-    // FLAG_SECURE finche' la schermata e' in composizione: niente dati del passaporto nella miniatura
-    // delle app recenti (scattata a onPause, prima del blocco a ON_STOP), negli screenshot e nelle
-    // registrazioni. I dialoghi hanno una finestra propria e lo chiedono con securePolicy. Si toglie
-    // all'uscita, ma solo se non c'era gia' prima (non si tocca un flag impostato da altri).
-    DisposableEffect(activity) {
-        val window = activity?.window
-        val alreadySecure = window != null && (window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) != 0
-        window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        onDispose { if (!alreadySecure) window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
-    }
+    // Niente dati del passaporto nella miniatura delle app recenti (scattata a onPause, prima del blocco a ON_STOP).
+    SecureWindow()
 
     // Scatti temporanei rimasti in chiaro se il processo e' morto durante uno scatto.
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { wipeCameraTmp(context) } }
@@ -251,6 +242,9 @@ private fun LockedContent(viewModel: VaultViewModel, onUnlock: () -> Unit, onNot
     // Impronte aggiunte o tolte dopo aver creato la cassaforte: la chiave non c'e' piu'.
     var keyInvalidated by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
+    val resetState by viewModel.resetState.collectAsStateWithLifecycle()
+    // Il messaggio di chiave invalidata sparisce solo a reset finito: nel frattempo "Sblocca" non lo fa ricomparire.
+    LaunchedEffect(resetState) { if (resetState == VaultResetState.DONE) keyInvalidated = false }
     val promptTitle = stringResource(R.string.vault_prompt_title)
     val promptSubtitle = stringResource(R.string.vault_prompt_subtitle)
     val promptCancel = stringResource(R.string.vault_prompt_cancel)
@@ -320,10 +314,12 @@ private fun LockedContent(viewModel: VaultViewModel, onUnlock: () -> Unit, onNot
         EmptyState(
             icon = AppIcons.Lock,
             title = stringResource(R.string.vault_key_invalidated_title),
-            subtitle = stringResource(R.string.vault_key_invalidated_body),
+            subtitle = stringResource(
+                if (resetState == VaultResetState.FAILED) R.string.vault_reset_failed else R.string.vault_key_invalidated_body,
+            ),
             modifier = Modifier.fillMaxSize(),
             action = {
-                Button(onClick = { confirmReset = true }) {
+                Button(onClick = { confirmReset = true }, enabled = resetState != VaultResetState.RESETTING) {
                     Text(stringResource(R.string.vault_reset))
                 }
             },
@@ -337,7 +333,6 @@ private fun LockedContent(viewModel: VaultViewModel, onUnlock: () -> Unit, onNot
                     TextButton(onClick = {
                         viewModel.resetVault()
                         confirmReset = false
-                        keyInvalidated = false
                     }) { Text(stringResource(R.string.vault_reset)) }
                 },
                 dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.vault_prompt_cancel)) } },
@@ -779,7 +774,7 @@ private fun PassportEditDialog(
             onCaptured = { jpegBytes ->
                 coroutineScope.launch {
                     val savedFileName = viewModel.savePhoto(jpegBytes)
-                    photoFileNames = photoFileNames + savedFileName
+                    if (savedFileName == null) showCamera = false else photoFileNames = photoFileNames + savedFileName
                 }
             },
             onClose = { showCamera = false },

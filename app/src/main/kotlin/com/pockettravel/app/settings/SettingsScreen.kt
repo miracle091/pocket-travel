@@ -2,8 +2,10 @@ package com.pockettravel.app.settings
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -21,6 +23,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -30,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -41,6 +47,7 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -54,6 +61,7 @@ import com.pockettravel.core.ui.countryName
 import com.pockettravel.feature.ai.AiSettingsSection
 import com.pockettravel.feature.map.UsageMode
 import com.pockettravel.feature.map.UsageModeOptions
+import kotlinx.coroutines.launch
 import com.pockettravel.core.ui.R as UiR
 
 // Le preferenze dell'app, raccolte qui da Altro: generali (lingua, nazionalita', aspetto) e del
@@ -78,7 +86,9 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     val context = LocalContext.current
     // Chiave sulla configurazione: la lingua cambia senza ricreare l'activity (configChanges nel manifest).
     val language = remember(LocalConfiguration.current) { AppLanguage.current(context) }
+    val snackbarHostState = remember { SnackbarHostState() }
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
@@ -99,7 +109,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 nationality?.let { countryName(it) } ?: stringResource(R.string.more_nationality_none),
             ) { showNationality = true }
             SettingsItem(AppIcons.Palette, stringResource(R.string.more_appearance), appearanceSummary(forceDark, useDynamicColor)) { showAppearance = true }
-            AlertNotificationsItem(viewModel.alertNotifications)
+            AlertNotificationsItem(viewModel.alertNotifications, snackbarHostState)
 
             SectionHeader(stringResource(R.string.settings_section_navigation))
             SettingsItem(
@@ -232,12 +242,27 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
 }
 
 @Composable
-private fun AlertNotificationsItem(switch: AlertNotificationSwitch) {
+private fun AlertNotificationsItem(switch: AlertNotificationSwitch, snackbarHostState: SnackbarHostState) {
     val context = LocalContext.current
     val enabled by switch.enabled.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val deniedMessage = stringResource(R.string.settings_alert_notifications_denied)
+    val openSettingsLabel = stringResource(R.string.settings_open_app_settings)
     // Senza il permesso delle notifiche l'interruttore resta spento.
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) switch.set(true)
+        if (granted) {
+            switch.set(true)
+        } else {
+            // Dopo un rifiuto, rationale false vuol dire "Non chiedere piu'": il sistema non mostra piu' la richiesta
+            // e l'unica strada sono le impostazioni dell'app.
+            val permanentlyDenied = !ActivityCompat.shouldShowRequestPermissionRationale(context.findActivity(), Manifest.permission.POST_NOTIFICATIONS)
+            scope.launch {
+                val result = snackbarHostState.showSnackbar(message = deniedMessage, actionLabel = if (permanentlyDenied) openSettingsLabel else null)
+                if (result == SnackbarResult.ActionPerformed) {
+                    context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri()))
+                }
+            }
+        }
     }
     SwitchItem(
         icon = ImageVector.vectorResource(UiR.drawable.ms_notifications),

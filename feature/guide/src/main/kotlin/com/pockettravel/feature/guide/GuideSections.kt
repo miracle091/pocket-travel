@@ -66,7 +66,7 @@ internal fun SectionsWithFilters(
     extraContent: (LazyListScope.() -> Unit)? = null,
     onBack: (() -> Unit)? = null,
     // Sezione citata da una risposta dell'assistente: si sceglie la sua categoria, ci si scorre e se ne evidenziano le frasi.
-    focus: GuideSourceTarget? = null,
+    focus: FocusRequest? = null,
     // Contenuto in più mostrato quando è scelta la categoria associata (con "Tutti" c'è già in [extraContent]).
     categoryExtras: Map<GuideCategory, CategoryExtra> = emptyMap(),
 ) {
@@ -81,7 +81,7 @@ internal fun SectionsWithFilters(
         firstSectionItem = CategoryExtra.itemsAboveSections(categories.size > 1 || onBack != null, extras),
         canFilter = categories.size > 1,
     )
-    // Le sezioni evidenziate dalla risposta si portano in vista una volta per ogni fonte aperta, non a ogni rientro nella lista.
+    // Le sezioni evidenziate dalla risposta si portano in vista una volta per ogni richiesta, non a ogni rientro nella lista.
     val highlightShown = remember(focus) { mutableStateOf(false) }
 
     // Larghezza massima di lettura: sugli schermi larghi il testo della guida non si allunga su
@@ -130,7 +130,7 @@ internal fun SectionsWithFilters(
             itemsIndexed(visibleSections, key = { index, section -> "${section.category}_${section.title}_$index" }) { _, section ->
                 GuideSectionCard(
                     section,
-                    answer = focus?.answer.takeIf { section.isFocus(focus) },
+                    answer = focus?.target?.answer.takeIf { section.isFocus(focus?.target) },
                     highlightShown = highlightShown,
                     modifier = Modifier.padding(horizontal = Spacing.l),
                 )
@@ -167,12 +167,18 @@ internal class CategoryExtra(val itemCount: Int, val content: LazyListScope.() -
     }
 }
 
+/**
+ * Richiesta di mostrare una sezione. Si confronta per identità: riaprire la stessa fonte è una richiesta nuova, che
+ * riscorre e rievidenzia.
+ */
+internal class FocusRequest(val target: GuideSourceTarget)
+
 private fun SectionUi.isFocus(focus: GuideSourceTarget?) = focus != null && category == focus.category && title == focus.title
 
 // Sceglie la categoria della sezione citata, poi scorre la lista fino a lei ([firstSectionItem]: righe sopra le sezioni).
 @Composable
 private fun FocusOnSection(
-    focus: GuideSourceTarget?,
+    focus: FocusRequest?,
     sections: List<SectionUi>,
     visibleSections: List<SectionUi>,
     selectedCategory: GuideCategory?,
@@ -181,16 +187,17 @@ private fun FocusOnSection(
     firstSectionItem: Int,
     canFilter: Boolean,
 ) {
-    val focusInSections = sections.any { it.isFocus(focus) }
+    val target = focus?.target
+    val focusInSections = sections.any { it.isFocus(target) }
     LaunchedEffect(focus, focusInSections) {
-        if (focus != null && focusInSections && canFilter) onSelectedCategoryChange(focus.category)
+        if (target != null && focusInSections && canFilter) onSelectedCategoryChange(target.category)
     }
-    val focusIndex = visibleSections.indexOfFirst { it.isFocus(focus) }
-    // Si scorre una volta per fonte: se poi la categoria si sceglie a mano, la lista non salta di nuovo.
-    var scrolledFor by remember { mutableStateOf<GuideSourceTarget?>(null) }
-    LaunchedEffect(focus, selectedCategory == focus?.category, focusIndex >= 0) {
-        if (focus == null || scrolledFor == focus) return@LaunchedEffect
-        if ((selectedCategory == focus.category || !canFilter) && focusIndex >= 0) {
+    val focusIndex = visibleSections.indexOfFirst { it.isFocus(target) }
+    // Si scorre una volta per richiesta: se poi la categoria si sceglie a mano, la lista non salta di nuovo.
+    var scrolledFor by remember { mutableStateOf<FocusRequest?>(null) }
+    LaunchedEffect(focus, selectedCategory == target?.category, focusIndex >= 0) {
+        if (target == null || scrolledFor === focus) return@LaunchedEffect
+        if ((selectedCategory == target.category || !canFilter) && focusIndex >= 0) {
             scrolledFor = focus
             listState.scrollToItem(focusIndex + firstSectionItem)
         }
@@ -265,7 +272,7 @@ internal fun guideBodyBlocks(body: String): List<GuideBodyBlock> {
 @Composable
 private fun GuideBody(body: String, answer: String? = null, highlightShown: MutableState<Boolean>? = null) {
     val highlight = SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
-    val blocks = guideBodyBlocks(body)
+    val blocks = remember(body) { guideBodyBlocks(body) }
     // Le frasi della risposta si cercano in ogni paragrafo: gli intervalli sono nel testo del paragrafo.
     val highlights = remember(body, answer) {
         blocks.map { block -> if (answer == null || block.isSubheading) emptyList() else answerHighlights(block.text, answer) }

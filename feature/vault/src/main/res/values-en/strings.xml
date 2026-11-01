@@ -18,6 +18,7 @@
     <string name="vault_reset">Reset the vault</string>
     <string name="vault_reset_title">Reset the vault?</string>
     <string name="vault_reset_message">All saved documents and their photos will be permanently deleted</string>
+    <string name="vault_reset_failed">Reset failed. Try again</string>
     <string name="vault_auth_failed">Authentication failed. Try again</string>
     <string name="vault_add">Add</string>
     <string name="vault_empty_title">No documents saved</string>

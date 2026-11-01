@@ -1,6 +1,7 @@
 package com.pockettravel.app
 
 import android.content.Context
+import com.pockettravel.core.data.PreferencesFactory
 import com.pockettravel.core.sync.installedAppVersionCode
 import com.pockettravel.core.ui.ContextualHints
 import dagger.Module
@@ -27,5 +28,5 @@ object AppEnvironmentModule {
     fun installedVersionCode(@ApplicationContext context: Context) = InstalledVersionCode { installedAppVersionCode(context) }
 
     @Provides
-    fun hintsReset(@ApplicationContext context: Context) = HintsReset { ContextualHints.reset(context) }
+    fun hintsReset(preferences: PreferencesFactory) = HintsReset { ContextualHints.reset(preferences) }
 }

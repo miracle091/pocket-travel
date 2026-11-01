@@ -196,9 +196,11 @@ fun PocketTravelNavHost(
             composable<OnboardingRoute> {
                 OnboardingScreen(
                     viewModel = onboardingViewModel,
-                    onComplete = {
+                    // Un secondo tocco su "Inizia" durante la transizione non impila un'altra lista Regioni.
+                    onComplete = dropUnlessResumed {
                         navController.navigate(RegionsRoute) {
                             popUpTo(OnboardingRoute) { inclusive = true }
+                            launchSingleTop = true
                         }
                     },
                 )
@@ -298,6 +300,7 @@ fun PocketTravelNavHost(
                     viewModel = hiltViewModel(),
                     onBack = dropUnlessResumed { navController.popBackStack() },
                     onOpenLibrary = { navController.navigate(LicenseRoute(it)) },
+                    onOpenLink = { navController.navigate(InAppBrowserRoute(it)) },
                 )
             }
             composable<LicenseRoute> { backStackEntry ->
@@ -306,6 +309,7 @@ fun PocketTravelNavHost(
                     viewModel = hiltViewModel(remember(backStackEntry) { navController.getBackStackEntry(LicensesRoute) }),
                     uniqueId = backStackEntry.toRoute<LicenseRoute>().uniqueId,
                     onBack = dropUnlessResumed { navController.popBackStack() },
+                    onOpenLink = { navController.navigate(InAppBrowserRoute(it)) },
                 )
             }
             composable<RegionHubRoute>(

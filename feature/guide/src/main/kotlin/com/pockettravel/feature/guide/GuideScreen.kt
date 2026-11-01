@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,10 +64,10 @@ fun GuideScreen(
     // citta' aperta direttamente da un chip del riquadro Citta' (null = si apre l'elenco)
     var initialCity by rememberSaveable(regionId) { mutableStateOf<String?>(null) }
     // La sezione da mostrare resta qui finche' la schermata c'e': chi sta sopra puo' gia' avere dimenticato la richiesta.
-    var focus by remember { mutableStateOf<GuideSourceTarget?>(null) }
+    var focus by remember { mutableStateOf<FocusRequest?>(null) }
     LaunchedEffect(target) {
         if (target == null) return@LaunchedEffect
-        focus = target
+        focus = FocusRequest(target)
         if (target.city != null) {
             initialCity = target.city
             showCities = true
@@ -89,7 +90,8 @@ fun GuideScreen(
         excludedTransit = excludedTransitNotes(regionId),
         onBack = onBack,
         onRefreshWeather = viewModel::refreshWeather,
-        focus = focus?.takeIf { it.city == null },
+        focus = focus?.takeIf { it.target.city == null },
+        onRetry = { viewModel.load(regionId, catalogCountry, reload = true) },
     )
 
     if (showVaccinations && vaccinationState.available) {
@@ -103,8 +105,11 @@ fun GuideScreen(
             initialCity = initialCity,
             viewModel = viewModel,
             onOpenSource = onOpenSource,
-            onDismiss = { showCities = false },
-            focus = focus?.takeIf { it.city != null },
+            onDismiss = {
+                showCities = false
+                focus = focus?.takeUnless { it.target.city != null }
+            },
+            focus = focus?.takeIf { it.target.city != null },
         )
     }
 }
@@ -119,7 +124,8 @@ internal fun GuideContent(
     excludedTransit: List<Int> = emptyList(),
     onBack: (() -> Unit)? = null,
     onRefreshWeather: () -> Unit = {},
-    focus: GuideSourceTarget? = null,
+    focus: FocusRequest? = null,
+    onRetry: () -> Unit = {},
 ) {
     when {
         uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -132,6 +138,7 @@ internal fun GuideContent(
                 icon = AppIcons.Error,
                 title = stringResource(uiState.loadError),
                 modifier = Modifier.fillMaxSize(),
+                action = { Button(onClick = onRetry) { Text(stringResource(R.string.guide_retry)) } },
             )
         }
 
@@ -168,7 +175,7 @@ private fun GuideSectionsList(
     excludedTransit: List<Int>,
     onBack: (() -> Unit)?,
     onRefreshWeather: () -> Unit,
-    focus: GuideSourceTarget?,
+    focus: FocusRequest?,
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
     val transport = transportSummary(uiState.transportCounts)
@@ -188,8 +195,9 @@ private fun GuideSectionsList(
                 section.copy(body = quickFactsBody(section.body, extra, labels))
             }
     }
+    val sectionsUi = remember(orderedSections) { orderedSections.map { it.toUi() } }
     SectionsWithFilters(
-        sections = orderedSections.map { it.toUi() },
+        sections = sectionsUi,
         selectedCategory = selectedCategory,
         onSelectedCategoryChange = { selectedCategory = it },
         onOpenSource = onOpenSource,

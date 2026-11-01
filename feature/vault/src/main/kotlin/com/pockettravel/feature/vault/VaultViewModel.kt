@@ -7,16 +7,21 @@ import com.pockettravel.core.data.Passport
 import com.pockettravel.core.data.PassportRepository
 import com.pockettravel.core.data.crypto.VaultKeyEnvelope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.crypto.Cipher
 import javax.inject.Inject
+
+/** Avanzamento di [VaultViewModel.resetVault]. */
+enum class VaultResetState { IDLE, RESETTING, DONE, FAILED }
 
 @HiltViewModel
 class VaultViewModel @Inject constructor(
@@ -51,12 +56,25 @@ class VaultViewModel @Inject constructor(
 
     fun prepareUnlockCipher(): VaultKeyEnvelope.UnlockCipher? = keyEnvelope.prepareUnlockCipher()
 
+    private val _resetState = MutableStateFlow(VaultResetState.IDLE)
+    val resetState: StateFlow<VaultResetState> = _resetState.asStateFlow()
+
     // Chiave invalidata (impronte cambiate): i passaporti non si leggono piu', si ricomincia da vuoto.
+    // La schermata resta in attesa finche' [resetState] non e' DONE; con FAILED si puo' riprovare.
     fun resetVault() {
+        if (_resetState.value == VaultResetState.RESETTING) return
+        _resetState.value = VaultResetState.RESETTING
         viewModelScope.launch {
-            repository.deleteAll()
-            keyEnvelope.reset()
-            thumbnails.evictAll()
+            try {
+                repository.deleteAll()
+                keyEnvelope.reset()
+                thumbnails.evictAll()
+                _resetState.value = VaultResetState.DONE
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                _resetState.value = VaultResetState.FAILED
+            }
         }
     }
 
@@ -95,7 +113,14 @@ class VaultViewModel @Inject constructor(
 
     // Suspend semplice (non viewModelScope.launch): il chiamante (PassportEditDialog) ha bisogno
     // del fileName risultante prima di proseguire, per aggiungerlo alla lista di foto in sospeso.
-    suspend fun savePhoto(jpegBytes: ByteArray): String = repository.savePhoto(jpegBytes)
+    // Null se la foto non si salva (per esempio la cassaforte si e' bloccata durante lo scatto).
+    suspend fun savePhoto(jpegBytes: ByteArray): String? = try {
+        repository.savePhoto(jpegBytes)
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (_: Exception) {
+        null
+    }
 
     suspend fun loadPhoto(fileName: String): ByteArray? = repository.loadPhoto(fileName)
 

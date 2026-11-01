@@ -19,6 +19,7 @@
     <string name="vault_reset">Reimposta la cassaforte</string>
     <string name="vault_reset_title">Reimpostare la cassaforte?</string>
     <string name="vault_reset_message">Tutti i documenti salvati e le relative foto verranno eliminati definitivamente</string>
+    <string name="vault_reset_failed">Reimpostazione non riuscita. Riprova</string>
     <string name="vault_add">Aggiungi</string>
     <string name="vault_empty_title">Nessun documento salvato</string>
     <string name="vault_empty_subtitle">Usa \"Aggiungi\" per salvare passaporti, biglietti e altri documenti</string>

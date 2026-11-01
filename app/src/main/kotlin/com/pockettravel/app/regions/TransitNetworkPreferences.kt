@@ -11,6 +11,7 @@ import com.pockettravel.core.sync.regionTransitFeeds
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -35,7 +36,7 @@ class TransitNetworkPreferences @Inject constructor(preferences: PreferencesFact
     /** La scelta diventa dell'utente: salvata anche vuota, cosi' la posizione non la cambia piu'. */
     fun setExcluded(regionId: String, excluded: Set<String>) {
         prefs.edit { putStringSet(regionId, excluded) }
-        _excluded.value = _excluded.value + (regionId to excluded)
+        _excluded.update { it + (regionId to excluded) }
     }
 
     private fun read(): Map<String, Set<String>> =

@@ -13,6 +13,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -22,19 +23,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.edit
+import com.pockettravel.core.data.PreferencesFactory
 
 /** Flag "visto" dei suggerimenti contestuali, nelle preferenze locali (nessun dato personale). */
 object ContextualHints {
     private const val PREFS = "contextual_hints"
 
-    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun isSeen(factory: PreferencesFactory, hintId: String): Boolean = isSeen(factory.open(PREFS), hintId)
 
-    fun isSeen(context: Context, hintId: String): Boolean = isSeen(prefs(context), hintId)
-
-    fun markSeen(context: Context, hintId: String) = markSeen(prefs(context), hintId)
+    fun markSeen(factory: PreferencesFactory, hintId: String) = markSeen(factory.open(PREFS), hintId)
 
     /** Rimostra tutti i suggerimenti alla prossima apertura delle schermate (Rivedi il tutorial). */
-    fun reset(context: Context) = reset(prefs(context))
+    fun reset(factory: PreferencesFactory) = reset(factory.open(PREFS))
 
     internal fun isSeen(prefs: SharedPreferences, hintId: String): Boolean = prefs.getBoolean(hintId, false)
 
@@ -50,8 +50,9 @@ object ContextualHints {
 @Composable
 fun ContextualHint(hintId: String, icon: ImageVector, title: String, body: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    var visible by rememberSaveable(hintId) { mutableStateOf(!ContextualHints.isSeen(context, hintId)) }
-    LaunchedEffect(hintId) { ContextualHints.markSeen(context, hintId) }
+    val factory = remember(context) { PreferencesFactory { name -> context.getSharedPreferences(name, Context.MODE_PRIVATE) } }
+    var visible by rememberSaveable(hintId) { mutableStateOf(!ContextualHints.isSeen(factory, hintId)) }
+    LaunchedEffect(hintId) { ContextualHints.markSeen(factory, hintId) }
     AnimatedVisibility(visible = visible) {
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),

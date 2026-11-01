@@ -369,6 +369,8 @@
     <string name="settings_walking_haptics">Vibration when walking</string>
     <string name="settings_walking_haptics_subtitle">A light vibration at each turn and two on arrival, to follow navigation without looking at the screen</string>
     <string name="settings_alert_notifications">Alert notifications</string>
+    <string name="settings_alert_notifications_denied">Notification permission denied: alerts can\'t be delivered</string>
+    <string name="settings_open_app_settings">Settings</string>
     <string name="settings_alert_notifications_subtitle">With a connection, about every hour: orange and red alerts and tsunamis in the installed regions</string>
     <string name="regions_offline_installed">Catalog unreachable: only the countries already downloaded are shown</string>
     <string name="crash_notice_title">The app closed unexpectedly</string>

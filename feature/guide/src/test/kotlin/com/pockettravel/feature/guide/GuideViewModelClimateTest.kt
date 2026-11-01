@@ -40,7 +40,8 @@ import org.junit.Test
 import java.lang.reflect.Proxy
 
 /** CityDao in memoria: a loadCity servono solo le sezioni e il clima. */
-private class ClimateCityDao : CityDao {
+internal class ClimateCityDao : CityDao {
+    val citiesByRegion = mutableMapOf<String, List<String>>()
     val sections = mutableListOf<CitySectionEntity>()
     val climate = mutableListOf<CityClimateEntity>()
 
@@ -59,14 +60,16 @@ private class ClimateCityDao : CityDao {
         climate.removeAll { it.regionId == regionId }
     }
 
-    override fun citiesForRegion(regionId: String): Flow<List<String>> = flowOf(emptyList())
+    override fun citiesForRegion(regionId: String): Flow<List<String>> = flowOf(citiesByRegion[regionId].orEmpty())
 
     override fun mainCitiesForRegion(regionId: String, limit: Int): Flow<List<CityPopulation>> = flowOf(emptyList())
 
     override suspend fun coordinatesFor(regionId: String, city: String): CityCoordinates? = null
 
+    var failSections = false
+
     override suspend fun sectionsFor(regionId: String, city: String): List<CitySectionEntity> =
-        sections.filter { it.regionId == regionId && it.city == city }
+        if (failSections) error("sezioni non leggibili") else sections.filter { it.regionId == regionId && it.city == city }
 
     override suspend fun searchInRegionRanked(regionId: String, query: String, city: String?, candidateLimit: Int): List<CitySectionMatch> =
         emptyList()
@@ -76,14 +79,14 @@ private class ClimateCityDao : CityDao {
     override suspend fun optimizeFts() = Unit
 }
 
-private object NoWeather : WeatherRepository {
+internal object NoWeather : WeatherRepository {
     override suspend fun weather(cacheKey: String, coordinates: suspend () -> Pair<Double, Double>?): WeatherResult? = null
 
     override suspend fun coordinatesOf(city: String, countryCode: String): Pair<Double, Double>? = null
 }
 
 // Dipendenze che loadCity non usa: se una venisse chiamata il test fallisce.
-private inline fun <reified T : Any> unused(): T =
+internal inline fun <reified T : Any> unused(): T =
     Proxy.newProxyInstance(T::class.java.classLoader, arrayOf(T::class.java)) { _, method, _ ->
         error("${T::class.java.simpleName}.${method.name} non previsto")
     } as T

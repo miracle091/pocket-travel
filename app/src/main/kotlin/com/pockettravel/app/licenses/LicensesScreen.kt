@@ -30,7 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -41,6 +40,7 @@ import com.pockettravel.core.sync.AddressGridAttribution
 import com.pockettravel.core.sync.TransitFeed
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.isSafeWebUrl
 import com.pockettravel.core.ui.R as UiR
 
 // Elenco di LicensesViewModel.libraries diviso in software, modelli e dati (LicenseData.kt); ogni voce apre la
@@ -49,11 +49,10 @@ import com.pockettravel.core.ui.R as UiR
 // con il link alla loro licenza.
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun LicensesScreen(viewModel: LicensesViewModel, onBack: () -> Unit, onOpenLibrary: (String) -> Unit) {
+fun LicensesScreen(viewModel: LicensesViewModel, onBack: () -> Unit, onOpenLibrary: (String) -> Unit, onOpenLink: (String) -> Unit) {
     val libraries by viewModel.libraries.collectAsStateWithLifecycle()
     val addressAttributions by viewModel.addressAttributions.collectAsStateWithLifecycle()
     val transitFeeds by viewModel.transitFeeds.collectAsStateWithLifecycle()
-    val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     val groups = libraries.groupBy { it.group() }.mapValues { (_, group) -> group.sortedBy { it.displayName(context).lowercase() } }
     LicensesScaffold(title = stringResource(R.string.licenses_title), onBack = onBack) { innerPadding ->
@@ -78,7 +77,7 @@ fun LicensesScreen(viewModel: LicensesViewModel, onBack: () -> Unit, onOpenLibra
             if (transitFeeds.isNotEmpty()) {
                 sectionTitle(key = "transit-sources-title", title = R.string.licenses_transit_sources_title)
                 items(transitFeeds, key = { "transit-source-${it.id}" }) { feed ->
-                    TransitFeedRow(feed, onOpenLicense = { uriHandler.openUri(it) })
+                    TransitFeedRow(feed, onOpenLicense = onOpenLink)
                     HorizontalDivider(modifier = Modifier.padding(start = Spacing.l))
                 }
             }
@@ -88,10 +87,9 @@ fun LicensesScreen(viewModel: LicensesViewModel, onBack: () -> Unit, onOpenLibra
 
 /** Pagina di un componente: versione, nota, e per ogni licenza l'avviso di copyright e il testo, leggibili senza rete. */
 @Composable
-fun LicenseScreen(viewModel: LicensesViewModel, uniqueId: String, onBack: () -> Unit) {
+fun LicenseScreen(viewModel: LicensesViewModel, uniqueId: String, onBack: () -> Unit, onOpenLink: (String) -> Unit) {
     val libraries by viewModel.libraries.collectAsStateWithLifecycle()
     val library = libraries.firstOrNull { it.uniqueId == uniqueId }
-    val uriHandler = LocalUriHandler.current
     LicensesScaffold(title = library?.displayName(LocalContext.current).orEmpty(), onBack = onBack) { innerPadding ->
         if (library == null) return@LicensesScaffold
         val label = licenseLabels[library.uniqueId]
@@ -114,7 +112,7 @@ fun LicenseScreen(viewModel: LicensesViewModel, uniqueId: String, onBack: () -> 
                     license.licenseContent?.let { content ->
                         Text(remember(content) { reflowLicenseText(content.trim()) }, style = MaterialTheme.typography.bodySmall)
                     }
-                    license.url?.let { url -> TextButton(onClick = { uriHandler.openUri(url) }) { Text(stringResource(R.string.licenses_link)) } }
+                    license.url?.takeIf(::isSafeWebUrl)?.let { url -> TextButton(onClick = { onOpenLink(url) }) { Text(stringResource(R.string.licenses_link)) } }
                 }
             }
         }
@@ -177,7 +175,7 @@ private fun TransitFeedRow(feed: TransitFeed, onOpenLicense: (String) -> Unit) {
             Column {
                 Text(feed.attribution)
                 Text(stringResource(R.string.licenses_license, feed.license))
-                feed.licenseUrl?.let { url -> TextButton(onClick = { onOpenLicense(url) }) { Text(stringResource(R.string.licenses_link)) } }
+                feed.licenseUrl?.takeIf(::isSafeWebUrl)?.let { url -> TextButton(onClick = { onOpenLicense(url) }) { Text(stringResource(R.string.licenses_link)) } }
             }
         },
         content = { Text(feed.name) },

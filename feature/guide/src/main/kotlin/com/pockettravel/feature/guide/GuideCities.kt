@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -32,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -47,7 +49,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.GuideCategory
-import com.pockettravel.core.data.GuideSourceTarget
 import com.pockettravel.core.data.MainCity
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CardDescription
@@ -168,7 +169,7 @@ internal fun CitiesDialog(
     onOpenSource: (url: String, title: String) -> Unit,
     onDismiss: () -> Unit,
     // Sezione di una citta' citata da una risposta dell'assistente (vedi SectionsWithFilters).
-    focus: GuideSourceTarget? = null,
+    focus: FocusRequest? = null,
 ) {
     var selectedCity by rememberSaveable { mutableStateOf(initialCity) }
     // Dopo un ripristino dello stato salvato la citta' scelta puo' essere un'altra da quella richiesta.
@@ -214,7 +215,8 @@ internal fun CitiesDialog(
                         onOpenSource = onOpenSource,
                         excludedTransit = excludedTransitCityNotes(city),
                         onRefreshWeather = viewModel::refreshCityWeather,
-                        focus = focus?.takeIf { it.city == city },
+                        focus = focus?.takeIf { it.target.city == city },
+                        onRetry = { viewModel.loadCity(regionId, city) },
                     )
                 }
             }
@@ -243,9 +245,11 @@ private fun CityGuideContent(
     onOpenSource: (url: String, title: String) -> Unit,
     excludedTransit: List<Int>,
     onRefreshWeather: () -> Unit,
-    focus: GuideSourceTarget?,
+    focus: FocusRequest?,
+    onRetry: () -> Unit,
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
+    val sectionsUi = remember(uiState.sections) { uiState.sections.map { it.toUi() } }
     when {
         uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             PocketTravelLoadingIndicator()
@@ -255,6 +259,7 @@ private fun CityGuideContent(
             icon = AppIcons.Error,
             title = stringResource(uiState.loadError),
             modifier = Modifier.fillMaxSize(),
+            action = { Button(onClick = onRetry) { Text(stringResource(R.string.guide_retry)) } },
         )
 
         uiState.sections.isEmpty() -> EmptyState(
@@ -264,7 +269,7 @@ private fun CityGuideContent(
         )
 
         else -> SectionsWithFilters(
-            sections = uiState.sections.map { it.toUi() },
+            sections = sectionsUi,
             selectedCategory = selectedCategory,
             onSelectedCategoryChange = { selectedCategory = it },
             onOpenSource = onOpenSource,

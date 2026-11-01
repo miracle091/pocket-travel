@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -97,7 +98,10 @@ internal fun OnboardingDestinationsStep(
         RegionSearchField(uiState.query, viewModel::onQueryChange)
         when {
             uiState.isLoading && uiState.items.isEmpty() -> PocketTravelLoadingIndicator()
-            uiState.loadError != null -> Text(text = stringResource(uiState.loadError!!), color = MaterialTheme.colorScheme.error)
+            uiState.loadError != null -> Column {
+                Text(text = stringResource(uiState.loadError!!), color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = viewModel::refresh) { Text(stringResource(R.string.regions_retry)) }
+            }
             else -> Surface(
                 shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,

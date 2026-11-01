@@ -382,6 +382,27 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
     }
 
     @Test
+    fun `un nuovo caricamento annulla quello in corso e lo stato resta in caricamento fino alla sua fine`() = runTest {
+        val first = CompletableDeferred<Unit>()
+        manifests.gate = first
+        val viewModel = viewModel()
+        observe(viewModel)
+        val second = CompletableDeferred<Unit>()
+        manifests.gate = second
+
+        viewModel.refresh()
+        advanceUntilIdle()
+        first.complete(Unit)
+        advanceUntilIdle()
+
+        assertTrue("il primo caricamento e' annullato: non spegne lo stato del secondo", viewModel.uiState.value.isLoading)
+        second.complete(Unit)
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertEquals(1, viewModel.items.size)
+    }
+
+    @Test
     fun `scaricare una regione non installata accoda i pacchetti del download completo`() = runTest {
         val viewModel = viewModel()
         advanceUntilIdle()

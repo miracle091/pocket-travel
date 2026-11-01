@@ -33,6 +33,7 @@ import javax.crypto.spec.SecretKeySpec
 import kotlin.io.path.createTempDirectory
 
 private class FakePassportDao : PassportDao {
+    var failDeleteAll = false
     private val entities = linkedMapOf<String, PassportEntity>()
     private val flow = MutableStateFlow<List<PassportEntity>>(emptyList())
 
@@ -51,6 +52,7 @@ private class FakePassportDao : PassportDao {
     }
 
     override suspend fun deleteAll() {
+        if (failDeleteAll) error("disco pieno")
         entities.clear()
         flow.value = emptyList()
     }
@@ -151,6 +153,25 @@ class VaultViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf(passport), second.passports.value)
+    }
+
+    @Test
+    fun `il reset resta in attesa finche' non finisce e segnala l'errore`() = runTest(dispatcher) {
+        dao.failDeleteAll = true
+        val viewModel = newViewModel()
+
+        viewModel.resetVault()
+        assertEquals(VaultResetState.RESETTING, viewModel.resetState.value)
+        advanceUntilIdle()
+
+        assertEquals(VaultResetState.FAILED, viewModel.resetState.value)
+    }
+
+    @Test
+    fun `salvare una foto da bloccato non lancia e non restituisce un file`() = runTest(dispatcher) {
+        val viewModel = newViewModel()
+
+        assertNull(viewModel.savePhoto(byteArrayOf(1, 2, 3)))
     }
 
     @Test

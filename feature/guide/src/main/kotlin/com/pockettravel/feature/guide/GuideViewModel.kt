@@ -141,11 +141,21 @@ class GuideViewModel @Inject constructor(
      * Carica la guida di [regionId]. [catalogCountry] e' la nazione della regione nel catalogo, per l'anteprima di una
      * regione non scaricata, che non ha la nazione tra le regioni installate.
      */
-    fun load(regionId: String, catalogCountry: String? = null) {
-        // La voce del catalogo puo' arrivare dopo la guida: con la nazione nuova la guida si ricarica.
-        if (loadedForRegionId == regionId && loadedCatalogCountry == catalogCountry) return
+    fun load(regionId: String, catalogCountry: String? = null, reload: Boolean = false) {
+        // [reload]: "Riprova" dopo un errore, la stessa regione si ricarica da capo.
+        if (loadedForRegionId == regionId && !reload) {
+            // La voce del catalogo puo' arrivare dopo la guida: con la nazione nuova si ricalcolano solo le rappresentanze.
+            if (loadedCatalogCountry != catalogCountry) {
+                loadedCatalogCountry = catalogCountry
+                loadEmbassies(regionId, catalogCountry)
+            }
+            return
+        }
         loadedForRegionId = regionId
         loadedCatalogCountry = catalogCountry
+        // Su tablet il ViewModel e' condiviso fra le regioni: i dati della precedente non restano in vista.
+        allSections = emptyList()
+        _uiState.value = GuideUiState()
         citiesJob?.cancel()
         citiesJob = viewModelScope.launch {
             combine(cityRepository.citiesFor(regionId), cityRepository.mainCitiesFor(regionId, MAIN_CITIES)) { cities, main ->
@@ -154,6 +164,30 @@ class GuideViewModel @Inject constructor(
                 _uiState.update { it.copy(cities = cities, mainCities = main) }
             }
         }
+        loadEmbassies(regionId, catalogCountry)
+        weatherJob?.cancel()
+        weatherJob = viewModelScope.launch {
+            val weather = positionWeather(regionId) ?: capitalWeather(regionId)
+            _uiState.update { it.copy(weather = weather) }
+        }
+        loadAlerts(regionId)
+        // Su tablet il ViewModel e' condiviso fra le regioni scelte: il caricamento lento della precedente
+        // non deve arrivare dopo e sovrascrivere quella nuova.
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, loadError = null) }
+            // Di nuovo a ogni cambio del pacchetto guide: dopo un cambio di lingua le guide giuste arrivano
+            // pochi secondi dopo, e la schermata gia' aperta resterebbe nella lingua precedente.
+            regionRepository.observeInstalledGuides().map { it?.version }.distinctUntilChanged().collectLatest { version ->
+                loadSections(regionId)
+                val advice = travelAdviceUpdates.newerThanPackage(allSections, version)
+                _uiState.update { it.copy(travelAdviceUpdate = advice) }
+            }
+        }
+    }
+
+    // Rappresentanze della nazionalita' scelta: anche da sole, quando arriva la nazione del catalogo.
+    private fun loadEmbassies(regionId: String, catalogCountry: String?) {
         embassiesJob?.cancel()
         embassiesJob = viewModelScope.launch {
             val regionCountry = regionRepository.installed(regionId)?.countryCode ?: catalogCountry
@@ -177,26 +211,6 @@ class GuideViewModel @Inject constructor(
                         sections = allSections.filter { section -> isGuideSectionFor(section.sourceUrl, nationality) },
                     )
                 }
-            }
-        }
-        weatherJob?.cancel()
-        _uiState.update { it.copy(weather = null) }
-        weatherJob = viewModelScope.launch {
-            val weather = regionWeather(regionId)
-            _uiState.update { it.copy(weather = weather) }
-        }
-        loadAlerts(regionId)
-        // Su tablet il ViewModel e' condiviso fra le regioni scelte: il caricamento lento della precedente
-        // non deve arrivare dopo e sovrascrivere quella nuova.
-        loadJob?.cancel()
-        loadJob = viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, loadError = null) }
-            // Di nuovo a ogni cambio del pacchetto guide: dopo un cambio di lingua le guide giuste arrivano
-            // pochi secondi dopo, e la schermata gia' aperta resterebbe nella lingua precedente.
-            regionRepository.observeInstalledGuides().map { it?.version }.distinctUntilChanged().collectLatest { version ->
-                loadSections(regionId)
-                val advice = travelAdviceUpdates.newerThanPackage(allSections, version)
-                _uiState.update { it.copy(travelAdviceUpdate = advice) }
             }
         }
     }
@@ -262,7 +276,7 @@ class GuideViewModel @Inject constructor(
         val regionId = loadedForRegionId ?: return
         if (weatherJob?.isActive == true) return
         weatherJob = viewModelScope.launch {
-            regionWeather(regionId)?.let { weather -> _uiState.update { it.copy(weather = weather) } }
+            (positionWeather(regionId) ?: capitalWeather(regionId))?.let { weather -> _uiState.update { it.copy(weather = weather) } }
         }
     }
 
@@ -292,8 +306,6 @@ class GuideViewModel @Inject constructor(
 
     // Il meteo della posizione se il dispositivo e' nella regione (POI del pacchetto attorno a una posizione recente),
     // altrimenti della capitale o, senza, della citta' principale.
-    private suspend fun regionWeather(regionId: String): PlaceWeather? = positionWeather(regionId) ?: capitalWeather(regionId)
-
     private suspend fun positionWeather(regionId: String): PlaceWeather? {
         val position = lastKnownPosition.get(POSITION_MAX_AGE_MILLIS)?.takeIf { (lat, lon) ->
             poiRepository.inBounds(regionId, lat - NEAR_DEGREES, lat + NEAR_DEGREES, lon - NEAR_DEGREES, lon + NEAR_DEGREES, 1).pois.isNotEmpty()

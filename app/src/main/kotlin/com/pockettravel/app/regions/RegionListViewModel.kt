@@ -42,6 +42,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -289,12 +291,17 @@ class RegionListViewModel @Inject constructor(
         transitNetworkPreferences.setIncluded(regionId, feedId, included, defaults)
     }
 
+    private var loadJob: Job? = null
+
     fun refresh() = load(fresh = false)
 
     // [fresh]: il controllo manuale scarica sempre; all'apertura e al "Riprova" va bene il `manifest.json` scaricato da poco (l'hub lo
     // chiede insieme all'elenco: ManifestClient.recentManifest).
     private fun load(fresh: Boolean) {
-        viewModelScope.launch {
+        val previous = loadJob
+        loadJob = viewModelScope.launch {
+            // Un solo caricamento alla volta: il vecchio finisce di annullarsi (finally compreso) prima che parta il nuovo.
+            previous?.cancelAndJoin()
             val online = connectivityChecker.isOnline()
             status.update { it.copy(isLoading = true, checking = if (online) CatalogCheck.UPDATES else CatalogCheck.CATALOG) }
             try {
@@ -432,7 +439,7 @@ class RegionListViewModel @Inject constructor(
         viewModelScope.launch {
             removeOrReport {
                 regionRepository.remove(regionId)
-                recentRegionStore.clearIfLast(regionId)
+                withContext(ioDispatcher) { recentRegionStore.clearIfLast(regionId) }
             }
         }
     }
@@ -442,7 +449,7 @@ class RegionListViewModel @Inject constructor(
             removeOrReport {
                 regionRepository.removePackage(regionId, kind)
                 // Con l'ultimo pacchetto se ne va l'intera regione.
-                if (regionRepository.installed(regionId) == null) recentRegionStore.clearIfLast(regionId)
+                if (regionRepository.installed(regionId) == null) withContext(ioDispatcher) { recentRegionStore.clearIfLast(regionId) }
             }
         }
     }

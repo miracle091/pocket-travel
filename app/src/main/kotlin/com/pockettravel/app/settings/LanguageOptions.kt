@@ -75,7 +75,7 @@ internal fun LanguageChips() {
 }
 
 // Dentro un ModalBottomSheet LocalContext e' un ContextThemeWrapper, non l'activity.
-private tailrec fun Context.findActivity(): Activity = when (this) {
+internal tailrec fun Context.findActivity(): Activity = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> error("Nessuna activity")

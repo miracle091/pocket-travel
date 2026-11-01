@@ -1,5 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:locale="it">
     <string name="guide_load_error">Impossibile caricare la guida per questa regione</string>
+    <string name="guide_retry">Riprova</string>
     <string name="guide_empty_title">Nessun contenuto della guida disponibile</string>
     <string name="guide_empty_subtitle">Nessuna sezione della guida ancora pubblicata per questa regione</string>
     <string name="guide_filter_all">Tutte</string>
