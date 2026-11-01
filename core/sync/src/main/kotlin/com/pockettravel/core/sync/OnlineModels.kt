@@ -10,9 +10,15 @@ import kotlinx.serialization.json.Json
  * release "app-status" a ogni modifica, cosi' l'elenco cambia senza rilasciare l'app.
  * Chiave di [providers]: il nome di `OnlineProvider` (CHATGPT, MISTRAL, GEMINI, CLAUDE); nomi sconosciuti
  * sono ignorati dall'app, cosi' un servizio aggiunto in futuro non rompe le versioni precedenti.
+ * [otherModels]: gli altri modelli di chat di ogni servizio, aggiunti dal workflow prima della firma
+ * (tools/data-pipeline/scripts/online_models.py); assente nell'elenco dell'APK. Chiave separata da [providers]
+ * perche' le versioni precedenti dell'app la ignorano, mentre un ruolo nuovo in [providers] farebbe rifiutare il file.
  */
 @Serializable
-data class OnlineModelList(val providers: Map<String, List<OnlineModelEntry>>)
+data class OnlineModelList(
+    val providers: Map<String, List<OnlineModelEntry>>,
+    val otherModels: Map<String, List<OnlineOtherModel>> = emptyMap(),
+)
 
 /**
  * [role]: "auto" per il modello dell'opzione Automatico (uno per servizio), "capable" per gli altri proposti.
@@ -27,6 +33,17 @@ data class OnlineModelEntry(
     val inputUsdPerMTok: Double,
     val outputUsdPerMTok: Double,
 )
+
+/** Un modello di [OnlineModelList.otherModels]: come [OnlineModelEntry], senza ruolo. */
+@Serializable
+data class OnlineOtherModel(
+    val id: String,
+    val temperature: Boolean,
+    val inputUsdPerMTok: Double,
+    val outputUsdPerMTok: Double,
+) {
+    fun toEntry(): OnlineModelEntry = OnlineModelEntry(id, ONLINE_MODEL_ROLE_CAPABLE, temperature, inputUsdPerMTok, outputUsdPerMTok)
+}
 
 const val ONLINE_MODEL_ROLE_AUTO = "auto"
 const val ONLINE_MODEL_ROLE_CAPABLE = "capable"
@@ -44,6 +61,7 @@ fun OnlineModelList.validate() {
         require(models.map { it.id }.toSet().size == models.size) { "$provider: modelli ripetuti" }
         models.forEach { it.validate() }
     }
+    otherModels.values.flatten().forEach { it.toEntry().validate() }
 }
 
 fun OnlineModelEntry.validate() {

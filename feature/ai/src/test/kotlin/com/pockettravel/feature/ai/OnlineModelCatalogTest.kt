@@ -53,6 +53,23 @@ class OnlineModelCatalogTest {
     }
 
     @Test
+    fun `gli altri modelli vengono dall'elenco scaricato, con la loro temperatura`() = runTest {
+        val withOthers = """
+            {"providers": {"CHATGPT": [
+              {"id": "gpt-7-nuovo", "role": "auto", "temperature": false, "inputUsdPerMTok": 0.2, "outputUsdPerMTok": 0.8}
+            ]}, "otherModels": {"CHATGPT": [
+              {"id": "gpt-4.1", "temperature": true, "inputUsdPerMTok": 2, "outputUsdPerMTok": 8}
+            ]}}
+        """.trimIndent().toByteArray()
+        val catalog = catalog(FakeClient { withOthers }, dispatcher = StandardTestDispatcher(testScheduler))
+        assertEquals(emptyList<String>(), catalog.otherModels(OnlineProvider.CHATGPT).map { it.id })
+        catalog.refresh()
+        assertEquals(listOf("gpt-4.1"), catalog.otherModels(OnlineProvider.CHATGPT).map { it.id })
+        assertTrue(catalog.sendsTemperature(OnlineProvider.CHATGPT, "gpt-4.1"))
+        assertEquals(emptyList<String>(), catalog.otherModels(OnlineProvider.MISTRAL).map { it.id })
+    }
+
+    @Test
     fun `l'elenco scaricato sostituisce quello dell'APK e resta al riavvio`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val cache = File(folder.root, "online-models.json")

@@ -24,6 +24,19 @@ class CommandSuggestionTest {
     private val model = listOf(CommandSuggestion.Command("/model"))
 
     @Test
+    fun `with something typed after the command, the account's other models that contain it follow`() {
+        val others = (1..8).map { OnlineModelEntry("gemini-2.$it-pro", "capable", true, 1.0, 2.0) } +
+            OnlineModelEntry("gemini-flash-latest", "capable", true, 1.0, 2.0)
+        val withOthers = { question: String -> state(question).copy(onlineOtherModels = others).commandSuggestions() }
+        assertEquals(state("/model ").commandSuggestions(), withOthers("/model "))
+        assertEquals(
+            listOf(ModelChoice.Online("gemini-3.5-flash-lite"), ModelChoice.Online("gemini-flash-latest")).map { CommandSuggestion.Choice(it) },
+            withOthers("/model FLASH"),
+        )
+        assertEquals((1..6).map { CommandSuggestion.Choice(ModelChoice.Online("gemini-2.$it-pro")) }, withOthers("/model pro"))
+    }
+
+    @Test
     fun `a slash and part of a command suggest the command`() {
         assertEquals(model, state("/").commandSuggestions())
         assertEquals(model, state("/mo").commandSuggestions())

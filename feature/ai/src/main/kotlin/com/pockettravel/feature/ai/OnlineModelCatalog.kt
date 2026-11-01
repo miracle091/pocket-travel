@@ -52,6 +52,10 @@ class OnlineModelCatalog(
         (_list.value.providers[provider.name] ?: bundled.providers[provider.name].orEmpty())
             .sortedByDescending { it.role == ONLINE_MODEL_ROLE_AUTO }
 
+    /** Gli altri modelli di chat di [provider] nell'elenco pubblicato (otherModels), da mostrare solo se l'account li vede. */
+    fun otherModels(provider: OnlineProvider): List<OnlineModelEntry> =
+        _list.value.otherModels[provider.name].orEmpty().map { it.toEntry() }
+
     /** Modello dell'opzione Automatico per [provider]. */
     fun autoModel(provider: OnlineProvider): String =
         models(provider).firstOrNull { it.role == ONLINE_MODEL_ROLE_AUTO }?.id
@@ -62,7 +66,7 @@ class OnlineModelCatalog(
 
     /** Se mandare la temperatura a [model]: dall'elenco se ci e' (anche come scelta passata), altrimenti dal nome. */
     fun sendsTemperature(provider: OnlineProvider, model: String): Boolean =
-        models(provider).firstOrNull { it.id == model }?.temperature ?: supportsTemperature(model)
+        (models(provider) + otherModels(provider)).firstOrNull { it.id == model }?.temperature ?: supportsTemperature(model)
 
     /** Scarica e salva l'elenco pubblicato; un errore (rete, firma, contenuto) lascia l'elenco attuale. */
     suspend fun refresh() {

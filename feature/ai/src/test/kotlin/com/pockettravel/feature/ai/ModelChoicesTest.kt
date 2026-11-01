@@ -66,6 +66,8 @@ class ModelChoicesTest {
         assertNull(state().matchModelChoice("gemini-9"))
         assertNull(state(key = false).matchModelChoice("auto"))
         assertNull(state(downloaded = false).matchModelChoice("device"))
+        val other = OnlineModelEntry("gemini-2.5-pro", "capable", true, 1.25, 10.0)
+        assertEquals(ModelChoice.Online("gemini-2.5-pro"), state().copy(onlineOtherModels = listOf(other)).matchModelChoice("Gemini-2.5-Pro"))
     }
 
     @Test

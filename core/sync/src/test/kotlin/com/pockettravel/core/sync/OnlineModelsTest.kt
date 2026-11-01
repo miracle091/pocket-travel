@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -33,5 +34,19 @@ class OnlineModelsTest {
         assertThrows(IllegalArgumentException::class.java) { entry("a", role = "altro").validate() }
         assertThrows(IllegalArgumentException::class.java) { entry("a b").validate() }
         assertThrows(IllegalArgumentException::class.java) { entry("").validate() }
+    }
+
+    @Test
+    fun `otherModels si legge, e senza la chiave e' vuoto`() {
+        val providers = """"providers":{"X":[{"id":"a","role":"auto","temperature":true,"inputUsdPerMTok":1,"outputUsdPerMTok":1}]}"""
+        assertEquals(emptyMap<String, List<OnlineOtherModel>>(), parseOnlineModels("{$providers}".toByteArray()).otherModels)
+        val others = """"otherModels":{"X":[{"id":"b","temperature":false,"inputUsdPerMTok":0.5,"outputUsdPerMTok":2}]}"""
+        assertEquals(
+            mapOf("X" to listOf(OnlineOtherModel("b", temperature = false, inputUsdPerMTok = 0.5, outputUsdPerMTok = 2.0))),
+            parseOnlineModels("{$providers,$others}".toByteArray()).otherModels,
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            parseOnlineModels("{$providers,${others.replace("\"b\"", "\"b c\"")}}".toByteArray())
+        }
     }
 }

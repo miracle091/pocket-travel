@@ -7,6 +7,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 ## [Non rilasciato]
 
 ### Aggiunto
+- Assistente IA, motore Online: con «Altro modello» sotto il campo compaiono gli altri modelli di chat del servizio che l'account può usare, con il costo stimato, filtrati mentre si scrive; anche `/model` li accetta per nome. L'elenco si aggiorna ogni settimana dai prezzi pubblicati da LiteLLM e models.dev.
 - Assistente IA: l'opzione «Voci online per Ascolta» nelle Impostazioni, spenta di default. Spenta, «Ascolta» usa solo voci installate sul dispositivo e il testo resta sul telefono; se per la lingua c'è solo una voce online, sotto il pulsante compare come installarne una o attivare l'opzione. Accesa, la voce la sceglie la sintesi vocale del dispositivo e, se è online, riceve il testo della risposta.
 - Assistente IA, motore Online: la domanda arriva al servizio con i testi più pertinenti delle guide scaricate, al massimo 6 sezioni, e la risposta cita la sezione usata. Le fonti compaiono sotto la risposta, come con il motore Sul dispositivo.
 - Assistente IA, motore Online: la risposta compare a pezzi mentre arriva, come con il motore Sul dispositivo.

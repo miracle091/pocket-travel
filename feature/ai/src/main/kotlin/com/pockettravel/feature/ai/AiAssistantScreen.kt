@@ -1343,6 +1343,7 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
         OnlineModelChoice(
             provider = provider,
             options = uiState.onlineModelOptions,
+            others = uiState.onlineOtherModels,
             setting = uiState.onlineModelSetting,
             onSettingChanged = actions.onOnlineModelChanged,
         )
@@ -1384,11 +1385,13 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
 }
 
 // Modello del servizio: Automatico (consigliato), gli altri dell'elenco (OnlineModelCatalog) o uno scritto a
-// mano. Ognuno con una riga che spiega la differenza e, per quelli dell'elenco, il costo stimato.
+// mano. Ognuno con una riga che spiega la differenza e, per quelli dell'elenco, il costo stimato. Con "Altro" sotto
+// il campo compaiono gli altri modelli del servizio che l'account vede ([others]), filtrati da quanto scritto.
 @Composable
 private fun OnlineModelChoice(
     provider: OnlineProvider,
     options: List<OnlineModelEntry>,
+    others: List<OnlineModelEntry>,
     setting: String,
     onSettingChanged: (String) -> Unit,
 ) {
@@ -1437,8 +1440,19 @@ private fun OnlineModelChoice(
             label = { Text(stringResource(R.string.ai_online_model_label)) },
             singleLine = true,
         )
+        val typed = setting.trim()
+        others.filter { it.id != typed && it.id.contains(typed, ignoreCase = true) }.take(MAX_OTHER_SUGGESTIONS).forEach { model ->
+            ListItem(
+                headlineContent = { Text(model.id) },
+                supportingContent = { Text(costText(model), style = MaterialTheme.typography.bodySmall) },
+                modifier = Modifier.clickable { onSettingChanged(model.id) },
+            )
+        }
     }
 }
+
+// Proposte sotto il campo "Altro modello": scrivendo si restringono.
+private const val MAX_OTHER_SUGGESTIONS = 6
 
 // Costo stimato di 100 domande in dollari, nel formato della lingua dell'app.
 @Composable

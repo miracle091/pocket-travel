@@ -125,6 +125,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Modello proposto più economico di quello di Automatico | Più leggero | Lighter |
 | Bolla della conversazione scritta dall'app, non dal modello (quota, cambio di modello, /model) | messaggio dell'app | app message |
 | Menu sopra il campo della domanda che compare scrivendo "/" | menu dei comandi | command menu |
+| Modelli di chat di un servizio fuori dai proposti, che l'account può usare | altri modelli del servizio | other models of the service |
 | Dati EXIF della foto (data, luogo, modello del telefono), tolti prima dell'invio | dati della foto (mai "EXIF" nell'interfaccia) | photo details |
 | Evento reale in corso (terremoto, alluvione, allerta meteo...) letto dalle fonti online | allerta, allerte (mai "avviso", "allarme" o "notifica") | alert, alerts |
 | Riquadro della guida con le allerte della regione | Allerte in corso | Active alerts |

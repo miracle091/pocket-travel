@@ -62,6 +62,8 @@ data class AiUiState(
     // Modelli proposti per il servizio corrente (OnlineModelCatalog), Automatico per primo, senza quelli che la
     // chiave salvata non vede (OnlineModelAvailability).
     val onlineModelOptions: List<OnlineModelEntry> = emptyList(),
+    // Gli altri modelli di chat del servizio corrente che la chiave salvata vede, proposti con "Altro modello".
+    val onlineOtherModels: List<OnlineModelEntry> = emptyList(),
     val apiKeyInput: String = "",
     // Consenso a mandare ai servizi online i dati personali (AiSettingsStore.sharesPersonalData).
     val sharesPersonalData: Boolean = false,
@@ -369,7 +371,11 @@ class AiAssistantViewModel @Inject constructor(
 
     private fun updateOnlineModels() {
         _uiState.update { state ->
-            state.copy(onlineModels = onlineModelOptions.modelPerProvider(), onlineModelOptions = onlineModelOptions.options(state.onlineProvider))
+            state.copy(
+                onlineModels = onlineModelOptions.modelPerProvider(),
+                onlineModelOptions = onlineModelOptions.options(state.onlineProvider),
+                onlineOtherModels = onlineModelOptions.others(state.onlineProvider),
+            )
         }
     }
 

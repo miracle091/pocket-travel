@@ -69,14 +69,17 @@ internal fun AiUiState.modelChoices(exhausted: Set<String>): List<ModelChoice> {
     return (online + listOfNotNull(onDeviceChoice())).filter { it != current }
 }
 
-/** La scelta che corrisponde a [name] dopo /model: Automatico, il dispositivo o un modello proposto, senza maiuscole. */
+/**
+ * La scelta che corrisponde a [name] dopo /model: Automatico, il dispositivo, un modello proposto o un altro modello del
+ * servizio che l'account vede, senza maiuscole.
+ */
 internal fun AiUiState.matchModelChoice(name: String): ModelChoice? {
     val wanted = name.trim().lowercase()
     return when {
         wanted in ON_DEVICE_NAMES -> onDeviceChoice()
         !isApiKeyConfigured -> null
         wanted in AUTOMATIC_NAMES -> ModelChoice.Automatic
-        else -> onlineModelOptions.firstOrNull { it.id.lowercase() == wanted }?.let { ModelChoice.Online(it.id) }
+        else -> (onlineModelOptions + onlineOtherModels).firstOrNull { it.id.lowercase() == wanted }?.let { ModelChoice.Online(it.id) }
     }
 }
 

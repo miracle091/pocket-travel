@@ -32,6 +32,10 @@ internal class OnlineModelOptions(
 
     fun options(provider: OnlineProvider): List<OnlineModelEntry> = visibleModels(catalog.models(provider), available.value[provider])
 
+    /** Gli altri modelli di [provider] che la chiave vede in /models; nessuno finche' /models non e' letto. */
+    fun others(provider: OnlineProvider): List<OnlineModelEntry> =
+        available.value[provider]?.let { names -> catalog.otherModels(provider).filter { isListed(it.id, names) } }.orEmpty()
+
     fun refresh() {
         scope.launch {
             try {

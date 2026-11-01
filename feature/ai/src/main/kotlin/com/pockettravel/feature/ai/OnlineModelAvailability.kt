@@ -71,8 +71,9 @@ internal fun visibleModels(models: List<OnlineModelEntry>, available: Set<String
     if (available == null) {
         models
     } else {
-        models.filter { model ->
-            model.role == ONLINE_MODEL_ROLE_AUTO || model.id.endsWith("-latest") ||
-                available.any { it == model.id || (it.startsWith("${model.id}-") && it.length == model.id.length + DATE_SUFFIX && it.takeLast(DATE_DIGITS).all(Char::isDigit)) }
-        }
+        models.filter { model -> model.role == ONLINE_MODEL_ROLE_AUTO || model.id.endsWith("-latest") || isListed(model.id, available) }
     }
+
+/** Se [id] e' tra i nomi di /models [available], anche solo con la data (`claude-sonnet-5-5-20261001`). */
+internal fun isListed(id: String, available: Set<String>): Boolean =
+    available.any { it == id || (it.startsWith("$id-") && it.length == id.length + DATE_SUFFIX && it.takeLast(DATE_DIGITS).all(Char::isDigit)) }
