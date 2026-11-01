@@ -51,7 +51,7 @@ class GgufMetadata internal constructor(private val values: Map<String, Any>, va
 internal fun estimateRamBytes(meta: GgufMetadata, fileSizeBytes: Long, contextSize: Int = CONTEXT_SIZE, batchSize: Int = BATCH_SIZE): Long? {
     val blocks = meta.number("block_count")
     val embedding = meta.number("embedding_length")
-    val heads = meta.number("attention.head_count")
+    val heads = meta.number("attention.head_count")?.takeIf { it > 0 }
     if (blocks == null || embedding == null || heads == null) return null
     val kvHeads = meta.number("attention.head_count_kv") ?: heads
     val keyLength = meta.number("attention.key_length") ?: (embedding / heads)
@@ -160,7 +160,7 @@ private class GgufReader(private val input: DataInputStream) {
 
     private fun string(): String {
         val length = u64()
-        if (length > MAX_STRING) throw EOFException("stringa GGUF troppo lunga: $length")
+        if (length < 0 || length > MAX_STRING) throw EOFException("stringa GGUF troppo lunga: $length")
         val bytes = ByteArray(length.toInt())
         input.readFully(bytes)
         return bytes.toString(Charsets.UTF_8)

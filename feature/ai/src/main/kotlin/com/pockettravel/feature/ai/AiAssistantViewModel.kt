@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.core.data.ConversationRepository
 import com.pockettravel.core.data.GuideSourceTarget
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.SavedConversation
 import com.pockettravel.core.data.WEATHER_MIN_REFRESH_MILLIS
 import com.pockettravel.core.data.crypto.HistoryKeys
@@ -17,7 +18,9 @@ import com.pockettravel.core.sync.AppStatusClient
 import com.pockettravel.core.sync.OnlineModelEntry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +47,8 @@ data class AiUiState(
     // RAM stimata dai metadati del GGUF (ModelRamEstimates), per id; assente finche' non e' letta o senza rete.
     val ramEstimates: Map<String, Long> = emptyMap(),
     val selectedModelId: String = "",
+    // Modello scelto nell'elenco ma ancora da scaricare: selectedModelId resta quello in uso.
+    val pendingModelId: String? = null,
     val isModelDownloaded: Boolean,
     // Modelli gia' sul dispositivo: se quello scelto non c'e', se ne propone uno di questi.
     val downloadedModelIds: Set<String> = emptySet(),
@@ -154,6 +159,7 @@ class AiAssistantViewModel @Inject constructor(
     private val emergencyCards: EmergencyCardProvider,
     private val answerKeepAlive: AnswerKeepAlive,
     private val modelRamEstimates: ModelRamEstimates,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     // Nomi dei modelli che la chiave salvata vede, per servizio; assente = non letti (si mostrano tutti).
@@ -174,6 +180,7 @@ class AiAssistantViewModel @Inject constructor(
                 LlmModelCatalog.ALL.filter { LlmModelCatalog.needsMoreRam(it, tier) }.map { it.id }.toSet()
             },
             selectedModelId = aiSettingsStore.selectedModelId(),
+            pendingModelId = aiSettingsStore.pendingModelId(),
             isModelDownloaded = modelManager.isDownloaded(aiSettingsStore.selectedModelDefinition()),
             downloadedModelIds = modelManager.downloadedModelIds.value,
             isApiKeyConfigured = aiSettingsStore.hasApiKey(),
@@ -280,9 +287,8 @@ class AiAssistantViewModel @Inject constructor(
                         _uiState.update { it.copy(downloadProgress = progress) }
                     }
                     WorkInfo.State.SUCCEEDED -> {
-                        _uiState.update {
-                            it.copy(downloadProgress = null, isModelDownloaded = modelManager.isDownloaded(aiSettingsStore.selectedModelDefinition()))
-                        }
+                        if (_uiState.value.selectedModelId != aiSettingsStore.selectedModelId()) engine.release()
+                        _uiState.update { it.afterModelDownload(aiSettingsStore, modelManager) }
                     }
                     WorkInfo.State.FAILED -> if (reportsFailure) {
                         val message = when (workInfo.outputData.getString(LlmModelDownloadWorker.KEY_FAILURE_REASON)) {
@@ -337,7 +343,7 @@ class AiAssistantViewModel @Inject constructor(
         // La chiave e' stata cancellata: i modelli visti con quella non valgono piu'.
         if (!aiSettingsStore.hasApiKey()) availableOnlineModels.value = emptyMap()
         _uiState.update {
-            it.copy(onlineProvider = provider, onlineModelSetting = aiSettingsStore.onlineModelSetting(provider), isApiKeyConfigured = aiSettingsStore.hasApiKey(), answer = null)
+            it.copy(onlineProvider = provider, onlineModelSetting = aiSettingsStore.onlineModelSetting(provider), isApiKeyConfigured = aiSettingsStore.hasApiKey(), answer = null, askedQuestion = null, emergencyCard = null, answerCredit = null)
         }
         updateOnlineModels()
     }
@@ -402,12 +408,19 @@ class AiAssistantViewModel @Inject constructor(
         cancelAsk()
         aiSettingsStore.clearApiKey()
         availableOnlineModels.value = emptyMap()
-        _uiState.update { it.copy(isApiKeyConfigured = false, answer = null) }
+        _uiState.update { it.copy(isApiKeyConfigured = false, answer = null, askedQuestion = null, emergencyCard = null, answerCredit = null) }
     }
 
     /** Cambia il modello selezionato senza scaricarlo: la UI mostra poi il pulsante di download
      *  per quello scelto. */
     fun onModelSelected(modelId: String) {
+        if (_uiState.value.keepsModelInUse(modelId, modelManager::isDownloaded)) {
+            if (_uiState.value.downloadProgress != null) cancelDownload()
+            aiSettingsStore.setPendingModelId(modelId)
+            _uiState.update { it.copy(pendingModelId = modelId, errorMessage = null) }
+            return
+        }
+        if (_uiState.value.pendingModelId != null && _uiState.value.downloadProgress != null) cancelDownload()
         cancelAsk()
         val previousId = _uiState.value.selectedModelId
         aiSettingsStore.setSelectedModelId(modelId)
@@ -422,10 +435,10 @@ class AiAssistantViewModel @Inject constructor(
         val definition = aiSettingsStore.selectedModelDefinition()
         _uiState.update {
             it.copy(
-                selectedModelId = modelId,
+                selectedModelId = modelId, pendingModelId = null,
                 isModelDownloaded = modelManager.isDownloaded(definition),
                 benchmarkResult = aiSettingsStore.benchmarkResult(modelId),
-                answer = null,
+                answer = null, askedQuestion = null, emergencyCard = null, answerCredit = null,
                 errorMessage = null,
             )
         }
@@ -462,19 +475,11 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     fun downloadModel() {
-        if (!deviceAiCapability.isOnDeviceAiSupported()) {
-            _uiState.update { it.copy(isDeviceCapable = false, errorMessage = R.string.ai_error_ram) }
-            return
-        }
-        val definition = aiSettingsStore.selectedModelDefinition()
-        if (definition.sha256 == null) {
-            _uiState.update { it.copy(errorMessage = R.string.ai_error_not_available) }
-            return
-        }
-        // Dimensione pubblicata in app-status.json, se gia' letta (vedi init).
-        val sizeBytes = _uiState.value.availableModels.firstOrNull { it.id == definition.id }?.sizeBytes ?: definition.sizeBytes
-        if (modelManager.availableStorageBytes() < sizeBytes) {
-            _uiState.update { it.copy(errorMessage = R.string.ai_error_space) }
+        val definition = LlmModelCatalog.ALL.first { it.id == _uiState.value.listedModelId }
+        val capable = deviceAiCapability.isOnDeviceAiSupported()
+        val refused = _uiState.value.downloadRefusal(definition, capable, modelManager.availableStorageBytes())
+        if (refused != null) {
+            _uiState.value = refused
             return
         }
         _uiState.update { it.copy(downloadProgress = 0f, errorMessage = null) }
@@ -510,10 +515,12 @@ class AiAssistantViewModel @Inject constructor(
         _uiState.update { it.copy(isImportingModel = true, importError = null) }
         viewModelScope.launch {
             try {
-                engine.release()
-                val input = open() ?: throw IOException("File non leggibile")
+                // Un provider cloud puo' scaricare il file all'apertura: fuori dal main thread.
+                val input = withContext(ioDispatcher) { open() } ?: throw IOException("File non leggibile")
                 val candidates = LlmModelCatalog.ALL + _uiState.value.availableModels
                 val definition = modelManager.importModel(input, displayName, sizeBytes, candidates)
+                // Solo con un file valido: un file sbagliato non deve scaricare il modello in uso.
+                engine.release()
                 onModelSelected(definition.id)
                 _uiState.update { it.copy(isImportingModel = false) }
             } catch (error: CancellationException) {
@@ -568,19 +575,17 @@ class AiAssistantViewModel @Inject constructor(
         val region = conversation.regionId ?: regionId
         // Subito, prima di ogni attesa: un secondo tocco su Invia trova la domanda gia' in corso.
         _uiState.update { it.startingTurn(question) ?: it }
+        // Il riquadro della domanda precedente e' un figlio del suo lavoro: va fermato, o sovrascriverebbe quello nuovo.
+        askJob?.cancel()
         askJob = viewModelScope.launch {
             // Pericolo per la vita: solo i numeri da chiamare. Il modello non aiuta e puo' inventare consigli medici.
             if (isLifeThreatening(question)) {
-                val emergencyCard = emergencyCards.forQuestion(region, question)
-                _uiState.update { it.copy(emergencyCard = emergencyCard, isThinking = false) }
+                _uiState.showEmergencyCard(emergencyCards, region, question, endsAnswer = true)
                 return@launch
             }
             // Accanto alla ricerca e al modello, non prima: le allerte di una domanda su una catastrofe arrivano da
             // piu' fonti in rete, e il numero da chiamare non aspetta la risposta.
-            launch {
-                val emergencyCard = emergencyCards.forQuestion(region, question)
-                _uiState.update { it.copy(emergencyCard = emergencyCard) }
-            }
+            launch { _uiState.showEmergencyCard(emergencyCards, region, question) }
             collectAnswer(region, question, state.mode, previous) { answer ->
                 conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer)
             }
@@ -886,6 +891,28 @@ internal fun AiUiState.startingTurn(question: String): AiUiState? {
         answer = null,
         streamingText = "",
     )
+}
+
+/** Lo stato col riquadro [card], se la domanda mostrata e' ancora [question]: un riquadro in ritardo non sostituisce quello di un'altra. */
+internal fun AiUiState.withEmergencyCard(question: String, card: EmergencyCardState): AiUiState =
+    if (askedQuestion == question) copy(emergencyCard = card) else this
+
+// Il riquadro d'emergenza di [question]: i numeri subito, le allerte quando arrivano. Con [endsAnswer] (pericolo per la
+// vita) il riquadro e' tutta la risposta: compare anche senza numeri e chiude l'attesa.
+private suspend fun MutableStateFlow<AiUiState>.showEmergencyCard(
+    cards: EmergencyCardProvider,
+    region: String,
+    question: String,
+    endsAnswer: Boolean = false,
+) {
+    val numbers = cards.numbersFor(region, question)
+    if (endsAnswer) {
+        update { it.withEmergencyCard(question, EmergencyCardState(numbers)).copy(isThinking = false) }
+    } else if (numbers != null) {
+        update { it.withEmergencyCard(question, EmergencyCardState(numbers)) }
+    }
+    val alerts = cards.alertsFor(region, question) ?: return
+    update { it.withEmergencyCard(question, EmergencyCardState(numbers, alerts)) }
 }
 
 /** Messaggio per un errore di [AiAssistantViewModel.ask]: il modello online sconosciuto ha il suo, il resto quello generico. */

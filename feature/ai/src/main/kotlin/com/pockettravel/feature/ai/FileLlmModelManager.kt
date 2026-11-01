@@ -6,7 +6,13 @@ import com.pockettravel.core.data.allocatableBytes
 import com.pockettravel.core.data.reserveSpace
 import com.pockettravel.feature.ai.di.AiModelsDir
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +27,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.security.DigestInputStream
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,6 +45,10 @@ class FileLlmModelManager @Inject constructor(
     private val storageManager: StorageManager? = null,
 ) : LlmModelManager {
     private val importLock = Mutex()
+
+    // Un download alla volta per file: dopo "Annulla" e "Scarica" il worker vecchio puo' ancora essere nella lettura
+    // di rete mentre il nuovo apre lo stesso .part; il nuovo aspetta che il vecchio finisca.
+    private val downloadLocks = ConcurrentHashMap<String, Mutex>()
     override fun modelFile(definition: LlmModelDefinition): File = File(modelsDir, definition.fileName)
     private fun partFile(definition: LlmModelDefinition): File = File(modelsDir, "${definition.fileName}.part")
 
@@ -68,6 +79,16 @@ class FileLlmModelManager @Inject constructor(
         definition: LlmModelDefinition,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     ) {
+        download(definition, replaces = null, onInstalled = {}, onProgress)
+    }
+
+    // [replaces]: il modello installato che il nuovo sostituisce, eliminato solo a download verificato.
+    private suspend fun download(
+        definition: LlmModelDefinition,
+        replaces: LlmModelDefinition?,
+        onInstalled: () -> Unit,
+        onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
+    ) {
         // Fallisce prima di aprire la connessione (non dopo centinaia di MB scaricati e
         // scartati): un sha256 nullo qui indica un modello non ancora pubblicato, non un
         // problema di rete o di integrita' del file.
@@ -75,18 +96,27 @@ class FileLlmModelManager @Inject constructor(
             throw ModelNotAvailableException("Il modello «${definition.displayName}» non è ancora disponibile per il download.")
         }
         // Rete e verifica senza il lock del modello: durano minuti (1-2,5 GB) e lavorano solo sul .part, che
-        // nessun altro tocca; intanto l'assistente puo' rispondere col modello installato. Il lock serve
+        // nessun altro tocca; intanto il modello gia' installato resta su disco. Il lock serve
         // solo al passaggio finale, per non sostituire un file che il motore sta caricando o liberando.
         val verified = withContext(ioDispatcher) {
             // Il .part di un modello abbandonato (scelto, scaricato in parte, poi cambiato) occuperebbe fino a 2,5 GB per sempre.
             deletePartFilesExcept(definition)
             downloadAndVerify(definition, onProgress)
         }
-        install(verified, definition, requireNotNull(definition.sha256).lowercase())
+        install(verified, definition, requireNotNull(definition.sha256).lowercase(), replaces = replaces, onInstalled = onInstalled)
     }
 
     // Passaggio finale comune a download e importazione: sostituisce il file del modello con quello verificato.
-    private suspend fun install(verified: File, definition: LlmModelDefinition, sha256: String, deleteOthers: Boolean = false) {
+    // [onInstalled] gira nel lock, col nuovo file gia' al suo posto e prima di eliminare [replaces]: chi sceglie il
+    // modello in uso non vede mai un modello senza file.
+    private suspend fun install(
+        verified: File,
+        definition: LlmModelDefinition,
+        sha256: String,
+        deleteOthers: Boolean = false,
+        replaces: LlmModelDefinition? = null,
+        onInstalled: () -> Unit = {},
+    ) {
         coordinator.withModelLock {
             if (deleteOthers) {
                 LlmModelCatalog.ALL.filter { it.id != definition.id && isDownloaded(it) }.forEach { deleteWithoutLock(it) }
@@ -98,6 +128,8 @@ class FileLlmModelManager @Inject constructor(
                 shaFile(definition).writeText(sha256)
                 partShaFile(definition).delete()
             }
+            onInstalled()
+            if (replaces != null && replaces.id != definition.id) deleteWithoutLock(replaces)
             _downloadedModelIds.value = scanDownloadedModelIds()
         }
     }
@@ -155,25 +187,28 @@ class FileLlmModelManager @Inject constructor(
     }
 
     /**
-     * Un solo modello sul dispositivo installato alla volta: se un altro modello e' gia' presente su
-     * disco, va eliminato (e il motore rilasciato) prima di scaricare quello nuovo — evita di
-     * accumulare piu' file da centinaia di MB/pochi GB ciascuno in parallelo.
+     * Un solo modello sul dispositivo installato alla volta: [currentlyInstalled] resta su disco finche' quello
+     * nuovo non e' scaricato e verificato, poi si elimina (nel lock del modello, col motore rilasciato). Durante il
+     * download servono quindi i byte di tutti e due: lo spazio libero si controlla prima di accodare il download.
      */
     override suspend fun selectAndDownload(
         newDefinition: LlmModelDefinition,
         currentlyInstalled: LlmModelDefinition?,
+        onInstalled: () -> Unit,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     ) {
-        if (currentlyInstalled != null && currentlyInstalled.id != newDefinition.id) {
-            delete(currentlyInstalled)
-        }
-        download(newDefinition, onProgress)
+        download(newDefinition, currentlyInstalled, onInstalled, onProgress)
     }
 
     // Scarica e verifica il .part e lo restituisce; lo installa download(). internal (non private) cosi'
     // un test puo' esercitare il resume Range/la classificazione errori — stesso approccio di
     // RegionPackageDownloader.downloadAndVerify.
     internal suspend fun downloadAndVerify(
+        definition: LlmModelDefinition,
+        onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
+    ): File = downloadLocks.getOrPut(definition.fileName) { Mutex() }.withLock { downloadAndVerifyLocked(definition, onProgress) }
+
+    private suspend fun downloadAndVerifyLocked(
         definition: LlmModelDefinition,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     ): File {
@@ -218,20 +253,40 @@ class FileLlmModelManager @Inject constructor(
         }
         val request = requestBuilder.build()
 
-        okHttpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw failedResponse(response.code, partFile, existingBytes)
-            val body = response.body
-
-            val resumed = response.code == 206 && existingBytes > 0
-            if (resumed) {
-                require(response.header("Content-Range")?.startsWith("bytes $existingBytes-", ignoreCase = true) == true) {
-                    "Risposta range non valida per il modello"
+        val call = okHttpClient.newCall(request)
+        // execute() e le letture del corpo bloccano il thread: annullando la coroutine si annulla la chiamata, che le
+        // fa fallire subito. Unconfined: il gestore parte nel thread che annulla, anche se quello del download e' bloccato.
+        coroutineScope {
+            val canceller = launch(Dispatchers.Unconfined) {
+                try {
+                    awaitCancellation()
+                } finally {
+                    call.cancel()
                 }
             }
-            val baseBytes = if (resumed) existingBytes else 0L
-            val total = baseBytes + body.contentLength().coerceAtLeast(0L)
-            val downloaded = body.byteStream().use { input -> writePart(input, partFile, resumed, baseBytes, total, definition, onProgress) }
-            onProgress(downloaded, total)
+            try {
+                call.execute().use { response ->
+                    if (!response.isSuccessful) throw failedResponse(response.code, partFile, existingBytes)
+                    val body = response.body
+
+                    val resumed = response.code == 206 && existingBytes > 0
+                    if (resumed) {
+                        require(response.header("Content-Range")?.startsWith("bytes $existingBytes-", ignoreCase = true) == true) {
+                            "Risposta range non valida per il modello"
+                        }
+                    }
+                    val baseBytes = if (resumed) existingBytes else 0L
+                    val total = baseBytes + body.contentLength().coerceAtLeast(0L)
+                    val downloaded = body.byteStream().use { input -> writePart(input, partFile, resumed, baseBytes, total, definition, onProgress) }
+                    onProgress(downloaded, total)
+                }
+            } catch (error: IOException) {
+                // La chiamata annullata fallisce con "Socket closed": e' l'annullamento, non un errore da riportare.
+                currentCoroutineContext().ensureActive()
+                throw error
+            } finally {
+                canceller.cancel()
+            }
         }
     }
 
@@ -267,6 +322,7 @@ class FileLlmModelManager @Inject constructor(
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
             var read: Int
             while (input.read(buffer).also { read = it } != -1) {
+                currentCoroutineContext().ensureActive()
                 output.write(buffer, 0, read)
                 downloaded += read
                 // downloaded include gia' i byte del .part ripreso: sizeBytes e' la dimensione
@@ -304,11 +360,12 @@ class FileLlmModelManager @Inject constructor(
         computed
     }
 
-    private fun sha256Of(file: File): String {
+    private suspend fun sha256Of(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
         DigestInputStream(file.inputStream(), digest).use { stream ->
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
             while (stream.read(buffer) != -1) {
+                currentCoroutineContext().ensureActive()
                 // il digest si aggiorna come effetto collaterale di DigestInputStream.read
             }
         }

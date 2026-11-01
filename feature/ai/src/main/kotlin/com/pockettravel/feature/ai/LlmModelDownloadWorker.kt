@@ -31,7 +31,7 @@ class LlmModelDownloadWorker @AssistedInject constructor(
             val definition = downloadDefinition(inputData.getString(KEY_MODEL_ID), aiSettingsStore.selectedModelDefinition())
                 .withPublishedFingerprint(publishedModels())
             // Un solo modello installato alla volta (vedi LlmModelManager.selectAndDownload):
-            // se un altro modello e' gia' su disco va eliminato prima di scaricare questo.
+            // se un altro modello e' gia' su disco resta finche' questo non e' scaricato e verificato, poi si elimina.
             val currentlyInstalled = LlmModelCatalog.ALL.firstOrNull {
                 it.id != definition.id && modelManager.isDownloaded(it)
             }
@@ -40,6 +40,10 @@ class LlmModelDownloadWorker @AssistedInject constructor(
             modelManager.selectAndDownload(
                 newDefinition = definition,
                 currentlyInstalled = currentlyInstalled,
+                // Solo a modello installato e verificato il download diventa il modello in uso, prima che il vecchio sparisca.
+                onInstalled = {
+                    if (definition.id != aiSettingsStore.selectedModelId()) aiSettingsStore.setSelectedModelId(definition.id)
+                },
             ) { downloaded, total ->
                 val percent = if (total > 0) downloaded * PERCENT / total else PERCENT
                 if (percent != lastPercent) {

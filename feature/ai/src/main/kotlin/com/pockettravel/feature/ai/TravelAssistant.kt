@@ -181,6 +181,8 @@ class TravelAssistant @Inject constructor(
                     text = it
                     emit(AssistantProgress.Partial(it))
                 }
+                // Come online: una risposta vuota e' un errore, non va mostrata ne' salvata in cronologia.
+                if (text.isBlank()) error("Il modello sul dispositivo non ha generato una risposta")
                 emit(AssistantProgress.Done(withSource(AssistantAnswer(text, plan.citations, showOfficialSourceBanner = false))))
             }
             AiEngineMode.ONLINE -> emitAll(askOnline(question, language, contextSections, focus, sharePersonal).progress(withSource))

@@ -313,12 +313,16 @@ internal class InferenceEngineImpl private constructor(
         // ricaricamento del modello, e il chiamante riceverebbe una risposta vuota senza errore.
         // Il modello resta valido (il prompt rifiutato azzera la conversazione nativa),
         // quindi si torna a ModelReady e non a Error.
-        processUserPrompt(message, predictLength).let { result ->
-            if (result != 0) {
-                Log.e(TAG, "Failed to process user prompt: $result")
-                _state.value = InferenceEngine.State.ModelReady
-                throw IOException("Failed to process user prompt: $result")
-            }
+        // Anche se la chiamata nativa lancia (es. OutOfMemoryError da GetStringChars) lo stato torna a ModelReady.
+        var result = -1
+        try {
+            result = processUserPrompt(message, predictLength)
+        } finally {
+            if (result != 0) _state.value = InferenceEngine.State.ModelReady
+        }
+        if (result != 0) {
+            Log.e(TAG, "Failed to process user prompt: $result")
+            throw IOException("Failed to process user prompt: $result")
         }
         publishContextUsage()
 

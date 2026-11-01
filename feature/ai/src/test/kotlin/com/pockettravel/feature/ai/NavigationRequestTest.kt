@@ -67,6 +67,14 @@ class NavigationRequestTest {
     }
 
     @Test
+    fun `una domanda dopo la destinazione non e' una richiesta di navigazione`() {
+        assertNull(parseNavigationRequest("Voglio andare in Giappone, serve il visto?"))
+        assertNull(parseNavigationRequest("Andiamo in spiaggia domani, che tempo farà?"))
+        assertNull(parseNavigationRequest("I want to go to Japan, do I need a visa?"))
+        assertEquals(NavigationRequest("Via Roma, 12", null), parseNavigationRequest("Indicazioni per Via Roma, 12"))
+    }
+
+    @Test
     fun `domande sulla guida non sono richieste di navigazione`() {
         assertNull(parseNavigationRequest("Come arrivare a Roma dall'Italia?"))
         assertNull(parseNavigationRequest("Come si arriva in centro?"))

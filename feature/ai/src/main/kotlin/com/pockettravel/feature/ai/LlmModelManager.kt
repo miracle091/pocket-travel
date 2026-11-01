@@ -38,10 +38,14 @@ interface LlmModelManager {
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     )
 
-    /** Un solo modello sul dispositivo installato alla volta: [currentlyInstalled], se diverso, si elimina prima del download. */
+    /**
+     * Un solo modello sul dispositivo installato alla volta: [currentlyInstalled], se diverso, si elimina dopo il download
+     * verificato del nuovo. [onInstalled] gira a nuovo file installato, prima di eliminare il vecchio.
+     */
     suspend fun selectAndDownload(
         newDefinition: LlmModelDefinition,
         currentlyInstalled: LlmModelDefinition?,
+        onInstalled: () -> Unit = {},
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     )
 

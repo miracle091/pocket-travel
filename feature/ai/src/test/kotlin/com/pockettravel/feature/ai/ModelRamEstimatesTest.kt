@@ -76,4 +76,16 @@ class ModelRamEstimatesTest {
         assertNull(estimates.estimate(definition()))
         assertNotNull(estimates.estimate(definition()))
     }
+
+    @Test
+    fun `un GGUF con numeri a zero non fa chiudere l'app, nessuna stima`() = runBlocking {
+        val zeroHeads = Gguf()
+            .string("general.architecture", "qwen35")
+            .u32("qwen35.block_count", 24)
+            .u32("qwen35.embedding_length", 1024)
+            .u32("qwen35.attention.head_count", 0)
+            .bytes(1000)
+        server.enqueue(MockResponse().setResponseCode(206).setBody(Buffer().write(zeroHeads)))
+        assertNull(estimates.estimate(definition()))
+    }
 }

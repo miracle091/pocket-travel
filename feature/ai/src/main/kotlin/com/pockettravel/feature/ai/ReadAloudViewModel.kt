@@ -25,12 +25,24 @@ data class ReadAloudUiState(
 
 /** Lettura ad alta voce delle risposte dell'assistente: una alla volta, nella lingua delle guide come le risposte. */
 @HiltViewModel
-class ReadAloudViewModel @Inject constructor(private val readAloud: ReadAloud) : ViewModel() {
+class ReadAloudViewModel @Inject constructor(
+    private val readAloud: ReadAloud,
+    private val aiSettingsStore: AiSettingsStore,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReadAloudUiState())
     val uiState: StateFlow<ReadAloudUiState> = _uiState.asStateFlow()
 
+    // Le voci che usano la rete sono permesse (AiSettingsStore.allowsNetworkVoices), scelta delle Impostazioni.
+    private val _networkVoices = MutableStateFlow(aiSettingsStore.allowsNetworkVoices())
+    val networkVoices: StateFlow<Boolean> = _networkVoices.asStateFlow()
+
     private var speakJob: Job? = null
+
+    fun setNetworkVoices(enabled: Boolean) {
+        aiSettingsStore.setAllowsNetworkVoices(enabled)
+        _networkVoices.value = enabled
+    }
 
     /** Legge [text], fermando la risposta letta prima; se [text] e' gia' in lettura la ferma. */
     fun toggle(text: String) {
@@ -39,12 +51,13 @@ class ReadAloudViewModel @Inject constructor(private val readAloud: ReadAloud) :
         if (wasSpeaking) return
         _uiState.update { ReadAloudUiState(speakingText = text) }
         speakJob = viewModelScope.launch {
-            val result = readAloud.speak(text, currentGuidesLanguage())
+            val result = readAloud.speak(text, currentGuidesLanguage(), allowNetworkVoice = aiSettingsStore.allowsNetworkVoices())
             speakJob = null
             _uiState.update {
                 when (result) {
                     ReadAloudResult.FINISHED -> ReadAloudUiState()
                     ReadAloudResult.LANGUAGE_UNAVAILABLE -> ReadAloudUiState(failedText = text, message = R.string.ai_read_aloud_language_unavailable)
+                    ReadAloudResult.ONLY_NETWORK_VOICE -> ReadAloudUiState(failedText = text, message = R.string.ai_read_aloud_only_network_voice)
                     ReadAloudResult.FAILED -> ReadAloudUiState(failedText = text, message = R.string.ai_read_aloud_error)
                 }
             }

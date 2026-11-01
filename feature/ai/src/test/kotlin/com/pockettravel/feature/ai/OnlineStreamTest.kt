@@ -10,6 +10,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -116,5 +117,21 @@ class OnlineStreamTest {
         server.enqueue(sse("data: $body\n\n"))
         assertEquals(R.string.ai_error_credit, askErrorMessage(errorOf()))
         assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `a transport error after some text is an interrupted answer, not a busy service`() {
+        val first = "data: {\"choices\":[{\"delta\":{\"content\":\"Inizio\"},\"index\":0}]}\n\n"
+        // Il corpo si interrompe a meta': il primo pezzo e' arrivato, il resto e' riempitivo.
+        server.enqueue(sse(first + ": " + "x".repeat(4000) + "\n\n").setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY))
+        server.enqueue(sseResponse("Seconda"))
+        assertEquals(R.string.ai_error_interrupted, askErrorMessage(errorOf()))
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `a very long error body is classified from its beginning`() {
+        server.enqueue(MockResponse().setResponseCode(402).setBody("{\"error\":\"billing_error\"}" + " ".repeat(2_000_000)))
+        assertEquals(R.string.ai_error_credit, askErrorMessage(errorOf()))
     }
 }

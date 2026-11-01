@@ -11,6 +11,7 @@ import com.pockettravel.core.data.alerts.AlertLevel
 import com.pockettravel.core.data.alerts.AlertSource
 import com.pockettravel.core.data.alerts.AlertsRepository
 import com.pockettravel.core.data.alerts.RegionAlerts
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -55,7 +56,25 @@ private class FakeAlertsRepository(private val result: RegionAlerts? = RegionAle
     }
 }
 
+/** Numeri e allerte insieme, come li compone il ViewModel in due tempi. */
+private suspend fun EmergencyCardProvider.forQuestion(regionId: String, question: String): EmergencyCardState? {
+    val entries = numbersFor(regionId, question)
+    val alerts = alertsFor(regionId, question)
+    return if (entries == null && alerts == null) null else EmergencyCardState(entries, alerts)
+}
+
 class EmergencyCardProviderTest {
+    @Test
+    fun `i numeri arrivano anche se le allerte non rispondono mai`() = runTest {
+        val never = object : AlertsRepository {
+            override suspend fun alerts(regionId: String): RegionAlerts? = awaitCancellation()
+        }
+        val numbers = provider(FakeEmergencyNumbersDao(mapOf("italia" to italy)), never)
+            .numbersFor("italia", "Earthquake, my friend is unconscious")
+
+        assertEquals(4, numbers?.size)
+    }
+
     private val italy = EmergencyNumbersEntity("italia", "112", "113", "118", "115")
     private val japan = EmergencyNumbersEntity("giappone", null, "110", "119", "119")
     private val usa = EmergencyNumbersEntity("usa", "911", "911", "911", "911")

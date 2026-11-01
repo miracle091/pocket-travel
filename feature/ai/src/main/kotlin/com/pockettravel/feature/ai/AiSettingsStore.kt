@@ -93,6 +93,11 @@ class AiSettingsStore(
 
     fun setSharesPersonalData(enabled: Boolean) = prefs.edit { putBoolean(KEY_SHARE_NOTE_POSITION, enabled) }
 
+    /** Permette a "Ascolta" le voci che usano la rete (il motore di sintesi riceve il testo della risposta): spento di default. */
+    fun allowsNetworkVoices(): Boolean = prefs.getBoolean(KEY_NETWORK_VOICES, false)
+
+    fun setAllowsNetworkVoices(enabled: Boolean) = prefs.edit { putBoolean(KEY_NETWORK_VOICES, enabled) }
+
     // Un solo modello sul dispositivo installabile alla volta (vedi LlmModelManager.selectAndDownload):
     // questo e' l'id del modello scelto dall'utente in LlmModelCatalog.ALL, non necessariamente
     // ancora scaricato. Senza una scelta, o con un id salvato che non e' piu' nel catalogo dei modelli (es. un
@@ -114,7 +119,18 @@ class AiSettingsStore(
     private fun downloadedModelId(): String? =
         LlmModelCatalog.ALL.firstOrNull { File(modelsDir, it.fileName).exists() }?.id
 
-    fun setSelectedModelId(modelId: String) = prefs.edit { putString(KEY_SELECTED_MODEL_ID, modelId) }
+    // Scegliere un modello chiude l'eventuale scelta in attesa del suo download.
+    fun setSelectedModelId(modelId: String) = prefs.edit {
+        putString(KEY_SELECTED_MODEL_ID, modelId)
+        remove(KEY_PENDING_MODEL_ID)
+    }
+
+    // Modello scelto nell'elenco ma ancora da scaricare: quello in uso resta il precedente, finche' il download
+    // non e' installato (allora lo imposta setSelectedModelId).
+    fun pendingModelId(): String? =
+        prefs.getString(KEY_PENDING_MODEL_ID, null)?.takeIf { stored -> LlmModelCatalog.ALL.any { it.id == stored } }
+
+    fun setPendingModelId(modelId: String) = prefs.edit { putString(KEY_PENDING_MODEL_ID, modelId) }
 
     // Un risultato per modello, non solo per l'ultimo eseguito: cambiare modello selezionato non
     // deve far perdere il benchmark gia' fatto per quello precedente, se l'utente torna indietro.
@@ -156,9 +172,11 @@ class AiSettingsStore(
         const val KEY_PROVIDER = "online_provider"
         const val KEY_MODEL_PREFIX = "online_model_"
         const val KEY_SHARE_NOTE_POSITION = "online_share_personal_data"
+        const val KEY_NETWORK_VOICES = "read_aloud_network_voices"
         const val API_KEY_ALIAS = "pocket_travel_ai_api_key_v2"
         const val API_KEY_PAYLOAD = "api_key_payload"
         const val KEY_SELECTED_MODEL_ID = "selected_model_id"
+        const val KEY_PENDING_MODEL_ID = "pending_model_id"
         const val KEY_BENCHMARK_WORDS_PER_SECOND = "benchmark_words_per_second"
         const val KEY_BENCHMARK_LATENCY_MS = "benchmark_latency_ms"
         const val KEY_BENCHMARK_LOAD_MS = "benchmark_load_ms"

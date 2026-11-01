@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.FilledTonalButton
 import android.text.format.Formatter
@@ -522,13 +523,28 @@ private fun ModeSelector(uiState: AiUiState, actions: AiActions, modifier: Modif
  * della chat: fuori da una regione non serve altro, la regione conta solo quando si fa una domanda.
  */
 @Composable
-fun AiSettingsSection(viewModel: AiAssistantViewModel = hiltViewModel()) {
+fun AiSettingsSection(
+    viewModel: AiAssistantViewModel = hiltViewModel(),
+    readAloudViewModel: ReadAloudViewModel = hiltViewModel(),
+) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    AiSettingsContent(uiState = uiState, actions = viewModel.toActions(regionId = ""))
+    val networkVoices by readAloudViewModel.networkVoices.collectAsStateWithLifecycle()
+    AiSettingsContent(
+        uiState = uiState,
+        actions = viewModel.toActions(regionId = ""),
+        networkVoices = networkVoices,
+        onNetworkVoicesChanged = readAloudViewModel::setNetworkVoices,
+    )
 }
 
 @Composable
-internal fun AiSettingsContent(uiState: AiUiState, actions: AiActions) {
+internal fun AiSettingsContent(
+    uiState: AiUiState,
+    actions: AiActions,
+    // Le voci di rete per "Ascolta" (ReadAloudViewModel): non fanno parte dello stato dell'assistente.
+    networkVoices: Boolean = false,
+    onNetworkVoicesChanged: (Boolean) -> Unit = {},
+) {
     var showRemoveKeyConfirm by rememberSaveable { mutableStateOf(false) }
     var showDeleteHistoryConfirm by rememberSaveable { mutableStateOf(false) }
     if (showDeleteHistoryConfirm) {
@@ -560,6 +576,8 @@ internal fun AiSettingsContent(uiState: AiUiState, actions: AiActions) {
                 SharePersonalDataSwitch(uiState.sharesPersonalData, actions.onSharesPersonalDataChanged)
             }
         }
+        // "Ascolta" vale con entrambi i motori.
+        SettingSwitch(R.string.ai_read_aloud_network_title, R.string.ai_read_aloud_network_hint, networkVoices, onNetworkVoicesChanged)
         // Anche con il motore Online: le conversazioni salvate prima restano finche' non si cancellano.
         if (uiState.savedConversations > 0) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -934,7 +952,7 @@ private fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: Bo
 
 /** Lista dei modelli disponibili per la fascia RAM del dispositivo (uiState.availableModels,
  *  gia' filtrata da AiAssistantViewModel). Un solo modello installato alla volta: selezionarne
- *  uno diverso da quello scaricato lo sostituisce (vedi LlmModelManager.selectAndDownload).
+ *  uno diverso da quello scaricato lo sostituisce a download finito (vedi LlmModelManager.selectAndDownload).
  *  Non private: riusata anche dallo step di onboarding "Scarica il modello IA" (modulo :app,
  *  quindi serve visibilita' public — un internal qui non basterebbe, e' un modulo diverso). */
 @Composable
@@ -973,7 +991,7 @@ private fun ModelList(uiState: AiUiState, actions: AiActions) {
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column {
                     models.forEach { definition ->
-                        ModelRow(definition = definition, isSelected = definition.id == uiState.selectedModelId, uiState = uiState, actions = actions)
+                        ModelRow(definition = definition, isSelected = definition.id == uiState.listedModelId, uiState = uiState, actions = actions)
                     }
                 }
             }
@@ -1065,7 +1083,7 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
                     Text(text = stringResource(it), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = Spacing.s))
                 }
                 val downloadProgress = uiState.downloadProgress
-                if (uiState.isModelDownloaded) {
+                if (uiState.isModelDownloaded && uiState.pendingModelId == null) {
                     // Gia' installato (la lista si vede anche dalle Impostazioni, non solo prima del download).
                     Text(stringResource(R.string.ai_model_downloaded), style = MaterialTheme.typography.bodySmall)
                     TextButton(onClick = { showDeleteConfirm = true }) {
@@ -1127,7 +1145,11 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
 
 // Consenso a mandare al servizio i dati personali (nota, posizione, partenza e nazionalita'): spento di default.
 @Composable
-private fun SharePersonalDataSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun SharePersonalDataSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) =
+    SettingSwitch(R.string.ai_online_share_title, R.string.ai_online_share_hint, checked, onCheckedChange)
+
+@Composable
+private fun SettingSwitch(@StringRes title: Int, @StringRes hint: Int, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -1136,9 +1158,9 @@ private fun SharePersonalDataSwitch(checked: Boolean, onCheckedChange: (Boolean)
             .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = Spacing.s)) {
-            Text(stringResource(R.string.ai_online_share_title), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(title), style = MaterialTheme.typography.bodyLarge)
             Text(
-                stringResource(R.string.ai_online_share_hint),
+                stringResource(hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

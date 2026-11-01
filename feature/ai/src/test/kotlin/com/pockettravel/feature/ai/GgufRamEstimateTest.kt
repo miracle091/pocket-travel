@@ -130,6 +130,17 @@ class GgufRamEstimateTest {
     }
 
     @Test
+    fun `un file con zero teste di attenzione non da stima ne' eccezione`() {
+        val zeroHeads = Gguf()
+            .string("general.architecture", "qwen35")
+            .u32("qwen35.block_count", 24)
+            .u32("qwen35.embedding_length", 1024)
+            .u32("qwen35.attention.head_count", 0)
+            .bytes(1000)
+        assertNull(estimateRamBytes(read(zeroHeads), 1000))
+    }
+
+    @Test
     fun `non GGUF, file troncato e chiavi mancanti danno null`() {
         assertNull(GgufMetadata.read(ByteArrayInputStream("PK\u0003\u0004 zip".toByteArray())))
         val bytes = qwen35(24, 1024).bytes(248_320)

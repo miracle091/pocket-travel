@@ -26,10 +26,13 @@ fun parseNavigationRequest(text: String): NavigationRequest? {
     val withTime = (profileMatch?.let { rest.removeRange(it.first.range) } ?: rest)
         .replace(POLITENESS, " ").trim().trimEnd('?', '!', '.', ',', ';', ' ')
     val withoutTime = withTime.replace(TRAILING_TIME, "")
+    // "Voglio andare in Giappone, serve il visto?": una domanda dopo la virgola, non una destinazione. Senza "?" la
+    // virgola puo' stare nell'indirizzo ("Via Roma, 12").
+    val questionAfterComma = ',' in withoutTime && text.trimEnd().endsWith('?')
     // "Percorso consigliato di 3 giorni a Roma?", "Route 66 è bella?": questi trigger sono anche parole comuni, e
     // valgono solo con una preposizione di destinazione dopo ("percorso per", "route to"), anche dopo il modo.
     // "Indicazioni per ottenere il visto", "percorso per 3 giorni": dopo la preposizione non c'e' un luogo.
-    val destination = withoutLeadingWords(withoutTime).takeUnless { trigger.groupValues[1].isNotEmpty() && !isDestination(withTime) }
+    val destination = withoutLeadingWords(withoutTime).takeUnless { questionAfterComma || trigger.groupValues[1].isNotEmpty() && !isDestination(withTime) }
     return destination?.takeIf { it.isNotEmpty() }
         ?.let { NavigationRequest(it, profileMatch?.second, withoutLeadingWords(withTime).takeIf { withoutTime != withTime }) }
 }

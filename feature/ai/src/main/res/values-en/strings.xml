@@ -44,6 +44,9 @@
     <string name="ai_answer_notification_stop">Stop</string>
     <string name="ai_read_aloud_language_unavailable">No voice installed for this language. Add one in the device\'s text-to-speech settings</string>
     <string name="ai_read_aloud_error">Reading aloud failed</string>
+    <string name="ai_read_aloud_only_network_voice">Only an online voice exists for this language. Install a voice in the device\'s text-to-speech settings, or turn on \"Online voices for Listen\" in More → Settings</string>
+    <string name="ai_read_aloud_network_title">Online voices for Listen</string>
+    <string name="ai_read_aloud_network_hint">Off: \"Listen\" uses only voices installed on the device and the text stays on the phone. On: if the voice picked by text-to-speech is online, the text of the answer is sent to its service</string>
     <string name="ai_thinking">Generating the answer…</string>
     <string name="ai_emergency_title">Emergency? Call now</string>
     <string name="ai_emergency_none">This country has no single emergency number. Call the police or the local health services</string>

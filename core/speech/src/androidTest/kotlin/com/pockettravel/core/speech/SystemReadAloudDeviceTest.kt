@@ -19,7 +19,7 @@ class SystemReadAloudDeviceTest {
     private val readAloud = SystemReadAloud(InstrumentationRegistry.getInstrumentation().targetContext)
 
     private fun speak(text: String, language: String): ReadAloudResult =
-        runBlocking { withContext(Dispatchers.Main) { readAloud.speak(text, language) } }
+        runBlocking { withContext(Dispatchers.Main) { readAloud.speak(text, language, allowNetworkVoice = true) } }
 
     @Test
     fun leggeFinoInFondoNelleDueLingue() {
@@ -33,7 +33,7 @@ class SystemReadAloudDeviceTest {
     fun siFermaQuandoSiAnnullaEPoiRiparte() {
         assumeTrue("Nessun motore di sintesi vocale", speak("Prova.", "it") == ReadAloudResult.FINISHED)
         val long = List(40) { "Questa e' una frase lunga da leggere ad alta voce." }.joinToString(" ")
-        val interrupted = runBlocking { withContext(Dispatchers.Main) { withTimeoutOrNull(1_500) { readAloud.speak(long, "it") } } }
+        val interrupted = runBlocking { withContext(Dispatchers.Main) { withTimeoutOrNull(1_500) { readAloud.speak(long, "it", allowNetworkVoice = true) } } }
         assertNull(interrupted)
         assertEquals(ReadAloudResult.FINISHED, speak("Di nuovo.", "it"))
     }

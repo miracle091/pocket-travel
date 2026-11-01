@@ -93,16 +93,21 @@ class OnlineLlmClient @Inject constructor(
     private fun answer(request: Request, model: String): Flow<String> = flow {
         var finished = false
         var emitted = false
-        sseLines(request, model).transformWhile { line ->
-            val chunk = sseChunk(line, model) ?: return@transformWhile true
-            chunk.error?.let { throw if (emitted) OnlineAnswerInterruptedException("Errore a meta' della risposta", it) else it }
-            chunk.text?.takeIf { it.isNotEmpty() }?.let {
-                emitted = true
-                emit(it)
-            }
-            finished = chunk.finished
-            !finished
-        }.collect { emit(it) }
+        try {
+            sseLines(request, model).transformWhile { line ->
+                val chunk = sseChunk(line, model) ?: return@transformWhile true
+                chunk.error?.let { throw if (emitted) OnlineAnswerInterruptedException("Errore a meta' della risposta", it) else it }
+                chunk.text?.takeIf { it.isNotEmpty() }?.let {
+                    emitted = true
+                    emit(it)
+                }
+                finished = chunk.finished
+                !finished
+            }.collect { emit(it) }
+        } catch (busy: OnlineServiceBusyException) {
+            // Errore di trasporto dopo il primo pezzo: il testo gia' mostrato non si rifa', e' una risposta interrotta.
+            throw if (emitted) OnlineAnswerInterruptedException("Risposta interrotta", busy) else busy
+        }
         if (!finished) {
             // Connessione chiusa senza la fine: prima del testo e' come un timeout, dopo e' una risposta interrotta.
             val closed = OnlineServiceBusyException("Connessione chiusa prima della risposta", DEFAULT_RETRY_MILLIS)
@@ -126,7 +131,7 @@ class OnlineLlmClient @Inject constructor(
                 response.use {
                     try {
                         if (!response.isSuccessful) {
-                            close(httpError(response.code, response.body.string(), response.header("Retry-After"), model))
+                            close(httpError(response.code, response.peekBody(MAX_ERROR_BODY_BYTES).string(), response.header("Retry-After"), model))
                             return
                         }
                         val source = response.body.source()
@@ -188,6 +193,9 @@ class OnlineLlmClient @Inject constructor(
     private companion object {
         const val TEMPERATURE = 0.3
         const val READ_TIMEOUT_SECONDS = 120L
+
+        // Del corpo di un errore HTTP basta l'inizio: serve a classificarlo, e un servizio difettoso potrebbe mandarne molto.
+        const val MAX_ERROR_BODY_BYTES = 8 * 1024L
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }

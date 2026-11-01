@@ -44,6 +44,9 @@
     <string name="ai_answer_notification_stop">Ferma</string>
     <string name="ai_read_aloud_language_unavailable">Voce di questa lingua non installata. Si aggiunge nelle impostazioni della sintesi vocale del dispositivo</string>
     <string name="ai_read_aloud_error">Lettura ad alta voce non riuscita</string>
+    <string name="ai_read_aloud_only_network_voice">Per questa lingua c\'è solo una voce online. Si installa una voce nelle impostazioni della sintesi vocale del dispositivo, oppure si attiva «Voci online per Ascolta» in Altro → Impostazioni</string>
+    <string name="ai_read_aloud_network_title">Voci online per Ascolta</string>
+    <string name="ai_read_aloud_network_hint">Spento: «Ascolta» usa solo le voci installate sul dispositivo e il testo resta sul telefono. Acceso: se la voce scelta dalla sintesi vocale è online, il testo della risposta viene inviato al suo servizio</string>
     <string name="ai_thinking">Elaborazione della risposta…</string>
     <string name="ai_loading_model">Caricamento del modello…</string>
     <string name="ai_emergency_title">Emergenza? Chiama subito</string>

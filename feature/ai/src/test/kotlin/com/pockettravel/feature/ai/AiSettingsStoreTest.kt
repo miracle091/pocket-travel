@@ -48,6 +48,15 @@ class AiSettingsStoreTest {
     }
 
     @Test
+    fun `le voci di rete per Ascolta sono spente di default e la scelta resta`() {
+        assertFalse(newStore().allowsNetworkVoices())
+
+        newStore().setAllowsNetworkVoices(true)
+
+        assertTrue(newStore().allowsNetworkVoices())
+    }
+
+    @Test
     fun `il motore scelto resta per la prossima apertura, con la chiave di sempre`() {
         newStore().setEngineMode(AiEngineMode.ONLINE)
 

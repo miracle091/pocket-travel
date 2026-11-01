@@ -2,6 +2,7 @@ package com.pockettravel.feature.ai
 
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.PreferencesFactory
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -31,12 +32,16 @@ class ModelRamEstimates @Inject constructor(
         if (prefs.contains(key)) return@withContext prefs.getLong(key, 0)
         // Scaricato: il file e il suo peso vero; altrimenti l'intestazione dal server e il peso del catalogo.
         val file = modelManager.modelFile(definition).takeIf { modelManager.isDownloaded(definition) }
-        val meta = try {
-            (file?.inputStream() ?: openRemoteHeader(definition)).use { GgufMetadata.read(it) }
-        } catch (_: IOException) {
+        // Un file malformato (numeri a zero o negativi) non deve far chiudere l'app: nessuna stima, come senza rete.
+        val estimate = try {
+            val meta = (file?.inputStream() ?: openRemoteHeader(definition)).use { GgufMetadata.read(it) }
+            meta?.let { estimateRamBytes(it, file?.length() ?: definition.sizeBytes) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
             null
-        } ?: return@withContext null
-        estimateRamBytes(meta, file?.length() ?: definition.sizeBytes)?.also { prefs.edit().putLong(key, it).apply() }
+        }
+        estimate?.also { prefs.edit().putLong(key, it).apply() }
     }
 
     private fun openRemoteHeader(definition: LlmModelDefinition): InputStream {

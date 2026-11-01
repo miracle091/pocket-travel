@@ -80,6 +80,16 @@ class StartingTurnTest {
     }
 
     @Test
+    fun `un riquadro in ritardo non sostituisce quello di un'altra domanda`() {
+        val late = EmergencyCardState(entries = emptyList())
+        val current = state(askedQuestion = "Seconda domanda")
+
+        assertEquals(late, current.withEmergencyCard("Seconda domanda", late).emergencyCard)
+        assertNull(current.withEmergencyCard("Prima domanda", late).emergencyCard)
+        assertNull(state(askedQuestion = null).withEmergencyCard("Prima domanda", late).emergencyCard)
+    }
+
+    @Test
     fun `domanda vuota o conversazione in sola lettura non partono`() {
         assertNull(state().startingTurn("  "))
         assertNull(state(readOnlyRegion = "Giappone").startingTurn("Serve il visto?"))

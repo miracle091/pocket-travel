@@ -1,4 +1,4 @@
-// Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.6.0:
+// Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.8.0:
 // i simboli JNI sono rinominati per il package com.pockettravel.feature.ai.llamacpp.internal, e la logica e' cambiata
 // (troncamento e scorrimento del contesto, UTF-16, grammatica, varianti della CPU).
 #include <android/log.h>
@@ -155,6 +155,12 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_init(JNIE
         if (exception_class) {
             env->ThrowNew(exception_class, e.what());
         }
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
+        jclass exception_class = env->FindClass("java/lang/RuntimeException");
+        if (exception_class) {
+            env->ThrowNew(exception_class, "unknown native exception");
+        }
     }
 }
 
@@ -192,7 +198,7 @@ static llama_context *init_context(llama_model *model, const int n_threads, cons
     ctx_params.n_ubatch = BATCH_SIZE;
     ctx_params.n_threads = n_threads;
     ctx_params.n_threads_batch = n_threads;
-    auto *context = llama_init_from_model(g_model, ctx_params);
+    auto *context = llama_init_from_model(model, ctx_params);
     if (context == nullptr) {
         LOGe("%s: llama_new_context_with_model() returned null)", __func__);
     }
@@ -391,6 +397,10 @@ static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads, jboolean spec
     g_top_k = top_k;
     g_top_p = top_p;
     g_sampler = new_sampler(DEFAULT_SAMPLER_TEMP, top_k, top_p);
+    if (!g_sampler) {
+        LOGe("%s: cannot create the sampler", __func__);
+        return 2;
+    }
     return 0;
 }
 
@@ -601,23 +611,11 @@ static int decode_tokens_in_batches(
     return 0;
 }
 
-// env->GetStringUTFChars() restituisce Modified UTF-8 (CESU-8): i code point oltre la BMP (emoji)
-// vi sono codificati come coppia di surrogate anziche' una sequenza UTF-8 standard a 4 byte, il che
-// corromperebbe il prompt passato a common_tokenize. Legge invece l'UTF-16 nativo con
-// GetStringChars/GetStringLength e lo converte in UTF-8 standard, ricombinando le surrogate pair
-// (una spaiata diventa U+FFFD), simmetrico a utf8_to_utf16 qui sotto.
-static std::string jstring_to_utf8(JNIEnv *env, jstring str) {
-    const jchar *chars = env->GetStringChars(str, nullptr);
-    if (!chars) { return {}; }
-    // Rilasciati anche se la stringa lancia bad_alloc a meta'.
-    struct Release {
-        JNIEnv *env; jstring str; const jchar *chars;
-        ~Release() { env->ReleaseStringChars(str, chars); }
-    } release{env, str, chars};
-    const jsize len = env->GetStringLength(str);
+// UTF-16 in UTF-8 standard: le surrogate pair si ricombinano, una surrogata spaiata diventa U+FFFD.
+static std::string utf16_to_utf8(const jchar *chars, const size_t len) {
     std::string utf8;
     utf8.reserve(len);
-    for (jsize i = 0; i < len; ++i) {
+    for (size_t i = 0; i < len; ++i) {
         uint32_t cp = chars[i];
         if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < len && chars[i + 1] >= 0xDC00 && chars[i + 1] <= 0xDFFF) {
             cp = 0x10000 + ((cp - 0xD800) << 10) + (chars[i + 1] - 0xDC00);
@@ -644,6 +642,22 @@ static std::string jstring_to_utf8(JNIEnv *env, jstring str) {
     return utf8;
 }
 
+// env->GetStringUTFChars() restituisce Modified UTF-8 (CESU-8): i code point oltre la BMP (emoji)
+// vi sono codificati come coppia di surrogate anziche' una sequenza UTF-8 standard a 4 byte, il che
+// corromperebbe il prompt passato a common_tokenize. Legge invece l'UTF-16 nativo con
+// GetStringChars/GetStringLength e lo converte in UTF-8 standard, ricombinando le surrogate pair
+// (una spaiata diventa U+FFFD), simmetrico a utf8_to_utf16 qui sotto.
+static std::string jstring_to_utf8(JNIEnv *env, jstring str) {
+    const jchar *chars = env->GetStringChars(str, nullptr);
+    if (!chars) { return {}; }
+    // Rilasciati anche se la stringa lancia bad_alloc a meta'.
+    struct Release {
+        JNIEnv *env; jstring str; const jchar *chars;
+        ~Release() { env->ReleaseStringChars(str, chars); }
+    } release{env, str, chars};
+    return utf16_to_utf8(chars, (size_t) env->GetStringLength(str));
+}
+
 // Prompt rifiutato o decodificato solo in parte: il messaggio utente e' gia' in chat_msgs ma non (tutto) nella cache.
 // Si azzera la conversazione, persa ma coerente: senza, con il contesto pieno ogni prompt successivo verrebbe
 // rifiutato finche' il chiamante non chiama resetConversation.
@@ -653,11 +667,16 @@ static jint reject_user_prompt(const jint error) {
 }
 
 static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_predict) {
+    if (!g_context || !g_sampler) {
+        LOGe("%s: model not prepared", __func__);
+        return 4;
+    }
     // Reset short-term states
     reset_short_term_states();
 
     // Obtain and tokenize user prompt
     std::string user_prompt = jstring_to_utf8(env, juser_prompt);
+    if (env->ExceptionCheck()) return -100;  // OutOfMemoryError da GetStringChars
     LOGv("%s: User prompt received: \n%s", __func__, user_prompt.c_str());
     std::string formatted_user_prompt = user_prompt;
 
@@ -719,6 +738,11 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
                 open_tokens.clear();
             }
         }
+        // Senza apertura riconosciuta il BOS di head_tokens resterebbe tra i token scartati: lo si tiene.
+        if (open_tokens.empty() && llama_vocab_get_add_bos(llama_model_get_vocab(g_model)) && !head_tokens.empty() &&
+            head_tokens.front() == llama_vocab_bos(llama_model_get_vocab(g_model))) {
+            open_tokens.push_back(head_tokens.front());
+        }
         const int fixed_tokens = (int) (open_tokens.size() + suffix_tokens.size());
         if (fixed_tokens >= max_new_tokens) {
             LOGe("%s: User prompt too long, even the template alone does not fit (%d >= %d)!", __func__, fixed_tokens, max_new_tokens);
@@ -779,6 +803,9 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_cancelGen
             close_assistant_turn();
         } catch (const std::exception &e) {
             LOGe("%s: cannot close the interrupted turn, resetting the conversation: %s", __func__, e.what());
+            reset_long_term_states();
+        } catch (...) {
+            LOGe("%s: cannot close the interrupted turn (unknown exception), resetting the conversation", __func__);
             reset_long_term_states();
         }
     }
@@ -870,10 +897,11 @@ static size_t utf8_to_utf16(const std::string &utf8, std::vector<jchar> &utf16, 
 // validi diventano U+FFFD subito, quindi la cache non cresce oltre quei 3 byte.
 static std::string take_complete_chars(std::string &cache, const std::string &piece, std::vector<jchar> &utf16) {
     cache += piece;
+    const size_t start = utf16.size();
     const size_t consumed = utf8_to_utf16(cache, utf16);
-    std::string complete = cache.substr(0, consumed);
     cache.erase(0, consumed);
-    return complete;
+    // UTF-8 ricodificato dall'UTF-16: i byte non validi sono gia' U+FFFD, come nella stringa restituita a Kotlin.
+    return utf16_to_utf8(utf16.data() + start, utf16.size() - start);
 }
 
 // Tiene nella cache solo i primi `kept` token del batch di verifica appena decodificato (il token in attesa e le
@@ -957,6 +985,7 @@ static void generation_step() {
 }
 
 static jstring generate_next_token_impl(JNIEnv *env) {
+    if (!g_context || !g_sampler) throw std::runtime_error("model not prepared");
     if (ready_tokens.empty()) {
         // Generazione illimitata grazie allo shift del contesto. Se lo shift non e' possibile la generazione si
         // ferma qui, come a n_predict (la risposta resta troncata ma la cache e le posizioni coerenti).
@@ -1009,6 +1038,9 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_load(JNIE
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
         return -100;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
+        return -100;
     }
 }
 
@@ -1020,6 +1052,9 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_prepare(J
         return prepare_impl(top_k, top_p, n_threads, speculative);
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
+        return -100;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
         return -100;
     }
 }
@@ -1037,6 +1072,9 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processUs
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
         // Come un prompt rifiutato: il messaggio utente puo' essere gia' in chat_msgs senza essere nella cache.
+        return g_context ? reject_user_prompt(-100) : -100;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
         return g_context ? reject_user_prompt(-100) : -100;
     }
 }
@@ -1058,6 +1096,13 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_generateN
             env->ThrowNew(exception_class, e.what());
         }
         return nullptr;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
+        jclass exception_class = env->FindClass("java/lang/RuntimeException");
+        if (exception_class) {
+            env->ThrowNew(exception_class, "unknown native exception");
+        }
+        return nullptr;
     }
 }
 
@@ -1068,6 +1113,11 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_generateN
 // la stessa risposta, come negli script di misura (decodifica greedy).
 static jint set_grammar_impl(JNIEnv *env, jstring jgrammar) {
     const std::string grammar = jstring_to_utf8(env, jgrammar);
+    if (env->ExceptionCheck()) return -100;  // OutOfMemoryError da GetStringChars
+    if (!g_model || !g_sampler) {
+        LOGe("%s: model not prepared", __func__);
+        return 2;
+    }
     auto *sampler = new_sampler(grammar.empty() ? DEFAULT_SAMPLER_TEMP : 0.0f, g_top_k, g_top_p, grammar);
     if (!sampler) {
         LOGe("%s: Invalid grammar", __func__);
@@ -1085,6 +1135,9 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_setGramma
         return set_grammar_impl(env, jgrammar);
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
+        return -100;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
         return -100;
     }
 }
@@ -1117,6 +1170,8 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_unload(JN
         unload_impl();
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
     }
 }
 
@@ -1178,6 +1233,9 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_formatPro
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
         return nullptr;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
+        return nullptr;
     }
 }
 
@@ -1206,6 +1264,9 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_streamTok
         return stream_tokens_impl(env, jtext, max_tokens);
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
+        return nullptr;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
         return nullptr;
     }
 }
@@ -1323,6 +1384,9 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_benchNati
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
         return nullptr;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
+        return nullptr;
     }
 }
 
@@ -1341,6 +1405,9 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_llamaVers
         return llama_version_impl(env);
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
+        return nullptr;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
         return nullptr;
     }
 }

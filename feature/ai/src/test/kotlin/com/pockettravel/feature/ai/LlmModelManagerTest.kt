@@ -2,10 +2,16 @@ package com.pockettravel.feature.ai
 
 import com.pockettravel.core.sync.AiModelManifestEntry
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
+import okio.Buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -17,6 +23,7 @@ import org.junit.Test
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.createTempDirectory
 
 // download() prende un LlmModelDefinition intero (non solo url/sha256 sciolti) apposta per poter
@@ -204,7 +211,7 @@ class LlmModelManagerTest {
     }
 
     @Test
-    fun `selectAndDownload elimina il modello precedente prima di scaricare quello nuovo`() = runBlocking {
+    fun `selectAndDownload tiene il modello precedente durante il download e lo elimina a download verificato`() = runBlocking {
         val oldDefinition = testDefinition.copy(id = "old-model", fileName = "old-model.gguf")
         File(modelsDir, oldDefinition.fileName).writeText("vecchio modello installato")
 
@@ -217,10 +224,71 @@ class LlmModelManagerTest {
             sha256 = sha256Hex(newContent.toByteArray()),
         )
 
-        modelManager.selectAndDownload(newDefinition, currentlyInstalled = oldDefinition) { _, _ -> }
+        var oldPresentWhileDownloading = false
+        var newPresentAtSwitch = false
+        modelManager.selectAndDownload(
+            newDefinition,
+            currentlyInstalled = oldDefinition,
+            onInstalled = { newPresentAtSwitch = modelManager.modelFile(newDefinition).isFile },
+        ) { _, _ ->
+            oldPresentWhileDownloading = modelManager.isDownloaded(oldDefinition)
+        }
 
+        assertTrue("il vecchio modello deve restare finche' il nuovo non e' scaricato", oldPresentWhileDownloading)
+        assertTrue("il cambio di modello deve trovare il nuovo file gia' installato", newPresentAtSwitch)
         assertFalse("il vecchio modello deve essere eliminato dopo lo switch", modelManager.isDownloaded(oldDefinition))
         assertEquals(newContent, modelManager.modelFile(newDefinition).readText())
+    }
+
+    @Test
+    fun `selectAndDownload con il download fallito lascia installato il modello precedente`() = runBlocking {
+        val oldDefinition = testDefinition.copy(id = "old-model", fileName = "old-model.gguf")
+        File(modelsDir, oldDefinition.fileName).writeText("vecchio modello installato")
+        server.enqueue(MockResponse().setResponseCode(404))
+        val newDefinition = testDefinition.copy(
+            id = "new-model",
+            fileName = "new-model.gguf",
+            url = server.url("/model").toString(),
+            sha256 = sha256Hex("nuovo modello".toByteArray()),
+        )
+
+        runCatching { modelManager.selectAndDownload(newDefinition, currentlyInstalled = oldDefinition) { _, _ -> } }
+
+        assertTrue(modelManager.isDownloaded(oldDefinition))
+        assertFalse(modelManager.isDownloaded(newDefinition))
+    }
+
+    // Annulla e subito Scarica: il worker vecchio e' ancora nella lettura di rete (corpo lento) quando parte il nuovo.
+    @Test
+    fun `due download dello stesso modello uno dopo l'altro non si mescolano nel parziale`() = runBlocking {
+        val content = "0123456789ABCDEF".repeat(2_500)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val start = request.getHeader("Range")?.removePrefix("bytes=")?.removeSuffix("-")?.toInt()
+                val body = Buffer().write(content.toByteArray().copyOfRange(start ?: 0, content.length))
+                val response = if (start == null) {
+                    MockResponse().setResponseCode(200)
+                } else {
+                    MockResponse().setResponseCode(206).setHeader("Content-Range", "bytes $start-${content.length - 1}/${content.length}")
+                }
+                return response.setBody(body).throttleBody(4_000, 100, TimeUnit.MILLISECONDS)
+            }
+        }
+        val definition = testDefinition.copy(
+            url = server.url("/model").toString(),
+            sha256 = sha256Hex(content.toByteArray()),
+            sizeBytes = content.length.toLong(),
+        )
+        val part = File(modelsDir, "${definition.fileName}.part")
+
+        val first = launch(Dispatchers.IO) { modelManager.download(definition) { _, _ -> } }
+        withTimeout(10_000) { while (part.length() == 0L) delay(10) }
+        first.cancel()
+        val second = launch(Dispatchers.IO) { modelManager.download(definition) { _, _ -> } }
+        withTimeout(20_000) { second.join() }
+
+        assertTrue(first.isCancelled)
+        assertEquals(content, modelManager.modelFile(definition).readText())
     }
 
     @Test

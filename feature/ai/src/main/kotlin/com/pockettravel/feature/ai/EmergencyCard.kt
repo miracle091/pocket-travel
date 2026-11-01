@@ -72,15 +72,18 @@ class EmergencyCardProvider @Inject constructor(
     private val alertsRepository: AlertsRepository,
 ) {
     /**
-     * Il riquadro per [question] nella regione [regionId]: i numeri se la domanda parla di un pericolo per la vita, le allerte
-     * in corso (se ce ne sono) se parla di una catastrofe; null se nessuna delle due.
+     * I numeri da chiamare per [question] nella regione [regionId] se parla di un pericolo per la vita (vuoti se la regione
+     * non ne ha), null altrimenti. Leggono solo la base dati: non aspettano le allerte.
      */
-    suspend fun forQuestion(regionId: String, question: String): EmergencyCardState? {
-        val entries = if (isLifeThreatening(question)) orNull { emergencyNumbersRepository.forRegion(regionId) }?.callEntries().orEmpty() else null
-        // Senza allerte in corso il riquadro delle allerte non compare.
-        val alerts = if (isDisasterQuestion(question)) orNull { alertsRepository.alerts(regionId) }?.takeIf { it.alerts.isNotEmpty() } else null
-        return if (entries == null && alerts == null) null else EmergencyCardState(entries, alerts)
-    }
+    suspend fun numbersFor(regionId: String, question: String): List<EmergencyCallEntry>? =
+        if (isLifeThreatening(question)) orNull { emergencyNumbersRepository.forRegion(regionId) }?.callEntries().orEmpty() else null
+
+    /**
+     * Le allerte in corso nella regione [regionId] se [question] parla di una catastrofe; null altrimenti e senza allerte in
+     * corso (il riquadro delle allerte non compare). Possono richiedere decine di secondi di rete.
+     */
+    suspend fun alertsFor(regionId: String, question: String): RegionAlerts? =
+        if (isDisasterQuestion(question)) orNull { alertsRepository.alerts(regionId) }?.takeIf { it.alerts.isNotEmpty() } else null
 
     // Un errore della base dati o della rete non deve fermare la domanda: il riquadro resta senza quella parte.
     private suspend fun <T> orNull(block: suspend () -> T?): T? = try {

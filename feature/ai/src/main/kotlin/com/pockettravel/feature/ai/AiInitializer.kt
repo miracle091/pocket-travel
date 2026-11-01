@@ -61,7 +61,13 @@ class AiInitializer @Inject constructor(
         CoroutineScope(ioDispatcher).launch {
             runCatching { llmModelUpdateCheckScheduler.schedulePeriodicCheck() }
                 .onFailure { Log.w("AiInitializer", "Pianificazione del controllo aggiornamenti fallita", it) }
-            runCatching { llmModelManager.deleteOrphanedFiles(aiSettingsStore.selectedModelDefinition()) }
+            runCatching {
+                llmModelManager.deleteOrphanedFiles(
+                    // Il parziale del modello in attesa di download serve al lavoro ancora in corso.
+                    aiSettingsStore.pendingModelId()?.let { id -> LlmModelCatalog.ALL.first { it.id == id } }
+                        ?: aiSettingsStore.selectedModelDefinition(),
+                )
+            }
                 .onFailure { Log.w("AiInitializer", "Pulizia dei modelli orfani fallita", it) }
         }
     }

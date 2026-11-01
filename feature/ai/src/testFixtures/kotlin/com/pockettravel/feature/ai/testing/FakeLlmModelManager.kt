@@ -42,10 +42,12 @@ class FakeLlmModelManager(initial: Set<String> = emptySet()) : LlmModelManager {
     override suspend fun selectAndDownload(
         newDefinition: LlmModelDefinition,
         currentlyInstalled: LlmModelDefinition?,
+        onInstalled: () -> Unit,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     ) {
-        if (currentlyInstalled != null && currentlyInstalled.id != newDefinition.id) delete(currentlyInstalled)
         download(newDefinition, onProgress)
+        onInstalled()
+        if (currentlyInstalled != null && currentlyInstalled.id != newDefinition.id) delete(currentlyInstalled)
     }
 
     /** Se non nullo, [importModel] restituisce questo modello senza leggere la sorgente. */
