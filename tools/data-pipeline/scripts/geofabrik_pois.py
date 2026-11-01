@@ -32,6 +32,7 @@ Esce con codice 1 se qualcosa non va (download, osmium): build-region.sh ripiega
 """
 
 import argparse
+import http.client
 import json
 import math
 import os
@@ -350,7 +351,7 @@ def scarica(url, dest, user_agent, attempts=3):
             os.replace(dest + ".part", dest)
             print(f"-- geofabrik: {written / 2**20:.0f} MB in {time.monotonic() - start:.0f}s", flush=True)
             return
-        except OSError as error:
+        except (OSError, http.client.HTTPException) as error:
             # Un 4xx non passa riprovando subito (lo ripara il file datato, vedi estratto_ridotto).
             if attempt == attempts or (isinstance(error, urllib.error.HTTPError) and error.code < 500):
                 raise

@@ -50,10 +50,14 @@ SHA256 = {
 }
 
 
+DOWNLOAD_TIMEOUT = 120  # secondi per ogni operazione di rete, non per l'intero pacchetto
+
+
 def download(url, dest):
     """Scarica lo zip, ne verifica lo sha256 (SHA256) e solo allora lo estrae in dest."""
     print(f"-- scarico {url}", file=sys.stderr)
-    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "PocketTravelDataPipeline"})) as r:
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "PocketTravelDataPipeline"}),
+                                timeout=DOWNLOAD_TIMEOUT) as r:
         data = r.read()
     name = url.rsplit("/", 1)[1]
     digest = hashlib.sha256(data).hexdigest()
@@ -80,8 +84,8 @@ def main():
     dest = a.dest / f"{LLAMA_BUILD}-{a.backend}"
     if not (dest / "llama-server.exe").exists():
         download(f"{RELEASE}/llama-{LLAMA_BUILD}-bin-win-{asset}-x64.zip", dest)
-        if a.backend.startswith("cuda"):
-            download(f"{RELEASE}/cudart-llama-bin-win-{a.backend}-x64.zip", dest)
+    if a.backend.startswith("cuda") and not list(dest.glob("cudart64_*.dll")):  # anche se il pacchetto c'era gia'
+        download(f"{RELEASE}/cudart-llama-bin-win-{a.backend}-x64.zip", dest)
     if a.backend == "rocm":
         dirs = rocm_lib_dirs()
         if not any(Path(d, "hipblas.dll").exists() for d in dirs):

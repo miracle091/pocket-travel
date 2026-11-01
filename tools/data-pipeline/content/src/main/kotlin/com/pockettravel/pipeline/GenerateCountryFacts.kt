@@ -30,6 +30,11 @@ internal fun parseCountryFacts(tsv: String): Map<String, CountryFacts> =
         .filter { it.isNotBlank() && !it.startsWith("#") }
         .map { it.split("\t") }
         .onEach { require(it.size == COUNTRY_FACTS_COLUMNS) { "countries.tsv: riga con ${it.size} colonne: ${it.first()}" } }
+        .toList()
+        .also { rows ->
+            val duplicate = rows.groupBy { it[0] }.entries.firstOrNull { it.value.size > 1 }?.key
+            require(duplicate == null) { "countries.tsv: regione duplicata: $duplicate" }
+        }
         .associate { c ->
             c[0] to CountryFacts(
                 capitalIt = c[2], capitalEn = c[3], currency = c[4], currencyIt = c[5], currencyEn = c[6], driving = c[7],

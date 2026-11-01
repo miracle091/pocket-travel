@@ -10,7 +10,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from check_regressions import answer_regressions, bench_regressions
+from check_regressions import answer_regressions, bench_regressions, only_variant
 
 HERE = Path(__file__).resolve().parent
 
@@ -34,10 +34,30 @@ class AnswersTest(unittest.TestCase):
         self.assertTrue(regressions[0].startswith("tutti i neg: 95.0% -> 91.0%"))
 
     def test_anche_i_positivi(self):
-        self.assertEqual(1, len(answer_regressions(rows(95, 90), rows(95, 80), 3.0)[1]))
+        regressions = answer_regressions(rows(95, 90), rows(95, 80), 3.0)[1]
+        self.assertEqual(2, len(regressions))
+        self.assertTrue(regressions[0].startswith("tutti i pos: 90.0% -> 80.0%"))
+        self.assertTrue(regressions[1].startswith("pos_para: peggio in 10 righe"))
 
     def test_un_miglioramento_non_e_una_regressione(self):
         self.assertEqual([], answer_regressions(rows(80, 80), rows(99, 99), 3.0)[1])
+
+    def test_un_tipo_in_regressione_significativa_anche_sotto_la_soglia_complessiva(self):
+        base = rows(100, 100, n=100) + [{"kind": "neg_other", "region": "r", "question": f"o{i}", "refused": True} for i in range(300)]
+        new = rows(100, 100, n=100) + [{"kind": "neg_other", "region": "r", "question": f"o{i}", "refused": i >= 12} for i in range(300)]
+        lines, regressions = answer_regressions(base, new, 3.0)
+        self.assertEqual(["neg_other: peggio in 12 righe, meglio in 0 (p 0.000)"], regressions)
+
+    def test_poche_righe_appaiate_sono_un_errore(self):
+        other = [dict(r, question="altra " + r["question"]) for r in rows(95, 90)]
+        regressions = answer_regressions(rows(95, 90), other, 3.0)[1]
+        self.assertTrue(any("righe appaiate" in r for r in regressions))
+        self.assertEqual([], [r for r in answer_regressions(rows(95, 90), rows(95, 90), 3.0)[1] if "appaiate" in r])
+
+    def test_solo_la_variante_scelta(self):
+        both = [dict(r, variant="rag") for r in rows(95, 90)] + [dict(r, variant="norag") for r in rows(50, 50)]
+        self.assertEqual(rows(95, 90), [{k: v for k, v in r.items() if k != "variant"} for r in only_variant(both, "rag")])
+        self.assertEqual(rows(95, 90), only_variant(rows(95, 90), "rag"))
 
 
 class BenchTest(unittest.TestCase):

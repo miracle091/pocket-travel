@@ -159,6 +159,14 @@ class EvalGgufTest(unittest.TestCase):
                          lines[0])  # "fuori": la riga di prova non ha il contesto con la risposta
         self.assertTrue(lines[1]["truncated"])  # llama-server fermo al limite di token
 
+    def test_limit_prende_un_campione_di_tutti_i_tipi(self):
+        rows = [row("neg", f"Q: N{i}?\n\nDOMANDA: N{i}?", REFUSAL) for i in range(4)] + \
+               [row("pos", f"Q: P{i}?\n\nDOMANDA: P{i}?", f"Risposta {i}.") for i in range(4)]
+        answers = self.tmp / "answers.jsonl"
+        self.run_script("--limit", "2", "--answers", str(answers), replies=["x", "y"], rows=rows)
+        lines = [json.loads(l) for l in answers.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual({"neg", "pos"}, {l["kind"] for l in lines})
+
     def test_esteso_per_lingua_della_domanda(self):
         rows = [row("pos_para", "Sei una guida.\n\nDOMANDA: Cosa si mangia a Roma?", "Si mangia la pasta."),
                 row("pos_para", "Sei una guida.\n\nDOMANDA: What is the food like in Rome?", "Si mangia la pasta."),

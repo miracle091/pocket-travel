@@ -651,9 +651,14 @@ fun main(rawArgs: Array<String>) {
         } else if (dump != null) {
             regionGuideFromDumps(regionId, dump.readText(), sourceUrl, dumpOther?.readText(), columns.getOrNull(4).orEmpty())
         } else {
-            println("guide: $regionId senza dump in questa run, ricopio le sezioni pubblicate")
-            publishedDb?.let { readRegionGuide(it, regionId) } ?: RegionGuide(regionId, sourceUrl, emptyList())
+            val published = publishedDb?.let { readRegionGuide(it, regionId) }
+            if (published == null) println("::warning::guide: $regionId senza dump in questa run e senza guida pubblicata, resta vuota")
+            else println("guide: $regionId senza dump in questa run, ricopio le sezioni pubblicate")
+            published ?: RegionGuide(regionId, sourceUrl, emptyList())
         }
+    }.also { rows ->
+        val duplicate = rows.groupBy { it.regionId }.entries.firstOrNull { it.value.size > 1 }?.key
+        require(duplicate == null) { "elenco delle guide: regione duplicata: $duplicate" }
     }.withTranslations(translated) { regionId -> publishedDb?.let { readRegionGuide(it, regionId) }?.sections.orEmpty() }
         .let { guides -> advice?.let { guides.withTravelAdvice(it) } ?: guides }
         .let { guides ->

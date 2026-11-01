@@ -73,6 +73,8 @@ done
 MAP_SOURCE_ARG=""
 if PROTOMAPS_DATE="${PROTOMAPS_DATE_OVERRIDE:-$(resolve_protomaps_date)}"; then
   MAP_SOURCE_ARG="--map-source-url https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"
+else
+  echo "::warning::build Protomaps corrente non trovata: le regioni tengono l'indirizzo della mappa di prima"
 fi
 # Versione minima dell'app che sa leggere i dati pubblicati (l'app blocca i download e invita ad
 # aggiornarla): si alza a mano in min-app-version-code solo quando il formato cambia in modo incompatibile.

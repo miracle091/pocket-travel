@@ -7,6 +7,7 @@ Uso: python test_convert_gguf.py
 """
 import json
 import runpy
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -179,6 +180,35 @@ class ConvertGgufTest(unittest.TestCase):
         imatrix = commands[1][0]
         self.assertEqual("99", imatrix[imatrix.index("-ngl") + 1])
         self.assertEqual(["--device", "Vulkan1"], imatrix[-2:])
+
+    def test_crea_la_cartella_di_output_e_non_lascia_temporanei(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Workspace(tmp)
+            ws.output = ws.output.parent / "nuova" / "cartella" / "model.gguf"
+            run(ws)
+            self.assertEqual(b"Q4", ws.output.read_bytes())
+            self.assertEqual(["model.gguf"], [p.name for p in ws.output.parent.iterdir()])
+
+    def test_quantizzazione_che_fallisce_lascia_il_file_precedente(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ws = Workspace(tmp)
+            ws.output.write_bytes(b"vecchio")
+
+            def failing(cmd, check, env, cwd=None):
+                if Path(cmd[0]).name.startswith("llama-quantize"):
+                    Path(cmd[-2]).write_bytes(b"meta")  # scrive a meta' e poi cade
+                    raise subprocess.CalledProcessError(1, cmd)
+                if "--outfile" in cmd:
+                    Path(cmd[cmd.index("--outfile") + 1]).write_bytes(b"F16")
+
+            argv = ["convert_gguf.py", str(ws.merged), str(ws.output), "--llama-cpp", str(ws.clone), "--imatrix-rows", "0"]
+            with mock.patch("subprocess.run", side_effect=failing), mock.patch.object(eval_common, "SFT_DIR", ws.sft), \
+                    mock.patch.object(eval_common, "find_llama_bin", side_effect=lambda name, *d: str(ws.clone / name)), \
+                    mock.patch("gpu_lock.gpu_job"), mock.patch.object(sys, "argv", argv), mock.patch("status.phase"), \
+                    self.assertRaises(subprocess.CalledProcessError):
+                runpy.run_path(str(HERE / "convert_gguf.py"), run_name="__main__")
+            self.assertEqual(b"vecchio", ws.output.read_bytes())
+            self.assertEqual(["model.gguf"], [p.name for p in ws.output.parent.iterdir()])
 
     def test_clone_senza_script_di_conversione(self):
         with tempfile.TemporaryDirectory() as tmp:

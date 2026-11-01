@@ -21,11 +21,18 @@ FRESH="cb=$(date +%s)"
 # Solo un 404 vale come "prima pubblicazione" (segnata da first-publication): ogni altro
 # esito (rete, 5xx) dopo i tentativi ferma il passo, altrimenti il controllo sulle regioni
 # perse e la pulizia degli asset verrebbero saltati in silenzio.
-rm -f "$RUNNER_TEMP/previous-manifest.json" "$RUNNER_TEMP/first-publication"
+rm -f "$RUNNER_TEMP/previous-manifest.json" "$RUNNER_TEMP/previous-manifest.json.sig" "$RUNNER_TEMP/first-publication"
 MANIFEST_HTTP="$(curl -sSL --max-time 120 --retry 5 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$PAGES_BASE_URL/manifest.json?$FRESH" \
   -o "$RUNNER_TEMP/previous-manifest.json" -w '%{http_code}' || true)"
 case "$MANIFEST_HTTP" in
-  200) ;;
+  200)
+    # Come l'app, il catalogo precedente si usa solo se la firma (manifest.json.sig) e' valida: un file manomesso
+    # sul sito non deve finire nel merge.
+    if ! verify_published_signature "$RUNNER_TEMP/previous-manifest.json" "$PAGES_BASE_URL/manifest.json?$FRESH"; then
+      echo "::error::firma di manifest.json pubblicato mancante o non valida: non uso un manifest.json non verificabile" >&2
+      exit 1
+    fi
+    ;;
   404)
     rm -f "$RUNNER_TEMP/previous-manifest.json"
     touch "$RUNNER_TEMP/first-publication"
@@ -112,7 +119,21 @@ tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$MERGE_MANIFEST_URL" "
 # Tempi per regione (peso degli shard nel job "plan"): quelli pubblicati, aggiornati con
 # quelli di questa run. Pages sostituisce l'intero sito, quindi si riportano ogni volta.
 PUBLISHED_TIMINGS="$RUNNER_TEMP/published-timings.tsv"
-curl -sSfL --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0" "$PAGES_BASE_URL/region-timings.tsv" -o "$PUBLISHED_TIMINGS" || : > "$PUBLISHED_TIMINGS"
+# Solo un 404 (prima pubblicazione) parte da tempi vuoti: un errore passeggero fermerebbe altrimenti la run, perche'
+# azzererebbe i tempi di tutte le regioni non toccate da questa (e con loro il peso degli shard).
+TIMINGS_HTTP="$(curl -sSL --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0" -H 'Cache-Control: no-cache' \
+  "$PAGES_BASE_URL/region-timings.tsv?$FRESH" -o "$PUBLISHED_TIMINGS" -w '%{http_code}' || true)"
+case "$TIMINGS_HTTP" in
+  200) ;;
+  404)
+    echo "::warning::region-timings.tsv non ancora pubblicato: tempi solo di questa run"
+    : > "$PUBLISHED_TIMINGS"
+    ;;
+  *)
+    echo "::error::region-timings.tsv pubblicato non scaricabile (HTTP ${TIMINGS_HTTP:-000})" >&2
+    exit 1
+    ;;
+esac
 cat "$PUBLISHED_TIMINGS" "$RUNNER_TEMP/fragments"/timings-*.tsv \
   | awk -F'\t' 'NF == 2 && $2 ~ /^[0-9]+$/ { t[$1] = $2 } END { for (r in t) print r "\t" t[r] }' \
   | sort > "$SITE_DIR/region-timings.tsv"

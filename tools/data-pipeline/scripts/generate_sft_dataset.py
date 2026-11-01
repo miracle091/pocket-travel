@@ -38,7 +38,7 @@ import argparse, functools, html, json, os, random, re, subprocess, sys, time, u
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from eval_common import TEST_REGIONS
+from eval_common import TEST_REGIONS, replaced_when_done
 from status import Progress, phase
 from travel_questions import require_revision
 import wiki_dump
@@ -713,20 +713,21 @@ def dump_text(pages, redirects, title):
     t = wiki_dump.norm_title(title)
     return pages.get(redirects.get(t, t))
 
-def write_excluded(path, excluded):
+def write_excluded(path, excluded, shown=None):
     """Scrive le fonti escluse, [(regionId, fonte, categoria, motivo)], in un TSV e ne stampa il conteggio per fonte e
     motivo. Motivi: regione-di-test (sottoregione o stessa pagina di una regione di test, voluto), pagina-condivisa
     (pagina gia' usata da un'altra regione, generate_sft.drop_shared_pages), pagina-assente,
     nessuna-sezione (pagina senza sezioni utili), markup-residuo (sezione con tabelle o template rimasti dopo la
     pulizia), fuori-categoria (la sezione non tratta la sua categoria), nessuna-risposta (nessuna frase scelta). Fonte "tradotta":
-    sezione tradotta dall'altra lingua; "wp-citta": Storia o Clima di Wikipedia di una citta' di cities.db (generate_sft.py)."""
+    sezione tradotta dall'altra lingua; "wp-citta": Storia o Clima di Wikipedia di una citta' di cities.db (generate_sft.py).
+    shown: il percorso da stampare, se path e' un temporaneo."""
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("regionId\tsource\tcategory\treason\n")
         for row in excluded:
             f.write("\t".join(row) + "\n")
     by_source = Counter((src, reason) for _, src, _, reason in excluded)
     print("escluse (fonte/motivo: quante):", ", ".join(f"{s}/{r}: {n}" for (s, r), n in sorted(by_source.items())))
-    print(f"elenco delle esclusioni in {path}")
+    print(f"elenco delle esclusioni in {shown or path}")
 
 QUICKBAR_FIELD = re.compile(r"^\|\s*(Stato|Stato federato|Regione|Territorio)\s*=\s*\[\[([^\]|#]+)", re.M)
 
@@ -756,7 +757,12 @@ def main():
     ap.add_argument("--recheck-missing", action="store_true",
                     help="cerca di nuovo le pagine date per inesistenti (\"-\" in sft-sources.tsv, cache vuote in raw/)")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--overwrite", action="store_true",
+                    help="sovrascrive il dataset se esiste gia' (potrebbe usarlo un training); senza, si ferma prima di cominciare")
     a = ap.parse_args()
+    suffix = ".with-vs" if a.vs else ""
+    if (OUT / f"pocket_travel_sft{suffix}.jsonl").exists() and not a.overwrite:
+        ap.error(f"pocket_travel_sft{suffix}.jsonl esiste gia' (potrebbe usarlo un training): per sovrascriverlo dai --overwrite")
     rng = random.Random(a.seed)
     (OUT / "raw").mkdir(parents=True, exist_ok=True)
 
@@ -1042,15 +1048,16 @@ def main():
         for wiki in ("itwikivoyage", "enwikivoyage", "itwiki"):
             attribution.append(("-", f"export {wiki} del {date}", wiki_dump.export_url(wiki, date),
                                 "CC BY-SA 4.0 (testo delle pagine elencate sopra)"))
-    suffix = ".with-vs" if a.vs else ""
     data_out, attr_out = OUT / f"pocket_travel_sft{suffix}.jsonl", OUT / f"ATTRIBUTION{suffix}.tsv"
-    with open(data_out, "w", encoding="utf-8") as f:
-        for r in rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    with open(attr_out, "w", encoding="utf-8") as f:
-        f.write("regionId\tdisplayName\tsourceUrl\tlicense\n")
-        for rid, name, url, lic in attribution:
-            f.write(f"{rid}\t{name}\t{url}\t{lic}\n")
+    # il dataset si sostituisce per ultimo: chi lo trova nuovo trova nuova anche l'attribuzione
+    with replaced_when_done(data_out) as data_tmp, replaced_when_done(attr_out) as attr_tmp:
+        with open(attr_tmp, "w", encoding="utf-8") as f:
+            f.write("regionId\tdisplayName\tsourceUrl\tlicense\n")
+            for rid, name, url, lic in attribution:
+                f.write(f"{rid}\t{name}\t{url}\t{lic}\n")
+        with open(data_tmp, "w", encoding="utf-8") as f:
+            for r in rows:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
     n_it = sum("it" in langs for _, langs in data.values())
     print(f"regioni con guida: {len(data)}/{len(regions)} (IT: {n_it}, EN: {sum('en' in l for _, l in data.values())}, "
           f"VS: {sum(r[3] == 'licenza non verificata (Farnesina)' for r in attribution)}); "

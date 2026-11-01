@@ -63,6 +63,12 @@ class ValidateManifestTest {
     }
 
     @Test
+    fun `rifiuta un file di pacchetto con sizeBytes zero`() {
+        val json = validManifest().replace("\"sizeBytes\": 100,", "\"sizeBytes\": 0,")
+        assertThrows(ManifestValidationException::class.java) { validateManifestJson(json, allowedHosts) }
+    }
+
+    @Test
     fun `rifiuta uno sha256 malformato`() {
         val json = validManifest().replace("a".repeat(64), "not-a-hash")
         assertThrows(ManifestValidationException::class.java) { validateManifestJson(json, allowedHosts) }
@@ -421,9 +427,8 @@ class ValidateManifestTest {
     }
 
     @Test
-    fun `rifiuta una dimensione negativa e accetta zero`() {
+    fun `rifiuta una dimensione negativa`() {
         assertManifestInvalid(validManifest().replace("\"sizeBytes\": 100,", "\"sizeBytes\": -1,"))
-        validateManifestJson(validManifest().replace("\"sizeBytes\": 100,", "\"sizeBytes\": 0,"), allowedHosts)
     }
 
     @Test

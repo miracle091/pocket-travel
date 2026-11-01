@@ -174,10 +174,12 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
     # Citta' (facoltative, mai fatali): aggiunge la voce "cities" al frammento e, se il
     # dump e' stato estratto per questa regione (vedi CITIES_JSONL_DIR sopra) e produce
     # sezioni, lascia cities.db.xz da caricare.
-    tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
+    timeout --kill-after=2m "${REGION_TIMEOUT_MINUTES}m" \
+      tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
       "$RELEASE_BASE_URL" "$regionOut" "$CITIES_JSONL_DIR" \
       "$PUBLISHED_MANIFEST_URL" || echo "::warning::citta' di $regionId non generate"
-    tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
+    timeout --kill-after=2m "${REGION_TIMEOUT_MINUTES}m" \
+      tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
       "$RELEASE_BASE_URL" "$regionOut" "$CITIES_JSONL_DIR" \
       "$PUBLISHED_MANIFEST_URL" en || echo "::warning::citta' EN di $regionId non generate"
     if [ -f "$regionOut/.skipped" ]; then
@@ -325,6 +327,11 @@ if [ "$fragmentCount" -eq 0 ]; then
     echo "has_fragments=true" >> "$GITHUB_OUTPUT"
   else
     echo "has_fragments=false" >> "$GITHUB_OUTPUT"
+  fi
+  if [ "${#FAILED_REGIONS[@]}" -eq 0 ] && [ "${#DEFERRED_REGIONS[@]}" -eq 0 ]; then
+    # Niente di selezionato (o tutta la quota adattiva scartata dal budget): non e' un errore.
+    echo "Nessuna regione da costruire in questo shard: $SELECTED"
+    exit 0
   fi
   echo "Nessuna regione completata con successo in questo shard: $SELECTED" >&2
   exit 1

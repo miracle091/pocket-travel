@@ -4,7 +4,8 @@
 Ogni domanda va a llama-server nel turno utente dopo il suo contesto, nel formato ChatML dell'app. Spento: il blocco
 <think> vuoto che ai_chat.cpp aggiunge ai Qwen3.5; acceso: il turno assistente comincia con "<think>" aperto e il modello
 ragiona prima di rispondere. Campionamento dell'app (temperatura 0,3, top-k 10, top-p 0,95, min-p 0,05) con un seme
-fisso: lo stesso per le due modalita'. La risposta si legge dopo "Risposta:"/"Answer:" (score_answer).
+fisso: lo stesso per le due modalita'. La risposta si legge dopo "Risposta:"/"Answer:" (score_answer); con il
+thinking acceso conta solo dopo "</think>", e una risposta troncata al limite non e' giusta.
 
 Per modalita': risposte giuste per tipo, token generati in media (thinking compreso), token per risposta giusta,
 risposte troncate al limite di --max-tokens e secondi in media. Il risultato decide il campo `thinking` del catalogo.
@@ -23,7 +24,8 @@ from collections import defaultdict
 from pathlib import Path
 
 import gpu_lock
-from eval_common import EMPTY_THINK, chatml_prompt, find_llama_bin, llama_env
+from eval_common import (EMPTY_THINK, chatml_prompt, ensure_final_newline, find_llama_bin, llama_env,
+                         read_jsonl_lenient)
 from generate_reasoning_set import KINDS, score_answer
 
 MODES = ("off", "on")
@@ -106,7 +108,8 @@ def main():
     gpu_lock.gpu_job("eval_reasoning.py", gpu=a.gpu_layers > 0)
 
     rows = [json.loads(line) for line in a.set.read_text(encoding="utf-8").splitlines() if line.strip()]
-    done = [json.loads(line) for line in a.answers.open(encoding="utf-8")] if a.answers.exists() else []
+    done = read_jsonl_lenient(a.answers) if a.answers.exists() else []
+    ensure_final_newline(a.answers)
     seen = {(d["mode"], d["id"]) for d in done}
     server, url = start_server(a.model, a.llama_cpp, a.gpu_layers, a.device, a.max_tokens + 1024)
     try:
@@ -117,7 +120,7 @@ def main():
                         continue
                     reply = ask(url, prompt(row, mode), a.max_tokens)
                     d = {"mode": mode, "id": row["id"], "kind": row["kind"], "lang": row["lang"],
-                         "answer": row["answer"], **reply, "ok": score_answer(row, reply["got"])}
+                         "answer": row["answer"], **reply, "ok": score_answer(row, reply["got"], mode == "on") and not reply["truncated"]}
                     out.write(json.dumps(d, ensure_ascii=False) + "\n")
                     done.append(d)
                     print(f"[{mode}] {n}/{len(rows)}", flush=True)

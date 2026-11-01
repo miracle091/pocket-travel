@@ -59,7 +59,7 @@ internal fun dropOrphanSubheadings(body: String): String {
 /** Sezioni della guida dalle sezioni [text] (wikitext) della voce [title] di Wikipedia, ognuna con la voce come fonte. */
 fun wikipediaGuideSections(title: String, text: String, english: Boolean): List<GuideSectionRow> {
     val lang = if (english) "en" else "it"
-    val url = "https://$lang.wikipedia.org/wiki/" + title.replace(' ', '_')
+    val url = wikiPageUrl("$lang.wikipedia.org", title)
     return parseWikivoyageDump(text, if (english) wikipediaHeadingToCategoryEn else wikipediaHeadingToCategory).mapNotNull { section ->
         val body = truncateSection(dropOrphanSubheadings(dropDanglingIntros(section.body)), WIKIPEDIA_MAX_CHARS)
         if (body.length < WIKIPEDIA_MIN_CHARS) null else section.copy(body = body, sourceUrl = url)

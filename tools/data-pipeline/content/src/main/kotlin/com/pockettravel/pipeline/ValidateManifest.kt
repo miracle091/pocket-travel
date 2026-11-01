@@ -58,7 +58,7 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
         validateVersion(worldMap, "worldMap")
         val maxZoom = worldMap.getInt("maxZoom")
         if (maxZoom !in 0..22) throw ManifestValidationException("worldMap.maxZoom non valido: $maxZoom")
-        if (worldMap.getLong("sizeBytes") < 0) throw ManifestValidationException("worldMap.sizeBytes non valido")
+        if (worldMap.getLong("sizeBytes") <= 0) throw ManifestValidationException("worldMap.sizeBytes non valido")
         val url = worldMap.getString("url")
         if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("worldMap.url non consentito: $url")
     }
@@ -67,7 +67,7 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
     // griglia non e' stata pubblicata la prima volta.
     root.optJSONObject("addressGrid")?.let { addressGrid ->
         validateVersion(addressGrid, "addressGrid")
-        if (addressGrid.getLong("sizeBytes") < 0) throw ManifestValidationException("addressGrid.sizeBytes non valido")
+        if (addressGrid.getLong("sizeBytes") <= 0) throw ManifestValidationException("addressGrid.sizeBytes non valido")
         if (!addressGrid.getString("sha256").matches(sha256Regex)) throw ManifestValidationException("addressGrid.sha256 non valido")
         val url = addressGrid.getString("url")
         if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("addressGrid.url non consentito: $url")
@@ -76,7 +76,7 @@ fun validateManifestJson(manifestJson: String, allowedHosts: Set<String>) {
     // Indice delle reti di mezzi pubblici (facoltativo): stesso schema del puntatore "addressGrid".
     root.optJSONObject("transit")?.let { transit ->
         validateVersion(transit, "transit")
-        if (transit.getLong("sizeBytes") < 0) throw ManifestValidationException("transit.sizeBytes non valido")
+        if (transit.getLong("sizeBytes") <= 0) throw ManifestValidationException("transit.sizeBytes non valido")
         if (!transit.getString("sha256").matches(sha256Regex)) throw ManifestValidationException("transit.sha256 non valido")
         val url = transit.getString("url")
         if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("transit.url non consentito: $url")
@@ -193,7 +193,7 @@ private fun validateVersion(pkg: JSONObject, label: String) {
 private fun validateFile(file: JSONObject, owner: String, allowedHosts: Set<String>) {
     val name = file.getString("name")
     if (!isSafeSegment(name)) throw ManifestValidationException("file.name non valido per $owner: $name")
-    if (file.getLong("sizeBytes") < 0) throw ManifestValidationException("Dimensione non valida per $owner/$name")
+    if (file.getLong("sizeBytes") <= 0) throw ManifestValidationException("Dimensione non valida per $owner/$name")
     if (!file.getString("sha256").matches(sha256Regex)) throw ManifestValidationException("SHA-256 non valido per $owner/$name")
     val url = file.getString("url")
     if (!isAllowedUrl(url, allowedHosts)) throw ManifestValidationException("URL non consentito per $owner/$name: $url")

@@ -342,6 +342,34 @@ class GenerateTransitTest {
     }
 
     @Test
+    fun `una data vuota nel calendario salta la riga e non fa fallire la rete`() {
+        val feed = miniFeed(
+            trips = """
+                route_id,service_id,trip_id
+                R1,FERIALE,T1
+                R1,ROTTO,T2
+            """,
+            stopTimes = """
+                trip_id,arrival_time,departure_time,stop_id,stop_sequence
+                T1,08:00:00,08:00:00,A,1
+                T1,08:10:00,08:10:00,B,2
+            """,
+            calendar = """
+                service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date
+                FERIALE,1,1,1,1,1,0,0,20260101,20261231
+                ROTTO,1,1,1,1,1,0,0,,
+            """,
+        ) + ("calendar_dates.txt" to """
+            service_id,date,exception_type
+            FERIALE,,1
+            FERIALE,20261006,1
+        """)
+        val stats = generateTransit(zipOf("data-vuota.zip", feed), tmp.root.resolve("data-vuota.db"), "mdb-1", monday, 7)
+
+        assertEquals(1, stats.trips)
+    }
+
+    @Test
     fun `la data di fine viene solo dai servizi con corse scritte`() {
         // Corsica Ferries: il calendario arriva a fine anno, ma le corse con orari si fermano prima.
         val noTimes = miniFeed(

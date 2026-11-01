@@ -169,6 +169,21 @@ class ClipRd5Test(unittest.TestCase):
             server.shutdown()
             server.server_close()
 
+    def test_via_http_range_ignorato_non_legge_il_corpo_e_chiude_la_connessione(self):
+        RangeHandler.data, RangeHandler.honor_range = self.rd5, False
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), RangeHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            source = HttpSource(f"http://127.0.0.1:{server.server_port}/{self.NAME}", "test")
+            with self.assertRaises(OSError):
+                source.read(0, 200)
+            self.assertEqual(0, source.fetched)
+            self.assertIsNone(source.conn)
+        finally:
+            RangeHandler.honor_range = True
+            server.shutdown()
+            server.server_close()
+
     def test_via_http_uguale_al_file_locale_e_scarica_meno(self):
         local, _ = clip_file(self.dir / self.NAME, self.BBOX)
         RangeHandler.data, RangeHandler.honor_range = self.rd5, True

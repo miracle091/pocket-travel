@@ -149,8 +149,24 @@ cell_bbox() {
   }'
 }
 
+# wiki_page_url <host> <titolo>: URL di una pagina wiki dal titolo, con le stesse regole di wikiPageUrl in
+# GenerateCities.kt: spazi come "_", percent-encoding solo dei caratteri che romperebbero l'URL (% ? # " < > | \ ^ ` { }
+# e i caratteri di controllo); lettere accentate e parentesi restano in chiaro.
+wiki_page_url() {
+  local title="${2// /_}" path="" c i
+  for ((i = 0; i < ${#title}; i++)); do
+    c="${title:i:1}"
+    case "$c" in
+      '%'|'?'|'#'|'"'|'<'|'>'|'|'|'\'|'^'|'`'|'{'|'}'|[[:cntrl:]]) printf -v c '%%%02X' "'$c" ;;
+    esac
+    path+="$c"
+  done
+  echo "https://$1/wiki/$path"
+}
+
 # fetch_published_manifest <urlOPath> <out>: copia in <out> il `manifest.json` pubblicato e stampa il codice
-# HTTP (200 = trovato, 404 = nessun `manifest.json` pubblicato, altro = non scaricabile). <urlOPath> puo'
+# HTTP (200 = trovato, 404 = nessun `manifest.json` pubblicato, "firma" = firma mancante o non valida, vedi
+# verify_published_signature, altro = non scaricabile). <urlOPath> puo'
 # essere un file locale gia' scaricato: publish-regions.yml scarica `manifest.json` una volta per shard
 # e lo passa a build-region.sh e build-cities.sh, invece di due download per
 # regione (centinaia per run).
@@ -159,7 +175,48 @@ fetch_published_manifest() {
     cp "$1" "$2" && echo 200
     return 0
   fi
-  curl -sSf --max-time 120 --speed-limit 1000 --speed-time 30 --retry 5 --retry-all-errors -o "$2" -w '%{http_code}' "$1" 2>/dev/null || true
+  # Pages risponde con max-age=600 dietro una CDN: un parametro nuovo e Cache-Control: no-cache evitano un catalogo
+  # vecchio dopo un deploy recente. Niente --retry-all-errors: un 404 (prima pubblicazione) non va ritentato; gli
+  # errori di rete (reset, timeout) che --retry non copre si ritentano una volta a mano.
+  local url="$1" sep='?' attempt rc out
+  out="$2"
+  case "$url" in
+    http://*|https://*)
+      case "$url" in *\?*) sep='&' ;; esac
+      url="$url${sep}cb=$(date +%s)"
+      ;;
+  esac
+  local code
+  for attempt in 1 2; do
+    rc=0
+    code="$(curl -sSf --max-time 120 --speed-limit 1000 --speed-time 30 --retry 5 -H 'Cache-Control: no-cache' -o "$out" -w '%{http_code}' "$url" 2>/dev/null)" || rc=$?
+    # 6 host, 7 connessione, 28 timeout, 35 TLS, 52 risposta vuota, 56 reset: solo questi si ritentano.
+    case "$rc" in
+      6|7|28|35|52|56) [ "$attempt" = 1 ] && { sleep 5; continue; } ;;
+    esac
+    break
+  done
+  # Un file firmato dal sito si usa solo con la firma valida, come fa l'app: "firma" al posto di 200 se non lo e'.
+  if [ "$code" = 200 ] && [ "$url" != "$1" ] && ! verify_published_signature "$out" "$url"; then
+    code=firma
+  fi
+  echo "$code"
+}
+
+# verify_published_signature <file> <url>: verifica <file>, scaricato da <url>, con <url>.sig e la chiave pubblica
+# incorporata nell'app (.github/scripts/verify-app-status.sh). Solo nella CI del progetto: un fork firma il suo catalogo
+# con la sua chiave e in locale non c'e' nulla da pubblicare, quindi altrove riesce sempre.
+verify_published_signature() {
+  [ "${GITHUB_REPOSITORY:-}" = "miracle091/pocket-travel" ] || return 0
+  local file="$1" root
+  root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+  case "$file" in /* | [A-Za-z]:*) ;; *) file="$PWD/$file" ;; esac
+  # La firma con lo stesso parametro anti-cache di <url>, se ne ha uno: stessa versione del sito per i due file.
+  local query="cb=$(date +%s)"
+  case "$2" in *\?*) query="${2#*\?}" ;; esac
+  rm -f "$file.sig"
+  curl -sSf --max-time 120 --retry 5 --retry-delay 5 -H 'Cache-Control: no-cache' -o "$file.sig" "${2%%\?*}.sig?$query" 2>/dev/null \
+    && (cd "$root" && bash .github/scripts/verify-app-status.sh "$file") > /dev/null 2>&1
 }
 
 # without_empty_tiles <manifest.json> <regionId>: legge da stdin l'array JSON [{name, sourceKey}] delle tile .rd5 attese
@@ -255,7 +312,7 @@ fetch_wikivoyage_dump() {
     itTitleUrl="${itTitle// /_}"
     wikimedia_curl -G "https://it.wikivoyage.org/w/index.php" --data-urlencode "title=${itTitleUrl}" -d action=raw -o "$outFile" 2>/dev/null || : > "$outFile"
     if [ -s "$outFile" ]; then
-      echo "https://it.wikivoyage.org/wiki/${itTitleUrl}"
+      wiki_page_url it.wikivoyage.org "$itTitle"
       return 0
     fi
   fi
@@ -375,7 +432,7 @@ fetch_wikivoyage_en_dump() {
   local wikiTitle="$1" outFile="$2"
   wikimedia_curl -G "https://en.wikivoyage.org/w/index.php" --data-urlencode "title=${wikiTitle}" -d action=raw -o "$outFile" 2>/dev/null || : > "$outFile"
   if [ -s "$outFile" ]; then
-    echo "https://en.wikivoyage.org/wiki/${wikiTitle}"
+    wiki_page_url en.wikivoyage.org "$wikiTitle"
     return 0
   fi
   return 1

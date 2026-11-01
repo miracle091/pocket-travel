@@ -43,6 +43,7 @@ internal fun selectFragments(
     // Frammenti di questa run, regione per regione.
     val runAccepted = mutableListOf<File>()
     val runUpdatedAt = mutableMapOf<String, String>()
+    val runRegions = mutableMapOf<File, List<Pair<String, String>>>()
     for (file in runFragments) {
         val regions = runCatching { JSONObject(file.readText()).optJSONArray("regions") }.getOrElse { error ->
             report += FragmentChoice(file, null, "scartata", "JSON non leggibile: ${error.message}")
@@ -58,10 +59,11 @@ internal fun selectFragments(
         val regionId = regions.getJSONObject(0).optString("regionId")
         if (problems.isEmpty()) {
             runAccepted += file
-            for (i in 0 until regions.length()) {
+            runRegions[file] = (0 until regions.length()).map { i ->
                 val region = regions.getJSONObject(i)
-                runUpdatedAt[region.getString("regionId")] = region.optString("updatedAt")
+                region.getString("regionId") to region.optString("updatedAt")
             }
+            runRegions.getValue(file).forEach { (id, at) -> runUpdatedAt[id] = at }
             report += FragmentChoice(file, regionId, "pubblicata")
         } else {
             report += FragmentChoice(file, regionId, "scartata", problems.joinToString("; "))
@@ -99,7 +101,18 @@ internal fun selectFragments(
     val recovered = newest.values.sortedBy { it.updatedAt }
     recovered.forEach { report += FragmentChoice(it.file, it.regionId, "recuperata") }
 
-    return FragmentSelection(recovered.map { it.file } + runAccepted, report)
+    // Il frammento di una regione saltata in questa run ripete l'updatedAt del pubblicato: in coda all'elenco
+    // sovrascriverebbe un frammento in sospeso piu' recente, quindi non entra se tutte le sue regioni ne hanno uno.
+    val recoveredIds = recovered.map { it.regionId }.toSet()
+    val skippedRun = runAccepted.filter { file ->
+        val regions = runRegions[file].orEmpty()
+        regions.isNotEmpty() && regions.all { (id, at) -> id in recoveredIds && at == published[id] }
+    }.toSet()
+    skippedRun.forEach { file ->
+        report.replaceAll { if (it.file == file && it.outcome == "pubblicata") it.copy(outcome = "superata", reason = "regione saltata, c'e' un frammento in sospeso piu' recente") else it }
+    }
+
+    return FragmentSelection(recovered.map { it.file } + runAccepted.filter { it !in skippedRun }, report)
 }
 
 fun main(args: Array<String>) {

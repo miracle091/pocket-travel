@@ -95,7 +95,8 @@ class HttpSource:
                     self.conn = conn_class(self.url.netloc, timeout=60)
                 self.conn.request("GET", self.url.path, headers=headers)
                 resp = self.conn.getresponse()
-                body = resp.read()
+                # Il corpo si legge solo con un 206: un 200 (Range ignorato) porterebbe l'intero file.
+                body = resp.read() if resp.status == 206 else b""
             except (OSError, http.client.HTTPException) as e:
                 error = e
             else:
@@ -117,6 +118,8 @@ class HttpSource:
                 error = OSError(f"{self.name}: HTTP {resp.status} per {wanted}")
                 # 200 = Range ignorato (scaricherebbe tutto), 404, ...: inutile riprovare; 408 e 429 passano.
                 if resp.status < 500 and resp.status not in (408, 429):
+                    self.conn.close()
+                    self.conn = None
                     raise error
             self.conn.close()
             self.conn = None

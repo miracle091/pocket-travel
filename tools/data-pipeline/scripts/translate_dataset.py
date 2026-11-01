@@ -19,6 +19,8 @@ import re
 import sys
 from pathlib import Path
 
+from eval_common import ensure_final_newline
+
 MODELS = {("en", "it"): "Helsinki-NLP/opus-mt-tc-big-en-it", ("it", "en"): "Helsinki-NLP/opus-mt-tc-big-it-en"}
 # Revisioni fissate, le stesse di convert-translation-model.sh: un modello aggiornato cambierebbe le traduzioni del
 # dataset (e la cache delle frasi, che non sa da quale revisione vengono)
@@ -71,9 +73,11 @@ class Translator:
         self.trusted = set()  # chiavi di traduzioni corrette a mano: niente controllo di plausibilita'
         if self.cache_path.exists():
             for line in self.cache_path.read_text(encoding="utf-8").splitlines():
-                if line:
+                try:
                     d = json.loads(line)
                     self.cache[d["k"]] = d["t"]
+                except (ValueError, KeyError, TypeError):
+                    continue  # riga vuota o troncata da un'interruzione
         self.model = self.tokenizer = None
 
     def _key(self, sentence):
@@ -84,12 +88,14 @@ class Translator:
         # Windows; per la traduzione non serve
         sys.modules.setdefault("torchao", None)
         import gpu_lock
+        # il lucchetto prima di qualsiasi uso della GPU, anche della scelta e di torch.cuda.is_available(); su CPU
+        # non serve (resta il monitor)
+        gpu_lock.gpu_job(f"traduzione {self.src}-{self.tgt}", gpu=gpu_lock.has_gpu())
         gpu_lock.pick_discrete_gpu("traduzione")
         import torch
         from transformers import MarianMTModel, MarianTokenizer
         name = MODELS[(self.src, self.tgt)]
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        gpu_lock.gpu_job(f"traduzione {self.src}-{self.tgt}", gpu=self.device == "cuda")
         self.tokenizer = MarianTokenizer.from_pretrained(name, revision=REVISIONS[name])
         model = MarianMTModel.from_pretrained(name, revision=REVISIONS[name])
         # transformers 5 non lega lm_head agli embedding quando i pesi sono solo in pytorch_model.bin
@@ -112,23 +118,23 @@ class Translator:
     def _run(self, sentences):
         if self.model is None:
             self._load()
-        out = []
         # per lunghezza: lotti con frasi simili, meno padding
         order = sorted(range(len(sentences)), key=lambda i: len(sentences[i]))
         done = [None] * len(sentences)
-        for start in range(0, len(order), self.batch):
-            idx = order[start:start + self.batch]
-            for i, text in zip(idx, self._decode([sentences[i] for i in idx])):
-                done[i] = text.strip()
-            if (start // self.batch) % 20 == 0:
-                print(f"[traduzione] {min(start + self.batch, len(order))}/{len(order)} frasi", file=sys.stderr)
+        ensure_final_newline(self.cache_path)
+        # ogni lotto finisce subito in cache: un'interruzione non butta le ore di traduzione gia' fatte
         with open(self.cache_path, "a", encoding="utf-8") as f:
-            for s, t in zip(sentences, done):
-                k = self._key(s)
-                self.cache[k] = t
-                f.write(json.dumps({"k": k, "t": t}, ensure_ascii=False) + "\n")
-                out.append(t)
-        return out
+            for start in range(0, len(order), self.batch):
+                idx = order[start:start + self.batch]
+                for i, text in zip(idx, self._decode([sentences[i] for i in idx])):
+                    done[i] = text.strip()
+                    k = self._key(sentences[i])
+                    self.cache[k] = done[i]
+                    f.write(json.dumps({"k": k, "t": done[i]}, ensure_ascii=False) + "\n")
+                f.flush()
+                if (start // self.batch) % 20 == 0:
+                    print(f"[traduzione] {min(start + self.batch, len(order))}/{len(order)} frasi", file=sys.stderr)
+        return done
 
     @staticmethod
     def _pieces(body):

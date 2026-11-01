@@ -7,6 +7,7 @@
 set -euo pipefail
 source .github/scripts/env.sh
 source tools/data-pipeline/scripts/regions.sh
+source tools/data-pipeline/scripts/lib.sh
 # Serve sempre (non solo nel ramo schedule sotto): WEEKLY_SCHEDULE_TILES e' il peso per
 # regione riusato piu' in basso per bilanciare gli shard.
 source tools/data-pipeline/scripts/weekly-schedule.sh
@@ -99,7 +100,8 @@ if [ -n "${ADAPTIVE_DOW:-}" ]; then
   for r in "${REGION_ARR[@]}"; do TODAY[$r]=1; done
   # Eta' dei POI pubblicati, dal nome dell'asset (regionId--YYYY.MM.DD[.run.tentativo]--poi.db...).
   declare -A POI_AGE=()
-  if curl -sSfL --retry 3 --retry-delay 5 --max-time 120 -A "PocketTravelDataPipeline/1.0" "$PAGES_BASE_URL/manifest.json" -o "$RUNNER_TEMP/plan-manifest.json"; then
+  # Come negli altri job, il catalogo pubblicato si usa solo con la firma valida (verify_published_signature, lib.sh).
+  if curl -sSfL --retry 3 --retry-delay 5 --max-time 120 -A "PocketTravelDataPipeline/1.0" "$PAGES_BASE_URL/manifest.json" -o "$RUNNER_TEMP/plan-manifest.json"     && verify_published_signature "$RUNNER_TEMP/plan-manifest.json" "$PAGES_BASE_URL/manifest.json"; then
     NOW_EPOCH="$(date -u +%s)"
     while IFS=$'\t' read -r regionId url; do
       d="$(printf '%s' "$url" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)\(\.[0-9][0-9.]*\)\?--\(poi\|content\)\.db\(\.xz\)\?$#\1#p')"
@@ -107,7 +109,7 @@ if [ -n "${ADAPTIVE_DOW:-}" ]; then
       POI_AGE[$regionId]=$(( (NOW_EPOCH - $(date -u -d "${d//./-}" +%s)) / 86400 ))
     done < <(jq -r '.regions[] | [.regionId, (.poi.file.url // "")] | @tsv' "$RUNNER_TEMP/plan-manifest.json")
   else
-    echo "::warning::manifest.json pubblicato non leggibile: niente regioni in ritardo nella quota adattiva"
+    echo "::warning::manifest.json pubblicato non leggibile o con firma non valida: niente regioni in ritardo nella quota adattiva"
   fi
   EXTRA_FILE="$RUNNER_TEMP/extra-regions.tsv"
   : > "$EXTRA_FILE"

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Test dell'ordine lucchetto -> scelta della GPU -> torch negli script che usano la GPU con torch (train_lora.py,
-eval_behavior.py, dpo_lora.py): gpu_lock.gpu_job prima di gpu_lock.pick_discrete_gpu, e tutte e due prima di ogni
-import di torch, Unsloth o delle librerie che lo caricano, e prima di ogni uso di torch. Si legge il sorgente senza
+eval_behavior.py, dpo_lora.py, translate_dataset.py): gpu_lock.gpu_job prima di gpu_lock.pick_discrete_gpu, e tutte e
+due prima di ogni import di torch, Unsloth o delle librerie che lo caricano, e prima di ogni uso di torch. In
+train_auto.py il lucchetto viene prima della sonda di PyTorch. Si legge il sorgente senza
 eseguirlo: importare torch inizializzerebbe la GPU.
 
 Uso: python test_gpu_scripts.py
@@ -58,7 +59,7 @@ def body_of(script, function=None):
     tree = ast.parse((HERE / script).read_text(encoding="utf-8"))
     if function is None:
         return tree.body
-    return next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == function).body
+    return next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == function).body
 
 
 class GpuOrderTest(unittest.TestCase):
@@ -82,6 +83,18 @@ class GpuOrderTest(unittest.TestCase):
         self.check_order("dpo_lora.py", "main")
         # dpo_lora.py si importa nei test senza GPU: a livello di modulo niente torch
         self.assertFalse(any(touches_gpu(n) for n in body_of("dpo_lora.py")))
+
+    def test_translate_dataset(self):
+        self.check_order("translate_dataset.py", "_load")
+
+    def test_train_auto_prende_il_lucchetto_prima_della_sonda(self):
+        body = body_of("train_auto.py", "main")
+        lock = first_index(body, calls("gpu_job"))
+        probe = first_index(body, lambda n: "probe()" in ast.unparse(n))
+        self.assertIsNotNone(lock)
+        self.assertLess(lock, probe)
+        # la GPU si sceglie per unita' di calcolo, non per memoria
+        self.assertIn("key=lambda g: g['compute_units']", ast.unparse(ast.Module(body, [])))
 
     def test_il_controllo_vede_torch_prima_del_lucchetto(self):
         # Lo stesso controllo su uno script con l'ordine sbagliato deve fallire

@@ -289,9 +289,12 @@ YES = re.compile(r"^\W*(s[iì]|yes)\b", re.I)
 NO = re.compile(r"^\W*no\b", re.I)
 
 
-def parse_answer(text, answer_type):
+def parse_answer(text, answer_type, thinking=False):
     """Il risultato dopo l'ultimo "Risposta:"/"Answer:" (dopo il blocco <think>, se c'e'), normalizzato: HH:MM, numero
-    o yes/no. None se manca o non si legge."""
+    o yes/no. None se manca o non si legge. Con thinking il turno comincia dentro <think>: senza "</think>" il
+    ragionamento non e' chiuso e una "Risposta:" scritta li' dentro non conta."""
+    if thinking and "</think>" not in text:
+        return None
     text = text.split("</think>")[-1]
     finals = FINAL.findall(text)
     if not finals:
@@ -306,12 +309,12 @@ def parse_answer(text, answer_type):
     return "yes" if YES.search(final) else "no" if NO.search(final) else None
 
 
-def score_answer(row, got):
-    """True se got chiude con il risultato giusto per la riga row."""
+def score_answer(row, got, thinking=False):
+    """True se got chiude con il risultato giusto per la riga row (thinking: vedi parse_answer)."""
     expected = row["answer"]
     if row["answer_type"] == "yesno":
         expected = "yes" if expected in ("sì", "yes") else "no"
-    return parse_answer(got, row["answer_type"]) == expected
+    return parse_answer(got, row["answer_type"], thinking) == expected
 
 
 def main():

@@ -207,6 +207,23 @@ class DatabaseTest(unittest.TestCase):
             sqlite3.connect(path).close()
             self.assertEqual([], tg.read_rows(path, "guide_sections", "regionId"))
 
+    def test_database_assente_non_viene_creato(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "manca.db"
+            with self.assertRaises(SystemExit) as stop:
+                tg.read_rows(path, "guide_sections", "regionId")
+            self.assertIn("assente", str(stop.exception.code))
+            self.assertFalse(path.exists())
+
+    def test_lettura_in_sola_lettura(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = self._db(d, "a b.db", "guide_sections", "regionId", [("r", "SEE", "t", "b", "u", None)])
+            self.assertEqual([("r", "SEE", "t", "b", "u")], tg.read_rows(path, "guide_sections", "regionId"))
+            con = tg.open_readonly(path)
+            with self.assertRaises(sqlite3.OperationalError):
+                con.execute("DELETE FROM guide_sections")
+            con.close()
+
     def test_main_guide_traduce_solo_i_consigli_del_governo_canadese(self):
         gc = "https://travel.gc.ca/destinations/it"
         with tempfile.TemporaryDirectory() as d:

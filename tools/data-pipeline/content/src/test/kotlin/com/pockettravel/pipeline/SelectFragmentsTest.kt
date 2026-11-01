@@ -202,6 +202,18 @@ class SelectFragmentsTest {
     }
 
     @Test
+    fun `il frammento di una regione saltata non vince su uno in sospeso piu' recente`() {
+        val skipped = fragment("andorra.json", region("andorra", "2026-09-28T10:00:00Z"))
+        val pending = fragment("p-andorra.json", region("andorra", "2026-09-29T11:00:00Z"))
+
+        val selection = selectFragments(published("andorra" to "2026-09-28T10:00:00Z"), listOf(skipped), listOf(pending), allowedHosts, now, week)
+
+        assertEquals(listOf(pending), selection.accepted)
+        assertEquals("superata", reportOf(selection, "andorra.json").outcome)
+        assertEquals("recuperata", reportOf(selection, "p-andorra.json").outcome)
+    }
+
+    @Test
     fun `un frammento della run scartato non fa superare quelli in sospeso della stessa regione`() {
         val badRun = fragment("andorra.json", region("andorra", "2026-09-29T10:00:00Z", host = "evil.example"))
         val pending = fragment("p-andorra.json", region("andorra", "2026-09-28T10:00:00Z"))

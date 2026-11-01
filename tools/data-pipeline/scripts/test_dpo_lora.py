@@ -29,7 +29,15 @@ ROWS = [
 
 class ContextTest(unittest.TestCase):
     def test_context_between_markers(self):
-        self.assertEqual(context_of(ROWS[0]["messages"][0]["content"]), "▸ Storia\nFondata dai Greci. Poi romana.")
+        self.assertEqual(context_of(ROWS[0]), "▸ Storia\nFondata dai Greci. Poi romana.")
+
+    def test_dataset_inglese_non_scartato(self):
+        content = "You are an offline travel guide.\n\nCONTEXT: ▸ History\nFounded by Greeks. Then Roman.\n\nQUESTION: What to eat?"
+        en = {"messages": [{"role": "user", "content": content}, {"role": "assistant", "content": "No info."}],
+              "kind": "neg", "region": "citta:Nicosia", "category": "CIBO_BEVANDE"}
+        self.assertEqual("▸ History\nFounded by Greeks. Then Roman.", context_of(en))
+        pairs = build_pairs([en], set(), {})["neg_city"]
+        self.assertEqual(("No info.", "Founded by Greeks."), pairs[0][1:])
 
     def test_first_sentence_skips_titles_and_bullets(self):
         self.assertEqual(first_sentence("▸ Storia\nFondata dai Greci. Poi romana."), "Fondata dai Greci.")

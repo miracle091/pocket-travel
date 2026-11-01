@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 
@@ -159,10 +160,54 @@ def context_report(rows):
     return out
 
 
+def read_jsonl_lenient(path):
+    """Le righe JSON valide di un JSONL; una riga non valida (per esempio troncata in coda da un'interruzione) si ignora."""
+    rows = []
+    with Path(path).open(encoding="utf-8") as f:
+        for line in f:
+            try:
+                rows.append(json.loads(line))
+            except ValueError:
+                continue
+    return rows
+
+
+def ensure_final_newline(path):
+    """Chiude con un a capo l'ultima riga di un file da riprendere in aggiunta, se manca (riga troncata da
+    un'interruzione): la riga che si aggiunge non si incolla a quella parziale."""
+    path = Path(path)
+    if path.exists() and path.stat().st_size:
+        with path.open("rb+") as f:
+            f.seek(-1, 2)
+            if f.read(1) != b"\n":
+                f.write(b"\n")
+
+
+@contextmanager
+def replaced_when_done(path):
+    """Percorso temporaneo accanto a path, che sostituisce path solo se il blocco finisce senza errori: un'interruzione
+    o un errore a meta' scrittura lasciano intero il file precedente, e il temporaneo si cancella."""
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        yield tmp
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 def question_of(row):
     """La domanda della riga (dopo "DOMANDA: " o "QUESTION: "; senza, tutto il prompt)."""
     content = row["messages"][0]["content"]
     return content.rsplit("QUESTION: " if content.startswith(EN_PROMPT) else "DOMANDA: ", 1)[-1]
+
+
+def sample(rows, limit):
+    """limit righe a passo fisso sulle righe ordinate per tipo: tutti i tipi in proporzione, e lo stesso campione a
+    ogni esecuzione."""
+    rows = sorted(rows, key=lambda r: (r["kind"], question_of(r)))
+    if not limit or limit >= len(rows):
+        return rows
+    return [rows[i * len(rows) // limit] for i in range(limit)]
 
 
 def context_of(row):

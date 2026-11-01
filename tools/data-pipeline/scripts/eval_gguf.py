@@ -41,7 +41,7 @@ import gpu_lock
 import vram
 from eval_common import (ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, instruction_checks, is_refusal,
                          knowledge_turns, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
-                         print_report, question_lang, question_of, refusal_prefix, refusal_summary, score, text_lang, uses_empty_think)
+                         print_report, question_lang, question_of, refusal_prefix, refusal_summary, sample, score, text_lang, uses_empty_think)
 from status import Progress, phase
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -119,8 +119,8 @@ else:
     test, held_out = load_test_rows(a.extended, a.dataset)
 if a.kinds:
     test = [r for r in test if r["kind"] in a.kinds]
-if a.limit:
-    test = test[:a.limit]
+if a.limit:  # campione a passo fisso su tutti i tipi, come eval_online.py: le prime N righe sarebbero di un tipo solo
+    test = sample(test, a.limit)
 
 # Campionamento dell'app: temperatura 0,3 (DEFAULT_SAMPLER_TEMP in ai_chat.cpp), top-k 10 e top-p 0,95 (TOP_K e TOP_P in
 # LlamaOnDeviceLlmEngine.kt), il resto come i default di common_params_sampling che ai_chat.cpp non cambia: min-p 0,05,

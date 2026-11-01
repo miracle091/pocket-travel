@@ -89,7 +89,7 @@ fetch_rd5() {
   [ -z "${RD5_RANGE_CACHE:-}" ] || cacheArgs=(--range-cache "$RD5_RANGE_CACHE")
   local rc=0
   sourceSize="$(python3 "$SCRIPT_DIR/clip_rd5.py" "${BROUTER_BASE}/${name}" "$dest" \
-    --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" --user-agent "$PIPELINE_USER_AGENT" "${cacheArgs[@]}")" || rc=$?
+    --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --margin "$RD5_CLIP_MARGIN" --user-agent "$PIPELINE_USER_AGENT" ${cacheArgs[@]+"${cacheArgs[@]}"})" || rc=$?
   # 3 = la tile non ha strade nel rettangolo (costa, mare al bordo): non serve alla regione, si salta. Si annota
   # in "<tsv>.empty" (nome, sourceKey) per routing.emptyTiles: senza, il confronto 2bis la vedrebbe sempre mancante.
   if [ "$rc" -eq 3 ]; then
@@ -780,7 +780,7 @@ for sibling in $POI_SCOPE; do [ "${sibling%%:*}" = "$REGION_ID" ] || SIBLING_ARG
 [ -z "$POI_SCOPE" ] || SIBLING_ARGS+=(--id "$REGION_ID")
 if [ "${GEOFABRIK_POI:-true}" = "true" ] && command -v osmium >/dev/null; then
   echo "-- POI dagli estratti Geofabrik..."
-  if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --iso="$REGION_ISO" ${BORDER_FILE:+--border "$BORDER_FILE"} "${SIBLING_ARGS[@]}" \
+  if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" --iso="$REGION_ISO" ${BORDER_FILE:+--border "$BORDER_FILE"} ${SIBLING_ARGS[@]+"${SIBLING_ARGS[@]}"} \
     --out "$WORKDIR/poi-geofabrik.osm.xml" --cache "${GEOFABRIK_CACHE:-$WORKDIR/geofabrik}" --user-agent "$PIPELINE_USER_AGENT"; then
     GEOFABRIK_XML="$WORKDIR/poi-geofabrik.osm.xml"
   else
@@ -857,12 +857,14 @@ if [ "${#POI_XML_FILES[@]}" -eq 0 ]; then
   echo "ERRORE: nessun chunk Overpass ha prodotto dati validi per $REGION_ID" >&2
   exit 1
 fi
-if [ "$FAILED_CHUNKS" -gt 0 ] && [ -n "${PUBLISHED_POI_URL:-}" ]; then
+PUBLISHED_POI_PARTIAL="$(printf '%s' "${PUBLISHED_REGION:-}" | jq -r '.poi.partial // false' 2>/dev/null || true)"
+if [ "$FAILED_CHUNKS" -gt 0 ] && [ -n "${PUBLISHED_POI_URL:-}" ] && [ "$PUBLISHED_POI_PARTIAL" != true ]; then
   # Un poi.db parziale sostituirebbe quello completo gia' pubblicato: meglio fallire e tenere quello.
   echo "ERRORE: $FAILED_CHUNKS/$chunkIndex chunk Overpass falliti e $REGION_ID ha gia' dei POI pubblicati: li tengo" >&2
   exit 1
 elif [ "$FAILED_CHUNKS" -gt 0 ]; then
-  # Prima pubblicazione con POI incompleti: si pubblica, ma poi.partial fa rigenerare il poi.db alla run dopo.
+  # Prima pubblicazione con POI incompleti, o pubblicato gia' poi.partial (un chunk che fallisce sempre non deve far
+  # fallire la regione a ogni run, mappa e rete stradale comprese): si pubblica, ma poi.partial fa rigenerare il poi.db alla run dopo.
   echo "::warning::$REGION_ID: $FAILED_CHUNKS/$chunkIndex chunk Overpass falliti, alcuni POI mancheranno (poi.partial: il poi.db si rigenera alla prossima run)"
 fi
 # Ripiego Overpass: l'area della nazione nella query tiene anche le vie e le aree a cavallo del confine e nessuna
@@ -873,7 +875,7 @@ if [ -z "$GEOFABRIK_XML" ] && { [ -n "$BORDER_FILE" ] || [ -n "$POI_SCOPE" ]; };
   OVERPASS_ARGS=()
   for f in "${POI_XML_FILES[@]}"; do OVERPASS_ARGS+=(--overpass "$f"); done
   if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" ${BORDER_FILE:+--border "$BORDER_FILE"} \
-    "${SIBLING_ARGS[@]}" "${OVERPASS_ARGS[@]}" --out "$WORKDIR/poi-overpass.osm.xml"; then
+    ${SIBLING_ARGS[@]+"${SIBLING_ARGS[@]}"} "${OVERPASS_ARGS[@]}" --out "$WORKDIR/poi-overpass.osm.xml"; then
     POI_XML_FILES=("$WORKDIR/poi-overpass.osm.xml")
     OVERPASS_FILTERED=true
   else
@@ -985,7 +987,7 @@ if [ "$POI_ONLY" = "true" ]; then
         jq -c --argjson count "$POI_COUNT" --argjson border "$POI_BORDER" --argjson borderRelation "${BORDER_RELATION:-null}" \
           --argjson borderRule "$POI_BORDER_RULE_JSON" --argjson scope "$POI_SCOPE_JSON" \
           '.regions |= map(.poi.count = $count | .poi.border = $border | .poi.borderRelation = $borderRelation | .poi.borderRule = $borderRule
-            | if $scope then .poi.scope = $scope else del(.poi.scope) end)' \
+            | del(.poi.partial) | if $scope then .poi.scope = $scope else del(.poi.scope) end)' \
           "$MANIFEST_FRAGMENT" > "$WORKDIR/fragment.json"
         mv "$WORKDIR/fragment.json" "$MANIFEST_FRAGMENT"
       fi

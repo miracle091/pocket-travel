@@ -219,6 +219,16 @@ def gpu_job(name, gpu=True):
     hw_monitor.start(name)
 
 
+def has_gpu():
+    """True se torch vede una GPU (la verifica la fa un processo a parte, senza tenere il lucchetto: serve a decidere
+    se prenderlo); con la sonda fallita si assume di si', per non usare la GPU senza lucchetto."""
+    probe = "import torch\nprint(int(torch.cuda.is_available()))"
+    try:
+        return subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, timeout=300).stdout.strip() != "0"
+    except subprocess.SubprocessError:
+        return True
+
+
 def pick_discrete_gpu(tag):
     """Rende visibile a torch solo la GPU con piu' unita' di calcolo (multi_processor_count, non la memoria: la grafica
     integrata dichiara come sua la RAM di sistema). Va chiamata dopo gpu_job e prima di importare torch o Unsloth: con

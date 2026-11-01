@@ -102,14 +102,18 @@ def scegli(results, valida):
 
 
 def in_cache(path, fetch):
-    """Risultati salvati in [path], o quelli di [fetch]() salvati li'."""
+    """Risultati salvati in [path], o quelli di [fetch]() salvati li' (scrittura atomica, mai una lista vuota)."""
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             return json.load(f)
     results = fetch()
+    if not results:
+        return results  # lista vuota = errore di rete o nessun risultato: la prossima run riprova
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(results, f)
+    os.replace(tmp, path)
     return results
 
 
@@ -166,7 +170,8 @@ def poligono_completo(relation, cache, user_agent):
     if found and found[0] == relation:
         return found[1]
     # Una risposta senza il poligono non resta in cache: le regioni dopo, nello stesso job, riprovano il lookup.
-    os.remove(path)
+    if os.path.exists(path):
+        os.remove(path)
     return None
 
 

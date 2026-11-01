@@ -32,7 +32,7 @@ from collections import Counter
 from pathlib import Path
 
 import wiki_dump
-from eval_common import TEST_REGIONS
+from eval_common import TEST_REGIONS, replaced_when_done
 from generate_sft_dataset import (ALPACA_LICENSE, CITY_MAX_QUESTIONS, CITY_MIN_SECTION, CITY_QUESTIONS_EN, DUMP_WIKIS,
                                   EN_HEADING_TO_CATEGORY, MAX_CONTEXT, OFF_TOPIC_MAX_USES, OFF_TOPIC_TRAIN_EN, OUT,
                                   OFF_TOPIC_REVISIONS, QUESTIONS_EN, SOURCE_URL, WIKI_QUESTIONS_EN, covers, fetch_off_topic, load_quick_facts,
@@ -283,7 +283,11 @@ def main():
     ap.add_argument("--cities", type=int, default=0, help="quante citta' di Wikivoyage EN usare (0 = nessuna)")
     ap.add_argument("--guides-db", type=Path, help="guides-en.db pubblicato: fatti rapidi e note personali")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--overwrite", action="store_true",
+                    help="sovrascrive il dataset se esiste gia' (potrebbe usarlo un training); senza, si ferma prima di cominciare")
     a = ap.parse_args()
+    if (OUT / "pocket_travel_sft.en.jsonl").exists() and not a.overwrite:
+        ap.error("pocket_travel_sft.en.jsonl esiste gia' (potrebbe usarlo un training): per sovrascriverlo dai --overwrite")
     rng = random.Random(a.seed)
     (OUT / "raw").mkdir(parents=True, exist_ok=True)
 
@@ -478,13 +482,15 @@ def main():
     attribution.append(("-", f"export {DUMP_WIKIS['en']} del {date}", wiki_dump.export_url(DUMP_WIKIS["en"], date),
                         "CC BY-SA 4.0 (testo delle pagine elencate sopra)"))  # la data del dump resta accanto al dataset
     data_out, attr_out = OUT / "pocket_travel_sft.en.jsonl", OUT / "ATTRIBUTION.en.tsv"
-    with open(data_out, "w", encoding="utf-8") as f:
-        for r in rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    with open(attr_out, "w", encoding="utf-8") as f:
-        f.write("regionId\tdisplayName\tsourceUrl\tlicense\n")
-        for rid, name, url, lic in attribution:
-            f.write(f"{rid}\t{name}\t{url}\t{lic}\n")
+    # il dataset si sostituisce per ultimo: chi lo trova nuovo trova nuova anche l'attribuzione
+    with replaced_when_done(data_out) as data_tmp, replaced_when_done(attr_out) as attr_tmp:
+        with open(attr_tmp, "w", encoding="utf-8") as f:
+            f.write("regionId\tdisplayName\tsourceUrl\tlicense\n")
+            for rid, name, url, lic in attribution:
+                f.write(f"{rid}\t{name}\t{url}\t{lic}\n")
+        with open(data_tmp, "w", encoding="utf-8") as f:
+            for r in rows:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
     print(f"regioni con guida EN: {len(data)}/{len(regions)}; positivi={pos} negativi={neg} "
           f"citta' positivi={city_pos} negativi={city_neg} totale={len(rows)}")
     print("per categoria:", dict(Counter(r["category"] for r in rows)))

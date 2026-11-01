@@ -43,8 +43,9 @@ rigenerare tutte le regioni (`regions` vuoto).
 **Bucket e shard.** Il lavoro si divide su più giorni e, in ogni giorno, su 3 shard in parallelo, per due limiti:
 le 6 ore massime di un job di GitHub Actions e l'uso corretto dei mirror Overpass pubblici. La divisione tra shard è
 per peso, non per indice: il peso è il tempo dell'ultima generazione completa della regione (`region-timings.tsv`
-sul sito), o 50 secondi per tile di terra se non c'è una misura. Senza bilanciamento più regioni grandi (Canada,
-Stati Uniti, Russia, Brasile) potrebbero finire nello stesso shard e superare le 6 ore. Nelle run del calendario,
+sul sito), o 50 secondi per tile di terra se non c'è una misura. Se `region-timings.tsv` non si scarica,
+`assemble.sh` fallisce; solo con un 404 (prima pubblicazione) parte da un file vuoto. Senza bilanciamento più
+regioni grandi (Canada, Stati Uniti, Russia, Brasile) potrebbero finire nello stesso shard e superare le 6 ore. Nelle run del calendario,
 dopo le regioni del giorno, ogni shard riceve una coda di regioni in ritardo e di quelle del giorno dopo (quota
 adattiva), avviate solo se la stima sta nel budget di tempo; le regioni del giorno oltre il budget passano a una
 continuazione automatica.
@@ -185,6 +186,8 @@ gh secret set MANIFEST_SIGNING_KEY < key.pem
 
 Senza ricompilare l'app, il catalogo di un fork si usa da **Altro → Impostazioni → Catalogo**: si inseriscono l'indirizzo di `manifest.json` (solo https) e la chiave pubblica in base64. L'app scarica `manifest.json` e la sua firma, li verifica e solo allora salva il catalogo e si riavvia. I file del catalogo devono stare sull'host di `manifest.json` o su `github.com` (asset delle release). `app-status.json` e `online-models.json` restano quelli del progetto, verificati con la chiave del progetto.
 
+Nella CI del progetto anche la pipeline usa `manifest.json`, `address-grid.json` e `transit.json` pubblicati solo con la firma valida per la chiave incorporata nell'app (`verify_published_signature` in `scripts/lib.sh`): una firma mancante o non valida vale come un download non riuscito. Nei fork, firmati con un'altra chiave, la verifica si salta.
+
 Per controllare a mano un file scaricato:
 
 ```bash
@@ -206,7 +209,9 @@ I numeri civici (OSM + Overture) non si pubblicano per regione ma in celle di un
   cella pubblicata. Nessuna cella dell'indice è antenata di un'altra.
 - **Crescita**: se il `.xz` di una cella supera `ADDRESS_CELL_MAX_BYTES` (10.000.000 byte) si pubblicano al
   suo posto i 4 figli con dati, ricorsivamente fino a z14 (lì la cella resta oltre il tetto, con un
-  warning). Le celle non si fondono mai: gli id restano stabili.
+  warning). Le celle non si fondono mai: gli id restano stabili. Se una fonte o `generateAddresses` fallisce
+  per una cella figlia di una divisione, `build-address-cell.sh` esce con errore e resta la cella genitore
+  dell'indice.
 - **Ricostruzione**: ogni notte le celle con `cksum(id) % 30` uguale al giorno dall'epoca `% 30`; una cella
   pubblicata da meno di `ADDRESS_CELL_MAX_AGE_DAYS` (30) giorni tiene la sua voce, e una cella rigenerata
   con lo stesso sha256 tiene versione e asset pubblicati. Input manuali: `address_cells` (id della

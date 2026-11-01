@@ -11,12 +11,21 @@ data class EmergencyNumbers(val general: String?, val police: String, val ambula
 // senza numeri indica una regione senza numero di emergenza centralizzato; una regione assente dal
 // file non ha il riquadro nell'app. "general" e' il numero unico (dove esiste, es. il 112 europeo); nullo per i
 // paesi senza un unico numero universale (es. Giappone).
-private val emergencyRows: List<List<String>> by lazy {
-    val tsv = EmergencyNumbers::class.java.getResource("/emergency-numbers.tsv")!!.readText()
+private const val EMERGENCY_MIN_COLUMNS = 5
+
+internal fun parseEmergencyRows(tsv: String): List<List<String>> =
     tsv.lineSequence()
         .filter { it.isNotBlank() && !it.startsWith("#") }
         .map { it.split("\t") }
+        .onEach { require(it.size >= EMERGENCY_MIN_COLUMNS) { "emergency-numbers.tsv: riga con ${it.size} colonne invece di almeno $EMERGENCY_MIN_COLUMNS: ${it.first()}" } }
         .toList()
+        .also { rows ->
+            val duplicate = rows.groupBy { it[0] }.entries.firstOrNull { it.value.size > 1 }?.key
+            require(duplicate == null) { "emergency-numbers.tsv: regione duplicata: $duplicate" }
+        }
+
+private val emergencyRows: List<List<String>> by lazy {
+    parseEmergencyRows(EmergencyNumbers::class.java.getResource("/emergency-numbers.tsv")!!.readText())
 }
 
 private val emergencyNumbersByRegion: Map<String, EmergencyNumbers> by lazy {
@@ -39,7 +48,10 @@ private val regionsWithoutCentralNumber: Set<String> by lazy {
  * per la guida inglese.
  */
 fun emergencyNumbersLine(regionId: String, english: Boolean = false): String? {
-    val numbers = emergencyNumbersByRegion[regionId] ?: return null
+    return emergencyNumbersByRegion[regionId]?.let { emergencyNumbersLine(it, english) }
+}
+
+internal fun emergencyNumbersLine(numbers: EmergencyNumbers, english: Boolean): String {
     val (title, general, police, ambulance, fire) = if (english) {
         listOf("Emergency numbers", "General", "Police", "Ambulance", "Fire")
     } else {
@@ -47,9 +59,9 @@ fun emergencyNumbersLine(regionId: String, english: Boolean = false): String? {
     }
     val parts = buildList {
         numbers.general?.let { add("$general $it") }
-        add("$police ${numbers.police}")
-        add("$ambulance ${numbers.ambulance}")
-        add("$fire ${numbers.fire}")
+        if (numbers.police.isNotEmpty()) add("$police ${numbers.police}")
+        if (numbers.ambulance.isNotEmpty()) add("$ambulance ${numbers.ambulance}")
+        if (numbers.fire.isNotEmpty()) add("$fire ${numbers.fire}")
     }
     return "$title: " + parts.joinToString(", ")
 }

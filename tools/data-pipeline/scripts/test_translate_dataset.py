@@ -156,7 +156,33 @@ class RunTest(unittest.TestCase):
             reloaded = ts.Translator("it", "en", d)
         self.assertEqual(4, len(lines))
         self.assertEqual("EN:Corta.", reloaded.cache[reloaded._key("Corta.")])
-        self.assertIn("più", lines[0])  # UTF-8 non escapato
+        self.assertIn("più", lines[-1])  # UTF-8 non escapato
+
+    def test_cache_scritta_a_ogni_lotto_e_righe_non_valide_ignorate(self):
+        with tempfile.TemporaryDirectory() as d:
+            t = ts.Translator("it", "en", d, batch=2)
+            t.model = object()
+            calls = []
+
+            def decode(batch):
+                calls.append(list(batch))
+                if len(calls) == 2:
+                    raise KeyboardInterrupt  # interruzione al secondo lotto
+                return [f"EN:{s}" for s in batch]
+
+            with mock.patch.object(t, "_decode", side_effect=decode), mock.patch("sys.stderr"), \
+                    self.assertRaises(KeyboardInterrupt):
+                t._run(["Ok.", "Corta.", "Media frase.", "Una frase piu' lunga."])
+            path = Path(d) / "translations.it-en.jsonl"
+            with open(path, "a", encoding="utf-8") as f:
+                f.write('{"k": "troncata", "t": "EN:Med')  # riga rimasta a meta' scrittura
+            reloaded = ts.Translator("it", "en", d)
+            self.assertEqual({"EN:Ok.", "EN:Corta."}, set(reloaded.cache.values()))
+            reloaded._decode = lambda batch: [f"EN:{s}" for s in batch]
+            reloaded.model = object()
+            with mock.patch("sys.stderr"):
+                reloaded._run(["Media frase."])  # la riga troncata non si incolla alla nuova
+            self.assertEqual("EN:Media frase.", ts.Translator("it", "en", d).cache[reloaded._key("Media frase.")])
 
     def test_traduzione_in_cache_non_viene_richiesta_di_nuovo(self):
         with tempfile.TemporaryDirectory() as d:

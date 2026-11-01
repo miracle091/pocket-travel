@@ -56,7 +56,7 @@ PROTECTED = 1
 UNESCO = 2
 POINT = re.compile(r"Point\(([-0-9.eE]+) ([-0-9.eE]+)\)")
 
-QUERY = """SELECT ?item ?links (SAMPLE(?c) AS ?coord) (MAX(?p) AS ?protected) (MAX(?u) AS ?unesco)
+QUERY = """SELECT ?item ?links (MIN(STR(?c)) AS ?coord) (MAX(?p) AS ?protected) (MAX(?u) AS ?unesco)
        (MAX(?s) AS ?settlement) WHERE {
   VALUES ?item { %s }
   ?item wikibase:sitelinks ?links .

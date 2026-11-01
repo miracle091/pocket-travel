@@ -25,6 +25,7 @@ il workflow lo risolve una volta per run (--print-release) e lo passa a ogni cel
 Richiede il pacchetto duckdb (con le estensioni httpfs e spatial, caricate qui).
 """
 import argparse
+import http.client
 import sys
 
 import duckdb
@@ -185,14 +186,28 @@ def sql_string(value):
     return "'" + value.replace("'", "''") + "'"
 
 
+USER_AGENT = "pocket-travel-overture-addresses/1.0 (https://github.com/miracle091/pocket-travel)"
+LISTING_ATTEMPTS = 3
+
+
 def latest_release():
     """Rilascio piu' recente nel bucket pubblico (i nomi sono date ISO con un suffisso .N: basta l'ordine)."""
     import re
+    import time
     import urllib.request
 
     url = "https://overturemaps-us-west-2.s3.amazonaws.com/?list-type=2&prefix=release/&delimiter=/"
-    with urllib.request.urlopen(url, timeout=60) as response:
-        listing = response.read().decode("utf-8")
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    for attempt in range(1, LISTING_ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                listing = response.read().decode("utf-8")
+            break
+        except (OSError, http.client.HTTPException) as error:
+            if attempt == LISTING_ATTEMPTS:
+                raise
+            print(f"-- overture: elenco dei rilasci non letto ({error}), riprovo ({attempt}/{LISTING_ATTEMPTS})", file=sys.stderr, flush=True)
+            time.sleep(5 * attempt)
     releases = re.findall(r"<Prefix>release/(\d{4}-\d{2}-\d{2}\.\d+)/</Prefix>", listing)
     if not releases:
         raise RuntimeError("nessun rilascio Overture nell'elenco del bucket")

@@ -155,5 +155,12 @@ class AnnotateTest(unittest.TestCase):
         self.assertIn("0 POI con fama e patrimonio", out.getvalue())
 
 
+class QueryTest(unittest.TestCase):
+    def test_piu_coordinate_per_elemento_danno_un_risultato_deterministico(self):
+        # SAMPLE sceglieva una coordinata a caso tra piu' P625; MIN sul testo e' sempre la stessa.
+        self.assertIn("MIN(STR(?c)) AS ?coord", poi_wikidata.QUERY)
+        self.assertNotIn("SAMPLE", poi_wikidata.QUERY)
+
+
 if __name__ == "__main__":
     unittest.main()

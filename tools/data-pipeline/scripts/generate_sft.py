@@ -62,14 +62,13 @@ generato: gli stessi argomenti non ridanno quel file.
 import argparse
 import json
 import math
-import os
 import random
 import re
 import sqlite3
 import sys
 import urllib.parse
 from collections import Counter, defaultdict
-from contextlib import closing, contextmanager
+from contextlib import closing
 from pathlib import Path
 
 import audit_sft
@@ -81,7 +80,7 @@ import sft_nearby
 import sft_retrieval
 import travel_questions
 import wiki_dump
-from eval_common import TEST_REGIONS
+from eval_common import TEST_REGIONS, replaced_when_done
 from status import Progress, phase
 from translate_dataset import LICENSE as MT_LICENSE, MODELS as MT_MODELS, Translator, needs_translation
 # historyClimateWords dell'app: con una di queste parole nella domanda le sezioni Storia e Clima pesano come le altre
@@ -1084,18 +1083,6 @@ def localized_attribution(rows, lang):
     return [(rid, tr(name), url, tr(lic)) for rid, name, url, lic in rows]
 
 
-@contextmanager
-def replaced_when_done(path):
-    """Percorso temporaneo accanto a path, che sostituisce path solo se il blocco finisce senza errori: un'interruzione
-    o un errore a meta' scrittura lasciano intero il file precedente, e il temporaneo si cancella."""
-    tmp = path.with_name(path.name + ".tmp")
-    try:
-        yield tmp
-        os.replace(tmp, path)
-    finally:
-        tmp.unlink(missing_ok=True)
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--lang", choices=("it", "en"), required=True)
@@ -1820,7 +1807,7 @@ def main():
             f.write("regionId\tdisplayName\tsourceUrl\tlicense\n")
             for rid, name, url, lic in localized_attribution(attribution, lang):
                 f.write(f"{rid}\t{name}\t{url}\t{lic}\n")
-        it.write_excluded(excluded_tmp, excluded)
+        it.write_excluded(excluded_tmp, excluded, shown=excluded_out)
     print(f"regioni con testo: {len(data)}; sezioni tradotte {other}->{lang}: {n_tr['sezioni']}, "
           f"paragrafi Wikipedia tradotti: {n_tr['wikipedia']}, originali di Wikipedia EN: {n_tr['wikipedia_en']}")
     print(f"positivi={pos} negativi={neg} citta' positivi={city_pos} negativi={city_neg} "

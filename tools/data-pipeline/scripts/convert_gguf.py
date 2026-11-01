@@ -34,7 +34,8 @@ from pathlib import Path
 
 import gpu_lock
 import vram
-from eval_common import SFT_DIR, TEST_REGIONS, chatml_answer, chatml_prompt, find_llama_bin, llama_env, run_dataset, uses_empty_think
+from eval_common import (SFT_DIR, TEST_REGIONS, chatml_answer, chatml_prompt, find_llama_bin, llama_env, replaced_when_done,
+                         run_dataset, uses_empty_think)
 from status import duration, phase
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -54,6 +55,7 @@ ap.add_argument("--imatrix-rows", type=int, default=400,
 ap.add_argument("--empty-think", action="store_true",
                 help="forza il blocco <think> vuoto nella calibrazione (di default: se il chat template usa enable_thinking, come ai_chat.cpp)")
 a = ap.parse_args()
+a.output.parent.mkdir(parents=True, exist_ok=True)
 gpu_lock.gpu_job("convert_gguf.py", gpu=bool(a.gpu_layers and a.imatrix_rows and a.quantize.lower() != "none"))
 
 HERE = Path(__file__).resolve().parent
@@ -125,21 +127,24 @@ with tempfile.TemporaryDirectory() as tmp:
     step("conversione GGUF F16", str(a.merged),
          [sys.executable, str(convert_script), str(a.merged), "--outfile", str(f16_path), "--outtype", "f16", *no_mtp])
 
-    if a.quantize.lower() == "none":
-        shutil.move(str(f16_path), a.output)
-    else:
-        imatrix = []
-        if a.imatrix_rows:
-            # Nomi relativi alla cartella temporanea: llama-quantize scrive nei metadati del GGUF pubblicato
-            # (quantize.imatrix.file/dataset) i percorsi passati, che altrimenti rivelerebbero quelli locali.
-            calib, imatrix_path = "calibration.txt", "imatrix.gguf"
-            write_calibration(Path(tmp) / calib)
-            step("calcolo imatrix", f"{a.imatrix_rows} righe del dataset di training",
-                 [find_bin("llama-imatrix"), "-m", str(f16_path), "-f", calib, "-o", imatrix_path, "-c", "512",
-                  "--parse-special",  # <|im_start|>, <|im_end|>, <think> come token speciali, come li manda l'app
-                  "-ngl", str(a.gpu_layers), *(["--device", a.device] if a.device else [])], cwd=tmp)
-            imatrix = ["--imatrix", imatrix_path]
-        step("quantizzazione", quantize + (" con imatrix" if imatrix else ""),
-             [find_bin("llama-quantize"), *imatrix, *qargs, str(f16_path), str(a.output.resolve()), qtype], cwd=tmp)
+    # Il GGUF si scrive in un .tmp accanto all'output e lo sostituisce solo a lavoro finito: un errore o
+    # un'interruzione non lasciano un file troncato con il nome definitivo.
+    with replaced_when_done(a.output) as part:
+        if a.quantize.lower() == "none":
+            shutil.move(str(f16_path), part)
+        else:
+            imatrix = []
+            if a.imatrix_rows:
+                # Nomi relativi alla cartella temporanea: llama-quantize scrive nei metadati del GGUF pubblicato
+                # (quantize.imatrix.file/dataset) i percorsi passati, che altrimenti rivelerebbero quelli locali.
+                calib, imatrix_path = "calibration.txt", "imatrix.gguf"
+                write_calibration(Path(tmp) / calib)
+                step("calcolo imatrix", f"{a.imatrix_rows} righe del dataset di training",
+                     [find_bin("llama-imatrix"), "-m", str(f16_path), "-f", calib, "-o", imatrix_path, "-c", "512",
+                      "--parse-special",  # <|im_start|>, <|im_end|>, <think> come token speciali, come li manda l'app
+                      "-ngl", str(a.gpu_layers), *(["--device", a.device] if a.device else [])], cwd=tmp)
+                imatrix = ["--imatrix", imatrix_path]
+            step("quantizzazione", quantize + (" con imatrix" if imatrix else ""),
+                 [find_bin("llama-quantize"), *imatrix, *qargs, str(f16_path), str(part.resolve()), qtype], cwd=tmp)
 
 phase("fatto", f"{a.output} ({a.output.stat().st_size / 2**20:.1f} MiB)")

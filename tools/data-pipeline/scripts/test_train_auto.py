@@ -28,9 +28,9 @@ def tearDownModule():
     _GPU_JOB.stop()
 
 
-IGPU ={"index": 0, "name": "AMD Radeon(TM) Graphics", "vram_gib": 0.5, "free_gib": 0.4, "integrated": True}
-DGPU = {"index": 1, "name": "AMD Radeon RX 7800 XT", "vram_gib": 16.0, "free_gib": 15.0, "integrated": False}
-SMALL = {"index": 2, "name": "NVIDIA GTX", "vram_gib": 6.0, "free_gib": 6.0, "integrated": False}
+IGPU = {"index": 0, "name": "AMD Radeon(TM) Graphics", "vram_gib": 0.5, "compute_units": 2, "integrated": True}
+DGPU = {"index": 1, "name": "AMD Radeon RX 7800 XT", "vram_gib": 16.0, "compute_units": 60, "integrated": False}
+SMALL = {"index": 2, "name": "NVIDIA GTX", "vram_gib": 6.0, "compute_units": 28, "integrated": False}
 
 
 def run_main(info, argv, unsloth=False, system="Linux", msvc=None):
@@ -43,6 +43,7 @@ def run_main(info, argv, unsloth=False, system="Linux", msvc=None):
 
     out = io.StringIO()
     with mock.patch.object(train_auto, "probe", return_value=info), \
+            mock.patch.object(train_auto, "free_gib", return_value=15.0) as free, \
             mock.patch.object(train_auto.vram, "check") as check, \
             mock.patch("importlib.util.find_spec", return_value=object() if unsloth else None), \
             mock.patch("platform.system", return_value=system), \
@@ -55,6 +56,7 @@ def run_main(info, argv, unsloth=False, system="Linux", msvc=None):
             code = None
         except SystemExit as e:
             code = e.code
+    check.free_index = [c.args[0] for c in free.call_args_list]
     return out.getvalue(), called, check, code
 
 
@@ -64,6 +66,14 @@ class MainTest(unittest.TestCase):
         out, called, check, _ = run_main(info, [])
         self.assertEqual("1", called["env"]["HIP_VISIBLE_DEVICES"])
         self.assertIn("GPU 1 = AMD Radeon RX 7800 XT", out)
+        self.assertEqual(16.0, check.call_args.args[0])
+
+    def test_sceglie_per_unita_di_calcolo_non_per_vram(self):
+        # l'iGPU dichiara la RAM di sistema (qui 32 GiB): piu' VRAM della discreta, ma meno unita' di calcolo
+        big_igpu = dict(IGPU, vram_gib=32.0, integrated=False)
+        _, called, check, _ = run_main({"cuda": None, "hip": "6.2", "gpus": [big_igpu, DGPU]}, [])
+        self.assertEqual("1", called["env"]["HIP_VISIBLE_DEVICES"])
+        self.assertEqual([1], check.free_index)  # la memoria libera si chiede solo alla GPU scelta
         self.assertEqual(16.0, check.call_args.args[0])
 
     def test_nvidia_imposta_cuda_visible_devices(self):
@@ -128,7 +138,7 @@ class MainTest(unittest.TestCase):
 
     def test_watchdog_acceso_di_default(self):
         info = {"cuda": None, "hip": "6.2", "gpus": [DGPU]}
-        with mock.patch.object(train_auto, "probe", return_value=info), mock.patch.object(train_auto.vram, "check"), \
+        with mock.patch.object(train_auto, "probe", return_value=info), mock.patch.object(train_auto.vram, "check"), mock.patch.object(train_auto, "free_gib", return_value=15.0), \
                 mock.patch("importlib.util.find_spec", return_value=None), \
                 mock.patch("subprocess.call", return_value=0) as call, \
                 mock.patch.object(train_auto, "run_watched", return_value=0) as watched, \
@@ -140,7 +150,7 @@ class MainTest(unittest.TestCase):
 
     def test_no_watchdog_lancia_senza_controllo(self):
         info = {"cuda": None, "hip": "6.2", "gpus": [DGPU]}
-        with mock.patch.object(train_auto, "probe", return_value=info), mock.patch.object(train_auto.vram, "check"), \
+        with mock.patch.object(train_auto, "probe", return_value=info), mock.patch.object(train_auto.vram, "check"), mock.patch.object(train_auto, "free_gib", return_value=15.0), \
                 mock.patch("importlib.util.find_spec", return_value=None), \
                 mock.patch("subprocess.call", return_value=0) as call, \
                 mock.patch.object(train_auto, "run_watched", return_value=0) as watched, \

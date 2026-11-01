@@ -55,6 +55,13 @@ class GenerateCountryFactsTest {
     }
 
     @Test
+    fun `una regione duplicata nel tsv e' un errore`() {
+        val row = listOf("italia", "it", "Roma", "Rome", "EUR", "euro", "euro", "right", "+39", "italiano", "Italian", "UTC+01:00", "112", "C, F, L", "230").joinToString("\t")
+        val error = org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { parseCountryFacts("$row\n$row\n") }
+        assertTrue(error.message.orEmpty().contains("italia"))
+    }
+
+    @Test
     fun `il tsv curato ha i dati delle regioni divise e le correzioni`() {
         val california = countryFactFields("stati-uniti-california", english = false)
         assertEquals("Sacramento", california["Capitale"])
@@ -86,8 +93,8 @@ class GenerateCountryFactsTest {
     }
 
     @Test
-    fun `parseCountryFacts - un regionId ripetuto tiene l'ultima riga e i campi vuoti restano stringhe vuote`() {
-        val facts = parseCountryFacts(tsvRow("x", 2 to "Prima") + "\n" + tsvRow("x", 2 to "Seconda", 13 to "", 14 to "") + "\n")
+    fun `parseCountryFacts - i campi vuoti restano stringhe vuote`() {
+        val facts = parseCountryFacts(tsvRow("x", 2 to "Seconda", 13 to "", 14 to "") + "\n")
 
         assertEquals(1, facts.size)
         assertEquals("Seconda", facts.getValue("x").capitalIt)

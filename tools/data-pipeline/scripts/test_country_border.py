@@ -269,6 +269,14 @@ class ScegliAndCacheTest(unittest.TestCase):
             with open(path, encoding="utf-8") as f:
                 self.assertEqual([{"nome": "Réunion"}], json.load(f))
 
+    def test_in_cache_non_salva_la_lista_vuota_ne_lascia_file_temporanei(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "x.json")
+            self.assertEqual([], country_border.in_cache(path, lambda: []))
+            self.assertEqual([], os.listdir(tmp))
+            self.assertEqual([1], country_border.in_cache(path, lambda: [1]))
+            self.assertEqual(["x.json"], os.listdir(tmp))
+
     def test_copertura_senza_sovrapposizione_e_parziale(self):
         self.assertEqual(0.0, country_border.copertura((0, 0, 1, 1), (2, 2, 3, 3)))
         self.assertEqual(0.0, country_border.copertura((0, 0, 1, 1), (1, 0, 2, 1)))   # solo un lato in comune

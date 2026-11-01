@@ -43,6 +43,10 @@ data class TransitStats(val stops: Int, val routes: Int, val trips: Int, val sto
 
 private val GTFS_DATE: DateTimeFormatter = DateTimeFormatter.BASIC_ISO_DATE
 
+/** Data GTFS (AAAAMMGG), o null se vuota o illeggibile. */
+private fun parseGtfsDate(text: String?): LocalDate? =
+    text?.trim()?.takeIf { it.isNotEmpty() }?.let { runCatching { LocalDate.parse(it, GTFS_DATE) }.getOrNull() }
+
 fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: LocalDate, windowDays: Int, gtfsIds: Boolean = false): TransitStats {
     require(windowDays in 1..366) { "windowDays fuori intervallo: $windowDays" }
     outputDb.delete()
@@ -56,9 +60,14 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
 
         // Servizi: giorni attivi nella finestra, da calendar.txt e calendar_dates.txt.
         val services = HashMap<String, BooleanArray>()
+        var badCalendarRows = 0
         rows("calendar.txt") { r ->
-            val start = LocalDate.parse(r.getValue("start_date"), GTFS_DATE)
-            val end = LocalDate.parse(r.getValue("end_date"), GTFS_DATE)
+            val start = parseGtfsDate(r["start_date"])
+            val end = parseGtfsDate(r["end_date"])
+            if (start == null || end == null) {
+                badCalendarRows++
+                return@rows
+            }
             val weekdays = listOf("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday").map { r[it] == "1" }
             val days = services.getOrPut(r.getValue("service_id")) { BooleanArray(windowDays) }
             for (i in 0 until windowDays) {
@@ -67,7 +76,11 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
             }
         }
         rows("calendar_dates.txt") { r ->
-            val day = LocalDate.parse(r.getValue("date"), GTFS_DATE)
+            val day = parseGtfsDate(r["date"])
+            if (day == null) {
+                badCalendarRows++
+                return@rows
+            }
             val i = java.time.temporal.ChronoUnit.DAYS.between(windowStart, day)
             if (i !in 0 until windowDays) return@rows
             val days = services.getOrPut(r.getValue("service_id")) { BooleanArray(windowDays) }
@@ -76,6 +89,7 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                 "2" -> days[i.toInt()] = false
             }
         }
+        if (badCalendarRows > 0) println("::warning::GTFS $feedId: $badCalendarRows righe di calendar.txt o calendar_dates.txt con data vuota o illeggibile, saltate")
         val activeServices = services.filterValues { days -> days.any { it } }
         val serviceIds = activeServices.keys.sorted().withIndex().associate { (i, id) -> id to i }
 

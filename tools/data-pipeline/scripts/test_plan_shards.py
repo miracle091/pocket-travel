@@ -33,7 +33,7 @@ class PlanShardsTest(unittest.TestCase):
         self.dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.dir.cleanup)
         self.tree = Path(self.dir.name)
-        for f in (SCRIPT, ".github/scripts/env.sh", "tools/data-pipeline/scripts/portable.sh"):
+        for f in (SCRIPT, ".github/scripts/env.sh", "tools/data-pipeline/scripts/portable.sh", "tools/data-pipeline/scripts/lib.sh"):
             fx.copy(f, self.tree)
         fx.write(self.tree / "tools/data-pipeline/scripts/regions.sh", "ALL_REGIONS=(\n" + "".join(f'  "{r}|{r}|0|0|1|1"\n' for r in REGIONS) + ")\n")
         self.set_schedule({3: ["aaa", "bbb"], 4: ["ccc"]}, {r: 2 for r in REGIONS})

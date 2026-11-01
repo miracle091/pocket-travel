@@ -4,6 +4,7 @@ ai test di RelazioniSpezzateTest, che senza si saltano.
 
 Uso: python test_geofabrik_pois.py
 """
+import http.client
 import io
 import json
 import math
@@ -840,6 +841,12 @@ class ScaricaTest(unittest.TestCase):
             geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
         with open(self.dest, "rb") as f:
             self.assertEqual(b"0123456789", f.read())
+
+    def test_lettura_incompleta_si_riprova(self):
+        incomplete = http.client.IncompleteRead(b"ab", 10)
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=[incomplete, FakeDownload(b"ok")]) as urlopen:
+            geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
+        self.assertEqual(2, urlopen.call_count)
 
     def test_senza_content_length_il_file_si_accetta(self):
         with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", return_value=FakeDownload(b"xyz", length=None)):

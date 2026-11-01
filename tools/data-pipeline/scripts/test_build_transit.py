@@ -147,6 +147,23 @@ class BuildTransitTest(unittest.TestCase):
         self.assertIn("converto", proc.stdout)
         self.assertNotIn("la tengo", proc.stdout)
 
+    def test_voce_senza_valid_until_non_si_tiene(self):
+        data = feed_zip()
+        fx.write(self.tree / "gradlew", FAILING_GRADLE, executable=True)
+        entry = published_entry(data)
+        del entry["validUntil"]
+        proc = self.build(data, {"feeds": [entry]})
+        self.assertIn("converto", proc.stdout)
+        self.assertNotIn("la tengo", proc.stdout)
+
+    def test_voce_con_la_data_della_versione_illeggibile_si_ricostruisce(self):
+        data = feed_zip()
+        fx.write(self.tree / "gradlew", FAILING_GRADLE, executable=True)
+        entry = {**published_entry(data), "version": "2026.13.45.1.1"}
+        proc = self.build(data, {"feeds": [entry]})
+        self.assertIn("converto", proc.stdout)
+        self.assertNotIn("la tengo", proc.stdout)
+
     def test_feed_cambiato_si_ricostruisce(self):
         fx.write(self.tree / "gradlew", FAILING_GRADLE, executable=True)
         proc = self.build(feed_zip(b"nuovo\n"), {"feeds": [published_entry(feed_zip())]})

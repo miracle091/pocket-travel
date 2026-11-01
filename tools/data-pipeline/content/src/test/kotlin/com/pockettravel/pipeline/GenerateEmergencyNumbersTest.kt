@@ -1,6 +1,7 @@
 package com.pockettravel.pipeline
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -152,5 +153,23 @@ class GenerateEmergencyNumbersTest {
         } finally {
             outputDb.delete()
         }
+    }
+
+    @Test
+    fun `una riga con meno di cinque colonne e' un errore che nomina la regione`() {
+        val error = assertThrows(IllegalArgumentException::class.java) { parseEmergencyRows("italia\t112\t113\n") }
+        assertTrue(error.message.orEmpty().contains("italia"))
+    }
+
+    @Test
+    fun `una regione duplicata e' un errore`() {
+        val row = "italia\t112\t113\t118\t115\n"
+        assertThrows(IllegalArgumentException::class.java) { parseEmergencyRows(row + row) }
+    }
+
+    @Test
+    fun `un numero vuoto non produce l'etichetta senza numero`() {
+        val line = emergencyNumbersLine(EmergencyNumbers(general = null, police = "110", ambulance = "", fire = ""), english = false)
+        assertEquals("Numeri di emergenza: Polizia 110", line)
     }
 }

@@ -182,12 +182,12 @@ for spec in "${GENERAL_GUIDE_PAGES[@]}"; do
   dump="$WORKDIR/general-guide-$GENERAL_GUIDE_INDEX.txt"
   if [ "$LANG_CODE" = "en" ]; then
     page="$titleEn"
-    sourceUrl="https://en.wikivoyage.org/wiki/${titleEn// /_}"
+    sourceUrl="$(wiki_page_url en.wikivoyage.org "$titleEn")"
     fetch_wikivoyage_en_dump "$titleEn" "$dump" >/dev/null || : > "$dump"
   else
     [ -n "$titleIt" ] || continue
     page="$titleIt"
-    sourceUrl="https://it.wikivoyage.org/wiki/${titleIt// /_}"
+    sourceUrl="$(wiki_page_url it.wikivoyage.org "$titleIt")"
     wikimedia_curl -G "https://it.wikivoyage.org/w/index.php" --data-urlencode "title=${titleIt}" -d action=raw -o "$dump" 2>/dev/null || : > "$dump"
   fi
   if [ ! -s "$dump" ]; then
@@ -213,6 +213,8 @@ published_unreadable() {
 if [ -n "$PUBLISHED_MANIFEST_URL" ] && command -v jq >/dev/null 2>&1; then
   if ! curl -sSf --max-time 120 --speed-limit 1000 --speed-time 30 --retry 5 --retry-all-errors --retry-delay 5 -o "$WORKDIR/published-manifest.json" "$PUBLISHED_MANIFEST_URL" 2>/dev/null; then
     published_unreadable "manifest.json pubblicato non scaricato"
+  elif ! verify_published_signature "$WORKDIR/published-manifest.json" "$PUBLISHED_MANIFEST_URL"; then
+    published_unreadable "firma di manifest.json pubblicato mancante o non valida"
   else
     PUBLISHED_URL="$(jq -r --arg k "$MANIFEST_KEY" '.[$k].file.url // ""' "$WORKDIR/published-manifest.json")"
     PUBLISHED_VERSION="$(jq -r --arg k "$MANIFEST_KEY" '.[$k].version // ""' "$WORKDIR/published-manifest.json")"

@@ -87,9 +87,17 @@ class Ct2Translator(ts.Translator):
         return [self.target.decode(r.hypotheses[0]) for r in results]
 
 
+def open_readonly(db):
+    """Il database in sola lettura: sqlite3.connect su un percorso che manca ne creerebbe uno vuoto."""
+    db = Path(db)
+    if not db.is_file():
+        sys.exit(f"database assente: {db}")
+    return sqlite3.connect(f"{db.resolve().as_uri()}?mode=ro", uri=True)
+
+
 def read_rows(db, table, owner_column):
     """[(proprietario, categoria, titolo, corpo, sourceUrl)] di una tabella di sezioni; [] se la tabella manca."""
-    con = sqlite3.connect(str(db))
+    con = open_readonly(db)
     try:
         return con.execute(f"SELECT {owner_column}, category, title, body, sourceUrl FROM {table} ORDER BY rowid").fetchall()
     except sqlite3.OperationalError:
@@ -284,7 +292,7 @@ def main(argv=None):
         source_owner = {o: o for o in owners if o in source_owners}
     else:
         source_owner = other_titles(owners, source_owners, own_lang, source_lang, args.cache_dir)
-        con = sqlite3.connect(args.own_db)
+        con = open_readonly(args.own_db)
         try:
             priority = dict(con.execute("SELECT city, MAX(population) FROM city_sections WHERE population IS NOT NULL GROUP BY city"))
         except sqlite3.OperationalError:  # cities.db senza la colonna population

@@ -15,6 +15,7 @@ from unittest import mock
 
 import generate_sft
 import generate_sft_dataset as it
+import generate_sft_dataset_en as en
 
 
 class ReplacedWhenDoneTest(unittest.TestCase):
@@ -79,6 +80,42 @@ class OverwriteTest(unittest.TestCase):
                     (Path(tmp) / "pocket_travel_sft.v11.it.jsonl").write_text("in uso\n", encoding="utf-8")
                 with self.assertRaises(LoadSourcesReached):
                     self.run_main(Path(tmp), *extra)
+
+
+class OldGeneratorsOverwriteTest(unittest.TestCase):
+    """generate_sft_dataset.py e generate_sft_dataset_en.py non sovrascrivono un dataset esistente senza --overwrite."""
+
+    def stop_for(self, module, name, argv):
+        with tempfile.TemporaryDirectory() as tmp:
+            dataset = Path(tmp) / name
+            dataset.write_text("in uso\n", encoding="utf-8")
+            err = io.StringIO()
+            with mock.patch.object(sys, "argv", ["x.py", *argv, "--dump-dir", tmp]), mock.patch.object(module, "OUT", Path(tmp)), \
+                    contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as stop:
+                module.main()
+            self.assertEqual(2, stop.exception.code)
+            self.assertIn("--overwrite", err.getvalue())
+            self.assertEqual("in uso\n", dataset.read_text(encoding="utf-8"))
+
+    def test_italiano(self):
+        self.stop_for(it, "pocket_travel_sft.jsonl", [])
+
+    def test_italiano_con_vs(self):
+        self.stop_for(it, "pocket_travel_sft.with-vs.jsonl", ["--vs"])
+
+    def test_inglese(self):
+        self.stop_for(en, "pocket_travel_sft.en.jsonl", [])
+
+
+class ExcludedPathTest(unittest.TestCase):
+    def test_stampa_il_percorso_finale_non_il_temporaneo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            final = Path(tmp) / "EXCLUDED.tsv"
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out), generate_sft.replaced_when_done(final) as part:
+                it.write_excluded(part, [("r", "it", "-", "pagina-assente")], shown=final)
+            self.assertIn(f"in {final}", out.getvalue())
+            self.assertNotIn(".tmp", out.getvalue())
 
 
 if __name__ == "__main__":

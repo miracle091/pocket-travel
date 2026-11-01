@@ -19,6 +19,10 @@ NODE = next(n for n in ast.parse(SOURCE).body if isinstance(n, ast.FunctionDef) 
 NAMESPACE = {"Path": Path}
 exec(compile(ast.Module([NODE], []), "train_lora.py", "exec"), NAMESPACE)
 last_complete_checkpoint = NAMESPACE["last_complete_checkpoint"]
+SPOT_NODE = next(n for n in ast.parse(SOURCE).body if isinstance(n, ast.FunctionDef) and n.name == "spot_check_rows")
+SPOT_NAMESPACE = {"random": __import__("random")}
+exec(compile(ast.Module([SPOT_NODE], []), "train_lora.py", "exec"), SPOT_NAMESPACE)
+spot_check_rows = SPOT_NAMESPACE["spot_check_rows"]
 MERGE_NODE = next(n for n in ast.parse(SOURCE).body if isinstance(n, ast.FunctionDef) and n.name == "merge_full_precision")
 
 
@@ -51,6 +55,20 @@ class LastCompleteCheckpointTest(unittest.TestCase):
             checkpoint(tmp, 100, complete=False)
             self.assertIsNone(last_complete_checkpoint(tmp))
             self.assertIsNone(last_complete_checkpoint(Path(tmp) / "non-esiste"))
+
+
+class SpotCheckRowsTest(unittest.TestCase):
+    ROWS = [{"kind": k, "n": i} for k in ("pos", "neg") for i in range(20)]
+
+    def test_due_positivi_e_due_negativi_sempre_gli_stessi(self):
+        picked = spot_check_rows(self.ROWS)
+        self.assertEqual(["pos", "pos", "neg", "neg"], [r["kind"] for r in picked])
+        self.assertEqual(picked, spot_check_rows(self.ROWS))
+
+    def test_un_tipo_senza_righe_si_salta(self):
+        only_pos = [r for r in self.ROWS if r["kind"] == "pos"]
+        self.assertEqual(["pos", "pos"], [r["kind"] for r in spot_check_rows(only_pos)])
+        self.assertEqual([], spot_check_rows([]))
 
 
 class FakeModel:

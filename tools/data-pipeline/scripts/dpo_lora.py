@@ -24,16 +24,10 @@ import re
 import sys
 from pathlib import Path
 
-from eval_common import SFT_DIR, TEST_REGIONS, chat_prompt_and_answer, extended_file
+from eval_common import SFT_DIR, TEST_REGIONS, chat_prompt_and_answer, context_of, extended_file
 from text_only import text_only_base
 
 GROUPS = ("neg_city", "pos_city", "pos_near", "neg_near")
-
-
-def context_of(question):
-    """Testo tra "CONTESTO:" e "DOMANDA:" del messaggio utente."""
-    match = re.search(r"CONTESTO:\s*(.*?)\n\nDOMANDA:", question, re.S)
-    return match.group(1) if match else ""
 
 
 def first_sentence(context):
@@ -94,7 +88,7 @@ def build_pairs(rows, excluded_regions, per_group, seed=42):
             continue
         prompt, answer = r["messages"][:1], r["messages"][1]["content"]
         if r["kind"] == "neg":
-            rejected = first_sentence(context_of(prompt[0]["content"]))
+            rejected = first_sentence(context_of(r))
             chosen = answer
         else:
             rejected = refusals.get(r["category"], fallback)

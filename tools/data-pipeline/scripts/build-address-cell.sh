@@ -200,8 +200,11 @@ search_entry() {
 # o niente se la cella non ha dati) e, se il contenuto e' nuovo, i file cell-*.pmtiles[.xz] in
 # $OUTPUT_DIR. Oltre ADDRESS_CELL_MAX_BYTES e sotto z14: richiama se stessa sui 4 figli invece di
 # scrivere una voce per questa cella (i figli senza dati restano senza voce, come da contratto).
+# Il quarto argomento ("split") dice che la cella e' figlia di una divisione: li' una fonte o
+# generateAddresses in errore fa uscire con errore (il genitore resta nell'indice), perche' una
+# figlia senza voce per un errore di rete farebbe perdere i civici di un quarto dell'area.
 build_cell() {
-  local z="$1" x="$2" y="$3"
+  local z="$1" x="$2" y="$3" inSplit="${4:-}"
   local id="$z/$x/$y" label="cell-$z-$x-$y"
 
   local published="" publishedVersion publishedDate ageDays
@@ -225,10 +228,10 @@ build_cell() {
   # di questa cella solo per riscoprire che supera il tetto. Le celle non si riuniscono mai.
   if [ -z "$published" ] && [ "$z" -lt 14 ] && has_published_descendant "$z" "$x" "$y"; then
     echo "-- $id: gia' divisa nell'indice pubblicato, passo alle 4 figlie"
-    build_cell $((z + 1)) $((x * 2)) $((y * 2))
-    build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2))
-    build_cell $((z + 1)) $((x * 2)) $((y * 2 + 1))
-    build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2 + 1))
+    build_cell $((z + 1)) $((x * 2)) $((y * 2)) split
+    build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2)) split
+    build_cell $((z + 1)) $((x * 2)) $((y * 2 + 1)) split
+    build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2 + 1)) split
     return 0
   fi
 
@@ -244,8 +247,8 @@ build_cell() {
 
   # Cella gia' pubblicata e una fonte in errore: la voce pubblicata (con entrambe le fonti) e' meglio
   # di una ricostruita con una sola. Si esce con errore, il chiamante la lascia com'e'.
-  if [ -n "$published" ] && { [ "$OSM_FAILED" = true ] || [ "$OVERTURE_FAILED" = true ]; }; then
-    echo "ERRORE: $id: fonte fallita (OSM=$OSM_FAILED, Overture=$OVERTURE_FAILED) e la cella e' gia' pubblicata: la tengo" >&2
+  if { [ -n "$published" ] || [ -n "$inSplit" ]; } && { [ "$OSM_FAILED" = true ] || [ "$OVERTURE_FAILED" = true ]; }; then
+    echo "ERRORE: $id: fonte fallita (OSM=$OSM_FAILED, Overture=$OVERTURE_FAILED) e la cella e' gia' pubblicata o figlia di una divisione: la tengo" >&2
     rm -rf "$cellWorkdir"
     exit 1
   fi
@@ -264,6 +267,10 @@ build_cell() {
     )"; then
     echo "::warning::generateAddresses fallito per $id"
     rm -rf "$cellWorkdir"
+    if [ -n "$inSplit" ]; then
+      echo "ERRORE: $id: figlia di una divisione senza voce, la cella genitore resta" >&2
+      exit 1
+    fi
     return 0
   fi
 
@@ -279,10 +286,10 @@ build_cell() {
   if [ "$xzSize" -gt "$ADDRESS_CELL_MAX_BYTES" ] && [ "$z" -lt 14 ]; then
     echo "-- $id: $xzSize byte oltre il tetto ($ADDRESS_CELL_MAX_BYTES), divido in 4 celle figlie"
     rm -rf "$cellWorkdir"
-    build_cell $((z + 1)) $((x * 2)) $((y * 2))
-    build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2))
-    build_cell $((z + 1)) $((x * 2)) $((y * 2 + 1))
-    build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2 + 1))
+    build_cell $((z + 1)) $((x * 2)) $((y * 2)) split
+    build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2)) split
+    build_cell $((z + 1)) $((x * 2)) $((y * 2 + 1)) split
+    build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2 + 1)) split
     return 0
   fi
   if [ "$xzSize" -gt "$ADDRESS_CELL_MAX_BYTES" ]; then

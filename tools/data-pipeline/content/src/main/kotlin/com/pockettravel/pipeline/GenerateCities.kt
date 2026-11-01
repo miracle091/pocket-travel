@@ -106,6 +106,20 @@ data class CitySectionRow(
  * ({"title": voce, "text": sezioni Storia/Clima in wikitext}, city_wikipedia.py) aggiunge le sezioni
  * STORIA e CLIMA dopo quelle di Wikivoyage, pulite con la stessa cleanBody.
  */
+/**
+ * Indirizzo di una voce di Wikipedia o Wikivoyage: spazi come "_", lettere non ASCII e apostrofi lasciati
+ * leggibili (Uri li accetta), codificati solo i caratteri che spezzerebbero il percorso: "%", "?", "#" e
+ * quelli non ammessi in un URL.
+ */
+internal fun wikiPageUrl(host: String, title: String): String {
+    val path = buildString {
+        for (c in title.replace(' ', '_')) {
+            if (c in "%?#\"<>|\\^`{}" || c.code < 0x20 || c.code == 0x7F) append('%').append("%02X".format(c.code)) else append(c)
+        }
+    }
+    return "https://$host/wiki/$path"
+}
+
 fun parseCitiesJsonl(jsonl: String, english: Boolean = false): List<CitySectionRow> =
     jsonl.lineSequence().filter { it.isNotBlank() }.flatMap { line ->
         val obj = JSONObject(line)
@@ -115,12 +129,12 @@ fun parseCitiesJsonl(jsonl: String, english: Boolean = false): List<CitySectionR
         val latitude = if (obj.isNull("lat")) null else obj.optDouble("lat").takeUnless { it.isNaN() }
         val longitude = if (obj.isNull("lon")) null else obj.optDouble("lon").takeUnless { it.isNaN() }
         val lang = if (english) "en" else "it"
-        val sourceUrl = "https://$lang.wikivoyage.org/wiki/" + city.replace(" ", "_")
+        val sourceUrl = wikiPageUrl("$lang.wikivoyage.org", city)
         val wikivoyage = parseWikivoyageDump(obj.getString("text"), if (english) cityHeadingToCategoryEn else cityHeadingToCategory).map { section ->
             CitySectionRow(city = city, category = section.category, title = section.title, body = section.body, sourceUrl = sourceUrl, population = population, capital = capital, latitude = latitude, longitude = longitude)
         }
         val wikipedia = obj.optJSONObject("wikipedia")?.let { wp ->
-            val wpUrl = "https://$lang.wikipedia.org/wiki/" + wp.getString("title").replace(" ", "_")
+            val wpUrl = wikiPageUrl("$lang.wikipedia.org", wp.getString("title"))
             parseWikivoyageDump(wp.getString("text"), if (english) wikipediaHeadingToCategoryEn else wikipediaHeadingToCategory).mapNotNull { section ->
                 val cleaned = dropDanglingIntros(section.body)
                 val body = if (section.category == "STORIA") truncateSection(cleaned) else cleaned
@@ -157,7 +171,7 @@ fun parseCitiesClimateJsonl(jsonl: String, english: Boolean = false): List<CityC
         val months = climate.optJSONArray("months") ?: return@flatMap emptySequence()
         val city = obj.getString("city")
         val lang = if (english) "en" else "it"
-        val sourceUrl = "https://$lang.wikipedia.org/wiki/" + climate.getString("title").replace(" ", "_")
+        val sourceUrl = wikiPageUrl("$lang.wikipedia.org", climate.getString("title"))
         (0 until minOf(months.length(), 12)).asSequence().mapNotNull { index ->
             val month = months.optJSONObject(index) ?: return@mapNotNull null
             val row = CityClimateRow(

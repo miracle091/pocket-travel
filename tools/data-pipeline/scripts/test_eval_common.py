@@ -468,5 +468,24 @@ class LoadTestRowsTest(unittest.TestCase):
         self.assertEqual(11, len(eval_common.TEST_REGIONS))
 
 
+class JsonlResumeTest(unittest.TestCase):
+    def test_riga_troncata_in_coda_si_ignora_e_si_riprende_a_capo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "risposte.jsonl"
+            path.write_bytes(b'{"a": 1}\n{"a": 2}\n{"a": 3, "got": "tron')
+            self.assertEqual([{"a": 1}, {"a": 2}], eval_common.read_jsonl_lenient(path))
+            eval_common.ensure_final_newline(path)
+            with path.open("a", encoding="utf-8") as f:
+                f.write('{"a": 4}\n')
+            self.assertEqual([{"a": 1}, {"a": 2}, {"a": 4}], eval_common.read_jsonl_lenient(path))
+
+    def test_file_completo_non_cambia(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "risposte.jsonl"
+            path.write_bytes(b'{"a": 1}\n')
+            eval_common.ensure_final_newline(path)
+            self.assertEqual(b'{"a": 1}\n', path.read_bytes())
+
+
 if __name__ == "__main__":
     unittest.main()

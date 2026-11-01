@@ -241,6 +241,21 @@ class LatestReleaseTest(unittest.TestCase):
                 overture_addresses.latest_release()
 
 
+class LatestReleaseRetryTest(unittest.TestCase):
+    def test_riprova_dopo_un_errore_di_rete_e_manda_lo_user_agent(self):
+        body = "<ListBucketResult><Prefix>release/2026-09-23.1/</Prefix></ListBucketResult>"
+        with mock.patch("urllib.request.urlopen", side_effect=[OSError("rete"), FakeResponse(body)]) as urlopen,                 mock.patch("time.sleep"), mock.patch("sys.stderr"):
+            self.assertEqual("2026-09-23.1", overture_addresses.latest_release())
+        self.assertEqual(2, urlopen.call_count)
+        self.assertIn("pocket-travel", urlopen.call_args.args[0].get_header("User-agent"))
+
+    def test_dopo_tutti_i_tentativi_l_errore_passa(self):
+        with mock.patch("urllib.request.urlopen", side_effect=OSError("rete")) as urlopen,                 mock.patch("time.sleep"), mock.patch("sys.stderr"):
+            with self.assertRaises(OSError):
+                overture_addresses.latest_release()
+        self.assertEqual(overture_addresses.LISTING_ATTEMPTS, urlopen.call_count)
+
+
 class FakeConnection:
     def __init__(self, rows):
         self.rows = rows

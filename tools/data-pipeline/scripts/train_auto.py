@@ -60,9 +60,8 @@ gpus = []
 for i in range(torch.cuda.device_count()):
     p = torch.cuda.get_device_properties(i)
     integrated = bool(getattr(p, "is_integrated", False)) or "Graphics" in p.name
-    free = torch.cuda.mem_get_info(i)[0]  # giusto su Linux/WSL, non su Windows (vedi vram.py)
     gpus.append({"index": i, "name": p.name, "vram_gib": round(p.total_memory / 2**30, 1),
-                 "free_gib": free / 2**30, "integrated": integrated})
+                 "compute_units": p.multi_processor_count, "integrated": integrated})
 print(json.dumps({"cuda": torch.version.cuda, "hip": getattr(torch.version, "hip", None), "gpus": gpus}))
 """
 
@@ -73,6 +72,17 @@ def probe():
     if out.returncode != 0 or not lines:
         sys.exit(f"Impossibile interrogare PyTorch:\n{out.stderr[-600:]}")
     return json.loads(lines[-1])
+
+
+def free_gib(index):
+    """Memoria libera della sola GPU scelta (mem_get_info su un'altra, l'iGPU, e' inutile e puo' fallire). Giusta su
+    Linux/WSL, non su Windows (vedi vram.py)."""
+    code = f"import torch; print(torch.cuda.mem_get_info({int(index)})[0])"
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    try:
+        return int(out.stdout.split()[-1]) / 2**30
+    except (ValueError, IndexError):
+        sys.exit(f"Impossibile leggere la memoria libera della GPU {index}:\n{out.stderr[-600:]}")
 
 
 def msvc_env():
@@ -187,11 +197,11 @@ def main():
     vendor = "NVIDIA" if info["cuda"] else "AMD"
     candidates = [g for g in info["gpus"] if not g["integrated"]] or info["gpus"]
     gpu = next((g for g in info["gpus"] if g["index"] == a.gpu), None) if a.gpu is not None \
-        else max(candidates, key=lambda g: g["vram_gib"])
+        else max(candidates, key=lambda g: g["compute_units"])  # non la VRAM: l'iGPU dichiara la RAM di sistema
     if gpu is None:
         sys.exit(f"GPU {a.gpu} non trovata tra: {[g['index'] for g in info['gpus']]}")
 
-    vram.check(gpu["vram_gib"], gpu["free_gib"], a.max_vram_held, f"GPU {gpu['index']} ({gpu['name']})")
+    vram.check(gpu["vram_gib"], free_gib(gpu["index"]), a.max_vram_held, f"GPU {gpu['index']} ({gpu['name']})")
 
     env = dict(os.environ)
     # Gli indici della sonda contano solo le GPU gia' visibili: con la variabile impostata (es. HIP_VISIBLE_DEVICES=1

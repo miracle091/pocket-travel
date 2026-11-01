@@ -17,6 +17,7 @@ si scrivono a righe, e una nuova esecuzione con lo stesso file riprende dalle ri
 Esempio: python eval_online.py --service gemini --limit 100 --answers online-gemini.jsonl
 """
 import argparse
+import http.client
 import json
 import os
 import re
@@ -27,7 +28,8 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from eval_common import DEFAULT_DATASET, context_of, dataset_lang, instruction_checks, load_test_rows, question_of  # noqa: E402
+from eval_common import (DEFAULT_DATASET, context_of, dataset_lang, ensure_final_newline, instruction_checks,  # noqa: E402
+                         load_test_rows, question_of, read_jsonl_lenient, sample)
 
 USER_AGENT = "pocket-travel-eval-online/1.0 (https://github.com/miracle091/pocket-travel)"
 # Indirizzo, modello Automatico di online-models.json, variabile della chiave e temperatura (null se il modello non la
@@ -40,6 +42,8 @@ SERVICES = {
 }
 VARIANTS = ("rag", "norag")
 MAX_WAIT_SECONDS = 70
+MAX_ATTEMPTS = 5
+ERROR_BODY_CHARS = 300
 
 # Le stesse stringhe di OnlinePromptTemplates.systemPrompt (test_eval_online.py controlla che coincidano).
 SYSTEM_IT = ("Sei un assistente di viaggio.\n"
@@ -60,6 +64,16 @@ CONTEXT_EN = ("\nAnswer using the context blocks below, taken from the app's gui
               "knowledge to check.\n\n")
 
 
+class RefuseRedirect(urllib.request.HTTPRedirectHandler):
+    """Non segue i redirect: urllib rimanderebbe l'intestazione Authorization anche a un altro host."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+OPENER = urllib.request.build_opener(RefuseRedirect)
+
+
 class DailyQuota(Exception):
     """Quota giornaliera del servizio finita: si ferma e si scrive il rapporto delle righe fatte."""
 
@@ -73,15 +87,6 @@ def system_prompt(context, lang):
     block = (f'<context source="Wikivoyage, app guide">\n{context}\n</context>' if lang == "en"
              else f'<contesto fonte="Wikivoyage, guida dell\'app">\n{context}\n</contesto>')
     return base + intro + block
-
-
-def sample(rows, limit):
-    """limit righe a passo fisso sulle righe ordinate per tipo: tutti i tipi in proporzione, e lo stesso campione a
-    ogni esecuzione."""
-    rows = sorted(rows, key=lambda r: (r["kind"], question_of(r)))
-    if not limit or limit >= len(rows):
-        return rows
-    return [rows[i * len(rows) // limit] for i in range(limit)]
 
 
 def retry_seconds(body, retry_after):
@@ -98,19 +103,24 @@ def chat(base, key, model, temperature, system, question):
         body["temperature"] = temperature
     request = urllib.request.Request(f"{base}/chat/completions", json.dumps(body).encode("utf-8"), method="POST", headers={
         "Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": USER_AGENT})
-    for _ in range(5):
+    for attempt in range(MAX_ATTEMPTS):
         try:
-            with urllib.request.urlopen(request, timeout=180) as r:
+            with OPENER.open(request, timeout=180) as r:
                 reply = json.loads(r.read().decode("utf-8"))
             return reply["choices"][0]["message"]["content"] or ""
         except urllib.error.HTTPError as e:
             text = e.read().decode("utf-8", "replace")
             if e.code == 429 and "perday" in text.lower():
-                raise DailyQuota(text[:300]) from e
+                raise DailyQuota(text[:ERROR_BODY_CHARS]) from e
             if e.code not in (429, 500, 502, 503, 504, 529):
-                raise SystemExit(f"HTTP {e.code}: {text[:500]}") from e
+                raise SystemExit(f"HTTP {e.code}: {text[:ERROR_BODY_CHARS]}") from e
             wait = min(retry_seconds(text, e.headers.get("Retry-After")), MAX_WAIT_SECONDS)
             print(f"  HTTP {e.code}, nuovo tentativo tra {wait:.0f} s", flush=True)
+            time.sleep(wait)
+        except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException, ValueError,
+                KeyError, IndexError, TypeError) as e:  # rete caduta, timeout, risposta 200 senza choices
+            wait = min(5 * 2 ** attempt, MAX_WAIT_SECONDS)
+            print(f"  {type(e).__name__}, nuovo tentativo tra {wait:.0f} s", flush=True)
             time.sleep(wait)
     raise SystemExit("troppi errori temporanei di fila")
 
@@ -165,8 +175,9 @@ def main():
     model = a.model or default_model
     rows, _ = load_test_rows(True, a.dataset)
     rows = sample(rows, a.limit)
-    done = [json.loads(line) for line in a.answers.open(encoding="utf-8")] if a.answers.exists() else []
-    seen = {(d["variant"], d["question"], d["kind"]) for d in done}
+    done = read_jsonl_lenient(a.answers) if a.answers.exists() else []
+    ensure_final_newline(a.answers)
+    seen = {(d["variant"], d.get("region"), d["question"], d["kind"]) for d in done}
     print(f"{a.service} {model}: {len(rows)} righe x {len(VARIANTS)} varianti, {len(done)} gia' fatte", flush=True)
     interval = 60 / a.rpm
     with a.answers.open("a", encoding="utf-8", buffering=1) as out:
@@ -174,7 +185,7 @@ def main():
             for n, row in enumerate(rows, 1):
                 question, lang = question_of(row).strip(), dataset_lang(row)
                 for variant in VARIANTS:
-                    if (variant, question, row["kind"]) in seen:
+                    if (variant, row["region"], question, row["kind"]) in seen:
                         continue
                     started = time.monotonic()
                     system = system_prompt(context_of(row) if variant == "rag" else "", lang)

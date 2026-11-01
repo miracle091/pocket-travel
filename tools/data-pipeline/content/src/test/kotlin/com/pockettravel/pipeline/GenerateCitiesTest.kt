@@ -426,4 +426,11 @@ class GenerateCitiesTest {
 
         assertEquals(listOf(listOf<String?>("São Paulo", body)), rowsOf(db, "SELECT city, body FROM city_sections"))
     }
+
+    @Test
+    fun `l'indirizzo della voce codifica solo i caratteri che spezzano il percorso`() {
+        assertEquals("https://it.wikipedia.org/wiki/Roma_Capitale", wikiPageUrl("it.wikipedia.org", "Roma Capitale"))
+        assertEquals("https://it.wikivoyage.org/wiki/Città_d'Avila_(Spagna)", wikiPageUrl("it.wikivoyage.org", "Città d'Avila (Spagna)"))
+        assertEquals("https://en.wikipedia.org/wiki/What_is_100%25_%3F_%23x", wikiPageUrl("en.wikipedia.org", "What is 100% ? #x"))
+    }
 }

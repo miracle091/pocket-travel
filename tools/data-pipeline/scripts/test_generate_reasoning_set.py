@@ -107,6 +107,16 @@ class ParseTest(unittest.TestCase):
         self.assertEqual("no", parse_answer("Answer: no.", "yesno"))
         self.assertIsNone(parse_answer("Il bus passa alle 08:05", "time"))
 
+    def test_con_thinking_serve_il_blocco_chiuso(self):
+        # troncata dentro il ragionamento: la "Risposta:" provvisoria non conta
+        cut = "ragiono... Risposta: 08:05, ma controllo ancora"
+        self.assertIsNone(parse_answer(cut, "time", thinking=True))
+        self.assertEqual("08:05", parse_answer(cut, "time"))
+        self.assertEqual("08:05", parse_answer("ragiono</think>Risposta: 08:05", "time", thinking=True))
+        row = {"answer_type": "time", "answer": "08:05"}
+        self.assertFalse(score_answer(row, cut, thinking=True))
+        self.assertTrue(score_answer(row, "ok</think>Risposta: 08:05", thinking=True))
+
     def test_punteggio(self):
         row = {"answer_type": "yesno", "answer": "sì"}
         self.assertTrue(score_answer(row, "Answer: yes"))

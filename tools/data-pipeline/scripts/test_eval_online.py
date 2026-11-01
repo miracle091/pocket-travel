@@ -3,12 +3,19 @@
 
 Uso: python test_eval_online.py
 """
+import io
+import json
 import re
 import unittest
+import urllib.error
+import urllib.request
 from pathlib import Path
+from unittest import mock
 
+import eval_online
 from eval_common import on_device_prompt
-from eval_online import CONTEXT_EN, CONTEXT_IT, SYSTEM_EN, SYSTEM_IT, report_line, retry_seconds, sample, system_prompt
+from eval_online import (CONTEXT_EN, CONTEXT_IT, MAX_ATTEMPTS, SYSTEM_EN, SYSTEM_IT, chat, report_line, retry_seconds,
+                         sample, system_prompt)
 
 TEMPLATES = (Path(__file__).resolve().parents[3] / "feature" / "ai" / "src" / "main" / "kotlin" / "com" / "pockettravel"
              / "feature" / "ai" / "OnlinePromptTemplates.kt")
@@ -59,6 +66,64 @@ class RetryTest(unittest.TestCase):
         self.assertEqual(7, retry_seconds("", "7"))
         self.assertEqual(17.0, retry_seconds('{"@type":"RetryInfo","retryDelay": "16s"}', None))
         self.assertEqual(20, retry_seconds("{}", None))
+
+
+class Reply:
+    """Risposta 200 con il corpo dato, usabile come context manager."""
+
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return json.dumps(self.payload).encode("utf-8")
+
+
+GOOD = Reply({"choices": [{"message": {"content": "ok"}}]})
+
+
+def ask():
+    return chat("https://x.example/v1", "chiave", "m", None, "sys", "domanda")
+
+
+class ChatRetryTest(unittest.TestCase):
+    def run_chat(self, outcomes):
+        with mock.patch.object(eval_online.OPENER, "open", side_effect=outcomes) as opened, \
+                mock.patch.object(eval_online.time, "sleep") as slept:
+            try:
+                return ask(), opened.call_count, slept.call_count
+            except SystemExit as e:
+                return e, opened.call_count, slept.call_count
+
+    def test_errori_di_rete_si_ritentano(self):
+        for failure in (urllib.error.URLError("giu'"), TimeoutError(), ConnectionResetError()):
+            with self.subTest(failure=type(failure).__name__):
+                self.assertEqual(("ok", 2, 1), self.run_chat([failure, GOOD]))
+
+    def test_risposta_200_senza_choices_si_ritenta(self):
+        self.assertEqual(("ok", 3, 2), self.run_chat([Reply({"error": "x"}), Reply({"choices": []}), GOOD]))
+
+    def test_tetto_di_tentativi(self):
+        result, calls, _ = self.run_chat([TimeoutError()] * 10)
+        self.assertIsInstance(result, SystemExit)
+        self.assertEqual(MAX_ATTEMPTS, calls)
+
+    def test_corpo_dell_errore_corto(self):
+        error = urllib.error.HTTPError("u", 400, "Bad", {}, io.BytesIO(b"x" * 5000))
+        result, calls, _ = self.run_chat([error])
+        self.assertEqual(1, calls)
+        self.assertLess(len(str(result.code)), 400)
+
+    def test_i_redirect_non_si_seguono(self):
+        handler = eval_online.RefuseRedirect()
+        request = urllib.request.Request("https://a.example/", headers={"Authorization": "Bearer k"})
+        self.assertIsNone(handler.redirect_request(request, None, 302, "Found", {}, "https://altro.example/"))
+        self.assertTrue(any(isinstance(h, eval_online.RefuseRedirect) for h in eval_online.OPENER.handlers))
 
 
 class ReportTest(unittest.TestCase):

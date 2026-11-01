@@ -210,5 +210,16 @@ class PickDiscreteGpuTest(unittest.TestCase):
         self.assertNotIn("CUDA_VISIBLE_DEVICES", os.environ)
 
 
+class HasGpuTest(unittest.TestCase):
+    def test_risposta_della_sonda(self):
+        for out, expected in (("1\n", True), ("0\n", False), ("traceback", True)):
+            with mock.patch("subprocess.run", return_value=mock.Mock(stdout=out)):
+                self.assertEqual(expected, gpu_lock.has_gpu(), out)
+
+    def test_sonda_scaduta_vale_come_gpu_presente(self):
+        with mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired("x", 300)):
+            self.assertTrue(gpu_lock.has_gpu())
+
+
 if __name__ == "__main__":
     unittest.main()

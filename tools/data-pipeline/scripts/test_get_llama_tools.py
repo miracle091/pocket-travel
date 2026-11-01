@@ -48,6 +48,7 @@ class DownloadTest(unittest.TestCase):
             self.assertTrue((Path(tmp) / "dest" / "llama-server.exe").exists())
         request = urlopen.call_args.args[0]
         self.assertIn("PocketTravel", request.get_header("User-agent"))
+        self.assertEqual(g.DOWNLOAD_TIMEOUT, urlopen.call_args.kwargs["timeout"])
 
     def test_sha256_diverso_non_estrae(self):
         data = make_zip(["llama-server.exe"])
@@ -137,6 +138,17 @@ class MainTest(unittest.TestCase):
                 (dest / f"{n}.exe").write_text("", encoding="utf-8")
             _, urls = run_main(["vulkan"], tmp)
         self.assertEqual([], urls)
+
+    def test_cuda_con_pacchetto_gia_scaricato_ma_senza_runtime_scarica_solo_il_runtime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / f"{g.LLAMA_BUILD}-cuda-12.4"
+            dest.mkdir()
+            for n in NAMES:
+                (dest / f"{n}.exe").write_text("", encoding="utf-8")
+            _, urls = run_main(["cuda-12.4"], tmp)
+            self.assertEqual([f"{g.RELEASE}/cudart-llama-bin-win-cuda-12.4-x64.zip"], urls)
+            (dest / "cudart64_12.dll").write_text("", encoding="utf-8")
+            self.assertEqual([], run_main(["cuda-12.4"], tmp)[1])
 
     def test_manca_un_eseguibile(self):
         with tempfile.TemporaryDirectory() as tmp:

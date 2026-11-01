@@ -59,6 +59,13 @@ def last_complete_checkpoint(out):
     return str(max(done, key=lambda c: int(c.name[11:]))) if done else None
 
 
+def spot_check_rows(rows, seed=0):
+    """Fino a 2 positivi e 2 negativi del test per il controllo a occhio, sempre gli stessi a parita' di dati; un tipo
+    senza righe si salta."""
+    rng = random.Random(seed)
+    return [rng.choice(pool) for kind in ("pos", "pos", "neg", "neg") if (pool := [x for x in rows if x["kind"] == kind])]
+
+
 def non_finite_metric(logs):
     """La prima metrica del log del Trainer (loss, grad_norm, eval_loss) che non e' un numero finito, o None."""
     for key in ("loss", "grad_norm", "eval_loss"):
@@ -318,8 +325,8 @@ copy_attribution(a.out + "/lora")
 # Controllo a occhio sul test: 2 positivi e 2 negativi (il comportamento, non solo la loss)
 phase("controllo a campione", "2 positivi e 2 negativi del test")
 model.eval()
-for kind in ("pos", "pos", "neg", "neg"):
-    r = random.Random().choice([x for x in test_ds if x["kind"] == kind])
+for r in spot_check_rows(test_ds):
+    kind = r["kind"]
     ids = tok(chat_prompt_and_answer(tok, r["messages"][:1])[0], add_special_tokens=False,
               return_tensors="pt").to(model.device)
     with torch.no_grad():

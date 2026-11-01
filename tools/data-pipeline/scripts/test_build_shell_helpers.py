@@ -54,5 +54,22 @@ class WithoutEmptyTilesTest(unittest.TestCase):
         self.assertEqual(expected, self.filtered(expected, []))
 
 
+@unittest.skipUnless(fx.BASH, "serve bash")
+class WikiPageUrlTest(unittest.TestCase):
+    def url(self, title):
+        proc = subprocess.run([fx.BASH, "-c", f'source "{LIB}"; wiki_page_url en.wikivoyage.org "$(cat)"'],
+                              input=title.encode("utf-8"), capture_output=True)
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        return proc.stdout.decode("utf-8").strip()
+
+    def test_spazi_e_lettere_accentate(self):
+        self.assertEqual("https://en.wikivoyage.org/wiki/Palau_(stato)", self.url("Palau (stato)"))
+        self.assertEqual("https://en.wikivoyage.org/wiki/Île-de-France", self.url("Île-de-France"))
+
+    def test_caratteri_che_rompono_l_url(self):
+        self.assertEqual("https://en.wikivoyage.org/wiki/A%3FB%23C%25D%22E%5EF%7CG", self.url('A?B#C%D"E^F|G'))
+        self.assertEqual("https://en.wikivoyage.org/wiki/X%5CY", self.url("X" + chr(92) + "Y"))
+
+
 if __name__ == "__main__":
     unittest.main()

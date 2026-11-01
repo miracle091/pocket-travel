@@ -152,7 +152,7 @@ download_feed() {
     fi
     # --connect-timeout: senza, un host che non risponde tiene ogni tentativo per circa 135 s (12 tentativi a rete).
     # http_code 000: nessuna risposta, nemmeno un errore HTTP.
-    if code="$("${CAP[@]}" curl -sSfL --compressed --retry 3 --retry-delay 5 --connect-timeout 30 "${LIMITS[@]}" \
+    if code="$(${CAP[@]+"${CAP[@]}"} curl -sSfL --compressed --retry 3 --retry-delay 5 --connect-timeout 30 "${LIMITS[@]}" \
         -A "$PIPELINE_USER_AGENT" -w '%{http_code}' -o "$FEED_ZIP" "$FEED_URL")"; then
       ok=true
       break
@@ -216,11 +216,15 @@ if [ -n "$PUBLISHED_INDEX" ] && [ -s "$PUBLISHED_INDEX" ]; then
   # Non si tiene una voce con gli orari gia' finiti: la conversione decide se la rete e' scaduta. Nemmeno una voce senza
   # gtfsIds per una rete che ora ha url_rt: la sua transit.db non ha gli id GTFS.
   if [ -n "$PUBLISHED_ENTRY" ] && [ "$(jq -r '.sourceSha256' <<< "$PUBLISHED_ENTRY")" = "$SOURCE_SHA" ] \
-    && [[ ! "$(jq -r '.validUntil' <<< "$PUBLISHED_ENTRY")" < "$(date -u +%Y-%m-%d)" ]] \
+    && [[ ! "$(jq -r '.validUntil // ""' <<< "$PUBLISHED_ENTRY")" < "$(date -u +%Y-%m-%d)" ]] \
     && { [ -z "$REALTIME_URL" ] || [ "$(jq -r '.gtfsIds // false' <<< "$PUBLISHED_ENTRY")" = true ]; }; then
     PUBLISHED_DATE="$(jq -r '.version' <<< "$PUBLISHED_ENTRY" | cut -d. -f1-3 | tr . -)"
-    AGE_DAYS=$(( ( $(date -u +%s) - $(date -u -d "$PUBLISHED_DATE" +%s) ) / 86400 ))
-    if [ "$AGE_DAYS" -lt "$TRANSIT_MAX_AGE_DAYS" ]; then
+    # Una versione pubblicata con la data illeggibile non si tiene: la rete si converte.
+    AGE_DAYS=""
+    if PUBLISHED_EPOCH="$(date -u -d "$PUBLISHED_DATE" +%s 2> /dev/null)"; then
+      AGE_DAYS=$(( ( $(date -u +%s) - PUBLISHED_EPOCH ) / 86400 ))
+    fi
+    if [ -n "$AGE_DAYS" ] && [ "$AGE_DAYS" -lt "$TRANSIT_MAX_AGE_DAYS" ]; then
       echo "-- $FEED_ID: feed invariato, voce di $AGE_DAYS giorni fa: la tengo"
       # Nome, regioni e attribuzione dalla lista di oggi (possono cambiare senza ricostruire).
       jq -c --arg name "$NAME" --arg regions "$REGIONS" --arg license "$LICENSE" --arg attribution "$ATTRIBUTION" --arg licenseUrl "$LICENSE_URL" \
