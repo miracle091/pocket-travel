@@ -38,7 +38,7 @@ class FakeRegionSyncScheduler : RegionSyncScheduler {
         periodicChecks++
     }
 
-    override fun enqueueDownload(entry: RegionManifestEntry, kinds: Set<PackageKind>): Flow<WorkInfo?>? {
+    override suspend fun enqueueDownload(entry: RegionManifestEntry, kinds: Set<PackageKind>): Flow<WorkInfo?>? {
         if (rejectDownloads) return null
         enqueued += entry to kinds
         pendingDownloads += entry.regionId
@@ -46,7 +46,7 @@ class FakeRegionSyncScheduler : RegionSyncScheduler {
         return downloadState(entry.regionId)
     }
 
-    override fun enqueueGuidesSync(onlyOnWifi: Boolean, automatic: Boolean) {
+    override suspend fun enqueueGuidesSync(onlyOnWifi: Boolean, automatic: Boolean) {
         guidesSyncs += GuidesSyncRequest(onlyOnWifi, automatic)
         guidesSyncPending = true
     }

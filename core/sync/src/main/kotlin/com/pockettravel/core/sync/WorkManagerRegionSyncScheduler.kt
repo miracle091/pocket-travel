@@ -11,11 +11,14 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.PackageKind
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -25,6 +28,7 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
     private val json: Json,
     private val appCompatibility: AppCompatibility,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : RegionSyncScheduler {
     private val workManager get() = WorkManager.getInstance(context)
 
@@ -46,11 +50,11 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
         )
     }
 
-    override fun enqueueDownload(entry: RegionManifestEntry, kinds: Set<PackageKind>): Flow<WorkInfo?>? {
+    override suspend fun enqueueDownload(entry: RegionManifestEntry, kinds: Set<PackageKind>): Flow<WorkInfo?>? = withContext(ioDispatcher) {
         // Dati in un formato che quest'app non sa leggere: invito ad aggiornarla invece di un errore muto.
         if (appCompatibility.requiresAppUpdate()) {
             appCompatibility.showUpdateRequiredMessage()
-            return null
+            return@withContext null
         }
         val data = Data.Builder()
             .putString(
@@ -79,24 +83,26 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
             ExistingWorkPolicy.KEEP,
             request,
         )
-        enqueueGuidesSync(onlyOnWifi = false)
-        return workManager.getWorkInfoByIdFlow(request.id)
+        // KEEP: un import delle guide in corso non si annulla per un download di regione.
+        enqueueGuidesSync(onlyOnWifi = false, automatic = true)
+        workManager.getWorkInfoByIdFlow(request.id)
     }
 
-    override fun enqueueGuidesSync(onlyOnWifi: Boolean, automatic: Boolean) {
+    override suspend fun enqueueGuidesSync(onlyOnWifi: Boolean, automatic: Boolean): Unit = withContext(ioDispatcher) {
         // In automatico si salta in silenzio; su richiesta dell'utente lo si avvisa.
         if (appCompatibility.requiresAppUpdate()) {
             if (!automatic) appCompatibility.showUpdateRequiredMessage()
-            return
+            return@withContext
         }
         val networkType = if (onlyOnWifi) NetworkType.UNMETERED else NetworkType.CONNECTED
         val request = OneTimeWorkRequestBuilder<GuidesSyncWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(networkType).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
+        val queued = workManager.getWorkInfosForUniqueWorkFlow(SyncConfig.GUIDES_SYNC_WORK_NAME).first().firstOrNull { !it.state.isFinished }
         workManager.enqueueUniqueWork(
             SyncConfig.GUIDES_SYNC_WORK_NAME,
-            if (automatic) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE,
+            guidesSyncPolicy(automatic, networkType, queued?.constraints?.requiredNetworkType),
             request,
         )
     }
@@ -128,14 +134,21 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
     private fun tagFor(regionId: String) = "${SyncConfig.DOWNLOAD_TAG}:$regionId"
 }
 
+/**
+ * Cosa fare di un controllo delle guide gia' in coda: in automatico lo si tiene, a meno che la rete richiesta sia
+ * cambiata (Wi-Fi o dati mobili permessi dopo), altrimenti resterebbe il vincolo vecchio; su richiesta dell'utente lo si sostituisce.
+ */
+internal fun guidesSyncPolicy(automatic: Boolean, requested: NetworkType, queued: NetworkType?): ExistingWorkPolicy =
+    if (automatic && (queued == null || queued == requested)) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE
+
 // Non comincia con "$DOWNLOAD_TAG:", che observeDownloadingRegions legge come id di una regione.
 internal const val ENQUEUED_AT_TAG = "region-download-at:"
 
 /**
- * Il download da mostrare tra quelli di una regione: uno non ancora finito, altrimenti l'ultimo accodato. WorkManager
+ * Il download da mostrare tra quelli di una regione: quello in corso, poi uno non ancora finito, altrimenti l'ultimo accodato. WorkManager
  * non restituisce i lavori di un tag in ordine, e un download fallito prima di uno riuscito non deve tornare a galla.
  */
 internal fun currentDownload(infos: List<WorkInfo>): WorkInfo? =
-    infos.firstOrNull { !it.state.isFinished } ?: infos.maxByOrNull { info ->
+    infos.firstOrNull { it.state == WorkInfo.State.RUNNING } ?: infos.firstOrNull { !it.state.isFinished } ?: infos.maxByOrNull { info ->
         info.tags.firstNotNullOfOrNull { tag -> tag.takeIf { it.startsWith(ENQUEUED_AT_TAG) }?.removePrefix(ENQUEUED_AT_TAG)?.toLongOrNull() } ?: 0L
     }

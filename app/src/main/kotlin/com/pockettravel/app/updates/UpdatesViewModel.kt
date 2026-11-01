@@ -121,7 +121,7 @@ class UpdatesViewModel @Inject constructor(
 
     /** Scarica le guide ora, anche su rete mobile: il pulsante è la scelta dell'utente. */
     fun updateGuides() {
-        regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = false)
+        viewModelScope.launch { regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = false) }
     }
 
     fun downloadModel() {

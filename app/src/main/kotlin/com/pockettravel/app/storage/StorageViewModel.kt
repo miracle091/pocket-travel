@@ -9,6 +9,7 @@ import com.pockettravel.core.data.InstalledGuides
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.RegionZonePreferences
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.feature.ai.AiSettingsStore
 import com.pockettravel.feature.ai.LlmModelManager
@@ -65,6 +66,7 @@ class StorageViewModel @Inject constructor(
     private val engine: OnDeviceLlmEngine,
     private val aiSettingsStore: AiSettingsStore,
     private val recentRegionStore: RecentRegionStore,
+    private val regionZonePreferences: RegionZonePreferences,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
@@ -111,10 +113,11 @@ class StorageViewModel @Inject constructor(
 
     fun deleteRegion(regionId: String) {
         regionSyncScheduler.cancelDownload(regionId)
+        regionZonePreferences.setZone(regionId, null)
         viewModelScope.launch {
             removeOrReport {
                 regionRepository.remove(regionId)
-                recentRegionStore.clearIfLast(regionId)
+                withContext(ioDispatcher) { recentRegionStore.clearIfLast(regionId) }
             }
             refreshDeviceState()
         }
@@ -125,13 +128,15 @@ class StorageViewModel @Inject constructor(
             removeOrReport {
                 regionRepository.removePackage(regionId, kind)
                 // Con l'ultimo pacchetto se ne va l'intera regione.
-                if (regionRepository.installed(regionId) == null) recentRegionStore.clearIfLast(regionId)
+                if (regionRepository.installed(regionId) == null) withContext(ioDispatcher) { recentRegionStore.clearIfLast(regionId) }
             }
             refreshDeviceState()
         }
     }
 
-    fun downloadGuides() = regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = false)
+    fun downloadGuides() {
+        viewModelScope.launch { regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = false) }
+    }
 
     fun deleteModel() {
         viewModelScope.launch {

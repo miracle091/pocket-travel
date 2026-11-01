@@ -310,6 +310,33 @@ class RegionPackageDownloaderTest {
     }
 
     @Test
+    fun `un secondo download della stessa regione con un'altra versione non cancella il part file del primo`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("abc"))
+        val truncated = manifestFile("abc".toByteArray()).copy(sizeBytes = 999)
+
+        try {
+            downloader.download("it", "v1", listOf(truncated))
+            fail("un flusso troncato deve far fallire il tentativo")
+        } catch (_: IOException) {
+            // atteso: il .part resta per la ripresa
+        }
+        val part = File(regionStorage.stagingDirectoryFor("it", "v1"), "content.db.part")
+        assertTrue(part.exists())
+
+        downloader.download("it", "v2", emptyList())
+
+        assertTrue(part.exists())
+    }
+
+    @Test
+    fun `il disco pieno si riconosce dal messaggio dell'errore di scrittura`() {
+        assertTrue(isNoSpaceLeft(IOException("write failed: ENOSPC (No space left on device)")))
+        assertTrue(isNoSpaceLeft(IOException("No space left on device")))
+        assertFalse(isNoSpaceLeft(IOException("Connection reset")))
+        assertFalse(isNoSpaceLeft(IOException()))
+    }
+
+    @Test
     fun `la pulizia senza attesa non entra mentre un altro lavoro tiene il lock`() = runBlocking {
         val inside = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()

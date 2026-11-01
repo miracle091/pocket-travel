@@ -20,6 +20,10 @@ import javax.inject.Inject
 
 class PermanentRegionPackageException(message: String) : Exception(message)
 
+// Disco pieno: riprovare scriverebbe di nuovo fino allo stesso errore.
+internal fun isNoSpaceLeft(error: IOException): Boolean =
+    error.message.orEmpty().let { "ENOSPC" in it || "No space left" in it }
+
 /**
  * Scarica i file del catalogo indicati (poi.db, segmenti .rd5 della rete stradale, guides.db) in una
  * cartella di staging, con ripresa tramite HTTP range, e verifica lo SHA-256 di ciascuno rispetto al
@@ -33,7 +37,7 @@ class RegionPackageDownloader @Inject constructor(
     /**
      * Sezione critica per id di staging: chiamate concorrenti sullo stesso id (piu' ViewModel che chiedono
      * lo stesso indice, due lavori sulla stessa regione) si accodano: altrimenti scriverebbero lo stesso
-     * .part e cleanupStagingExcept cancellerebbe lo staging dell'altra. Chi scarica, decomprime e installa
+     * .part e la pulizia dell'una cancellerebbe lo staging dell'altra. Chi scarica, decomprime e installa
      * la tiene per tutto il percorso (download + unpackXz + pulizia), non solo per il download. Il Mutex
      * non e' rientrante: dentro il blocco si usa [downloadLocked], mai [download].
      */
@@ -70,8 +74,8 @@ class RegionPackageDownloader @Inject constructor(
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): File =
         withContext(ioDispatcher) {
-            // Una seconda richiesta accodata dopo la prima trova i file gia' completi e li riusa.
-            regionStorage.cleanupStagingExcept(regionId, stagingVersion)
+            // Lo staging delle altre versioni non si tocca: puo' essere il .part di un lavoro fallito che riprendera'.
+            // Gli avanzi li toglie il lavoro stesso a fine corsa o RegionStartupRecovery.
             val staging = regionStorage.stagingDirectoryFor(regionId, stagingVersion)
             staging.mkdirs()
             val installedRouting = File(regionStorage.directoryFor(regionId), RegionStorage.ROUTING_DIR)
@@ -182,6 +186,9 @@ class RegionPackageDownloader @Inject constructor(
             } catch (e: PermanentRegionPackageException) {
                 partFile.delete()
                 throw e
+            } catch (e: IOException) {
+                if (isNoSpaceLeft(e)) throw PermanentRegionPackageException("Spazio su disco esaurito scaricando ${file.name}")
+                throw e
             }
             onProgress(downloaded)
         }
@@ -219,7 +226,8 @@ class RegionPackageDownloader @Inject constructor(
         val locks = ConcurrentHashMap<String, Mutex>()
         const val PROGRESS_STEP_BYTES = 4_000_000L
 
-        // Pacchetti da decine o centinaia di MB: blocchi piu' grandi degli 8 KiB di DEFAULT_BUFFER_SIZE, meno chiamate di sistema per download e SHA-256.
+        // Pacchetti da decine o centinaia di MB: blocchi piu' grandi degli 8 KiB di DEFAULT_BUFFER_SIZE, meno chiamate
+        // di sistema per SHA-256 e scrittura. Dalla rete byteStream().read ne restituisce comunque al piu' 8 KiB.
         const val IO_BUFFER_SIZE = 64 * 1024
         const val BYTE_MASK = 0xFF
     }

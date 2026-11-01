@@ -150,7 +150,7 @@ class SignedFileCache internal constructor(
             okHttpClient.newCall(request).execute().use { response ->
                 if (etag != null && response.code == HTTP_NOT_MODIFIED) return@withContext null
                 if (!response.isSuccessful) httpError(response.code)
-                val body = response.body.bytes()
+                val body = response.body.readBodyAtMost(MAX_SIGNED_JSON_BYTES)
                 if (body.isEmpty()) emptyBody()
                 // Solo un ETag che si puo' rimandare: uno con caratteri non ammessi in un'intestazione farebbe fallire ogni
                 // richiesta dopo.

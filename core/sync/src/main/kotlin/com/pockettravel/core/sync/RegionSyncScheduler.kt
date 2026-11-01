@@ -15,7 +15,7 @@ interface RegionSyncScheduler {
      * trovarne subito la guida. Restituisce lo stato di questo solo lavoro (anche con altri download della regione in
      * catena), null se non accodato.
      */
-    fun enqueueDownload(entry: RegionManifestEntry, kinds: Set<PackageKind>): Flow<WorkInfo?>?
+    suspend fun enqueueDownload(entry: RegionManifestEntry, kinds: Set<PackageKind>): Flow<WorkInfo?>?
 
     /**
      * Installa o aggiorna il pacchetto guide se il catalogo ne ha una versione diversa. In
@@ -23,7 +23,7 @@ interface RegionSyncScheduler {
      * dell'utente la sostituisce, cosi' non resta in attesa del Wi-Fi. [onlyOnWifi] aspetta una rete senza
      * limiti di traffico: in automatico solo per le guide da 5 MB in su (GuidesChoice.automaticOnMeteredNetwork).
      */
-    fun enqueueGuidesSync(onlyOnWifi: Boolean, automatic: Boolean = onlyOnWifi)
+    suspend fun enqueueGuidesSync(onlyOnWifi: Boolean, automatic: Boolean = onlyOnWifi)
 
     fun observeGuidesSync(): Flow<WorkInfo?>
 

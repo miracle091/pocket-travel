@@ -27,6 +27,14 @@ class RegionDownloadNotificationTest {
     }
 
     @Test
+    fun `due richieste hanno notifiche diverse e fuori dagli ID delle altre`() {
+        val first = downloadNotificationId(java.util.UUID(0, 1))
+        val second = downloadNotificationId(java.util.UUID(0, 2))
+        assertTrue(first != second)
+        assertTrue(first >= 0x10000 && second >= 0x10000)
+    }
+
+    @Test
     fun `i pacchetti sono sempre nello stesso ordine`() {
         assertEquals(listOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.TRANSIT), orderedKinds(setOf(PackageKind.TRANSIT, PackageKind.MAP, PackageKind.ROUTING)))
     }

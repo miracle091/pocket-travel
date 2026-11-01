@@ -7,6 +7,8 @@ import com.pockettravel.core.data.InstalledGuides
 import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.RegionZone
+import com.pockettravel.core.data.RegionZonePreferences
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
 import com.pockettravel.core.sync.testing.FakeRegionSyncScheduler
@@ -46,6 +48,7 @@ class StorageViewModelTest {
     private val modelsDir = createTempDirectory("storage-view-model-test").toFile()
     private val settings = AiSettingsStore(InMemoryPreferencesFactory(), modelsDir) { RamTier.MINIMO }
     private val recent = RecentRegionStore(InMemoryPreferencesFactory())
+    private val zones = RegionZonePreferences(InMemoryPreferencesFactory())
     private lateinit var previousLocale: Locale
 
     @Before
@@ -63,7 +66,7 @@ class StorageViewModelTest {
     private fun viewModel(
         regions: RegionRepository = repository,
         modelEngine: OnDeviceLlmEngine = engine,
-    ) = StorageViewModel(regions, scheduler, models, modelEngine, settings, recent, mainDispatcher.dispatcher)
+    ) = StorageViewModel(regions, scheduler, models, modelEngine, settings, recent, zones, mainDispatcher.dispatcher)
 
     // uiState e' un WhileSubscribed: serve un osservatore per avere i valori.
     private fun TestScope.observe(viewModel: StorageViewModel) {
@@ -166,6 +169,7 @@ class StorageViewModelTest {
         repository.installedRegions.value = listOf(region("italia"), region("francia", "Francia", "fr"))
         repository.availableBytes = 1_000L
         recent.setLastRegionId("italia")
+        zones.setZone("italia", RegionZone(8.0, 40.0, 10.0, 42.0))
         val viewModel = viewModel()
         observe(viewModel)
 
@@ -174,6 +178,7 @@ class StorageViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf("italia"), scheduler.cancelled)
+        assertNull(zones.zone("italia"))
         assertNull(recent.lastRegionId())
         assertEquals(listOf("francia"), viewModel.uiState.value.installedRegions.map { it.regionId })
         assertEquals(2_000L, viewModel.uiState.value.availableBytes)
@@ -238,8 +243,9 @@ class StorageViewModelTest {
     }
 
     @Test
-    fun `scaricare le guide chiede la sincronizzazione anche su rete mobile`() {
+    fun `scaricare le guide chiede la sincronizzazione anche su rete mobile`() = runTest {
         viewModel().downloadGuides()
+        advanceUntilIdle()
 
         assertEquals(listOf(FakeRegionSyncScheduler.GuidesSyncRequest(onlyOnWifi = false, automatic = false)), scheduler.guidesSyncs)
     }

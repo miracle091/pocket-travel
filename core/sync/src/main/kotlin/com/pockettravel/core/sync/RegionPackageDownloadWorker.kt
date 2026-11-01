@@ -35,11 +35,12 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         var regionId: String? = null
+        var stagingVersion: String? = null
         val requestFile = inputData.getString(KEY_MANIFEST_ENTRY_FILE)
         val result = try {
-            val entryJson = entryJson(requestFile) ?: return finish(Result.failure(), regionId, requestFile)
+            val entryJson = entryJson(requestFile) ?: return finish(Result.failure(), requestFile)
             val requestedKinds = inputData.getNullableStringArray(KEY_PACKAGE_KINDS)?.filterNotNull()?.map(PackageKind::valueOf)?.toSet()
-                ?: return finish(Result.failure(), regionId, requestFile)
+                ?: return finish(Result.failure(), requestFile)
             val manifestEntry = json.decodeFromString(RegionManifestEntry.serializer(), entryJson)
             manifestEntry.validate()
             regionId = manifestEntry.regionId
@@ -49,7 +50,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
             val carOnly = routingVariantPreferences.choices.value.isCarOnly(manifestEntry.regionId) && manifestEntry.routingCar != null
             val entry = manifestEntry.withRoutingVariant(carOnly).restrictedTo(regionZonePreferences.zone(manifestEntry.regionId))
             val kinds = requestedKinds.filterTo(mutableSetOf()) { it in entry.availableKinds }
-            if (kinds.isEmpty()) return finish(Result.success(), regionId, requestFile)
+            if (kinds.isEmpty()) return finish(Result.success(), requestFile)
             var lastMapPercent = -1L
             // Download in primo piano (tipo dataSync): notifica con avanzamento e "Annulla", e il sistema non lo
             // ferma a schermo spento. Gli aggiornamenti dopo il primo sono asincroni e al massimo uno al secondo.
@@ -58,11 +59,11 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
             // Il tipo del servizio esiste da Android 10: WorkManager lo ignora sulle versioni precedenti.
             @SuppressLint("InlinedApi")
             fun foregroundInfo(phase: DownloadPhase) = ForegroundInfo(
-                notification.notificationId(entry.regionId),
+                downloadNotificationId(id),
                 notification.build(id, entry.displayName, kinds, phase),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
             )
-            if (!startForegroundOrContinue(foregroundInfo(DownloadPhase.Files(0, 0)))) return finish(Result.failure(), regionId, requestFile)
+            if (!startForegroundOrContinue(foregroundInfo(DownloadPhase.Files(0, 0)), kinds)) return finish(Result.failure(), requestFile)
             installer.install(
                 entry,
                 kinds,
@@ -84,6 +85,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
                     setProgressAsync(workDataOf(KEY_INSTALLING to true))
                     setForegroundAsync(foregroundInfo(DownloadPhase.Installing))
                 },
+                onStagingVersion = { stagingVersion = it },
             )
             // Il Navigatore lo legge per avvisare che a piedi o in bici questa rete stradale non basta.
             if (PackageKind.ROUTING in kinds) routingVariantPreferences.setInstalledCarOnly(entry.regionId, entry.hasCarOnlyRouting)
@@ -92,7 +94,11 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
             // "Annulla" della notifica: il download non riparte, lo staging e il file della richiesta si ripuliscono
             // subito (senza il motivo, prima di Android 12, al prossimo avvio: RegionStartupRecovery). Altre cause
             // (vincoli persi, processo fermato dal sistema) lasciano lo staging per la ripresa.
-            if (cancelledByUser()) cleanUp(regionId, requestFile)
+            if (cancelledByUser()) cleanUp(regionId, stagingVersion, requestFile)
+            throw error
+        } catch (error: OutOfMemoryError) {
+            // Non si ingoia, ma lo staging e il file della richiesta non restano: il lavoro non viene ritentato.
+            cleanUp(regionId, stagingVersion, requestFile)
             throw error
         } catch (_: PermanentRegionPackageException) {
             Result.failure()
@@ -107,26 +113,27 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         // fallimento definitivo: lo staging (file .part compresi) non serve piu'. Solo un nuovo
         // tentativo lo riusa. Confronto con Result.retry() (Retry.equals vale per ogni Retry): la
         // classe Result.Retry e' API riservata a WorkManager e il lint (RestrictedApi) la rifiuta.
-        if (result != Result.retry()) cleanUp(regionId, requestFile)
+        if (result != Result.retry()) cleanUp(regionId, stagingVersion, requestFile)
         return result
     }
 
     // Da Android 12 un nuovo tentativo partito da sfondo non puo' avviare il servizio: si scarica comunque, senza notifica.
     // Senza notifica pero' il lavoro ha il limite di 10 minuti e l'estrazione della mappa riparte da zero a ogni stop, che
     // non conta in MAX_RETRIES: dopo qualche tentativo ci si arrende (false).
-    private suspend fun startForegroundOrContinue(info: ForegroundInfo): Boolean = try {
+    // L'estrazione della mappa e' l'unico passo che riparte da zero a ogni stop: senza mappa tra i pacchetti non c'e' motivo di arrendersi.
+    private suspend fun startForegroundOrContinue(info: ForegroundInfo, kinds: Set<PackageKind>): Boolean = try {
         setForeground(info)
         true
     } catch (error: CancellationException) {
         throw error
     } catch (error: Exception) {
         Log.w(TAG, "Notifica di download non mostrata", error)
-        !givesUpWithoutForeground(runAttemptCount)
+        !givesUpWithoutForeground(runAttemptCount, kinds)
     }
 
     // Uscite anticipate di doWork: anche loro lasciano il file della richiesta (e lo staging) a posto.
-    private fun finish(result: Result, regionId: String?, requestFile: String?): Result {
-        cleanUp(regionId, requestFile)
+    private fun finish(result: Result, requestFile: String?): Result {
+        cleanUp(null, null, requestFile)
         return result
     }
 
@@ -134,9 +141,9 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
     private fun cancelledByUser(): Boolean =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && stopReason == WorkInfo.STOP_REASON_CANCELLED_BY_APP
 
-    private fun cleanUp(regionId: String?, requestFile: String?) {
-        // Mai sotto i piedi di un altro download della stessa regione, che puo' partire appena questo lascia il lock.
-        regionId?.let(installer::deleteStagingIfIdle)
+    private fun cleanUp(regionId: String?, stagingVersion: String?, requestFile: String?) {
+        // Solo la cartella di questa richiesta, e mai sotto i piedi di un altro download della stessa regione.
+        if (regionId != null && stagingVersion != null) installer.deleteStagingIfIdle(regionId, stagingVersion)
         requestFile?.let { requestFiles(applicationContext).delete(it) }
     }
 
@@ -159,7 +166,8 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         // Tentativi (dopo il primo) consentiti senza la notifica in primo piano.
         private const val MAX_RETRIES_WITHOUT_FOREGROUND = 2
 
-        internal fun givesUpWithoutForeground(runAttemptCount: Int) = runAttemptCount >= MAX_RETRIES_WITHOUT_FOREGROUND
+        internal fun givesUpWithoutForeground(runAttemptCount: Int, kinds: Set<PackageKind>) =
+            PackageKind.MAP in kinds && runAttemptCount >= MAX_RETRIES_WITHOUT_FOREGROUND
         private val TAG = RegionPackageDownloadWorker::class.java.simpleName
 
         internal fun requestFiles(context: Context) = DownloadRequestFiles(File(context.noBackupFilesDir, "download-requests"))

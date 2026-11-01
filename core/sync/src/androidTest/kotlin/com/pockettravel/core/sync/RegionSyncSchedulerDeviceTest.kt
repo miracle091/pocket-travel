@@ -17,6 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlinx.coroutines.Dispatchers
 import java.io.File
 
 /**
@@ -30,7 +31,7 @@ class RegionSyncSchedulerDeviceTest {
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
     private val json = Json { ignoreUnknownKeys = true }
     private val compatibility = AppCompatibility(context) { context.getSharedPreferences(it, Context.MODE_PRIVATE) }
-    private val scheduler = WorkManagerRegionSyncScheduler(context, json, compatibility)
+    private val scheduler = WorkManagerRegionSyncScheduler(context, json, compatibility, Dispatchers.IO)
     private val workManager get() = WorkManager.getInstance(context)
     private val sha = "a".repeat(64)
 
@@ -94,7 +95,7 @@ class RegionSyncSchedulerDeviceTest {
     @Test
     fun ilDownloadHaIlTagDellaRegioneEDelElenco() {
         val region = "${REGION_PREFIX}a"
-        assertNotNull(scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP, PackageKind.POI)))
+        assertNotNull(runBlocking { scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP, PackageKind.POI)) })
 
         val work = downloadsOf(region).single()
         assertEquals(NetworkType.CONNECTED, work.constraints.requiredNetworkType)
@@ -104,8 +105,8 @@ class RegionSyncSchedulerDeviceTest {
     @Test
     fun ilDownloadAccodatoPerLaStessaRegioneNonDipendeDaQuelloPrecedente() {
         val region = "${REGION_PREFIX}h"
-        scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP))
-        scheduler.enqueueDownload(entry(region), setOf(PackageKind.POI))
+        runBlocking { scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP)) }
+        runBlocking { scheduler.enqueueDownload(entry(region), setOf(PackageKind.POI)) }
 
         // In catena il secondo sarebbe BLOCKED e fallirebbe insieme al primo.
         val works = downloadsOf(region)
@@ -115,23 +116,23 @@ class RegionSyncSchedulerDeviceTest {
 
     @Test
     fun ilDownloadAccodaAncheLeGuideSenzaVincoloDiWifi() {
-        scheduler.enqueueDownload(entry("${REGION_PREFIX}b"), setOf(PackageKind.MAP))
+        runBlocking { scheduler.enqueueDownload(entry("${REGION_PREFIX}b"), setOf(PackageKind.MAP)) }
         val guides = uniqueWork(SyncConfig.GUIDES_SYNC_WORK_NAME).single()
         assertEquals(NetworkType.CONNECTED, guides.constraints.requiredNetworkType)
     }
 
     @Test
     fun leGuideInAutomaticoSuWifiAspettanoUnaReteSenzaLimiti() {
-        scheduler.enqueueGuidesSync(onlyOnWifi = true)
+        runBlocking { scheduler.enqueueGuidesSync(onlyOnWifi = true) }
         assertEquals(NetworkType.UNMETERED, uniqueWork(SyncConfig.GUIDES_SYNC_WORK_NAME).single().constraints.requiredNetworkType)
     }
 
     @Test
     fun leGuideSuRichiestaDellUtenteSostituisconoQuelleInAttesaDelWifi() {
-        scheduler.enqueueGuidesSync(onlyOnWifi = true)
+        runBlocking { scheduler.enqueueGuidesSync(onlyOnWifi = true) }
         val waiting = uniqueWork(SyncConfig.GUIDES_SYNC_WORK_NAME).single()
 
-        scheduler.enqueueGuidesSync(onlyOnWifi = false, automatic = false)
+        runBlocking { scheduler.enqueueGuidesSync(onlyOnWifi = false, automatic = false) }
         // L'accodamento e' asincrono: si aspetta che il nuovo lavoro compaia sotto il nome.
         val deadline = System.currentTimeMillis() + 5_000
         var requested = uniqueWork(SyncConfig.GUIDES_SYNC_WORK_NAME).firstOrNull { it.id != waiting.id }
@@ -148,7 +149,7 @@ class RegionSyncSchedulerDeviceTest {
     @Test
     fun laVoceDellaRegioneSenzaTransitNonPortaLeReti() {
         val region = "${REGION_PREFIX}c"
-        scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP))
+        runBlocking { scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP)) }
 
         val sent = requestedEntries().single { it.regionId == region }
         assertNull(sent.transit)
@@ -157,7 +158,7 @@ class RegionSyncSchedulerDeviceTest {
     @Test
     fun laVoceDellaRegioneConTransitPortaLeReti() {
         val region = "${REGION_PREFIX}d"
-        scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP, PackageKind.TRANSIT))
+        runBlocking { scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP, PackageKind.TRANSIT)) }
 
         val sent = requestedEntries().single { it.regionId == region }
         assertEquals(listOf("t1"), checkNotNull(sent.transit).feeds.map { it.id })
@@ -168,8 +169,8 @@ class RegionSyncSchedulerDeviceTest {
         compatibility.update(Int.MAX_VALUE)
         val region = "${REGION_PREFIX}e"
 
-        assertNull(scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP)))
-        scheduler.enqueueGuidesSync(onlyOnWifi = true)
+        assertNull(runBlocking { scheduler.enqueueDownload(entry(region), setOf(PackageKind.MAP)) })
+        runBlocking { scheduler.enqueueGuidesSync(onlyOnWifi = true) }
 
         assertTrue(downloadsOf(region).isEmpty())
         assertTrue(uniqueWork(SyncConfig.GUIDES_SYNC_WORK_NAME).isEmpty())
@@ -180,8 +181,8 @@ class RegionSyncSchedulerDeviceTest {
     fun annullareUnDownloadLoTogliePerLaSuaRegioneSoltanto() {
         val a = "${REGION_PREFIX}f"
         val b = "${REGION_PREFIX}g"
-        scheduler.enqueueDownload(entry(a), setOf(PackageKind.MAP))
-        scheduler.enqueueDownload(entry(b), setOf(PackageKind.MAP))
+        runBlocking { scheduler.enqueueDownload(entry(a), setOf(PackageKind.MAP)) }
+        runBlocking { scheduler.enqueueDownload(entry(b), setOf(PackageKind.MAP)) }
 
         scheduler.cancelDownload(a)
 

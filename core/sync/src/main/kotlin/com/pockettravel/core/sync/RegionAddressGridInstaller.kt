@@ -48,7 +48,12 @@ class RegionAddressGridInstaller @Inject constructor(
     )
 
     fun plan(regionId: String, addressGrid: RegionAddressGridEntry): Plan {
-        val installed = regionStorage.installedAddressCells(regionId)
+        // Senza addresses.pmtiles (file perso o rimosso) l'elenco delle celle non dice niente di installato: si scarica tutto.
+        val installed = if (File(regionStorage.directoryFor(regionId), RegionStorage.ADDRESSES_FILE).isFile) {
+            regionStorage.installedAddressCells(regionId)
+        } else {
+            emptyMap()
+        }
         val (unchanged, toDownload) = addressGrid.cells.partition { installed[it.id] == it.version }
         val installedSearch = regionStorage.addressSearchFiles(regionId).map { it.name }.toSet()
         val searchToDownload = addressGrid.cells.filter {

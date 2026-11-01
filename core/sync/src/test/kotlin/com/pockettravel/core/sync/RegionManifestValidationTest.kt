@@ -61,7 +61,9 @@ class RegionManifestValidationTest {
         invalid(entry.copy(poi = PoiPackageEntry("p1", file("poi.db", hash = "g".repeat(64)))))
         invalid(entry.copy(poi = PoiPackageEntry("p1", file("poi.db", url = "https://evil.example.org/poi.db"))))
         invalid(entry.copy(poi = PoiPackageEntry("p1", file("poi.db"), fileXz = file("poi.db.xz", hash = "abc"))))
-        entry.copy(poi = PoiPackageEntry("p1", file("poi.db", hash = "A".repeat(64)), fileXz = file("poi.db.xz", size = 0))).validate()
+        invalid(entry.copy(poi = PoiPackageEntry("p1", file("poi.db", size = 0))))
+        invalid(entry.copy(poi = PoiPackageEntry("p1", file("poi.db"), fileXz = file("poi.db.xz", size = 0))))
+        entry.copy(poi = PoiPackageEntry("p1", file("poi.db", hash = "A".repeat(64)), fileXz = file("poi.db.xz", size = 1))).validate()
     }
 
     @Test
@@ -123,7 +125,7 @@ class RegionManifestValidationTest {
         val world = WorldMapEntry("1", 8, "https://github.com/o/r/world.pmtiles", 100)
         world.validate()
         listOf(
-            world.copy(version = "a b"), world.copy(maxZoom = -1), world.copy(maxZoom = 23), world.copy(sizeBytes = -1),
+            world.copy(version = "a b"), world.copy(maxZoom = -1), world.copy(maxZoom = 23), world.copy(sizeBytes = -1), world.copy(sizeBytes = 0),
             world.copy(url = "https://example.org/world.pmtiles"),
         ).forEach { assertThrows(IllegalArgumentException::class.java) { it.validate() } }
     }

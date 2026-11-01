@@ -125,7 +125,7 @@ class ManifestSignatureVerifier @Inject constructor(
                 }
                 throw ManifestSignatureException("Firma non disponibile ($url.sig): HTTP ${response.code}")
             }
-            response.body.bytes().also { if (it.isEmpty()) throw ManifestSignatureException("Firma vuota ($url.sig)") }
+            response.body.readBodyAtMost(MAX_SIGNATURE_BYTES).also { if (it.isEmpty()) throw ManifestSignatureException("Firma vuota ($url.sig)") }
         }
     }
 

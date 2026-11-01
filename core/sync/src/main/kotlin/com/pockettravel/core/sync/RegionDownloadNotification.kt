@@ -19,6 +19,14 @@ internal sealed interface DownloadPhase {
 }
 
 private const val PERCENT_MAX = 100
+private const val NOTIFICATION_ID_BASE = 0x10000
+private const val NOTIFICATION_ID_MASK = 0xFFFF
+
+/**
+ * Un ID per richiesta di download (piu' regioni, o la stessa regione con pacchetti diversi, possono scaricare insieme),
+ * lontano da quelli delle altre notifiche.
+ */
+internal fun downloadNotificationId(workId: UUID): Int = NOTIFICATION_ID_BASE + (workId.hashCode() and NOTIFICATION_ID_MASK)
 
 /** Percentuale 0..100 della barra; null (barra indeterminata) se il totale non e' ancora noto. */
 internal fun downloadPercent(done: Long, total: Long): Int? =
@@ -51,8 +59,6 @@ internal class RegionDownloadNotification(private val context: Context) {
             NotificationChannel(CHANNEL_ID, context.getString(R.string.sync_download_channel), NotificationManager.IMPORTANCE_LOW),
         )
     }
-
-    fun notificationId(regionId: String): Int = NOTIFICATION_ID_BASE + (regionId.hashCode() and NOTIFICATION_ID_MASK)
 
     fun build(workId: UUID, regionName: String, kinds: Set<PackageKind>, phase: DownloadPhase): Notification {
         val packages = orderedKinds(kinds).joinToString(", ") { context.getString(label(it)) }
@@ -107,8 +113,5 @@ internal class RegionDownloadNotification(private val context: Context) {
 
     private companion object {
         const val CHANNEL_ID = "region-download"
-        // Un ID per regione (piu' regioni possono scaricare insieme), lontano da quelli delle altre notifiche.
-        const val NOTIFICATION_ID_BASE = 0x10000
-        const val NOTIFICATION_ID_MASK = 0xFFFF
     }
 }

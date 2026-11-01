@@ -181,12 +181,26 @@ class RegionAddressGridInstallerTest {
         val (storage, installer) = newStorageAndInstaller()
         val regionDir = storage.directoryFor("san-marino").apply { mkdirs() }
         File(regionDir, RegionStorage.ADDRESSES_CELLS_FILE).writeText(RegionStorage.encodeAddressCells(mapOf("12/0/0" to "v1")))
+        writeFixture(File(regionDir, RegionStorage.ADDRESSES_FILE), mapOf(Triple(14, 1, 1) to byteArrayOf(0xAA.toByte())))
         val cell = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles"), search = AddressSearchEntry(cellFile("search-a.db")))
 
         val plan = installer.plan("san-marino", RegionAddressGridEntry(listOf(cell)))
 
         assertEquals(emptyList<AddressGridCell>(), plan.toDownload)
         assertEquals(listOf(cell), plan.searchToDownload)
+    }
+
+    @Test
+    fun `con l'elenco delle celle ma senza addresses pmtiles nessuna cella e' installata`() {
+        val (storage, installer) = newStorageAndInstaller()
+        val regionDir = storage.directoryFor("san-marino").apply { mkdirs() }
+        File(regionDir, RegionStorage.ADDRESSES_CELLS_FILE).writeText(RegionStorage.encodeAddressCells(mapOf("12/0/0" to "v1")))
+        val cell = AddressGridCell("12/0/0", "v1", cellFile("cell-a.pmtiles"))
+
+        val plan = installer.plan("san-marino", RegionAddressGridEntry(listOf(cell)))
+
+        assertEquals(listOf(cell), plan.toDownload)
+        assertEquals(emptyList<AddressGridCell>(), plan.unchanged)
     }
 
     @Test

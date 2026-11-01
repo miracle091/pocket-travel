@@ -24,6 +24,14 @@ class CurrentDownloadTest {
     }
 
     @Test
+    fun `quello in corso vince su uno in coda, in qualunque ordine arrivino`() {
+        val queued = work(WorkInfo.State.ENQUEUED, 2)
+        val running = work(WorkInfo.State.RUNNING, 1)
+        assertEquals(running, currentDownload(listOf(queued, running)))
+        assertEquals(running, currentDownload(listOf(running, queued)))
+    }
+
+    @Test
     fun `tra quelli finiti l'ultimo accodato, in qualunque ordine arrivino`() {
         val failed = work(WorkInfo.State.FAILED, 1_000)
         val succeeded = work(WorkInfo.State.SUCCEEDED, 2_000)

@@ -305,13 +305,13 @@ fun RegionManifestEntry.validate() {
 fun WorldMapEntry.validate() {
     require(isSafeVersion(version)) { "version del mondo online non valida" }
     require(maxZoom in 0..MAX_MAP_ZOOM) { "maxZoom del mondo online non valido" }
-    require(sizeBytes >= 0) { "Dimensione del mondo online non valida" }
+    require(sizeBytes > 0) { "Dimensione del mondo online non valida" }
     require(isAllowedManifestUrl(url)) { "url del mondo online non consentito" }
 }
 
 fun AddressGridManifestEntry.validate() {
     require(isSafeVersion(version)) { "version della griglia indirizzi non valida" }
-    require(sizeBytes >= 0) { "Dimensione della griglia indirizzi non valida" }
+    require(sizeBytes > 0) { "Dimensione della griglia indirizzi non valida" }
     require(sha256.matches(SHA256_HEX)) { "SHA-256 della griglia indirizzi non valido" }
     require(isAllowedManifestUrl(url)) { "url della griglia indirizzi non consentito" }
 }
@@ -353,7 +353,7 @@ private fun AddressGridCell.validate(owner: String) {
 
 internal fun RegionManifestFile.validate(owner: String) {
     require(isSafeSegment(name)) { "file.name non valido per $owner" }
-    require(sizeBytes >= 0) { "Dimensione non valida per $owner/$name" }
+    require(sizeBytes > 0) { "Dimensione non valida per $owner/$name" }
     require(sha256.matches(SHA256_HEX)) { "SHA-256 non valido per $owner/$name" }
     require(isAllowedManifestUrl(url)) { "URL non consentito per $owner/$name" }
 }

@@ -8,10 +8,12 @@ import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.readTransitValidUntil
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.time.Clock
 import java.time.LocalDate
 import javax.inject.Inject
@@ -36,11 +38,17 @@ class RegionPackageInstaller @Inject constructor(
     private val clock: Clock,
 ) {
     /**
-     * Cancella lo staging della regione (file .part compresi) se nessun altro lavoro lo sta usando. Se e' occupato
-     * non lo tocca: chi lo tiene lo ripulisce alla fine, e un nuovo tentativo riparte dalla propria cartella.
+     * Cancella la cartella di staging [stagingVersion] della regione (file .part compresi) se nessun altro lavoro la sta
+     * usando; quelle delle altre versioni, di altri lavori, restano. Se e' occupata non la tocca: chi la tiene la ripulisce
+     * alla fine, e un nuovo tentativo riparte dalla propria cartella.
      */
-    fun deleteStagingIfIdle(regionId: String) {
-        downloader.tryWithStagingLock(regionId) { regionStorage.deleteStaging(regionId) }
+    fun deleteStagingIfIdle(regionId: String, stagingVersion: String) {
+        downloader.tryWithStagingLock(regionId) {
+            val staging = regionStorage.stagingDirectoryFor(regionId, stagingVersion)
+            staging.deleteRecursively()
+            // La cartella della regione, se non resta altro staging (delete fallisce se non e' vuota).
+            staging.parentFile?.delete()
+        }
     }
 
     suspend fun install(
@@ -52,6 +60,8 @@ class RegionPackageInstaller @Inject constructor(
         // File scaricati e mappa estratta: resta l'installazione (rete stradale, import dei POI e delle guide, attivazione),
         // che per una nazione grande dura minuti senza una percentuale da mostrare.
         onInstalling: () -> Unit = {},
+        // La cartella di staging di questa richiesta, nota prima di scaricare: chi chiama la ripulisce a fine lavoro.
+        onStagingVersion: (String) -> Unit = {},
     ) {
         require(kinds.isNotEmpty()) { "Nessun pacchetto da installare per ${entry.regionId}" }
         require(entry.availableKinds.containsAll(kinds)) { "Pacchetti non offerti dal catalogo per ${entry.regionId}: ${kinds - entry.availableKinds}" }
@@ -79,12 +89,13 @@ class RegionPackageInstaller @Inject constructor(
             .joinToString("_") { "${it.name.lowercase()}-${if (it == PackageKind.ROUTING) routingVariant else ""}${entry.versionOf(it)}" } +
             (if (installPreview) "_preview-${entry.preview.version}" else "")
         // Download, decompressione, attivazione e pulizia sotto lo stesso lock dello staging della regione: un altro
-        // lavoro con una versione diversa non cancella (cleanupStagingExcept) i file mentre questo li usa.
+        // lavoro sulla stessa regione non scrive o cancella i file mentre questo li usa.
         downloader.withStagingLock(entry.regionId) {
             // Prima di tutto: un tentativo precedente interrotto da un crash puo' aver lasciato backup da
             // chiudere, che activatePackage sovrascriverebbe (RegionStartupRecovery salta le regioni in download).
             // Sotto il lock: fuori, annullerebbe l'attivazione in corso di un altro lavoro sulla stessa regione.
             withContext(ioDispatcher) { regionRepository.recoverInterruptedActivations(entry.regionId) }
+            onStagingVersion(stagingVersion)
             val staging = downloader.downloadLocked(entry.regionId, stagingVersion, files, onProgress)
             if (PackageKind.POI in kinds) unpackXz(staging, entry.poi.file, entry.poi.fileXz, ioDispatcher)
             if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz, ioDispatcher)
@@ -124,8 +135,15 @@ class RegionPackageInstaller @Inject constructor(
                 val light = mapDetailPreferences.choice(entry.regionId)
                     ?: (!installedMap.isFile || entry.regionId in mapDetailPreferences.installedLight.value)
                 val detail = if (light) MapDetail.LIGHT else MapDetail.FULL
-                val stats = withContext(ioDispatcher) {
-                    pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap, detail, onMapProgress, isCancelled = { !isActive }) { ensureActive() }
+                val stats = try {
+                    withContext(ioDispatcher) {
+                        pmtilesExtractor.extract(entry.map.source, File(staging, RegionStorage.MAP_FILE), installedMap, detail, onMapProgress, isCancelled = { !isActive }) { ensureActive() }
+                    }
+                } catch (error: IOException) {
+                    // La lettura interrotta da "Annulla" arriva come errore di rete: va propagata come annullamento,
+                    // altrimenti il lavoro verrebbe ritentato senza pulire.
+                    currentCoroutineContext().ensureActive()
+                    throw error
                 }
                 extractedLight = stats.maxZoom < entry.map.source.maxZoom
             }

@@ -276,8 +276,9 @@ class UpdatesViewModelTest {
     }
 
     @Test
-    fun `aggiornare le guide chiede la sincronizzazione anche su rete mobile`() {
+    fun `aggiornare le guide chiede la sincronizzazione anche su rete mobile`() = runTest {
         viewModel().updateGuides()
+        advanceUntilIdle()
 
         assertEquals(listOf(FakeRegionSyncScheduler.GuidesSyncRequest(onlyOnWifi = false, automatic = false)), scheduler.guidesSyncs)
     }
