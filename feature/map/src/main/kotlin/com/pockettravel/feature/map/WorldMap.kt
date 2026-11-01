@@ -19,6 +19,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +42,7 @@ import com.pockettravel.core.ui.Spacing
 import java.util.Locale
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
@@ -81,36 +83,39 @@ fun WorldMap(
     }
     val currentOnCountryClick by rememberUpdatedState(onCountryClick)
     val currentCountryStatus by rememberUpdatedState(countryStatus)
-    var configuredStyle by remember { mutableStateOf<String?>(null) }
-    var listenerAdded by remember { mutableStateOf(false) }
+    var mapLibre by remember(mapView) { mutableStateOf<MapLibreMap?>(null) }
+    // Lo stile caricato della mappa: null mentre se ne imposta uno nuovo.
+    var loadedStyle by remember(mapView) { mutableStateOf<Style?>(null) }
+
+    // Impostazione della mappa, una volta per MapView: inquadratura, gesti e tocco sulle nazioni.
+    LaunchedEffect(mapView) {
+        mapView.getMapAsync { map ->
+            map.cameraPosition = CameraPosition.Builder().target(LatLng(INITIAL_LATITUDE, INITIAL_LONGITUDE)).zoom(INITIAL_ZOOM).build()
+            map.setMaxZoomPreference(MAX_ZOOM)
+            map.uiSettings.isRotateGesturesEnabled = false
+            map.addOnMapClickListener { point ->
+                val features = map.queryRenderedFeatures(map.projection.toScreenLocation(point), "countries-fill")
+                val iso = features.firstNotNullOfOrNull { it.getStringProperty("iso") }
+                if (iso != null) currentOnCountryClick(iso)
+                iso != null
+            }
+            mapLibre = map
+        }
+    }
+    LaunchedEffect(mapLibre, styleJson) {
+        val map = mapLibre ?: return@LaunchedEffect
+        loadedStyle = null
+        map.setStyle(Style.Builder().fromJson(styleJson)) { style ->
+            style.applyCountryStatus(currentCountryStatus)
+            loadedStyle = style
+        }
+    }
+    LaunchedEffect(loadedStyle, countryStatus) {
+        loadedStyle?.takeIf { it.isFullyLoaded }?.applyCountryStatus(countryStatus)
+    }
 
     Box(modifier = modifier) {
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { mapView },
-        update = { view ->
-            view.getMapAsync { map ->
-                if (!listenerAdded) {
-                    listenerAdded = true
-                    map.cameraPosition = CameraPosition.Builder().target(LatLng(INITIAL_LATITUDE, INITIAL_LONGITUDE)).zoom(INITIAL_ZOOM).build()
-                    map.setMaxZoomPreference(MAX_ZOOM)
-                    map.uiSettings.isRotateGesturesEnabled = false
-                    map.addOnMapClickListener { point ->
-                        val features = map.queryRenderedFeatures(map.projection.toScreenLocation(point), "countries-fill")
-                        val iso = features.firstNotNullOfOrNull { it.getStringProperty("iso") }
-                        if (iso != null) currentOnCountryClick(iso)
-                        iso != null
-                    }
-                }
-                if (configuredStyle != styleJson) {
-                    configuredStyle = styleJson
-                    map.setStyle(Style.Builder().fromJson(styleJson)) { style -> style.applyCountryStatus(currentCountryStatus) }
-                } else {
-                    map.style?.takeIf { it.isFullyLoaded }?.applyCountryStatus(countryStatus)
-                }
-            }
-        },
-    )
+    AndroidView(modifier = Modifier.fillMaxSize(), factory = { mapView })
     WorldMapLegend(modifier = Modifier.align(Alignment.TopStart).padding(Spacing.m))
     }
 }
@@ -147,7 +152,7 @@ private fun LegendRow(color: Color, label: String) {
 internal fun rememberMapViewWithLifecycle(): MapView {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val mapView = remember { MapView(context) }
+    val mapView = remember(lifecycleOwner) { MapView(context) }
     DisposableEffect(lifecycleOwner) {
         // Ultimo evento passato al MapView: quando la mappa esce dallo schermo (senza GPS in galleria,
         // cambio di scheda) va portato fino a onDestroy, o mappa nativa e thread di disegno restano vivi.

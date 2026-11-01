@@ -19,16 +19,24 @@ class NavigationTrackerLongRouteTest {
     fun `il costo per posizione non cresce con la lunghezza del percorso`() {
         val tracker = NavigationTracker(route)
         val total = NavigationTracker.distanceMeters(points.first(), points.last())
-        val started = System.nanoTime()
         var last: NavigationProgress? = null
         repeat(CALLS) { call -> last = tracker.progress(points[call * 10]) }
-        val elapsedMillis = (System.nanoTime() - started) / 1_000_000
 
         val progress = requireNotNull(last)
         assertFalse(progress.offRoute)
         assertEquals(total - NavigationTracker.distanceMeters(points.first(), points[(CALLS - 1) * 10]), progress.remainingMeters, 1.0)
-        // Con la scansione di tutto il percorso: 50M proiezioni, decine di secondi; con la finestra, meno di un secondo.
-        assertTrue("$elapsedMillis ms", elapsedMillis < MAX_MILLIS)
+        // Con la scansione di tutto il percorso: 50M proiezioni; con la finestra di 2 km (circa 330 tratti) poche centinaia a posizione.
+        assertTrue("${tracker.projectedSegments} tratti", tracker.projectedSegments < CALLS * MAX_SEGMENTS_PER_CALL)
+    }
+
+    @Test
+    fun `la stessa posizione non rifa la ricerca`() {
+        val tracker = NavigationTracker(route)
+        val first = tracker.progress(points[100])
+        val projected = tracker.projectedSegments
+
+        assertTrue(first === tracker.progress(points[100]))
+        assertEquals(projected, tracker.projectedSegments)
     }
 
     @Test
@@ -47,6 +55,6 @@ class NavigationTrackerLongRouteTest {
         const val POINTS = 50_000
         const val CALLS = 1_000
         const val STEP_DEGREES = 0.00008
-        const val MAX_MILLIS = 3_000
+        const val MAX_SEGMENTS_PER_CALL = 400
     }
 }

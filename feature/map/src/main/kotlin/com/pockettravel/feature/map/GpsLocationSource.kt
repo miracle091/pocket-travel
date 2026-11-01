@@ -11,4 +11,7 @@ interface GpsLocationSource {
 
     /** Posizioni del GPS, circa una al secondo; da raccogliere solo con il permesso. */
     fun fixes(): Flow<GpsFix>
+
+    /** Il "adesso" di [GpsFix.timeMillis]: orologio monotono, non cambia se l'utente o la rete correggono l'ora. */
+    fun elapsedRealtimeMillis(): Long
 }

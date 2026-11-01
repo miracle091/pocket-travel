@@ -104,11 +104,11 @@ class NavigationViewModel @Inject constructor(
     private val _arrivedAtMillis = MutableStateFlow<Long?>(null)
     private var lastCalculationMillis = 0L
 
-    // Ticchetta ogni secondo: una posizione che invecchia deve far passare a "segnale perso"
+    // Ticchetta ogni secondo, sull'orologio monotono delle posizioni (GpsFix.timeMillis): una posizione che invecchia deve far passare a "segnale perso"
     // anche se il GPS non ne manda di nuove.
     private val ticks = flow {
         while (true) {
-            emit(clock.millis())
+            emit(gps.elapsedRealtimeMillis())
             delay(1_000)
         }
     }
@@ -339,7 +339,7 @@ class NavigationViewModel @Inject constructor(
         val target = destination.value ?: return
         if (calculating.value) return
         lastCalculationMillis = from.timeMillis
-        calculationStartedMillis.value = clock.millis()
+        calculationStartedMillis.value = gps.elapsedRealtimeMillis()
         calculationProgress.value = 0.0
         calculating.value = true
         // Prima posizione arrivata: la notifica passa da "In attesa del segnale GPS…" a "Calcolo del percorso".
@@ -352,7 +352,8 @@ class NavigationViewModel @Inject constructor(
                 val regionIds = navigationRegionIds(regionId, routingRegions(), start, target.point)
                 _regionIds.value = regionIds
                 val result = routeEngineFactory.create(regionIds).route(start, target.point, choice.profile, choice.params) { progress ->
-                    if (calculationJob === self) calculationProgress.value = progress
+                    // Annullato ma non ancora sostituito: un avanzamento in ritardo non sporca quello del calcolo nuovo.
+                    if (calculationJob === self && self?.isActive == true) calculationProgress.value = progress
                 }
                 if (result is RouteResult.Found) simulationLog.log(result.route)
                 // Un ricalcolo fuori percorso fallito (partenza in un parcheggio, tempo scaduto) non butta

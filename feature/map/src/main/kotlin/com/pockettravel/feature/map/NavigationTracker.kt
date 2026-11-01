@@ -7,7 +7,7 @@ import kotlin.math.sqrt
 /** Una strada della mappa con un nome: la sua linea (o un pezzo, se la strada e' divisa in piu' linee). */
 data class NamedRoad(val name: String, val points: List<RoutePoint>)
 
-/** Una posizione dal GPS: [timeMillis] e' l'ora in cui e' stata ricevuta (orologio di sistema). */
+/** Una posizione dal GPS: [timeMillis] e' l'ora in cui e' stata ricevuta (orologio monotono, vedi [GpsLocationSource.elapsedRealtimeMillis]). */
 data class GpsFix(val latitude: Double, val longitude: Double, val accuracyMeters: Float, val timeMillis: Long)
 
 /**
@@ -59,6 +59,7 @@ class NavigationTracker(private val route: Route) {
         for (i in from until points.size - 1) {
             if (cumulative[i] > maxTravelled) break
             projectInto(position, points[i], points[i + 1], scratch)
+            projectedSegments++
             val ahead = cumulative[i] + scratch[0] * (cumulative[i + 1] - cumulative[i]) >= minTravelled
             if (scratch[1] < bestDistanceSquared && ahead) {
                 bestDistanceSquared = scratch[1]
@@ -68,6 +69,14 @@ class NavigationTracker(private val route: Route) {
         }
         return if (bestSegment < 0) null else Projection(bestSegment, bestFraction, sqrt(bestDistanceSquared))
     }
+
+    /** Tratti proiettati finora (per verificare che la ricerca resti nella finestra). */
+    internal var projectedSegments = 0L
+        private set
+
+    // Ultima posizione calcolata e il suo risultato: stessa posizione, stesso progress, senza rifare la ricerca.
+    private var lastPosition: RoutePoint? = null
+    private var lastProgress: NavigationProgress? = null
 
     // Frazione e distanza al quadrato dell'ultima proiezione calcolata da nearestSegment.
     private val scratch = DoubleArray(2)
@@ -104,6 +113,14 @@ class NavigationTracker(private val route: Route) {
      * per posizione non cresce con la lunghezza del percorso, tranne quando si e' fuori percorso.
      */
     fun progress(position: RoutePoint): NavigationProgress {
+        lastProgress?.let { if (position == lastPosition) return it }
+        return computeProgress(position).also {
+            lastPosition = position
+            lastProgress = it
+        }
+    }
+
+    private fun computeProgress(position: RoutePoint): NavigationProgress {
         val points = route.points
         val best = locate(position)
         val bestSegment = best.segment

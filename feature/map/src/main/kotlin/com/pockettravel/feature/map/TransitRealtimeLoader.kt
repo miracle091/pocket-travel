@@ -7,6 +7,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -95,6 +98,11 @@ class TransitRealtimeLoader @Inject constructor(
                         lastTry -= network.id
                         throw e
                     } catch (_: Exception) {
+                        // OkHttp segnala l'annullamento come IOException("Canceled"): non e' un fallimento, vale come il download interrotto.
+                        if (!currentCoroutineContext().isActive) {
+                            lastTry -= network.id
+                            currentCoroutineContext().ensureActive()
+                        }
                         // Ente irraggiungibile o feed illeggibile: il tabellone resta con l'ultimo feed valido o l'orario.
                         failed += network.id
                     }

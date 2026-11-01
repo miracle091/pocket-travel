@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Looper
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
@@ -50,13 +51,16 @@ class AndroidGpsLocationSource @Inject constructor(
             return@callbackFlow
         }
         val listener = LocationListener { location ->
-            trySend(GpsFix(location.latitude, location.longitude, location.accuracy, System.currentTimeMillis()))
+            trySend(GpsFix(location.latitude, location.longitude, location.accuracy, location.elapsedRealtimeNanos / NANOS_PER_MILLI))
         }
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, UPDATE_INTERVAL_MILLIS, 0f, listener, Looper.getMainLooper())
         awaitClose { locationManager.removeUpdates(listener) }
     }
 
+    override fun elapsedRealtimeMillis(): Long = SystemClock.elapsedRealtime()
+
     private companion object {
+        const val NANOS_PER_MILLI = 1_000_000L
         const val UPDATE_INTERVAL_MILLIS = 1_000L
     }
 }

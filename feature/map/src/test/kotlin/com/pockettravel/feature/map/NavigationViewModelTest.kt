@@ -61,7 +61,7 @@ class NavigationViewModelTest {
     private val files = InMemoryPreferencesFactory()
     private val engines = ScriptedRouteEngineFactory()
     private val regions = FakeRegionRepository(listOf(installedRegion("r1", countryCode = "IT")))
-    private val gps = FakeGpsLocationSource()
+    private val gps = FakeGpsLocationSource().apply { elapsedRealtime = { clock.millis() } }
     private val tileSource = FakeOfflineTileSource().apply { bounds["r1"] = MapBounds(9.0, 44.0, 11.0, 46.0) }
     private val variants = RoutingVariantPreferences(files)
     private val usageModes = UsageModePreferences(files, MapFilterPreferences(files), variants)
@@ -411,6 +411,19 @@ class NavigationViewModelTest {
         runCurrent()
 
         assertEquals(1, engines.requests.size)
+    }
+
+    @Test
+    fun `l'eta' della posizione segue l'orologio monotono e non quello di sistema`() = runTest {
+        engines.defaultResult = RouteResult.Found(route)
+        gps.elapsedRealtime = { 1_000L + testScheduler.currentTime }
+        val viewModel = viewModel()
+        viewModel.begin()
+
+        gps.emit(fix(origin, timeMillis = 1_000L))
+        runCurrent()
+
+        assertFalse((viewModel.uiState.value.status as NavigationStatus.Navigating).signalLost)
     }
 
     @Test

@@ -78,7 +78,7 @@ abstract class NavigationPlannerTestBase {
     protected fun TestScope.viewModel(): NavigationPlannerViewModel {
         val created = ViewModelHost(NavigationPlannerViewModel::class.java) {
             NavigationPlannerViewModel(
-                handle, reminders, main.dispatcher, PoiRepository(dao), addresses, regions, engines, gps, recents, usageModes, variants, tileSource,
+                handle, reminders, main.dispatcher, main.dispatcher, PoiRepository(dao), addresses, regions, engines, gps, recents, usageModes, variants, tileSource,
             )
         }
         host = created

@@ -1,9 +1,12 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.MapBounds
+
 /**
  * Quante volte e quanto spesso cercare il nome della strada delle svolte: una svolta in una strada senza nome non
  * si cerca per sempre ([maxAttempts] ricerche) e tra due ricerche passano almeno [intervalMillis]. Si cercano solo le
- * svolte vicine ([nearTurns]): quelle lontane hanno le tile non ancora caricate e consumerebbero i tentativi a vuoto.
+ * svolte vicine ([nearTurns]). Un tentativo conta solo per le svolte la cui sonda cade nell'area da cui sono state lette
+ * le strade ([inArea]): fuori da quell'area le tile non sono caricate e la svolta resta da cercare con tutti i tentativi.
  */
 class StreetLookupBudget(private val maxAttempts: Int = MAX_ATTEMPTS, private val intervalMillis: Long = INTERVAL_MILLIS) {
     private val attempts = mutableMapOf<Int, Int>()
@@ -30,5 +33,9 @@ class StreetLookupBudget(private val maxAttempts: Int = MAX_ATTEMPTS, private va
         /** Le svolte di [probes] (indice del punto e punto da cercare) entro 1,5 km in linea d'aria da [position]. */
         fun nearTurns(probes: List<Pair<Int, RoutePoint>>, position: RoutePoint): List<Int> =
             probes.filter { (_, probe) -> NavigationTracker.distanceMeters(position, probe) <= NEAR_METERS }.map { it.first }
+
+        /** Le svolte di [probes] la cui sonda cade in [area], l'area da cui sono state lette le strade. */
+        fun inArea(probes: List<Pair<Int, RoutePoint>>, area: MapBounds): List<Pair<Int, RoutePoint>> =
+            probes.filter { (_, probe) -> area.contains(probe.latitude, probe.longitude) }
     }
 }

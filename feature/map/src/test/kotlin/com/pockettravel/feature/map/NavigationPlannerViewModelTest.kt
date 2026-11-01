@@ -234,6 +234,23 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
     }
 
     @Test
+    fun `l'avanzamento in ritardo di un calcolo annullato non tocca l'anteprima del nuovo`() = runTest {
+        gps.permission = false
+        engines.gate = CompletableDeferred()
+        engines.staleProgress = CompletableDeferred()
+        val viewModel = viewModel()
+        viewModel.plan(colosseo)
+        runCurrent()
+        viewModel.plan(louvre)
+        runCurrent()
+
+        engines.staleProgress?.complete(0.9)
+        runCurrent()
+
+        assertEquals(PlannerPreview.Calculating(0.0), settled(viewModel.uiState).preview)
+    }
+
+    @Test
     fun `gli errori del motore diventano un'anteprima del percorso non disponibile con il motivo`() = runTest {
         val viewModel = viewModel()
         viewModel.plan(colosseo)

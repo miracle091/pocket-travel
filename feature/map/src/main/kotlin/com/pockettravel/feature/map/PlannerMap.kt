@@ -150,15 +150,20 @@ internal fun PlannerMap(
             )
         }
     }
-    LaunchedEffect(sources, route, from, to, topPaddingPx, nearby, regionBounds) {
+    // I dati del percorso non dipendono dall'altezza del pannello: cambiarla non li riscrive.
+    LaunchedEffect(sources, route, from, to) {
         val current = sources ?: return@LaunchedEffect
-        val area = regionBounds
         val points = route?.points.orEmpty()
         current.route.setGeoJson(FeatureCollection.fromFeatures(listOfNotNull(points.takeIf { it.size >= 2 }?.let { Feature.fromGeometry(lineString(it)) })))
+        current.start.setGeoJson(pointCollection(points.firstOrNull() ?: from))
+        current.end.setGeoJson(pointCollection(to))
+    }
+    LaunchedEffect(sources, route, from, to, topPaddingPx, nearby, regionBounds) {
+        if (sources == null) return@LaunchedEffect
+        val area = regionBounds
+        val points = route?.points.orEmpty()
         val start = points.firstOrNull() ?: from
         val end = to
-        current.start.setGeoJson(pointCollection(start))
-        current.end.setGeoJson(pointCollection(end))
         mapView.getMapAsync { map ->
             val framed = (points.ifEmpty { listOfNotNull(start, end) })
             when {

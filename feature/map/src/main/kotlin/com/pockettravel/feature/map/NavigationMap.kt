@@ -131,7 +131,8 @@ internal fun NavigationMap(
 
     // Nomi delle strade: i segmenti della rete stradale (.rd5) non li hanno, la mappa si'. A mappa ferma e
     // disegnata si leggono le strade delle tile gia' caricate e, per ogni svolta, si prende quella in
-    // cui si entra; le svolte lontane restano senza nome finche' le loro tile non vengono caricate.
+    // cui si entra; le svolte fuori dall'area letta restano senza nome (e senza tentativi consumati) finche' le loro
+    // tile non vengono caricate.
     // OnDidBecomeIdle e non la fine del movimento della camera: querySourceFeatures prima che il
     // renderer esista manda in crash MapLibre (SIGSEGV in MapRenderer::actor, visto sull'emulatore).
     // Sul main resta solo querySourceFeatures: la conversione delle strade e l'abbinamento alle svolte (O(svolte x
@@ -153,14 +154,19 @@ internal fun NavigationMap(
             if (lookupJob?.isActive == true) return@OnDidBecomeIdleListener
             val now = SystemClock.elapsedRealtime()
             val due = budget.due(StreetLookupBudget.nearTurns(probes, currentPosition).filter { it !in resolved }, now).toSet()
-            val pending = probes.filter { (pointIndex, _) -> pointIndex in due }
-            if (pending.isEmpty()) return@OnDidBecomeIdleListener
-            val style = attached?.style?.takeIf { it.isFullyLoaded } ?: return@OnDidBecomeIdleListener
+            val dueProbes = probes.filter { (pointIndex, _) -> pointIndex in due }
+            if (dueProbes.isEmpty()) return@OnDidBecomeIdleListener
+            val map = attached ?: return@OnDidBecomeIdleListener
+            val style = map.style?.takeIf { it.isFullyLoaded } ?: return@OnDidBecomeIdleListener
+            // Le strade lette vengono dalle tile attorno alla vista: conta solo quello che cade nel rettangolo visibile.
+            val visible = map.projection.visibleRegion.latLngBounds
+            val area = MapBounds(visible.longitudeWest, visible.latitudeSouth, visible.longitudeEast, visible.latitudeNorth)
+            val pending = StreetLookupBudget.inArea(dueProbes, area)
             // Le strade di tutte le regioni del percorso: una sorgente ognuna (REGION_SOURCE_PREFIX).
             val features = style.sources.filterIsInstance<VectorSource>().filter { it.id.startsWith(REGION_SOURCE_PREFIX) }
                 .flatMap { it.querySourceFeatures(arrayOf(ROADS_SOURCE_LAYER), null) }
-            if (features.isEmpty()) {
-                // Tile non ancora caricate: non e' un tentativo, ma la prossima ricerca aspetta lo stesso.
+            if (pending.isEmpty() || features.isEmpty()) {
+                // Svolte fuori vista o tile non ancora caricate: non e' un tentativo, ma la prossima ricerca aspetta lo stesso.
                 budget.record(emptyList(), emptyList(), now)
                 return@OnDidBecomeIdleListener
             }

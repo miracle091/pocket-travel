@@ -3,6 +3,7 @@ package com.pockettravel.feature.map
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.AreaPois
+import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.MapAccessibility
 import com.pockettravel.core.data.MapBounds
@@ -54,6 +55,7 @@ class MapRouteViewModel @Inject constructor(
     connectivityObserver: ConnectivityObserver,
     private val transitRealtime: TransitRealtimeLoader,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     private val accessible: StateFlow<Boolean> = usageModePreferences.accessible
 
@@ -197,6 +199,7 @@ class MapRouteViewModel @Inject constructor(
     }
 
     fun setViewport(bounds: MapBounds) {
+        if (bounds == viewport) return
         viewport = bounds
         reloadPins()
     }
@@ -227,10 +230,14 @@ class MapRouteViewModel @Inject constructor(
         if (regionIdFlow.value == regionId) publishPins(inArea)
     }
 
-    private fun publishPins(inArea: AreaPois?) {
+    private suspend fun publishPins(inArea: AreaPois?) {
         if (inArea != null) _presentCategories.value = inArea.categories
-        // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti.
-        _pins.value = inArea?.pois.orEmpty().filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
+        // I POI extra li ha scaricati l'utente apposta: si mostrano anche se di solito nascosti. Fino a MAX_PINS conversioni: fuori dal main.
+        _pins.value = withContext(defaultDispatcher) { toPins(inArea) }
+    }
+
+    private fun toPins(inArea: AreaPois?): List<MapPin> =
+        inArea?.pois.orEmpty().filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
             MapPin(
                 poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.osmTag, poi.phone, poi.wheelchair,
                 openingHours = poi.openingHours, address = poi.address, website = poi.website, email = poi.email,
@@ -238,7 +245,6 @@ class MapRouteViewModel @Inject constructor(
                 toiletsWheelchair = poi.toiletsWheelchair, capacityDisabled = poi.capacityDisabled,
             )
         }
-    }
 
     // Il filtro "In sedia a rotelle" della mappa, come lo applica MapScreen ("solo accessibili" vale solo con quello acceso).
     private fun accessibility(): MapAccessibility = when {

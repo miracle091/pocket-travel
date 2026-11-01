@@ -18,5 +18,10 @@ class FakeGpsLocationSource(var permission: Boolean = true) : GpsLocationSource 
     override fun gpsEnabled(): Flow<Boolean> = enabled
     override fun fixes(): Flow<GpsFix> = fixes
 
+    /** L'orologio monotono dei test: di solito quello virtuale, vedi [GpsFix.timeMillis]. */
+    var elapsedRealtime: () -> Long = { 0L }
+
+    override fun elapsedRealtimeMillis(): Long = elapsedRealtime()
+
     suspend fun emit(fix: GpsFix) = fixes.emit(fix)
 }

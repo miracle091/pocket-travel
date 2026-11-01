@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.MapBounds
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -35,5 +36,20 @@ class StreetLookupBudgetTest {
         val probes = listOf(1 to RoutePoint(41.91, 12.5), 2 to RoutePoint(41.92, 12.5), 3 to RoutePoint(41.89, 12.5))
 
         assertEquals(listOf(1, 3), StreetLookupBudget.nearTurns(probes, position))
+    }
+
+    @Test
+    fun `solo le svolte con la sonda nell'area letta consumano un tentativo`() {
+        val area = MapBounds(minLon = 12.4, minLat = 41.8, maxLon = 12.6, maxLat = 42.0)
+        val probes = listOf(1 to RoutePoint(41.9, 12.5), 2 to RoutePoint(43.0, 12.5))
+        val budget = StreetLookupBudget()
+
+        repeat(5) { attempt ->
+            val inside = StreetLookupBudget.inArea(probes, area)
+            assertEquals(listOf(1), inside.map { it.first })
+            budget.record(inside.map { it.first }, found = emptyList(), nowMillis = attempt * 5_000L)
+        }
+
+        assertEquals(listOf(2), budget.due(listOf(1, 2), nowMillis = 100_000))
     }
 }

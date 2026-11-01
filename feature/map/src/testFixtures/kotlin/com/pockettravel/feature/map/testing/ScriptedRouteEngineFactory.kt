@@ -5,6 +5,8 @@ import com.pockettravel.feature.map.RouteEngineFactory
 import com.pockettravel.feature.map.RoutePoint
 import com.pockettravel.feature.map.RouteResult
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 /**
  * [RouteEngineFactory] con risposte decise dal test: [results] in ordine (l'ultima si ripete), poi [defaultResult].
@@ -21,6 +23,9 @@ class ScriptedRouteEngineFactory(var defaultResult: RouteResult = RouteResult.No
     /** Avanzamenti che il motore segnala prima di rispondere. */
     var progressSteps: List<Double> = emptyList()
 
+    /** Un avanzamento segnalato dopo l'annullamento del calcolo, quando [CompletableDeferred] ha il valore (come il motore vero). */
+    var staleProgress: CompletableDeferred<Double>? = null
+
     override suspend fun create(regionIds: List<String>): RouteEngine {
         created += regionIds
         return object : RouteEngine {
@@ -29,7 +34,11 @@ class ScriptedRouteEngineFactory(var defaultResult: RouteResult = RouteResult.No
             ): RouteResult {
                 requests += Request(from, to, profile, profileParams)
                 progressSteps.forEach(onProgress)
-                gate?.await()
+                try {
+                    gate?.await()
+                } finally {
+                    staleProgress?.let { late -> withContext(NonCancellable) { onProgress(late.await()) } }
+                }
                 return if (results.size > 1) results.removeFirst() else results.firstOrNull() ?: defaultResult
             }
         }

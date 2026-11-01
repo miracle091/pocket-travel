@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.AddressResult
 import com.pockettravel.core.data.AddressSearchRepository
+import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.NearbyPois
 import com.pockettravel.core.data.Poi
@@ -18,6 +19,7 @@ import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.label
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,8 +65,10 @@ private val SIGHTS = setOf(
 )
 
 /** 0 il piu' pertinente: posto da visitare col nome uguale alla ricerca, poi posto da visitare, poi nome uguale, poi il resto. */
-internal fun searchRelevance(poi: Poi, query: String): Int {
-    val wanted = foldForSearch(query)
+internal fun searchRelevance(poi: Poi, query: String): Int = searchRelevanceFolded(poi, foldForSearch(query))
+
+// Come searchRelevance, con la ricerca gia' ripulita da maiuscole e accenti: si piega una volta per ricerca, non per posto.
+internal fun searchRelevanceFolded(poi: Poi, wanted: String): Int {
     val exact = listOfNotNull(poi.name, poi.nameIt, poi.nameEn).any { foldForSearch(it) == wanted }
     return (if (poi.poiCategory() in SIGHTS) 0 else 2) + (if (exact) 0 else 1)
 }
@@ -167,6 +171,7 @@ class NavigationPlannerViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val departureReminder: DepartureReminderScheduler,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     private val poiRepository: PoiRepository,
     private val addressSearchRepository: AddressSearchRepository,
     private val regionRepository: RegionRepository,
@@ -497,7 +502,9 @@ class NavigationPlannerViewModel @Inject constructor(
         // Dai valori di partenza, non da [routing]: quello si aggiorna solo al giro successivo della sua coroutine, e
         // dopo un cambio fatto da dentro una coroutine l'anteprima del percorso userebbe il modo di prima.
         val choice = brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value)
-        previewJob = viewModelScope.launch {
+        // Assegnato prima di partire: un dispatcher che esegue subito chiamerebbe onProgress con previewJob ancora vecchio.
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            val self = coroutineContext[Job]
             val start = if (origin != null) {
                 origin.point
             } else {
@@ -515,11 +522,14 @@ class NavigationPlannerViewModel @Inject constructor(
                 RouteResult.NoRoutingData
             } else {
                 routeEngineFactory.create(regionIds).route(start, destination.point, choice.profile, choice.params) { progress ->
-                    _preview.value = PlannerPreview.Calculating(progress)
+                    // Un avanzamento in ritardo di un calcolo annullato non sovrascrive l'anteprima di quello nuovo.
+                    if (previewJob === self && self?.isActive == true) _preview.value = PlannerPreview.Calculating(progress)
                 }
             }
             _preview.value = if (result is RouteResult.Found) PlannerPreview.Ready(result.route, regionIds) else PlannerPreview.Unavailable(result)
         }
+        previewJob = job
+        job.start()
     }
 
     private suspend fun search(text: String, current: String?, regions: Map<String, String>): List<PlannerResult> {
@@ -535,8 +545,10 @@ class NavigationPlannerViewModel @Inject constructor(
         val addressResults = addresses.map { it.toResult(current, regions, reference) }.sortedWith(byProximity).take(ADDRESS_RESULTS_SHOWN)
         // Tra i punti di interesse prima i posti da visitare e i nomi uguali alla ricerca: "Louvre" trova il museo, non
         // gli hotel col suo nome piu' vicini.
-        val poiResults = pois.rankedResults({ searchRelevance(it, text) }) { it.toResult(language, current, regions, reference) }
-            .take(RESULTS_SHOWN - addressResults.size)
+        val wanted = foldForSearch(text)
+        val poiResults = withContext(defaultDispatcher) {
+            pois.rankedResults({ searchRelevanceFolded(it, wanted) }) { it.toResult(language, current, regions, reference) }
+        }.take(RESULTS_SHOWN - addressResults.size)
         // Con un civico nella ricerca gli indirizzi esatti vengono per primi, altrimenti i punti di interesse.
         return if (parseAddressQuery(text).number != null) addressResults + poiResults else poiResults + addressResults
     }

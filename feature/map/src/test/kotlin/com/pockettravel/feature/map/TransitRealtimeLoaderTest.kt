@@ -8,15 +8,22 @@ import com.pockettravel.core.data.TransitMode
 import com.pockettravel.feature.map.testing.FakeConnectivityChecker
 import com.pockettravel.feature.map.testing.FakeTransitRealtimeClient
 import com.pockettravel.feature.map.testing.MutableClock
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 import java.time.Duration
 import java.time.LocalDate
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class TransitRealtimeLoaderTest {
     private val client = FakeTransitRealtimeClient()
     private val connectivity = FakeConnectivityChecker()
@@ -157,6 +164,35 @@ class TransitRealtimeLoaderTest {
         loader.refresh(listOf(small), tapped = false)
         assertEquals(2, cancelling.calls)
         assertEquals(setOf("renfe"), loader.usable(listOf(small)).keys)
+    }
+
+    @Test
+    fun `un download annullato che OkHttp segnala come IOException non e' un fallimento`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        var calls = 0
+        val okHttpLike = object : TransitRealtimeClient {
+            override suspend fun fetch(url: String): RealtimeDownload {
+                calls++
+                try {
+                    gate.await()
+                } catch (e: CancellationException) {
+                    // Come OkHttp: la chiamata annullata arriva come IOException.
+                    throw IOException("Canceled", e)
+                }
+                return RealtimeDownload(feed, 30_000)
+            }
+        }
+        val loader = TransitRealtimeLoader(okHttpLike, connectivity, clock)
+        val job = launch { loader.refresh(listOf(small), tapped = false) }
+        runCurrent()
+
+        job.cancel()
+        runCurrent()
+
+        assertFalse(loader.ui(listOf(small), loading = false)?.failed ?: false)
+        gate.complete(Unit)
+        loader.refresh(listOf(small), tapped = false)
+        assertEquals(2, calls)
     }
 
     @Test

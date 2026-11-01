@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -56,46 +57,47 @@ fun ZonePickerMap(
         value = withContext(Dispatchers.IO) { tileSource.styleJson(regionId, dark = dark, language = language, worldFallback = true) }
     }
     val currentOnZoneChange by rememberUpdatedState(onZoneChange)
-    var configured by remember { mutableStateOf(false) }
+    var mapLibre by remember(mapView) { mutableStateOf<MapLibreMap?>(null) }
     // Finche' non si muove la mappa la zona resta [initialBounds]: l'area visibile, adattata alle proporzioni dello
     // schermo, e' un po' piu' grande, e confermando senza toccare niente la zona salvata crescerebbe a ogni apertura.
-    var moved by remember { mutableStateOf(false) }
+    var moved by remember(mapView) { mutableStateOf(false) }
+
+    // Impostazione della mappa, una volta per MapView: gesti, listener e inquadratura iniziale.
+    LaunchedEffect(mapView) {
+        mapView.getMapAsync { map ->
+            map.uiSettings.isRotateGesturesEnabled = false
+            map.uiSettings.isTiltGesturesEnabled = false
+            fun reportZone() {
+                if (!moved) {
+                    currentOnZoneChange(initialBounds)
+                    return
+                }
+                val projection = map.projection
+                val northWest = projection.fromScreenLocation(PointF(0f, 0f))
+                val southEast = projection.fromScreenLocation(PointF(mapView.width.toFloat(), mapView.height.toFloat()))
+                currentOnZoneChange(MapBounds(northWest.longitude, southEast.latitude, southEast.longitude, northWest.latitude))
+            }
+            map.addOnCameraMoveStartedListener { reason -> if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) moved = true }
+            map.addOnCameraIdleListener { reportZone() }
+            // Dopo il layout: per inquadrare un rettangolo la mappa deve conoscere le sue dimensioni.
+            mapView.post {
+                val bounds = LatLngBounds.Builder()
+                    .include(LatLng(initialBounds.maxLat, initialBounds.minLon))
+                    .include(LatLng(initialBounds.minLat, initialBounds.maxLon))
+                    .build()
+                map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0))
+                reportZone()
+            }
+            mapLibre = map
+        }
+    }
+    LaunchedEffect(mapLibre, styleJson) {
+        val map = mapLibre ?: return@LaunchedEffect
+        val json = styleJson ?: return@LaunchedEffect
+        map.setStyle(Style.Builder().fromJson(json))
+    }
 
     Box(modifier = modifier) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { mapView },
-            update = { view ->
-                val json = styleJson ?: return@AndroidView
-                view.getMapAsync { map ->
-                    if (configured) return@getMapAsync
-                    configured = true
-                    map.uiSettings.isRotateGesturesEnabled = false
-                    map.uiSettings.isTiltGesturesEnabled = false
-                    map.setStyle(Style.Builder().fromJson(json))
-                    fun reportZone() {
-                        if (!moved) {
-                            currentOnZoneChange(initialBounds)
-                            return
-                        }
-                        val projection = map.projection
-                        val northWest = projection.fromScreenLocation(PointF(0f, 0f))
-                        val southEast = projection.fromScreenLocation(PointF(view.width.toFloat(), view.height.toFloat()))
-                        currentOnZoneChange(MapBounds(northWest.longitude, southEast.latitude, southEast.longitude, northWest.latitude))
-                    }
-                    map.addOnCameraMoveStartedListener { reason -> if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) moved = true }
-                    map.addOnCameraIdleListener { reportZone() }
-                    // Dopo il layout: per inquadrare un rettangolo la mappa deve conoscere le sue dimensioni.
-                    view.post {
-                        val bounds = LatLngBounds.Builder()
-                            .include(LatLng(initialBounds.maxLat, initialBounds.minLon))
-                            .include(LatLng(initialBounds.minLat, initialBounds.maxLon))
-                            .build()
-                        map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0))
-                        reportZone()
-                    }
-                }
-            },
-        )
+        AndroidView(modifier = Modifier.fillMaxSize(), factory = { mapView })
     }
 }
