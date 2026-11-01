@@ -176,7 +176,8 @@ i modelli che rifiutano una temperatura impostata o non la usano più; prezzi in
 Il workflow parte anche ogni lunedì e, prima della firma, aggiunge `otherModels`: gli altri modelli di chat di ogni
 servizio con prezzi e temperatura, scritti da `scripts/online_models.py` unendo LiteLLM
 (`model_prices_and_context_window.json`) e models.dev (`api.json`), tutti e due MIT. L'app li propone solo se
-compaiono in `/models` dell'account. Senza le fonti il file si pubblica senza `otherModels`, con un avviso.
+compaiono in `/models` dell'account. Senza le fonti, o con più di 60 modelli per servizio o un prezzo oltre 1000
+dollari per milione di token, il file si pubblica senza `otherModels`, con un avviso.
 
 Impostazione della chiave (una volta sola; la chiave privata non va mai committata):
 

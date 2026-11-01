@@ -7,7 +7,8 @@ name: Publish online models
 # elenco di riserva. Parte a ogni push su main che la modifica e ogni lunedi'; workflow_dispatch la ripubblica.
 # Prima di firmare aggiunge otherModels, gli altri modelli di chat di ogni servizio con i prezzi, presi da LiteLLM e
 # models.dev (tools/data-pipeline/scripts/online_models.py): l'app li mostra solo se l'account li vede in /models.
-# Se le fonti non rispondono o non danno modelli, pubblica l'elenco senza otherModels, con un avviso.
+# Se le fonti non rispondono, non danno modelli o superano i tetti del controllo, pubblica l'elenco senza
+# otherModels, con un avviso.
 # Prima della firma aggiunge publishedAt (secondi Unix): l'app rifiuta un file piu' vecchio dell'ultimo
 # accettato (core:sync/PublishedAtStore).
 
@@ -71,15 +72,19 @@ jobs:
           MERGED="$RUNNER_TEMP/merged.json"
           UA="pocket-travel-publish-online-models/1 (https://github.com/miracle091/pocket-travel)"
           if retry curl -fsSL -A "$UA" -o "$RUNNER_TEMP/litellm.json"                https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json              && retry curl -fsSL -A "$UA" -o "$RUNNER_TEMP/modelsdev.json" https://models.dev/api.json              && python3 tools/data-pipeline/scripts/online_models.py "$SOURCE" "$RUNNER_TEMP/litellm.json"                "$RUNNER_TEMP/modelsdev.json" "$MERGED"; then
-            # Le regole di OnlineOtherModel.validate (core:sync).
+            # Le regole di OnlineOtherModel.validate (core:sync), piu' due tetti contro una fonte alterata: al massimo
+            # 60 modelli per servizio e 1000 dollari per milione di token. Fuori dai tetti si pubblica l'elenco scritto a mano.
             jq -e '
               (.otherModels | type == "object")
-              and all(.otherModels[]; type == "array" and all(.[];
+              and all(.otherModels[]; type == "array" and length <= 60 and all(.[];
                 (.id | type == "string" and test("\\A[A-Za-z0-9._:-]+\\z"))
                 and (.temperature | type == "boolean")
-                and (.inputUsdPerMTok | type == "number" and . >= 0)
-                and (.outputUsdPerMTok | type == "number" and . >= 0)))
-            ' "$MERGED" > /dev/null || { echo "::error::otherModels non valido" >&2; exit 1; }
+                and (.inputUsdPerMTok | type == "number" and . >= 0 and . <= 1000)
+                and (.outputUsdPerMTok | type == "number" and . >= 0 and . <= 1000)))
+            ' "$MERGED" > /dev/null || {
+              echo "::warning::otherModels non valido o fuori dai tetti: pubblico l'elenco senza otherModels"
+              cp "$SOURCE" "$MERGED"
+            }
           else
             echo "::warning::altri modelli non disponibili: pubblico l'elenco senza otherModels"
             cp "$SOURCE" "$MERGED"
