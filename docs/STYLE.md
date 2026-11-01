@@ -150,6 +150,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | File ricevuto alterato o incompleto (sha256 diverso) | File danneggiato: chiedi di inviarlo di nuovo | Damaged file: ask for it to be sent again |
 | Parola della lingua del posto spiegata da una voce di Wikipedia | termine locale (nel foglio: Da Wikipedia) | local term (in the sheet: From Wikipedia) |
 | Pulsanti della lettura ad alta voce della risposta | Ascolta, Ferma | Listen, Stop |
+| Impostazione che permette ad Ascolta le voci che mandano il testo in rete | Voci online per Ascolta | Online voices for Listen |
 | Notifica mentre l'assistente risponde, e il suo canale | Risposta dell'assistente in corso, con Ferma; canale: Risposte dell'assistente | Assistant answer in progress, with Stop; channel: Assistant answers |
 | Voce di Pocket Travel nel menù del testo selezionato e in Condividi | Chiedi all'assistente | Ask the assistant |
 | Widget della schermata Home | Emergenza, Scorciatoie | Emergency, Shortcuts |
