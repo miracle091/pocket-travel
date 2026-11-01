@@ -54,13 +54,14 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache
           echo "CCACHE_COMPILERCHECK=string:ndk-$(sed -n 's/^ *ndkVersion = "\(.*\)"/\1/p' feature/ai/build.gradle.kts)" >> "$GITHUB_ENV"
           echo "LLAMA_COMMIT=$(git rev-parse HEAD:third-party/llama-cpp)" >> "$GITHUB_ENV"
+          sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache
 
       - name: Cache di ccache per llama.cpp
+        id: ccache
         continue-on-error: true
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /home/runner/.cache/ccache
           key: ccache-llama-${{ env.LLAMA_COMMIT }}-${{ hashFiles('third-party/patches/llama-cpp/**', 'feature/ai/src/main/cpp/**', 'feature/ai/build.gradle.kts') }}
@@ -158,6 +159,16 @@ jobs:
           path: ${{ env.DEBUG_APK_PATH }}
           retention-days: 7
 
+      # Salvata anche se il job fallisce (actions/cache salva solo a job riuscito): gli oggetti compilati prima
+      # dell'errore servono al run dopo. Non si salva su corrispondenza esatta, la chiave e' immutabile.
+      - name: Salva la cache di ccache per llama.cpp
+        if: always() && steps.ccache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /home/runner/.cache/ccache
+          key: ccache-llama-${{ env.LLAMA_COMMIT }}-${{ hashFiles('third-party/patches/llama-cpp/**', 'feature/ai/src/main/cpp/**', 'feature/ai/build.gradle.kts') }}
+
   # Gli script della pipeline e dei workflow girano anche su un PC Windows con Git Bash (prove in locale, README della
   # pipeline): qui i loro test Python e una prova degli script in modalita' locale, cosi' una modifica che funziona
   # solo su Linux si vede subito. Il GITHUB_TOKEN legge soltanto, e in modalita' locale gh non scrive comunque.
@@ -254,8 +265,10 @@ jobs:
         run: |
           set -euo pipefail
           git submodule update --init --depth 1 third-party/llama-cpp
-          sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache
           echo "LLAMA_COMMIT=$(git rev-parse HEAD:third-party/llama-cpp)" >> "$GITHUB_ENV"
+          # ccache accelera soltanto: se apt fallisce si compila da zero.
+          sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache \
+            || echo "::warning::ccache non installato, llama.cpp si compila senza"
           python3 - >> "$GITHUB_OUTPUT" <<'EOF'
           import os, sys
           sys.path.insert(0, "tools/data-pipeline/scripts")
@@ -344,9 +357,9 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
-          sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache
           echo "CCACHE_COMPILERCHECK=string:ndk-$(sed -n 's/^ *ndkVersion = "\(.*\)"/\1/p' feature/ai/build.gradle.kts)" >> "$GITHUB_ENV"
           echo "LLAMA_COMMIT=$(git rev-parse HEAD:third-party/llama-cpp)" >> "$GITHUB_ENV"
+          sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache
 
       - name: Cache di ccache per llama.cpp
         continue-on-error: true
