@@ -106,6 +106,8 @@
     <string name="ai_online_model_auto_desc">A fast, low-cost model, updated automatically: suitable for short travel answers. Currently: %1$s</string>
     <string name="ai_online_model_capable">More capable: %1$s</string>
     <string name="ai_online_model_capable_desc">More accurate answers to complex questions. The model costs more and can be slower</string>
+    <string name="ai_online_model_lighter">Lighter: %1$s</string>
+    <string name="ai_online_model_lighter_desc">Faster and cheaper, less accurate on complex questions. Automatic uses it when its own model runs out of daily quota</string>
     <string name="ai_online_model_cost">About %1$s per 100 questions</string>
     <string name="ai_online_model_cost_below">Less than %1$s per 100 questions</string>
     <string name="ai_online_model_other">Other model</string>
@@ -115,6 +117,18 @@
     <string name="ai_online_share_hint">On: the most relevant note, the data near your location or the last guide opened (points of interest, public transport, forecast) and, for vaccines, your departure country or nationality are sent to the service with the question. Off: only the question, the guide texts except the parts written for the chosen nationality (such as visas) and data with no personal information (alerts, emergency numbers, distances between the cities named) are sent</string>
     <string name="ai_error_key_rejected">The service rejected the API key: it may have expired or been revoked. Remove it and enter a new one</string>
     <string name="ai_error_credit">The service credit has run out. Top up your account on %1$s</string>
+    <string name="ai_error_daily_quota">The daily quota for %1$s has run out: it resets at %2$s</string>
+    <string name="ai_error_not_in_free_plan">The %2$s free plan doesn\'t include %1$s</string>
+    <string name="ai_notice_model_switched">Daily quota for %1$s used up (it resets at %2$s): %3$s is answering</string>
+    <string name="ai_notice_model_list">Model in use: %1$s. Pick another one below or type /model and its name</string>
+    <string name="ai_notice_model_chosen">Model selected: %1$s</string>
+    <string name="ai_notice_model_unknown">No model is called \"%1$s\". Pick one below</string>
+    <string name="ai_choice_use">Use %1$s</string>
+    <string name="ai_choice_use_on_device">Use the on-device model</string>
+    <string name="ai_choice_automatic">Automatic</string>
+    <string name="ai_choice_automatic_with">Automatic (%1$s)</string>
+    <string name="ai_choice_on_device">%1$s, on device</string>
+    <string name="ai_command_model_desc">Shows the model in use and picks another one</string>
     <string name="ai_error_busy">The service is busy. Try again shortly</string>
     <string name="ai_error_interrupted">The answer was cut off. Try again</string>
     <string name="ai_saved_key_reminder">A %1$s API key is saved: the online assistant is available right away, without downloading a model</string>

@@ -104,6 +104,8 @@ I modelli proposti per ogni servizio, con il costo stimato di 100 domande, vengo
 | [Gemini (Google)](https://aistudio.google.com/apikey) | `gemini-3.6-flash` | `gemini-4-argon` |
 | [Claude (Anthropic)](https://console.anthropic.com/settings/keys) | `claude-haiku-5-5` | `claude-sonnet-5-5` |
 
+Per Gemini c'è anche `gemini-3.5-flash-lite` (**Più leggero**). Quando finisce la quota giornaliera di un modello (il piano gratuito di Gemini ne concede 20 al giorno per modello), **Automatico** passa la domanda a un altro modello del servizio e lo scrive sopra la risposta. Con un modello scelto, il messaggio della quota ha i pulsanti per rifare la domanda con un altro modello o con il modello sul dispositivo. `/model` nel campo della domanda elenca i modelli e ne sceglie uno (`/model automatico`, `/model dispositivo` o il nome); scrivendo `/` un menu sopra il campo propone il comando e poi i modelli.
+
 ## Schermate
 
 <div align="center">

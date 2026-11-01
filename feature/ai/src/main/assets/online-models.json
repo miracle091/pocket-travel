@@ -10,7 +10,8 @@
     ],
     "GEMINI": [
       { "id": "gemini-3.6-flash", "role": "auto", "temperature": false, "inputUsdPerMTok": 0.75, "outputUsdPerMTok": 3.75 },
-      { "id": "gemini-4-argon", "role": "capable", "temperature": false, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 10.00 }
+      { "id": "gemini-4-argon", "role": "capable", "temperature": false, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 10.00 },
+      { "id": "gemini-3.5-flash-lite", "role": "capable", "temperature": true, "inputUsdPerMTok": 0.30, "outputUsdPerMTok": 2.50 }
     ],
     "CLAUDE": [
       { "id": "claude-haiku-5-5", "role": "auto", "temperature": false, "inputUsdPerMTok": 0.10, "outputUsdPerMTok": 0.50 },

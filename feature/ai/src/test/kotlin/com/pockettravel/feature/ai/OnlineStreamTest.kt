@@ -112,10 +112,12 @@ class OnlineStreamTest {
     }
 
     @Test
-    fun `a daily quota error in the stream, as a Gemini list, is credit exhausted`() {
+    fun `a daily quota error in the stream, as a Gemini list, names the model and is not retried`() {
         val body = "[{\"error\":{\"code\":429,\"status\":\"RESOURCE_EXHAUSTED\",\"details\":[{\"violations\":[{\"quotaId\":\"GenerateRequestsPerDayPerProjectPerModel-FreeTier\"}]}]}}]"
         server.enqueue(sse("data: $body\n\n"))
-        assertEquals(R.string.ai_error_credit, askErrorMessage(errorOf()))
+        val error = errorOf()
+        assertEquals(R.string.ai_error_daily_quota, askErrorMessage(error))
+        assertEquals("m", (error as OnlineDailyQuotaException).model)
         assertEquals(1, server.requestCount)
     }
 

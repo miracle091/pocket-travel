@@ -121,6 +121,10 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Fornitore del motore Online (ChatGPT, Mistral...) | servizio | service |
 | Interruttore che lascia mandare le foto al motore Online | Invia le foto al servizio | Send photos to the service |
 | Interruttore che lascia mandare al motore Online nota, posizione, partenza e nazionalità | Invia dati personali al servizio | Send personal data to the service |
+| Richieste gratuite al giorno per ogni modello di un servizio (Gemini: 20) | quota giornaliera (mai "quota" da sola per il credito) | daily quota |
+| Modello proposto più economico di quello di Automatico | Più leggero | Lighter |
+| Bolla della conversazione scritta dall'app, non dal modello (quota, cambio di modello, /model) | messaggio dell'app | app message |
+| Menu sopra il campo della domanda che compare scrivendo "/" | menu dei comandi | command menu |
 | Dati EXIF della foto (data, luogo, modello del telefono), tolti prima dell'invio | dati della foto (mai "EXIF" nell'interfaccia) | photo details |
 | Evento reale in corso (terremoto, alluvione, allerta meteo...) letto dalle fonti online | allerta, allerte (mai "avviso", "allarme" o "notifica") | alert, alerts |
 | Riquadro della guida con le allerte della regione | Allerte in corso | Active alerts |
@@ -156,7 +160,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Widget della schermata Home | Emergenza, Scorciatoie | Emergency, Shortcuts |
 | Foglio al lancio dopo una chiusura inattesa | L'app si è chiusa in modo inatteso, con Condividi il rapporto e Apri una segnalazione su GitHub | The app closed unexpectedly, with Share the report and Report on GitHub |
 | Proposta dopo una chiusura per memoria | Il modello %1$s richiede più RAM di questo dispositivo. Scarica %2$s | The %1$s model needs more RAM than this device has. Download %2$s |
-| Errori del motore Online | Credito del servizio esaurito. Ricarica l'account su %1$s; Servizio occupato. Riprova tra poco; La risposta si è interrotta. Riprova | The service credit has run out. Top up your account on %1$s; The service is busy. Try again shortly; The answer was cut off. Try again |
+| Errori del motore Online | Credito del servizio esaurito. Ricarica l'account su %1$s; Servizio occupato. Riprova tra poco; La risposta si è interrotta. Riprova; La quota giornaliera di %1$s è finita: torna alle %2$s; Il piano gratuito di %2$s non include %1$s | The service credit has run out. Top up your account on %1$s; The service is busy. Try again shortly; The answer was cut off. Try again; The daily quota for %1$s has run out: it resets at %2$s; The %2$s free plan doesn't include %1$s |
 | Telefono o tablet dell'utente | dispositivo | device |
 | Colori presi dal sistema (colore dinamico, da Android 12) al posto di quelli dell'app | colori del sistema | system colors |
 | Dove si trova l'utente | posizione | location |

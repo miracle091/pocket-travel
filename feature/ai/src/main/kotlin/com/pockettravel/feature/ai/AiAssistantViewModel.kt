@@ -84,6 +84,10 @@ data class AiUiState(
     // Le previsioni della risposta in fondo hanno piu' di WEATHER_MIN_REFRESH_MILLIS: si possono riscaricare con un tocco.
     val canRefreshForecast: Boolean = false,
     @StringRes val errorMessage: Int? = null,
+    // Messaggio dell'app in fondo alla conversazione (cambio di modello, /model); null senza.
+    val notice: ChatNotice? = null,
+    // Con l'errore ai_error_daily_quota: il modello, l'ora in cui la quota torna e gli altri modelli da scegliere.
+    val quota: ChatNotice.QuotaExhausted? = null,
     // Turni della conversazione aperta prima di quello in fondo (askedQuestion e answer).
     val earlierTurns: List<ShownTurn> = emptyList(),
     // La cronologia aperta sopra la schermata; null quando e' chiusa.
@@ -155,6 +159,7 @@ class AiAssistantViewModel @Inject constructor(
     private val historyAvailability: HistoryAvailability,
     private val onlineModelCatalog: OnlineModelCatalog,
     private val onlineModelAvailability: OnlineModelAvailability,
+    private val onlineQuota: OnlineQuotaTracker,
     private val guideCitationResolver: GuideCitationResolver,
     private val emergencyCards: EmergencyCardProvider,
     private val answerKeepAlive: AnswerKeepAlive,
@@ -162,8 +167,7 @@ class AiAssistantViewModel @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
-    // Nomi dei modelli che la chiave salvata vede, per servizio; assente = non letti (si mostrano tutti).
-    private val availableOnlineModels = MutableStateFlow<Map<OnlineProvider, Set<String>>>(emptyMap())
+    private val onlineModelOptions = OnlineModelOptions(onlineModelCatalog, onlineModelAvailability, aiSettingsStore, viewModelScope)
 
     private val _uiState = MutableStateFlow(
         AiUiState(
@@ -203,15 +207,10 @@ class AiAssistantViewModel @Inject constructor(
                 if (deviceAiCapability.isOnDeviceAiSupported() && mode != _uiState.value.mode) applyMode(mode)
             }
         }
-        // Elenco dei modelli online: quello pubblicato sostituisce quello dell'APK appena scaricato.
         viewModelScope.launch {
-            onlineModelCatalog.list.collect { updateOnlineModels() }
+            onlineModelOptions.changes.collect { updateOnlineModels() }
         }
-        refreshOnlineModels()
-        viewModelScope.launch {
-            availableOnlineModels.collect { updateOnlineModels() }
-        }
-        checkOnlineModelAvailability()
+        loadOnlineModels()
         // Il modello scaricato o eliminato da fuori (worker di download, pulizia dei file) aggiorna anche
         // isModelDownloaded, non solo la lista: letto una volta sola in costruzione resterebbe vecchio.
         viewModelScope.launch {
@@ -314,9 +313,8 @@ class AiAssistantViewModel @Inject constructor(
     // Anche per il motore cambiato dalle Impostazioni mentre questa schermata resta nello stack.
     private fun applyMode(mode: AiEngineMode) {
         cancelAsk()
-        _uiState.update { it.copy(mode = mode, answer = null, askedQuestion = null, emergencyCard = null, errorMessage = null) }
-        refreshOnlineModels()
-        checkOnlineModelAvailability()
+        _uiState.update { it.copy(mode = mode, answer = null, askedQuestion = null, emergencyCard = null, errorMessage = null, notice = null) }
+        loadOnlineModels()
     }
 
     fun onQuestionChanged(value: String) {
@@ -331,9 +329,9 @@ class AiAssistantViewModel @Inject constructor(
         val key = _uiState.value.apiKeyInput.trim()
         if (key.isBlank()) return
         aiSettingsStore.setApiKey(key)
-        availableOnlineModels.update { it - aiSettingsStore.onlineProvider() }
+        onlineModelOptions.forget(aiSettingsStore.onlineProvider())
         _uiState.update { it.copy(isApiKeyConfigured = true, apiKeyInput = "") }
-        checkOnlineModelAvailability()
+        loadOnlineModels(refreshList = false)
     }
 
     /** Cambiare servizio cancella la chiave salvata (vedi AiSettingsStore.setOnlineProvider). */
@@ -341,7 +339,7 @@ class AiAssistantViewModel @Inject constructor(
         cancelAsk()
         aiSettingsStore.setOnlineProvider(provider)
         // La chiave e' stata cancellata: i modelli visti con quella non valgono piu'.
-        if (!aiSettingsStore.hasApiKey()) availableOnlineModels.value = emptyMap()
+        if (!aiSettingsStore.hasApiKey()) onlineModelOptions.forgetAll()
         _uiState.update {
             it.copy(onlineProvider = provider, onlineModelSetting = aiSettingsStore.onlineModelSetting(provider), isApiKeyConfigured = aiSettingsStore.hasApiKey(), answer = null, askedQuestion = null, emergencyCard = null, answerCredit = null)
         }
@@ -361,53 +359,24 @@ class AiAssistantViewModel @Inject constructor(
         _uiState.update { it.copy(sharesPersonalData = enabled) }
     }
 
-    // Solo con il motore Online, l'unico che usa l'elenco.
-    private fun refreshOnlineModels() {
+    // Solo con il motore Online, l'unico che usa l'elenco: con il motore sul dispositivo la chiave non si manda, nemmeno
+    // per sapere quali modelli il suo account vede.
+    private fun loadOnlineModels(refreshList: Boolean = true) {
         if (_uiState.value.mode != AiEngineMode.ONLINE) return
-        viewModelScope.launch {
-            try {
-                onlineModelCatalog.refresh()
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                // Senza rete o con un file non valido resta l'elenco attuale.
-            }
-        }
-    }
-
-    // Con il motore Online e una chiave salvata: quali modelli proposti il suo account vede davvero. Con il motore
-    // sul dispositivo la chiave non si manda, nemmeno per l'elenco.
-    private fun checkOnlineModelAvailability() {
-        if (_uiState.value.mode != AiEngineMode.ONLINE) return
-        val provider = aiSettingsStore.onlineProvider()
-        val apiKey = aiSettingsStore.apiKey()?.takeIf { it.isNotBlank() } ?: return
-        viewModelScope.launch {
-            val available = try {
-                onlineModelAvailability.availableModels(provider, apiKey)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                return@launch
-            }
-            // Chiave tolta o cambiata nel frattempo: quei modelli valgono per un altro account.
-            if (aiSettingsStore.onlineProvider() != provider || aiSettingsStore.apiKey() != apiKey) return@launch
-            availableOnlineModels.update { it + (provider to available) }
-        }
+        if (refreshList) onlineModelOptions.refresh()
+        onlineModelOptions.checkAvailability()
     }
 
     private fun updateOnlineModels() {
         _uiState.update { state ->
-            state.copy(
-                onlineModels = OnlineProvider.entries.associateWith { onlineModelCatalog.modelFor(it, aiSettingsStore.onlineModelSetting(it)) },
-                onlineModelOptions = visibleModels(onlineModelCatalog.models(state.onlineProvider), availableOnlineModels.value[state.onlineProvider]),
-            )
+            state.copy(onlineModels = onlineModelOptions.modelPerProvider(), onlineModelOptions = onlineModelOptions.options(state.onlineProvider))
         }
     }
 
     fun clearApiKey() {
         cancelAsk()
         aiSettingsStore.clearApiKey()
-        availableOnlineModels.value = emptyMap()
+        onlineModelOptions.forgetAll()
         _uiState.update { it.copy(isApiKeyConfigured = false, answer = null, askedQuestion = null, emergencyCard = null, answerCredit = null) }
     }
 
@@ -560,13 +529,7 @@ class AiAssistantViewModel @Inject constructor(
     fun ask(regionId: String) {
         val state = _uiState.value
         val question = state.question.trim()
-        if (state.startingTurn(question) == null) return
-        // Riconosciuta sul dispositivo con regole, anche con il motore online: destinazione e posizione non escono mai.
-        parseNavigationRequest(question)?.let { request ->
-            _uiState.update { it.copy(question = "", errorMessage = null) }
-            _navigationRequests.trySend(request)
-            return
-        }
+        if (state.startingTurn(question) == null || handledOnDevice(question, regionId)) return
 
         resumeJob?.cancel()
         forecastJob?.cancel()
@@ -625,6 +588,7 @@ class AiAssistantViewModel @Inject constructor(
                 travelAssistant.ask(region, question, mode, previous).collect { progress ->
                     when (progress) {
                         is AssistantProgress.Partial -> _uiState.update { it.copy(streamingText = progress.text) }
+                        is AssistantProgress.ModelSwitched -> _uiState.update { it.switchedModel(progress) }
                         is AssistantProgress.Done -> {
                             _uiState.update { it.copy(isThinking = false, streamingText = "", answer = progress.answer) }
                             onDone(progress.answer)
@@ -642,8 +606,47 @@ class AiAssistantViewModel @Inject constructor(
             val detail = if (error is SerializationException) "" else ": ${error.message}"
             Log.w(TAG, "Risposta non riuscita ($mode): ${error.javaClass.name}$detail")
             conversation.onFailed()
-            _uiState.update { it.copy(isThinking = false, streamingText = "", errorMessage = askErrorMessage(error)) }
+            _uiState.update { it.copy(isThinking = false, streamingText = "", errorMessage = askErrorMessage(error), notice = null, quota = onlineQuota.quotaNotice(error, it, System.currentTimeMillis())) }
         }
+    }
+
+    /**
+     * Riconosciuti sul dispositivo con regole, anche con il motore online, e mai mandati al modello: "/model" e le
+     * richieste "portami a ..." (destinazione e posizione non escono mai). Non sono domande: niente turno.
+     */
+    private fun handledOnDevice(question: String, regionId: String): Boolean {
+        val command = parseModelCommand(question)
+        val navigation = if (command == null) parseNavigationRequest(question) else null
+        when {
+            command != null -> {
+                // Con un nome vale come il pulsante: dopo la quota finita rifa' la domanda.
+                val (notice, choice) = _uiState.value.let { it.modelCommandNotice(command, onlineQuota.exhaustedModels(it, System.currentTimeMillis())) }
+                _uiState.update { it.copy(question = "", notice = notice) }
+                choice?.let { onModelChoice(it, regionId) }
+            }
+            navigation != null -> {
+                _uiState.update { it.copy(question = "", errorMessage = null) }
+                _navigationRequests.trySend(navigation)
+            }
+        }
+        return command != null || navigation != null
+    }
+
+    /**
+     * Un pulsante di un messaggio dell'app: sceglie il modello e, dopo la quota finita, rifa' la domanda rimasta senza
+     * risposta.
+     */
+    fun onModelChoice(choice: ModelChoice, regionId: String) {
+        val retry = _uiState.value.takeUnless { it.isThinking }?.questionToRetry() ?: return
+        applyChoice(choice)
+        _uiState.update { if (retry.isEmpty()) it.copy(notice = ChatNotice.ModelChosen(choice)) else it.copy(question = retry) }
+        if (retry.isNotEmpty()) ask(regionId)
+    }
+
+    // Il cambio di motore chiude la conversazione aperta (applyMode), come dalle impostazioni.
+    private fun applyChoice(choice: ModelChoice) {
+        choice.onlineSetting()?.let(::onOnlineModelChanged)
+        choice.engineMode().takeIf { it != _uiState.value.mode }?.let(::onModeChanged)
     }
 
     // Accende "Aggiorna le previsioni" quando le previsioni della risposta superano il limite per luogo.
@@ -675,7 +678,7 @@ class AiAssistantViewModel @Inject constructor(
     /** Chiude la conversazione aperta (si archivia) e svuota la schermata per una nuova. */
     fun newConversation() {
         cancelAsk()
-        _uiState.update { it.copy(askedQuestion = null, emergencyCard = null, answer = null, errorMessage = null) }
+        _uiState.update { it.copy(askedQuestion = null, emergencyCard = null, answer = null, errorMessage = null, notice = null) }
     }
 
     /**
@@ -883,6 +886,7 @@ internal fun AiUiState.startingTurn(question: String): AiUiState? {
         answerCredit = currentModelCredit(),
         isThinking = true,
         errorMessage = null,
+        notice = null,
         earlierTurns = earlierTurns + listOfNotNull(done),
         askedQuestion = question,
         emergencyCard = null,
@@ -921,6 +925,7 @@ internal fun askErrorMessage(error: Exception): Int = when (error) {
     is OnlineModelNotFoundException -> R.string.ai_error_model
     is OnlineApiKeyRejectedException -> R.string.ai_error_key_rejected
     is OnlineCreditExhaustedException -> R.string.ai_error_credit
+    is OnlineDailyQuotaException -> R.string.ai_error_daily_quota
     is OnlineServiceBusyException -> R.string.ai_error_busy
     is OnlineAnswerInterruptedException -> R.string.ai_error_interrupted
     else -> R.string.ai_error_answer

@@ -78,6 +78,9 @@ data class AssistantAnswer(
 sealed interface AssistantProgress {
     data class Partial(val text: String) : AssistantProgress
     data class Done(val answer: AssistantAnswer) : AssistantProgress
+
+    /** Online in Automatico: la quota giornaliera di [from] e' finita (torna a [resetAtMillis]), risponde [to]. */
+    data class ModelSwitched(val from: String, val to: String, val resetAtMillis: Long) : AssistantProgress
 }
 
 /**
@@ -98,6 +101,7 @@ class TravelAssistant @Inject constructor(
     private val engine: OnDeviceLlmEngine,
     private val onlineLlmClient: OnlineLlmClient,
     private val onlineModelCatalog: OnlineModelCatalog,
+    private val onlineQuota: OnlineQuotaTracker,
     private val aiSettingsStore: AiSettingsStore,
     private val nationalityPreferences: NationalityPreferences,
     private val regionRepository: RegionRepository,
@@ -401,13 +405,38 @@ class TravelAssistant @Inject constructor(
         )
     }
 
-    private class OnlineAnswer(private val text: Flow<String>, private val citations: List<String>) {
+    /**
+     * [models]: il modello scelto, o in Automatico i candidati in ordine (automaticCandidates). La quota giornaliera finita
+     * di uno passa la domanda al successivo e lo dice (ModelSwitched); uno gia' esaurito oggi si salta senza richiesta,
+     * tranne l'ultimo, che decide il servizio. L'errore dell'ultimo arriva al chiamante.
+     */
+    private inner class OnlineAnswer(
+        private val provider: OnlineProvider,
+        private val models: List<String>,
+        private val citations: List<String>,
+        private val text: (model: String) -> Flow<String>,
+    ) {
         // Come sul dispositivo: il testo accumulato al massimo ogni PARTIAL_INTERVAL_MS, poi la risposta con le fonti mandate al servizio.
         fun progress(withSource: (AssistantAnswer) -> AssistantAnswer): Flow<AssistantProgress> = flow {
             var answer = ""
-            text.accumulated(PARTIAL_INTERVAL_MS).collect {
-                answer = it
-                emit(AssistantProgress.Partial(it))
+            var index = 0
+            while (true) {
+                val model = models[index]
+                try {
+                    if (index < models.lastIndex && onlineQuota.resetAtMillis(provider, model, System.currentTimeMillis()) != null) {
+                        throw OnlineDailyQuotaException("Quota giornaliera gia' finita", model)
+                    }
+                    text(model).accumulated(PARTIAL_INTERVAL_MS).collect {
+                        answer = it
+                        emit(AssistantProgress.Partial(it))
+                    }
+                    break
+                } catch (quota: OnlineDailyQuotaException) {
+                    val resetAt = onlineQuota.markExhausted(provider, model, System.currentTimeMillis())
+                    if (index == models.lastIndex) throw quota
+                    index++
+                    emit(AssistantProgress.ModelSwitched(model, models[index], resetAt))
+                }
             }
             if (answer.isBlank()) error("Il servizio online non ha restituito una risposta")
             emit(AssistantProgress.Done(withSource(AssistantAnswer(answer, citations, showOfficialSourceBanner = false))))
@@ -424,18 +453,25 @@ class TravelAssistant @Inject constructor(
     ): OnlineAnswer {
         val apiKey = aiSettingsStore.apiKey() ?: error("Nessuna chiave API online configurata")
         val provider = aiSettingsStore.onlineProvider()
-        val model = onlineModelCatalog.modelFor(provider, aiSettingsStore.onlineModelSetting(provider))
+        val setting = aiSettingsStore.onlineModelSetting(provider)
+        val models = if (setting.isBlank()) {
+            automaticCandidates(onlineModelCatalog.autoModel(provider), onlineModelCatalog.models(provider))
+        } else {
+            listOf(onlineModelCatalog.modelFor(provider, setting))
+        }
         val note = if (sharePersonal) noteRepository.relevantNote(question) else null
         val context = buildOnlineContext(sections, note, language = language, focusStems = focusStems)
-        val text = onlineLlmClient.stream(
-            baseUrl = provider.baseUrl,
-            apiKey = apiKey,
-            model = model,
-            prompt = question,
-            system = OnlinePromptTemplates.systemPrompt(context.text, language),
-            sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
-        )
-        return OnlineAnswer(text, context.citations)
+        val system = OnlinePromptTemplates.systemPrompt(context.text, language)
+        return OnlineAnswer(provider, models, context.citations) { model ->
+            onlineLlmClient.stream(
+                baseUrl = provider.baseUrl,
+                apiKey = apiKey,
+                model = model,
+                prompt = question,
+                system = system,
+                sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
+            )
+        }
     }
 
     private companion object {

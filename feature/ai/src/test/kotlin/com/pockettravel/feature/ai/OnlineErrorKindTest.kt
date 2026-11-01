@@ -9,6 +9,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -62,10 +63,29 @@ class OnlineErrorKindTest {
             429 to """{"error":{"type":"rate_limit_error","details":{"error_code":"enforced_spend_limit_reached"}}}""",
             402 to """[{"error":{"code":402,"status":"RESOURCE_EXHAUSTED","message":"Your Prepay credit balance is depleted."}}]""",
             403 to """{"error":{"code":403,"status":"PERMISSION_DENIED","message":"Your billing account has an outstanding balance"}}""",
-            429 to """{"error":{"status":"RESOURCE_EXHAUSTED","details":[{"violations":[{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}]}}""",
             402 to "Payment required",
         )
         credit.forEach { (code, body) -> assertEquals("$code $body", OnlineErrorKind.CREDIT, onlineErrorKind(code, body)) }
+    }
+
+    @Test
+    fun `the daily quota of a Gemini model is its own error, the per-minute limit is not`() {
+        val perDay = """{"error":{"status":"RESOURCE_EXHAUSTED","details":[{"violations":[{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier","quotaValue":"20"}]}]}}"""
+        val perMinute = """{"error":{"status":"RESOURCE_EXHAUSTED","details":[{"violations":[{"quotaId":"GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]}]}}"""
+        assertTrue(isDailyQuota(429, perDay))
+        assertFalse(isDailyQuota(429, perMinute))
+        assertFalse(isDailyQuota(400, perDay))
+        server.enqueue(MockResponse().setResponseCode(429).setBody(perDay))
+        assertEquals(R.string.ai_error_daily_quota, askErrorMessage(errorOf()))
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
+    fun `a model the free plan does not include is told apart from a used-up daily quota`() {
+        val message = "* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: %d, model: m"
+        assertTrue(isNotInFreePlan(message.format(0)))
+        assertFalse(isNotInFreePlan(message.format(20)))
+        assertFalse(isNotInFreePlan(message.format(0).replace("free_tier_", "")))
     }
 
     @Test

@@ -81,9 +81,11 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.input.KeyboardType
@@ -114,6 +116,10 @@ import com.pockettravel.core.ui.R as UiR
 import java.io.File
 import java.io.InputStream
 import java.text.NumberFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Currency
 import javax.crypto.Cipher
 import kotlin.math.roundToInt
@@ -248,6 +254,8 @@ data class AiActions(
     val onReadAloud: (String) -> Unit = {},
     val onNewConversation: () -> Unit = {},
     val onRefreshForecast: () -> Unit = {},
+    // Un pulsante di un messaggio dell'app (quota finita, /model): sceglie il modello.
+    val onModelChoice: (ModelChoice) -> Unit = {},
     val onOpenHistory: () -> Unit = {},
     val onDeleteHistory: () -> Unit = {},
     val onCancelDownload: () -> Unit = {},
@@ -287,6 +295,7 @@ private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
     onHideBenchmarkComparison = ::hideBenchmarkComparison,
     onNewConversation = ::newConversation,
     onRefreshForecast = { refreshForecast(regionId) },
+    onModelChoice = { onModelChoice(it, regionId) },
     onOpenHistory = ::openHistory,
     onDeleteHistory = ::deleteHistory,
     onImportModel = ::importModel,
@@ -610,7 +619,7 @@ private fun Conversation(
     modifier: Modifier = Modifier,
 ) {
     val asked = uiState.askedQuestion
-    if (asked == null && !uiState.isThinking && uiState.errorMessage == null) {
+    if (uiState.isEmptyConversation()) {
         EmptyState(
             icon = AppIcons.AiAssistant,
             title = stringResource(R.string.ai_empty_title),
@@ -629,8 +638,9 @@ private fun Conversation(
     LaunchedEffect(uiState.streamingText) {
         if (streaming) scrollState.scrollTo(scrollState.maxValue)
     }
-    // Una domanda nuova o una conversazione ripresa: la vista va in fondo, all'ultimo turno (dopo il layout dei turni).
-    LaunchedEffect(asked, uiState.earlierTurns.size) {
+    // Una domanda nuova, una conversazione ripresa o un messaggio dell'app: la vista va in fondo, all'ultimo turno (dopo
+    // il layout dei turni).
+    LaunchedEffect(asked, uiState.earlierTurns.size, uiState.notice) {
         withFrameNanos { }
         scrollState.scrollTo(scrollState.maxValue)
     }
@@ -663,10 +673,86 @@ private fun Conversation(
         ) {
             // animateContentSize: la bolla cresce con morbidezza da "Sto pensando…" alla risposta.
             Column(modifier = Modifier.animateContentSize().padding(Spacing.l)) {
+                (uiState.notice as? ChatNotice.ModelSwitched)?.let { ModelSwitchedLine(it) }
                 AnswerContent(uiState, streaming, onOpenOfficialSource, actions, readAloud)
             }
         }
+        uiState.notice?.let { ModelNoticeBubble(it, uiState, actions.onModelChoice) }
     }
+}
+
+// Niente da mostrare: ne' domanda, ne' attesa, ne' errore, ne' messaggio dell'app.
+private fun AiUiState.isEmptyConversation(): Boolean =
+    askedQuestion == null && !isThinking && errorMessage == null && notice == null
+
+// Riga sopra la risposta, in Automatico: un altro modello risponde al posto di quello con la quota finita.
+@Composable
+private fun ModelSwitchedLine(notice: ChatNotice.ModelSwitched) {
+    Text(
+        stringResource(R.string.ai_notice_model_switched, notice.from, quotaResetTime(notice.resetAtMillis), notice.to),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = Spacing.s),
+    )
+}
+
+// Risposta dell'app a /model e alle sue scelte, sotto la conversazione: non e' una risposta del modello.
+@Composable
+private fun ModelNoticeBubble(notice: ChatNotice, uiState: AiUiState, onChoice: (ModelChoice) -> Unit) {
+    val (text, choices) = when (notice) {
+        is ChatNotice.ModelList -> stringResource(R.string.ai_notice_model_list, choiceName(notice.current, uiState)) to notice.choices
+        is ChatNotice.ModelChosen -> stringResource(R.string.ai_notice_model_chosen, choiceName(notice.choice, uiState)) to emptyList()
+        is ChatNotice.UnknownModel -> stringResource(R.string.ai_notice_model_unknown, notice.name) to notice.choices
+        // Nella bolla della risposta: la quota con l'errore, il cambio sopra la risposta.
+        is ChatNotice.QuotaExhausted, is ChatNotice.ModelSwitched -> return
+    }
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+    ) {
+        // Come la bolla delle risposte, con il testo attenuato: parla l'app, non il modello. I pulsanti tonali risaltano.
+        Column(modifier = Modifier.padding(Spacing.l)) {
+            Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ModelChoiceButtons(choices, onChoice)
+        }
+    }
+}
+
+// Un pulsante per scelta, a capo quando non stanno in una riga.
+@Composable
+private fun ModelChoiceButtons(choices: List<ModelChoice>, onChoice: (ModelChoice) -> Unit) {
+    if (choices.isEmpty()) return
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(top = Spacing.s)) {
+        choices.forEach { choice ->
+            FilledTonalButton(onClick = { onChoice(choice) }) {
+                Text(if (choice is ModelChoice.OnDevice) stringResource(R.string.ai_choice_use_on_device) else stringResource(R.string.ai_choice_use, choiceName(choice, null)))
+            }
+        }
+    }
+}
+
+// Automatico con il modello che usa, quando lo si conosce ([uiState]); il modello sul dispositivo con il motore.
+@Composable
+private fun choiceName(choice: ModelChoice, uiState: AiUiState?): String = when (choice) {
+    ModelChoice.Automatic -> uiState?.onlineModels?.get(uiState.onlineProvider)
+        ?.let { stringResource(R.string.ai_choice_automatic_with, it) } ?: stringResource(R.string.ai_choice_automatic)
+    is ModelChoice.Online -> choice.id
+    is ModelChoice.OnDevice -> stringResource(R.string.ai_choice_on_device, choice.name)
+}
+
+// L'ora locale in cui torna la quota giornaliera.
+@Composable
+private fun quotaResetTime(resetAtMillis: Long): String = remember(resetAtMillis) {
+    DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).format(Instant.ofEpochMilli(resetAtMillis).atZone(ZoneId.systemDefault()))
+}
+
+// La quota finita dice quando torna; un modello fuori dal piano gratuito non torna, e il messaggio nomina il servizio.
+@Composable
+private fun quotaText(quota: ChatNotice.QuotaExhausted, provider: OnlineProvider): String = if (quota.notInFreePlan) {
+    stringResource(R.string.ai_error_not_in_free_plan, quota.model, provider.displayName)
+} else {
+    stringResource(R.string.ai_error_daily_quota, quota.model, quotaResetTime(quota.resetAtMillis))
 }
 
 // Al posto del campo della domanda, per una conversazione ripresa la cui regione non e' piu' installata.
@@ -800,12 +886,18 @@ private fun AnswerContent(
             Text(stringResource(R.string.ai_thinking), style = MaterialTheme.typography.bodyLarge)
         }
         error != null -> Column {
+            val quota = uiState.quota?.takeIf { error == R.string.ai_error_daily_quota }
             Text(
-                // Il credito esaurito nomina il servizio da ricaricare.
-                if (error == R.string.ai_error_credit) stringResource(error, uiState.onlineProvider.displayName) else stringResource(error),
+                // Il credito esaurito nomina il servizio da ricaricare, la quota il modello e l'ora in cui torna.
+                when {
+                    quota != null -> quotaText(quota, uiState.onlineProvider)
+                    error == R.string.ai_error_credit -> stringResource(error, uiState.onlineProvider.displayName)
+                    else -> stringResource(error)
+                },
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.error,
             )
+            quota?.let { ModelChoiceButtons(it.choices, actions.onModelChoice) }
             // Chiave scaduta o revocata: si toglie da qui e se ne inserisce una nuova.
             if (error == R.string.ai_error_key_rejected) {
                 TextButton(onClick = actions.onClearApiKey) { Text(stringResource(R.string.ai_remove_key)) }
@@ -902,13 +994,23 @@ private fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: Bo
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) actions.onVoiceStart() else actions.onVoicePermissionDenied()
     }
+    // Il testo resta quello dello stato, come nel campo con una String; il cursore e' qui, per metterlo in fondo dopo
+    // un tocco nel menu dei comandi.
+    var field by remember { mutableStateOf(TextFieldValue(uiState.question)) }
+    CommandMenu(uiState, actions) { text ->
+        field = TextFieldValue(text, TextRange(text.length))
+        actions.onQuestionChanged(text)
+    }
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         OutlinedTextField(
-            value = uiState.question,
-            onValueChange = actions.onQuestionChanged,
+            value = field.copy(text = uiState.question),
+            onValueChange = {
+                field = it
+                actions.onQuestionChanged(it.text)
+            },
             modifier = Modifier.weight(1f),
             placeholder = {
                 val hint = when {
@@ -946,6 +1048,44 @@ private fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: Bo
         Spacer(modifier = Modifier.width(Spacing.s))
         FilledIconButton(onClick = actions.onAsk, enabled = canSend, modifier = Modifier.size(48.dp)) {
             Icon(AppIcons.Send, contentDescription = stringResource(R.string.ai_send))
+        }
+    }
+}
+
+// Sopra il campo, quando la domanda comincia con "/": i comandi e, dopo "/model", i modelli da scegliere con un tocco.
+@Composable
+private fun CommandMenu(uiState: AiUiState, actions: AiActions, onFill: (String) -> Unit) {
+    val suggestions = remember(uiState) { uiState.commandSuggestions() }
+    if (suggestions.isEmpty()) return
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l),
+    ) {
+        Column(modifier = Modifier.padding(vertical = Spacing.xs)) {
+            suggestions.forEach { suggestion ->
+                val (title, subtitle) = when (suggestion) {
+                    is CommandSuggestion.Command -> suggestion.command to stringResource(R.string.ai_command_model_desc)
+                    is CommandSuggestion.Choice -> choiceName(suggestion.choice, uiState) to null
+                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(role = Role.Button) {
+                            when (suggestion) {
+                                is CommandSuggestion.Command -> onFill("${suggestion.command} ")
+                                is CommandSuggestion.Choice -> {
+                                    actions.onQuestionChanged("")
+                                    actions.onModelChoice(suggestion.choice)
+                                }
+                            }
+                        }
+                        .padding(horizontal = Spacing.l, vertical = Spacing.s),
+                ) {
+                    Text(title, style = MaterialTheme.typography.bodyLarge)
+                    subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
         }
     }
 }
@@ -1263,8 +1403,9 @@ private fun OnlineModelChoice(
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.semantics { heading() },
     )
+    val auto = options.firstOrNull { it.role == ONLINE_MODEL_ROLE_AUTO }
     Column(modifier = Modifier.selectableGroup()) {
-        options.firstOrNull { it.role == ONLINE_MODEL_ROLE_AUTO }?.let { auto ->
+        auto?.let { auto ->
             ModelChoiceRow(
                 selected = !showOther && setting.isBlank(),
                 title = stringResource(R.string.ai_online_model_auto),
@@ -1273,10 +1414,12 @@ private fun OnlineModelChoice(
             ) { otherSelected = false; onSettingChanged("") }
         }
         listed.forEach { model ->
+            // Piu' economico di quello di Automatico: il ripiego quando ne finisce la quota giornaliera (automaticCandidates).
+            val lighter = auto != null && model.inputUsdPerMTok < auto.inputUsdPerMTok
             ModelChoiceRow(
                 selected = !showOther && setting.trim() == model.id,
-                title = stringResource(R.string.ai_online_model_capable, model.id),
-                description = stringResource(R.string.ai_online_model_capable_desc),
+                title = stringResource(if (lighter) R.string.ai_online_model_lighter else R.string.ai_online_model_capable, model.id),
+                description = stringResource(if (lighter) R.string.ai_online_model_lighter_desc else R.string.ai_online_model_capable_desc),
                 cost = costText(model),
             ) { otherSelected = false; onSettingChanged(model.id) }
         }

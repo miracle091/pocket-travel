@@ -106,6 +106,8 @@
     <string name="ai_online_model_auto_desc">Un modello veloce ed economico, aggiornato automaticamente: adatto alle risposte brevi di viaggio. Attualmente: %1$s</string>
     <string name="ai_online_model_capable">Più capace: %1$s</string>
     <string name="ai_online_model_capable_desc">Risposte più accurate alle domande complesse. Il modello costa di più e può essere più lento</string>
+    <string name="ai_online_model_lighter">Più leggero: %1$s</string>
+    <string name="ai_online_model_lighter_desc">Più rapido ed economico, meno accurato sulle domande complesse. Automatico lo usa quando finisce la quota giornaliera del suo modello</string>
     <string name="ai_online_model_cost">Circa %1$s ogni 100 domande</string>
     <string name="ai_online_model_cost_below">Meno di %1$s ogni 100 domande</string>
     <string name="ai_online_model_other">Altro modello</string>
@@ -115,6 +117,19 @@
     <string name="ai_online_share_hint">Acceso: insieme alla domanda arrivano al servizio la nota più pertinente, i dati vicini alla posizione o all\'ultima guida aperta (punti di interesse, mezzi pubblici, previsioni) e, per i vaccini, la partenza o la nazionalità. Spento: arrivano solo la domanda, i testi delle guide tranne le parti scritte per la nazionalità scelta (come i visti) e i dati senza informazioni personali (allerte, numeri di emergenza, distanze tra le città nominate)</string>
     <string name="ai_error_key_rejected">Il servizio ha rifiutato la chiave API: potrebbe essere scaduta o revocata. Rimuovila e inseriscine una nuova</string>
     <string name="ai_error_credit">Credito del servizio esaurito. Ricarica l\'account su %1$s</string>
+    <string name="ai_error_daily_quota">La quota giornaliera di %1$s è finita: torna alle %2$s</string>
+    <string name="ai_error_not_in_free_plan">Il piano gratuito di %2$s non include %1$s</string>
+    <!-- Messaggi dell'app nella conversazione: cambio di modello per la quota e comando /model -->
+    <string name="ai_notice_model_switched">Quota giornaliera di %1$s finita (torna alle %2$s): risponde %3$s</string>
+    <string name="ai_notice_model_list">Modello in uso: %1$s. Scegline un altro qui sotto o scrivi /model e il nome</string>
+    <string name="ai_notice_model_chosen">Modello scelto: %1$s</string>
+    <string name="ai_notice_model_unknown">Nessun modello si chiama «%1$s». Scegline uno qui sotto</string>
+    <string name="ai_choice_use">Usa %1$s</string>
+    <string name="ai_choice_use_on_device">Usa il modello sul dispositivo</string>
+    <string name="ai_choice_automatic">Automatico</string>
+    <string name="ai_choice_automatic_with">Automatico (%1$s)</string>
+    <string name="ai_choice_on_device">%1$s, sul dispositivo</string>
+    <string name="ai_command_model_desc">Mostra il modello in uso e ne sceglie un altro</string>
     <string name="ai_error_busy">Servizio occupato. Riprova tra poco</string>
     <string name="ai_error_interrupted">La risposta si è interrotta. Riprova</string>
     <string name="ai_saved_key_reminder">È salvata una chiave API di %1$s: l\'assistente online è utilizzabile subito, senza scaricare un modello</string>

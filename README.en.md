@@ -103,6 +103,8 @@ The models offered for each service, with the estimated cost of 100 questions, c
 | [Gemini (Google)](https://aistudio.google.com/apikey) | `gemini-3.6-flash` | `gemini-4-argon` |
 | [Claude (Anthropic)](https://console.anthropic.com/settings/keys) | `claude-haiku-5-5` | `claude-sonnet-5-5` |
 
+Gemini also offers `gemini-3.5-flash-lite` (**Lighter**). When a model's daily quota runs out (the Gemini free plan allows 20 requests a day per model), **Automatic** sends the question to another model of the service and says so above the answer. With a chosen model, the quota message has buttons to ask the question again with another model or with the on-device model. `/model` in the question field lists the models and picks one (`/model automatic`, `/model device` or the name); typing `/` opens a menu above the field with the command, then the models.
+
 ## Screenshots
 
 <div align="center">

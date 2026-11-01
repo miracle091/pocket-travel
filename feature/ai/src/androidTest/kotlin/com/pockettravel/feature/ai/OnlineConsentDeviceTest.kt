@@ -125,6 +125,7 @@ class OnlineConsentDeviceTest {
             onlineModelCatalog = OnlineModelCatalog(models, File(context.cacheDir, "online-models.json"), object : OnlineModelsClient {
                 override suspend fun fetchOnlineModels(): ByteArray = ByteArray(0)
             }, Dispatchers.IO),
+            onlineQuota = OnlineQuotaTracker(),
             aiSettingsStore = settings,
             nationalityPreferences = nationality,
             regionRepository = regions,

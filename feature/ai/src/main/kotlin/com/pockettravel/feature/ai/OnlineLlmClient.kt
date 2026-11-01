@@ -180,6 +180,7 @@ class OnlineLlmClient @Inject constructor(
         code == HTTP_UNAUTHORIZED || (code == HTTP_FORBIDDEN && onlineErrorKind(code, responseBody) != OnlineErrorKind.CREDIT) ->
             OnlineApiKeyRejectedException("Chiave API rifiutata (HTTP $code)")
         isModelNotFound(code, responseBody, json) -> OnlineModelNotFoundException("Modello \"$model\" non disponibile (HTTP $code)")
+        isDailyQuota(code, responseBody) -> OnlineDailyQuotaException("Quota giornaliera finita (HTTP $code)", model, isNotInFreePlan(responseBody))
         else -> when (onlineErrorKind(code, responseBody)) {
             OnlineErrorKind.CREDIT -> OnlineCreditExhaustedException("Credito esaurito (HTTP $code)")
             OnlineErrorKind.TEMPORARY -> OnlineServiceBusyException(
@@ -221,15 +222,31 @@ internal enum class OnlineErrorKind { CREDIT, TEMPORARY, PERMANENT }
 // OpenAI: 429 con error.code credit_balance_exhausted, *_spend_limit_exceeded, organization_usage_limit_exceeded, o con
 // error.type insufficient_quota. Anthropic: 402 billing_error, 429 enforced_spend_limit_reached, 400 "credit balance is
 // too low" o "You have reached your specified API usage limits". Gemini: 402 per il credito prepagato, 403 per un saldo
-// scoperto ("outstanding balance"), 400 "enable billing", 429 della quota giornaliera ("PerDay" nel quotaId). Mistral: 402.
-// Non la parola "billing" da sola: anche il 429 del limite al minuto di Gemini dice "check your plan and billing details"
-// (provato con una chiave gratuita il 2026-10-31: quotaId ...PerMinute..., retryDelay nel corpo, nessun Retry-After).
+// scoperto ("outstanding balance"), 400 "enable billing". Mistral: 402. La quota giornaliera di Gemini e' a parte
+// (isDailyQuota). Non la parola "billing" da sola: anche il 429 del limite al minuto di Gemini dice "check your plan and
+// billing details" (provato con una chiave gratuita il 2026-10-31: quotaId ...PerMinute..., retryDelay nel corpo, nessun
+// Retry-After).
 private val CREDIT_MARKERS = listOf(
     "insufficient_quota", "credit_balance", "credit balance", "spend_limit", "usage_limit", "specified api usage limits",
-    "billing_error", "enable billing", "outstanding balance", "perday",
+    "billing_error", "enable billing", "outstanding balance",
 )
 private val CREDIT_MARKER_CODES = setOf(HTTP_BAD_REQUEST, HTTP_FORBIDDEN, HTTP_TOO_MANY_REQUESTS)
 private val TEMPORARY_CODES = setOf(408, 409, 425, 429, 500, 502, 503, 504, 529)
+
+/**
+ * Quota giornaliera di un modello finita: il 429 di Gemini con "PerDay" nel quotaId (provato con una chiave gratuita il
+ * 2026-11-01: GenerateRequestsPerDayPerProjectPerModel-FreeTier, 20 richieste al giorno per gemini-3.6-flash).
+ */
+internal fun isDailyQuota(statusCode: Int, responseBody: String): Boolean =
+    statusCode == HTTP_TOO_MANY_REQUESTS && "perday" in responseBody.lowercase()
+
+/**
+ * Il piano gratuito non include il modello: nel messaggio del 429 di Gemini il limite "free_tier" e' 0 (provato il
+ * 2026-11-01 con gemini-4-argon: "generate_content_free_tier_requests, limit: 0"; con la quota finita e' "limit: 20").
+ */
+internal fun isNotInFreePlan(responseBody: String): Boolean = FREE_TIER_LIMIT_ZERO.containsMatchIn(responseBody)
+
+private val FREE_TIER_LIMIT_ZERO = Regex("""free_tier\w*,\s*limit:\s*0\b""", RegexOption.IGNORE_CASE)
 
 internal fun onlineErrorKind(statusCode: Int, responseBody: String): OnlineErrorKind {
     val body = responseBody.lowercase()
