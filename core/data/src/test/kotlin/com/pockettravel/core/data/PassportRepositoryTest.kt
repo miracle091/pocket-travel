@@ -1,5 +1,6 @@
 package com.pockettravel.core.data
 
+import com.pockettravel.core.data.crypto.SessionAesCipher
 import com.pockettravel.core.data.db.PassportDao
 import com.pockettravel.core.data.db.PassportEntity
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +68,20 @@ class PassportRepositoryTest {
         note = note,
         photoFileNames = photoFileNames,
     )
+
+    @Test
+    fun `un record cifrato con contenuto illeggibile si salta senza far fallire la lista`() = runBlocking {
+        val dao = FakePassportDao()
+        val photoStore = PassportPhotoStore(createTempDirectory("passport-repository-corrupt-test").toFile())
+        val repository = PassportRepository(dao, photoStore, Dispatchers.IO)
+        val dek = randomDek()
+        repository.unlock(dek)
+        repository.save(samplePassport())
+        // Cifrato bene con la chiave giusta, ma non e' un Passport.
+        dao.upsert(PassportEntity("bad", SessionAesCipher(dek).encrypt("{non json"), 1, 1))
+
+        assertEquals(listOf("p1"), repository.observeAll().first().map { it.id })
+    }
 
     @Test
     fun `deleteAll gira sul dispatcher IO iniettato`() = runTest {

@@ -4,6 +4,7 @@ import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -43,6 +44,6 @@ class RegionZonePreferences @Inject constructor(preferences: PreferencesFactory)
     /** null torna a tutta la regione. */
     fun setZone(regionId: String, zone: RegionZone?) {
         prefs.edit { if (zone == null) remove(regionId) else putString(regionId, zone.encode()) }
-        _zones.value = if (zone == null) _zones.value - regionId else _zones.value + (regionId to zone)
+        _zones.update { if (zone == null) it - regionId else it + (regionId to zone) }
     }
 }

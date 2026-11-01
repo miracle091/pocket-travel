@@ -2,6 +2,7 @@ package com.pockettravel.core.data
 
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -31,7 +32,7 @@ class SqliteTransitRepository @Inject constructor(
                     SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
                         readFeedBoard(SqliteTransitQuery(db), infos.firstOrNull { it.id == file.nameWithoutExtension }, latitude, longitude, now, stationModes, realtime[file.nameWithoutExtension])
                     }
-                }.getOrNull()
+                }.onFailure { if (it is CancellationException) throw it }.getOrNull()
             }
             combineBoards(boards)
         }

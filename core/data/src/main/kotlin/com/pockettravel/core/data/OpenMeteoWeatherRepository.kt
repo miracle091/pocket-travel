@@ -54,7 +54,9 @@ class OpenMeteoWeatherRepository(
     override suspend fun weather(cacheKey: String, coordinates: suspend () -> Pair<Double, Double>?): WeatherResult? =
         withContext(ioDispatcher) {
             val file = File(cacheDir, cacheKey.toFileName())
-            val fresh = clock.millis() - file.lastModified() < WEATHER_MIN_REFRESH_MILLIS && cached(file) != null
+            // Un file piu' avanti dell'orologio (orologio spostato indietro) non conta come recente.
+            val age = clock.millis() - file.lastModified()
+            val fresh = age >= 0 && age < WEATHER_MIN_REFRESH_MILLIS && cached(file) != null
             if (!fresh) try {
                 coordinates()?.let { (lat, lon) ->
                     val body = get(forecastUrl(lat, lon))

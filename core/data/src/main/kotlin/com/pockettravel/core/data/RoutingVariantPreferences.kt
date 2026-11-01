@@ -74,7 +74,7 @@ class RoutingVariantPreferences @Inject constructor(preferences: PreferencesFact
 
     fun setInstalledCarOnly(regionId: String, carOnly: Boolean) {
         prefs.edit { putBoolean(INSTALLED_PREFIX + regionId, carOnly) }
-        _installedCarOnly.value = if (carOnly) _installedCarOnly.value + regionId else _installedCarOnly.value - regionId
+        _installedCarOnly.update { if (carOnly) it + regionId else it - regionId }
     }
 
     private fun read(prefix: String): Set<String> =

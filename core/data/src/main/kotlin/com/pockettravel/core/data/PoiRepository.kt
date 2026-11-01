@@ -31,7 +31,8 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
      * cosi' non si conta tutta l'area (su una nazione grande, secondi a ogni fermo della mappa).
      *
      * I POI nascosti sulla mappa (isHiddenOnMap) non servono nella query: la pipeline non pubblica quelli nascosti, i
-     * "base" non lo sono mai e gli "extra" si mostrano comunque. Il filtro in Kotlin resta per i dati vecchi.
+     * "base" non lo sono mai e gli "extra" si mostrano comunque. Per questo qui non si filtra in Kotlin, a differenza
+     * delle ricerche piu' sotto.
      */
     suspend fun inBounds(
         regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double, maxPois: Int, hiddenCategories: Set<PoiCategory> = emptySet(),

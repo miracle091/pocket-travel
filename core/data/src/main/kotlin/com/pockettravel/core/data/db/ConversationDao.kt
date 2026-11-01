@@ -9,8 +9,9 @@ import kotlinx.coroutines.flow.Flow
 // I turni si cancellano con la loro conversazione (ForeignKey.CASCADE in ConversationTurnEntity).
 @Dao
 interface ConversationDao {
+    // La conversazione e il suo primo turno in una transazione sola: senza il turno non resterebbe una conversazione vuota.
     @Insert
-    suspend fun insertConversation(conversation: ConversationEntity)
+    suspend fun insertConversationWithTurn(conversation: ConversationEntity, firstTurn: ConversationTurnEntity)
 
     // Un turno con l'id di uno salvato prende il suo posto in un'istruzione sola (risposta rifatta); id 0 = turno nuovo.
     @Insert(onConflict = OnConflictStrategy.REPLACE)

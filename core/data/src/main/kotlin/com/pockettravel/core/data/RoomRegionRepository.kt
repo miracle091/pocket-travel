@@ -61,15 +61,16 @@ class RoomRegionRepository @Inject constructor(
     override suspend fun removePackage(regionId: String, kind: PackageKind) {
         installed(regionId) ?: return
         // File su disco fuori dalla transazione (come in remove()); prima di save(), che ne legge le dimensioni.
-        withContext(ioDispatcher) {
+        val diskBytes = withContext(ioDispatcher) {
             when (kind) {
                 PackageKind.MAP -> check(regionStorage.deletePackage(regionId, RegionStorage.MAP_FILE)) { "Impossibile eliminare la mappa di $regionId" }
                 PackageKind.ROUTING -> check(regionStorage.deletePackage(regionId, RegionStorage.ROUTING_DIR)) { "Impossibile eliminare il routing di $regionId" }
                 PackageKind.ADDRESSES -> {
-                    check(regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_FILE)) { "Impossibile eliminare i civici di $regionId" }
-                    // Percorso a griglia: elenco delle celle installate accanto ad ADDRESSES_FILE, assente
-                    // (deletePackage torna comunque true) per i civici senza griglia.
+                    // Prima l'elenco delle celle installate (percorso a griglia, accanto ad ADDRESSES_FILE; assente, e
+                    // deletePackage torna comunque true, per i civici senza griglia): se il processo muore a meta' non
+                    // resta un elenco di celle senza il pmtiles.
                     regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_CELLS_FILE)
+                    check(regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_FILE)) { "Impossibile eliminare i civici di $regionId" }
                     // Database di ricerca degli indirizzi: assente per i cataloghi senza ricerca. I file aperti da
                     // AddressSearchRepository li chiude lei alla ricerca successiva (file sparito).
                     regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
@@ -77,6 +78,7 @@ class RoomRegionRepository @Inject constructor(
                 PackageKind.TRANSIT -> check(regionStorage.deletePackage(regionId, RegionStorage.TRANSIT_DIR)) { "Impossibile eliminare gli orari dei mezzi di $regionId" }
                 PackageKind.POI, PackageKind.POI_EXTRA, PackageKind.CITIES -> Unit
             }
+            diskBytes(regionId)
         }
         // Lo stato si rilegge dentro la transazione: un'installazione registrata dopo la prima lettura non va sovrascritta.
         // Se non resta nessun altro pacchetto, save() elimina l'intera regione.
@@ -98,6 +100,7 @@ class RoomRegionRepository @Inject constructor(
                 poiExtraSizeBytes = if (kind == PackageKind.POI_EXTRA) null else current.poiExtraSizeBytes,
                 previewVersion = current.previewVersion,
                 citiesSizeBytes = if (kind == PackageKind.CITIES) null else current.citiesSizeBytes,
+                diskBytes = diskBytes,
             )
         }
         // Fuori dalla transazione (il VACUUM non ci puo' stare). Mappa, rete stradale e il resto sono file, non righe;
@@ -108,22 +111,30 @@ class RoomRegionRepository @Inject constructor(
     }
 
     override suspend fun forgetMissingPackages(regionId: String): Set<PackageKind> {
-        val current = installed(regionId) ?: return emptySet()
-        val missing = withContext(ioDispatcher) {
+        val first = installed(regionId) ?: return emptySet()
+        // Controllo dei file e dimensioni su disco fuori dalla transazione.
+        val (missing, diskBytes) = withContext(ioDispatcher) {
             FILE_PACKAGES.filter { (kind, packageName) ->
-                current.versionOf(kind) != null && !regionStorage.hasPackageFiles(regionId, packageName)
-            }.keys
+                first.versionOf(kind) != null && !regionStorage.hasPackageFiles(regionId, packageName)
+            }.keys.let { it to if (it.isEmpty()) 0L else diskBytes(regionId) }
         }
         if (missing.isEmpty()) return missing
-        save(
-            regionId, current.displayName, current.countryCode,
-            versionOf = { if (it in missing) null else current.versionOf(it) },
-            poiSizeBytes = current.poiSizeBytes,
-            poiExtraSizeBytes = current.poiExtraSizeBytes,
-            previewVersion = current.previewVersion,
-            citiesSizeBytes = current.citiesSizeBytes,
-        )
-        return missing
+        // Lo stato si rilegge dentro la transazione: un'installazione registrata dopo la prima lettura non va annullata.
+        return database.withTransaction {
+            val current = installedRegionDao.findById(regionId)?.toDomain() ?: return@withTransaction emptySet()
+            val forgotten = missing.filterTo(mutableSetOf()) { current.versionOf(it) == first.versionOf(it) }
+            if (forgotten.isEmpty()) return@withTransaction forgotten
+            save(
+                regionId, current.displayName, current.countryCode,
+                versionOf = { if (it in forgotten) null else current.versionOf(it) },
+                poiSizeBytes = current.poiSizeBytes,
+                poiExtraSizeBytes = current.poiExtraSizeBytes,
+                previewVersion = current.previewVersion,
+                citiesSizeBytes = current.citiesSizeBytes,
+                diskBytes = diskBytes,
+            )
+            forgotten
+        }
     }
 
     private suspend fun save(
@@ -135,15 +146,13 @@ class RoomRegionRepository @Inject constructor(
         poiExtraSizeBytes: Long?,
         previewVersion: String?,
         citiesSizeBytes: Long?,
+        diskBytes: Long? = null,
     ) {
         if (PackageKind.entries.all { versionOf(it) == null }) {
             removeRegion(regionId)
             return
         }
-        val diskBytes = regionStorage.packageBytes(regionId, RegionStorage.MAP_FILE) + regionStorage.packageBytes(regionId, RegionStorage.ROUTING_DIR) +
-            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_FILE) + regionStorage.packageBytes(regionId, RegionStorage.PREVIEW_FILE) +
-            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_CELLS_FILE) + regionStorage.packageBytes(regionId, RegionStorage.TRANSIT_DIR) +
-            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
+        val onDisk = diskBytes ?: withContext(ioDispatcher) { diskBytes(regionId) }
         installedRegionDao.upsert(
             InstalledRegionEntity(
                 regionId = regionId,
@@ -157,7 +166,7 @@ class RoomRegionRepository @Inject constructor(
                 previewVersion = previewVersion,
                 poiSizeBytes = poiSizeBytes,
                 poiExtraSizeBytes = poiExtraSizeBytes,
-                sizeBytes = diskBytes + (poiSizeBytes ?: 0L) + (poiExtraSizeBytes ?: 0L) + (citiesSizeBytes ?: 0L),
+                sizeBytes = onDisk + (poiSizeBytes ?: 0L) + (poiExtraSizeBytes ?: 0L) + (citiesSizeBytes ?: 0L),
                 installedAt = System.currentTimeMillis(),
                 citiesVersion = versionOf(PackageKind.CITIES),
                 citiesSizeBytes = citiesSizeBytes,
@@ -165,6 +174,13 @@ class RoomRegionRepository @Inject constructor(
             ),
         )
     }
+
+    // Visita le directory dei pacchetti: va chiamata su ioDispatcher.
+    private fun diskBytes(regionId: String): Long =
+        regionStorage.packageBytes(regionId, RegionStorage.MAP_FILE) + regionStorage.packageBytes(regionId, RegionStorage.ROUTING_DIR) +
+            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_FILE) + regionStorage.packageBytes(regionId, RegionStorage.PREVIEW_FILE) +
+            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_CELLS_FILE) + regionStorage.packageBytes(regionId, RegionStorage.TRANSIT_DIR) +
+            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
 
     override suspend fun fillCountryCode(regionId: String, countryCode: String) = installedRegionDao.fillCountryCode(regionId, countryCode)
 

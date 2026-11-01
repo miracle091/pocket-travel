@@ -192,8 +192,9 @@ class ConversationRepositoryTest {
         repository.start({ summary }, turn("Mia"))
         repository.list(repository.unlock())
         val other = HistoryKeys(InMemorySharedPreferences(), SoftwareHistoryMasterKey())
-        dao.insertConversation(
+        dao.insertConversationWithTurn(
             dao.conversations.values.single().copy(id = "estranea", wrappedKey = other.wrap(other.newConversationKey())),
+            dao.turns.first().copy(id = 0, conversationId = "estranea"),
         )
 
         val reader = repository.unlock()

@@ -4,6 +4,7 @@ import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,12 +26,12 @@ class MapDetailPreferences @Inject constructor(preferences: PreferencesFactory) 
 
     fun setChoice(regionId: String, light: Boolean) {
         prefs.edit { putBoolean(CHOICE_PREFIX + regionId, light) }
-        _choices.value = _choices.value + (regionId to light)
+        _choices.update { it + (regionId to light) }
     }
 
     fun setInstalledLight(regionId: String, light: Boolean) {
         prefs.edit { putBoolean(INSTALLED_PREFIX + regionId, light) }
-        _installedLight.value = if (light) _installedLight.value + regionId else _installedLight.value - regionId
+        _installedLight.update { if (light) it + regionId else it - regionId }
     }
 
     private fun read(prefix: String): Map<String, Any?> =

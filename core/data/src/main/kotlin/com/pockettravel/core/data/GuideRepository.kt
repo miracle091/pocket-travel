@@ -26,8 +26,9 @@ class GuideRepository @Inject constructor(
         searchCandidates(listOf(regionId), query)
 
     /**
-     * Come l'altra searchCandidates, nelle guide di tutte le regioni [regionIds] (una nazione divisa, gli stati USA), con
-     * CANDIDATE_CAP candidati per regione: senza ordine di rilevanza un tetto unico si riempirebbe con le prime regioni.
+     * Come l'altra searchCandidates, nelle guide di tutte le regioni [regionIds] (una nazione divisa, gli stati USA). Il
+     * tetto e' CANDIDATE_CAP per il numero di regioni, ma e' un LIMIT unico sul totale, senza ordine di rilevanza: se una
+     * regione ha molte corrispondenze puo' occupare i posti delle altre.
      */
     suspend fun searchCandidates(regionIds: List<String>, query: String): List<Pair<GuideSection, FtsMatchInfo>> =
         guideDao.searchInRegionsRanked(regionIds, query, CANDIDATE_CAP * regionIds.size)

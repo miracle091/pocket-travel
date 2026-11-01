@@ -35,8 +35,10 @@ class SecureDeleteDeviceTest {
         try {
             runBlocking {
                 val dao = db.conversationDao()
-                dao.insertConversation(ConversationEntity("c1", MARKER, MARKER, createdAt = 1, updatedAt = 1))
-                dao.insertTurn(ConversationTurnEntity(conversationId = "c1", encryptedPayload = MARKER, createdAt = 1))
+                dao.insertConversationWithTurn(
+                    ConversationEntity("c1", MARKER, MARKER, createdAt = 1, updatedAt = 1),
+                    ConversationTurnEntity(conversationId = "c1", encryptedPayload = MARKER, createdAt = 1),
+                )
                 dao.delete("c1")
             }
             val writable = db.openHelper.writableDatabase

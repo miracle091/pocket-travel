@@ -5,6 +5,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.GeneralSecurityException
 import java.security.KeyStore
+import java.security.ProviderException
 import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -56,6 +57,12 @@ class KeystoreCipher(
             null
         } catch (_: IllegalArgumentException) {
             null
+        } catch (_: ProviderException) {
+            // Alcuni Keystore segnalano la chiave non usabile con un'eccezione non verificata.
+            null
+        } catch (_: IllegalStateException) {
+            // Chiave sparita dal Keystore (secretKey()).
+            null
         }
     }
 
@@ -76,6 +83,7 @@ class KeystoreCipher(
     }
 
     /** Toglie la chiave dal Keystore: la prossima operazione ne genera una nuova. */
+    @Synchronized
     fun deleteKey() {
         cachedKey = null
         KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.deleteEntry(keyAlias)
@@ -86,7 +94,9 @@ class KeystoreCipher(
     // Sotto l'API 30 (minSdk=26) esiste solo setUserAuthenticationValidityDurationSeconds, dove la
     // per-operazione si chiede con -1: 0 non e' documentato come tale. I parametri sono fissati alla
     // creazione: una chiave gia' presente nel Keystore resta com'e', non viene rigenerata.
+    // Sincronizzato: containsAlias e generateKey non sono atomici, due thread genererebbero la chiave due volte.
     @Suppress("DEPRECATION")
+    @Synchronized
     private fun secretKey(): SecretKey {
         cachedKey?.let { return it }
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }

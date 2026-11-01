@@ -5,6 +5,7 @@ import com.pockettravel.core.data.db.PassportDao
 import com.pockettravel.core.data.db.PassportEntity
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -39,9 +40,11 @@ class PassportRepository @Inject constructor(
     val isUnlocked: Boolean get() = sessionCipher != null
 
     fun observeAll(): Flow<List<Passport>> =
-        passportDao.observeAll().map { entities -> entities.mapNotNull { it.toDomainOrNull() } }
+        passportDao.observeAll()
+            .map { entities -> entities.mapNotNull { it.toDomainOrNull() } }
+            .flowOn(ioDispatcher)
 
-    suspend fun save(passport: Passport) {
+    suspend fun save(passport: Passport) = withContext(ioDispatcher) {
         val cipher = sessionCipher ?: error("Vault bloccato: chiamare unlock() prima di save()")
         val now = System.currentTimeMillis()
         val existing = passportDao.findById(passport.id)
@@ -88,5 +91,5 @@ class PassportRepository @Inject constructor(
     suspend fun deletePhoto(fileName: String) = withContext(ioDispatcher) { photoStore.delete(fileName) }
 
     private fun PassportEntity.toDomainOrNull(): Passport? =
-        sessionCipher?.decrypt(encryptedPayload)?.let { json -> Json.decodeFromString(Passport.serializer(), json) }
+        sessionCipher?.decrypt(encryptedPayload)?.let { json -> runCatching { Json.decodeFromString(Passport.serializer(), json) }.getOrNull() }
 }

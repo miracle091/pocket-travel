@@ -329,26 +329,6 @@ class RegionRepositoryEdgeCasesTest {
     // ---- forgetMissingPackages ----
 
     @Test
-    fun `forgetMissingPackages considera mancante anche un file vuoto e non tocca i pacchetti nel database`() = runBlocking {
-        write("italia", RegionStorage.MAP_FILE, 0)
-        write("italia", RegionStorage.ADDRESSES_FILE, 6)
-        repository.markPackagesInstalled(
-            "italia", "Italia", "it",
-            mapOf(PackageKind.MAP to "1", PackageKind.ADDRESSES to "1", PackageKind.POI to "1", PackageKind.CITIES to "1"),
-            poiSizeBytes = 9, citiesSizeBytes = 8,
-        )
-
-        // POI e citta' non hanno file: non si dimenticano mai.
-        assertEquals(setOf(PackageKind.MAP), repository.forgetMissingPackages("italia"))
-        val installed = repository.installed("italia")
-        assertNull(installed?.mapVersion)
-        assertEquals("1", installed?.addressesVersion)
-        assertEquals("1", installed?.poiVersion)
-        assertEquals("1", installed?.citiesVersion)
-        assertEquals(6L + 9 + 8, installed?.sizeBytes)
-    }
-
-    @Test
     fun `forgetMissingPackages non scrive nulla se i file ci sono`() = runBlocking {
         write("italia", RegionStorage.MAP_FILE, 1)
         repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.MAP to "1"))

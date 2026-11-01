@@ -1,8 +1,8 @@
 package com.pockettravel.core.data.crypto
 
-import android.security.keystore.KeyPermanentlyInvalidatedException
 import androidx.core.content.edit
 import com.pockettravel.core.data.PreferencesFactory
+import java.security.GeneralSecurityException
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.inject.Inject
@@ -36,7 +36,11 @@ class VaultKeyEnvelope @Inject constructor(preferences: PreferencesFactory) {
             } else {
                 UnlockCipher.GenerateAndWrap(kek.newEncryptionCipher())
             }
-        } catch (_: KeyPermanentlyInvalidatedException) {
+        } catch (_: GeneralSecurityException) {
+            // KeyPermanentlyInvalidatedException, ma anche UnrecoverableKeyException e InvalidKeyException di alcuni produttori.
+            null
+        } catch (_: IllegalStateException) {
+            // Chiave sparita dal Keystore.
             null
         }
     }

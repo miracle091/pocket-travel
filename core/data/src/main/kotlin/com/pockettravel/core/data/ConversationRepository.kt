@@ -97,8 +97,8 @@ class ConversationRepository @Inject constructor(
                 createdAt = now,
                 updatedAt = now,
             )
-            dao.insertConversation(entity)
-            dao.insertTurn(ConversationTurnEntity(conversationId = handle.id, encryptedPayload = handle.encrypt(firstTurn), createdAt = now))
+            val turn = ConversationTurnEntity(conversationId = handle.id, encryptedPayload = handle.encrypt(firstTurn), createdAt = now)
+            dao.insertConversationWithTurn(entity, turn)
         }
         return handle
     }

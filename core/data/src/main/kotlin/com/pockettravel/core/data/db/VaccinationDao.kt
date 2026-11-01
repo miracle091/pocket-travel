@@ -5,6 +5,17 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 
+/** Le righe di tutte le tabelle vacc_*, lette insieme da [VaccinationDao.readAll]. */
+class VaccinationRows(
+    val yfRisk: List<VaccYfRiskEntity>,
+    val yfEntry: List<VaccYfEntryEntity>,
+    val polioStatus: List<VaccPolioStatusEntity>,
+    val polioEntry: List<VaccPolioEntryEntity>,
+    val special: List<VaccSpecialEntity>,
+    val recommended: List<VaccRecommendedEntity>,
+    val meta: List<VaccMetaEntity>,
+)
+
 /** Le tabelle sono piccole (poche centinaia di righe in tutto): il motore le legge intere. */
 @Dao
 interface VaccinationDao {
@@ -49,6 +60,10 @@ interface VaccinationDao {
 
     @Query("SELECT * FROM vacc_meta")
     suspend fun meta(): List<VaccMetaEntity>
+
+    /** Le sette tabelle in una transazione: un import in corso non ne mostra meta' vecchie e meta' nuove. */
+    @Transaction
+    suspend fun readAll() = VaccinationRows(yfRisk(), yfEntry(), polioStatus(), polioEntry(), special(), recommended(), meta())
 
     @Query("DELETE FROM vacc_yf_risk")
     suspend fun deleteYfRisk()

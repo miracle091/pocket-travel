@@ -125,6 +125,21 @@ class TransitBoardTest {
     }
 
     @Test
+    fun nelGiornoDelCambioDOraIMinutiSonoQuelliGtfs() {
+        // Europe/Rome, 29 marzo 2026: alle 02:00 le lancette vanno alle 03:00, quindi i minuti GTFS (dal "mezzogiorno meno
+        // 12 ore", cioe' dalle 23:00 del 28) superano di 60 quelli dell'orologio fino a fine giornata.
+        exec(
+            "UPDATE meta SET value = 'Europe/Rome' WHERE key = 'timezone'",
+            "UPDATE meta SET value = '20260320' WHERE key = 'window_start'",
+            "UPDATE meta SET value = '20260420' WHERE key = 'valid_until'",
+        )
+        service(4, byteArrayOf(0, 0b0000_0010)) // solo il 29 marzo (giorno 9 della finestra)
+        trip(1, 1, 4, 1, stop = 1, minute = 120) // 00:00Z = 01:00 sull'orologio
+        // 23:30Z del 28 = 00:30 del 29 sull'orologio, minuto GTFS 90: la partenza e' tra 30 minuti, non 90.
+        assertEquals(listOf(30), departures("2026-03-28T23:30:00Z").map { it.inMinutes })
+    }
+
+    @Test
     fun ilFusoDellaReteDecideOggiEAdesso() {
         trip(1, 1, 1, 1, stop = 1, minute = 545)
         // 06:00Z e' le 09:00 a Riga: il servizio del 1 ottobre e' attivo, la partenza delle 09:05 c'e'.

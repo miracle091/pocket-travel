@@ -12,15 +12,17 @@ import javax.inject.Inject
 
 class VaccinationRepository @Inject constructor(private val vaccinationDao: VaccinationDao) {
     /** I dati vaccinali di region.db, o null se il pacchetto guide installato non li contiene (o non c'e' ancora). */
-    suspend fun load(): VaccinationData? = vaccinationDataFrom(
-        yfRisk = vaccinationDao.yfRisk(),
-        yfEntry = vaccinationDao.yfEntry(),
-        polioStatus = vaccinationDao.polioStatus(),
-        polioEntry = vaccinationDao.polioEntry(),
-        special = vaccinationDao.special(),
-        recommended = vaccinationDao.recommended(),
-        meta = vaccinationDao.meta(),
-    ).takeUnless { it.isEmpty }
+    suspend fun load(): VaccinationData? = vaccinationDao.readAll().let { rows ->
+        vaccinationDataFrom(
+            yfRisk = rows.yfRisk,
+            yfEntry = rows.yfEntry,
+            polioStatus = rows.polioStatus,
+            polioEntry = rows.polioEntry,
+            special = rows.special,
+            recommended = rows.recommended,
+            meta = rows.meta,
+        )
+    }.takeUnless { it.isEmpty }
 
     /** Esito per [trip], o null se mancano i dati (allora la UI non mostra il riquadro). */
     suspend fun evaluate(trip: Trip): VaccinationResult? = load()?.let { evaluateVaccinations(trip, it) }

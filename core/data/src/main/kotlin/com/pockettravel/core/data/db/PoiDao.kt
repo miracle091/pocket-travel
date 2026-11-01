@@ -14,7 +14,8 @@ interface PoiDao {
     suspend fun poisForRegion(regionId: String): List<PoiEntity>
 
     // I POI dell'area inquadrata dalla mappa, per i segnalini: tutti i POI di una nazione grande (Italia, ~70 MB) non stanno
-    // in memoria. Senza indice su lat/lon, come nearest: una scansione a ogni fermo della mappa. [excluded] sono le
+    // in memoria. L'indice (regionRef, latE6) restringe la scansione alla fascia di latitudine, la longitudine si controlla
+    // riga per riga (nessun indice su lonE6), come in nearest: una query a ogni fermo della mappa. [excluded] sono le
     // coppie "category|osmTag" delle categorie filtrate dall'utente (vedi PoiRepository.inBounds): escluse qui, prima del
     // conteggio e del GROUP BY, altrimenti le celle sceglierebbero POI poi scartati e le categorie rimaste quasi sparirebbero.
     // [accessibility]: MapAccessibility.ordinal, il filtro "In sedia a rotelle" della mappa (stesso motivo delle categorie).
@@ -76,8 +77,9 @@ interface PoiDao {
     )
     suspend fun searchByName(regionIds: List<String>, pattern: String, limit: Int): List<PoiEntity>
 
-    // I POI del pacchetto base piu' vicini a un punto, dentro il rettangolo dato: per il Navigatore senza destinazione. Senza
-    // indice su lat/lon (una scansione, come searchByName): una ricerca solo quando la posizione si sposta.
+    // I POI del pacchetto base piu' vicini a un punto, dentro il rettangolo dato: per il Navigatore senza destinazione. L'indice
+    // (regionRef, latE6) restringe la ricerca alla fascia di latitudine, la longitudine si controlla riga per riga: una
+    // ricerca solo quando la posizione si sposta.
     @Query(
         "$POI_SELECT $POI_FROM WHERE poi.regionRef IN $REGION_REFS AND poi.extra = 0 " +
             "AND poi.latE6 BETWEEN :minLat * 1000000 AND :maxLat * 1000000 AND poi.lonE6 BETWEEN :minLon * 1000000 AND :maxLon * 1000000 " +

@@ -229,7 +229,8 @@ internal fun readFeedBoard(
     // sotto), ma quelle dopo mezzanotte si vedono.
     if (today.plusDays(1) < windowStart || today > validUntil.plusDays(TRANSIT_GRACE_DAYS)) return TransitBoard.Expired(validUntil, feeds)
     val grace = today > validUntil // scaduta da poco: i giorni dopo la scadenza prendono i servizi di 7 giorni prima
-    val nowMinute = local.hour * 60 + local.minute
+    // Minuti GTFS (dal "mezzogiorno meno 12 ore"), non dell'orologio: nei giorni del cambio d'ora differiscono di 60.
+    val nowMinute = Math.floorDiv(now.epochSecond - gtfsEpochSeconds(today, 0, zone), 60L).toInt()
     // Con il tempo reale si leggono anche le partenze programmate fino a [REALTIME_LOOKBACK_MINUTES] fa: in ritardo
     // possono essere ancora da venire.
     val realtimeFeed = realtime?.takeIf { meta["gtfs_ids"] == "1" }

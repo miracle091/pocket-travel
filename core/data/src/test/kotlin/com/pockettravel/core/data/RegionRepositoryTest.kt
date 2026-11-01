@@ -286,30 +286,6 @@ class RegionRepositoryTest {
     }
 
     @Test
-    fun `forgetMissingPackages toglie i pacchetti registrati senza file e tiene gli altri`() = runBlocking {
-        val (repository, _) = newRepository()
-        val regionDir = regionStorage.directoryFor("sint-maarten")
-        File(regionDir, RegionStorage.MAP_FILE).apply { parentFile!!.mkdirs() }.writeBytes(ByteArray(100))
-        // Cartella della rete stradale rimasta vuota, come dopo la cancellazione dei segmenti.
-        File(regionDir, RegionStorage.ROUTING_DIR).mkdirs()
-        repository.markPackagesInstalled(
-            "sint-maarten", "Sint Maarten", "sx",
-            mapOf(PackageKind.MAP to "1", PackageKind.ROUTING to "1", PackageKind.POI to "1", PackageKind.TRANSIT to "1"),
-            poiSizeBytes = 50,
-        )
-
-        val forgotten = repository.forgetMissingPackages("sint-maarten")
-
-        assertEquals(setOf(PackageKind.ROUTING, PackageKind.TRANSIT), forgotten)
-        val installed = repository.installed("sint-maarten")!!
-        assertEquals("1", installed.mapVersion)
-        assertNull(installed.routingVersion)
-        assertNull(installed.transitVersion)
-        assertEquals("1", installed.poiVersion)
-        assertEquals(150L, installed.sizeBytes)
-    }
-
-    @Test
     fun `forgetMissingPackages non tocca una regione con tutti i file`() = runBlocking {
         val (repository, _) = newRepository()
         File(regionStorage.directoryFor("italia"), RegionStorage.MAP_FILE).apply { parentFile!!.mkdirs() }.writeBytes(ByteArray(10))

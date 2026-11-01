@@ -26,10 +26,11 @@ class FakeConversationDao : ConversationDao {
         countFlow.value = conversations.size
     }
 
-    override suspend fun insertConversation(conversation: ConversationEntity) {
+    override suspend fun insertConversationWithTurn(conversation: ConversationEntity, firstTurn: ConversationTurnEntity) {
         check(conversation.id !in conversations)
         conversations[conversation.id] = conversation
         changed()
+        insertTurn(firstTurn)
     }
 
     override suspend fun insertTurn(turn: ConversationTurnEntity) {

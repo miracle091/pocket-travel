@@ -8,7 +8,17 @@ import com.pockettravel.core.data.WEATHER_MIN_REFRESH_MILLIS
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -21,6 +31,7 @@ import java.time.ZoneOffset
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Allerte in corso di una regione. [fresh] e' vero se almeno una fonte ha risposto adesso, e allora [updatedAtMillis] e'
@@ -49,6 +60,7 @@ interface AlertsRepository {
  * di ogni fonte resta in un file per l'uso senza rete; una fonte non si richiede piu' spesso di WEATHER_MIN_REFRESH_MILLIS,
  * lo stesso limite del meteo.
  */
+@Singleton
 class OnlineAlertsRepository(
     private val cacheDir: File,
     private val regionStorage: RegionStorage,
@@ -70,10 +82,44 @@ class OnlineAlertsRepository(
     // Tetto per chiamata, come il meteo: con una rete lenta si mostrano subito le allerte salvate.
     private val client = okHttpClient.newBuilder().callTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS).build()
 
-    override suspend fun alerts(regionId: String): RegionAlerts? = withContext(ioDispatcher) {
+    // Un solo download per regione alla volta: chi chiede mentre un altro e' in corso ne attende il risultato. Il download
+    // vive in un proprio scope, cosi' l'annullamento di uno solo non ferma gli altri; si annulla quando se ne vanno tutti.
+    private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
+    private val inFlight = mutableMapOf<String, SharedLoad>()
+
+    override suspend fun alerts(regionId: String): RegionAlerts? {
+        val shared = synchronized(inFlight) {
+            val current = inFlight[regionId]?.takeIf { !it.deferred.isCompleted && !it.deferred.isCancelled }
+            val load = current ?: SharedLoad(scope.async(start = CoroutineStart.LAZY) { download(regionId) }).also {
+                inFlight[regionId] = it
+            }
+            load.waiters++
+            load
+        }
+        shared.deferred.start()
+        try {
+            return shared.deferred.await()
+        } finally {
+            synchronized(inFlight) {
+                shared.waiters--
+                if (shared.deferred.isCompleted && inFlight[regionId] === shared) inFlight.remove(regionId)
+                // Nessuno in attesa: il download non serve piu'. Un fallimento non resta in memoria.
+                if (shared.waiters == 0 && !shared.deferred.isCompleted) {
+                    shared.deferred.cancel()
+                    if (inFlight[regionId] === shared) inFlight.remove(regionId)
+                }
+            }
+        }
+    }
+
+    private class SharedLoad(val deferred: Deferred<RegionAlerts?>, var waiters: Int = 0)
+
+    private suspend fun download(regionId: String): RegionAlerts? = withContext(ioDispatcher) {
         val countryCode = regionRepository.installed(regionId)?.countryCode
         val bounds = regionStorage.mapBounds(regionId)?.let { AlertBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) }
-        val loaded = (sources(countryCode) + nationalSources(regionId, countryCode, bounds)).mapNotNull(::load)
+        // Fonti in parallelo, nell'ordine dell'elenco: l'attesa si annulla (vedi get) e dura quanto la piu' lenta.
+        val all = sources(countryCode) + nationalSources(regionId, countryCode, bounds)
+        val loaded = coroutineScope { all.map { source -> async { load(source) } }.awaitAll() }.filterNotNull()
         if (loaded.isEmpty()) return@withContext null
         RegionAlerts(
             alerts = selectAlerts(loaded.flatMap { it.alerts }, bounds, countryCode, clock.instant()),
@@ -114,9 +160,11 @@ class OnlineAlertsRepository(
     }
 
     // La risposta salvata se ha meno del limite; altrimenti una nuova, salvata solo se si legge. Null se non ce n'e' nessuna.
-    private fun load(source: Source): Loaded? {
+    private suspend fun load(source: Source): Loaded? {
         val file = File(cacheDir, "${source.key}.txt")
-        val recent = file.isFile && clock.millis() - file.lastModified() < WEATHER_MIN_REFRESH_MILLIS
+        // Un file piu' avanti dell'orologio (orologio spostato indietro) non conta come recente.
+        val age = clock.millis() - file.lastModified()
+        val recent = file.isFile && age >= 0 && age < WEATHER_MIN_REFRESH_MILLIS
         val fresh = recent || try {
             val body = get(source.url, source.headers)
             source.parse(body)
@@ -148,19 +196,30 @@ class OnlineAlertsRepository(
         }
     }
 
-    private fun get(url: String, headers: Map<String, String> = emptyMap()): String {
-        val request = Request.Builder().url(url).apply { headers.forEach { (name, value) -> header(name, value) } }.build()
-        return client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Allerte: HTTP ${response.code} da $url")
-            response.body.string()
+    // execute() e le letture bloccano e non vedono la cancellazione: annullando la coroutine si annulla la chiamata, cosi'
+    // una fonte che non risponde non trattiene chi ha messo un timeout (la sospensione registra il gestore subito).
+    private suspend fun get(url: String, headers: Map<String, String> = emptyMap()): String = coroutineScope {
+        val httpUrl = url.toHttpUrlOrNull() ?: throw IOException("Allerte: indirizzo non valido $url")
+        val request = Request.Builder().url(httpUrl).apply { headers.forEach { (name, value) -> header(name, value) } }.build()
+        val call = client.newCall(request)
+        val canceller = launch(start = CoroutineStart.UNDISPATCHED) {
+            suspendCancellableCoroutine<Unit> { it.invokeOnCancellation { call.cancel() } }
+        }
+        try {
+            call.execute().use { response ->
+                if (!response.isSuccessful) throw IOException("Allerte: HTTP ${response.code} da $url")
+                response.body.string()
+            }
+        } finally {
+            canceller.cancel()
         }
     }
 
     // Meteoalarm chiede il nome del servizio nazionale accanto alle allerte di un paese: il feed Atom non lo ha, il messaggio
     // CAP di una sua voce si'. Uno solo per download; se non si legge resta il nome salvato prima.
-    private fun saveSender(country: String, feed: String) {
+    private suspend fun saveSender(country: String, feed: String) {
         val name = try {
-            MeteoalarmParser.firstCapUrl(feed)?.let(::get)?.let(MeteoalarmParser::senderName)
+            MeteoalarmParser.firstCapUrl(feed)?.let { get(it) }?.let(MeteoalarmParser::senderName)
         } catch (_: IOException) {
             null
         } ?: return
@@ -173,7 +232,7 @@ class OnlineAlertsRepository(
         val key: String,
         val url: String,
         val parse: (String) -> List<Alert>,
-        val afterDownload: (String) -> Unit = {},
+        val afterDownload: suspend (String) -> Unit = {},
         val headers: Map<String, String> = emptyMap(),
     )
 
