@@ -1,0 +1,364 @@
+{
+  "namespace": "pockettravel",
+  "collection": "https://huggingface.co/collections/pockettravel/pocket-travel",
+  "languages": {
+    "it": {
+      "name": "Italian",
+      "dataset_rows": 34171,
+      "dataset_refusals_percent": 23
+    },
+    "en": {
+      "name": "English",
+      "dataset_rows": 42466,
+      "dataset_refusals_percent": 22
+    }
+  },
+  "models": [
+    {
+      "repo": "qwen3.5-0.8b-travel-it-GGUF",
+      "language": "it",
+      "base_model": "Qwen/Qwen3.5-0.8B",
+      "base_gguf": "unsloth/Qwen3.5-0.8B-GGUF",
+      "file": "qwen3.5-0.8b-travel-it-Q5_K_M.gguf",
+      "file_mib": 528,
+      "memory_mib": 623,
+      "quant_kl": {
+        "Q4_K_M": 0.0568,
+        "Q5_K_M": 0.0203
+      },
+      "outdated_files": [
+        {
+          "file": "qwen3.5-0.8b-travel-it-Q4_K_M.gguf",
+          "quantization": "Q4_K_M with importance matrix",
+          "kept_for": "0.13 and earlier",
+          "file_mib": 505,
+          "memory_mib": 600,
+          "results": {
+            "neg_empty": [44, 100.0],
+            "neg_off": [110, 99.1],
+            "neg_para": [43, 95.3],
+            "neg_city": [120, 95.8],
+            "neg_wiki": [8, 100.0],
+            "neg_near": [40, 97.5],
+            "neg_dep": [10, 100.0],
+            "pos_para": [158, 3.8],
+            "pos_city": [50, 10.0],
+            "pos_wiki": [24, 4.2],
+            "pos_near": [120, 50.8],
+            "pos_dep": [14, 7.1]
+          }
+        }
+      ],
+      "results_note": "The base model's low share of wrong refusals comes with few refusals overall: where it does not refuse, it often\nanswers from its own knowledge or with text that does not answer the question. With an empty context it still\nanswered 43 of the 44 questions, all from its own knowledge.",
+      "results": {
+        "model": {
+          "neg_empty": [44, 100.0],
+          "neg_off": [110, 99.1],
+          "neg_para": [43, 100.0],
+          "neg_city": [120, 96.7],
+          "neg_wiki": [8, 100.0],
+          "neg_near": [40, 92.5],
+          "neg_dep": [10, 80.0],
+          "pos_para": [158, 3.8],
+          "pos_city": [50, 2.0],
+          "pos_wiki": [24, 0.0],
+          "pos_near": [120, 25.0],
+          "pos_dep": [14, 0.0]
+        },
+        "base": {
+          "neg_empty": [44, 2.3],
+          "neg_off": [110, 6.4],
+          "neg_para": [43, 2.3],
+          "neg_city": [120, 2.5],
+          "neg_wiki": [8, 0.0],
+          "neg_near": [40, 12.5],
+          "neg_dep": [10, 0.0],
+          "pos_para": [158, 1.3],
+          "pos_city": [50, 2.0],
+          "pos_wiki": [24, 0.0],
+          "pos_near": [120, 7.5],
+          "pos_dep": [14, 7.1]
+        }
+      }
+    },
+    {
+      "repo": "qwen3.5-0.8b-travel-en-GGUF",
+      "language": "en",
+      "base_model": "Qwen/Qwen3.5-0.8B",
+      "base_gguf": "unsloth/Qwen3.5-0.8B-GGUF",
+      "file": "qwen3.5-0.8b-travel-en-Q5_K_M.gguf",
+      "file_mib": 528,
+      "memory_mib": 623,
+      "quant_kl": {
+        "Q4_K_M": 0.043,
+        "Q5_K_M": 0.0144
+      },
+      "outdated_files": [
+        {
+          "file": "qwen3.5-0.8b-travel-en-Q4_K_M.gguf",
+          "quantization": "Q4_K_M with importance matrix",
+          "kept_for": "0.13 and earlier",
+          "file_mib": 505,
+          "memory_mib": 600,
+          "results": {
+            "neg_empty": [44, 100.0],
+            "neg_off": [110, 100.0],
+            "neg_para": [50, 92.0],
+            "neg_city": [130, 93.8],
+            "neg_wiki": [8, 100.0],
+            "neg_near": [40, 90.0],
+            "neg_dep": [10, 80.0],
+            "pos_para": [279, 9.0],
+            "pos_city": [70, 4.3],
+            "pos_wiki": [24, 0.0],
+            "pos_near": [120, 52.5],
+            "pos_dep": [14, 7.1]
+          }
+        }
+      ],
+      "results_note": "The base model's low share of wrong refusals comes with few refusals overall: where it does not refuse, it often\nanswers from its own knowledge or with text that does not answer the question. With an empty context it still\nanswered 40 of the 44 questions, all from its own knowledge.",
+      "results": {
+        "model": {
+          "neg_empty": [44, 100.0],
+          "neg_off": [110, 100.0],
+          "neg_para": [50, 98.0],
+          "neg_city": [130, 97.7],
+          "neg_wiki": [8, 100.0],
+          "neg_near": [40, 95.0],
+          "neg_dep": [10, 90.0],
+          "pos_para": [279, 5.7],
+          "pos_city": [70, 0.0],
+          "pos_wiki": [24, 0.0],
+          "pos_near": [120, 22.5],
+          "pos_dep": [14, 7.1]
+        },
+        "base": {
+          "neg_empty": [44, 9.1],
+          "neg_off": [110, 56.4],
+          "neg_para": [50, 12.0],
+          "neg_city": [130, 18.5],
+          "neg_wiki": [8, 0.0],
+          "neg_near": [40, 32.5],
+          "neg_dep": [10, 50.0],
+          "pos_para": [279, 3.9],
+          "pos_city": [70, 2.9],
+          "pos_wiki": [24, 0.0],
+          "pos_near": [120, 18.3],
+          "pos_dep": [14, 21.4]
+        }
+      }
+    },
+    {
+      "repo": "qwen3.5-2b-travel-it-GGUF",
+      "language": "it",
+      "base_model": "Qwen/Qwen3.5-2B",
+      "base_gguf": "unsloth/Qwen3.5-2B-GGUF",
+      "file": "qwen3.5-2b-travel-it-Q5_K_M.gguf",
+      "file_mib": 1299,
+      "memory_mib": 1415,
+      "quant_kl": {
+        "Q4_K_M": 0.0316,
+        "Q5_K_M": 0.0118
+      },
+      "outdated_files": [
+        {
+          "file": "qwen3.5-2b-travel-it-Q4_K_M.gguf",
+          "quantization": "Q4_K_M with importance matrix",
+          "kept_for": "0.13 and earlier",
+          "file_mib": 1215,
+          "memory_mib": 1331,
+          "results": {
+            "neg_empty": [44, 100.0],
+            "neg_off": [110, 100.0],
+            "neg_para": [43, 100.0],
+            "neg_city": [120, 95.8],
+            "neg_wiki": [8, 100.0],
+            "neg_near": [40, 100.0],
+            "neg_dep": [10, 100.0],
+            "pos_para": [158, 2.5],
+            "pos_city": [50, 8.0],
+            "pos_wiki": [24, 0.0],
+            "pos_near": [120, 53.3],
+            "pos_dep": [14, 0.0]
+          }
+        }
+      ],
+      "results": {
+        "model": {
+          "neg_empty": [44, 100.0],
+          "neg_off": [110, 99.1],
+          "neg_para": [43, 97.7],
+          "neg_city": [120, 99.2],
+          "neg_wiki": [8, 100.0],
+          "neg_near": [40, 95.0],
+          "neg_dep": [10, 100.0],
+          "pos_para": [158, 2.5],
+          "pos_city": [50, 2.0],
+          "pos_wiki": [24, 0.0],
+          "pos_near": [120, 20.0],
+          "pos_dep": [14, 0.0]
+        },
+        "base": {
+          "neg_empty": [44, 84.1],
+          "neg_off": [110, 67.3],
+          "neg_para": [43, 7.0],
+          "neg_city": [120, 43.3],
+          "neg_wiki": [8, 100.0],
+          "neg_near": [40, 30.0],
+          "neg_dep": [10, 60.0],
+          "pos_para": [158, 0.6],
+          "pos_city": [50, 2.0],
+          "pos_wiki": [24, 0.0],
+          "pos_near": [120, 6.7],
+          "pos_dep": [14, 14.3]
+        }
+      }
+    },
+    {
+      "repo": "qwen3.5-2b-travel-en-GGUF",
+      "language": "en",
+      "base_model": "Qwen/Qwen3.5-2B",
+      "base_gguf": "unsloth/Qwen3.5-2B-GGUF",
+      "file": "qwen3.5-2b-travel-en-Q5_K_M.gguf",
+      "file_mib": 1299,
+      "memory_mib": 1415,
+      "quant_kl": {
+        "Q4_K_M": 0.0235,
+        "Q5_K_M": 0.0092
+      },
+      "outdated_files": [
+        {
+          "file": "qwen3.5-2b-travel-en-Q4_K_M.gguf",
+          "quantization": "Q4_K_M with importance matrix",
+          "kept_for": "0.13 and earlier",
+          "file_mib": 1215,
+          "memory_mib": 1331,
+          "results": {
+            "neg_empty": [44, 100.0],
+            "neg_off": [110, 100.0],
+            "neg_para": [50, 94.0],
+            "neg_city": [130, 100.0],
+            "neg_wiki": [8, 100.0],
+            "neg_near": [40, 97.5],
+            "neg_dep": [10, 100.0],
+            "pos_para": [279, 5.0],
+            "pos_city": [70, 0.0],
+            "pos_wiki": [24, 0.0],
+            "pos_near": [120, 40.0],
+            "pos_dep": [14, 7.1]
+          }
+        }
+      ],
+      "results": {
+        "model": {
+          "neg_empty": [44, 100.0],
+          "neg_off": [110, 100.0],
+          "neg_para": [50, 98.0],
+          "neg_city": [130, 100.0],
+          "neg_wiki": [8, 100.0],
+          "neg_near": [40, 92.5],
+          "neg_dep": [10, 90.0],
+          "pos_para": [279, 3.2],
+          "pos_city": [70, 0.0],
+          "pos_wiki": [24, 0.0],
+          "pos_near": [120, 5.8],
+          "pos_dep": [14, 7.1]
+        },
+        "base": {
+          "neg_empty": [44, 100.0],
+          "neg_off": [110, 94.5],
+          "neg_para": [50, 64.0],
+          "neg_city": [130, 76.2],
+          "neg_wiki": [8, 100.0],
+          "neg_near": [40, 62.5],
+          "neg_dep": [10, 60.0],
+          "pos_para": [279, 13.3],
+          "pos_city": [70, 14.3],
+          "pos_wiki": [24, 0.0],
+          "pos_near": [120, 7.5],
+          "pos_dep": [14, 28.6]
+        }
+      }
+    },
+    {
+      "repo": "qwen3.5-4b-travel-it-GGUF",
+      "language": "it",
+      "base_model": "Qwen/Qwen3.5-4B",
+      "base_gguf": "unsloth/Qwen3.5-4B-GGUF",
+      "base_role": "the model this one was fine-tuned from (the Official model the app offers in the same RAM tier is Qwen3-4B-Instruct-2507)",
+      "file": "qwen3.5-4b-travel-it-Q5_K_M.gguf",
+      "file_mib": 2914,
+      "memory_mib": 3165,
+      "results": {
+        "model": {
+          "neg_empty": [44, 100.0],
+          "neg_off": [110, 100.0],
+          "neg_para": [43, 100.0],
+          "neg_city": [120, 97.5],
+          "neg_wiki": [8, 100.0],
+          "neg_near": [40, 92.5],
+          "neg_dep": [10, 90.0],
+          "pos_para": [158, 1.9],
+          "pos_city": [50, 2.0],
+          "pos_wiki": [24, 0.0],
+          "pos_near": [120, 11.7],
+          "pos_dep": [14, 0.0]
+        },
+        "base": {
+          "neg_empty": [44, 97.7],
+          "neg_off": [110, 94.5],
+          "neg_para": [43, 72.1],
+          "neg_city": [120, 91.7],
+          "neg_wiki": [8, 87.5],
+          "neg_near": [40, 85.0],
+          "neg_dep": [10, 60.0],
+          "pos_para": [158, 19.0],
+          "pos_city": [50, 6.0],
+          "pos_wiki": [24, 0.0],
+          "pos_near": [120, 32.5],
+          "pos_dep": [14, 35.7]
+        }
+      }
+    },
+    {
+      "repo": "qwen3.5-4b-travel-en-GGUF",
+      "language": "en",
+      "base_model": "Qwen/Qwen3.5-4B",
+      "base_gguf": "unsloth/Qwen3.5-4B-GGUF",
+      "base_role": "the model this one was fine-tuned from (the Official model the app offers in the same RAM tier is Qwen3-4B-Instruct-2507)",
+      "file": "qwen3.5-4b-travel-en-Q5_K_M.gguf",
+      "file_mib": 2914,
+      "memory_mib": 3165,
+      "results": {
+        "model": {
+          "neg_empty": [44, 100.0],
+          "neg_off": [110, 100.0],
+          "neg_para": [50, 98.0],
+          "neg_city": [130, 98.5],
+          "neg_wiki": [8, 100.0],
+          "neg_near": [40, 92.5],
+          "neg_dep": [10, 100.0],
+          "pos_para": [279, 0.4],
+          "pos_city": [70, 0.0],
+          "pos_wiki": [24, 0.0],
+          "pos_near": [120, 4.2],
+          "pos_dep": [14, 0.0]
+        },
+        "base": {
+          "neg_empty": [44, 100.0],
+          "neg_off": [110, 98.2],
+          "neg_para": [50, 98.0],
+          "neg_city": [130, 94.6],
+          "neg_wiki": [8, 100.0],
+          "neg_near": [40, 97.5],
+          "neg_dep": [10, 80.0],
+          "pos_para": [279, 21.5],
+          "pos_city": [70, 17.1],
+          "pos_wiki": [24, 0.0],
+          "pos_near": [120, 38.3],
+          "pos_dep": [14, 28.6]
+        }
+      }
+    }
+  ]
+}

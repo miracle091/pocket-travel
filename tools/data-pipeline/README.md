@@ -165,6 +165,20 @@ file non firmati.
 - lancio manuale con `resign_app_status`: lo ricostruisce dal tag della versione rilasciata, con le stesse
   regole del rilascio per le impronte, e lo firma.
 
+Le model card dei sei modelli addestrati sulle guide (`model-cards/qwen3.5-*-GGUF.md`) non si modificano a mano: si
+generano con `scripts/render_cards.py` da `model-cards/template.md` (le parti comuni, con i blocchi
+`<!-- it -->`/`<!-- en -->` per il testo che cambia con la lingua) e `model-cards/models.json` (file, dimensioni,
+memoria in uso e risultati di ogni modello). La fascia di RAM e la percentuale si calcolano con le costanti dell'app
+(`GgufMetadata.kt`, `DeviceAiCapability.kt`), come in `minRamTierFor`. La tabella «Files» mette a confronto il file attuale con
+quelli superati ancora nella repo (`outdated_files` in `models.json`, come i Q4_K_M del v10 che le versioni 0.13 e
+precedenti dell'app scaricano): memoria, fascia di RAM e percentuali di rifiuto sul totale delle domande da rifiutare e
+di quelle con la risposta nel contesto, con l'avviso che i file superati servono solo per i test. Il paragrafo «Why
+Q5_K_M» usa il KL medio dal modello a 16 bit di Q4_K_M e Q5_K_M sugli stessi pesi (`quant_kl`). I risultati del test esteso si copiano dai
+log di `eval_gguf.py --extended` con `render_cards.py --results <repo> <log del modello> <log del modello base>`.
+`upload_hf.py --card model-cards/<repo>.md` carica la card come `README.md` della repo; `test_render_cards.py` fallisce
+se una card nel repository non è quella generata. Le sei repo sono nella Collection
+[Pocket Travel](https://huggingface.co/collections/pockettravel/pocket-travel).
+
 `online-models.json` è l'elenco dei modelli proposti per i servizi del motore Online, con i prezzi per la stima
 del costo. Si scrive a mano in `feature/ai/src/main/assets/online-models.json`, che resta nell'APK come elenco di
 riserva; `publish-online-models.yml` lo controlla, aggiunge `publishedAt`, lo firma e lo pubblica sulla release

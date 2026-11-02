@@ -17,6 +17,12 @@ tags:
 
 # qwen3-4b-instruct-2507-travel-en-GGUF
 
+> **Outdated model, for tests only.** This is the previous 4B model of Pocket Travel. It has been
+> replaced by [qwen3.5-4b-travel-en-GGUF](https://huggingface.co/pockettravel/qwen3.5-4b-travel-en-GGUF), fine-tuned from Qwen3.5 4B
+> on a newer dataset, which wrongly refuses fewer of the questions it could answer. This repository stays
+> only because Pocket Travel 0.13 and earlier download it, and to compare the two models; it will not be
+> updated. For anything else use the new repository.
+
 On-device travel assistant for the [Pocket Travel](https://github.com/miracle091/pocket-travel) Android app:
 a LoRA fine-tune of [Qwen/Qwen3-4B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507), merged and quantized to GGUF Q4_K_M, that
 answers **in English, in at most 3 sentences, using only the travel-guide CONTEXT it is given**, and says so
@@ -24,11 +30,12 @@ explicitly when the context does not contain the answer.
 
 | File | Size | Quantization | Memory in use | Suggested device RAM |
 |---|---|---|---|---|
-| `qwen3-4b-instruct-2507-travel-en-Q4_K_M.gguf` | 2,382 MiB | Q4_K_M with importance matrix | about 4.6 GiB | 12 GB or more |
+| `qwen3-4b-instruct-2507-travel-en-Q4_K_M.gguf` | 2,382 MiB | Q4_K_M with importance matrix | 3,037 MiB | 8 GB or more |
 
-Memory in use: weights, the CPU copy of repacked weights, KV cache and compute buffers, measured with llama.cpp on
-CPU with the app's settings (context 4096 tokens, batch 512, f16 KV cache). With about 0.4 GB for the app itself, model
-and app take about 45% of the suggested device RAM or less, leaving the rest to the system and other apps.
+Memory in use: weights, KV cache and compute buffers, measured with llama.cpp on an x86 CPU with the app's settings
+(context 4096 tokens, batch 512, f16 KV cache). llama.cpp copies the Q4_K weights into a faster layout at load time;
+the file pages it copied from stay only as cache that the system can free, and they are not counted. With about
+0.4 GB for the app itself, model and app take about 42% of the suggested device RAM.
 
 ## Intended use
 
