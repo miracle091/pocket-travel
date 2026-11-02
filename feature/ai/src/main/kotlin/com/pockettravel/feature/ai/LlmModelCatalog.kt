@@ -7,8 +7,8 @@ package com.pockettravel.feature.ai
  * aggiunto al catalogo dei modelli prima della sua pubblicazione.
  * Il catalogo dei modelli contiene solo modelli non gated: gli ufficiali sono Apache 2.0/MIT, gli addestrati
  * sulle guide CC BY-SA 4.0 (share-alike dei testi di Wikivoyage e Wikipedia). Il download non richiede alcun
- * token HuggingFace. Ogni `url`/`fileName` referenziato e' un file GGUF quantizzato a ~4 bit
- * (UD-Q4_K_XL per gli ufficiali, Q4_K_M con imatrix per gli addestrati sulle guide), l'unico formato che
+ * token HuggingFace. Ogni `url`/`fileName` referenziato e' un file GGUF quantizzato a 4-5 bit
+ * (UD-Q4_K_XL per gli ufficiali, Q5_K_M con imatrix per gli addestrati sulle guide), l'unico formato che
  * [OnDeviceLlmEngine] (llama.cpp) sa caricare.
  */
 data class LlmModelDefinition(
@@ -74,15 +74,15 @@ object LlmModelCatalog {
             minRamTier = RamTier.AMPIA,
         ),
         // Addestrati sulle guide (uno per fascia di RAM e per lingua), pubblicati sull'organizzazione HuggingFace
-        // pockettravel (upload_hf.py, dataset v10, caricati il 2026-10-11): sha256 e dimensioni ricontrollati via API
+        // pockettravel (upload_hf.py, dataset v11, caricati il 2026-11-02): sha256 e dimensioni ricontrollati via API
         // tree dopo l'upload. Sono i predefiniti delle loro fasce nella loro lingua (vedi defaultFor).
         LlmModelDefinition(
             id = "pt-qwen3.5-0.8b",
             displayName = "Pocket Travel 0.8B (Qwen3.5)",
-            url = "https://huggingface.co/pockettravel/qwen3.5-0.8b-travel-it-GGUF/resolve/main/qwen3.5-0.8b-travel-it-Q4_K_M.gguf",
-            fileName = "qwen3.5-0.8b-travel-it-Q4_K_M.gguf",
-            sha256 = "fa28808357a375c2694e40b3782adbd05a76b656d099005f57c0475e763a1739",
-            sizeBytes = 529_297_024L,
+            url = "https://huggingface.co/pockettravel/qwen3.5-0.8b-travel-it-GGUF/resolve/main/qwen3.5-0.8b-travel-it-Q5_K_M.gguf",
+            fileName = "qwen3.5-0.8b-travel-it-Q5_K_M.gguf",
+            sha256 = "84a370a57e9eabee963eb0ae9098830e4db20d335f7035e6f06e36840a03c0a7",
+            sizeBytes = 553_271_648L,
             minRamTier = RamTier.MINIMO,
             origin = ModelOrigin.ADDESTRATO,
             language = "it",
@@ -90,21 +90,21 @@ object LlmModelCatalog {
         LlmModelDefinition(
             id = "pt-qwen3.5-2b",
             displayName = "Pocket Travel 2B (Qwen3.5)",
-            url = "https://huggingface.co/pockettravel/qwen3.5-2b-travel-it-GGUF/resolve/main/qwen3.5-2b-travel-it-Q4_K_M.gguf",
-            fileName = "qwen3.5-2b-travel-it-Q4_K_M.gguf",
-            sha256 = "1adffcd8682ccb8b48871e22982001f168bfdab5366989ded3fe5aeb89affcff",
-            sizeBytes = 1_274_396_288L,
+            url = "https://huggingface.co/pockettravel/qwen3.5-2b-travel-it-GGUF/resolve/main/qwen3.5-2b-travel-it-Q5_K_M.gguf",
+            fileName = "qwen3.5-2b-travel-it-Q5_K_M.gguf",
+            sha256 = "cc5ce1e93979f8f3eb00601e49b93b628b5cfa45fd67285499895d62baabdff6",
+            sizeBytes = 1_361_674_592L,
             minRamTier = RamTier.CONFORTEVOLE,
             origin = ModelOrigin.ADDESTRATO,
             language = "it",
         ),
         LlmModelDefinition(
             id = "pt-qwen3-4b-2507",
-            displayName = "Pocket Travel 4B (Qwen3)",
-            url = "https://huggingface.co/pockettravel/qwen3-4b-instruct-2507-travel-it-GGUF/resolve/main/qwen3-4b-instruct-2507-travel-it-Q4_K_M.gguf",
-            fileName = "qwen3-4b-instruct-2507-travel-it-Q4_K_M.gguf",
-            sha256 = "1f9f6cdb643e38eb052e26c1f8cbb5b59f5d5fc2a5d314c48fed246004274d35",
-            sizeBytes = 2_497_280_320L,
+            displayName = "Pocket Travel 4B (Qwen3.5)",
+            url = "https://huggingface.co/pockettravel/qwen3.5-4b-travel-it-GGUF/resolve/main/qwen3.5-4b-travel-it-Q5_K_M.gguf",
+            fileName = "qwen3.5-4b-travel-it-Q5_K_M.gguf",
+            sha256 = "cc0a76365b24674b4c340d721d465e9e6bca07f861ddc36341f238842b069883",
+            sizeBytes = 3_056_004_352L,
             minRamTier = RamTier.AMPIA,
             origin = ModelOrigin.ADDESTRATO,
             language = "it",
@@ -112,10 +112,10 @@ object LlmModelCatalog {
         LlmModelDefinition(
             id = "pt-qwen3.5-0.8b-en",
             displayName = "Pocket Travel 0.8B (Qwen3.5)",
-            url = "https://huggingface.co/pockettravel/qwen3.5-0.8b-travel-en-GGUF/resolve/main/qwen3.5-0.8b-travel-en-Q4_K_M.gguf",
-            fileName = "qwen3.5-0.8b-travel-en-Q4_K_M.gguf",
-            sha256 = "962496502fbfea3864c1f301bf506717d3a375c47d04cefea94385f1b3ad9f0b",
-            sizeBytes = 529_297_024L,
+            url = "https://huggingface.co/pockettravel/qwen3.5-0.8b-travel-en-GGUF/resolve/main/qwen3.5-0.8b-travel-en-Q5_K_M.gguf",
+            fileName = "qwen3.5-0.8b-travel-en-Q5_K_M.gguf",
+            sha256 = "1aaabfdc64a40e001003bb0a3338e8d966a4eb4093eb54cbb72f5313d295900f",
+            sizeBytes = 553_271_648L,
             minRamTier = RamTier.MINIMO,
             origin = ModelOrigin.ADDESTRATO,
             language = "en",
@@ -123,21 +123,21 @@ object LlmModelCatalog {
         LlmModelDefinition(
             id = "pt-qwen3.5-2b-en",
             displayName = "Pocket Travel 2B (Qwen3.5)",
-            url = "https://huggingface.co/pockettravel/qwen3.5-2b-travel-en-GGUF/resolve/main/qwen3.5-2b-travel-en-Q4_K_M.gguf",
-            fileName = "qwen3.5-2b-travel-en-Q4_K_M.gguf",
-            sha256 = "9896f458132beec5356b7cdae054a8a5f608aa4b687f7a45bee0d1ce24172275",
-            sizeBytes = 1_274_396_288L,
+            url = "https://huggingface.co/pockettravel/qwen3.5-2b-travel-en-GGUF/resolve/main/qwen3.5-2b-travel-en-Q5_K_M.gguf",
+            fileName = "qwen3.5-2b-travel-en-Q5_K_M.gguf",
+            sha256 = "92cb8c7beb9d2d17d782ddd16c8371d9d486026bfa9b47ead89c99ea76d9ada8",
+            sizeBytes = 1_361_674_592L,
             minRamTier = RamTier.CONFORTEVOLE,
             origin = ModelOrigin.ADDESTRATO,
             language = "en",
         ),
         LlmModelDefinition(
             id = "pt-qwen3-4b-2507-en",
-            displayName = "Pocket Travel 4B (Qwen3)",
-            url = "https://huggingface.co/pockettravel/qwen3-4b-instruct-2507-travel-en-GGUF/resolve/main/qwen3-4b-instruct-2507-travel-en-Q4_K_M.gguf",
-            fileName = "qwen3-4b-instruct-2507-travel-en-Q4_K_M.gguf",
-            sha256 = "e2b47a110eb0596041c0cc91d340e41275c027b1172796b2cbb7ffd775ecd48d",
-            sizeBytes = 2_497_280_320L,
+            displayName = "Pocket Travel 4B (Qwen3.5)",
+            url = "https://huggingface.co/pockettravel/qwen3.5-4b-travel-en-GGUF/resolve/main/qwen3.5-4b-travel-en-Q5_K_M.gguf",
+            fileName = "qwen3.5-4b-travel-en-Q5_K_M.gguf",
+            sha256 = "3f51cb6fa95359517017e364bee0c41f40716c6899011aa29bad1e13be96b53f",
+            sizeBytes = 3_056_004_352L,
             minRamTier = RamTier.AMPIA,
             origin = ModelOrigin.ADDESTRATO,
             language = "en",

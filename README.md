@@ -85,9 +85,11 @@ Il modello gira sul dispositivo e nessun dato ne esce. Le conversazioni si salva
 
 | RAM | Addestrato sulle guide (italiano) | Addestrato sulle guide (inglese) | Ufficiale |
 |---|---|---|---|
-| 4 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-it-GGUF.md) – 0,53 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-en-GGUF.md) – 0,53 GB | [Qwen3.5 0.8B](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF) – 0,56 GB |
-| 6 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-it-GGUF.md) – 1,27 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-en-GGUF.md) – 1,27 GB | [Qwen3.5 2B](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) – 1,34 GB |
-| 8 GB o più | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3-4b-instruct-2507-travel-it-GGUF.md) – 2,50 GB | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3-4b-instruct-2507-travel-en-GGUF.md) – 2,50 GB | [Qwen3 4B Instruct 2507](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF) – 2,55 GB |
+| 4 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-it-GGUF.md) – 0,55 GB | [Pocket Travel 0.8B](tools/data-pipeline/model-cards/qwen3.5-0.8b-travel-en-GGUF.md) – 0,55 GB | [Qwen3.5 0.8B](https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF) – 0,56 GB |
+| 6 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-it-GGUF.md) – 1,36 GB | [Pocket Travel 2B](tools/data-pipeline/model-cards/qwen3.5-2b-travel-en-GGUF.md) – 1,36 GB | [Qwen3.5 2B](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) – 1,34 GB |
+| 8 GB o più | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3.5-4b-travel-it-GGUF.md) – 3,06 GB | [Pocket Travel 4B](tools/data-pipeline/model-cards/qwen3.5-4b-travel-en-GGUF.md) – 3,06 GB | [Qwen3 4B Instruct 2507](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF) – 2,55 GB |
+
+I sei modelli addestrati sulle guide sono anche nella [collezione Pocket Travel](https://huggingface.co/collections/pockettravel/pocket-travel) su Hugging Face.
 
 <a id="online-con-la-tua-chiave-api"></a>
 

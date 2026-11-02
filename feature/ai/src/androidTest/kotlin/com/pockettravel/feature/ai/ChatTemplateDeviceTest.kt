@@ -137,7 +137,7 @@ class ChatTemplateDeviceTest {
 
     private companion object {
         const val TAG = "ChatTemplate"
-        const val V11_FILE = "qwen3.5-0.8b-travel-it-tx-qlora-Q4_K_M.gguf"
+        const val V11_FILE = "qwen3.5-0.8b-travel-it-Q5_K_M.gguf"
         const val GEMMA_FILE = "gemma-3-270m-it-Q8_0.gguf"
         const val EMPTY_THINK = "<think>\n\n</think>\n\n"
         const val SHORT_ANSWER = 32
