@@ -282,6 +282,11 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
     if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
       echo "::warning::regione $regionId oltre ${REGION_TIMEOUT_MINUTES} min, interrotta: salto e continuo con le prossime"
       FAILED_REASONS+=("oltre ${REGION_TIMEOUT_MINUTES} min")
+      # Almeno il tetto per regione: senza, region-timings.tsv terrebbe il tempo di una run piu' veloce e il piano dopo
+      # metterebbe la regione lenta con altre regioni lente nello stesso shard.
+      elapsed=$((SECONDS - regionStart))
+      timeoutSeconds=$((REGION_TIMEOUT_MINUTES * 60))
+      printf '%s\t%d\n' "$regionId" "$((elapsed > timeoutSeconds ? elapsed : timeoutSeconds))" >> "$RUNNER_TEMP/fragments/timings-$SHARD.tsv"
     else
       echo "::warning::regione $regionId fallita, salto e continuo con le prossime"
       FAILED_REASONS+=("build-region.sh uscito con $rc")

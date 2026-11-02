@@ -12,12 +12,13 @@ L'indice index-v1.json viene scaricato una volta in --cache e riusato dalle regi
 manuale, build-region.sh non la passa) usa invece un indice locale: utile per provare lo script senza rete
 sull'indice o con un indice ritoccato.
 
-1. Sceglie dall'indice di Geofabrik (index-v1.json) gli estratti "foglia" il cui poligono tocca il bbox,
-   scartando quelli composti (alps, dach, britain-and-ireland...), coperti per lo piu' da estratti piu' piccoli.
+1. Sceglie dall'indice di Geofabrik (index-v1.json) gli estratti "foglia" il cui poligono tocca il bbox (e il
+   confine di --border, se c'e'), scartando quelli composti (alps, dach, britain-and-ireland...), coperti per lo
+   piu' da estratti piu' piccoli.
    Le nazioni che nessuna foglia contiene hanno l'estratto in ESTRATTI_DELLE_NAZIONI (Saint-Pierre e Miquelon
    da openstreetmap.fr).
-2. Scarica ogni estratto e lo riduce con "osmium tags-filter" ai soli oggetti che la query Overpass
-   chiederebbe (piu' i nodi delle way e i membri delle relazioni, per la geometria). Il file ridotto
+2. Scarica ogni estratto (DOWNLOADS_IN_PARALLELO alla volta) e lo riduce con "osmium tags-filter" ai soli
+   oggetti che la query Overpass chiederebbe (piu' i nodi delle way e i membri delle relazioni, per la geometria). Il file ridotto
    resta in --cache: le regioni successive dello stesso job non riscaricano lo stesso estratto.
 3. "osmium export" calcola le geometrie; di ogni oggetto che passa lo stesso filtro della query
    Overpass (filtro_overpass) e il cui punto (punto: il nodo, il centro del rettangolo come "out center" di
@@ -43,10 +44,14 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from xml.etree import ElementTree
 from xml.sax.saxutils import quoteattr
 
 INDEX_URL = "https://download.geofabrik.de/index-v1.json"
+# Estratti scaricati insieme: da GitHub Actions ogni download va a 0,6-2 MB/s (2026-11), e uno alla volta le regioni
+# con molti estratti (50 contee del Regno Unito, i Land tedeschi) superavano i 45 minuti per regione di build-shard.sh.
+DOWNLOADS_IN_PARALLELO = 3
 
 # Inizio del nome delle relazioni type=associatedStreet che sono piazze: "Place des Vosges", "Piazza San Marco". In
 # Francia ogni via e ogni piazza e' una relazione, quasi tutte con wikidata (41.245 nell'Ile-de-France, 2.923 con un nome
@@ -249,6 +254,25 @@ def tocca_bbox(rings, bbox):
     return False
 
 
+def tocca_confine(rings, confine):
+    """Vero se l'estratto (anelli) ha punti in comune con il confine della regione (Confine): un vertice dell'uno dentro
+    l'altro o due lati che si incrociano. Il rettangolo del Nunavut tocca anche Alberta e British Columbia, il confine no."""
+    if any(confine.dentro(x, y) for ring in rings for x, y in ring):
+        return True
+    estratto = Confine({"type": "MultiPolygon", "coordinates": [[ring] for ring in rings]})
+    minx, miny, maxx, maxy = rettangolo(rings)
+    if any(minx <= x <= maxx and miny <= y <= maxy and estratto.dentro(x, y) for x, y, _, _ in confine.lati):
+        return True
+    for ring in rings:
+        for a, b in zip(ring, ring[1:] + ring[:1]):
+            lo, hi = sorted((a[0], b[0]))
+            for i in range(confine.fascia(min(a[1], b[1])), confine.fascia(max(a[1], b[1])) + 1):
+                if any(max(x1, x2) >= lo and min(x1, x2) <= hi and segmenti_si_incrociano(a, b, (x1, y1), (x2, y2))
+                       for x1, y1, x2, y2 in confine.fasce[i]):
+                    return True
+    return False
+
+
 def rettangolo(rings):
     xs = [x for ring in rings for x, _ in ring]
     ys = [y for ring in rings for _, y in ring]
@@ -291,8 +315,9 @@ def paesi_estratto(props_by_id, cid):
     return set()
 
 
-def scegli_estratti(index, bbox, iso=None):
-    """[(id, url pbf)] degli estratti foglia che toccano il bbox, senza quelli composti. Con iso (codice alpha-2
+def scegli_estratti(index, bbox, iso=None, confine=None):
+    """[(id, url pbf)] degli estratti foglia che toccano il bbox, senza quelli composti. Con confine (Confine di
+    --border) solo quelli che toccano anche il confine: i POI fuori si scarterebbero comunque. Con iso (codice alpha-2
     della nazione della regione) e almeno un estratto di quella nazione tra i candidati, solo quelli: il bbox
     di Norvegia o Arabia Saudita contiene paesi interi (Svezia, Finlandia, Egitto, Iran...) che sarebbero
     scaricati per un pugno di POI al confine. Le nazioni di ESTRATTI_DELLE_NAZIONI prendono solo l'estratto
@@ -313,6 +338,8 @@ def scegli_estratti(index, bbox, iso=None):
     # contiene Ceuta e Melilla, il Sudafrica il Lesotho, e non per questo vanno scartati.
     borrowed = {f["properties"]["id"] for f in features if f["properties"].get("poligono_del_genitore")}
     chosen = [c for c in leaves if tocca_bbox(c[2], bbox) and (c[0] in borrowed or copertura(c, leaves) < 0.5)]
+    if confine:
+        chosen = [c for c in chosen if tocca_confine(c[2], confine)]
     if iso:
         props_by_id = {f["properties"]["id"]: f["properties"] for f in index["features"]}
         propri = [c for c in chosen if iso.upper() in paesi_estratto(props_by_id, c[0])]
@@ -326,9 +353,11 @@ def scegli_estratti(index, bbox, iso=None):
     return [(cid, url) for cid, url, _, _ in chosen]
 
 
-def scarica(url, dest, user_agent, attempts=3):
+def scarica(url, dest, user_agent, attempts=5):
     """Scarica url in dest, con qualche nuovo tentativo; un file piu' corto del Content-Length e' un errore
-    (urllib non lo segnala: un pbf troncato alla fine di un blocco sembrerebbe valido)."""
+    (urllib non lo segnala: un pbf troncato alla fine di un blocco sembrerebbe valido). Attese di 15, 30, 60 e 120 s
+    tra i tentativi: un 502/503 o un timeout di Geofabrik dura minuti, e dopo l'ultimo tentativo build-region.sh ripiega su
+    Overpass, che per una regione grande non finisce entro il tetto per regione."""
     for attempt in range(1, attempts + 1):
         try:
             request = urllib.request.Request(url, headers={"User-Agent": user_agent})
@@ -344,19 +373,21 @@ def scarica(url, dest, user_agent, attempts=3):
                         last = time.monotonic()
                         total = f" di {int(expected) / 2**20:.0f}" if expected else ""
                         rate = done / 2**20 / max(last - start, 1)
-                        print(f"-- geofabrik: {done / 2**20:.0f}{total} MB ({rate:.1f} MB/s)", flush=True)
+                        print(f"-- geofabrik: {os.path.basename(dest)} {done / 2**20:.0f}{total} MB ({rate:.1f} MB/s)",
+                              flush=True)
             written = os.path.getsize(dest + ".part")
             if expected is not None and written != int(expected):
                 raise OSError(f"{url}: {written} byte invece di {expected}")
             os.replace(dest + ".part", dest)
-            print(f"-- geofabrik: {written / 2**20:.0f} MB in {time.monotonic() - start:.0f}s", flush=True)
+            print(f"-- geofabrik: {os.path.basename(dest)} {written / 2**20:.0f} MB in {time.monotonic() - start:.0f}s",
+                  flush=True)
             return
         except (OSError, http.client.HTTPException) as error:
             # Un 4xx non passa riprovando subito (lo ripara il file datato, vedi estratto_ridotto).
             if attempt == attempts or (isinstance(error, urllib.error.HTTPError) and error.code < 500):
                 raise
             print(f"-- geofabrik: {error}, riprovo ({attempt}/{attempts})", flush=True)
-            time.sleep(10 * attempt)
+            time.sleep(15 * 2 ** (attempt - 1))
 
 
 def url_datato(url, user_agent):
@@ -407,6 +438,19 @@ def estratto_ridotto(cid, url, cache, user_agent):
     finally:
         os.remove(full)
     return reduced
+
+
+def estratti_ridotti(extracts, cache, user_agent):
+    """Estratti ridotti di [(id, url)], nello stesso ordine, DOWNLOADS_IN_PARALLELO alla volta."""
+    with ThreadPoolExecutor(DOWNLOADS_IN_PARALLELO) as pool:
+        futures = [pool.submit(estratto_ridotto, cid, url, cache, user_agent) for cid, url in extracts]
+        try:
+            return [future.result() for future in futures]
+        except BaseException:
+            # Il primo errore fa ripiegare build-region.sh su Overpass: gli estratti non ancora partiti si
+            # annullano, quelli in corso finiscono (restano nella cache per il tentativo dopo).
+            pool.shutdown(cancel_futures=True)
+            raise
 
 
 def nome_file(cid):
@@ -482,6 +526,7 @@ class Confine:
                 for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]) if y1 != y2]
         if not lati:
             raise ValueError("confine senza lati")
+        self.lati = lati
         self.miny = min(y1 for _, y1, _, _ in lati)
         self.maxy = max(y2 for _, _, _, y2 in lati)
         # Circa 16 lati per fascia anche con il confine completo di Russia o Canada (milioni di lati); il tetto limita
@@ -767,16 +812,19 @@ def main():
     with open(index_path, encoding="utf-8") as f:
         index = json.load(f)
     completa_geometrie(index, args.cache, args.user_agent)
-    extracts = scegli_estratti(index, bbox, args.iso)
+    confine = None
+    if args.border:
+        with open(args.border, encoding="utf-8") as f:
+            confine = Confine(json.load(f))
+    extracts = scegli_estratti(index, bbox, args.iso, confine)
     if not extracts:
         sys.exit("nessun estratto Geofabrik tocca il bbox")
     print(f"-- geofabrik: {len(extracts)} estratti per il bbox: {' '.join(cid for cid, _ in extracts)}", flush=True)
 
+    ridotti = estratti_ridotti(extracts, args.cache, args.user_agent)
     with tempfile.TemporaryDirectory() as tmp:
-        sources, relazioni, ridotti, ad_area, esportate = [], [], [], set(), set()
-        for cid, url in extracts:
-            reduced = estratto_ridotto(cid, url, args.cache, args.user_agent)
-            ridotti.append(reduced)
+        sources, relazioni, ad_area, esportate = [], [], set(), set()
+        for (cid, _), reduced in zip(extracts, ridotti):
             # Prima il ritaglio sul bbox: San Marino esporterebbe altrimenti tutto il nord-est d'Italia. "types=any":
             # complete anche le relazioni non multipolygon che escono dal bbox (parchi nazionali type=boundary, siti
             # type=site), come le vede Overpass; l'estratto ridotto ha solo le relazioni dei POI, niente confini.
@@ -803,10 +851,6 @@ def main():
         if spezzate and len(ridotti) > 1:
             print(f"-- geofabrik: {len(spezzate)} relazioni senza area negli estratti, le assemblo dall'unione", flush=True)
             sources.append(esporta_relazioni_spezzate(spezzate, ridotti, tmp))
-        confine = None
-        if args.border:
-            with open(args.border, encoding="utf-8") as f:
-                confine = Confine(json.load(f))
         count = scrivi_xml(sources, bbox, args.out, relazioni, confine, sorelle, args.id)
     # Nessun oggetto e' quasi certamente un errore (formato di osmium cambiato, filtro sbagliato): meglio Overpass.
     if count == 0:

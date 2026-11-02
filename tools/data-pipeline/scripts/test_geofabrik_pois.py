@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import urllib.error
 from unittest import mock
@@ -238,6 +239,66 @@ class ScegliEstrattiTest(unittest.TestCase):
         index = {"features": [quadrato("a", 0, 0, 10, 10)]}
 
         self.assertEqual([c for c, _ in geofabrik_pois.scegli_estratti(index, (4, 4, 5, 5))], ["a"])
+
+    def test_con_il_confine_solo_gli_estratti_che_lo_toccano(self):
+        # Il Nunavut: il suo rettangolo tocca anche l'Alberta, il suo confine no.
+        index = {"features": [quadrato("nunavut", 4, 4, 10, 10), quadrato("alberta", 0, 0, 3, 5),
+                              quadrato("manitoba", 3, 0, 6, 5)]}
+        confine = geofabrik_pois.Confine({"type": "Polygon", "coordinates": [
+            [[4.5, 4.5], [9.5, 4.5], [9.5, 9.5], [4.5, 9.5], [4.5, 4.5]]]})
+
+        self.assertEqual([c for c, _ in geofabrik_pois.scegli_estratti(index, (2, 2, 10, 10))],
+                         ["nunavut", "alberta", "manitoba"])
+        self.assertEqual([c for c, _ in geofabrik_pois.scegli_estratti(index, (2, 2, 10, 10), None, confine)],
+                         ["nunavut", "manitoba"])
+
+
+class ToccaConfineTest(unittest.TestCase):
+    CONFINE = geofabrik_pois.Confine({"type": "Polygon", "coordinates": [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]]})
+
+    def test_vertice_dell_estratto_dentro_il_confine(self):
+        self.assertTrue(geofabrik_pois.tocca_confine([anello(9, 9, 12, 12)], self.CONFINE))
+
+    def test_confine_tutto_dentro_l_estratto(self):
+        self.assertTrue(geofabrik_pois.tocca_confine([anello(-1, -1, 11, 11)], self.CONFINE))
+
+    def test_a_croce_senza_vertici_dentro(self):
+        self.assertTrue(geofabrik_pois.tocca_confine([anello(-2, 4, 12, 6)], self.CONFINE))
+
+    def test_vicino_ma_fuori(self):
+        self.assertFalse(geofabrik_pois.tocca_confine([anello(11, -2, 13, 12)], self.CONFINE))
+        self.assertFalse(geofabrik_pois.tocca_confine([anello(11, 11, 13, 13), anello(-3, -3, -1, -1)], self.CONFINE))
+
+    def test_buco_del_confine(self):
+        # Estratto tutto dentro un buco del confine (Pechino nell'Hebei): nessun punto in comune.
+        confine = geofabrik_pois.Confine({"type": "Polygon", "coordinates": [anello(0, 0, 10, 10), anello(2, 2, 8, 8)]})
+        self.assertFalse(geofabrik_pois.tocca_confine([anello(3, 3, 7, 7)], confine))
+        self.assertTrue(geofabrik_pois.tocca_confine([anello(3, 3, 9, 7)], confine))
+
+
+class EstrattiRidottiTest(unittest.TestCase):
+    def test_stesso_ordine_degli_estratti(self):
+        def ridotto(cid, url, cache, ua):
+            time.sleep(0.05 if cid == "a" else 0)
+            return f"{cache}/{cid}-poi.osm.pbf"
+        with mock.patch.object(geofabrik_pois, "estratto_ridotto", side_effect=ridotto):
+            got = geofabrik_pois.estratti_ridotti([("a", "u"), ("b", "u"), ("c", "u"), ("d", "u")], "cache", "ua")
+        self.assertEqual(got, ["cache/a-poi.osm.pbf", "cache/b-poi.osm.pbf", "cache/c-poi.osm.pbf", "cache/d-poi.osm.pbf"])
+
+    def test_un_errore_ferma_gli_altri_e_risale(self):
+        chiamati = []
+
+        def ridotto(cid, url, cache, ua):
+            chiamati.append(cid)
+            if cid == "a":
+                raise urllib.error.URLError("rete")
+            time.sleep(0.2)
+            return cid
+        extracts = [(c, "u") for c in "abcdefgh"]
+        with mock.patch.object(geofabrik_pois, "estratto_ridotto", side_effect=ridotto):
+            with self.assertRaises(urllib.error.URLError):
+                geofabrik_pois.estratti_ridotti(extracts, "cache", "ua")
+        self.assertLess(len(chiamati), len(extracts))
 
 
 class FiltroOverpassTest(unittest.TestCase):
@@ -841,6 +902,15 @@ class ScaricaTest(unittest.TestCase):
             geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
         with open(self.dest, "rb") as f:
             self.assertEqual(b"0123456789", f.read())
+
+    def test_errore_del_server_cinque_tentativi_con_attese_crescenti(self):
+        error = urllib.error.HTTPError("https://d.example/x.osm.pbf", 503, "Service Unavailable", {}, None)
+        self.addCleanup(error.close)
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=error) as urlopen:
+            with self.assertRaises(urllib.error.HTTPError):
+                geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
+        self.assertEqual(5, urlopen.call_count)
+        self.assertEqual([15, 30, 60, 120], [c.args[0] for c in time.sleep.call_args_list])
 
     def test_lettura_incompleta_si_riprova(self):
         incomplete = http.client.IncompleteRead(b"ab", 10)

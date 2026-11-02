@@ -44,7 +44,8 @@ rigenerare tutte le regioni (`regions` vuoto).
 le 6 ore massime di un job di GitHub Actions e l'uso corretto dei mirror Overpass pubblici. La divisione tra shard è
 per peso, non per indice: il peso è il tempo dell'ultima generazione completa della regione (`region-timings.tsv`
 sul sito), o 50 secondi per tile di terra se non c'è una misura. Se `region-timings.tsv` non si scarica,
-`assemble.sh` fallisce; solo con un 404 (prima pubblicazione) parte da un file vuoto. Senza bilanciamento più
+`assemble.sh` fallisce; solo con un 404 (prima pubblicazione) parte da un file vuoto. Una regione interrotta dal tetto per
+regione (45 minuti) scrive almeno quel tempo, così il piano dopo non la mette con altre regioni lente. Senza bilanciamento più
 regioni grandi (Canada, Stati Uniti, Russia, Brasile) potrebbero finire nello stesso shard e superare le 6 ore. Nelle run del calendario,
 dopo le regioni del giorno, ogni shard riceve una coda di regioni in ritardo e di quelle del giorno dopo (quota
 adattiva), avviate solo se la stima sta nel budget di tempo; le regioni del giorno oltre il budget passano a una
@@ -110,7 +111,16 @@ bash .github/scripts/llm-smoke.sh <file .gguf>
 completo di OpenStreetMap della nazione o della suddivisione (`scripts/country_border.py`). Ogni oggetto ha un solo
 punto sull'oggetto e sta nella regione il cui confine lo contiene. Le regioni russe hanno il confine della Russia e
 rettangoli sovrapposti: un punto in più rettangoli va alla regione con il centro del rettangolo più vicino
-(`--sibling`, campo `poi.scope` del catalogo).
+(`--sibling`, campo `poi.scope` del catalogo). Gli estratti sono quelli che toccano il confine, non solo il rettangolo, e se ne scaricano 3
+alla volta.
+
+Nel job `build` la cartella degli estratti (`GEOFABRIK_CACHE`) sta in due cache di Actions, salvate anche se il job
+fallisce. Gli estratti ridotti ai POI e l'indice (`geofabrik-poi-<data UTC>-<shard>-…`) valgono un giorno: continuazioni
+e nuovi tentativi dello stesso giorno li riusano, anche tra shard, il giorno dopo si riparte. I confini di Nominatim e
+i poligoni degli estratti (`geofabrik-borders-<shard>-<settimana ISO>-…`) valgono una settimana. Si salva solo se la
+run ha aggiunto file; gli estratti interi e i file `.part` restano fuori, e oltre 1,5 GB di estratti ridotti per shard
+non si salva nulla (il limite del repository è 10 GB, condivisi con Gradle, dump e traduzioni). Le copie superate le
+toglie il job stesso.
 
 - Se gli estratti non sono usabili, i POI vengono da Overpass, tile per tile. `geofabrik_pois.py --overpass` applica
   confine e sorelle sul nodo o sul `<center>` di Overpass, che per le vie aperte e le aree a C non è il punto

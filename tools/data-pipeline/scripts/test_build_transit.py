@@ -112,6 +112,13 @@ class BuildTransitTest(unittest.TestCase):
         self.assertEqual(1, proc.returncode)
         self.assertIn("non risponde in questo job", proc.stderr)
 
+    def test_convertitore_senza_host_salta_il_download(self):
+        unreachable = fx.write(self.tree / "unreachable.txt", "script:iett_gtfs.py\n")
+        proc = self.run_script(["--download-only", "rete-a", self.prefetch], rows=feeds_row(url="script:iett_gtfs.py"),
+                               TRANSIT_UNREACHABLE=unreachable.as_posix())
+        self.assertEqual(1, proc.returncode)
+        self.assertIn("non raggiunge il suo host in questo job", proc.stderr)
+
     def test_feed_invariato_e_recente_tiene_la_voce_con_i_dati_della_lista(self):
         data = feed_zip()
         proc = self.build(data, {"feeds": [published_entry(data)]})

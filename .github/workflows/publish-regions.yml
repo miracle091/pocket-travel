@@ -566,6 +566,47 @@ jobs:
           key: city-facts-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: city-facts-
 
+      # Cartella degli estratti Geofabrik (GEOFABRIK_CACHE) in due cache, perche' invecchiano in modo diverso. Gli estratti
+      # ridotti ai POI e l'indice (geofabrik_pois.py) valgono un giorno: Geofabrik li aggiorna ogni giorno e i POI si
+      # rinnovano ogni 6; la chiave ha la data UTC, quindi continuazioni e nuovi tentativi dello stesso giorno li
+      # riusano, il giorno dopo si riparte (anche dalle cache degli altri shard: con la continuazione le regioni
+      # cambiano shard). I confini di Nominatim e i poligoni degli estratti cambiano di rado: chiave settimanale,
+      # per shard. Mai bloccanti.
+      - name: Chiavi delle cache di Geofabrik
+        id: geofabrik-keys
+        run: |
+          echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Ripristina gli estratti di Geofabrik
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ runner.temp }}/geofabrik/*-poi.osm.pbf
+            ${{ runner.temp }}/geofabrik/index-v1.json
+          key: geofabrik-poi-${{ steps.geofabrik-keys.outputs.day }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            geofabrik-poi-${{ steps.geofabrik-keys.outputs.day }}-${{ matrix.shard }}-
+            geofabrik-poi-${{ steps.geofabrik-keys.outputs.day }}-
+
+      - name: Ripristina i confini e i poligoni di Geofabrik
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ runner.temp }}/geofabrik/confine-*.json
+            ${{ runner.temp }}/geofabrik/*.poly
+            ${{ runner.temp }}/geofabrik/*.geojson
+          key: geofabrik-borders-${{ matrix.shard }}-${{ steps.geofabrik-keys.outputs.week }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: geofabrik-borders-${{ matrix.shard }}-${{ steps.geofabrik-keys.outputs.week }}-
+
+      # Elenco dei file ripristinati: le cache si salvano solo se la run ne ha aggiunti.
+      - name: Segna i file di Geofabrik ripristinati
+        run: |
+          mkdir -p "$RUNNER_TEMP/geofabrik"
+          find "$RUNNER_TEMP/geofabrik" -maxdepth 1 -type f -printf '%f\n' | sort > "$RUNNER_TEMP/geofabrik-before.txt"
+
       - name: Genera i pacchetti regionali dello shard
         id: build
         env:
@@ -580,6 +621,79 @@ jobs:
           # Estratti Geofabrik ridotti ai POI, riusati dalle regioni vicine dello stesso shard.
           GEOFABRIK_CACHE: ${{ runner.temp }}/geofabrik
         run: bash .github/scripts/publish-regions/build-shard.sh
+
+      # Prima del salvataggio: via i file che non vanno in cache (pbf interi, file .part di download interrotti dal
+      # timeout), poi si salva solo cio' che la run ha aggiunto. Il limite del repository e' 10 GB, condivisi con
+      # Gradle, immagine dell'emulatore, dump di Wikivoyage e frasi tradotte (circa 5 GB a novembre 2026): oltre 1,5 GB di
+      # estratti ridotti per shard non si salva.
+      - name: Prepara le cache di Geofabrik
+        id: geofabrik-prep
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          GEOFABRIK_DIR: ${{ runner.temp }}/geofabrik
+          MAX_POI_BYTES: 1610612736
+        run: |
+          [ -d "$GEOFABRIK_DIR" ] || exit 0
+          find "$GEOFABRIK_DIR" -maxdepth 1 -type f \( -name '*.part' -o -name '*.part.osm.pbf' -o -name '*.tmp' \) -delete
+          find "$GEOFABRIK_DIR" -maxdepth 1 -type f -name '*.osm.pbf' ! -name '*-poi.osm.pbf' -delete
+          du -sh "$GEOFABRIK_DIR"
+          pois='-poi\.osm\.pbf$|^index-v1\.json$'
+          borders='^confine-.*\.json$|\.poly$|\.geojson$'
+          grew() {
+            now="$(find "$GEOFABRIK_DIR" -maxdepth 1 -type f -printf '%f\n' | sort | grep -E "$1" || true)"
+            [ -n "$now" ] && [ "$now" != "$(grep -E "$1" "$RUNNER_TEMP/geofabrik-before.txt" || true)" ]
+          }
+          if grew "$pois"; then
+            bytes="$(find "$GEOFABRIK_DIR" -maxdepth 1 -name '*-poi.osm.pbf' -printf '%s\n' | awk '{ s += $1 } END { print s + 0 }')"
+            if [ "$bytes" -gt "$MAX_POI_BYTES" ]; then
+              echo "::notice::estratti di Geofabrik: $((bytes / 1048576)) MB oltre la soglia di $((MAX_POI_BYTES / 1048576)) MB, cache non salvata"
+            else
+              echo "save_poi=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+          if grew "$borders"; then echo "save_borders=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Salva gli estratti di Geofabrik
+        id: save-geofabrik-poi
+        if: ${{ always() && steps.geofabrik-prep.outputs.save_poi == 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ runner.temp }}/geofabrik/*-poi.osm.pbf
+            ${{ runner.temp }}/geofabrik/index-v1.json
+          key: geofabrik-poi-${{ steps.geofabrik-keys.outputs.day }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      # Via le copie piu' vecchie dello shard e quelle dei giorni scorsi (nessuna run le ripristina piu'); le copie di oggi
+      # degli altri shard restano, perche' una continuazione puo' assegnare le loro regioni a questo.
+      - name: Elimina le cache degli estratti di Geofabrik superate
+        if: ${{ always() && steps.save-geofabrik-poi.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          DAY: ${{ steps.geofabrik-keys.outputs.day }}
+        run: |
+          bash .github/scripts/trim-caches.sh "geofabrik-poi-$DAY-$SHARD-" "geofabrik-poi-$DAY-$SHARD-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          gh cache list --repo "$GITHUB_REPOSITORY" --key geofabrik-poi- --limit 100 --json key --jq '.[].key' \
+            | awk -v today="geofabrik-poi-$DAY-" 'index($0, today) != 1' \
+            | while read -r key; do gh cache delete "$key" --repo "$GITHUB_REPOSITORY"; done
+
+      - name: Salva i confini e i poligoni di Geofabrik
+        id: save-geofabrik-borders
+        if: ${{ always() && steps.geofabrik-prep.outputs.save_borders == 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ runner.temp }}/geofabrik/confine-*.json
+            ${{ runner.temp }}/geofabrik/*.poly
+            ${{ runner.temp }}/geofabrik/*.geojson
+          key: geofabrik-borders-${{ matrix.shard }}-${{ steps.geofabrik-keys.outputs.week }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Elimina le cache dei confini di Geofabrik superate
+        if: ${{ always() && steps.save-geofabrik-borders.outcome == 'success' }}
+        continue-on-error: true
+        run: bash .github/scripts/trim-caches.sh "geofabrik-borders-$SHARD-" "geofabrik-borders-$SHARD-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 
       # Nuova cache delle frasi di questo shard solo se il passo sopra ne ha tradotte di nuove (translate-grown.flag).
       - name: Salva le frasi tradotte delle citta'

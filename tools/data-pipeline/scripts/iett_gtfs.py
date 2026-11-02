@@ -27,6 +27,7 @@ import json
 import math
 import re
 import sys
+import urllib.error
 import urllib.request
 import zipfile
 
@@ -200,7 +201,8 @@ def main():
         stop_times_zip = zipfile.ZipFile(io.BytesIO(fetch(urls["stop_times"], args.user_agent)))
     except (OSError, ValueError, zipfile.BadZipFile) as error:
         print(f"iett_gtfs: {error}", file=sys.stderr)
-        return 1
+        # 75 (EX_TEMPFAIL): host senza risposta (timeout, connessione rifiutata); un errore HTTP resta 1.
+        return 1 if isinstance(error, urllib.error.HTTPError) or not isinstance(error, OSError) else 75
 
     coords, stops = {}, []
     for row in read_rows(texts["stops"]):

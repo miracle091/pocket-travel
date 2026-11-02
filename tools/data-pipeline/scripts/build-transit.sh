@@ -29,7 +29,8 @@
 #   TRANSIT_DEADLINE           ora (secondi Unix) oltre la quale nessun download continua (la imposta transit.sh dal
 #                              timeout del job); se manca, nessun limite di tempo totale
 #   TRANSIT_UNREACHABLE        file degli host che non hanno risposto a nessun tentativo, uno per riga: il download da
-#                              un host elencato si salta, uno che non risponde si aggiunge; se manca, nessun elenco
+#                              un host elencato si salta, uno che non risponde si aggiunge; se manca, nessun elenco.
+#                              Per un convertitore (script:) la riga e' il suo url_feed, aggiunta se esce con 75
 #
 # Codici d'uscita: 0 rete pronta (nuova o riusata), 3 orari scaduti (nessuna corsa nei prossimi TRANSIT_WINDOW_DAYS
 # giorni e ultimo giorno del feed gia' passato: la rete va tra le "Non incluse", con una riga in
@@ -125,7 +126,16 @@ download_feed() {
   # da correggere (Istanbul: iett_gtfs.py).
   if [[ "$FEED_URL" == script:* ]]; then
     PYTHON_BIN="$(command -v python3 || command -v python)"
-    "$PYTHON_BIN" "$SCRIPT_DIR/${FEED_URL#script:}" --out "$FEED_ZIP" --user-agent "$PIPELINE_USER_AGENT" && ok=true
+    # Un convertitore che non raggiunge il suo host esce con 75 (EX_TEMPFAIL): il suo nome sta in TRANSIT_UNREACHABLE.
+    SCRIPT_RC=0
+    if [ -n "${TRANSIT_UNREACHABLE:-}" ] && grep -qxF "$FEED_URL" "$TRANSIT_UNREACHABLE" 2>/dev/null; then
+      echo "-- $FEED_ID: ${FEED_URL#script:} non raggiunge il suo host in questo job, download saltato" >&2
+      exit 1
+    fi
+    "$PYTHON_BIN" "$SCRIPT_DIR/${FEED_URL#script:}" --out "$FEED_ZIP" --user-agent "$PIPELINE_USER_AGENT" && ok=true || SCRIPT_RC=$?
+    if [ "$SCRIPT_RC" = 75 ] && [ -n "${TRANSIT_UNREACHABLE:-}" ]; then
+      echo "$FEED_URL" >> "$TRANSIT_UNREACHABLE"
+    fi
   fi
   # Host senza nessuna connessione in tutti i tentativi di una rete (TRANSIT_UNREACHABLE, uno per riga, scritto da
   # questa funzione): le altre reti dello stesso host e il nuovo tentativo nella conversione non lo riprovano nello

@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 import unittest
+import urllib.error
 import zipfile
 from unittest import mock
 
@@ -209,11 +210,17 @@ class MainTest(unittest.TestCase):
             self.assertEqual(1, code)
             self.assertFalse(os.path.exists(out))
 
-    def test_errore_di_rete_esce_con_1(self):
-        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(iett_gtfs, "fetch", side_effect=OSError("giu")), \
+    def main_con_errore(self, error):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(iett_gtfs, "fetch", side_effect=error), \
                 mock.patch.object(sys, "argv", ["iett_gtfs.py", "--out", os.path.join(tmp, "f.zip")]), \
                 mock.patch.object(sys, "stderr", io.StringIO()):
-            self.assertEqual(1, iett_gtfs.main())
+            return iett_gtfs.main()
+
+    def test_host_senza_risposta_esce_con_75(self):
+        self.assertEqual(75, self.main_con_errore(OSError(110, "Connection timed out")))
+
+    def test_errore_http_esce_con_1(self):
+        self.assertEqual(1, self.main_con_errore(urllib.error.HTTPError("https://h", 404, "Not Found", {}, None)))
 
 
 if __name__ == "__main__":
