@@ -112,7 +112,10 @@ completo di OpenStreetMap della nazione o della suddivisione (`scripts/country_b
 punto sull'oggetto e sta nella regione il cui confine lo contiene. Le regioni russe hanno il confine della Russia e
 rettangoli sovrapposti: un punto in più rettangoli va alla regione con il centro del rettangolo più vicino
 (`--sibling`, campo `poi.scope` del catalogo). Gli estratti sono quelli che toccano il confine, non solo il rettangolo, e se ne scaricano 3
-alla volta.
+alla volta. Un errore temporaneo si riprova per circa 4 minuti; se tutti i tentativi falliscono senza un 4xx, il file
+`fuori-uso-<host>` nella cartella degli estratti fa fallire subito per 30 minuti i download dallo stesso host, e le
+regioni dopo passano subito a Overpass (quelle con gli estratti già in cache li usano comunque). Il file non entra
+nelle cache di Actions.
 
 Nel job `build` la cartella degli estratti (`GEOFABRIK_CACHE`) sta in due cache di Actions, salvate anche se il job
 fallisce. Gli estratti ridotti ai POI e l'indice (`geofabrik-poi-<data UTC>-<shard>-…`) valgono un giorno: continuazioni

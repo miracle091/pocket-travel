@@ -43,6 +43,7 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from xml.etree import ElementTree
@@ -52,6 +53,10 @@ INDEX_URL = "https://download.geofabrik.de/index-v1.json"
 # Estratti scaricati insieme: da GitHub Actions ogni download va a 0,6-2 MB/s (2026-11), e uno alla volta le regioni
 # con molti estratti (50 contee del Regno Unito, i Land tedeschi) superavano i 45 minuti per regione di build-shard.sh.
 DOWNLOADS_IN_PARALLELO = 3
+# Dopo un download fallito a ogni tentativo per un errore del server, i download dallo stesso host falliscono subito per
+# questo tempo (file fuori-uso-<host> in --cache, fuori dalle cache di Actions): con Geofabrik giu' per ore ogni regione
+# dello shard aspetterebbe 4 minuti prima di Overpass, cosi' li aspetta una regione ogni mezz'ora.
+FUORI_USO_SECONDI = 30 * 60
 
 # Inizio del nome delle relazioni type=associatedStreet che sono piazze: "Place des Vosges", "Piazza San Marco". In
 # Francia ogni via e ogni piazza e' una relazione, quasi tutte con wikidata (41.245 nell'Ile-de-France, 2.923 con un nome
@@ -357,8 +362,13 @@ def scarica(url, dest, user_agent, attempts=5):
     """Scarica url in dest, con qualche nuovo tentativo; un file piu' corto del Content-Length e' un errore
     (urllib non lo segnala: un pbf troncato alla fine di un blocco sembrerebbe valido). Attese di 15, 30, 60 e 120 s
     tra i tentativi: un 502/503 o un timeout di Geofabrik dura minuti, e dopo l'ultimo tentativo build-region.sh ripiega su
-    Overpass, che per una regione grande non finisce entro il tetto per regione."""
+    Overpass, che per una regione grande non finisce entro il tetto per regione. Se i tentativi finiscono senza un 4xx,
+    l'host resta fuori uso per FUORI_USO_SECONDI (segno_fuori_uso)."""
+    segno = segno_fuori_uso(url, dest)
     for attempt in range(1, attempts + 1):
+        # Anche tra un tentativo e l'altro: un download parallelo puo' aver appena segnato l'host.
+        if os.path.exists(segno) and time.time() - os.path.getmtime(segno) < FUORI_USO_SECONDI:
+            raise OSError(f"{url}: {os.path.basename(segno)} da meno di {FUORI_USO_SECONDI // 60} minuti, non provo")
         try:
             request = urllib.request.Request(url, headers={"User-Agent": user_agent})
             with urllib.request.urlopen(request, timeout=120) as response, open(dest + ".part", "wb") as out:
@@ -384,10 +394,21 @@ def scarica(url, dest, user_agent, attempts=5):
             return
         except (OSError, http.client.HTTPException) as error:
             # Un 4xx non passa riprovando subito (lo ripara il file datato, vedi estratto_ridotto).
-            if attempt == attempts or (isinstance(error, urllib.error.HTTPError) and error.code < 500):
+            if isinstance(error, urllib.error.HTTPError) and error.code < 500:
+                raise
+            if attempt == attempts:
+                with open(segno, "w", encoding="utf-8") as f:
+                    f.write(f"{error}\n")
+                print(f"-- geofabrik: {error}, {os.path.basename(segno)}: niente download da questo host per "
+                      f"{FUORI_USO_SECONDI // 60} minuti", flush=True)
                 raise
             print(f"-- geofabrik: {error}, riprovo ({attempt}/{attempts})", flush=True)
             time.sleep(15 * 2 ** (attempt - 1))
+
+
+def segno_fuori_uso(url, dest):
+    """File che segna l'host di url come fuori uso, nella cartella di dest (--cache)."""
+    return os.path.join(os.path.dirname(dest) or ".", f"fuori-uso-{urllib.parse.urlsplit(url).hostname}")
 
 
 def url_datato(url, user_agent):

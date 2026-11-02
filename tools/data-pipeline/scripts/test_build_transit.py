@@ -119,6 +119,16 @@ class BuildTransitTest(unittest.TestCase):
         self.assertEqual(1, proc.returncode)
         self.assertIn("non raggiunge il suo host in questo job", proc.stderr)
 
+    def test_convertitore_che_esce_con_75_si_segna_irraggiungibile_con_1_no(self):
+        for code, listed in ((75, ["script:finto.py"]), (1, [])):
+            with self.subTest(code=code):
+                fx.write(self.tree / "tools/data-pipeline/scripts/finto.py", f"import sys\nsys.exit({code})\n")
+                unreachable = fx.write(self.tree / "unreachable.txt", "")
+                proc = self.run_script(["--download-only", "rete-a", self.prefetch], rows=feeds_row(url="script:finto.py"),
+                                       TRANSIT_UNREACHABLE=unreachable.as_posix())
+                self.assertEqual(1, proc.returncode, proc.stderr)
+                self.assertEqual(listed, unreachable.read_text(encoding="utf-8").split())
+
     def test_feed_invariato_e_recente_tiene_la_voce_con_i_dati_della_lista(self):
         data = feed_zip()
         proc = self.build(data, {"feeds": [published_entry(data)]})

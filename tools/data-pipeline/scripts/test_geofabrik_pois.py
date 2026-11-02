@@ -938,6 +938,40 @@ class ScaricaTest(unittest.TestCase):
             geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
         self.assertEqual(2, urlopen.call_count)
 
+    def test_host_fuori_uso_dopo_i_tentativi_il_download_dopo_non_prova(self):
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen",
+                               side_effect=urllib.error.URLError("timed out")) as urlopen:
+            with self.assertRaises(urllib.error.URLError):
+                geofabrik_pois.scarica("https://d.example/a.osm.pbf", self.dest, "ua")
+            self.assertTrue(os.path.exists(os.path.join(os.path.dirname(self.dest), "fuori-uso-d.example")))
+            with self.assertRaises(OSError) as ctx:
+                geofabrik_pois.scarica("https://d.example/b.osm.pbf", self.dest, "ua")
+        self.assertEqual(5, urlopen.call_count)
+        self.assertIn("fuori-uso-d.example", str(ctx.exception))
+
+    def test_host_fuori_uso_non_ferma_gli_altri_host(self):
+        open(os.path.join(os.path.dirname(self.dest), "fuori-uso-d.example"), "w").close()
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", return_value=FakeDownload(b"ok")):
+            geofabrik_pois.scarica("https://altro.example/x.osm.pbf", self.dest, "ua")
+        self.assertTrue(os.path.exists(self.dest))
+
+    def test_segno_vecchio_di_mezz_ora_si_riprova(self):
+        segno = os.path.join(os.path.dirname(self.dest), "fuori-uso-d.example")
+        open(segno, "w").close()
+        vecchio = time.time() - geofabrik_pois.FUORI_USO_SECONDI - 1
+        os.utime(segno, (vecchio, vecchio))
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", return_value=FakeDownload(b"ok")):
+            geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
+        self.assertTrue(os.path.exists(self.dest))
+
+    def test_4xx_non_segna_l_host(self):
+        error = urllib.error.HTTPError("https://d.example/x", 404, "Not Found", {}, None)
+        self.addCleanup(error.close)
+        with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=error):
+            with self.assertRaises(urllib.error.HTTPError):
+                geofabrik_pois.scarica("https://d.example/x.osm.pbf", self.dest, "ua")
+        self.assertEqual([], [n for n in os.listdir(os.path.dirname(self.dest)) if n.startswith("fuori-uso-")])
+
     def test_nessun_file_datato_nell_elenco(self):
         with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=lambda *a, **k: io.BytesIO(b"<html>niente</html>")):
             with self.assertRaises(OSError) as ctx:
