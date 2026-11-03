@@ -36,6 +36,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA: riconosce l'argomento di più domande e cerca nelle sezioni giuste della guida. Le domande sulle distanze ("Quanto dista Katerini da Atene?", "How far is Sintra from Lisbon?") trovano Come arrivare e Trasporti; parcheggi, agriturismi, battaglie, malattie, sole e vento trovano le loro sezioni. Le parole nuove vengono dalle guide stesse e da WordNet, citato nella schermata Licenze. "Meteo" vale solo come parola intera, e le Meteore non sono più una domanda sul clima.
 
 ### Corretto
+- Assistente IA: alle domande sul tempo di dopodomani ("Pioverà dopodomani a Napoli?") la risposta usa le previsioni di dopodomani; prima i modelli sul dispositivo rispondevano quasi sempre con quelle di domani.
 - Download del modello IA: «Annulla» e subito «Scarica» non rovinano più il file in scaricamento (il download vecchio poteva restare in lettura mentre il nuovo scriveva nello stesso file), e il controllo finale del file si ferma con «Annulla».
 - Assistente IA: scegliendo un altro modello, quello installato resta usabile finché il nuovo non è scaricato e verificato, poi viene eliminato; prima si eliminava all'inizio del download. Servono quindi i byte liberi di tutti e due durante il download.
 - Assistente IA: un file del modello con metadati malformati (per esempio zero teste di attenzione) non fa più chiudere l'app durante la stima della RAM.

@@ -177,10 +177,13 @@ internal fun forecastContext(city: String, result: WeatherResult, language: Stri
     )
     val days = weather.days.joinToString("") { day ->
         val offset = day.date.toEpochDay() - weather.today.toEpochDay()
+        val date = "${day.date.dayOfWeek.getDisplayName(TextStyle.FULL, locale)} ${day.date.dayOfMonth}/${day.date.monthValue}"
+        // Senza "dopodomani" i modelli rispondono a "dopodomani?" con la riga di domani (11 modelli su 12 col solo giorno).
         val label = when (offset) {
             0L -> if (en) "today" else "oggi"
             1L -> if (en) "tomorrow" else "domani"
-            else -> "${day.date.dayOfWeek.getDisplayName(TextStyle.FULL, locale)} ${day.date.dayOfMonth}/${day.date.monthValue}"
+            2L -> if (en) "day after tomorrow, $date" else "dopodomani, $date"
+            else -> date
         }
         val rain = day.rainChance?.let { ", ${if (en) "rain" else "pioggia"} $it%" }.orEmpty()
         "\n- $label: ${day.condition.word(en)}, ${day.max.roundToInt()}/${day.min.roundToInt()} °C$rain"

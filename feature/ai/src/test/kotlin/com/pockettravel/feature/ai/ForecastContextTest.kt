@@ -98,7 +98,7 @@ class ForecastContextTest {
             "Previsioni per Roma (Open-Meteo, aggiornate alle 16:20):\n" +
                 "- oggi: sereno, 22/13 °C, pioggia 0%\n" +
                 "- domani: pioggia, 19/12 °C, pioggia 70%\n" +
-                "- martedì 27/10: coperto, 18/11 °C",
+                "- dopodomani, martedì 27/10: coperto, 18/11 °C",
             section.body,
         )
         assertTrue("Open-Meteo" in section.citation)
@@ -109,7 +109,7 @@ class ForecastContextTest {
         val section = requireNotNull(ForecastProvider(FakeWeatherRepository(result()), clock).section("Rome", "IT", "en")).section
         assertTrue(section.body, section.body.startsWith("Forecast for Rome (Open-Meteo, updated at 16:20):\n- today: clear, 22/13 °C"))
         assertTrue(section.body, "\n- tomorrow: rain, 19/12 °C, rain 70%" in section.body)
-        assertTrue(section.body, "\n- Tuesday 27/10: cloudy" in section.body)
+        assertTrue(section.body, "\n- day after tomorrow, Tuesday 27/10: cloudy" in section.body)
     }
 
     @Test
