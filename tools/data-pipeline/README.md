@@ -27,7 +27,9 @@ dà un avviso. Per adeguarsi si aggiornano `lookups.dat` e i profili con una nuo
 | `transit` | Mezzi pubblici | reti di `transit-feeds.tsv`, ricostruite se il feed cambia o dopo 7 giorni; una rete con gli orari scaduti passa da sola tra le "Non incluse" e torna pubblicata quando gli orari tornano validi, con un warning nella run solo in questi due cambi di stato; finche' il feed scaricato ha lo stesso sha256 (`sourceSha256` nella voce di `missing`), la rete scaduta non si riconverte e resta muta; un host che non risponde a nessun tentativo di una rete (30 s per connettersi) non si riprova per le altre reti dello stesso job, che tengono la voce pubblicata; le reti con `url_rt` (feed GTFS-RT dell'ente) tengono i `trip_id` e gli `stop_id` del GTFS e hanno in `transit.json` `realtimeUrl` e `realtimeSizeBytes` |
 | `overture-check` | Controllo Overture | lista bianca delle fonti Overture, una volta per rilascio; esito in una issue |
 | `vaccinations-check` | Controllo vaccinazioni | deriva dei dati vaccinali, il lunedì e nelle run manuali |
-| `publish` | Pubblicazione | unisce i frammenti di catalogo al `manifest.json` pubblicato, lo firma e fa il deploy su Pages |
+| `publish` | Pubblicazione | unisce i frammenti di catalogo al `manifest.json` pubblicato e prepara il sito di Pages, senza la chiave di firma e senza permessi di scrittura |
+| `deploy` | Firma e deploy | firma i JSON del sito con `MANIFEST_SIGNING_KEY` e fa il deploy su Pages; non esegue né Gradle né script della pipeline |
+| `after-deploy` | Dopo il deploy | rilancia le regioni rimandate o fallite, toglie i frammenti in sospeso gestiti e prepara gli input della pulizia |
 | `cleanup` | Pulizia degli asset | toglie dalle release gli asset che il catalogo nuovo e il precedente non referenziano più; non gira nelle continuazioni, che pubblicano un catalogo pochi minuti dopo quello della run principale e cancellerebbero asset di quello di prima ancora in uso dalle app |
 
 Gli script lunghi dei job stanno in `.github/scripts/publish-regions/`; la preparazione comune (JDK, Gradle con la
@@ -45,20 +47,20 @@ le 6 ore massime di un job di GitHub Actions e l'uso corretto dei mirror Overpas
 per peso, non per indice: il peso è il tempo dell'ultima generazione completa della regione (`region-timings.tsv`
 sul sito), o 50 secondi per tile di terra se non c'è una misura. Se `region-timings.tsv` non si scarica,
 `assemble.sh` fallisce; solo con un 404 (prima pubblicazione) parte da un file vuoto. Una regione interrotta dal tetto per
-regione (45 minuti) scrive almeno quel tempo, così il piano dopo non la mette con altre regioni lente. Senza bilanciamento più
+regione (45 minuti, 70 per `germania`, `canada-nunavut`, `regno-unito` e `russia-siberia`, elenco `HEAVY_REGIONS` del workflow) scrive almeno quel tempo, così il piano dopo non la mette con altre regioni lente. Senza bilanciamento più
 regioni grandi (Canada, Stati Uniti, Russia, Brasile) potrebbero finire nello stesso shard e superare le 6 ore. Nelle run del calendario,
 dopo le regioni del giorno, ogni shard riceve una coda di regioni in ritardo e di quelle del giorno dopo (quota
 adattiva), avviate solo se la stima sta nel budget di tempo; le regioni del giorno oltre il budget passano a una
 continuazione automatica.
 
 **Run sovrapposte.** Il workflow non ha `concurrency`: un gruppo tiene al massimo una run in attesa, e una run
-manuale lanciata durante un'altra farebbe annullare il bucket del giorno dopo rimasto in coda. Solo `publish` sta
+manuale lanciata durante un'altra farebbe annullare il bucket del giorno dopo rimasto in coda. Solo `publish` e `deploy` stanno
 nel gruppo `pages` e solo `cleanup` nel gruppo `asset-cleanup` (una pulizia annullata in coda non perde nulla: la
 successiva toglie gli stessi asset). Gli asset di run diverse non si scontrano (versione unica per run e tentativo) e
 la pulizia non tocca gli asset caricati da meno di 24 ore.
 
 **Permessi.** A livello di workflow solo `contents: read`; `contents: write` ai job che creano release o caricano
-asset, `pages` e `id-token` solo a `publish`. I checkout dei job che scrivono sulle release hanno
+asset, `pages` e `id-token` solo a `deploy`, il job che ha anche la chiave di firma; `publish`, dove girano Gradle e gli script della pipeline, ha solo `contents: read`. `GH_TOKEN` sta nell'ambiente dei soli passi che chiamano `gh`. I checkout dei job che scrivono sulle release hanno
 `persist-credentials: false`, così il token di scrittura non resta nella configurazione git leggibile dal codice di
 build.
 
@@ -96,10 +98,10 @@ bash .github/scripts/llm-smoke.sh <file .gguf>
 
 **Rumore noto nei log.** Messaggi che non dipendono dal progetto e non vanno inseguiti:
 
-- `DeprecationWarning: Buffer() is deprecated` (Node, nel job `publish`): da `actions/download-artifact` 8.0.2,
+- `DeprecationWarning: Buffer() is deprecated` (Node, nei job `publish`, `deploy` e `after-deploy`): da `actions/download-artifact` 8.0.2,
   l'ultima versione;
 - `The Configuration.setVisible(boolean) method has been deprecated` (Gradle, in Android CI): dal plugin Android
-  (AGP 9.4.1, l'ultima stabile), non dagli script del progetto;
+  (AGP 9.5.0, l'ultima stabile), non dagli script del progetto;
 - emulatore su un runner senza schermo (Android CI, `device-tests`): `Could not open libX11.so`, `libX11-xcb.so`,
   `Feature QuickbootFileBacked is disabled`, `Failed to process .ini file`, `Netsim Wifi ... is gone`,
   `Emulator client has not yet been configured`, `cannnot unmap ptr`;
@@ -162,7 +164,7 @@ calcolata sui byte esatti del file:
 | `online-models.json` | `https://github.com/miracle091/pocket-travel/releases/download/app-status/online-models.json` (+ `.sig`) |
 
 La firma si fa nel workflow (`.github/scripts/sign-files.sh`) con la chiave privata del secret
-`MANIFEST_SIGNING_KEY`, solo nel passo che la usa; se il secret manca il job fallisce, per non pubblicare
+`MANIFEST_SIGNING_KEY`, solo nel passo che la usa, nel job `deploy` (quello di `publish-regions.yml`); se il secret manca il job fallisce, per non pubblicare
 file non firmati.
 
 `app-status.json` si aggiorna in tre modi, tutti in `publish-apk.yml`:

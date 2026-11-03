@@ -44,11 +44,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Controlla, firma e pubblica online-models.json
+      # Senza segreti: elabora JSON di terzi (LiteLLM, models.dev), quindi non vede la chiave di firma.
+      - name: Controlla e prepara online-models.json
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
         run: |
           set -euo pipefail
           source .github/scripts/retry.sh
@@ -71,7 +69,11 @@ jobs:
           # Altri modelli: senza le fonti o senza modelli si pubblica l'elenco scritto a mano.
           MERGED="$RUNNER_TEMP/merged.json"
           UA="pocket-travel-publish-online-models/1 (https://github.com/miracle091/pocket-travel)"
-          if retry curl -fsSL -A "$UA" -o "$RUNNER_TEMP/litellm.json"                https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json              && retry curl -fsSL -A "$UA" -o "$RUNNER_TEMP/modelsdev.json" https://models.dev/api.json              && python3 tools/data-pipeline/scripts/online_models.py "$SOURCE" "$RUNNER_TEMP/litellm.json"                "$RUNNER_TEMP/modelsdev.json" "$MERGED"; then
+          if retry curl -fsSL -A "$UA" -o "$RUNNER_TEMP/litellm.json" \
+            https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json \
+            && retry curl -fsSL -A "$UA" -o "$RUNNER_TEMP/modelsdev.json" https://models.dev/api.json \
+            && python3 tools/data-pipeline/scripts/online_models.py "$SOURCE" "$RUNNER_TEMP/litellm.json" \
+              "$RUNNER_TEMP/modelsdev.json" "$MERGED"; then
             # Le regole di OnlineOtherModel.validate (core:sync), piu' due tetti contro una fonte alterata: al massimo
             # 60 modelli per servizio e 1000 dollari per milione di token. Fuori dai tetti si pubblica l'elenco scritto a mano.
             jq -e '
@@ -91,6 +93,17 @@ jobs:
           fi
           # Un publishedAt scritto nella fonte non conta: vale sempre l'ora di questa pubblicazione.
           jq --argjson publishedAt "$(date +%s)" '{publishedAt: $publishedAt} + del(.publishedAt)' "$MERGED" > "$OUT"
+
+      # Solo firma e caricamento, con la chiave: il file da firmare e' quello del passo precedente.
+      - name: Firma e pubblica online-models.json
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/retry.sh
+          OUT="$RUNNER_TEMP/online-models.json"
           bash .github/scripts/sign-files.sh "$OUT"
           ensure_release app-status \
             "Stato app" \

@@ -2,15 +2,19 @@
 # Job "build" di publish-regions.yml: genera i pacchetti delle regioni di uno shard (build-region.sh, build-cities.sh),
 # li carica sulle release "region-data-rNN" / "region-data-car-rNN" e lascia in $RUNNER_TEMP/fragments i frammenti di
 # catalogo, i tempi per regione (timings-<shard>.tsv), le regioni fallite (failed-<shard>.txt) e quelle rimandate per
-# il budget (deferred-<shard>.txt). Scrive has_fragments=true|false in $GITHUB_OUTPUT.
+# il budget (deferred-<shard>.txt): ogni riga si aggiunge ai file appena succede, quindi resta anche se lo script esce
+# a meta'. Scrive has_fragments=true|false in $GITHUB_OUTPUT, anche in uscita anticipata (trap EXIT).
 # Ambiente: SHARD, SELECTED e EXTRA (output del job "plan" per lo shard), JOB_START, TIME_BUDGET_MINUTES,
-# REGION_TIMEOUT_MINUTES, TRANSLATE_TOTAL_MINUTES, PAGES_BASE_URL, GITHUB_REPOSITORY, GITHUB_RUN_NUMBER,
+# REGION_TIMEOUT_MINUTES (tetto di build-region.sh e di ogni build-cities.sh), HEAVY_REGIONS e
+# HEAVY_REGION_TIMEOUT_MINUTES (regioni che superano spesso il tetto e il loro tetto di build-region.sh),
+# TRANSLATE_TOTAL_MINUTES, PAGES_BASE_URL, GITHUB_REPOSITORY, GITHUB_RUN_NUMBER,
 # GITHUB_RUN_ATTEMPT, GH_TOKEN; per gli script della pipeline POI_MAX_AGE_DAYS, WIKIVOYAGE_DUMP_CACHE,
 # CITY_FACTS_CACHE, RD5_RANGE_CACHE, GEOFABRIK_CACHE, TRANSLATE_MAX_SECONDS.
 set -euo pipefail
 source .github/scripts/env.sh
 # Fuori dal workflow, gli stessi valori; le regioni da costruire sono SELECTED (regionId separati da virgola).
-: "${SHARD:=0}" "${SELECTED:=}" "${EXTRA:=}" "${JOB_START:=$(date +%s)}" "${TIME_BUDGET_MINUTES:=280}" "${REGION_TIMEOUT_MINUTES:=45}"
+: "${SHARD:=0}" "${SELECTED:=}" "${EXTRA:=}" "${JOB_START:=$(date +%s)}" "${TIME_BUDGET_MINUTES:=270}" "${REGION_TIMEOUT_MINUTES:=45}"
+: "${HEAVY_REGIONS:=germania canada-nunavut regno-unito russia-siberia}" "${HEAVY_REGION_TIMEOUT_MINUTES:=70}"
 : "${TRANSLATE_TOTAL_MINUTES:=40}" "${POI_MAX_AGE_DAYS:=6}"
 export POI_MAX_AGE_DAYS
 source tools/data-pipeline/scripts/regions.sh
@@ -41,8 +45,20 @@ PUBLISHED_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
 # asset ignorando il suffisso (vedi POI_DATE in build-region.sh).
 VERSION="$(date -u +%Y.%m.%d).$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
 mkdir -p "$OUTPUT_ROOT" "$RUNNER_TEMP/fragments"
+# has_fragments anche se lo script esce a meta' (errore sotto "set -e", per esempio disco pieno): con un file in
+# fragments/ (frammenti, tempi, regioni rimandate o fallite) l'artifact dello shard va caricato. Lo stato d'uscita non cambia.
+write_has_fragments() {
+  set +e
+  if [ -n "$(find "$RUNNER_TEMP/fragments" -maxdepth 1 -type f -print -quit 2> /dev/null)" ]; then
+    echo "has_fragments=true" >> "$GITHUB_OUTPUT"
+  else
+    echo "has_fragments=false" >> "$GITHUB_OUTPUT"
+  fi
+  return 0
+}
+trap write_has_fragments EXIT
 
-# `manifest.json` pubblicato scaricato una volta per shard e passato come file locale a
+# `manifest.json` pubblicato scaricato per shard e passato come file locale a
 # build-region.sh e build-cities.sh (fetch_published_manifest in lib.sh),
 # invece di due download per regione. Stessa semantica degli script: non scaricabile =
 # errore, 404 = prima pubblicazione (si lascia l'URL, gli script vedono lo stesso 404).
@@ -54,6 +70,32 @@ elif [ "$PUBLISHED_MANIFEST_HTTP" != "404" ]; then
   echo "ERRORE: manifest.json pubblicato non scaricabile da $PUBLISHED_MANIFEST_URL (HTTP ${PUBLISHED_MANIFEST_HTTP:-000})" >&2
   exit 1
 fi
+# Il catalogo si riscarica prima di ogni regione (nello stesso file): le regioni durano ore e, se nel frattempo un'altra
+# run pubblica una versione piu' nuova di una regione e la pulizia toglie gli asset vecchi, un frammento invariato o
+# incrementale ricopierebbe URL che non esistono piu'. Costo: circa 3,7 MB (0,6 MB compressi) e meno di un secondo per
+# regione, qualche decina di regioni per shard. Come all'avvio: 200 sostituisce la copia, 404 torna alla prima
+# pubblicazione; ogni altro esito (rete, firma) tiene la copia di prima con un avviso. Il file si sostituisce con mv,
+# mai a meta' (la copia si scarica a parte).
+refresh_published_manifest() {
+  local fresh="$PUBLISHED_MANIFEST_FILE.new" http
+  http="$(fetch_published_manifest "$PAGES_BASE_URL/manifest.json" "$fresh")" || http=""
+  case "$http" in
+    200)
+      mv "$fresh" "$PUBLISHED_MANIFEST_FILE"
+      PUBLISHED_MANIFEST_URL="$PUBLISHED_MANIFEST_FILE"
+      PUBLISHED_MANIFEST_HTTP=200
+      ;;
+    404)
+      rm -f "$fresh"
+      PUBLISHED_MANIFEST_URL="$PAGES_BASE_URL/manifest.json"
+      PUBLISHED_MANIFEST_HTTP=404
+      ;;
+    *)
+      rm -f "$fresh"
+      echo "::warning::manifest.json pubblicato non riscaricato (HTTP ${http:-000}): tengo la copia di prima"
+      ;;
+  esac
+}
 
 # Risolta una volta per l'intero shard (non da ogni build-region.sh, vedi lib.sh): stessa
 # build Protomaps per tutte le regioni di questa run, evita fino a 4 richieste HEAD
@@ -72,6 +114,13 @@ FAILED_REGIONS=()
 # Motivo di ogni regione fallita (stesso ordine di FAILED_REGIONS), per il riepilogo e per il
 # nuovo tentativo nella continuazione (failed-<shard>.txt).
 FAILED_REASONS=()
+# Una regione fallita si segna subito anche in failed-<shard>.txt (una riga regionId<TAB>motivo): la leggono con
+# sort -u continue-deferred.sh, e un'uscita anticipata non la perde. Uso: record_failed <regionId> <motivo>.
+record_failed() {
+  FAILED_REGIONS+=("$1")
+  FAILED_REASONS+=("$2")
+  printf '%s\t%s\n' "$1" "$2" >> "$RUNNER_TEMP/fragments/failed-$SHARD.txt"
+}
 IFS=',' read -ra SHARD_REGIONS <<< "$SELECTED"
 # Coda della quota adattiva ("id:secondi stimati", vedi il job plan): dopo le regioni del giorno,
 # ognuna solo se la sua stima ci sta ancora nel budget; quelle che non ci stanno non si rimandano.
@@ -167,9 +216,15 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
     EXTRA_DONE+=("$regionId")
   elif [ "$startedRegions" -gt 0 ] && [ "$SECONDS" -ge "$BUDGET_SECONDS" ]; then
     DEFERRED_REGIONS+=("$regionId")
+    echo "$regionId" >> "$RUNNER_TEMP/fragments/deferred-$SHARD.txt"
     continue
   fi
   startedRegions=$((startedRegions + 1))
+  # Tetto di build-region.sh: piu' alto per le regioni pesanti (HEAVY_REGIONS); build-cities.sh resta a REGION_TIMEOUT_MINUTES.
+  regionTimeout="$REGION_TIMEOUT_MINUTES"
+  case " $HEAVY_REGIONS " in *" $regionId "*) regionTimeout="$HEAVY_REGION_TIMEOUT_MINUTES" ;; esac
+  # La prima regione usa la copia scaricata all'avvio.
+  [ "$startedRegions" -le 1 ] || refresh_published_manifest
 
   releaseTag="$(region_release_tag "$regionId")"
   RELEASE_BASE_URL="$RELEASE_BASE_URL_PREFIX/$releaseTag"
@@ -177,7 +232,7 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
   regionStart=$SECONDS
   regionOut="$OUTPUT_ROOT/$regionId"
   # timeout segnala l'intero gruppo di processi (anche java, python e curl lanciati dallo script).
-  if timeout --kill-after=2m "${REGION_TIMEOUT_MINUTES}m" \
+  if timeout --kill-after=2m "${regionTimeout}m" \
     tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
     "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
     "$PUBLISHED_MANIFEST_URL"; then
@@ -265,8 +320,7 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
       done
       if [ "$uploadOk" != true ]; then
         echo "::warning::upload asset di $regionId fallito, salto e continuo con le prossime"
-        FAILED_REGIONS+=("$regionId")
-        FAILED_REASONS+=("upload degli asset fallito")
+        record_failed "$regionId" "upload degli asset fallito"
         rm -rf "$regionOut"
         echo "::endgroup::"
         continue
@@ -294,34 +348,30 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
   else
     rc=$?
     if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
-      echo "::warning::regione $regionId oltre ${REGION_TIMEOUT_MINUTES} min, interrotta: salto e continuo con le prossime"
-      FAILED_REASONS+=("oltre ${REGION_TIMEOUT_MINUTES} min")
+      echo "::warning::regione $regionId oltre ${regionTimeout} min, interrotta: salto e continuo con le prossime"
+      reason="oltre ${regionTimeout} min"
       # Almeno il tetto per regione: senza, region-timings.tsv terrebbe il tempo di una run piu' veloce e il piano dopo
       # metterebbe la regione lenta con altre regioni lente nello stesso shard.
       elapsed=$((SECONDS - regionStart))
-      timeoutSeconds=$((REGION_TIMEOUT_MINUTES * 60))
+      timeoutSeconds=$((regionTimeout * 60))
       printf '%s\t%d\n' "$regionId" "$((elapsed > timeoutSeconds ? elapsed : timeoutSeconds))" >> "$RUNNER_TEMP/fragments/timings-$SHARD.tsv"
     else
       echo "::warning::regione $regionId fallita, salto e continuo con le prossime"
-      FAILED_REASONS+=("build-region.sh uscito con $rc")
+      reason="build-region.sh uscito con $rc"
     fi
-    FAILED_REGIONS+=("$regionId")
+    record_failed "$regionId" "$reason"
     rm -rf "$regionOut"
   fi
   echo "::endgroup::"
 done
 
 wait_cities_dump
-# Regioni fallite con il motivo: la prima continuazione le riprova una volta (job "publish").
-for idx in "${!FAILED_REGIONS[@]}"; do
-  printf '%s\t%s\n' "${FAILED_REGIONS[$idx]}" "${FAILED_REASONS[$idx]}" >> "$RUNNER_TEMP/fragments/failed-$SHARD.txt"
-done
-# Regioni rimandate: le rilancia il job "publish" (continuazione automatica).
+# Regioni fallite (failed-<shard>.txt, con il motivo) e rimandate (deferred-<shard>.txt) sono gia' nei file: la prima
+# continuazione le rilancia (job "after-deploy").
 if [ "${#EXTRA_REGIONS[@]}" -gt 0 ]; then
   echo "-- quota adattiva: ${#EXTRA_DONE[@]} regioni in piu' avviate (${EXTRA_DONE[*]:-nessuna}), $EXTRA_SKIPPED non entrate nel budget"
 fi
 if [ "${#DEFERRED_REGIONS[@]}" -gt 0 ]; then
-  printf '%s\n' "${DEFERRED_REGIONS[@]}" > "$RUNNER_TEMP/fragments/deferred-$SHARD.txt"
   echo "::warning::budget di ${TIME_BUDGET_MINUTES} min superato: ${#DEFERRED_REGIONS[@]} regioni rimandate alla continuazione: ${DEFERRED_REGIONS[*]}"
 fi
 
@@ -341,12 +391,7 @@ fi
 
 fragmentCount="$(find "$RUNNER_TEMP/fragments" -maxdepth 1 -name '*.json' | wc -l)"
 if [ "$fragmentCount" -eq 0 ]; then
-  # Con regioni rimandate o fallite l'artifact serve comunque, per la continuazione.
-  if [ "${#DEFERRED_REGIONS[@]}" -gt 0 ] || [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
-    echo "has_fragments=true" >> "$GITHUB_OUTPUT"
-  else
-    echo "has_fragments=false" >> "$GITHUB_OUTPUT"
-  fi
+  # Con regioni rimandate o fallite l'artifact serve comunque, per la continuazione (has_fragments: trap EXIT).
   if [ "${#FAILED_REGIONS[@]}" -eq 0 ] && [ "${#DEFERRED_REGIONS[@]}" -eq 0 ]; then
     # Niente di selezionato (o tutta la quota adattiva scartata dal budget): non e' un errore.
     echo "Nessuna regione da costruire in questo shard: $SELECTED"
@@ -358,4 +403,3 @@ fi
 if [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
   echo "::warning::regioni fallite in questo shard (non pubblicate, riprovate una volta dalla continuazione): ${FAILED_REGIONS[*]}"
 fi
-echo "has_fragments=true" >> "$GITHUB_OUTPUT"

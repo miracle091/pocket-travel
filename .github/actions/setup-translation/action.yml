@@ -21,8 +21,12 @@ runs:
         path: ${{ runner.temp }}/translation-models
         key: translation-models-${{ hashFiles('tools/data-pipeline/scripts/convert-translation-model.sh', 'tools/data-pipeline/requirements-translate.txt', 'tools/data-pipeline/requirements-translate-convert.txt') }}
 
+    # Il job puo' avere un token che scrive sulle release, e pip deve installare solo i file con gli hash fissati: il
+    # token non e' nell'ambiente dei passi di installazione e conversione.
     - name: Installa CTranslate2 e SentencePiece
       shell: bash
+      env:
+        GH_TOKEN: ''
       run: |
         set -euo pipefail
         python3 -m venv "$RUNNER_TEMP/translate-venv"
@@ -32,6 +36,8 @@ runs:
     - name: Converti i modelli di traduzione
       if: steps.models.outputs.cache-hit != 'true'
       shell: bash
+      env:
+        GH_TOKEN: ''
       run: |
         set -euo pipefail
         python3 -m venv "$RUNNER_TEMP/convert-venv"

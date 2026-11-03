@@ -97,11 +97,16 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
-    # Due bump ravvicinati uno dopo l'altro: senza, il job piu' vecchio potrebbe finire per ultimo e
-    # riportare app-status.json a un versionCode precedente. Qui e non a livello di workflow: un push
-    # senza bump (che salta questo job) non deve annullare la run in attesa di un bump.
+    # Gruppo proprio, separato da quello di app-status.json (publish-apk-status): GitHub tiene al massimo un
+    # job in attesa per gruppo e annulla quello gia' in attesa quando ne arriva un altro, quindi un dispatch
+    # di app-status.json non deve poter annullare un bump in attesa. Qui e non a livello di workflow: un push
+    # senza bump (che salta questo job) non deve annullare la run in attesa di un bump. L'ordine tra due
+    # bump lo garantisce il controllo "Versione non inferiore a quella pubblicata", ripetuto dal job
+    # publish-app-status subito prima di caricare app-status.json: due rilasci in gruppi diversi possono
+    # finire in ordine inverso. Limite che resta: due bump ravvicinati con un terzo gia' in corso fanno
+    # annullare il primo in attesa, e va rilanciato a mano.
     concurrency:
-      group: publish-apk
+      group: publish-apk-release
       cancel-in-progress: false
     env:
       CCACHE_DIR: /home/runner/.cache/ccache
@@ -275,30 +280,59 @@ jobs:
           }
           retry publish_release
 
-      - name: Pubblica app-status.json (controllo aggiornamenti app/modelli IA sul dispositivo)
+      # Le impronte calcolate prima della compilazione vanno al job publish-app-status, che compone e firma
+      # app-status.json senza eseguire codice di build.
+      - name: Passa le impronte dei modelli IA al job che firma app-status.json
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ai-models
+          path: ${{ runner.temp }}/ai-models.json
+          if-no-files-found: error
+          retention-days: 1
+
+  # Compone, firma e carica app-status.json di un rilascio. Senza Gradle ne' codice di build: e' il job del
+  # rilascio che vede MANIFEST_SIGNING_KEY, la chiave che fa accettare i dati a tutte le app installate.
+  # Gruppo proprio, condiviso con resign-app-status e update-app-status-models, gli altri che scrivono
+  # app-status.json: due scritture non si sovrappongono. Limite che resta: GitHub tiene al massimo un job in
+  # attesa per gruppo e annulla quello gia' in attesa quando ne arriva un altro, quindi un dispatch di
+  # app-status.json in attesa puo' essere annullato da un altro dispatch (non piu' da un bump, che e' in
+  # un altro gruppo).
+  publish-app-status:
+    needs: build-and-publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-apk-status
+      cancel-in-progress: false
+    steps:
+      # Serve il checkout di questo commit per versionName e versionCode e per SyncConfig.kt, da cui
+      # sign-files.sh legge la chiave pubblica ufficiale.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ai-models
+          path: ${{ runner.temp }}/ai-models
+
+      # Senza la chiave: il file di impronte arriva da un altro job e si controlla prima di firmarlo.
+      - name: Componi app-status.json
         shell: bash
-        # Firma ECDSA del file (app-status.json.sig, stessa chiave di manifest.json in
-        # publish-regions.yml): senza il secret il passo fallisce, vedi .github/scripts/sign-files.sh.
-        env:
-          GH_TOKEN: ${{ github.token }}
-          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
         run: |
           set -euo pipefail
-          source .github/scripts/retry.sh
-          # Release fissa "app-status" (stesso pattern di "region-data" in publish-regions.yml),
-          # non GitHub Pages: appVersion/aiModels devono cambiare solo con un rilascio app, mai
-          # insieme all'aggiornamento (settimanale/manuale) del catalogo su Pages -
-          # vedi SyncConfig.APP_STATUS_URL (core:sync).
-          ensure_release app-status \
-            "Stato app" \
-            "app-status.json: versione corrente dell'app e dei modelli IA sul dispositivo, letti da core:sync/AppUpdateCheckWorker e feature:ai/LlmModelUpdateCheckWorker. Non e' una release software."
-
           VERSION="$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
           VERSION_CODE="$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)"
-
           APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
-          # Scritto dal passo "Impronte dei modelli IA per app-status.json", prima della compilazione.
-          AI_MODELS_FILE="$RUNNER_TEMP/ai-models.json"
+          AI_MODELS_FILE="$RUNNER_TEMP/ai-models/ai-models.json"
+
+          jq -e 'type == "array" and all(.[];
+              (.modelId | type == "string" and test("^[A-Za-z0-9._-]+$"))
+              and (.sha256 | type == "string" and test("^[0-9a-f]{64}$"))
+              and (.sizeBytes | type == "number" and . > 0 and floor == .))' "$AI_MODELS_FILE" > /dev/null \
+            || { echo "::error::ai-models.json non valido" >&2; exit 1; }
 
           # publishedAt (secondi Unix) prima della firma: l'app rifiuta un valore piu' basso dell'ultimo
           # accettato (niente ritorno a una vecchia coppia file + .sig che nasconda l'aggiornamento).
@@ -310,9 +344,39 @@ jobs:
             '{publishedAt: $publishedAt, appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModels: $aiModels[0]}' \
             > "$APP_STATUS_FILE"
 
+      - name: Firma e pubblica app-status.json (controllo aggiornamenti app/modelli IA sul dispositivo)
+        shell: bash
+        # Firma ECDSA del file (app-status.json.sig, stessa chiave di manifest.json in
+        # publish-regions.yml): senza il secret il passo fallisce, vedi .github/scripts/sign-files.sh.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/retry.sh
+          APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
+          # Release fissa "app-status" (stesso pattern di "region-data" in publish-regions.yml),
+          # non GitHub Pages: appVersion/aiModels devono cambiare solo con un rilascio app, mai
+          # insieme all'aggiornamento (settimanale/manuale) del catalogo su Pages -
+          # vedi SyncConfig.APP_STATUS_URL (core:sync).
+          ensure_release app-status \
+            "Stato app" \
+            "app-status.json: versione corrente dell'app e dei modelli IA sul dispositivo, letti da core:sync/AppUpdateCheckWorker e feature:ai/LlmModelUpdateCheckWorker. Non e' una release software."
+
           bash .github/scripts/sign-files.sh "$APP_STATUS_FILE"
 
-          retry gh release upload app-status "$APP_STATUS_FILE" "$APP_STATUS_FILE.sig" --repo "${{ github.repository }}" --clobber
+          # Mai indietro, riletto subito prima di scrivere: due rilasci in gruppi diversi possono finire in
+          # ordine inverso, e il controllo fatto da build-and-publish all'inizio puo' essere superato.
+          # Letto senza verificare la firma: un file manomesso puo' solo bloccare la pubblicazione.
+          # Uguale e' ammesso: rilancio sullo stesso commit.
+          VERSION_CODE="$(jq -r '.appVersion.versionCode' "$APP_STATUS_FILE")"
+          PUBLISHED="$(retry gh release download app-status -p app-status.json -O - --repo "$GITHUB_REPOSITORY" | jq -r '.appVersion.versionCode // 0')"
+          if [ "$VERSION_CODE" -lt "$PUBLISHED" ]; then
+            echo "::error::versionCode $VERSION_CODE e' minore di quello pubblicato ($PUBLISHED): non scrivo app-status.json" >&2
+            exit 1
+          fi
+
+          retry gh release upload app-status "$APP_STATUS_FILE" "$APP_STATUS_FILE.sig" --repo "$GITHUB_REPOSITORY" --clobber
 
   # Ripubblica app-status.json ricostruito dai sorgenti del tag della versione rilasciata (v<versionName>
   # di main), con publishedAt nuovo e firmato: per un file caricato prima che si firmasse, che le build
@@ -326,7 +390,7 @@ jobs:
     permissions:
       contents: write
     concurrency:
-      group: publish-apk
+      group: publish-apk-status
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -351,7 +415,7 @@ jobs:
           APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
           AI_MODELS_FILE="$RUNNER_TEMP/ai-models.json"
           bash .github/scripts/resolve-ai-models.sh "$RUNNER_TEMP/LlmModelCatalog.kt" "$AI_MODELS_FILE"
-          jq -n \
+          jq -n \ \
             --arg versionName "$VERSION" \
             --argjson versionCode "$VERSION_CODE" \
             --slurpfile aiModels "$AI_MODELS_FILE" \
@@ -373,7 +437,7 @@ jobs:
     permissions:
       contents: write
     concurrency:
-      group: publish-apk
+      group: publish-apk-status
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -401,7 +465,7 @@ jobs:
               (keys == ["modelId", "sha256", "sizeBytes"])
               and (.modelId | type == "string" and test("^[A-Za-z0-9._-]+$"))
               and (.sha256 | type == "string" and test("^[0-9a-f]{64}$"))
-              and (.sizeBytes | type == "number" and . > 0 and floor == .))' "$UPDATES" > /dev/null \
+              and (.sizeBytes | type == "number" and . > 0 and floor == .))' "$UPDATES" > /dev/null \ \
             || { echo "::error::update_models non valido" >&2; exit 1; }
 
           retry gh release download app-status --pattern 'app-status.json*' --dir "$RUNNER_TEMP/online" \

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Job "publish" di publish-regions.yml: rilancia in una run nuova (workflow_dispatch, che il GITHUB_TOKEN puo' fare) le
+# Job "after-deploy" di publish-regions.yml: rilancia in una run nuova (workflow_dispatch, che il GITHUB_TOKEN puo' fare) le
 # regioni che gli shard hanno rimandato per il budget di tempo (deferred-<shard>.txt) e, solo dalla run iniziale, quelle
 # fallite (failed-<shard>.txt). Al massimo 4 continuazioni in fila.
 # Ambiente: CONTINUATION, TIME_BUDGET_INPUT, POI_MAX_AGE_INPUT, FORCE_CITIES_INPUT (input della run), REF_NAME (ramo;

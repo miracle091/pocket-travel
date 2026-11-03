@@ -45,7 +45,7 @@ on:
       time_budget_minutes:
         description: >
           Minuti dopo i quali uno shard non inizia altre regioni e le rimanda a una run successiva
-          (job "build"). Vuoto = 280. Un valore piccolo serve a provare il rinvio.
+          (job "build"). Vuoto = 270. Un valore piccolo serve a provare il rinvio.
         required: false
         default: ""
       force_cities:
@@ -56,20 +56,20 @@ on:
         default: false
       continuation:
         description: >
-          Numero della continuazione automatica (la imposta il job "publish" quando rilancia le
+          Numero della continuazione automatica (la imposta il job "after-deploy" quando rilancia le
           regioni rimandate; al massimo 4). Da lasciare vuoto nelle run manuali.
         required: false
         default: ""
 
-# Solo da "main": i job che scrivono sulle release o su Pages (plan, world-map, address-grid, publish) e quello che apre
-# le issue (overture-check) si fermano su un altro ramo; guides, transit e build dipendono da plan e vengono saltati con
-# lui. Il calendario gira sempre sul ramo predefinito.
+# Solo da "main": i job che scrivono sulle release o su Pages (plan, world-map, address-grid, publish, deploy,
+# after-deploy) e quello che apre le issue (overture-check) si fermano su un altro ramo; guides, transit e build
+# dipendono da plan e vengono saltati con lui. Il calendario gira sempre sul ramo predefinito.
 # Minimo a livello di workflow; i permessi in piu' stanno sui singoli job (README della pipeline, "Permessi").
 permissions:
   contents: read
 
-# Nessuna concurrency a livello di workflow (README della pipeline, "Run sovrapposte"): solo il job "publish" sta
-# nel gruppo "pages".
+# Nessuna concurrency a livello di workflow (README della pipeline, "Run sovrapposte"): solo i job "publish" e "deploy"
+# stanno nel gruppo "pages".
 
 # bash con -eo pipefail in ogni passo (lo stesso di "shell: bash" esplicito; senza, GitHub usa "bash -e").
 defaults:
@@ -101,14 +101,14 @@ jobs:
       shard0_extra: ${{ steps.plan.outputs.shard0_extra }}
       shard1_extra: ${{ steps.plan.outputs.shard1_extra }}
       shard2_extra: ${{ steps.plan.outputs.shard2_extra }}
-    env:
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Assicura le release che ospitano i pacchetti regionali
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash .github/scripts/publish-regions/ensure-releases.sh
 
       - name: Determina le regioni della run e gli shard
@@ -135,8 +135,6 @@ jobs:
     permissions:
       contents: write
       actions: write
-    env:
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -161,8 +159,10 @@ jobs:
       # da molto piu' testo inglese da tradurre, 15 per l'inglese), cosi' una direzione non toglie tempo all'altra; il
       # job pubblica comunque quello che e' pronto, il resto segue nelle run dopo grazie alla cache.
       # GUIDES_PAGE_CACHE: la passata italiana riusa le pagine Wikivoyage scaricate da quella inglese.
+      # Il token serve solo a "gh release upload" di questo passo (build-guides.sh non usa gh).
       - name: Genera guides.db e guides-en.db
         env:
+          GH_TOKEN: ${{ github.token }}
           GUIDES_PAGE_CACHE: ${{ runner.temp }}/guides-pages
         run: |
           set -euo pipefail
@@ -209,6 +209,8 @@ jobs:
       - name: Elimina le cache delle frasi piu' vecchie
         if: ${{ always() && steps.save-translations.outcome == 'success' }}
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash .github/scripts/trim-caches.sh translations-guides- "translations-guides-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 
       # !cancelled(): anche se la guida italiana fallisce, il frammento della guida inglese (guides-en.json) va al job "publish".
@@ -233,7 +235,6 @@ jobs:
     permissions:
       contents: write
     env:
-      GH_TOKEN: ${{ github.token }}
       WORLD_MAP_MAX_AGE_DAYS: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -247,6 +248,8 @@ jobs:
 
       - name: Rigenera la mappa del mondo se serve
         id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash .github/scripts/publish-regions/world-map.sh
 
       - name: Carica il frammento di catalogo della mappa del mondo
@@ -271,7 +274,6 @@ jobs:
     permissions:
       contents: write
     env:
-      GH_TOKEN: ${{ github.token }}
       PYTHON_BIN: python3
       ADDRESS_CELL_RELEASES: 12
       ADDRESS_CELL_MAX_AGE_DAYS: ${{ github.event.inputs.address_cell_max_age_days || (github.event.inputs.address_cells && '-1') || '30' }}
@@ -289,6 +291,8 @@ jobs:
           duckdb: true
 
       - name: Assicura le release delle celle
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           source .github/scripts/retry.sh
@@ -299,6 +303,8 @@ jobs:
           done
 
       - name: Costruisci la quota di celle di oggi
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash .github/scripts/publish-regions/address-grid.sh
 
       # Due artifact distinti: il job "publish" scarica "manifest-fragments-*" con merge-multiple (tutti i frammenti
@@ -330,8 +336,6 @@ jobs:
     timeout-minutes: 150
     permissions:
       contents: write
-    env:
-      GH_TOKEN: ${{ github.token }}
     steps:
       # Inizio del job (epoca): l'ora limite dei download si conta da qui, preparazione compresa.
       - name: Segna l'inizio del job
@@ -346,6 +350,7 @@ jobs:
       - name: Costruisci le reti dei mezzi pubblici
         run: bash .github/scripts/publish-regions/transit.sh
         env:
+          GH_TOKEN: ${{ github.token }}
           # Come timeout-minutes del job: transit.sh ne ricava l'ora oltre la quale nessun download continua.
           TRANSIT_JOB_MINUTES: 150
 
@@ -376,8 +381,6 @@ jobs:
     permissions:
       contents: read
       issues: write
-    env:
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -409,6 +412,7 @@ jobs:
         if: steps.overture-release.outputs.release != '' && steps.overture-checked.outputs.cache-hit != 'true'
         continue-on-error: true
         env:
+          GH_TOKEN: ${{ github.token }}
           OVERTURE_RELEASE: ${{ steps.overture-release.outputs.release }}
         run: |
           set -euo pipefail
@@ -479,11 +483,13 @@ jobs:
     needs: plan
     runs-on: ubuntu-24.04
     # Sotto le 6 h di GitHub (che interrompono il passo senza caricare i frammenti, run del
-    # 2026-09-28): budget di TIME_BUDGET_MINUTES (280) + l'ultima regione avviata, che puo' usare
-    # REGION_TIMEOUT_MINUTES (45) per build-region.sh e altrettanti per ciascuna delle due build-cities.sh
-    # (italiano e inglese), + preparazione e upload. Il caso peggiore teorico (tre tetti dopo il budget) supera
-    # il timeout del job; in pratica le build-cities.sh durano pochi minuti.
-    timeout-minutes: 350
+    # 2026-09-28). Il budget TIME_BUDGET_MINUTES (270) si conta dall'inizio del job, preparazione compresa; l'ultima
+    # regione avviata puo' usare HEAVY_REGION_TIMEOUT_MINUTES (70, regioni pesanti) o REGION_TIMEOUT_MINUTES (45) per
+    # build-region.sh e altrettanti (45) per ciascuna delle due build-cities.sh (italiano e inglese). Conto:
+    # 270 + 70 = 340 minuti dall'inizio del job, + circa 10 per le build-cities.sh (in pratica pochi minuti l'una) e 5 per
+    # i passi dopo (upload dei frammenti) = 355, sotto i 360 di GitHub. Il caso peggiore teorico (tre tetti pieni dopo
+    # il budget) supera comunque il timeout.
+    timeout-minutes: 355
     # actions: write per togliere le cache delle frasi tradotte e delle citta' piu' vecchie (passi dopo il salvataggio).
     permissions:
       contents: write
@@ -493,18 +499,20 @@ jobs:
       matrix:
         shard: [0, 1, 2]
     env:
-      GH_TOKEN: ${{ github.token }}
       SHARD: ${{ matrix.shard }}
       # Ogni regione torna in rotazione ogni 7 giorni e si rigenera oltre POI_MAX_AGE_DAYS giorni:
       # 6 rinnova i POI a ogni turno (7 li rinnoverebbe ogni due settimane).
       POI_MAX_AGE_DAYS: ${{ github.event.inputs.poi_max_age_days || '6' }}
       FORCE_CITIES: ${{ github.event.inputs.force_cities == 'true' && '1' || '' }}
       # Passato il budget lo shard non inizia altre regioni: le rimanda (deferred-<shard>.txt) e il
-      # job "publish" le rilancia in una run nuova. Un build-region.sh oltre REGION_TIMEOUT_MINUTES e' fallito
-      # (germania, canada-nunavut, regno-unito e russia-siberia superano spesso i 45 minuti); stesso tetto, a parte,
-      # per ognuna delle due build-cities.sh.
-      TIME_BUDGET_MINUTES: ${{ github.event.inputs.time_budget_minutes || '280' }}
+      # job "after-deploy" le rilancia in una run nuova. Un build-region.sh oltre il suo tetto e' fallito: 45 minuti
+      # (REGION_TIMEOUT_MINUTES, lo stesso tetto, a parte, per ognuna delle due build-cities.sh) o, per le regioni di
+      # HEAVY_REGIONS che lo superano spesso, HEAVY_REGION_TIMEOUT_MINUTES. Il budget lascia posto a quest'ultimo
+      # tetto nel timeout-minutes del job.
+      TIME_BUDGET_MINUTES: ${{ github.event.inputs.time_budget_minutes || '270' }}
       REGION_TIMEOUT_MINUTES: 45
+      HEAVY_REGIONS: germania canada-nunavut regno-unito russia-siberia
+      HEAVY_REGION_TIMEOUT_MINUTES: 70
       # Traduzione delle sezioni povere delle citta' dall'altra lingua (translate_guides.py cities), tolta al budget di sopra:
       # al massimo 120 secondi per ogni cities.db (italiano e inglese ciascuno) e 40 minuti in tutto per lo shard
       # (TRANSLATE_DEADLINE, fissato all'inizio di build-shard.sh); passati questi tempi le citta' restano com'erano e il
@@ -613,9 +621,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/geofabrik"
           find "$RUNNER_TEMP/geofabrik" -maxdepth 1 -type f -printf '%f\n' | sort > "$RUNNER_TEMP/geofabrik-before.txt"
 
+      # Il token serve solo a "gh release upload" di build-shard.sh.
       - name: Genera i pacchetti regionali dello shard
         id: build
         env:
+          GH_TOKEN: ${{ github.token }}
           SELECTED: ${{ needs.plan.outputs[format('shard{0}', matrix.shard)] }}
           EXTRA: ${{ needs.plan.outputs[format('shard{0}_extra', matrix.shard)] }}
           WIKIVOYAGE_DUMP_CACHE: ${{ runner.temp }}/wikivoyage-dumps
@@ -666,6 +676,7 @@ jobs:
         if: ${{ always() }}
         continue-on-error: true
         env:
+          GH_TOKEN: ${{ github.token }}
           DAY: ${{ steps.geofabrik-keys.outputs.day }}
         run: |
           gh cache list --repo "$GITHUB_REPOSITORY" --key geofabrik-poi- --limit 100 --json key --jq '.[].key' \
@@ -688,6 +699,7 @@ jobs:
         if: ${{ always() && steps.save-geofabrik-poi.outcome == 'success' }}
         continue-on-error: true
         env:
+          GH_TOKEN: ${{ github.token }}
           DAY: ${{ steps.geofabrik-keys.outputs.day }}
         run: bash .github/scripts/trim-caches.sh "geofabrik-poi-$DAY-$SHARD-" "geofabrik-poi-$DAY-$SHARD-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 
@@ -707,6 +719,7 @@ jobs:
         if: ${{ always() && steps.save-geofabrik-borders.outcome == 'success' }}
         continue-on-error: true
         env:
+          GH_TOKEN: ${{ github.token }}
           WEEK: ${{ steps.geofabrik-keys.outputs.week }}
         run: bash .github/scripts/trim-caches.sh "geofabrik-borders-$SHARD-" "geofabrik-borders-$SHARD-$WEEK-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 
@@ -723,6 +736,8 @@ jobs:
       - name: Elimina le cache delle frasi piu' vecchie
         if: ${{ always() && steps.save-translations.outcome == 'success' }}
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash .github/scripts/trim-caches.sh "translations-cities-$SHARD-" "translations-cities-$SHARD-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 
       # Ogni shard salva la sua copia, con le citta' e i POI nuovi di questa run; poi si tolgono le copie piu' vecchie dello
@@ -739,6 +754,8 @@ jobs:
       - name: Elimina le cache Wikidata piu' vecchie
         if: ${{ always() && steps.save-city-facts.outcome == 'success' }}
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash .github/scripts/trim-caches.sh "city-facts-$SHARD-" "city-facts-$SHARD-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 
       # !cancelled(): anche quando il passo sopra esce con errore (nessuna regione completata) ma ha
@@ -755,32 +772,27 @@ jobs:
           retention-days: 1
 
   # Unisce i frammenti di catalogo di shard, guide, mappa del mondo, civici e mezzi pubblici al `manifest.json` gia'
-  # pubblicato e pubblica su Pages. Gira anche se uno shard e' fallito del tutto (!cancelled()), cosi' il lavoro degli
-  # shard riusciti non va perso; senza nessun frammento il passo "Assembla il sito" fallisce. Senza il frammento di un
-  # job (guide, mappa del mondo) resta la voce gia' pubblicata; se manca la voce delle guide la validazione ferma il
-  # deploy (la mappa del mondo e' facoltativa).
+  # pubblicato e prepara il sito di Pages, che carica come artifact: firma e deploy sono nel job "deploy". Gira anche se
+  # uno shard e' fallito del tutto (!cancelled()), cosi' il lavoro degli shard riusciti non va perso; senza nessun
+  # frammento il passo "Assembla il sito" fallisce. Senza il frammento di un job (guide, mappa del mondo) resta la voce
+  # gia' pubblicata; se manca la voce delle guide la validazione ferma il deploy (la mappa del mondo e' facoltativa).
+  # Qui girano Gradle e gli script della pipeline, che elaborano dati di terzi: il job non ha MANIFEST_SIGNING_KEY ne'
+  # permessi di scrittura, e Gradle gira senza daemon (--no-daemon, piu' "--stop" a fine job).
   publish:
     name: Pubblicazione
     needs: [guides, world-map, address-grid, transit, build]
     if: ${{ github.ref == 'refs/heads/main' && !cancelled() }}
-    # Un deploy su Pages (e un merge/pulizia sul catalogo) alla volta (README della pipeline, "Run sovrapposte").
+    # Un merge sul catalogo e un deploy su Pages alla volta (README della pipeline, "Run sovrapposte"): il gruppo
+    # "pages" e' anche nel job "deploy", che parte appena questo finisce.
     concurrency:
       group: pages
       cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    # contents: write per togliere i frammenti in sospeso gestiti; actions: write per rilanciare
-    # le regioni rimandate (passo subito dopo il deploy).
     permissions:
-      contents: write
-      actions: write
-      pages: write
-      id-token: write
+      contents: read
     outputs:
-      cleanup: ${{ steps.cleanup-inputs.outcome == 'success' }}
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      pending_ok: ${{ steps.pending.outputs.ok }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -880,21 +892,7 @@ jobs:
           ARGS="$SITE_DIR/manifest.json $PAGES_HOST"
           [ ! -s "$SITE_DIR/address-grid.json" ] || ARGS="$ARGS $SITE_DIR/address-grid.json"
           [ ! -s "$SITE_DIR/transit.json" ] || ARGS="$ARGS --transit $SITE_DIR/transit.json"
-          ./gradlew -q :tools:data-pipeline:content:validateManifest --args="$ARGS"
-          # Indice e voce di `manifest.json` vengono da download diversi (artifact, in continue-on-error, o indice
-          # gia' pubblicato) e potrebbero non corrispondere: l'app scarterebbe l'indice per lo sha256 diverso.
-          for entry in addressGrid:address-grid.json transit:transit.json; do
-            key="${entry%%:*}"
-            file="$SITE_DIR/${entry#*:}"
-            [ -s "$file" ] || continue
-            expected="$(jq -r --arg key "$key" '.[$key].sha256 // empty' "$SITE_DIR/manifest.json")"
-            [ -n "$expected" ] || continue
-            actual="$(sha256sum "$file" | cut -d' ' -f1)"
-            if [ "$expected" != "$actual" ]; then
-              echo "::error::${entry#*:} ($actual) non corrisponde a $key.sha256 di manifest.json ($expected): non pubblico" >&2
-              exit 1
-            fi
-          done
+          ./gradlew --no-daemon -q :tools:data-pipeline:content:validateManifest --args="$ARGS"
 
       # Prima del deploy: ogni regione del `manifest.json` precedente deve restare nel nuovo, salvo quelle
       # che il merge toglie di proposito (fuori da regions.sh, o sostituite da un gruppo ormai
@@ -929,14 +927,97 @@ jobs:
           fi
           echo "-- nessuna regione persa ($(jq '.regions | length' "$PREVIOUS_MANIFEST") prima, $(jq '.regions | length' "$MANIFEST") ora)"
 
+      # Il sito assemblato (senza firma) va al job "deploy"; gli elenchi di cui hanno bisogno i passi dopo il deploy
+      # (frammenti in sospeso scaricati sopra e cataloghi precedenti) vanno al job "after-deploy". Nome fisso con
+      # overwrite: un rilancio del solo job che li legge non cerca un nome di un altro tentativo.
+      - name: Carica il sito da firmare e pubblicare
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: site-to-publish
+          path: ${{ steps.assemble.outputs.site_dir }}
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
+
+      - name: Carica gli elenchi per i passi dopo il deploy
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: after-deploy-inputs
+          path: |
+            ${{ runner.temp }}/pending-fragments
+            ${{ runner.temp }}/previous-*.json
+            ${{ runner.temp }}/first-publication
+          overwrite: true
+          retention-days: 1
+
+      # Il daemon di Gradle avviato da assemble-site.sh (mergeManifests) non resta vivo a fine job.
+      - name: Ferma i daemon di Gradle
+        if: ${{ always() }}
+        continue-on-error: true
+        run: ./gradlew --stop
+
+  # Firma i JSON del sito e fa il deploy su Pages. Sta a parte perche' MANIFEST_SIGNING_KEY e' la chiave con cui si
+  # fanno accettare dati falsi a tutte le app installate, e non deve trovarsi sul runner di "publish": li' gira Gradle
+  # (un daemon puo' restare vivo) insieme agli script della pipeline, che elaborano dati di terzi. Questo job scarica
+  # il sito gia' assemblato e non esegue ne' Gradle ne' script della pipeline: solo jq, openssl e sign-files.sh, la cui
+  # copia viene dal checkout (senza credenziali: persist-credentials: false), con SyncConfig.kt per la chiave pubblica
+  # ufficiale. La chiave e' nell'ambiente solo del passo che firma. Gruppo "pages" ed environment come prima del
+  # deploy: il gruppo si prende appena "publish" finisce, quindi un'altra run non fa in tempo a fondere un catalogo
+  # nel frattempo.
+  deploy:
+    name: Firma e deploy
+    needs: publish
+    if: ${{ github.ref == 'refs/heads/main' && !cancelled() && needs.publish.result == 'success' }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: site-to-publish
+          path: ${{ runner.temp }}/site
+
+      # Indice e voce di `manifest.json` vengono da download diversi (artifact, in continue-on-error, o indice
+      # gia' pubblicato) e potrebbero non corrispondere: l'app scarterebbe l'indice per lo sha256 diverso.
+      - name: Controlla che gli indici corrispondano a manifest.json
+        env:
+          SITE_DIR: ${{ runner.temp }}/site
+        run: |
+          set -euo pipefail
+          for entry in addressGrid:address-grid.json transit:transit.json; do
+            key="${entry%%:*}"
+            file="$SITE_DIR/${entry#*:}"
+            [ -s "$file" ] || continue
+            expected="$(jq -r --arg key "$key" '.[$key].sha256 // empty' "$SITE_DIR/manifest.json")"
+            [ -n "$expected" ] || continue
+            actual="$(sha256sum "$file" | cut -d' ' -f1)"
+            if [ "$expected" != "$actual" ]; then
+              echo "::error::${entry#*:} ($actual) non corrisponde a $key.sha256 di manifest.json ($expected): non pubblico" >&2
+              exit 1
+            fi
+          done
+
       # Firma ECDSA P-256 / SHA-256 dei JSON che l'app scarica dal sito (<nome>.json.sig accanto, DER):
-      # dopo l'ultima modifica ai file (assemblaggio e validazione sopra non li toccano piu') e prima
-      # del deploy. Senza il secret MANIFEST_SIGNING_KEY il job fallisce, vedi sign-files.sh. La chiave
-      # e' nell'ambiente solo di questo passo.
+      # dopo l'ultima modifica ai file e prima del deploy. Senza il secret MANIFEST_SIGNING_KEY il job fallisce, vedi
+      # sign-files.sh. La chiave e' nell'ambiente solo di questo passo.
       - name: Firma i file JSON del sito
         env:
           MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
-          SITE_DIR: ${{ steps.assemble.outputs.site_dir }}
+          SITE_DIR: ${{ runner.temp }}/site
         run: |
           set -euo pipefail
           # publishedAt (secondi Unix) in `manifest.json`, prima della firma: l'app rifiuta un valore piu' basso
@@ -959,17 +1040,49 @@ jobs:
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           name: github-pages-${{ github.run_attempt }}
-          path: ${{ steps.assemble.outputs.site_dir }}
+          path: ${{ runner.temp }}/site
 
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
         with:
           artifact_name: github-pages-${{ github.run_attempt }}
 
-      # Continuazione automatica delle regioni rimandate per il budget di tempo. Gira anche se un passo sopra e'
-      # fallito: le regioni rimandate non sono state tentate.
+  # Passi che vengono dopo il deploy. Job a parte, senza la chiave di firma: tengono il token che scrive sulle release e
+  # lancia i workflow.
+  # - Continuazione automatica delle regioni rimandate per il budget di tempo (e di quelle fallite, solo dalla run
+  #   iniziale). Gira anche se il deploy o "publish" sono falliti: le regioni rimandate non sono state tentate.
+  # - Frammenti in sospeso gestiti: dopo il deploy quelli scaricati da "publish" sono tutti sistemati (uniti, gia'
+  #   superati dal pubblicato, scaduti o non validi). Si tolgono solo quelli scaricati: una run in corso puo' averne
+  #   caricati altri nel frattempo.
+  # - Catalogo appena pubblicato e catalogo precedente per il job "cleanup": solo dopo il deploy (i vecchi URL restano
+  #   in uso fino ad allora) e con l'elenco dei frammenti in sospeso; senza, la pulizia cancellerebbe gli asset di
+  #   regioni costruite e non ancora pubblicate (li recupera una run successiva).
+  after-deploy:
+    name: Dopo il deploy
+    needs: [publish, deploy]
+    if: ${{ github.ref == 'refs/heads/main' && !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # contents: write per togliere i frammenti in sospeso gestiti; actions: write per rilanciare le regioni rimandate.
+    permissions:
+      contents: write
+      actions: write
+    outputs:
+      cleanup: ${{ steps.cleanup-inputs.outcome == 'success' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Elenchi delle regioni rimandate e fallite (deferred-*.txt, failed-*.txt) degli shard.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: manifest-fragments-*
+          path: ${{ runner.temp }}/fragments
+          merge-multiple: true
+        continue-on-error: true
+
       - name: Rilancia le regioni rimandate
-        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
           REF_NAME: ${{ github.ref_name }}
@@ -979,32 +1092,38 @@ jobs:
           FORCE_CITIES_INPUT: ${{ github.event.inputs.force_cities }}
         run: bash .github/scripts/publish-regions/continue-deferred.sh
 
-      # Dopo il deploy i frammenti in sospeso scaricati sono tutti sistemati: uniti, gia' superati dal
-      # pubblicato, scaduti o non validi. Si tolgono solo quelli scaricati: una run in corso puo'
-      # averne caricati altri nel frattempo.
+      - if: needs.deploy.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: site-to-publish
+          path: ${{ runner.temp }}/site
+
+      - if: needs.deploy.result == 'success'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: after-deploy-inputs
+          path: ${{ runner.temp }}/after-deploy-inputs
+
       - name: Togli i frammenti in sospeso gestiti
-        if: steps.pending.outputs.ok == 'true'
+        if: needs.deploy.result == 'success' && needs.publish.outputs.pending_ok == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           shopt -s nullglob
           removed=0
-          for f in "$RUNNER_TEMP/pending-fragments"/*.json; do
+          for f in "$RUNNER_TEMP/after-deploy-inputs/pending-fragments"/*.json; do
             if gh release delete-asset region-fragments "$(basename "$f")" --repo "$GITHUB_REPOSITORY" --yes; then
               removed=$((removed + 1))
             fi
           done
           echo "-- $removed frammenti tolti da region-fragments"
 
-      # Catalogo appena pubblicato e catalogo precedente per il job "cleanup": solo dopo il deploy (i vecchi URL restano
-      # in uso fino ad allora) e con l'elenco dei frammenti in sospeso; senza, la pulizia cancellerebbe gli asset di
-      # regioni costruite e non ancora pubblicate (li recupera una run successiva).
       - name: Prepara i cataloghi per la pulizia degli asset
         id: cleanup-inputs
-        if: steps.pending.outputs.ok == 'true'
+        if: needs.deploy.result == 'success' && needs.publish.outputs.pending_ok == 'true'
         env:
-          SITE_DIR: ${{ steps.assemble.outputs.site_dir }}
+          SITE_DIR: ${{ runner.temp }}/site
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -1012,7 +1131,7 @@ jobs:
           for name in manifest.json address-grid.json transit.json; do
             [ ! -s "$SITE_DIR/$name" ] || cp "$SITE_DIR/$name" "$RUNNER_TEMP/cleanup/site/"
           done
-          for f in "$RUNNER_TEMP"/previous-*.json "$RUNNER_TEMP/first-publication"; do
+          for f in "$RUNNER_TEMP"/after-deploy-inputs/previous-*.json "$RUNNER_TEMP/after-deploy-inputs/first-publication"; do
             [ ! -e "$f" ] || cp "$f" "$RUNNER_TEMP/cleanup/previous/"
           done
 
@@ -1025,8 +1144,9 @@ jobs:
           retention-days: 1
 
   # Toglie dalle release gli asset che il catalogo appena pubblicato (e quello precedente) non referenziano piu'
-  # (cleanup-assets.sh): migliaia di DELETE, una per asset, fino a 15 minuti. Job a parte dopo "publish", cosi' il
-  # gruppo "pages" si libera subito dopo il deploy; il gruppo "asset-cleanup" tiene una pulizia alla volta.
+  # (cleanup-assets.sh): migliaia di DELETE, una per asset, fino a 15 minuti. Job a parte dopo "deploy" e
+  # "after-deploy" (che ne prepara gli input), cosi' il gruppo "pages" si libera subito dopo il deploy; il gruppo
+  # "asset-cleanup" tiene una pulizia alla volta.
   # Il `success()` implicito di `if` guarda tutta la catena dei needs: senza l'espressione esplicita il job salterebbe
   # quando un job a monte di "publish" e' saltato o fallito. Le continuazioni non puliscono: cleanup-assets.sh protegge
   # solo il catalogo nuovo e il precedente (piu' gli asset delle ultime 24 ore), e una continuazione pubblica un catalogo
@@ -1034,8 +1154,8 @@ jobs:
   # dalle app.
   cleanup:
     name: Pulizia degli asset
-    needs: publish
-    if: ${{ !cancelled() && needs.publish.result == 'success' && needs.publish.outputs.cleanup == 'true' && !(github.event.inputs.continuation > 0) }}
+    needs: [deploy, after-deploy]
+    if: ${{ !cancelled() && needs.deploy.result == 'success' && needs.after-deploy.result == 'success' && needs.after-deploy.outputs.cleanup == 'true' && !(github.event.inputs.continuation > 0) }}
     concurrency:
       group: asset-cleanup
       cancel-in-progress: false

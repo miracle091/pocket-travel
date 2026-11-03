@@ -98,7 +98,7 @@ if [ "${#PENDING_FRAGMENTS[@]}" -gt 0 ]; then
   SELECT_ARGS="$SELECT_ARGS --pending"
   for f in "${PENDING_FRAGMENTS[@]}"; do SELECT_ARGS="$SELECT_ARGS \"$(winpath "$f")\""; done
 fi
-./gradlew -q :tools:data-pipeline:content:selectFragments --args="$SELECT_ARGS"
+./gradlew --no-daemon -q :tools:data-pipeline:content:selectFragments --args="$SELECT_ARGS"
 mapfile -t FRAGMENT_FILES < "$SELECTED_LIST"
 {
   echo "### Frammenti di catalogo"
