@@ -60,7 +60,7 @@ successiva toglie gli stessi asset). Gli asset di run diverse non si scontrano (
 la pulizia non tocca gli asset caricati da meno di 24 ore.
 
 **Permessi.** A livello di workflow solo `contents: read`; `contents: write` ai job che creano release o caricano
-asset, `pages` e `id-token` solo a `deploy`, il job che ha anche la chiave di firma; `publish`, dove girano Gradle e gli script della pipeline, ha solo `contents: read`. `GH_TOKEN` sta nell'ambiente dei soli passi che chiamano `gh`. I checkout dei job che scrivono sulle release hanno
+asset, `pages` e `id-token` solo a `deploy`, il job che ha anche la chiave di firma; `publish`, dove girano Gradle e gli script della pipeline, ha solo `contents: read`. `GH_TOKEN` sta nell'ambiente dei soli passi che chiamano `gh`; nel job `build` gli script della pipeline (`build-region.sh`, `build-cities.sh`, `build-cities-dump.sh`) girano senza (`env -u GH_TOKEN`), che serve solo agli upload. `deploy` firma solo un sito con la stessa impronta di quello assemblato e controllato da `publish`. I checkout dei job che scrivono sulle release hanno
 `persist-credentials: false`, così il token di scrittura non resta nella configurazione git leggibile dal codice di
 build.
 

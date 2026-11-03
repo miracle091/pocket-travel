@@ -295,41 +295,55 @@ jobs:
           key: ccache-linux-llama-${{ env.LLAMA_COMMIT }}-${{ hashFiles('third-party/patches/llama-cpp/**', '.github/scripts/llm-smoke.sh') }}
           restore-keys: ccache-linux-llama-
 
-      # Chiave = sha256 del catalogo dei modelli: un modello ricaricato con un'altra impronta si riscarica. Salvata subito
-      # dopo il download, non a fine job: anche una prova che fallisce (una patch rotta) lascia il modello in cache.
+      # Prefisso = sha256 del catalogo dei modelli: un modello ricaricato con un'altra impronta si riscarica. Si ripristina
+      # la copia salvata piu' di recente con quel prefisso; una copia corrotta (chiave fissa, non sovrascrivibile) si
+      # riscarica e si salva con una chiave nuova, che la sostituisce nei ripristini dopo.
       - name: Cache del modello
         if: steps.changes.outputs.run == 'true'
         id: model-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /home/runner/.cache/llm-smoke
-          key: llm-smoke-model-${{ steps.model.outputs.sha256 }}
+          key: llm-smoke-model-${{ steps.model.outputs.sha256 }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: llm-smoke-model-${{ steps.model.outputs.sha256 }}
 
-      - name: Scarica il modello
-        if: steps.changes.outputs.run == 'true' && steps.model-cache.outputs.cache-hit != 'true'
+      # L'impronta si controlla sempre, anche con il file preso dalla cache: un file corrotto non finisce in cache e non
+      # arriva alla prova.
+      - name: Scarica e verifica il modello
+        if: steps.changes.outputs.run == 'true'
+        id: model-file
         env:
           URL: ${{ steps.model.outputs.url }}
-          FILE: /home/runner/.cache/llm-smoke/${{ steps.model.outputs.file }}
-        run: |
-          set -euo pipefail
-          mkdir -p "$(dirname "$FILE")"
-          curl -sSfL --retry 5 --retry-all-errors --retry-delay 10 -o "$FILE" "$URL"
-
-      # Sempre, anche con il file preso dalla cache: un file corrotto non finisce in cache e non arriva alla prova.
-      - name: Verifica l'impronta del modello
-        if: steps.changes.outputs.run == 'true'
-        env:
           SHA256: ${{ steps.model.outputs.sha256 }}
           FILE: /home/runner/.cache/llm-smoke/${{ steps.model.outputs.file }}
-        run: echo "$SHA256  $FILE" | sha256sum -c -
+          CACHED_KEY: ${{ steps.model-cache.outputs.cache-matched-key }}
+        run: |
+          set -euo pipefail
+          download() {
+            mkdir -p "$(dirname "$FILE")"
+            curl -sSfL --retry 5 --retry-all-errors --retry-delay 10 -o "$FILE" "$URL"
+          }
+          if [ -z "$CACHED_KEY" ] || [ ! -s "$FILE" ]; then
+            download
+          elif echo "$SHA256  $FILE" | sha256sum -c --status -; then
+            echo "-- modello dalla cache $CACHED_KEY, impronta ok"
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          else
+            echo "::warning::modello della cache $CACHED_KEY con un'impronta diversa da quella del catalogo: si riscarica"
+            download
+          fi
+          echo "$SHA256  $FILE" | sha256sum -c -
+          echo "fresh=true" >> "$GITHUB_OUTPUT"
 
+      # Subito dopo il download, non a fine job: anche una prova che fallisce (una patch rotta) lascia il modello in cache.
       - name: Salva il modello in cache
-        if: steps.changes.outputs.run == 'true' && steps.model-cache.outputs.cache-hit != 'true'
+        if: steps.changes.outputs.run == 'true' && steps.model-file.outputs.fresh == 'true'
         continue-on-error: true
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /home/runner/.cache/llm-smoke
-          key: llm-smoke-model-${{ steps.model.outputs.sha256 }}
+          key: llm-smoke-model-${{ steps.model.outputs.sha256 }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Build di llama.cpp e risposte del modello
         if: steps.changes.outputs.run == 'true'

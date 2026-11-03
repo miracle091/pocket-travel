@@ -363,20 +363,7 @@ jobs:
             "Stato app" \
             "app-status.json: versione corrente dell'app e dei modelli IA sul dispositivo, letti da core:sync/AppUpdateCheckWorker e feature:ai/LlmModelUpdateCheckWorker. Non e' una release software."
 
-          bash .github/scripts/sign-files.sh "$APP_STATUS_FILE"
-
-          # Mai indietro, riletto subito prima di scrivere: due rilasci in gruppi diversi possono finire in
-          # ordine inverso, e il controllo fatto da build-and-publish all'inizio puo' essere superato.
-          # Letto senza verificare la firma: un file manomesso puo' solo bloccare la pubblicazione.
-          # Uguale e' ammesso: rilancio sullo stesso commit.
-          VERSION_CODE="$(jq -r '.appVersion.versionCode' "$APP_STATUS_FILE")"
-          PUBLISHED="$(retry gh release download app-status -p app-status.json -O - --repo "$GITHUB_REPOSITORY" | jq -r '.appVersion.versionCode // 0')"
-          if [ "$VERSION_CODE" -lt "$PUBLISHED" ]; then
-            echo "::error::versionCode $VERSION_CODE e' minore di quello pubblicato ($PUBLISHED): non scrivo app-status.json" >&2
-            exit 1
-          fi
-
-          retry gh release upload app-status "$APP_STATUS_FILE" "$APP_STATUS_FILE.sig" --repo "$GITHUB_REPOSITORY" --clobber
+          bash .github/scripts/sign-and-upload-app-status.sh "$APP_STATUS_FILE"
 
   # Ripubblica app-status.json ricostruito dai sorgenti del tag della versione rilasciata (v<versionName>
   # di main), con publishedAt nuovo e firmato: per un file caricato prima che si firmasse, che le build
@@ -398,14 +385,14 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Ricostruisci, firma e ripubblica app-status.json
+      # Senza la chiave: legge i sorgenti del tag e le impronte (resolve-ai-models.sh: app-status.json pubblicato con gh,
+      # poi Hugging Face).
+      - name: Ricostruisci app-status.json
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
         run: |
           set -euo pipefail
-          source .github/scripts/retry.sh
           TAG="v$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
           git rev-parse -q --verify "refs/tags/$TAG" >/dev/null || { echo "::error::$TAG non esiste ancora: rilascio in corso o fallito" >&2; exit 1; }
           git show "$TAG:app/build.gradle.kts" > "$RUNNER_TEMP/build.gradle.kts"
@@ -415,15 +402,20 @@ jobs:
           APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
           AI_MODELS_FILE="$RUNNER_TEMP/ai-models.json"
           bash .github/scripts/resolve-ai-models.sh "$RUNNER_TEMP/LlmModelCatalog.kt" "$AI_MODELS_FILE"
-          jq -n \ \
+          jq -n \
             --arg versionName "$VERSION" \
             --argjson versionCode "$VERSION_CODE" \
             --slurpfile aiModels "$AI_MODELS_FILE" \
             --argjson publishedAt "$(date +%s)" \
             '{publishedAt: $publishedAt, appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModels: $aiModels[0]}' \
             > "$APP_STATUS_FILE"
-          bash .github/scripts/sign-files.sh "$APP_STATUS_FILE"
-          retry gh release upload app-status "$APP_STATUS_FILE" "$APP_STATUS_FILE.sig" --repo "${{ github.repository }}" --clobber
+
+      - name: Firma e ripubblica app-status.json
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+        run: bash .github/scripts/sign-and-upload-app-status.sh "$RUNNER_TEMP/app-status.json"
 
   # Aggiorna in app-status.json le impronte (sha256, dimensione) dei modelli appena ricaricati su Hugging Face
   # con lo stesso nome file, senza rilasciare l'app: le build che leggono le impronte da qui (dalla 0.9.1)
@@ -445,11 +437,11 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Aggiorna, firma e ripubblica app-status.json
+      # Senza la chiave: l'input del dispatch, il file online e le risposte di Hugging Face si controllano qui.
+      - name: Aggiorna app-status.json
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
           # Dall'ambiente e non interpolato nello script: il testo dell'input non diventa codice.
           UPDATE_MODELS: ${{ inputs.update_models }}
         run: |
@@ -465,7 +457,7 @@ jobs:
               (keys == ["modelId", "sha256", "sizeBytes"])
               and (.modelId | type == "string" and test("^[A-Za-z0-9._-]+$"))
               and (.sha256 | type == "string" and test("^[0-9a-f]{64}$"))
-              and (.sizeBytes | type == "number" and . > 0 and floor == .))' "$UPDATES" > /dev/null \ \
+              and (.sizeBytes | type == "number" and . > 0 and floor == .))' "$UPDATES" > /dev/null \
             || { echo "::error::update_models non valido" >&2; exit 1; }
 
           retry gh release download app-status --pattern 'app-status.json*' --dir "$RUNNER_TEMP/online" \
@@ -507,5 +499,10 @@ jobs:
                 | (first($updates[0][] | select(.modelId == $m.modelId)) // null) as $u
                 | if $u == null then . else .sha256 = $u.sha256 | .sizeBytes = $u.sizeBytes end)' \
             "$ONLINE" > "$APP_STATUS_FILE"
-          bash .github/scripts/sign-files.sh "$APP_STATUS_FILE"
-          retry gh release upload app-status "$APP_STATUS_FILE" "$APP_STATUS_FILE.sig" --repo "${{ github.repository }}" --clobber
+
+      - name: Firma e ripubblica app-status.json
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+        run: bash .github/scripts/sign-and-upload-app-status.sh "$RUNNER_TEMP/app-status.json"

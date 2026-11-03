@@ -9,7 +9,8 @@
 # HEAVY_REGION_TIMEOUT_MINUTES (regioni che superano spesso il tetto e il loro tetto di build-region.sh),
 # TRANSLATE_TOTAL_MINUTES, PAGES_BASE_URL, GITHUB_REPOSITORY, GITHUB_RUN_NUMBER,
 # GITHUB_RUN_ATTEMPT, GH_TOKEN; per gli script della pipeline POI_MAX_AGE_DAYS, WIKIVOYAGE_DUMP_CACHE,
-# CITY_FACTS_CACHE, RD5_RANGE_CACHE, GEOFABRIK_CACHE, TRANSLATE_MAX_SECONDS.
+# CITY_FACTS_CACHE, RD5_RANGE_CACHE, GEOFABRIK_CACHE, TRANSLATE_MAX_SECONDS. GH_TOKEN serve solo agli upload: gli script
+# della pipeline, che elaborano dati di terzi e non chiamano gh, girano senza (env -u GH_TOKEN).
 set -euo pipefail
 source .github/scripts/env.sh
 # Fuori dal workflow, gli stessi valori; le regioni da costruire sono SELECTED (regionId separati da virgola).
@@ -166,10 +167,10 @@ CITIES_JSONL_DIR="$RUNNER_TEMP/cities-jsonl"
 CITIES_DUMP_LOG="$RUNNER_TEMP/cities-dump.log"
 mkdir -p "$CITIES_JSONL_DIR"
 (
-  tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" \
+  env -u GH_TOKEN tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" \
     || echo "::warning::dump citta' non generato per questo shard, regioni senza citta' nuove"
   # Citta' in inglese (voce "citiesEn"): dump di Wikivoyage EN, stessa cartella (file .cities-en.jsonl).
-  tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" en \
+  env -u GH_TOKEN tools/data-pipeline/scripts/build-cities-dump.sh "$CITIES_REGIONS_TSV" "$CITIES_JSONL_DIR" en \
     || echo "::warning::dump citta' EN non generato per questo shard, regioni senza citta' inglesi nuove"
 ) > "$CITIES_DUMP_LOG" 2>&1 &
 CITIES_DUMP_PID=$!
@@ -233,7 +234,7 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
   regionOut="$OUTPUT_ROOT/$regionId"
   # timeout segnala l'intero gruppo di processi (anche java, python e curl lanciati dallo script).
   if timeout --kill-after=2m "${regionTimeout}m" \
-    tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
+    env -u GH_TOKEN tools/data-pipeline/scripts/build-region.sh "$regionId" "$displayName" "$VERSION" \
     "$minLon" "$minLat" "$maxLon" "$maxLat" "$RELEASE_BASE_URL" "$regionOut" \
     "$PUBLISHED_MANIFEST_URL"; then
     # L'attesa del dump non conta nel tempo della regione (region-timings.tsv pesa gli shard delle prossime run).
@@ -244,11 +245,11 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
     # dump e' stato estratto per questa regione (vedi CITIES_JSONL_DIR sopra) e produce
     # sezioni, lascia cities.db.xz da caricare.
     timeout --kill-after=2m "${REGION_TIMEOUT_MINUTES}m" \
-      tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
+      env -u GH_TOKEN tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
       "$RELEASE_BASE_URL" "$regionOut" "$CITIES_JSONL_DIR" \
       "$PUBLISHED_MANIFEST_URL" || { echo "::warning::citta' di $regionId non generate"; restore_published_entry "$regionId" "$regionOut" cities; }
     timeout --kill-after=2m "${REGION_TIMEOUT_MINUTES}m" \
-      tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
+      env -u GH_TOKEN tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
       "$RELEASE_BASE_URL" "$regionOut" "$CITIES_JSONL_DIR" \
       "$PUBLISHED_MANIFEST_URL" en || { echo "::warning::citta' EN di $regionId non generate"; restore_published_entry "$regionId" "$regionOut" citiesEn; }
     if [ -f "$regionOut/.skipped" ]; then

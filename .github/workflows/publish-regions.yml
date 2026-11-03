@@ -793,6 +793,7 @@ jobs:
       contents: read
     outputs:
       pending_ok: ${{ steps.pending.outputs.ok }}
+      site_sha256: ${{ steps.site-hash.outputs.sha256 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -927,6 +928,18 @@ jobs:
           fi
           echo "-- nessuna regione persa ($(jq '.regions | length' "$PREVIOUS_MANIFEST") prima, $(jq '.regions | length' "$MANIFEST") ora)"
 
+      # Impronta del sito assemblato (sha256 dell'elenco "sha256 percorso" di tutti i file, in ordine): il job "deploy" la
+      # ricalcola sull'artifact scaricato e non firma un sito diverso da quello controllato qui.
+      - name: Calcola l'impronta del sito
+        id: site-hash
+        env:
+          SITE_DIR: ${{ steps.assemble.outputs.site_dir }}
+        run: |
+          set -euo pipefail
+          SITE_SHA256="$(cd "$SITE_DIR" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
+          echo "-- impronta del sito: $SITE_SHA256"
+          echo "sha256=$SITE_SHA256" >> "$GITHUB_OUTPUT"
+
       # Il sito assemblato (senza firma) va al job "deploy"; gli elenchi di cui hanno bisogno i passi dopo il deploy
       # (frammenti in sospeso scaricati sopra e cataloghi precedenti) vanno al job "after-deploy". Nome fisso con
       # overwrite: un rilancio del solo job che li legge non cerca un nome di un altro tentativo.
@@ -990,6 +1003,19 @@ jobs:
         with:
           name: site-to-publish
           path: ${{ runner.temp }}/site
+
+      - name: Controlla l'impronta del sito
+        env:
+          SITE_DIR: ${{ runner.temp }}/site
+          EXPECTED_SHA256: ${{ needs.publish.outputs.site_sha256 }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA256="$(cd "$SITE_DIR" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
+          if [ -z "$EXPECTED_SHA256" ] || [ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]; then
+            echo "::error::il sito scaricato ($ACTUAL_SHA256) non e' quello assemblato da \"publish\" (${EXPECTED_SHA256:-impronta mancante}): non firmo" >&2
+            exit 1
+          fi
+          echo "-- impronta del sito: $ACTUAL_SHA256, uguale a quella di \"publish\""
 
       # Indice e voce di `manifest.json` vengono da download diversi (artifact, in continue-on-error, o indice
       # gia' pubblicato) e potrebbero non corrispondere: l'app scarterebbe l'indice per lo sha256 diverso.
