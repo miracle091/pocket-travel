@@ -1443,9 +1443,9 @@ private fun OnlineModelChoice(
         val typed = setting.trim()
         others.filter { it.id != typed && it.id.contains(typed, ignoreCase = true) }.take(MAX_OTHER_SUGGESTIONS).forEach { model ->
             ListItem(
-                headlineContent = { Text(model.id) },
                 supportingContent = { Text(costText(model), style = MaterialTheme.typography.bodySmall) },
                 modifier = Modifier.clickable { onSettingChanged(model.id) },
+                content = { Text(model.id) },
             )
         }
     }

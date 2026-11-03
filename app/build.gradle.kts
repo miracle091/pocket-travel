@@ -108,9 +108,9 @@ aboutLibraries {
 
 // Licenze delle definizioni con tag "data" o "models" di app/aboutlibraries/libraries: sono le fonti scelte a mano,
 // ognuna con il suo testo in licenses/. Le licenze di codice restano nell'elenco esplicito sopra.
+@Suppress("UNCHECKED_CAST")
 fun dataAndModelLicenses(): List<String> =
     file("aboutlibraries/libraries").listFiles { f -> f.extension == "json" }.orEmpty().sortedBy { it.name }.flatMap { f ->
-        @Suppress("UNCHECKED_CAST")
         val definition = groovy.json.JsonSlurper().parse(f) as Map<String, Any?>
         if (definition["tag"] in setOf("data", "models")) (definition["licenses"] as List<String>) else emptyList()
     }.distinct()

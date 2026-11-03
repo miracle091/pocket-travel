@@ -24,7 +24,7 @@ class GuideClimateTest {
     }
 
     @Test
-    fun `meno di mezzo giorno di pioggia non diventa "in 0 giorni"`() {
+    fun `meno di mezzo giorno di pioggia non diventa in 0 giorni`() {
         assertEquals(listOf(ClimateFactValue(ClimateFact.RAIN, 3)), climateFacts(month(mm = 3.0, days = 0.4)))
     }
 
