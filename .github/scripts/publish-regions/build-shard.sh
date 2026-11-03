@@ -102,7 +102,7 @@ startedRegions=0
 # Citta' delle regioni: un solo passaggio sui dump di Wikivoyage IT ed EN per l'intero shard (build-cities-dump.sh,
 # di solito ~6 minuti con le richieste a Wikidata e Wikipedia), in sottofondo mentre parte la prima regione: il primo
 # build-cities.sh lo aspetta (wait_cities_dump). Mai fatale: se fallisce le regioni di questa run restano senza citta'
-# nuove (build-cities.sh tiene la voce gia' pubblicata).
+# nuove (build-cities.sh tiene la voce gia' pubblicata; se fallisce o va in timeout lo fa restore_published_entry).
 CITIES_REGIONS_TSV="$RUNNER_TEMP/cities-regions.tsv"
 : > "$CITIES_REGIONS_TSV"
 for spec in "${ALL_REGIONS[@]}"; do
@@ -124,6 +124,20 @@ mkdir -p "$CITIES_JSONL_DIR"
     || echo "::warning::dump citta' EN non generato per questo shard, regioni senza citta' inglesi nuove"
 ) > "$CITIES_DUMP_LOG" 2>&1 &
 CITIES_DUMP_PID=$!
+# Dopo un build-cities.sh fallito o interrotto dal timeout il frammento di una regione ricostruita da zero non ha la
+# voce <chiave> ("cities" o "citiesEn"; build-region.sh non la scrive) e MergeManifests, che sostituisce la regione
+# intera, la toglierebbe dal catalogo: la rimette presa dal `manifest.json` pubblicato, se c'e' e se il frammento non
+# l'ha gia'. Uso: restore_published_entry <regionId> <outputDir> <chiave>.
+restore_published_entry() {
+  [ "$PUBLISHED_MANIFEST_HTTP" = "200" ] || return 0
+  local fragment="$2/manifest-fragment.json" entry
+  [ -f "$fragment" ] || return 0
+  if jq -e --arg k "$3" '[(.regions // [])[] | has($k)] | all' "$fragment" > /dev/null; then return 0; fi
+  entry="$(jq -c --arg id "$1" --arg k "$3" '[(.regions // [])[] | select(.regionId == $id) | .[$k] // empty][0] // empty' "$PUBLISHED_MANIFEST_FILE")" || return 0
+  [ -n "$entry" ] || return 0
+  jq -c --argjson entry "$entry" --arg k "$3" '.regions |= map(.[$k] = $entry)' "$fragment" > "$fragment.tmp"     && mv "$fragment.tmp" "$fragment"     && echo "-- $1: citta' non generate, tengo la voce $3 pubblicata"
+  return 0
+}
 # Aspetta il dump delle citta' (solo la prima volta) e ne mostra il log.
 wait_cities_dump() {
   [ -n "$CITIES_DUMP_PID" ] || return 0
@@ -177,11 +191,11 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
     timeout --kill-after=2m "${REGION_TIMEOUT_MINUTES}m" \
       tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
       "$RELEASE_BASE_URL" "$regionOut" "$CITIES_JSONL_DIR" \
-      "$PUBLISHED_MANIFEST_URL" || echo "::warning::citta' di $regionId non generate"
+      "$PUBLISHED_MANIFEST_URL" || { echo "::warning::citta' di $regionId non generate"; restore_published_entry "$regionId" "$regionOut" cities; }
     timeout --kill-after=2m "${REGION_TIMEOUT_MINUTES}m" \
       tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
       "$RELEASE_BASE_URL" "$regionOut" "$CITIES_JSONL_DIR" \
-      "$PUBLISHED_MANIFEST_URL" en || echo "::warning::citta' EN di $regionId non generate"
+      "$PUBLISHED_MANIFEST_URL" en || { echo "::warning::citta' EN di $regionId non generate"; restore_published_entry "$regionId" "$regionOut" citiesEn; }
     if [ -f "$regionOut/.skipped" ]; then
       # Controllo di necessita' in build-region.sh: tile .rd5 attese invariate rispetto
       # al `manifest.json` gia' pubblicato, il frammento e' quello di sempre, niente da
@@ -315,7 +329,7 @@ fi
 {
   echo "### Shard $SHARD"
   if [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
-    echo "Regioni fallite (non pubblicate, da rilanciare a parte): ${FAILED_REGIONS[*]}"
+    echo "Regioni fallite (non pubblicate, riprovate una volta dalla continuazione): ${FAILED_REGIONS[*]}"
     echo
   elif [ "${#DEFERRED_REGIONS[@]}" -eq 0 ]; then
     echo "Nessun problema."
@@ -342,6 +356,6 @@ if [ "$fragmentCount" -eq 0 ]; then
   exit 1
 fi
 if [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
-  echo "::warning::regioni fallite in questo shard (non pubblicate, da rilanciare a parte): ${FAILED_REGIONS[*]}"
+  echo "::warning::regioni fallite in questo shard (non pubblicate, riprovate una volta dalla continuazione): ${FAILED_REGIONS[*]}"
 fi
 echo "has_fragments=true" >> "$GITHUB_OUTPUT"

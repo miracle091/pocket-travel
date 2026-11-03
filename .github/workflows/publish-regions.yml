@@ -479,8 +479,10 @@ jobs:
     needs: plan
     runs-on: ubuntu-24.04
     # Sotto le 6 h di GitHub (che interrompono il passo senza caricare i frammenti, run del
-    # 2026-09-28): budget di TIME_BUDGET_MINUTES (280) + una regione al massimo di
-    # REGION_TIMEOUT_MINUTES (45) + preparazione e upload.
+    # 2026-09-28): budget di TIME_BUDGET_MINUTES (280) + l'ultima regione avviata, che puo' usare
+    # REGION_TIMEOUT_MINUTES (45) per build-region.sh e altrettanti per ciascuna delle due build-cities.sh
+    # (italiano e inglese), + preparazione e upload. Il caso peggiore teorico (tre tetti dopo il budget) supera
+    # il timeout del job; in pratica le build-cities.sh durano pochi minuti.
     timeout-minutes: 350
     # actions: write per togliere le cache delle frasi tradotte e delle citta' piu' vecchie (passi dopo il salvataggio).
     permissions:
@@ -498,8 +500,9 @@ jobs:
       POI_MAX_AGE_DAYS: ${{ github.event.inputs.poi_max_age_days || '6' }}
       FORCE_CITIES: ${{ github.event.inputs.force_cities == 'true' && '1' || '' }}
       # Passato il budget lo shard non inizia altre regioni: le rimanda (deferred-<shard>.txt) e il
-      # job "publish" le rilancia in una run nuova. Una regione oltre REGION_TIMEOUT_MINUTES e'
-      # fallita (la piu' lenta misurata, cina-tibet alla prima generazione, 34 min).
+      # job "publish" le rilancia in una run nuova. Un build-region.sh oltre REGION_TIMEOUT_MINUTES e' fallito
+      # (germania, canada-nunavut, regno-unito e russia-siberia superano spesso i 45 minuti); stesso tetto, a parte,
+      # per ognuna delle due build-cities.sh.
       TIME_BUDGET_MINUTES: ${{ github.event.inputs.time_budget_minutes || '280' }}
       REGION_TIMEOUT_MINUTES: 45
       # Traduzione delle sezioni povere delle citta' dall'altra lingua (translate_guides.py cities), tolta al budget di sopra:
@@ -556,15 +559,18 @@ jobs:
 
       # Dati gia' chiesti a Wikidata: popolazione e coordinate delle citta' (city_population.py, CITY_FACTS_CACHE) e fama e
       # patrimonio dei POI (poi_wikidata.py, POI_WIKIDATA_CACHE), due file nella stessa cartella. Si riparte dalla cache
-      # piu' recente di qualunque shard e si chiedono solo le voci nuove o scadute, cosi' i tre shard insieme mandano poche
-      # richieste a Wikimedia, che alle raffiche risponde 429.
+      # piu' recente dello stesso shard e, se manca, da quella di qualunque shard (ripartire sempre dall'ultimo che ha
+      # salvato perderebbe le aggiunte degli altri due); si chiedono solo le voci nuove o scadute, cosi' i tre shard
+      # insieme mandano poche richieste a Wikimedia, che alle raffiche risponde 429.
       - name: Ripristina i dati Wikidata delle citta' e dei POI
         continue-on-error: true
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ github.workspace }}/city-facts
           key: city-facts-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: city-facts-
+          restore-keys: |
+            city-facts-${{ matrix.shard }}-
+            city-facts-
 
       # Cartella degli estratti Geofabrik (GEOFABRIK_CACHE) in due cache, perche' invecchiano in modo diverso. Gli estratti
       # ridotti ai POI e l'indice (geofabrik_pois.py) valgono un giorno: Geofabrik li aggiorna ogni giorno e i POI si
@@ -641,8 +647,8 @@ jobs:
           pois='-poi\.osm\.pbf$|^index-v1\.json$'
           borders='^confine-.*\.json$|\.poly$|\.geojson$'
           grew() {
-            now="$(find "$GEOFABRIK_DIR" -maxdepth 1 -type f -printf '%f\n' | sort | grep -E "$1" || true)"
-            [ -n "$now" ] && [ "$now" != "$(grep -E "$1" "$RUNNER_TEMP/geofabrik-before.txt" || true)" ]
+            now="$(find "$GEOFABRIK_DIR" -maxdepth 1 -type f -printf '%f\n' | sort | grep -E -e "$1" || true)"
+            [ -n "$now" ] && [ "$now" != "$(grep -E -e "$1" "$RUNNER_TEMP/geofabrik-before.txt" || true)" ]
           }
           if grew "$pois"; then
             bytes="$(find "$GEOFABRIK_DIR" -maxdepth 1 -name '*-poi.osm.pbf' -printf '%s\n' | awk '{ s += $1 } END { print s + 0 }')"
@@ -653,6 +659,18 @@ jobs:
             fi
           fi
           if grew "$borders"; then echo "save_borders=true" >> "$GITHUB_OUTPUT"; fi
+
+      # Via le cache dei giorni scorsi (nessuna run le ripristina piu'), a prescindere dall'esito del salvataggio; le
+      # copie di oggi restano, perche' una continuazione puo' assegnare le regioni di uno shard a un altro.
+      - name: Elimina le cache degli estratti di Geofabrik dei giorni scorsi
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          DAY: ${{ steps.geofabrik-keys.outputs.day }}
+        run: |
+          gh cache list --repo "$GITHUB_REPOSITORY" --key geofabrik-poi- --limit 100 --json key --jq '.[].key' \
+            | awk -v today="geofabrik-poi-$DAY-" 'index($0, today) != 1' \
+            | while read -r key; do gh cache delete "$key" --repo "$GITHUB_REPOSITORY" || echo "::warning::cache $key non tolta"; done
 
       - name: Salva gli estratti di Geofabrik
         id: save-geofabrik-poi
@@ -665,18 +683,13 @@ jobs:
             ${{ runner.temp }}/geofabrik/index-v1.json
           key: geofabrik-poi-${{ steps.geofabrik-keys.outputs.day }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
 
-      # Via le copie piu' vecchie dello shard e quelle dei giorni scorsi (nessuna run le ripristina piu'); le copie di oggi
-      # degli altri shard restano, perche' una continuazione puo' assegnare le loro regioni a questo.
+      # Via le copie piu' vecchie di oggi dello shard, dopo il salvataggio.
       - name: Elimina le cache degli estratti di Geofabrik superate
         if: ${{ always() && steps.save-geofabrik-poi.outcome == 'success' }}
         continue-on-error: true
         env:
           DAY: ${{ steps.geofabrik-keys.outputs.day }}
-        run: |
-          bash .github/scripts/trim-caches.sh "geofabrik-poi-$DAY-$SHARD-" "geofabrik-poi-$DAY-$SHARD-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          gh cache list --repo "$GITHUB_REPOSITORY" --key geofabrik-poi- --limit 100 --json key --jq '.[].key' \
-            | awk -v today="geofabrik-poi-$DAY-" 'index($0, today) != 1' \
-            | while read -r key; do gh cache delete "$key" --repo "$GITHUB_REPOSITORY"; done
+        run: bash .github/scripts/trim-caches.sh "geofabrik-poi-$DAY-$SHARD-" "geofabrik-poi-$DAY-$SHARD-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 
       - name: Salva i confini e i poligoni di Geofabrik
         id: save-geofabrik-borders
@@ -693,7 +706,9 @@ jobs:
       - name: Elimina le cache dei confini di Geofabrik superate
         if: ${{ always() && steps.save-geofabrik-borders.outcome == 'success' }}
         continue-on-error: true
-        run: bash .github/scripts/trim-caches.sh "geofabrik-borders-$SHARD-" "geofabrik-borders-$SHARD-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+        env:
+          WEEK: ${{ steps.geofabrik-keys.outputs.week }}
+        run: bash .github/scripts/trim-caches.sh "geofabrik-borders-$SHARD-" "geofabrik-borders-$SHARD-$WEEK-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 
       # Nuova cache delle frasi di questo shard solo se il passo sopra ne ha tradotte di nuove (translate-grown.flag).
       - name: Salva le frasi tradotte delle citta'
@@ -779,6 +794,7 @@ jobs:
         run: |
           set -euo pipefail
           MIN_APP_VERSION_CODE="$(tr -dc '0-9' < tools/data-pipeline/min-app-version-code)"
+          [[ "$MIN_APP_VERSION_CODE" =~ ^[0-9]+$ ]] || { echo "min-app-version-code non valido: non pubblico" >&2; exit 1; }
           RELEASED_VERSION_CODE="$(curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 \
             "https://github.com/$GITHUB_REPOSITORY/releases/download/app-status/app-status.json" \
             | jq -r '.appVersion.versionCode // empty')"
@@ -1011,10 +1027,15 @@ jobs:
   # Toglie dalle release gli asset che il catalogo appena pubblicato (e quello precedente) non referenziano piu'
   # (cleanup-assets.sh): migliaia di DELETE, una per asset, fino a 15 minuti. Job a parte dopo "publish", cosi' il
   # gruppo "pages" si libera subito dopo il deploy; il gruppo "asset-cleanup" tiene una pulizia alla volta.
+  # Il `success()` implicito di `if` guarda tutta la catena dei needs: senza l'espressione esplicita il job salterebbe
+  # quando un job a monte di "publish" e' saltato o fallito. Le continuazioni non puliscono: cleanup-assets.sh protegge
+  # solo il catalogo nuovo e il precedente (piu' gli asset delle ultime 24 ore), e una continuazione pubblica un catalogo
+  # pochi minuti dopo quello della run principale, quindi cancellerebbe asset del catalogo di prima ancora in uso
+  # dalle app.
   cleanup:
     name: Pulizia degli asset
     needs: publish
-    if: needs.publish.outputs.cleanup == 'true'
+    if: ${{ !cancelled() && needs.publish.result == 'success' && needs.publish.outputs.cleanup == 'true' && !(github.event.inputs.continuation > 0) }}
     concurrency:
       group: asset-cleanup
       cancel-in-progress: false

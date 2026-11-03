@@ -7,7 +7,6 @@
 set -euo pipefail
 source .github/scripts/env.sh
 : "${REF_NAME:=$(git branch --show-current)}"  # fuori dal workflow, il ramo attuale
-source .github/scripts/retry.sh
 shopt -s nullglob
 [[ "${CONTINUATION:-}" =~ ^[0-9]+$ ]] || CONTINUATION=0
 # Rimandate per il budget, e (solo dalla run iniziale, non dalle continuazioni) le fallite:
@@ -20,7 +19,8 @@ if [ "${#LIST_FILES[@]}" -eq 0 ]; then
   echo "-- nessuna regione rimandata o da riprovare"
   exit 0
 fi
-DEFERRED="$(cut -f1 "${LIST_FILES[@]}" | grep -E '^[a-z0-9-]+$' | sort -u | paste -sd, - || true)"
+# grep esce 1 senza righe (caso normale, nessuna regione); ogni altro errore della pipeline ferma lo script.
+DEFERRED="$(cut -f1 "${LIST_FILES[@]}" | { grep -E '^[a-z0-9-]+$' || [ $? -eq 1 ]; } | sort -u | paste -sd, -)"
 if [ -z "$DEFERRED" ]; then
   echo "-- nessuna regione rimandata o da riprovare"
   exit 0
@@ -34,6 +34,8 @@ ARGS=(-f regions="$DEFERRED" -f continuation="$NEXT")
 [ -z "${TIME_BUDGET_INPUT:-}" ] || ARGS+=(-f time_budget_minutes="$TIME_BUDGET_INPUT")
 [ -z "${POI_MAX_AGE_INPUT:-}" ] || ARGS+=(-f poi_max_age_days="$POI_MAX_AGE_INPUT")
 [ "${FORCE_CITIES_INPUT:-}" != true ] || ARGS+=(-f force_cities=true)
-retry gh workflow run publish-regions.yml --repo "$GITHUB_REPOSITORY" --ref "$REF_NAME" "${ARGS[@]}"
+# Senza retry: il lancio non e' idempotente, e un dispatch riuscito con la risposta persa ne farebbe partire due. Se
+# fallisce, le regioni restano al calendario settimanale (quota adattiva).
+gh workflow run publish-regions.yml --repo "$GITHUB_REPOSITORY" --ref "$REF_NAME" "${ARGS[@]}"
 echo "-- continuazione $NEXT lanciata con $(tr ',' '\n' <<< "$DEFERRED" | wc -l) regioni"
 echo "Continuazione $NEXT lanciata con le regioni rimandate: $DEFERRED" >> "$GITHUB_STEP_SUMMARY"

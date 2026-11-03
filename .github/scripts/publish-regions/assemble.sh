@@ -88,15 +88,15 @@ PENDING_FRAGMENTS=("$RUNNER_TEMP/pending-fragments"/*.json)
 SELECTED_LIST="$RUNNER_TEMP/selected-fragments.txt"
 SELECTION_REPORT="$RUNNER_TEMP/fragments-report.tsv"
 # java.exe (via gradlew) vuole path Windows reali: winpath (vedi lib.sh), che su Linux lascia i path invariati.
-SELECT_ARGS="--pages-host $GITHUB_REPOSITORY_OWNER.github.io --max-age-days 7 --out-list $(winpath "$SELECTED_LIST") --out-report $(winpath "$SELECTION_REPORT")"
-[ ! -s "$RUNNER_TEMP/previous-manifest.json" ] || SELECT_ARGS="$SELECT_ARGS --published $(winpath "$RUNNER_TEMP/previous-manifest.json")"
+SELECT_ARGS="--pages-host $GITHUB_REPOSITORY_OWNER.github.io --max-age-days 7 --out-list \"$(winpath "$SELECTED_LIST")\" --out-report \"$(winpath "$SELECTION_REPORT")\""
+[ ! -s "$RUNNER_TEMP/previous-manifest.json" ] || SELECT_ARGS="$SELECT_ARGS --published \"$(winpath "$RUNNER_TEMP/previous-manifest.json")\""
 if [ "${#RUN_FRAGMENTS[@]}" -gt 0 ]; then
   SELECT_ARGS="$SELECT_ARGS --run"
-  for f in "${RUN_FRAGMENTS[@]}"; do SELECT_ARGS="$SELECT_ARGS $(winpath "$f")"; done
+  for f in "${RUN_FRAGMENTS[@]}"; do SELECT_ARGS="$SELECT_ARGS \"$(winpath "$f")\""; done
 fi
 if [ "${#PENDING_FRAGMENTS[@]}" -gt 0 ]; then
   SELECT_ARGS="$SELECT_ARGS --pending"
-  for f in "${PENDING_FRAGMENTS[@]}"; do SELECT_ARGS="$SELECT_ARGS $(winpath "$f")"; done
+  for f in "${PENDING_FRAGMENTS[@]}"; do SELECT_ARGS="$SELECT_ARGS \"$(winpath "$f")\""; done
 fi
 ./gradlew -q :tools:data-pipeline:content:selectFragments --args="$SELECT_ARGS"
 mapfile -t FRAGMENT_FILES < "$SELECTED_LIST"
@@ -108,9 +108,11 @@ mapfile -t FRAGMENT_FILES < "$SELECTED_LIST"
   echo
   echo "Superate (gia' pubblicate o sostituite da un frammento piu' recente): $(awk -F'\t' '$3 == "superata"' "$SELECTION_REPORT" | wc -l)"
 } >> "$GITHUB_STEP_SUMMARY"
-while IFS=$'\t' read -r _ regionId outcome reason; do
-  if [ "$outcome" = "scartata" ]; then echo "::warning::frammento di ${regionId:-?} scartato: $reason"; fi
-done < "$SELECTION_REPORT"
+# Colonne separate da \x1f e non da tab: con `IFS=$'\t' read` i tab vuoti consecutivi (file<TAB><TAB>scartata, senza
+# regione) si fonderebbero e le colonne si sposterebbero.
+while IFS=$'\x1f' read -r regionId reason; do
+  echo "::warning::frammento di ${regionId:-?} scartato: $reason"
+done < <(awk -F'\t' '$3 == "scartata" { printf "%s\037%s\n", $2, $4 }' "$SELECTION_REPORT")
 if [ "${#FRAGMENT_FILES[@]}" -eq 0 ]; then
   echo "Nessun frammento di catalogo da unire (ne' di questa run ne' in sospeso), niente da pubblicare" >&2
   exit 1
@@ -121,7 +123,7 @@ tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$MERGE_MANIFEST_URL" "
 PUBLISHED_TIMINGS="$RUNNER_TEMP/published-timings.tsv"
 # Solo un 404 (prima pubblicazione) parte da tempi vuoti: un errore passeggero fermerebbe altrimenti la run, perche'
 # azzererebbe i tempi di tutte le regioni non toccate da questa (e con loro il peso degli shard).
-TIMINGS_HTTP="$(curl -sSL --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0" -H 'Cache-Control: no-cache' \
+TIMINGS_HTTP="$(curl -sSL --max-time 120 --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0" -H 'Cache-Control: no-cache' \
   "$PAGES_BASE_URL/region-timings.tsv?$FRESH" -o "$PUBLISHED_TIMINGS" -w '%{http_code}' || true)"
 case "$TIMINGS_HTTP" in
   200) ;;

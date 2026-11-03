@@ -28,7 +28,7 @@ dà un avviso. Per adeguarsi si aggiornano `lookups.dat` e i profili con una nuo
 | `overture-check` | Controllo Overture | lista bianca delle fonti Overture, una volta per rilascio; esito in una issue |
 | `vaccinations-check` | Controllo vaccinazioni | deriva dei dati vaccinali, il lunedì e nelle run manuali |
 | `publish` | Pubblicazione | unisce i frammenti di catalogo al `manifest.json` pubblicato, lo firma e fa il deploy su Pages |
-| `cleanup` | Pulizia degli asset | toglie dalle release gli asset che il catalogo nuovo e il precedente non referenziano più |
+| `cleanup` | Pulizia degli asset | toglie dalle release gli asset che il catalogo nuovo e il precedente non referenziano più; non gira nelle continuazioni, che pubblicano un catalogo pochi minuti dopo quello della run principale e cancellerebbero asset di quello di prima ancora in uso dalle app |
 
 Gli script lunghi dei job stanno in `.github/scripts/publish-regions/`; la preparazione comune (JDK, Gradle con la
 cache in sola lettura, go-pmtiles, duckdb, osmium) è l'azione `.github/actions/setup-pipeline`. Le cache di Actions

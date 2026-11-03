@@ -101,7 +101,10 @@ if [ -n "${ADAPTIVE_DOW:-}" ]; then
   # Eta' dei POI pubblicati, dal nome dell'asset (regionId--YYYY.MM.DD[.run.tentativo]--poi.db...).
   declare -A POI_AGE=()
   # Come negli altri job, il catalogo pubblicato si usa solo con la firma valida (verify_published_signature, lib.sh).
-  if curl -sSfL --retry 3 --retry-delay 5 --max-time 120 -A "PocketTravelDataPipeline/1.0" "$PAGES_BASE_URL/manifest.json" -o "$RUNNER_TEMP/plan-manifest.json"     && verify_published_signature "$RUNNER_TEMP/plan-manifest.json" "$PAGES_BASE_URL/manifest.json"; then
+  # Stesso parametro anti-cache per catalogo e firma (verify_published_signature lo riusa): dopo un deploy la cache della
+  # CDN potrebbe altrimenti dare un catalogo e una firma di versioni diverse.
+  PLAN_MANIFEST_URL="$PAGES_BASE_URL/manifest.json?cb=$(date +%s)"
+  if curl -sSfL --retry 3 --retry-delay 5 --max-time 120 -H 'Cache-Control: no-cache' -A "PocketTravelDataPipeline/1.0" "$PLAN_MANIFEST_URL" -o "$RUNNER_TEMP/plan-manifest.json"     && verify_published_signature "$RUNNER_TEMP/plan-manifest.json" "$PLAN_MANIFEST_URL"; then
     NOW_EPOCH="$(date -u +%s)"
     while IFS=$'\t' read -r regionId url; do
       d="$(printf '%s' "$url" | sed -n 's#.*--\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\)\(\.[0-9][0-9.]*\)\?--\(poi\|content\)\.db\(\.xz\)\?$#\1#p')"

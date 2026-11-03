@@ -42,7 +42,7 @@ if [ ! -s "$REFERENCED" ]; then
   exit 1
 fi
 CUTOFF="$(date -u -d '-24 hours' +%Y-%m-%dT%H:%M:%SZ)"
-for tag in $(retry gh release list --repo "$GITHUB_REPOSITORY" --limit 200 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map|address-cells-|transit-feeds$)'); do
+for tag in $(retry gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map|address-cells-|transit-feeds$)'); do
   deleted=0
   failed=0
   total=0
