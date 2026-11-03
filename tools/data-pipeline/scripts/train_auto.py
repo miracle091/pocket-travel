@@ -12,6 +12,24 @@ Va eseguito col Python di un venv che abbia PyTorch (CUDA o ROCm), su Windows, L
 NVIDIA (CUDA): setup una tantum nel venv, dalla radice del repository (PyTorch CUDA incluso):
   pip install -c tools/data-pipeline/constraints-train.txt unsloth unsloth-zoo trl peft datasets bitsandbytes wandb
   (venv di uv, senza pip: uv pip install --python <venv>/bin/python -c ... con gli stessi pacchetti)
+Per scegliere a mano la build CUDA di PyTorch, prima del comando sopra: pip install torch --index-url
+https://download.pytorch.org/whl/cu130 (cu132 piu' recente, cu126 per driver NVIDIA meno recenti).
+
+Un venv per backend (es. .venv-rocm, .venv-cuda): ROCm e CUDA hanno wheel di PyTorch diverse, mai nello stesso venv,
+e i pacchetti con kernel compilati (bitsandbytes, xformers, flash-attn) vanno presi per quel backend.
+
+AMD su WSL2 (alternativa non ancora provata: i modelli pubblicati sono addestrati con ROCm su Windows): ROCm 7.2.1
+supporta su WSL2 le RX 7000, RX 7700 XT inclusa, con Ubuntu 24.04 o 22.04, il driver Adrenalin 26.2.2 e librocdxg
+(quickstart in https://github.com/ROCm/librocdxg); rocminfo deve mostrare gfx1101. PyTorch dalle wheel di AMD in
+https://repo.radeon.com/rocm/manylinux/rocm-rel-7.2.1/ (torch 2.9.1, torchvision 0.24.0, torchaudio 2.9.0, triton
+3.5.1, Python 3.12), le versioni che AMD supporta su WSL; poi Unsloth senza sostituire torch e triton:
+  uv pip freeze | grep -E '^(torch|torchvision|torchaudio)==' > torch-pins.txt
+  echo "triton ; sys_platform == 'never'" >> torch-pins.txt
+  echo "xformers ; sys_platform == 'never'" >> torch-pins.txt
+  uv pip install "unsloth[amd]" --overrides torch-pins.txt
+Unsloth consiglia Linux nativo a WSL. Guide: https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/ e
+https://unsloth.ai/docs/basics/amd
+
 Su Linux e WSL si lancia con python3 del venv (Ubuntu non ha python fuori da un venv). Su WSL il desktop di Windows
 occupa parte della VRAM: se supera il 10% di default, serve --max-vram-held 25. Il lucchetto della GPU
 (gpu_lock.py) e' quello di Windows anche da WSL: i lavori dei due lati si aspettano.

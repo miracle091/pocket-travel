@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Test della scelta del checkpoint da riprendere, del merge a piena precisione, dell'arresto a loss non finita e della
-compilazione a blocchi di Unsloth spenta in train_lora.py. Lo script gira a livello di modulo e importa
+"""Test della scelta del checkpoint da riprendere, del merge a piena precisione, dell'arresto a loss non finita o con
+moduli LoRA assenti, delle velocita' di benchmark.json e della compilazione a blocchi di Unsloth spenta in train_lora.py. Lo script gira a livello di modulo e importa
 torch, quindi la funzione si estrae dal sorgente senza eseguirlo.
 
 Uso: python test_train_lora.py
@@ -143,6 +143,53 @@ class StopOnNonFiniteTest(unittest.TestCase):
             with self.subTest(logs=logs), self.assertRaises(SystemExit) as stop:
                 stop_on_non_finite().on_log(self.ARGS, self.STATE, None, logs=logs)
             self.assertIn("passo 7", str(stop.exception.code))
+
+
+def extract(*names, **namespace):
+    nodes = [n for n in ast.parse(SOURCE).body if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name in names]
+    exec(compile(ast.Module(nodes, []), "train_lora.py", "exec"), namespace)
+    return namespace
+
+
+class LoraTargetsTest(unittest.TestCase):
+    # Moduli di un Qwen3.5: i livelli a linear attention non hanno q_proj, quelli a full attention si'
+    NAMES = ["model.language_model.layers.0.linear_attn.in_proj_qkv", "model.language_model.layers.0.mlp.gate_proj",
+             "model.language_model.layers.3.self_attn.q_proj", "model.language_model.layers.3.self_attn.k_proj"]
+
+    def test_basta_un_modulo_per_nome(self):
+        missing_lora_targets = extract("missing_lora_targets")["missing_lora_targets"]
+        self.assertEqual([], missing_lora_targets(self.NAMES, ["q_proj", "k_proj", "gate_proj"]))
+
+    def test_elenca_i_mancanti_senza_corrispondenze_parziali(self):
+        missing_lora_targets = extract("missing_lora_targets")["missing_lora_targets"]
+        # "proj" non corrisponde a "q_proj": come peft, conta solo l'ultima parte intera del nome
+        self.assertEqual(["v_proj", "proj"], missing_lora_targets(self.NAMES, ["q_proj", "v_proj", "proj"]))
+
+    def test_si_ferma_se_ne_manca_uno(self):
+        ns = extract("missing_lora_targets", "stop_on_missing_lora_targets", sys=sys,
+                     LORA={"target_modules": ["q_proj", "o_proj"]})
+        model = types.SimpleNamespace(named_modules=lambda: [(n, None) for n in self.NAMES])
+        with self.assertRaises(SystemExit) as stop:
+            ns["stop_on_missing_lora_targets"](model)
+        self.assertIn("['o_proj']", str(stop.exception.code))
+
+
+class ThroughputTest(unittest.TestCase):
+    def test_dal_primo_passo_misurato_all_ultimo(self):
+        throughput = extract("throughput")["throughput"]
+        # Ripreso al passo 100: contano i 50 passi e i token fatti in questo processo
+        self.assertEqual({"steps_per_second": 0.25, "tokens_per_second": 1000.0},
+                         throughput((101, 400_000, 10.0), (151, 600_000, 210.0)))
+
+    def test_senza_misure_o_con_un_passo_solo(self):
+        throughput = extract("throughput")["throughput"]
+        empty = {"steps_per_second": None, "tokens_per_second": None}
+        self.assertEqual(empty, throughput(None, None))
+        self.assertEqual(empty, throughput((1, 900, 5.0), (1, 900, 5.0)))
+
+    def test_token_non_contati(self):
+        throughput = extract("throughput")["throughput"]
+        self.assertEqual({"steps_per_second": 0.5, "tokens_per_second": None}, throughput((1, 0, 0.0), (3, 0, 4.0)))
 
 
 class UnslothBlockCompileTest(unittest.TestCase):

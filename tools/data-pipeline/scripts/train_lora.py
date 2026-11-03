@@ -7,6 +7,8 @@ Due backend, stessi iperparametri:
 Sceglie da se' la GPU discreta (l'iGPU compare come device 0) dopo aver preso il lucchetto della GPU, e rispetta
 HIP_VISIBLE_DEVICES/CUDA_VISIBLE_DEVICES gia' impostate (train_auto.py le imposta):
   python train_lora.py --max-steps 30
+A fine training scrive <out>/benchmark.json (backend, GPU, precisione, passi e token al secondo, VRAM di picco,
+ultime loss di training e di valutazione) per confrontare hardware e backend con gli stessi argomenti.
 Pesi in bf16; --4bit (QLoRA, AMD e NVIDIA) solo per GPU con poca VRAM: Unsloth la sconsiglia per i Qwen3.5
 (differenze di quantizzazione piu' alte del normale). Con --merge la LoRA si fonde nel modello base a piena precisione.
 
@@ -19,7 +21,8 @@ Scelte che contano per la qualita':
 - niente vision ne' thinking (text_only.py): i modelli vision-language si addestrano da una copia solo testo, e il
   chat template diventa il ChatML che manda l'app, senza blocco <think>; prima del training controlli brevi (copia con
   gli stessi tensori di testo dell'originale e caricata da transformers senza chiavi mancanti, embedding caricati
-  uguali a quelli della copia, nessun parametro vision, testo di training uguale al ChatML dell'app) fermano lo
+  uguali a quelli della copia, nessun parametro vision, tutti i moduli LoRA presenti nel modello, testo di training
+  uguale al ChatML dell'app) fermano lo
   script se qualcosa non torna;
 - loss pesata per categoria (WeightedTrainer): SICUREZZA/SALUTE/DOGANE/TRASPORTI hanno 3-9x piu' righe
   delle altre (Viaggiare Sicuri le copre tutte e quattro); senza pesatura il modello vedrebbe soprattutto
@@ -41,6 +44,7 @@ import random
 import shutil
 import subprocess
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -77,6 +81,28 @@ def non_finite_metric(logs):
 
 LORA = dict(r=16, lora_alpha=32, lora_dropout=0.0,
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"])
+
+
+def missing_lora_targets(module_names, targets):
+    """I moduli LoRA richiesti che il modello non ha (stessa corrispondenza di peft: nome intero o ultima parte). peft si
+    ferma solo se non ne trova nessuno: con uno mancante addestrerebbe in silenzio meno pesi del previsto."""
+    return [t for t in targets if not any(n == t or n.endswith("." + t) for n in module_names)]
+
+
+def stop_on_missing_lora_targets(model):
+    missing = missing_lora_targets([n for n, _ in model.named_modules()], LORA["target_modules"])
+    if missing:
+        sys.exit(f"Moduli LoRA assenti nel modello: {missing}. Il modello ha un'architettura diversa da quella prevista: "
+                 "controlla i nomi con model.named_modules() prima di cambiare LORA['target_modules'].")
+
+
+def throughput(start, end):
+    """Passi e token al secondo tra due misure (passo, token visti senza padding, secondi); None senza misure o senza
+    passi in mezzo (training di un passo solo), e token None se il Trainer non li ha contati (ciclo sostituito)."""
+    steps, tokens, seconds = (e - s for s, e in zip(start, end)) if start else (0, 0, 0)
+    if steps <= 0 or seconds <= 0:
+        return {"steps_per_second": None, "tokens_per_second": None}
+    return {"steps_per_second": round(steps / seconds, 4), "tokens_per_second": round(tokens / seconds, 1) if tokens > 0 else None}
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--model", default="HuggingFaceTB/SmolLM2-135M-Instruct")
@@ -134,13 +160,15 @@ if a.unsloth:
     from unsloth import FastLanguageModel
     model, tok = FastLanguageModel.from_pretrained(
         base, max_seq_length=a.max_len, load_in_4bit=a.four_bit, dtype=DTYPE)
+    stop_on_missing_lora_targets(model)
     model = FastLanguageModel.get_peft_model(
         model, **LORA, use_gradient_checkpointing="unsloth", random_state=42)
     tok = getattr(tok, "tokenizer", tok)  # con un processor (modello vision-language) serve solo il tokenizer
 else:
     tok = AutoTokenizer.from_pretrained(base)
-    model = get_peft_model(AutoModelForCausalLM.from_pretrained(base, dtype=DTYPE),
-                           LoraConfig(**LORA, task_type="CAUSAL_LM"))
+    model = AutoModelForCausalLM.from_pretrained(base, dtype=DTYPE)
+    stop_on_missing_lora_targets(model)
+    model = get_peft_model(model, LoraConfig(**LORA, task_type="CAUSAL_LM"))
 tok.chat_template = CHATML
 check_no_vision(model)
 if Path(base).is_dir():
@@ -188,6 +216,15 @@ class StopOnNonFinite(TrainerCallback):
         if key:
             sys.exit(f"{key} non finito al passo {state.global_step}: training fermato. I checkpoint in {args.output_dir} "
                      "hanno pesi non validi: cancella la cartella prima di rilanciare.")
+
+class Benchmark(TrainerCallback):
+    """Misure per benchmark.json, dalla fine del primo passo di questo processo (il primo include compilazione e avvio,
+    e dopo una ripresa i contatori del Trainer partono dal checkpoint) alla fine del training."""
+    first = last = None
+    def on_step_end(self, args, state, control, **kwargs):
+        mark = (state.global_step, state.num_input_tokens_seen, time.monotonic())
+        self.first = self.first or mark
+        self.last = mark
 
 class WeightedCollator:
     """Toglie 'weight' (scalare per riga) prima del collator standard, che sa impaginare solo i
@@ -250,6 +287,8 @@ dataset_path = SFT_DIR / a.dataset
 attribution_path = SFT_DIR / a.dataset.replace("pocket_travel_sft", "ATTRIBUTION").replace(".jsonl", ".tsv")
 ds = load_dataset("json", data_files=str(dataset_path), split="train")
 check_chat_format(tok, ds.shuffle(seed=42).select(range(min(50, len(ds)))))
+# datasets tiene in cache il risultato di map e filter, con una chiave che dipende dal file, dal tokenizer col suo
+# template e dal codice di encode: un nuovo lancio sugli stessi dati non ritokenizza (v11 IT: 34 s la prima volta, 2 dopo)
 ds = ds.map(encode).filter(lambda r: len(r["input_ids"]) <= a.max_len)
 held_out = TEST_REGIONS
 train_ds = ds.filter(lambda r: r["region"] not in held_out)
@@ -275,7 +314,7 @@ length_grouping = {} if a.no_group_by_length else (
 trainer = WeightedTrainer(
     model=model, train_dataset=train_ds.select_columns(cols), eval_dataset=test_ds.select_columns(cols),
     data_collator=WeightedCollator(DataCollatorForSeq2Seq(tok, padding=True, label_pad_token_id=-100)),
-    callbacks=[FreeCacheAfterEval(), StatusLine(), StopOnNonFinite()],
+    callbacks=[FreeCacheAfterEval(), StatusLine(), StopOnNonFinite(), benchmark := Benchmark()],
     args=TrainingArguments(
         bf16=BF16, fp16=not BF16 and not FP32, per_device_train_batch_size=a.batch, gradient_accumulation_steps=16 // a.batch,
         # eval con lo stesso batch del training: il default (8) con vocabolari grandi (Qwen3.5 ~248k token)
@@ -290,6 +329,7 @@ trainer = WeightedTrainer(
         # lo stesso comando, invece che da zero
         output_dir=a.out, save_strategy="steps", save_steps=100, save_total_limit=1, report_to="none", seed=42,
         **length_grouping,
+        include_num_input_tokens_seen="non_padding",  # token al secondo in benchmark.json; non cambia i pesi
         disable_tqdm=True,  # sostituite da StatusLine: le barre tqdm nei log su file diventano illeggibili
         remove_unused_columns=False))  # altrimenti Trainer toglie 'weight': non e' un argomento di model.forward
 # Si riprende un checkpoint solo se e' dello stesso training: con un altro modello, dataset o
@@ -305,8 +345,23 @@ if last_checkpoint:
     phase("ripresa", last_checkpoint)
 Path(a.out).mkdir(parents=True, exist_ok=True)
 run_key_path.write_text(json.dumps(run_key, indent=2), encoding="utf-8")
-trainer.train(resume_from_checkpoint=last_checkpoint)
+train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
 print("peak VRAM GiB:", round(torch.cuda.max_memory_allocated() / 2**30, 2))
+# Misure di questo processo, per confrontare hardware e backend: stessi --model, --dataset, --max-len, --batch e
+# --max-steps danno gli stessi batch (seed 42). Temperature, consumi e uso della GPU sono nel CSV di hw_monitor.py.
+# Loss: le ultime registrate (training: media degli ultimi 5 passi); la train_loss del Trainer dopo una ripresa divide
+# la loss di questo processo per tutti i passi.
+def last_logged(key):
+    return next((h[key] for h in reversed(trainer.state.log_history) if key in h), None)
+(Path(a.out) / "benchmark.json").write_text(json.dumps({
+    "backend": "rocm" if torch.version.hip else "cuda", "torch": torch.__version__, "gpu": torch.cuda.get_device_name(),
+    "trainer": "unsloth" if a.unsloth else "peft", "precision": "bf16" if BF16 else "fp32" if FP32 else "fp16",
+    **{k: run_key[k] for k in ("model", "dataset", "max_len", "batch", "four_bit", "lora_r", "lora_alpha")},
+    "gradient_accumulation": 16 // a.batch, "resumed_from": last_checkpoint and Path(last_checkpoint).name,
+    "steps": trainer.state.global_step, "train_runtime_s": round(train_result.metrics["train_runtime"], 1),
+    **throughput(benchmark.first, benchmark.last), "peak_vram_gib": round(torch.cuda.max_memory_allocated() / 2**30, 2),
+    "training_loss": last_logged("loss"), "validation_loss": last_logged("eval_loss"),
+}, indent=2), encoding="utf-8")
 
 phase("salvataggio LoRA", a.out + "/lora")
 model.save_pretrained(a.out + "/lora")
