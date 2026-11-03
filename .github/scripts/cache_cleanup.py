@@ -99,9 +99,9 @@ def main():
             try:
                 gh("cache", "delete", str(e["id"]), "--repo", repo)
             except subprocess.CalledProcessError as err:
-                failed.append(e["key"])
+                failed.append(e["id"])
                 print(f"::warning::cache {e['key']} non cancellata: {err.stderr.strip()}")
-    deleted = [(e, why) for e, why in to_delete if e["key"] not in failed]
+    deleted = [(e, why) for e, why in to_delete if e["id"] not in failed]
     freed = sum(e["sizeInBytes"] for e, _ in deleted)
 
     count_after, size_after = count_before - len(deleted), size_before - freed
@@ -121,7 +121,8 @@ def main():
     else:
         lines.append("Nessuna voce da cancellare.")
     if failed:
-        lines += ["", "Non cancellate (riprova la prossima run): " + ", ".join(f"`{k}`" for k in failed)]
+        keys = [f"`{e['key']}` ({e['ref']})" for e, _ in to_delete if e["id"] in failed]
+        lines += ["", "Non cancellate (riprova la prossima run): " + ", ".join(keys)]
     text = "\n".join(lines) + "\n"
     print(text)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")

@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """Test delle regole di cache_cleanup.py (famiglie di chiavi e voci da cancellare), senza rete."""
 
+import contextlib
+import io
+import json
+import os
+import subprocess
 import sys
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import cache_cleanup  # noqa: E402
 from cache_cleanup import family_of, plan  # noqa: E402
 
 NOW = datetime(2026, 10, 15, 20, 0, tzinfo=timezone.utc)
@@ -66,6 +73,36 @@ class PlanTest(unittest.TestCase):
         result = plan(entries, NOW)
         self.assertEqual(keys(result), ["ccache-llama-%064x" % 1])
         self.assertIn("refs/pull/12/merge", result[0][1])
+
+
+class MainTest(unittest.TestCase):
+    def test_cancellazione_fallita_identificata_per_id_con_la_stessa_chiave_su_due_ref(self):
+        key = "ccache-llama-%064x" % 1
+        entries = [
+            entry(key, "2026-10-15T10:00:00Z", ref="refs/pull/12/merge", size=1048576),
+            entry(key, "2026-10-15T10:00:00Z", ref="refs/pull/13/merge", size=1048576),
+        ]
+        failing = entries[0]["id"]
+
+        def fake_gh(*args):
+            if args[:2] == ("cache", "list"):
+                return json.dumps(entries)
+            if str(failing) == args[2]:
+                raise subprocess.CalledProcessError(1, args, stderr="errore")
+            return ""
+
+        out = io.StringIO()
+        env = {"GITHUB_ACTIONS": "true", "GITHUB_REPOSITORY": "o/r"}
+        with mock.patch.dict(os.environ, env), mock.patch.object(sys, "argv", ["cache_cleanup.py"]), \
+                mock.patch.object(cache_cleanup, "gh", fake_gh), contextlib.redirect_stdout(out):
+            os.environ.pop("GITHUB_STEP_SUMMARY", None)
+            cache_cleanup.main()
+        text = out.getvalue()
+        # Una sola voce risulta cancellata (quella di refs/pull/13), l'altra no.
+        self.assertIn("Dopo: 1 voci", text)
+        self.assertIn("| refs/pull/13/merge |", text)
+        self.assertNotIn("| refs/pull/12/merge |", text)
+        self.assertIn(f"`{key}` (refs/pull/12/merge)", text)
 
 
 if __name__ == "__main__":
