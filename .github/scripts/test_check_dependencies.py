@@ -91,6 +91,12 @@ class VersionTest(unittest.TestCase):
         self.assertIsNone(cd.newer_version("1.1", ["1.0", "1.1", "1.2-beta01"]))
         self.assertIsNone(cd.newer_version("13.7.1", ["13.6.1", "13.7.0-pre-globe.0", "13.7.1", "2026.10.19-globe"]))
 
+    def test_suffisso_di_variante_resta_quello_attuale(self):
+        avail = ["33.7.2-jre", "33.7.2-android", "33.8.0-android", "33.8.0-jre"]
+        self.assertEqual(cd.newer_version("33.7.2-jre", avail), "33.8.0-jre")
+        self.assertEqual(cd.newer_version("33.7.2-android", avail), "33.8.0-android")
+        self.assertIsNone(cd.newer_version("33.8.0-jre", ["33.8.0-jre", "34.0.0-android"]))
+
     def test_prerelease_scelta_di_proposito_segue_la_sua_linea(self):
         avail = ["1.4.0", "1.5.0-beta01", "1.5.0-beta02", "1.6.0-alpha01"]
         self.assertEqual(cd.newer_version("1.5.0-beta01", avail), "1.5.0-beta02")
@@ -230,6 +236,21 @@ class RunTest(unittest.TestCase):
                 batch = {"results": [{"vulns": [{"id": "V-1"}]} if vulnerable else {}]}
                 http = FakeHttp({cd.OSV_BATCH_URL: json.dumps(batch).encode()})
                 self.assertEqual(cd.run([str(report)], str(catalog), http=http, out=lambda _: None), expected)
+
+    def test_report_senza_coordinate_fallisce(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "app.txt"
+            report.write_text("", encoding="utf-8")
+            catalog = Path(tmp) / "libs.versions.toml"
+            catalog.write_text('[versions]\nx = "1.0"\n', encoding="utf-8")
+            out = []
+            http = FakeHttp({})
+            self.assertEqual(cd.run([str(report)], str(catalog), http=http, out=out.append), 1)
+            self.assertEqual(len(out), 1)
+            self.assertTrue(out[0].startswith("::error::"))
+            self.assertIn("app.txt", out[0])
+            self.assertIn("nessuna coordinata", out[0])
+            self.assertEqual(http.calls, [])
 
 
 if __name__ == "__main__":

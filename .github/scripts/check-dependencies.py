@@ -196,18 +196,29 @@ def release_line(version):
     return tuple(m.group(1).split(".")[:2]) if m else None
 
 
+def _flavor(version):
+    """Il suffisso non numerico della versione (-jre, -android), o None."""
+    m = _VERSION.match(version)
+    suffix = m.group(2).lstrip("-.") if m else ""
+    return suffix if suffix and not re.search(r"\d", suffix) else None
+
+
 def newer_version(current, available):
     """La versione piu' nuova da segnalare, o None.
 
     Una versione stabile si confronta con la piu' alta stabile. Una pre-release scelta di proposito
     si confronta con le versioni piu' nuove della stessa linea (stessi primi due numeri), qualunque
-    sia il loro stato.
+    sia il loro stato. Un suffisso di variante non pre-release (33.0-jre, 33.0-android di Guava) resta
+    quello della versione attuale.
     """
     if is_prerelease(current):
         line = release_line(current)
         candidates = [v for v in available if release_line(v) == line]
     else:
         candidates = [v for v in available if not is_prerelease(v)]
+        flavor = _flavor(current)
+        if flavor:
+            candidates = [v for v in candidates if _flavor(v) == flavor]
     candidates = [v for v in candidates if version_key(v) > version_key(current)]
     return max(candidates, key=version_key) if candidates else None
 
@@ -283,6 +294,9 @@ def run(report_paths, catalog_path, http=http_request, out=print):
     for p in report_paths:
         path = Path(p)
         reports[path.stem] = parse_report(path.read_text(encoding="utf-8", errors="replace"))
+        if not reports[path.stem]:
+            out(f"::error::{p}: nessuna coordinata (formato di `gradle dependencies` cambiato, o file vuoto)")
+            return 1
     total = len({c for coords in reports.values() for c in coords})
     out(f"Coordinate risolte: {total} in {len(reports)} report")
     vulnerable = check_vulnerabilities(reports, http, out)

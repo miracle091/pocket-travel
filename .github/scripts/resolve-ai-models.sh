@@ -14,7 +14,7 @@ online_dir="$(mktemp -d)"
 trap 'rm -rf "$online_dir"' EXIT
 
 online=()
-if ! retry gh release download app-status --pattern 'app-status.json*' --dir "$online_dir" --repo "$GITHUB_REPOSITORY"; then
+if ! retry gh release download app-status --pattern 'app-status.json*' --clobber --dir "$online_dir" --repo "$GITHUB_REPOSITORY"; then
   echo "::warning::app-status.json online non scaricabile: uso solo il catalogo dei modelli" >&2
 # Il motivo (chiave non trovata, firma assente o non valida) resta nel log: lo scrive verify-app-status.sh.
 elif ! bash .github/scripts/verify-app-status.sh "$online_dir/app-status.json"; then

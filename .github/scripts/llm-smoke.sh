@@ -19,6 +19,7 @@ git -C third-party/llama-cpp -c core.autocrlf=false -c core.eol=lf archive --for
   ':(exclude)tools/ui/src' ':(exclude)tools/ui/tests' ':(exclude)tools/ui/.storybook' | tar -x -C "$src"
 # GIT_CEILING_DIRECTORIES: git apply non deve trovare un repository sopra la copia, o leggerebbe i percorsi delle
 # patch dalla sua root e salterebbe in silenzio i file fuori dalla cartella corrente.
+shopt -s nullglob
 for patch in "$repo"/third-party/patches/llama-cpp/*.patch; do
   (cd "$src" && GIT_CEILING_DIRECTORIES="$RUNNER_TEMP" git apply "$patch") \
     || { echo "::error::la patch $(basename "$patch") non si applica a llama.cpp" >&2; exit 1; }

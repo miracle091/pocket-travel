@@ -75,8 +75,11 @@ jobs:
         shell: bash
         run: |
           set -e
+          shopt -s nullglob
           for lib in llama-cpp brouter; do
-            cat third-party/patches/"$lib"/*.patch | git -C "third-party/$lib" apply --check \
+            patches=(third-party/patches/"$lib"/*.patch)
+            [ ${#patches[@]} -gt 0 ] || continue
+            cat "${patches[@]}" | git -C "third-party/$lib" apply --check \
               || { echo "::error::una patch di third-party/patches/$lib non si applica al submodule: rifarla o toglierla" >&2; exit 1; }
           done
 
@@ -118,7 +121,7 @@ jobs:
         run: |
           set -euo pipefail
           source .github/scripts/retry.sh
-          retry gh release download app-status --pattern 'app-status.json*' --dir "$RUNNER_TEMP/app-status" \
+          retry gh release download app-status --pattern 'app-status.json*' --clobber --dir "$RUNNER_TEMP/app-status" \
             --repo "$GITHUB_REPOSITORY"
           bash .github/scripts/verify-app-status.sh "$RUNNER_TEMP/app-status/app-status.json"
 
@@ -222,8 +225,9 @@ jobs:
   # Prova con un modello vero: llama-server per la CPU dal llama.cpp con le patch di third-party/patches/llama-cpp, e
   # poche risposte fisse del modello piu' piccolo del catalogo dei modelli (llm-smoke.sh, llm_smoke.py). Formato del
   # prompt, rifiuto, assenza di <think> e grammatica della categoria altrimenti si provano solo sull'emulatore, a mano.
-  # Non prova il codice JNI dell'app. Gira solo quando cambiano le patch, il commit del submodule o gli script della
-  # prova: negli altri casi il job finisce dopo il checkout.
+  # Non prova il codice JNI dell'app. Gira solo quando cambiano le patch, il commit del submodule, il catalogo dei modelli
+  # (LlmModelCatalog.kt, da cui il job legge URL e sha256) o gli script e i file che la prova legge: negli altri casi il
+  # job finisce dopo il checkout.
   llm-smoke:
     name: Modello vero con llama.cpp
     runs-on: ubuntu-24.04
@@ -242,8 +246,9 @@ jobs:
           persist-credentials: false
 
       # Base: il commit di partenza della pull request o quello prima del push. Senza base (branch nuovo, push forzato su
-      # un commit non piu' scaricabile) la prova gira. Gira anche quando cambia questo workflow o la lettura del catalogo
-      # dei modelli (resolve_ai_models.py), da cui dipende il job.
+      # un commit non piu' scaricabile) la prova gira. Gira anche quando cambia questo workflow, il catalogo dei modelli
+      # (LlmModelCatalog.kt) o la sua lettura (resolve_ai_models.py), da cui dipende il job, e quando cambia un file che
+      # la prova carica o importa (env.sh, portable.sh, word_lists.py con il suo .txt, city_wikipedia.py, regions.sh).
       - name: Patch di llama.cpp o script della prova cambiati
         id: changes
         env:
@@ -254,7 +259,7 @@ jobs:
           if [ -n "$BASE" ] && [ "$BASE" != 0000000000000000000000000000000000000000 ] \
             && git fetch --no-tags --depth=1 origin "$BASE"; then
             git diff --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed.txt"
-            grep -qE '^(third-party/patches/llama-cpp/|third-party/llama-cpp$|tools/data-pipeline/scripts/(eval_common|eval_retrieval|llm_smoke|resolve_ai_models)\.py$|\.github/scripts/llm-smoke\.sh$|\.github/workflows/android-ci\.yml$)' \
+            grep -qE '^(third-party/patches/llama-cpp/|third-party/llama-cpp$|tools/data-pipeline/scripts/(eval_common|eval_retrieval|llm_smoke|resolve_ai_models|word_lists|city_wikipedia|city_population)\.py$|tools/data-pipeline/scripts/(portable|regions)\.sh$|feature/ai/src/main/kotlin/com/pockettravel/feature/ai/LlmModelCatalog\.kt$|feature/ai/src/main/resources/pockettravel/word_lists\.txt$|\.github/scripts/(llm-smoke|env)\.sh$|\.github/workflows/android-ci\.yml$)' \
               "$RUNNER_TEMP/changed.txt" || run=false
           fi
           echo "run=$run" | tee -a "$GITHUB_OUTPUT"
@@ -302,13 +307,19 @@ jobs:
         if: steps.changes.outputs.run == 'true' && steps.model-cache.outputs.cache-hit != 'true'
         env:
           URL: ${{ steps.model.outputs.url }}
-          SHA256: ${{ steps.model.outputs.sha256 }}
           FILE: /home/runner/.cache/llm-smoke/${{ steps.model.outputs.file }}
         run: |
           set -euo pipefail
           mkdir -p "$(dirname "$FILE")"
           curl -sSfL --retry 5 --retry-all-errors --retry-delay 10 -o "$FILE" "$URL"
-          echo "$SHA256  $FILE" | sha256sum -c -
+
+      # Sempre, anche con il file preso dalla cache: un file corrotto non finisce in cache e non arriva alla prova.
+      - name: Verifica l'impronta del modello
+        if: steps.changes.outputs.run == 'true'
+        env:
+          SHA256: ${{ steps.model.outputs.sha256 }}
+          FILE: /home/runner/.cache/llm-smoke/${{ steps.model.outputs.file }}
+        run: echo "$SHA256  $FILE" | sha256sum -c -
 
       - name: Salva il modello in cache
         if: steps.changes.outputs.run == 'true' && steps.model-cache.outputs.cache-hit != 'true'
