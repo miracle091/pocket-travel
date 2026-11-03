@@ -100,6 +100,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.GuideSourceTarget
+import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.sync.ONLINE_MODEL_ROLE_AUTO
 import com.pockettravel.core.sync.OnlineModelEntry
 import com.pockettravel.core.ui.AppIcons
@@ -124,12 +125,16 @@ import java.util.Currency
 import javax.crypto.Cipher
 import kotlin.math.roundToInt
 
+// Il ViewModel sopravvive al cambio di lingua dell'app, ma il modello in uso dipende dalla lingua: con la stessa
+// istanza la schermata crederebbe ancora scaricato il modello dell'altra lingua e ogni domanda finirebbe in errore.
+private fun aiViewModelKey(): String = "ai-${currentGuidesLanguage()}"
+
 @Composable
 fun AiAssistantScreen(
     regionId: String,
     // Regione di una nazione divisa: il campo dice "regione" invece di "nazione".
     splitCountry: Boolean = false,
-    viewModel: AiAssistantViewModel = hiltViewModel(),
+    viewModel: AiAssistantViewModel = hiltViewModel(key = aiViewModelKey()),
     voiceViewModel: VoiceInputViewModel = hiltViewModel(),
     readAloudViewModel: ReadAloudViewModel = hiltViewModel(),
     onOpenOfficialSource: (url: String) -> Unit = {},
@@ -533,7 +538,7 @@ private fun ModeSelector(uiState: AiUiState, actions: AiActions, modifier: Modif
  */
 @Composable
 fun AiSettingsSection(
-    viewModel: AiAssistantViewModel = hiltViewModel(),
+    viewModel: AiAssistantViewModel = hiltViewModel(key = aiViewModelKey()),
     readAloudViewModel: ReadAloudViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()

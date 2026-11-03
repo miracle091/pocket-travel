@@ -37,6 +37,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ### Corretto
 - Assistente IA: alle domande sul tempo di dopodomani ("Pioverà dopodomani a Napoli?") la risposta usa le previsioni di dopodomani; prima i modelli sul dispositivo rispondevano quasi sempre con quelle di domani.
+- Assistente IA: dopo un cambio di lingua dell'app con la schermata aperta, l'assistente propone il modello della nuova lingua da scaricare; prima ogni domanda finiva con "Impossibile generare una risposta".
 - Download del modello IA: «Annulla» e subito «Scarica» non rovinano più il file in scaricamento (il download vecchio poteva restare in lettura mentre il nuovo scriveva nello stesso file), e il controllo finale del file si ferma con «Annulla».
 - Assistente IA: scegliendo un altro modello, quello installato resta usabile finché il nuovo non è scaricato e verificato, poi viene eliminato; prima si eliminava all'inizio del download. Servono quindi i byte liberi di tutti e due durante il download.
 - Assistente IA: un file del modello con metadati malformati (per esempio zero teste di attenzione) non fa più chiudere l'app durante la stima della RAM.
