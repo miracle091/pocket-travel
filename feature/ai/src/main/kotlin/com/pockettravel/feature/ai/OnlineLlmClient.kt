@@ -49,7 +49,8 @@ class OnlineLlmClient @Inject constructor(
      * [sendTemperature]: false per i modelli che rifiutano una temperatura impostata (OnlineModelCatalog.sendsTemperature).
      * Un errore temporaneo prima del primo pezzo si riprova una volta; dopo, il testo gia' mostrato non si puo' rifare.
      * La cancellazione del collector chiude la connessione. [api]: il formato del servizio ([OnlineProvider.api]); con
-     * la Messages API di Anthropic [sendTemperature] non conta.
+     * la Messages API di Anthropic [sendTemperature] non conta. [zeroDataRetention]: OpenRouter instrada la domanda
+     * solo ai fornitori che non la conservano ([OnlineTerms.zeroDataRetention]).
      */
     fun stream(
         baseUrl: String,
@@ -59,9 +60,10 @@ class OnlineLlmClient @Inject constructor(
         sendTemperature: Boolean,
         system: String? = null,
         api: OnlineApi = OnlineApi.CHAT_COMPLETIONS,
+        zeroDataRetention: Boolean = false,
     ): Flow<String> = flow {
         val request = when (api) {
-            OnlineApi.CHAT_COMPLETIONS -> chatCompletionsRequest(baseUrl, apiKey, model, prompt, sendTemperature, system)
+            OnlineApi.CHAT_COMPLETIONS -> chatCompletionsRequest(baseUrl, apiKey, model, prompt, sendTemperature, system, zeroDataRetention)
             OnlineApi.ANTHROPIC_MESSAGES -> anthropicMessagesRequest(baseUrl, apiKey, model, prompt, system)
         }
         var emitted = false
@@ -88,6 +90,7 @@ class OnlineLlmClient @Inject constructor(
         prompt: String,
         sendTemperature: Boolean,
         system: String?,
+        zeroDataRetention: Boolean,
     ): Request {
         val requestBody = OpenAiChatRequest(
             model = model,
@@ -95,6 +98,7 @@ class OnlineLlmClient @Inject constructor(
                 OpenAiChatMessage(role = "user", content = prompt),
             temperature = TEMPERATURE.takeIf { sendTemperature },
             stream = true,
+            provider = OpenRouterRouting(zdr = true).takeIf { zeroDataRetention },
         )
         return Request.Builder()
             .url("${baseUrl.trimEnd('/')}/chat/completions")
@@ -309,10 +313,14 @@ internal enum class OnlineErrorKind { CREDIT, TEMPORARY, PERMANENT }
 // scoperto ("outstanding balance"), 400 "enable billing". Mistral: 402. La quota giornaliera di Gemini e' a parte
 // (isDailyQuota). Non la parola "billing" da sola: anche il 429 del limite al minuto di Gemini dice "check your plan and
 // billing details" (provato con una chiave gratuita il 2026-10-31: quotaId ...PerMinute..., retryDelay nel corpo, nessun
-// Retry-After).
+// Retry-After). Servizi aggiunti (documentazione letta il 2026-11-04): Z.ai 429 "Insufficient balance" (codice 1113),
+// Groq 400 blocked_api_access (tetto di spesa), Alibaba 403 Arrearage e AllocationQuota.FreeTierOnly, Regolo (proxy
+// LiteLLM) 400 budget_exceeded, Cloudflare 429 "daily free allocation" (codice 3036, la quota gratuita del giorno).
+// Fireworks e OpenRouter usano il 402.
 private val CREDIT_MARKERS = listOf(
     "insufficient_quota", "credit_balance", "credit balance", "spend_limit", "usage_limit", "specified api usage limits",
     "billing_error", "enable billing", "outstanding balance",
+    "insufficient balance", "blocked_api_access", "arrearage", "freetieronly", "budget_exceeded", "daily free allocation",
 )
 private val CREDIT_MARKER_CODES = setOf(HTTP_BAD_REQUEST, HTTP_FORBIDDEN, HTTP_TOO_MANY_REQUESTS)
 private val TEMPORARY_CODES = setOf(408, 409, 425, 429, 500, 502, 503, 504, 529)

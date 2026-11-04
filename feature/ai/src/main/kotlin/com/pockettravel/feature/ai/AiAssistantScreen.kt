@@ -241,6 +241,7 @@ data class AiActions(
     val onModelSelected: (String) -> Unit,
     val onDownloadModel: () -> Unit,
     val onApiKeyInputChanged: (String) -> Unit,
+    val onAccountIdInputChanged: (String) -> Unit,
     val onSaveApiKey: () -> Unit,
     val onQuestionChanged: (String) -> Unit,
     val onAsk: () -> Unit,
@@ -287,6 +288,7 @@ private fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
     onDownloadModel = ::downloadModel,
     onCancelDownload = ::cancelDownload,
     onApiKeyInputChanged = ::onApiKeyInputChanged,
+    onAccountIdInputChanged = ::onAccountIdInputChanged,
     onSaveApiKey = ::saveApiKey,
     onProviderSelected = ::onProviderSelected,
     onOnlineModelChanged = ::onOnlineModelChanged,
@@ -1323,7 +1325,7 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
     val provider = uiState.onlineProvider
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
         Text(stringResource(R.string.ai_api_key_intro), style = MaterialTheme.typography.bodyLarge)
-        // Servizio: uno dei quattro (OnlineProvider), con il modello in uso (OnlineModelCatalog).
+        // Servizio (OnlineProvider), con il modello in uso (OnlineModelCatalog), raggruppato per cosa fa delle domande.
         Text(
             stringResource(R.string.ai_provider_title),
             style = MaterialTheme.typography.titleSmall,
@@ -1331,20 +1333,29 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
             modifier = Modifier.semantics { heading() },
         )
         Column(modifier = Modifier.selectableGroup()) {
-            OnlineProvider.entries.forEach { candidate ->
-                ListItem(
-                    leadingContent = { RadioButton(selected = candidate == provider, onClick = null) },
-                    supportingContent = {
-                        uiState.onlineModels[candidate]?.let { Text(stringResource(R.string.ai_provider_model, it)) }
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    modifier = Modifier.selectable(selected = candidate == provider, role = Role.RadioButton) {
-                        actions.onProviderSelected(candidate)
-                    },
-                    content = { Text(candidate.displayName) },
+            OnlinePrivacy.entries.forEach { privacy ->
+                Text(
+                    stringResource(privacyGroupTitle(privacy)),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = Spacing.l, top = Spacing.m, bottom = Spacing.xs).semantics { heading() },
                 )
+                OnlineProvider.entries.filter { it.terms.privacy == privacy }.forEach { candidate ->
+                    ListItem(
+                        leadingContent = { RadioButton(selected = candidate == provider, onClick = null) },
+                        supportingContent = {
+                            uiState.onlineModels[candidate]?.let { Text(stringResource(R.string.ai_provider_model, it)) }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.selectable(selected = candidate == provider, role = Role.RadioButton) {
+                            actions.onProviderSelected(candidate)
+                        },
+                        content = { Text(candidate.displayName) },
+                    )
+                }
             }
         }
+        ProviderPrivacy(provider)
         OnlineModelChoice(
             provider = provider,
             options = uiState.onlineModelOptions,
@@ -1362,6 +1373,23 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        provider.terms.idField?.let { idField ->
+            val invalid = uiState.accountIdInput.isNotBlank() && !isValidAccountId(uiState.accountIdInput)
+            OutlinedTextField(
+                value = uiState.accountIdInput,
+                onValueChange = actions.onAccountIdInputChanged,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(accountIdLabel(idField))) },
+                isError = invalid,
+                supportingText = if (invalid) {
+                    { Text(stringResource(R.string.ai_account_id_invalid)) }
+                } else {
+                    null
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, autoCorrectEnabled = false),
+                singleLine = true,
+            )
+        }
         OutlinedTextField(
             value = uiState.apiKeyInput,
             onValueChange = actions.onApiKeyInputChanged,
@@ -1383,10 +1411,60 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
             },
             singleLine = true,
         )
-        Button(onClick = actions.onSaveApiKey, enabled = uiState.apiKeyInput.isNotBlank()) {
+        Button(
+            onClick = actions.onSaveApiKey,
+            enabled = uiState.apiKeyInput.isNotBlank() && (provider.terms.idField == null || isValidAccountId(uiState.accountIdInput)),
+        ) {
             Text(stringResource(R.string.ai_api_key_save))
         }
     }
+}
+
+// Cosa fa delle domande il servizio scelto, con il collegamento ai suoi impegni sulla privacy; per Gemini anche
+// l'avviso sul piano a pagamento nell'UE (condizioni di Gemini per le app usate nello Spazio economico europeo).
+@Composable
+private fun ProviderPrivacy(provider: OnlineProvider) {
+    val uriHandler = LocalUriHandler.current
+    val text = when (provider.terms.privacy) {
+        OnlinePrivacy.NOT_KEPT -> R.string.ai_privacy_not_kept
+        OnlinePrivacy.KEPT_30_DAYS -> R.string.ai_privacy_kept_30_days
+        OnlinePrivacy.FREE_PLAN_TRAINING -> R.string.ai_privacy_free_plan_training
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        Text(
+            stringResource(text, provider.displayName),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (provider.terms.privacy == OnlinePrivacy.FREE_PLAN_TRAINING) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+        if (provider == OnlineProvider.GEMINI) {
+            Text(
+                stringResource(R.string.ai_privacy_gemini_paid_eu),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        TextButton(onClick = { uriHandler.openUri(provider.terms.privacyUrl) }) {
+            Text(stringResource(R.string.ai_privacy_commitments))
+            Spacer(modifier = Modifier.width(Spacing.s))
+            Icon(AppIcons.OpenExternal, contentDescription = null, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+private fun privacyGroupTitle(privacy: OnlinePrivacy): Int = when (privacy) {
+    OnlinePrivacy.NOT_KEPT -> R.string.ai_privacy_group_not_kept
+    OnlinePrivacy.KEPT_30_DAYS -> R.string.ai_privacy_group_kept_30_days
+    OnlinePrivacy.FREE_PLAN_TRAINING -> R.string.ai_privacy_group_free_plan_training
+}
+
+private fun accountIdLabel(idField: OnlineIdField): Int = when (idField) {
+    OnlineIdField.ACCOUNT_ID -> R.string.ai_account_id_account
+    OnlineIdField.PRODUCT_ID -> R.string.ai_account_id_product
+    OnlineIdField.WORKSPACE_ID -> R.string.ai_account_id_workspace
 }
 
 // Modello del servizio: Automatico (consigliato), gli altri dell'elenco (OnlineModelCatalog) o uno scritto a
@@ -1532,7 +1610,7 @@ private fun BenchmarkComparisonDialog(uiState: AiUiState, onDismiss: () -> Unit)
     )
 }
 
-private val previewActions = AiActions({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+private val previewActions = AiActions({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
 
 @Preview(widthDp = 360, heightDp = 640)
 @Composable

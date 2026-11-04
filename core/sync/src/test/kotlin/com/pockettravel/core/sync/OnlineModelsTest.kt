@@ -49,4 +49,29 @@ class OnlineModelsTest {
             parseOnlineModels("{$providers,${others.replace("\"b\"", "\"b c\"")}}".toByteArray())
         }
     }
+
+    @Test
+    fun `i servizi di extraProviders hanno id con barre e chiocciola, le chiavi di prima no`() {
+        val providers = """"providers":{"X":[{"id":"a","role":"auto","temperature":true,"inputUsdPerMTok":1,"outputUsdPerMTok":1}]}"""
+        val extra = """"extraProviders":{"Y":[{"id":"@cf/google/gemma","role":"auto","temperature":true,"inputUsdPerMTok":1,"outputUsdPerMTok":1}]}"""
+        val extraOthers = """"extraOtherModels":{"Y":[{"id":"accounts/fireworks/models/glm","temperature":true,"inputUsdPerMTok":1,"outputUsdPerMTok":1}]}"""
+        val list = parseOnlineModels("{$providers,$extra,$extraOthers}".toByteArray())
+        assertEquals("@cf/google/gemma", list.proposed("Y")?.single()?.id)
+        assertEquals("a", list.proposed("X")?.single()?.id)
+        assertEquals("accounts/fireworks/models/glm", list.others("Y").single().id)
+        assertEquals(emptyList<OnlineOtherModel>(), list.others("X"))
+        // Le versioni fino alla 0.14.0 rifiuterebbero il file: in providers e otherModels la regola resta quella di prima.
+        assertThrows(IllegalArgumentException::class.java) {
+            parseOnlineModels("{${providers.replace("\"a\"", "\"x/a\"")}}".toByteArray())
+        }
+        listOf("/a", "a/../b", "a//b", "a b").forEach { id ->
+            assertThrows(id, IllegalArgumentException::class.java) {
+                parseOnlineModels("{$providers,${extra.replace("@cf/google/gemma", id)}}".toByteArray())
+            }
+        }
+        // Uno stesso servizio in tutte e due le chiavi e' un errore.
+        assertThrows(IllegalArgumentException::class.java) {
+            parseOnlineModels("{$providers,${extra.replace("\"Y\"", "\"X\"")}}".toByteArray())
+        }
+    }
 }

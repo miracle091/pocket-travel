@@ -453,6 +453,7 @@ class TravelAssistant @Inject constructor(
     ): OnlineAnswer {
         val apiKey = aiSettingsStore.apiKey() ?: error("Nessuna chiave API online configurata")
         val provider = aiSettingsStore.onlineProvider()
+        val baseUrl = aiSettingsStore.onlineBaseUrl(provider) ?: error("Manca l'ID dell'account di ${provider.displayName}")
         val setting = aiSettingsStore.onlineModelSetting(provider)
         val models = if (setting.isBlank()) {
             automaticCandidates(onlineModelCatalog.autoModel(provider), onlineModelCatalog.models(provider))
@@ -464,13 +465,14 @@ class TravelAssistant @Inject constructor(
         val system = OnlinePromptTemplates.systemPrompt(context.text, language)
         return OnlineAnswer(provider, models, context.citations) { model ->
             onlineLlmClient.stream(
-                baseUrl = provider.baseUrl,
+                baseUrl = baseUrl,
                 apiKey = apiKey,
                 model = model,
                 prompt = question,
                 system = system,
                 sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
-                api = provider.api,
+                api = provider.terms.api,
+                zeroDataRetention = provider.terms.zeroDataRetention,
             )
         }
     }

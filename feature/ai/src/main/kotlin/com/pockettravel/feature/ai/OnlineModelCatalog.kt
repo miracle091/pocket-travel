@@ -49,12 +49,12 @@ class OnlineModelCatalog(
 
     /** Modelli di [provider], prima quello di Automatico. */
     fun models(provider: OnlineProvider): List<OnlineModelEntry> =
-        (_list.value.providers[provider.name] ?: bundled.providers[provider.name].orEmpty())
+        (_list.value.proposed(provider.name) ?: bundled.proposed(provider.name).orEmpty())
             .sortedByDescending { it.role == ONLINE_MODEL_ROLE_AUTO }
 
-    /** Gli altri modelli di chat di [provider] nell'elenco pubblicato (otherModels), da mostrare solo se l'account li vede. */
+    /** Gli altri modelli di chat di [provider] nell'elenco pubblicato (otherModels o extraOtherModels), da mostrare solo se l'account li vede. */
     fun otherModels(provider: OnlineProvider): List<OnlineModelEntry> =
-        _list.value.otherModels[provider.name].orEmpty().map { it.toEntry() }
+        _list.value.others(provider.name).map { it.toEntry() }
 
     /** Modello dell'opzione Automatico per [provider]. */
     fun autoModel(provider: OnlineProvider): String =

@@ -23,7 +23,7 @@ class AiAssistantStatesDeviceTest {
 
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
 
-    private val noOpActions = AiActions({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+    private val noOpActions = AiActions({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
 
     // Piccolo, per non incontrare l'avviso dei download grandi su rete mobile.
     private fun model(id: String, name: String) = LlmModelDefinition(

@@ -105,6 +105,19 @@ I modelli proposti per ogni servizio, con il costo stimato di 100 domande, vengo
 | [Mistral AI](https://console.mistral.ai/api-keys) | `mistral-small-latest` | `mistral-large-latest` |
 | [Gemini (Google)](https://aistudio.google.com/apikey) | `gemini-3.6-flash` | `gemini-4-argon` |
 | [Claude (Anthropic)](https://console.anthropic.com/settings/keys) | `claude-haiku-5-5` | `claude-sonnet-5-5` |
+| [Regolo.ai](https://dashboard.regolo.ai/) | `mistral-small-4-119b` | `qwen3.8-27b` |
+| [Scaleway](https://console.scaleway.com/iam/api-keys) | `mistral-small-3.2-24b-instruct-2506` | `mistral-medium-3.5-128b` |
+| [Inceptron](https://console.inceptron.io/dashboard/account) | `zai-org/GLM-5.3-Flash` | `zai-org/GLM-5.3` |
+| [Fireworks AI](https://app.fireworks.ai/settings/users/api-keys) | `accounts/fireworks/models/glm-5p3-flash` | `accounts/fireworks/models/glm-5p3` |
+| [DeepInfra](https://deepinfra.com/dash/api_keys) | `mistralai/Mistral-Small-3.2-24B-Instruct-2506` | `zai-org/GLM-5.3` |
+| [Groq](https://console.groq.com/keys) | `openai/gpt-oss-120b` | – |
+| [OpenRouter](https://openrouter.ai/keys) | `openai/gpt-6-luna` | `anthropic/claude-sonnet-5.5` |
+| [Z.ai (GLM)](https://z.ai/manage-apikey/apikey-list) | `glm-5.3-flash` | `glm-5.3` |
+| [Alibaba Cloud (Qwen)](https://modelstudio.console.alibabacloud.com/eu-central-1?tab=dashboard#/api-key) | `qwen3.8-flash` | `qwen3.8-max` |
+| [Cloudflare Workers AI](https://dash.cloudflare.com/?to=/:account/ai/workers-ai) | `@cf/google/gemma-4-26b-a4b-it` | `@cf/qwen/qwen3.8-27b` |
+| [Infomaniak](https://manager.infomaniak.com/v3/ng/products/cloud/ai-tools) | `mistralai/Mistral-Small-4-119B-2603` | `Qwen/Qwen3.5-397B-A17B-FP8` |
+
+Nell'app i servizi sono divisi in base a cosa fanno delle domande: **Domande non conservate**, **Domande conservate fino a 30 giorni** (per i controlli contro gli abusi) e **Addestramento nel piano gratuito** (Mistral AI). **Impegni sulla privacy** apre la pagina del servizio scelto. OpenRouter passa la domanda solo ai fornitori che non la conservano. Cloudflare, Infomaniak e Alibaba Cloud chiedono anche l'ID dell'account, del prodotto o del workspace.
 
 Per Gemini c'è anche `gemini-3.5-flash-lite` (**Più leggero**). Quando finisce la quota giornaliera di un modello (il piano gratuito di Gemini ne concede 20 al giorno per modello), **Automatico** passa la domanda a un altro modello del servizio e lo scrive sopra la risposta. Con un modello scelto, il messaggio della quota ha i pulsanti per rifare la domanda con un altro modello o con il modello sul dispositivo. `/model` nel campo della domanda elenca i modelli e ne sceglie uno (`/model automatico`, `/model dispositivo` o il nome); scrivendo `/` un menu sopra il campo propone il comando e poi i modelli. Con **Altro modello** l'app propone anche gli altri modelli di chat del servizio che l'account può usare, con il costo stimato: l'elenco si aggiorna ogni settimana dai prezzi di [LiteLLM](https://github.com/BerriAI/litellm) e [models.dev](https://models.dev).
 
@@ -133,7 +146,7 @@ Per Gemini c'è anche `gemini-3.5-flash-lite` (**Più leggero**). Quando finisce
   <sub>Percorso tra nazioni con la rete stradale mancante e Contenuti di una nazione</sub>
   <br/><br/>
   <img src="docs/images/notes.png" width="260" alt="Documenti con il selettore Documenti e Note, sulle note di viaggio" />
-  <img src="docs/images/ai.png" width="260" alt="Assistente IA online: scelta del servizio (ChatGPT, Mistral AI, Gemini, Claude) e del modello, con il costo stimato di 100 domande" />
+  <img src="docs/images/ai.png" width="260" alt="Assistente IA online: scelta del servizio, con i servizi divisi in base a cosa fanno delle domande (qui il gruppo «Domande non conservate») e il modello automatico di ognuno" />
   <br/>
   <sub>Note di viaggio e scelta del servizio per l'assistente IA online</sub>
 </div>

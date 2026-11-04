@@ -26,15 +26,18 @@ class OnlineModelAvailability @Inject constructor(
     private val json: Json,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
-    /** [baseUrl]: diverso da quello del servizio solo nei test. */
-    suspend fun availableModels(provider: OnlineProvider, apiKey: String, baseUrl: String = provider.baseUrl): Set<String> = withContext(ioDispatcher) {
+    /**
+     * [baseUrl]: l'indirizzo del servizio, con l'ID dell'account se serve (AiSettingsStore.onlineBaseUrl). Un servizio
+     * senza `GET /models` ([OnlineTerms.hasModelList]) lancia un'eccezione senza richiesta: si mostrano tutti i modelli.
+     */
+    suspend fun availableModels(provider: OnlineProvider, apiKey: String, baseUrl: String): Set<String> = withContext(ioDispatcher) {
+        if (!provider.terms.hasModelList) throw IOException("${provider.displayName} non ha l'elenco dei modelli")
         val url = "${baseUrl.trimEnd('/')}/models"
-        val request = when (provider) {
+        val request = when (provider.terms.api) {
             // 20 modelli per pagina se non si chiede altro.
-            OnlineProvider.CLAUDE -> Request.Builder().url("$url?limit=1000")
+            OnlineApi.ANTHROPIC_MESSAGES -> Request.Builder().url("$url?limit=1000")
                 .header("x-api-key", apiKey).header("anthropic-version", ANTHROPIC_VERSION)
-            OnlineProvider.CHATGPT, OnlineProvider.MISTRAL, OnlineProvider.GEMINI -> Request.Builder().url(url)
-                .header("Authorization", "Bearer $apiKey")
+            OnlineApi.CHAT_COMPLETIONS -> Request.Builder().url(url).header("Authorization", "Bearer $apiKey")
         }.build()
         // Senza redirect: OkHttp toglie Authorization verso un altro host, non x-api-key. Un 3xx vale come errore.
         okHttpClient.newBuilder().followRedirects(false).followSslRedirects(false).build()

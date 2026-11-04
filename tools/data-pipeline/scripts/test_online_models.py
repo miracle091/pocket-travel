@@ -77,6 +77,69 @@ class OtherModelsTest(unittest.TestCase):
         modelsdev = {"google": {"models": {"gemini-y": dev()}}}
         self.assertEqual({}, other_models(CURATED, {"gemini-y": lite("vertex_ai-language-models")}, modelsdev)[0])
 
+    def test_senza_litellm_basta_models_dev_con_gli_stessi_filtri(self):
+        modelsdev = {"regolo-ai": {"models": {"qwen3.5-122b": dev(), "qwen-image": dev(), "vecchio": dev(status="deprecated"),
+                                              "gpt-5-2026-01-01": dev(), "gpt-5": dev()}}}
+        others, warnings = other_models(CURATED, {}, modelsdev)
+        self.assertEqual(["gpt-5", "qwen3.5-122b"], [m["id"] for m in others["REGOLO"]])
+        self.assertEqual([], warnings)
+
+    def test_scaleway_chiave_con_il_vendor_e_prezzi_senza_avviso(self):
+        modelsdev = {"scaleway": {"models": {"glm-5.2": dev(cost=(2.24, 6.73)), "qwen3-embedding-8b": dev(),
+                                             "mistral-small-3.2": dev(), "solo-md": dev()}}}
+        litellm = {"scaleway/mistralai/mistral-small-3.2": lite("scaleway", cost=(2, 6)),
+                   "scaleway/glm-5.2": lite("scaleway", cost=(2, 6)),
+                   "scaleway/qwen/qwen3-embedding-8b": lite("scaleway", mode="embedding"),
+                   "mistralai/solo-md": lite("scaleway")}
+        others, warnings = other_models(CURATED, litellm, modelsdev)
+        self.assertEqual(["glm-5.2", "mistral-small-3.2"], [m["id"] for m in others["SCALEWAY"]])
+        self.assertEqual(2.24, others["SCALEWAY"][0]["inputUsdPerMTok"])
+        self.assertEqual([], warnings)
+
+    def test_id_con_barre_e_chiocciola(self):
+        fw = "accounts/fireworks/models/kimi-k3"
+        modelsdev = {"fireworks-ai": {"models": {fw: dev(), "accounts/fireworks/routers/x": dev()}},
+                     "cloudflare-workers-ai": {"models": {"@cf/meta/llama-3.2-3b-instruct": dev(), "@cf/meta/b-tts": dev()}},
+                     "zai": {"models": {"zai-org/GLM-5.3": dev()}}}
+        litellm = {"fireworks_ai/" + fw: lite("fireworks_ai"),
+                   "cloudflare/@cf/meta/llama-3.2-3b-instruct": lite("cloudflare"),
+                   "cloudflare/@cf/meta/b-tts": lite("cloudflare"),
+                   "zai/zai-org/GLM-5.3": lite("zai")}
+        others, _ = other_models(CURATED, litellm, modelsdev)
+        self.assertEqual([fw], [m["id"] for m in others["FIREWORKS"]])
+        self.assertEqual(["@cf/meta/llama-3.2-3b-instruct"], [m["id"] for m in others["CLOUDFLARE"]])
+        self.assertEqual(["zai-org/GLM-5.3"], [m["id"] for m in others["ZAI"]])
+
+    def test_embedding_reranker_e_guardie_senza_litellm_scartati(self):
+        names = ["bge_multilingual_gemma2", "mini_lm_l12_v2", "qwen3-reranker-4b", "llama-prompt-guard-2-22m", "chat-1"]
+        others, _ = other_models(CURATED, {}, {"infomaniak": {"models": {n: dev() for n in names}}})
+        self.assertEqual(["chat-1"], [m["id"] for m in others["INFOMANIAK"]])
+
+    def test_servizi_di_prima_con_la_regola_vecchia_sugli_id(self):
+        modelsdev = {"openai": {"models": {"gpt-a": dev(), "ft/gpt-b": dev(), "@x": dev()}}}
+        litellm = {n: lite("openai") for n in modelsdev["openai"]["models"]}
+        self.assertEqual(["gpt-a"], [m["id"] for m in other_models(CURATED, litellm, modelsdev)[0]["CHATGPT"]])
+
+    def test_proposti_in_extra_providers_esclusi(self):
+        curated = {**CURATED, "extraProviders": {"GROQ": [{"id": "g1"}]}}
+        modelsdev = {"groq": {"models": {"g1": dev(), "g2": dev()}}}
+        litellm = {"groq/g1": lite("groq"), "groq/g2": lite("groq")}
+        self.assertEqual(["g2"], [m["id"] for m in other_models(curated, litellm, modelsdev)[0]["GROQ"]])
+
+    def test_id_pericolosi_scartati(self):
+        names = ["~openai/gpt-latest", "a/../b", "a//b", "a b", "a?x=1", "a\b", "/abs", "ok/model"]
+        modelsdev = {"openrouter": {"models": {n: dev() for n in names}}}
+        others, _ = other_models(CURATED, {}, modelsdev)
+        self.assertEqual(["ok/model"], [m["id"] for m in others["OPENROUTER"]])
+
+    def test_openrouter_limitato_ai_piu_recenti(self):
+        modelsdev = {"openrouter": {"models": {f"v/m{i:03d}": dev(release_date=f"2026-01-{i % 28 + 1:02d}") for i in range(100)}}}
+        modelsdev["openrouter"]["models"]["v/nuovo"] = dev(release_date="2026-11-01")
+        ids = [m["id"] for m in other_models(CURATED, {}, modelsdev)[0]["OPENROUTER"]]
+        self.assertEqual(40, len(ids))
+        self.assertIn("v/nuovo", ids)
+        self.assertEqual(sorted(ids), ids)
+
 
 class MainTest(unittest.TestCase):
     def run_script(self, litellm, modelsdev):
@@ -91,11 +154,14 @@ class MainTest(unittest.TestCase):
                                     capture_output=True, text=True, encoding="utf-8")
             return result, json.loads(out.read_text(encoding="utf-8")) if out.exists() else None
 
-    def test_scrive_l_elenco_con_other_models(self):
-        result, written = self.run_script({"mistral/m": lite("mistral")}, {"mistral": {"models": {"m": dev()}}})
+    def test_scrive_l_elenco_con_other_models_ed_extra(self):
+        result, written = self.run_script({"mistral/m": lite("mistral")},
+                                          {"mistral": {"models": {"m": dev()}}, "openrouter": {"models": {"a/b": dev()}}})
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertEqual(CURATED["providers"], written["providers"])
         self.assertEqual(["m"], [m["id"] for m in written["otherModels"]["MISTRAL"]])
+        self.assertEqual(["OPENROUTER"], list(written["extraOtherModels"]))
+        self.assertNotIn("OPENROUTER", written["otherModels"])
 
     def test_nessun_modello_e_un_errore(self):
         result, written = self.run_script({}, {})

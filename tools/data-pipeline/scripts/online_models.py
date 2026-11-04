@@ -2,15 +2,32 @@
 """Aggiunge a online-models.json gli altri modelli di chat di ogni servizio, con i prezzi, per l'elenco firmato.
 
 L'elenco scritto a mano (feature/ai/src/main/assets/online-models.json) propone uno o due modelli per servizio;
-questo script ci aggiunge `otherModels`: gli altri modelli di chat dei quattro servizi, presi da due elenchi
-pubblici, LiteLLM (model_prices_and_context_window.json, MIT) e models.dev (api.json, MIT). Nessun servizio ha
-un'API dei prezzi. L'app mostra un modello di `otherModels` solo se compare anche in `/models` dell'account.
+questo script ci aggiunge `otherModels`: gli altri modelli di chat dei servizi, presi da due elenchi pubblici,
+LiteLLM (model_prices_and_context_window.json, MIT) e models.dev (api.json, MIT). Nessun servizio ha un'API dei
+prezzi. L'app mostra un modello di `otherModels` solo se compare anche in `/models` dell'account.
 
 Un modello entra solo se e' in tutti e due gli elenchi, come modello di chat che legge e scrive testo, non
 ritirato e fuori dalle famiglie escluse (voce, immagini, ricerca, agenti, codice). Una versione con la data
 (`gpt-4o-2024-08-06`, `claude-haiku-4-5-20251001`) si salta se c'e' anche il nome senza data. Prezzi e
 temperatura vengono da models.dev, che li tiene per servizio; LiteLLM conferma che il modello esiste ed e' di
 chat, e un prezzo diverso tra le due fonti si stampa come avviso (LiteLLM ha errori noti, come mistral-large-4).
+
+Eccezioni, per i servizi che LiteLLM non ha o descrive male:
+- senza LiteLLM (REGOLO, INCEPTRON, OPENROUTER, INFOMANIAK) basta models.dev, con gli stessi filtri: e' l'unica
+  fonte che c'e', e l'app ricontrolla comunque ogni modello con `/models` dell'account;
+- Scaleway ha in LiteLLM la chiave `scaleway/<vendor>/<id>`, mentre l'API e models.dev usano `<id>`: si cerca
+  per `<id>`. I suoi prezzi sono in euro (LiteLLM li scrive come dollari, models.dev li converte) e quelli di
+  Alibaba sono di Singapore: per questi due il confronto dei prezzi non si fa, vale models.dev;
+- Fireworks, Cloudflare e OpenRouter hanno id con barre (`accounts/fireworks/models/<id>`, `@cf/<vendor>/<id>`,
+  `<vendor>/<id>`): la chiave di LiteLLM e' il prefisso piu' l'id intero. Gli alias di OpenRouter che iniziano
+  con `~` (`~openai/gpt-...-latest`) si saltano;
+- OpenRouter elenca centinaia di modelli: ne escono i 40 piu' recenti per data di uscita, per tenere piccolo il
+  file che l'app scarica.
+
+Le chiavi sono separate: le versioni dell'app fino alla 0.14.0 rifiutano tutto il file se un id ha `/` o `@`, e
+ignorano le chiavi sconosciute. I quattro servizi di prima restano in `providers` e `otherModels`, con gli id
+di prima (`[A-Za-z0-9._:-]+`); gli altri stanno in `extraProviders` (scritta a mano, copiata cosi' com'e') e
+`extraOtherModels`, con la regola sugli id piu' larga.
 
 Uso: python online_models.py <online-models.json> <litellm.json> <models.dev api.json> <uscita>
 """
@@ -19,22 +36,39 @@ import re
 import sys
 
 # Servizio dell'app -> (litellm_provider e prefisso della chiave in LiteLLM, servizio in models.dev).
+# Senza litellm_provider (None) il servizio non e' in LiteLLM o non ha voci utili: basta models.dev.
 PROVIDERS = {
     "CHATGPT": ("openai", "", "openai"),
     "MISTRAL": ("mistral", "mistral/", "mistral"),
     "GEMINI": ("gemini", "gemini/", "google"),
     "CLAUDE": ("anthropic", "", "anthropic"),
+    "REGOLO": (None, "", "regolo-ai"),
+    "SCALEWAY": ("scaleway", "scaleway/", "scaleway"),
+    "INCEPTRON": (None, "", "inceptron"),
+    "FIREWORKS": ("fireworks_ai", "fireworks_ai/", "fireworks-ai"),
+    "DEEPINFRA": ("deepinfra", "deepinfra/", "deepinfra"),
+    "GROQ": ("groq", "groq/", "groq"),
+    "OPENROUTER": (None, "", "openrouter"),
+    "ZAI": ("zai", "zai/", "zai"),
+    "ALIBABA": ("dashscope", "dashscope/", "alibaba"),
+    "CLOUDFLARE": ("cloudflare", "cloudflare/", "cloudflare-workers-ai"),
+    "INFOMANIAK": (None, "", "infomaniak"),
 }
+LEGACY_PROVIDERS = ("CHATGPT", "MISTRAL", "GEMINI", "CLAUDE")  # i soli letti dalle versioni fino alla 0.14.0
+VENDOR_IN_KEY = {"SCALEWAY"}  # la chiave di LiteLLM ha `<vendor>/` prima dell'id
+SAME_PRICE_NOT_EXPECTED = {"SCALEWAY", "ALIBABA"}  # euro e Singapore: niente avviso sui prezzi
+MAX_OTHER = {"OPENROUTER": 40}  # i piu' recenti per data di uscita
 
 # Famiglie che non rispondono a una domanda con del testo, o non dall'endpoint di chat. LiteLLM segna alcuni di
 # questi come "chat" (lyria, tts), quindi il filtro per nome serve anche dove la modalita' dice chat.
 EXCLUDED = re.compile(
     r"tts|audio|realtime|transcri|speech|image|imagen|veo|lyria|embed|moderation|search|deep-research|"
-    r"computer-use|codex|codestral|voxtral|customtools|ocr|robotics|live",
+    r"computer-use|codex|codestral|voxtral|customtools|ocr|robotics|live|bge|mini_lm|rerank|guard|complexity",
     re.IGNORECASE,
 )
 
-MODEL_ID = re.compile(r"\A[A-Za-z0-9._:-]+\Z")
+# Lettere, cifre e `. _ : - / @` (`@cf/meta/...`, `accounts/fireworks/models/...`); mai `..`, `//`, spazi, `~`.
+MODEL_ID = re.compile(r"\A[A-Za-z0-9@][A-Za-z0-9._:/@-]*\Z")
 DATED = re.compile(r"\A(.+)-(\d{8}|\d{4}-\d{2}-\d{2})\Z")
 PER_MTOK = 1_000_000
 
@@ -66,29 +100,55 @@ def modelsdev_model(entry):
     return inp, out, bool(entry.get("temperature", True))
 
 
+LEGACY_MODEL_ID = re.compile(r"\A[A-Za-z0-9._:-]+\Z")
+
+
+def is_safe_id(model_id, provider=None):
+    if provider in LEGACY_PROVIDERS:
+        return bool(LEGACY_MODEL_ID.match(model_id))
+    return bool(MODEL_ID.match(model_id)) and ".." not in model_id and "//" not in model_id
+
+
+def litellm_index(litellm, provider, litellm_provider, prefix):
+    """Voci di LiteLLM di un servizio per id dell'API (senza `<vendor>/` per Scaleway)."""
+    index = {}
+    for key, entry in litellm.items():
+        if not (isinstance(entry, dict) and key.startswith(prefix) and entry.get("litellm_provider") == litellm_provider):
+            continue
+        rest = key[len(prefix):]
+        index[rest.split("/", 1)[-1] if provider in VENDOR_IN_KEY else rest] = entry
+    return index
+
+
 def other_models(curated, litellm, modelsdev):
     """otherModels per servizio e avvisi sui prezzi diversi tra le due fonti."""
     result, warnings = {}, []
     for provider, (litellm_provider, prefix, modelsdev_provider) in PROVIDERS.items():
-        proposed = {m["id"] for m in curated["providers"].get(provider, [])}
-        listed_ids = set((modelsdev.get(modelsdev_provider) or {}).get("models", {}))
-        models = []
-        for model_id, entry in sorted((modelsdev.get(modelsdev_provider) or {}).get("models", {}).items()):
-            if model_id in proposed or not MODEL_ID.match(model_id) or EXCLUDED.search(model_id):
+        proposed = {m["id"] for key in ("providers", "extraProviders") for m in curated.get(key, {}).get(provider, [])}
+        listed = (modelsdev.get(modelsdev_provider) or {}).get("models", {})
+        index = litellm_index(litellm, provider, litellm_provider, prefix) if litellm_provider else None
+        models, released = [], {}
+        for model_id, entry in sorted(listed.items()):
+            if model_id in proposed or not is_safe_id(model_id, provider) or EXCLUDED.search(model_id):
                 continue
             dated = DATED.match(model_id)
-            if dated and (dated.group(1) in listed_ids or dated.group(1) in proposed):
+            if dated and (dated.group(1) in listed or dated.group(1) in proposed):
                 continue
-            listed = litellm.get(prefix + model_id)
-            if not isinstance(listed, dict) or listed.get("litellm_provider") != litellm_provider:
+            first = modelsdev_model(entry)
+            if first is None:
                 continue
-            first, second = modelsdev_model(entry), litellm_prices(listed)
-            if first is None or second is None:
-                continue
-            inp, out = first[0], first[1]
-            if (inp, out) != second:
-                warnings.append(f"{provider} {model_id}: models.dev {first[0]}/{first[1]}, LiteLLM {second[0]}/{second[1]}")
-            models.append({"id": model_id, "temperature": first[2], "inputUsdPerMTok": inp, "outputUsdPerMTok": out})
+            if index is not None:
+                second = litellm_prices(index.get(model_id))
+                if second is None:
+                    continue
+                if (first[0], first[1]) != second and provider not in SAME_PRICE_NOT_EXPECTED:
+                    warnings.append(f"{provider} {model_id}: models.dev {first[0]}/{first[1]}, LiteLLM {second[0]}/{second[1]}")
+            released[model_id] = str(entry.get("release_date") or "")
+            models.append({"id": model_id, "temperature": first[2], "inputUsdPerMTok": first[0], "outputUsdPerMTok": first[1]})
+        limit = MAX_OTHER.get(provider)
+        if limit and len(models) > limit:
+            newest = sorted(models, key=lambda m: (released[m["id"]], m["id"]), reverse=True)[:limit]
+            models = sorted(newest, key=lambda m: m["id"])
         if models:
             result[provider] = models
     return result, warnings
@@ -99,14 +159,16 @@ def main(argv):
         sys.exit(__doc__)
     paths = argv[1:4]
     curated, litellm, modelsdev = (json.load(open(p, encoding="utf-8")) for p in paths)
-    others, warnings = other_models(curated, litellm, modelsdev)
+    both, warnings = other_models(curated, litellm, modelsdev)
+    others = {p: m for p, m in both.items() if p in LEGACY_PROVIDERS}
+    extra = {p: m for p, m in both.items() if p not in LEGACY_PROVIDERS}
     for warning in warnings:
         print(f"prezzi diversi, vale models.dev: {warning}")
-    print(", ".join(f"{p}: {len(m)}" for p, m in others.items()) or "nessun altro modello")
-    if not others:
+    print(", ".join(f"{p}: {len(m)}" for p, m in both.items()) or "nessun altro modello")
+    if not both:
         sys.exit("nessun altro modello trovato: le fonti sono cambiate?")
     with open(argv[4], "w", encoding="utf-8") as f:
-        json.dump({**curated, "otherModels": others}, f, ensure_ascii=False, indent=1)
+        json.dump({**curated, "otherModels": others, "extraOtherModels": extra}, f, ensure_ascii=False, indent=1)
         f.write("\n")
 
 

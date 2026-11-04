@@ -69,6 +69,22 @@ class OnlineErrorKindTest {
     }
 
     @Test
+    fun `credit bodies of the services added with 0_15_0 are credit exhausted`() {
+        val credit = listOf(
+            429 to """{"error":{"code":"1113","message":"Insufficient balance or no resource package. Please recharge."}}""",
+            400 to """{"error":{"message":"Organization has been restricted","type":"invalid_request_error","code":"blocked_api_access"}}""",
+            403 to """{"code":"Arrearage","message":"Access denied, please make sure your account is in good standing."}""",
+            403 to """{"code":"AllocationQuota.FreeTierOnly","message":"The free tier of the model has been exhausted."}""",
+            400 to """{"error":{"message":"Budget has been exceeded","type":"budget_exceeded"}}""",
+            429 to """{"success":false,"errors":[{"code":3036,"message":"You have used up your daily free allocation of 10,000 neurons"}]}""",
+        )
+        credit.forEach { (code, body) -> assertEquals("$code $body", OnlineErrorKind.CREDIT, onlineErrorKind(code, body)) }
+        // Il sovraccarico di Z.ai (1305) e il limite di Cloudflare (3040) restano temporanei.
+        assertEquals(OnlineErrorKind.TEMPORARY, onlineErrorKind(429, """{"error":{"code":"1305","message":"The service may be temporarily overloaded"}}"""))
+        assertEquals(OnlineErrorKind.TEMPORARY, onlineErrorKind(429, """{"success":false,"errors":[{"code":3040,"message":"Capacity temporarily exceeded"}]}"""))
+    }
+
+    @Test
     fun `the daily quota of a Gemini model is its own error, the per-minute limit is not`() {
         val perDay = """{"error":{"status":"RESOURCE_EXHAUSTED","details":[{"violations":[{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier","quotaValue":"20"}]}]}}"""
         val perMinute = """{"error":{"status":"RESOURCE_EXHAUSTED","details":[{"violations":[{"quotaId":"GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]}]}}"""

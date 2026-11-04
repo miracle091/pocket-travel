@@ -126,6 +126,9 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Bolla della conversazione scritta dall'app, non dal modello (quota, cambio di modello, /model) | messaggio dell'app | app message |
 | Menu sopra il campo della domanda che compare scrivendo "/" | menu dei comandi | command menu |
 | Modelli di chat di un servizio fuori dai proposti, che l'account può usare | altri modelli del servizio | other models of the service |
+| Gruppi dei servizi del motore Online, per uso delle domande | Domande non conservate; Domande conservate fino a 30 giorni; Addestramento nel piano gratuito | Questions not kept; Questions kept up to 30 days; Training on the free plan |
+| Pagina del servizio su conservazione e uso delle domande | Impegni sulla privacy | Privacy commitments |
+| Codice dell'account che alcuni servizi vogliono nell'indirizzo (Cloudflare, Infomaniak, Alibaba) | ID dell'account; ID del prodotto; ID del workspace (il nome usato dal servizio) | Account ID; Product ID; Workspace ID |
 | Dati EXIF della foto (data, luogo, modello del telefono), tolti prima dell'invio | dati della foto (mai "EXIF" nell'interfaccia) | photo details |
 | Evento reale in corso (terremoto, alluvione, allerta meteo...) letto dalle fonti online | allerta, allerte (mai "avviso", "allarme" o "notifica") | alert, alerts |
 | Riquadro della guida con le allerte della regione | Allerte in corso | Active alerts |

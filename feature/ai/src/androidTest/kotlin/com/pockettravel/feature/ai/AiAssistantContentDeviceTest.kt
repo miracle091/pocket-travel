@@ -35,7 +35,7 @@ class AiAssistantContentDeviceTest {
 
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
 
-    private val noOpActions = AiActions({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+    private val noOpActions = AiActions({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
 
     private val model = LlmModelDefinition(
         id = "test-model",

@@ -88,6 +88,17 @@ class AiSettingsStore(
         prefs.edit { putString(KEY_MODEL_PREFIX + provider.name, setting) }
     }
 
+    /** ID dell'account di [provider] per l'indirizzo ([OnlineTerms.idField]); "" se non e' mai stato scritto. Non e' segreto. */
+    fun accountId(provider: OnlineProvider = onlineProvider()): String =
+        prefs.getString(KEY_ACCOUNT_ID_PREFIX + provider.name, null).orEmpty()
+
+    fun setAccountId(provider: OnlineProvider, id: String) {
+        prefs.edit { putString(KEY_ACCOUNT_ID_PREFIX + provider.name, id.trim()) }
+    }
+
+    /** Indirizzo di [provider] con l'ID salvato; null se il servizio vuole un ID e manca. */
+    fun onlineBaseUrl(provider: OnlineProvider = onlineProvider()): String? = provider.baseUrlFor(accountId(provider))
+
     /** Consenso a mandare ai servizi online nota personale, dati dalla posizione (POI vicini, mezzi pubblici, previsioni), partenza e nazionalita': spento di default. */
     fun sharesPersonalData(): Boolean = prefs.getBoolean(KEY_SHARE_NOTE_POSITION, false)
 
@@ -171,6 +182,7 @@ class AiSettingsStore(
         const val KEY_MODE = "engine_mode"
         const val KEY_PROVIDER = "online_provider"
         const val KEY_MODEL_PREFIX = "online_model_"
+        const val KEY_ACCOUNT_ID_PREFIX = "online_account_id_"
         const val KEY_SHARE_NOTE_POSITION = "online_share_personal_data"
         const val KEY_NETWORK_VOICES = "read_aloud_network_voices"
         const val API_KEY_ALIAS = "pocket_travel_ai_api_key_v2"

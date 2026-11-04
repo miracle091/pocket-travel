@@ -40,7 +40,7 @@ class OnlineModelCatalogTest {
     @Test
     fun `l'elenco dell'APK ha un modello automatico per ogni servizio`() {
         val list = bundledOnlineModels()
-        OnlineProvider.entries.forEach { provider -> assertTrue(provider.name, list.providers[provider.name].orEmpty().isNotEmpty()) }
+        OnlineProvider.entries.forEach { provider -> assertTrue(provider.name, list.proposed(provider.name).orEmpty().isNotEmpty()) }
     }
 
     @Test

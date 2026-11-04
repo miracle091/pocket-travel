@@ -65,6 +65,16 @@ class OnlineModelAvailabilityTest {
         }
     }
 
+    @Test
+    fun `Cloudflare non ha l'elenco dei modelli e non riceve nessuna richiesta`() = runTest {
+        MockWebServer().use { server ->
+            val availability = OnlineModelAvailability(OkHttpClient(), Json, StandardTestDispatcher(testScheduler))
+            val error = runCatching { availability.availableModels(OnlineProvider.CLOUDFLARE, "k", server.url("/v1").toString()) }
+            assertEquals(java.io.IOException::class, error.exceptionOrNull()?.let { it::class })
+            assertEquals(0, server.requestCount)
+        }
+    }
+
     @Test(expected = java.io.IOException::class)
     fun `una risposta di errore e' un'eccezione, non un elenco vuoto`() = runTest {
         MockWebServer().use { server ->

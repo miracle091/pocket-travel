@@ -12,7 +12,13 @@ data class OpenAiChatRequest(
     val temperature: Double? = null,
     // L'app chiede sempre la risposta in streaming (OnlineLlmClient.stream).
     val stream: Boolean = false,
+    // Solo per OpenRouter: la domanda va soltanto ai fornitori che non la conservano.
+    val provider: OpenRouterRouting? = null,
 )
+
+/** Filtro di instradamento di OpenRouter: `zdr` = solo fornitori senza conservazione dei dati. */
+@Serializable
+data class OpenRouterRouting(val zdr: Boolean)
 
 @Serializable
 data class OpenAiChatMessage(

@@ -13,12 +13,23 @@ import kotlinx.serialization.json.Json
  * [otherModels]: gli altri modelli di chat di ogni servizio, aggiunti dal workflow prima della firma
  * (tools/data-pipeline/scripts/online_models.py); assente nell'elenco dell'APK. Chiave separata da [providers]
  * perche' le versioni precedenti dell'app la ignorano, mentre un ruolo nuovo in [providers] farebbe rifiutare il file.
+ * [extraProviders] e [extraOtherModels]: come [providers] e [otherModels], per i servizi aggiunti con la 0.15.0, i cui id
+ * possono avere `/` e `@` (`accounts/fireworks/models/...`, `@cf/...`). Le versioni fino alla 0.14.0 rifiutano tutto il
+ * file per un id cosi' in [providers] o [otherModels], e ignorano le chiavi che non conoscono.
  */
 @Serializable
 data class OnlineModelList(
     val providers: Map<String, List<OnlineModelEntry>>,
     val otherModels: Map<String, List<OnlineOtherModel>> = emptyMap(),
-)
+    val extraProviders: Map<String, List<OnlineModelEntry>> = emptyMap(),
+    val extraOtherModels: Map<String, List<OnlineOtherModel>> = emptyMap(),
+) {
+    /** Modelli proposti del servizio [name], da [providers] o da [extraProviders]; null se non c'e'. */
+    fun proposed(name: String): List<OnlineModelEntry>? = providers[name] ?: extraProviders[name]
+
+    /** Altri modelli del servizio [name], da [otherModels] o da [extraOtherModels]. */
+    fun others(name: String): List<OnlineOtherModel> = otherModels[name] ?: extraOtherModels[name].orEmpty()
+}
 
 /**
  * [role]: "auto" per il modello dell'opzione Automatico (uno per servizio), "capable" per gli altri proposti.
@@ -56,18 +67,25 @@ fun parseOnlineModels(bytes: ByteArray): OnlineModelList =
 
 fun OnlineModelList.validate() {
     require(providers.isNotEmpty()) { "nessun servizio" }
-    providers.forEach { (provider, models) ->
-        require(models.count { it.role == ONLINE_MODEL_ROLE_AUTO } == 1) { "$provider: serve un solo modello auto" }
-        require(models.map { it.id }.toSet().size == models.size) { "$provider: modelli ripetuti" }
-        models.forEach { it.validate() }
+    require(providers.keys.none { it in extraProviders }) { "servizio sia in providers sia in extraProviders" }
+    listOf(providers to MODEL_ID, extraProviders to EXTRA_MODEL_ID).forEach { (services, idRule) ->
+        services.forEach { (provider, models) ->
+            require(models.count { it.role == ONLINE_MODEL_ROLE_AUTO } == 1) { "$provider: serve un solo modello auto" }
+            require(models.map { it.id }.toSet().size == models.size) { "$provider: modelli ripetuti" }
+            models.forEach { it.validate(idRule) }
+        }
     }
-    otherModels.values.flatten().forEach { it.toEntry().validate() }
+    otherModels.values.flatten().forEach { it.toEntry().validate(MODEL_ID) }
+    extraOtherModels.values.flatten().forEach { it.toEntry().validate(EXTRA_MODEL_ID) }
 }
 
-fun OnlineModelEntry.validate() {
-    require(id.matches(MODEL_ID)) { "id non valido: $id" }
+fun OnlineModelEntry.validate(idRule: Regex = MODEL_ID) {
+    require(id.matches(idRule) && ".." !in id && "//" !in id) { "id non valido: $id" }
     require(role == ONLINE_MODEL_ROLE_AUTO || role == ONLINE_MODEL_ROLE_CAPABLE) { "$id: ruolo non valido" }
     require(inputUsdPerMTok >= 0 && outputUsdPerMTok >= 0) { "$id: prezzo non valido" }
 }
 
 private val MODEL_ID = Regex("[A-Za-z0-9._:-]+")
+
+// Per i servizi di extraProviders: anche `/` e `@`, mai all'inizio la barra, mai `..` o `//` (controllati in validate).
+private val EXTRA_MODEL_ID = Regex("[A-Za-z0-9@][A-Za-z0-9._:/@-]*")

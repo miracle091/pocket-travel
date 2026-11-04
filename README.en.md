@@ -104,6 +104,19 @@ The models offered for each service, with the estimated cost of 100 questions, c
 | [Mistral AI](https://console.mistral.ai/api-keys) | `mistral-small-latest` | `mistral-large-latest` |
 | [Gemini (Google)](https://aistudio.google.com/apikey) | `gemini-3.6-flash` | `gemini-4-argon` |
 | [Claude (Anthropic)](https://console.anthropic.com/settings/keys) | `claude-haiku-5-5` | `claude-sonnet-5-5` |
+| [Regolo.ai](https://dashboard.regolo.ai/) | `mistral-small-4-119b` | `qwen3.8-27b` |
+| [Scaleway](https://console.scaleway.com/iam/api-keys) | `mistral-small-3.2-24b-instruct-2506` | `mistral-medium-3.5-128b` |
+| [Inceptron](https://console.inceptron.io/dashboard/account) | `zai-org/GLM-5.3-Flash` | `zai-org/GLM-5.3` |
+| [Fireworks AI](https://app.fireworks.ai/settings/users/api-keys) | `accounts/fireworks/models/glm-5p3-flash` | `accounts/fireworks/models/glm-5p3` |
+| [DeepInfra](https://deepinfra.com/dash/api_keys) | `mistralai/Mistral-Small-3.2-24B-Instruct-2506` | `zai-org/GLM-5.3` |
+| [Groq](https://console.groq.com/keys) | `openai/gpt-oss-120b` | – |
+| [OpenRouter](https://openrouter.ai/keys) | `openai/gpt-6-luna` | `anthropic/claude-sonnet-5.5` |
+| [Z.ai (GLM)](https://z.ai/manage-apikey/apikey-list) | `glm-5.3-flash` | `glm-5.3` |
+| [Alibaba Cloud (Qwen)](https://modelstudio.console.alibabacloud.com/eu-central-1?tab=dashboard#/api-key) | `qwen3.8-flash` | `qwen3.8-max` |
+| [Cloudflare Workers AI](https://dash.cloudflare.com/?to=/:account/ai/workers-ai) | `@cf/google/gemma-4-26b-a4b-it` | `@cf/qwen/qwen3.8-27b` |
+| [Infomaniak](https://manager.infomaniak.com/v3/ng/products/cloud/ai-tools) | `mistralai/Mistral-Small-4-119B-2603` | `Qwen/Qwen3.5-397B-A17B-FP8` |
+
+In the app the services are grouped by what they do with the questions: **Questions not kept**, **Questions kept up to 30 days** (for abuse checks) and **Training on the free plan** (Mistral AI). **Privacy commitments** opens the chosen service's page. OpenRouter sends the question only to providers that don't keep it. Cloudflare, Infomaniak and Alibaba Cloud also ask for the account, product or workspace ID.
 
 Gemini also offers `gemini-3.5-flash-lite` (**Lighter**). When a model's daily quota runs out (the Gemini free plan allows 20 requests a day per model), **Automatic** sends the question to another model of the service and says so above the answer. With a chosen model, the quota message has buttons to ask the question again with another model or with the on-device model. `/model` in the question field lists the models and picks one (`/model automatic`, `/model device` or the name); typing `/` opens a menu above the field with the command, then the models. With **Other model** the app also suggests the service's other chat models that the account can use, with the estimated cost: the list is updated every week from the prices of [LiteLLM](https://github.com/BerriAI/litellm) and [models.dev](https://models.dev).
 
@@ -132,7 +145,7 @@ Gemini also offers `gemini-3.5-flash-lite` (**Lighter**). When a model's daily q
   <sub>A route across countries with missing road networks, and a country's content</sub>
   <br/><br/>
   <img src="docs/images/notes.png" width="260" alt="Documents with the Documents and Notes selector, on the travel notes" />
-  <img src="docs/images/ai.png" width="260" alt="Online AI assistant: choice of service (ChatGPT, Mistral AI, Gemini, Claude) and model, with the estimated cost of 100 questions" />
+  <img src="docs/images/ai.png" width="260" alt="Online AI assistant: choice of service, with the services grouped by what they do with the questions (here the group “Questions not kept”) and the automatic model of each" />
   <br/>
   <sub>Travel notes and the service choice for the online AI assistant</sub>
 </div>

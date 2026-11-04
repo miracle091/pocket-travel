@@ -51,9 +51,10 @@ internal class OnlineModelOptions(
     fun checkAvailability() {
         val provider = settings.onlineProvider()
         val apiKey = settings.apiKey()?.takeIf { it.isNotBlank() } ?: return
+        val baseUrl = settings.onlineBaseUrl(provider) ?: return
         scope.launch {
             val models = try {
-                availability.availableModels(provider, apiKey)
+                availability.availableModels(provider, apiKey, baseUrl)
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {

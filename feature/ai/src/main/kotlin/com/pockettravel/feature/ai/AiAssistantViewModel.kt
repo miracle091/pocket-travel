@@ -65,6 +65,8 @@ data class AiUiState(
     // Gli altri modelli di chat del servizio corrente che la chiave salvata vede, proposti con "Altro modello".
     val onlineOtherModels: List<OnlineModelEntry> = emptyList(),
     val apiKeyInput: String = "",
+    // ID dell'account per i servizi che lo vogliono nell'indirizzo (OnlineTerms.idField), salvato con la chiave.
+    val accountIdInput: String = "",
     // Consenso a mandare ai servizi online i dati personali (AiSettingsStore.sharesPersonalData).
     val sharesPersonalData: Boolean = false,
     val benchmarkResult: BenchmarkResult? = null,
@@ -191,6 +193,7 @@ class AiAssistantViewModel @Inject constructor(
             downloadedModelIds = modelManager.downloadedModelIds.value,
             isApiKeyConfigured = aiSettingsStore.hasApiKey(),
             onlineProvider = aiSettingsStore.onlineProvider(),
+            accountIdInput = aiSettingsStore.accountId(aiSettingsStore.onlineProvider()),
             onlineModelSetting = aiSettingsStore.onlineModelSetting(),
             sharesPersonalData = aiSettingsStore.sharesPersonalData(),
             benchmarkResult = aiSettingsStore.benchmarkResult(aiSettingsStore.selectedModelId()),
@@ -327,9 +330,19 @@ class AiAssistantViewModel @Inject constructor(
         _uiState.update { it.copy(apiKeyInput = value) }
     }
 
+    fun onAccountIdInputChanged(value: String) {
+        _uiState.update { it.copy(accountIdInput = value) }
+    }
+
     fun saveApiKey() {
         val key = _uiState.value.apiKeyInput.trim()
         if (key.isBlank()) return
+        val provider = aiSettingsStore.onlineProvider()
+        if (provider.terms.idField != null) {
+            val id = _uiState.value.accountIdInput
+            if (!isValidAccountId(id)) return
+            aiSettingsStore.setAccountId(provider, id)
+        }
         aiSettingsStore.setApiKey(key)
         onlineModelOptions.forget(aiSettingsStore.onlineProvider())
         _uiState.update { it.copy(isApiKeyConfigured = true, apiKeyInput = "") }
@@ -343,7 +356,7 @@ class AiAssistantViewModel @Inject constructor(
         // La chiave e' stata cancellata: i modelli visti con quella non valgono piu'.
         if (!aiSettingsStore.hasApiKey()) onlineModelOptions.forgetAll()
         _uiState.update {
-            it.copy(onlineProvider = provider, onlineModelSetting = aiSettingsStore.onlineModelSetting(provider), isApiKeyConfigured = aiSettingsStore.hasApiKey(), answer = null, askedQuestion = null, emergencyCard = null, answerCredit = null)
+            it.copy(onlineProvider = provider, accountIdInput = aiSettingsStore.accountId(provider), onlineModelSetting = aiSettingsStore.onlineModelSetting(provider), isApiKeyConfigured = aiSettingsStore.hasApiKey(), answer = null, askedQuestion = null, emergencyCard = null, answerCredit = null)
         }
         updateOnlineModels()
     }
