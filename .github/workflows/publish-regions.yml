@@ -265,6 +265,7 @@ jobs:
   # poche decine di minuti. Le celle vivono sulle release "address-cells-<n>" (n = hash dell'id mod
   # ADDRESS_CELL_RELEASES, per il limite di 1000 asset per release). Da 6 release a 12: 12 e' multiplo di 6, quindi
   # una cella con (hash mod 12) < 6 resta dov'e' e le altre passano alla release n+6 solo quando si rigenerano.
+  # Con ADDRESS_CELL_MIN_ZOOM 7 le celle salgono da circa 1500 a circa 3000, quindi circa 100 celle al giorno (stima).
   # Indice (address-grid.json) e frammento di catalogo vanno al job "publish" come artifact. Non gira nelle continuazioni.
   address-grid:
     name: Civici
@@ -276,6 +277,8 @@ jobs:
     env:
       PYTHON_BIN: python3
       ADDRESS_CELL_RELEASES: 12
+      # Nessuna cella piu' grande di una z7: una regione piccola non scarica una cella che copre mezzo continente.
+      ADDRESS_CELL_MIN_ZOOM: 7
       ADDRESS_CELL_MAX_AGE_DAYS: ${{ github.event.inputs.address_cell_max_age_days || (github.event.inputs.address_cells && '-1') || '30' }}
       # Dall'env, non interpolato nello script (niente iniezione di comandi).
       ADDRESS_CELLS_INPUT: ${{ github.event.inputs.address_cells }}

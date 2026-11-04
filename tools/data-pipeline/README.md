@@ -245,7 +245,11 @@ I numeri civici (OSM + Overture) non si pubblicano per regione ma in celle di un
   cella pubblicata. Nessuna cella dell'indice è antenata di un'altra.
 - **Crescita**: se il `.xz` di una cella supera `ADDRESS_CELL_MAX_BYTES` (10.000.000 byte) si pubblicano al
   suo posto i 4 figli con dati, ricorsivamente fino a z14 (lì la cella resta oltre il tetto, con un
-  warning). Le celle non si fondono mai: gli id restano stabili. Se una fonte o `generateAddresses` fallisce
+  warning). Una cella sotto `ADDRESS_CELL_MIN_ZOOM` (7 nel workflow) si divide anche sotto il tetto,
+  direttamente nelle celle a quello zoom che hanno almeno una tile z14 di civici
+  (`scripts/address_cell_children.py`, sul file pubblicato della cella o su quello appena generato): una
+  regione piccola non scarica più una cella grande quanto mezzo continente, e le aree senza civici restano
+  senza celle. Le celle non si fondono mai: gli id restano stabili. Se una fonte o `generateAddresses` fallisce
   per una cella figlia di una divisione, `build-address-cell.sh` esce con errore e resta la cella genitore
   dell'indice.
 - **Ricostruzione**: ogni notte le celle con `cksum(id) % 30` uguale al giorno dall'epoca `% 30`; una cella

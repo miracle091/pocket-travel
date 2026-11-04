@@ -83,9 +83,11 @@ def _decompress(b, compression):
     return gzip.decompress(b) if compression == 2 else b
 
 
-def pmtiles_z14_lengths(url):
-    """{tileId z14: lunghezza in byte} di un PMTiles remoto v3, letto solo per intestazione e indici."""
-    header = _http_range(url, 0, 127)
+def pmtiles_z14_lengths(url, read=None):
+    """{tileId z14: lunghezza in byte} di un PMTiles v3, letto solo per intestazione e indici: remoto via
+    HTTP Range, o con read(start, length) (file locale, address_cell_children.py)."""
+    read = read or (lambda start, length: _http_range(url, start, length))
+    header = read(0, 127)
     if header[:7] != b"PMTiles" or header[7] != 3:
         raise ValueError(f"{url}: non e' un PMTiles v3")
     root_off, root_len, _meta_off, _meta_len, leaf_off, _leaf_len, _data_off, _data_len = struct.unpack("<8Q", header[8:72])
@@ -93,7 +95,7 @@ def pmtiles_z14_lengths(url):
     lengths = {}
 
     def walk(offset, length):
-        for tile_id, run_length, tile_len, tile_off in _parse_directory(_decompress(_http_range(url, offset, length), compression)):
+        for tile_id, run_length, tile_len, tile_off in _parse_directory(_decompress(read(offset, length), compression)):
             if run_length == 0:
                 walk(leaf_off + tile_off, tile_len)
             else:

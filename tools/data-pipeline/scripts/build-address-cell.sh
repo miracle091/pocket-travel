@@ -33,6 +33,10 @@
 #
 # Variabili:
 #   ADDRESS_CELL_MAX_BYTES      (10000000) tetto del file .xz oltre cui si dividono i 4 figli
+#   ADDRESS_CELL_MIN_ZOOM       (0)        zoom sotto il quale una cella si divide anche sotto il tetto:
+#                                          nascono solo le celle a questo zoom con civici, scelte dalle
+#                                          tile z14 del suo PMTiles (address_cell_children.py), e la
+#                                          voce pubblicata non si tiene per eta'
 #   ADDRESS_CELL_MAX_AGE_DAYS   (30)       eta' (dal campo version pubblicato) oltre cui una cella
 #                                          gia' pubblicata si rigenera
 #   ADDRESS_CELL_MAX_EXTRACT_MB (500)      sopra questa dimensione delle z15 del bbox della cella si
@@ -69,6 +73,12 @@ ADDRESS_CELL_MAX_AGE_DAYS="${ADDRESS_CELL_MAX_AGE_DAYS:-30}"
 ADDRESS_CELL_MAX_EXTRACT_MB="${ADDRESS_CELL_MAX_EXTRACT_MB:-500}"
 ADDRESS_CELL_OVERPASS_MAX="${ADDRESS_CELL_OVERPASS_MAX:-200000}"
 ADDRESSES_ATTEMPTS="${ADDRESSES_ATTEMPTS:-3}"
+ADDRESS_CELL_MIN_ZOOM="${ADDRESS_CELL_MIN_ZOOM:-0}"
+if ! [[ "$ADDRESS_CELL_MIN_ZOOM" =~ ^[0-9]+$ ]] || [ "$ADDRESS_CELL_MIN_ZOOM" -gt 14 ]; then
+  echo "ERRORE: ADDRESS_CELL_MIN_ZOOM deve stare tra 0 e 14 (ora: $ADDRESS_CELL_MIN_ZOOM)" >&2
+  exit 1
+fi
+ADDRESS_CELL_MIN_ZOOM=$((10#$ADDRESS_CELL_MIN_ZOOM))  # "07" -> 7: jq non accetta lo zero iniziale
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
@@ -118,6 +128,42 @@ has_published_descendant() {
     any((.cells // [])[] | .id | split("/") | map(tonumber);
         .[0] > $z and ((.[1] / pow(2; .[0] - $z)) | floor) == $x and ((.[2] / pow(2; .[0] - $z)) | floor) == $y)' \
     "$PUBLISHED_INDEX" > /dev/null
+}
+
+# published_descendants_at_min_zoom <z> <x> <y>: le celle da costruire sotto z/x/y, gia' divisa nell'indice
+# pubblicato, per arrivare a ADDRESS_CELL_MIN_ZOOM: l'antenata a quello zoom di ogni cella pubblicata dentro
+# z/x/y, o la cella stessa se e' piu' grande (si dividera' a sua volta). Le aree senza celle pubblicate non
+# hanno civici e restano senza figlie.
+published_descendants_at_min_zoom() {
+  jq -r --argjson z "$1" --argjson x "$2" --argjson y "$3" --argjson m "$ADDRESS_CELL_MIN_ZOOM" '
+    [(.cells // [])[] | .id | split("/") | map(tonumber)
+     | select(.[0] > $z and ((.[1] / pow(2; .[0] - $z)) | floor) == $x and ((.[2] / pow(2; .[0] - $z)) | floor) == $y)
+     | if .[0] > $m then [$m, ((.[1] / pow(2; .[0] - $m)) | floor), ((.[2] / pow(2; .[0] - $m)) | floor)] else . end
+     | map(tostring) | join("/")] | unique[]' "$PUBLISHED_INDEX"
+}
+
+# build_split_children <z/x/y>...: costruisce ogni cella come figlia di una divisione.
+build_split_children() {
+  local child cz cx cy
+  for child in "$@"; do
+    IFS='/' read -r cz cx cy <<< "$child"
+    build_cell "$cz" "$cx" "$cy" split
+  done
+}
+
+# build_min_zoom_children <z> <x> <y> <addresses.pmtiles> <cartella>: divide la cella nelle celle a
+# ADDRESS_CELL_MIN_ZOOM che hanno almeno una tile z14 nel suo PMTiles, dopo aver tolto la <cartella> di lavoro
+# della cella. Senza python o con il file illeggibile esce con errore: la cella resta com'e' nell'indice.
+build_min_zoom_children() {
+  local id="$1/$2/$3" list children=()
+  if [ -z "$PYTHON_BIN" ] || ! list="$("$PYTHON_BIN" "$SCRIPT_DIR/address_cell_children.py" "$(winpath "$4")" "$id" "$ADDRESS_CELL_MIN_ZOOM")"; then
+    echo "ERRORE: $id: celle figlie a z$ADDRESS_CELL_MIN_ZOOM non calcolabili, la cella resta" >&2
+    exit 1
+  fi
+  mapfile -t children < <(printf '%s\n' "$list" | tr -d '\r' | grep .)
+  rm -rf "$5"
+  echo "-- $id: sotto lo zoom minimo ($ADDRESS_CELL_MIN_ZOOM), divido in ${#children[@]} celle figlie con civici"
+  build_split_children "${children[@]}"
 }
 
 # Estrae gli indirizzi OSM del bbox (z15 Protomaps, riserva Overpass se sono troppe): scrive in
@@ -209,6 +255,21 @@ build_cell() {
 
   local published="" publishedVersion publishedDate ageDays
   published="$(published_entry "$id")"
+  # Cella pubblicata sotto lo zoom minimo: si divide dal suo file pubblicato, senza rifare estrazione e
+  # Overture su un'area cosi' grande. Se il file non si scarica o non torna lo sha256, la cella resta.
+  if [ -n "$published" ] && [ "$z" -lt "$ADDRESS_CELL_MIN_ZOOM" ]; then
+    local parentDir parentUrl
+    parentDir="$(mktemp -d "$RUN_WORKDIR/cell.XXXXXX")"
+    parentUrl="$(printf '%s' "$published" | jq -r '.fileXz.url')"
+    if ! curl -sSfL --max-time 600 --retry 3 -o "$parentDir/addresses.pmtiles.xz" "$parentUrl" \
+      || [ "$(sha256sum < "$parentDir/addresses.pmtiles.xz" | awk '{print $1}')" != "$(printf '%s' "$published" | jq -r '.fileXz.sha256')" ] \
+      || ! xz -d "$parentDir/addresses.pmtiles.xz"; then
+      echo "ERRORE: $id: civici pubblicati non scaricabili da $parentUrl, la cella resta" >&2
+      exit 1
+    fi
+    build_min_zoom_children "$z" "$x" "$y" "$parentDir/addresses.pmtiles" "$parentDir"
+    return 0
+  fi
   if [ -n "$published" ]; then
     publishedVersion="$(printf '%s' "$published" | jq -r '.version')"
     publishedDate="$(printf '%s' "$publishedVersion" | sed -n 's/^\([0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}\).*/\1/p')"
@@ -227,6 +288,13 @@ build_cell() {
   # che riusano o rifanno le proprie voci, invece di rifare estrazione, Overture e generateAddresses
   # di questa cella solo per riscoprire che supera il tetto. Le celle non si riuniscono mai.
   if [ -z "$published" ] && [ "$z" -lt 14 ] && has_published_descendant "$z" "$x" "$y"; then
+    if [ "$z" -lt "$ADDRESS_CELL_MIN_ZOOM" ]; then
+      echo "-- $id: gia' divisa nell'indice pubblicato e sotto lo zoom minimo, passo alle celle pubblicate"
+      local descendants=()
+      mapfile -t descendants < <(published_descendants_at_min_zoom "$z" "$x" "$y")
+      build_split_children "${descendants[@]}"
+      return 0
+    fi
     echo "-- $id: gia' divisa nell'indice pubblicato, passo alle 4 figlie"
     build_cell $((z + 1)) $((x * 2)) $((y * 2)) split
     build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2)) split
@@ -247,10 +315,25 @@ build_cell() {
 
   # Cella gia' pubblicata e una fonte in errore: la voce pubblicata (con entrambe le fonti) e' meglio
   # di una ricostruita con una sola. Si esce con errore, il chiamante la lascia com'e'.
-  if { [ -n "$published" ] || [ -n "$inSplit" ]; } && { [ "$OSM_FAILED" = true ] || [ "$OVERTURE_FAILED" = true ]; }; then
+  # Sotto lo zoom minimo vale lo stesso: le figlie si scelgono dal file della cella, e una fonte mancante
+  # lascerebbe per sempre senza cella le aree che hanno civici solo in quella fonte.
+  if { [ -n "$published" ] || [ -n "$inSplit" ] || [ "$z" -lt "$ADDRESS_CELL_MIN_ZOOM" ]; } && { [ "$OSM_FAILED" = true ] || [ "$OVERTURE_FAILED" = true ]; }; then
     echo "ERRORE: $id: fonte fallita (OSM=$OSM_FAILED, Overture=$OVERTURE_FAILED) e la cella e' gia' pubblicata o figlia di una divisione: la tengo" >&2
     rm -rf "$cellWorkdir"
     exit 1
+  fi
+
+  # Sotto lo zoom minimo senza civici OSM (z15 troppo grandi e Overpass con troppi civici): figlie scelte dai soli
+  # civici Overture perderebbero le aree con soli civici OSM. Si passa alle 4 figlie, che rifanno l'estrazione su
+  # un'area piu' piccola.
+  if [ "$z" -lt "$ADDRESS_CELL_MIN_ZOOM" ] && [ -z "$osmInput" ]; then
+    echo "-- $id: sotto lo zoom minimo senza civici OSM, divido in 4 celle figlie"
+    rm -rf "$cellWorkdir"
+    build_cell $((z + 1)) $((x * 2)) $((y * 2)) split
+    build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2)) split
+    build_cell $((z + 1)) $((x * 2)) $((y * 2 + 1)) split
+    build_cell $((z + 1)) $((x * 2 + 1)) $((y * 2 + 1)) split
+    return 0
   fi
 
   if [ -z "$osmInput" ] && [ ! -s "$overtureTsv" ]; then
@@ -277,6 +360,11 @@ build_cell() {
   if [ -z "$generatedLine" ] || [ "$generatedLine" -eq 0 ]; then
     echo "-- $id: nessun civico dopo la deduplica"
     rm -rf "$cellWorkdir"
+    return 0
+  fi
+
+  if [ "$z" -lt "$ADDRESS_CELL_MIN_ZOOM" ]; then
+    build_min_zoom_children "$z" "$x" "$y" "$pmtiles" "$cellWorkdir"
     return 0
   fi
 
