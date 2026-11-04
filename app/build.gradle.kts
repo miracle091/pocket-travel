@@ -17,8 +17,8 @@ android {
 
     defaultConfig {
         applicationId = "com.pockettravel.app"
-        versionCode = 14
-        versionName = "0.13.0"
+        versionCode = 15
+        versionName = "0.14.0"
     }
 
     // Le credenziali arrivano da variabili d'ambiente (secrets del workflow CI, mai committate):

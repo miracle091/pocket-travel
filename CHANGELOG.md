@@ -6,6 +6,8 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ## [Non rilasciato]
 
+## [0.14.0] - 2026-11-04
+
 ### Aggiunto
 - Assistente IA, motore Online: con «Altro modello» sotto il campo compaiono gli altri modelli di chat del servizio che l'account può usare, con il costo stimato, filtrati mentre si scrive; anche `/model` li accetta per nome. L'elenco si aggiorna ogni settimana dai prezzi pubblicati da LiteLLM e models.dev.
 - Assistente IA: l'opzione «Voci online per Ascolta» nelle Impostazioni, spenta di default. Spenta, «Ascolta» usa solo voci installate sul dispositivo e il testo resta sul telefono; se per la lingua c'è solo una voce online, sotto il pulsante compare come installarne una o attivare l'opzione. Accesa, la voce la sceglie la sintesi vocale del dispositivo e, se è online, riceve il testo della risposta.
@@ -653,7 +655,8 @@ Prima baseline documentata: nessuna versione precedente pubblicata da cui deriva
 - Attribuzione mancante a schermo per OpenStreetMap e link sorgente mancante per le citazioni Wikivoyage.
 - Inizializzazione di WorkManager con Hilt, che impediva l'esecuzione di qualunque download in background.
 
-[Non rilasciato]: https://github.com/miracle091/pocket-travel/compare/v0.13.0...HEAD
+[Non rilasciato]: https://github.com/miracle091/pocket-travel/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/miracle091/pocket-travel/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/miracle091/pocket-travel/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/miracle091/pocket-travel/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/miracle091/pocket-travel/compare/v0.10.0...v0.11.0
