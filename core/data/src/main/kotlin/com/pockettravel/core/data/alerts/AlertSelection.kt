@@ -77,4 +77,6 @@ private val METEOALARM_COUNTRIES = mapOf(
     "se" to "sweden", "ch" to "switzerland", "gb" to "united-kingdom", "ua" to "ukraine",
     // Canarie (ic), Ceuta e Melilla (ea) hanno un codice proprio nel catalogo, ma le loro aree stanno nel feed spagnolo.
     "ic" to "spain", "ea" to "spain",
+    // Svalbard e Jan Mayen (sj) hanno un codice proprio, ma i loro avvisi li da' il servizio norvegese nel suo feed.
+    "sj" to "norway",
 )

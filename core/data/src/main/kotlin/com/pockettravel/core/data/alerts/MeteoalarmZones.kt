@@ -15,6 +15,11 @@ private val CEUTA_ZONES = setOf("ES250", "ES871", "ES630")
 private val MELILLA_ZONES = setOf("ES251", "ES872", "ES640")
 private val CEUTA_MELILLA_ZONES = CEUTA_ZONES + MELILLA_ZONES
 
+// Il feed norvegese non da' geocodici, solo poligoni: Svalbard (Bjørnøya compresa) sta a nord di 74°N, Jan Mayen a ovest di
+// Greenwich, la Norvegia continentale sotto i 72°N e a est di 4°E.
+private const val SVALBARD_MIN_LAT = 74.0
+private const val JAN_MAYEN_MAX_LON = 0.0
+
 // Lunghezza del codice della regione francese dentro il NUTS3 del dipartimento ("FR81" in "FR812").
 private const val FRANCE_REGION_CODE = 4
 
@@ -38,15 +43,17 @@ private val FRANCE_REGIONS = mapOf(
 
 /**
  * Le allerte Meteoalarm che riguardano la regione [regionId]. Il feed e' per paese, ma alcune regioni del catalogo sono
- * una parte del paese: Azzorre, Madeira, Canarie, Ceuta e Melilla tengono solo le loro zone, che le altre regioni del
- * Portogallo e la regione Spagna perdono, e ogni regione della Francia tiene solo i suoi dipartimenti. Nelle regioni grandi
- * un'allerta con una zona che non si riconosce resta, come in quelle che coprono tutto il paese.
+ * una parte del paese: Azzorre, Madeira, Canarie, Ceuta, Melilla e Svalbard tengono solo le loro zone, che le altre
+ * regioni del Portogallo e le regioni Spagna e Norvegia perdono, e ogni regione della Francia tiene solo i suoi
+ * dipartimenti. Nelle regioni grandi un'allerta con una zona che non si riconosce resta, come in quelle che coprono tutto
+ * il paese.
  */
 fun List<Alert>.inMeteoalarmRegion(regionId: String, countryCode: String?): List<Alert> = filter { alert ->
     val zone = alert.zoneCode.orEmpty()
     SMALL_REGIONS[regionId]?.invoke(alert) ?: when {
         countryCode.equals("pt", ignoreCase = true) -> !alert.isAzores() && !alert.isMadeira()
         countryCode.equals("es", ignoreCase = true) -> !alert.isCanary() && zone !in CEUTA_MELILLA_ZONES
+        countryCode.equals("no", ignoreCase = true) -> !alert.isSvalbard()
         countryCode.equals("fr", ignoreCase = true) -> FRANCE_REGIONS[zone.take(FRANCE_REGION_CODE)]?.let { it == regionId } ?: true
         else -> true
     }
@@ -59,10 +66,14 @@ private val SMALL_REGIONS: Map<String, (Alert) -> Boolean> = mapOf(
     "isole-canarie" to { it.isCanary() },
     "ceuta" to { it.zoneCode in CEUTA_ZONES },
     "melilla" to { it.zoneCode in MELILLA_ZONES },
+    "svalbard-jan-mayen" to { it.isSvalbard() },
 )
 
 private fun Alert.isAzores(): Boolean = AZORES.containsMatchIn(areaName.orEmpty())
 
 private fun Alert.isMadeira(): Boolean = MADEIRA.containsMatchIn(areaName.orEmpty())
+
+private fun Alert.isSvalbard(): Boolean =
+    zoneBounds?.let { it.minLat >= SVALBARD_MIN_LAT || it.maxLon < JAN_MAYEN_MAX_LON } == true
 
 private fun Alert.isCanary(): Boolean = zoneCode in CANARY_ZONES || zoneCode.orEmpty().startsWith(CANARY_NUTS)

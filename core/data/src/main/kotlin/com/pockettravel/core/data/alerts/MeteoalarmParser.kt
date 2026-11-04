@@ -2,6 +2,7 @@ package com.pockettravel.core.data.alerts
 
 import org.w3c.dom.Element
 import org.w3c.dom.Node
+import org.w3c.dom.NodeList
 import org.xml.sax.InputSource
 import org.xml.sax.SAXException
 import java.io.IOException
@@ -74,6 +75,7 @@ object MeteoalarmParser {
             url = relatedLink(entry),
             issuedAt = entry.cap("sent")?.let(::instant),
             zoneCode = entry.zoneCode(),
+            zoneBounds = polygonBounds(entry.getElementsByTagNameNS(CAP, "polygon")),
         )
     }
 
@@ -137,4 +139,17 @@ object MeteoalarmParser {
         }
         return null
     }
+}
+
+private val WHITESPACE = Regex("\\s+")
+
+// `cap:polygon` e' una lista di punti "lat,lon" separati da spazi; il rettangolo che contiene i punti di tutti i poligoni
+// della voce, null se non ce ne sono.
+private fun polygonBounds(polygons: NodeList): AlertBounds? {
+    val points = (0 until polygons.length).flatMap { i ->
+        polygons.item(i).textContent.trim().split(WHITESPACE)
+            .mapNotNull { point -> point.split(",").mapNotNull(String::toDoubleOrNull).takeIf { it.size == 2 } }
+    }
+    if (points.isEmpty()) return null
+    return AlertBounds(points.minOf { it[1] }, points.minOf { it[0] }, points.maxOf { it[1] }, points.maxOf { it[0] })
 }

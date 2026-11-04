@@ -8,13 +8,13 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ### Aggiunto
 - Assistente IA, motore Online: undici servizi nuovi, oltre a ChatGPT, Mistral, Gemini e Claude: Regolo, Scaleway, Inceptron, Fireworks, DeepInfra, Groq, OpenRouter (solo con i fornitori che non conservano le domande), Z.ai, Alibaba Cloud, Cloudflare e Infomaniak. L'elenco dei servizi è diviso in «Domande non conservate», «Domande conservate fino a 30 giorni» e «Addestramento nel piano gratuito»; sotto il servizio scelto, una frase dice cosa fa delle domande e «Impegni sulla privacy» apre la sua pagina. Mistral ha la frase in rosso; per Gemini, una riga dice che nell'Unione europea serve una chiave del piano a pagamento. Cloudflare, Infomaniak e Alibaba Cloud chiedono anche l'ID dell'account, del prodotto o del workspace, salvato con la chiave.
-- Allerte in corso: nelle regioni Isole Canarie, Ceuta e Melilla compaiono le allerte meteo MeteoAlarm delle loro aree, a terra e sulla costa, dal feed della Spagna.
+- Allerte in corso: nelle regioni Isole Canarie, Ceuta e Melilla compaiono le allerte meteo MeteoAlarm delle loro aree, a terra e sulla costa, dal feed della Spagna; nella regione Svalbard e Jan Mayen quelle delle sue isole, dal feed della Norvegia.
 
 ### Modificato
 - Assistente IA, motore Online: le domande a Claude passano dalla Messages API di Anthropic invece che dal suo endpoint compatibile con OpenAI, che Anthropic indica per test e confronti. Credito esaurito, limite di richieste e servizio sovraccarico si riconoscono dal tipo dell'errore, non dal testo del messaggio.
 
 ### Corretto
-- Allerte in corso: le allerte meteo MeteoAlarm delle Azzorre e di Madeira compaiono solo nella loro regione e non più nelle altre regioni del Portogallo; quelle delle Canarie, di Ceuta e di Melilla non compaiono più nella regione Spagna. Ogni regione della Francia mostra solo le allerte dei suoi dipartimenti, non più quelle di tutta la Francia.
+- Allerte in corso: le allerte meteo MeteoAlarm delle Azzorre e di Madeira compaiono solo nella loro regione e non più nelle altre regioni del Portogallo; quelle delle Canarie, di Ceuta e di Melilla non compaiono più nella regione Spagna, quelle delle Svalbard e di Jan Mayen nella regione Norvegia. Ogni regione della Francia mostra solo le allerte dei suoi dipartimenti, non più quelle di tutta la Francia.
 
 ## [0.14.0] - 2026-11-04
 

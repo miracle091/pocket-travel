@@ -74,6 +74,41 @@ class MeteoalarmZonesTest {
         assertEquals(listOf("FR813", "HR801"), MeteoalarmParser.parse(feed).map { it.zoneCode })
     }
 
+    // Feed norvegese: niente geocodici, solo poligoni "lat,lon".
+    private fun norwayEntry(id: String, polygon: String?) = """
+        <entry>
+          ${polygon?.let { "<cap:polygon>$it</cap:polygon>" }.orEmpty()}
+          <cap:areaDesc>$id</cap:areaDesc>
+          <cap:event>Wind</cap:event>
+          <cap:severity>Moderate</cap:severity>
+          <cap:message_type>Alert</cap:message_type>
+          <cap:status>Actual</cap:status>
+          <cap:identifier>$id</cap:identifier>
+          <title>Wind warning issued for Norway - $id</title>
+        </entry>
+    """
+
+    private val norway = MeteoalarmParser.parse(
+        """<feed xmlns="http://www.w3.org/2005/Atom" xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">""" +
+            norwayEntry("Vardoe", "70.3497,30.0332 70.4225,31.1445 70.7112,30.1582 70.3497,30.0332") +
+            norwayEntry("Nordenskiold Land", "77.9,13.5 78.4,13.5 78.4,17.0 77.9,13.5") +
+            norwayEntry("Jan Mayen", "70.8,-9.1 71.2,-9.1 71.2,-7.9 70.8,-9.1") +
+            norwayEntry("Senza poligono", null) + "</feed>",
+    )
+
+    @Test
+    fun polygonBoundsComeFromTheCapPolygon() {
+        assertEquals(AlertBounds(30.0332, 70.3497, 31.1445, 70.7112), norway[0].zoneBounds)
+        assertEquals(null, norway[3].zoneBounds)
+    }
+
+    @Test
+    fun svalbardAndJanMayenAlertsAreOnlyInTheirRegion() {
+        assertEquals(listOf("Vardoe", "Senza poligono"), norway.inMeteoalarmRegion("norvegia", "no").map { it.id })
+        assertEquals(listOf("Nordenskiold Land", "Jan Mayen"), norway.inMeteoalarmRegion("svalbard-jan-mayen", "sj").map { it.id })
+        assertEquals("norway", meteoalarmCountry("sj"))
+    }
+
     @Test
     fun otherRegionsKeepTheWholeCountryFeed() {
         assertEquals(7, spain.inMeteoalarmRegion("andorra", "ad").size)
