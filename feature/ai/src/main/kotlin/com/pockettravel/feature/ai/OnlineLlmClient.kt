@@ -48,7 +48,8 @@ class OnlineLlmClient @Inject constructor(
      * [prompt] e' il messaggio user; [system], se c'e', un solo messaggio system prima di lui.
      * [sendTemperature]: false per i modelli che rifiutano una temperatura impostata (OnlineModelCatalog.sendsTemperature).
      * Un errore temporaneo prima del primo pezzo si riprova una volta; dopo, il testo gia' mostrato non si puo' rifare.
-     * La cancellazione del collector chiude la connessione.
+     * La cancellazione del collector chiude la connessione. [api]: il formato del servizio ([OnlineProvider.api]); con
+     * la Messages API di Anthropic [sendTemperature] non conta.
      */
     fun stream(
         baseUrl: String,
@@ -57,24 +58,17 @@ class OnlineLlmClient @Inject constructor(
         prompt: String,
         sendTemperature: Boolean,
         system: String? = null,
+        api: OnlineApi = OnlineApi.CHAT_COMPLETIONS,
     ): Flow<String> = flow {
-        val requestBody = OpenAiChatRequest(
-            model = model,
-            messages = listOfNotNull(system?.let { OpenAiChatMessage(role = "system", content = it) }) +
-                OpenAiChatMessage(role = "user", content = prompt),
-            temperature = TEMPERATURE.takeIf { sendTemperature },
-            stream = true,
-        )
-        val request = Request.Builder()
-            .url("${baseUrl.trimEnd('/')}/chat/completions")
-            .header("Authorization", "Bearer $apiKey")
-            .post(json.encodeToString(OpenAiChatRequest.serializer(), requestBody).toRequestBody(JSON_MEDIA_TYPE))
-            .build()
+        val request = when (api) {
+            OnlineApi.CHAT_COMPLETIONS -> chatCompletionsRequest(baseUrl, apiKey, model, prompt, sendTemperature, system)
+            OnlineApi.ANTHROPIC_MESSAGES -> anthropicMessagesRequest(baseUrl, apiKey, model, prompt, system)
+        }
         var emitted = false
         var retried = false
         while (true) {
             try {
-                answer(request, model).collect {
+                answer(request, model, api).collect {
                     emitted = true
                     emit(it)
                 }
@@ -87,15 +81,56 @@ class OnlineLlmClient @Inject constructor(
         }
     }.flowOn(ioDispatcher)
 
+    private fun chatCompletionsRequest(
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+        prompt: String,
+        sendTemperature: Boolean,
+        system: String?,
+    ): Request {
+        val requestBody = OpenAiChatRequest(
+            model = model,
+            messages = listOfNotNull(system?.let { OpenAiChatMessage(role = "system", content = it) }) +
+                OpenAiChatMessage(role = "user", content = prompt),
+            temperature = TEMPERATURE.takeIf { sendTemperature },
+            stream = true,
+        )
+        return Request.Builder()
+            .url("${baseUrl.trimEnd('/')}/chat/completions")
+            .header("Authorization", "Bearer $apiKey")
+            .post(json.encodeToString(OpenAiChatRequest.serializer(), requestBody).toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+    }
+
+    private fun anthropicMessagesRequest(baseUrl: String, apiKey: String, model: String, prompt: String, system: String?): Request {
+        val requestBody = AnthropicMessagesRequest(
+            model = model,
+            maxTokens = ANTHROPIC_MAX_TOKENS,
+            messages = listOf(OpenAiChatMessage(role = "user", content = prompt)),
+            system = system,
+            stream = true,
+        )
+        return Request.Builder()
+            .url("${baseUrl.trimEnd('/')}/messages")
+            .header("x-api-key", apiKey)
+            .header("anthropic-version", ANTHROPIC_VERSION)
+            .post(json.encodeToString(AnthropicMessagesRequest.serializer(), requestBody).toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+    }
+
     // Una richiesta: i pezzi di testo fino a finish_reason o [DONE]. Gemini non manda finish_reason, solo [DONE];
     // Mistral manda l'ultimo pezzo insieme a finish_reason (provati il 2026-10-31). Dopo la fine non si aspetta altro
     // (un eventuale pezzo con l'uso dei token non serve): il flusso si ferma e la connessione si chiude.
-    private fun answer(request: Request, model: String): Flow<String> = flow {
+    private fun answer(request: Request, model: String, api: OnlineApi): Flow<String> = flow {
         var finished = false
         var emitted = false
         try {
-            sseLines(request, model).transformWhile { line ->
-                val chunk = sseChunk(line, model) ?: return@transformWhile true
+            sseLines(request, model, api).transformWhile { line ->
+                val chunk = when (api) {
+                    OnlineApi.CHAT_COMPLETIONS -> sseChunk(line, model)
+                    OnlineApi.ANTHROPIC_MESSAGES -> anthropicChunk(line, model)
+                } ?: return@transformWhile true
                 chunk.error?.let { throw if (emitted) OnlineAnswerInterruptedException("Errore a meta' della risposta", it) else it }
                 chunk.text?.takeIf { it.isNotEmpty() }?.let {
                     emitted = true
@@ -118,7 +153,7 @@ class OnlineLlmClient @Inject constructor(
     // Le righe del corpo SSE, lette sul thread di OkHttp. Senza redirect: un 307/308 rimanderebbe la domanda (e
     // un'intestazione con la chiave diversa da Authorization) a un altro indirizzo. readTimeout: l'attesa massima tra due
     // pezzi, larga per i modelli che ragionano prima del primo. La cancellazione chiude la connessione (awaitClose).
-    private fun sseLines(request: Request, model: String): Flow<String> = callbackFlow {
+    private fun sseLines(request: Request, model: String, api: OnlineApi): Flow<String> = callbackFlow {
         val call = okHttpClient.newBuilder().readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .followRedirects(false).followSslRedirects(false).build()
             .newCall(request)
@@ -131,7 +166,12 @@ class OnlineLlmClient @Inject constructor(
                 response.use {
                     try {
                         if (!response.isSuccessful) {
-                            close(httpError(response.code, response.peekBody(MAX_ERROR_BODY_BYTES).string(), response.header("Retry-After"), model))
+                            val body = response.peekBody(MAX_ERROR_BODY_BYTES).string()
+                            val code = when (api) {
+                                OnlineApi.CHAT_COMPLETIONS -> response.code
+                                OnlineApi.ANTHROPIC_MESSAGES -> anthropicStatus(body, json) ?: response.code
+                            }
+                            close(httpError(code, body, response.header("Retry-After"), model))
                             return
                         }
                         val source = response.body.source()
@@ -175,6 +215,22 @@ class OnlineLlmClient @Inject constructor(
         }
     }
 
+    // Un evento dello stream della Messages API: il testo da content_block_delta di tipo text_delta (i blocchi di
+    // ragionamento, thinking_delta, non si mostrano), la fine da message_stop, l'errore dall'evento error con il suo tipo.
+    // Il tipo dell'evento e' anche nel JSON di "data:", quindi le righe "event:" non servono.
+    private fun anthropicChunk(line: String, model: String): SseChunk? {
+        val payload = line.takeIf { it.startsWith("data:") }?.removePrefix("data:")?.trim() ?: return null
+        val obj = json.parseToJsonElement(payload) as? JsonObject
+        return when (obj?.get("type")?.jsonPrimitive?.contentOrNull) {
+            "content_block_delta" -> (obj?.get("delta") as? JsonObject)
+                ?.takeIf { it["type"]?.jsonPrimitive?.contentOrNull == "text_delta" }
+                ?.let { SseChunk(it["text"]?.jsonPrimitive?.contentOrNull, finished = false, error = null) }
+            "message_stop" -> SseChunk(null, finished = true, error = null)
+            "error" -> SseChunk(null, finished = false, error = httpError(anthropicStatus(payload, json) ?: HTTP_INTERNAL_ERROR, payload, null, model))
+            else -> null
+        }
+    }
+
     private fun httpError(code: Int, responseBody: String, retryAfter: String?, model: String): Exception = when {
         // Un 403 di Gemini puo' essere un saldo scoperto, non la chiave: lo decide onlineErrorKind.
         code == HTTP_UNAUTHORIZED || (code == HTTP_FORBIDDEN && onlineErrorKind(code, responseBody) != OnlineErrorKind.CREDIT) ->
@@ -194,6 +250,11 @@ class OnlineLlmClient @Inject constructor(
     private companion object {
         const val TEMPERATURE = 0.3
         const val READ_TIMEOUT_SECONDS = 120L
+        const val ANTHROPIC_VERSION = "2026-10-21"
+
+        // Tetto della risposta, ragionamento compreso: si paga solo quello che il modello scrive. 32.000 e' il massimo
+        // dei modelli Claude piu' vecchi che si possono ancora scegliere (Opus 4 e 4.1), oltre il quale rispondono 400.
+        const val ANTHROPIC_MAX_TOKENS = 32_000
 
         // Del corpo di un errore HTTP basta l'inizio: serve a classificarlo, e un servizio difettoso potrebbe mandarne molto.
         const val MAX_ERROR_BODY_BYTES = 8 * 1024L
@@ -214,6 +275,29 @@ internal fun isModelNotFound(statusCode: Int, responseBody: String, json: Json):
     }.getOrDefault(false)
     else -> false
 }
+
+/**
+ * Il codice HTTP che corrisponde al tipo di un errore della Messages API di Anthropic (`{"type":"error","error":{"type":
+ * ...}}`, nel corpo della risposta o nell'evento error dello stream), o null se il tipo manca o e' sconosciuto. Il tipo
+ * decide anche quando il codice HTTP direbbe altro: un billing_error arrivato con un 400 e' credito finito.
+ */
+internal fun anthropicStatus(responseBody: String, json: Json): Int? = runCatching {
+    val type = json.parseToJsonElement(responseBody).jsonObject["error"]?.jsonObject?.get("type")?.jsonPrimitive?.contentOrNull
+    ANTHROPIC_ERROR_STATUS[type]
+}.getOrNull()
+
+private val ANTHROPIC_ERROR_STATUS = mapOf(
+    "invalid_request_error" to HTTP_BAD_REQUEST,
+    "authentication_error" to HTTP_UNAUTHORIZED,
+    "billing_error" to HTTP_PAYMENT_REQUIRED,
+    "permission_error" to HTTP_FORBIDDEN,
+    "not_found_error" to HTTP_NOT_FOUND,
+    "request_too_large" to 413,
+    "rate_limit_error" to HTTP_TOO_MANY_REQUESTS,
+    "api_error" to HTTP_INTERNAL_ERROR,
+    "timeout_error" to 504,
+    "overloaded_error" to 529,
+)
 
 /** Come trattare un errore HTTP del servizio, oltre a chiave rifiutata e modello sconosciuto. */
 internal enum class OnlineErrorKind { CREDIT, TEMPORARY, PERMANENT }

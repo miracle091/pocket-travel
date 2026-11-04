@@ -470,6 +470,7 @@ class TravelAssistant @Inject constructor(
                 prompt = question,
                 system = system,
                 sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
+                api = provider.api,
             )
         }
     }

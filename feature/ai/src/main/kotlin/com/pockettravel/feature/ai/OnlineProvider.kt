@@ -1,11 +1,11 @@
 package com.pockettravel.feature.ai
 
 /**
- * Servizi per il motore "Online": tutti espongono un endpoint compatibile con la Chat Completions
+ * Servizi per il motore "Online": tutti tranne Claude espongono un endpoint compatibile con la Chat Completions
  * API di OpenAI ([OnlineLlmClient]), quindi cambiano solo indirizzo e pagina in cui l'utente crea la sua
- * chiave. I modelli proposti per ognuno vengono da [OnlineModelCatalog]. [keyPrefix]: com'e' fatta una
- * chiave, per il suggerimento nel campo (null se non ha un prefisso fisso). [modelsPageUrl]: la pagina dei modelli
- * del servizio, aperta dal nome del modello sotto ogni risposta.
+ * chiave; Claude usa la Messages API nativa ([api]). I modelli proposti per ognuno vengono da [OnlineModelCatalog].
+ * [keyPrefix]: com'e' fatta una chiave, per il suggerimento nel campo (null se non ha un prefisso fisso).
+ * [modelsPageUrl]: la pagina dei modelli del servizio, aperta dal nome del modello sotto ogni risposta.
  */
 enum class OnlineProvider(
     val displayName: String,
@@ -13,6 +13,7 @@ enum class OnlineProvider(
     val keyPageUrl: String,
     val keyPrefix: String?,
     val modelsPageUrl: String,
+    val api: OnlineApi = OnlineApi.CHAT_COMPLETIONS,
 ) {
     CHATGPT("ChatGPT (OpenAI)", "https://api.openai.com/v1", "https://platform.openai.com/api-keys", "sk-", "https://platform.openai.com/docs/models"),
     MISTRAL("Mistral AI", "https://api.mistral.ai/v1", "https://console.mistral.ai/api-keys", null, "https://docs.mistral.ai/getting-started/models/"),
@@ -29,8 +30,15 @@ enum class OnlineProvider(
         "https://console.anthropic.com/settings/keys",
         "sk-ant-",
         "https://docs.anthropic.com/en/docs/about-claude/models",
+        OnlineApi.ANTHROPIC_MESSAGES,
     ),
 }
+
+/**
+ * Formato delle richieste di un servizio. L'endpoint compatibile OpenAI di Anthropic e' indicato per test e confronti,
+ * e i suoi messaggi di errore non sono garantiti: con la Messages API nativa l'errore si riconosce dal suo tipo.
+ */
+enum class OnlineApi { CHAT_COMPLETIONS, ANTHROPIC_MESSAGES }
 
 /**
  * Per un modello scritto a mano (non nell'elenco di [OnlineModelCatalog]): false per i modelli che rispondono
