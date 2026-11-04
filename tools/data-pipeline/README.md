@@ -34,7 +34,7 @@ dà un avviso. Per adeguarsi si aggiornano `lookups.dat` e i profili con una nuo
 
 Gli script lunghi dei job stanno in `.github/scripts/publish-regions/`; la preparazione comune (JDK, Gradle con la
 cache in sola lettura, go-pmtiles, duckdb, osmium) è l'azione `.github/actions/setup-pipeline`. Le cache di Actions
-superate (dump, frasi tradotte, Gradle, ccache) le toglie ogni domenica `.github/workflows/cache-cleanup.yml`: di ogni
+superate (dump, frasi tradotte, Gradle, ccache) le toglie ogni giorno `.github/workflows/cache-cleanup.yml`: di ogni
 famiglia di chiavi restano le 2 voci usate più di recente; a mano, con `dry_run`, elenca senza cancellare.
 
 **Calendario.** Sette righe `schedule` (una al giorno) rigenerano il bucket del giorno, definito in
