@@ -19,7 +19,8 @@ log-probabilita' si sommano solo sui token della risposta, nello stesso formato 
 Con --loss kto --onpolicy <file di collect_onpolicy.py>, invece delle coppie, KTO (arXiv 2402.01306, come il KTOTrainer
 di TRL) sugli errori del modello stesso: per ogni prompt con almeno una risposta sbagliata, le risposte sbagliate
 (al piu' --undesirable-per-prompt, diverse tra loro) sono indesiderate, la risposta del dataset e una risposta giusta del
-modello, se diversa, desiderate. I pesi delle due classi le portano a 1:1. Il riferimento z0 (stima del KL) e' la media,
+modello, se diversa, desiderate; --refusal-anchors N aggiunge come desiderate le risposte del dataset di N prompt da
+rifiutare che il modello rifiuta gia', perche' gli errori sono per lo piu' prompt a cui rispondere. I pesi delle due classi le portano a 1:1. Il riferimento z0 (stima del KL) e' la media,
 sul gruppo di --accum esempi, del log-rapporto di ogni prompt con la risposta dell'esempio dopo, senza gradiente e mai
 sotto zero. lr consigliata da TRL 5e-7 - 5e-6:
   python dpo_lora.py --base <run> --dataset pocket_travel_sft.v11.it.jsonl --loss kto --onpolicy <file> --lr 5e-6 \\
@@ -87,20 +88,24 @@ def kto_loss(logratio, z0, desirable, beta, desirable_weight=1.0, undesirable_we
     return weight * (1 - torch.sigmoid(x))
 
 
-def build_kto_examples(results, max_bad=2):
+def build_kto_examples(results, max_bad=2, refusal_anchors=0, seed=42):
     """[(messaggi del prompt, risposta, desiderata)] dai risultati di collect_onpolicy.py: per ogni prompt con almeno
     una risposta "bad", al piu' max_bad risposte sbagliate diverse, la risposta del dataset e una giusta del modello se
-    diversa da quella del dataset."""
-    examples = []
+    diversa da quella del dataset. Poi, come desiderate, le risposte del dataset di al piu' refusal_anchors prompt da
+    rifiutare (kind "neg") senza risposte sbagliate, scelti a caso con seed: senza di loro gli esempi vengono solo dagli
+    errori, per lo piu' prompt a cui rispondere, e il modello impara a rispondere anche dove prima rifiutava."""
+    examples, anchors = [], []
     for r in results:
+        prompt = [{"role": "user", "content": r["prompt"]}]
         bad = list(dict.fromkeys(s["got"] for s in r["samples"] if s["label"] == "bad" and s["got"]))[:max_bad]
         if not bad:
+            if r.get("kind") == "neg":
+                anchors.append((prompt, r["want"], True))
             continue
-        prompt = [{"role": "user", "content": r["prompt"]}]
         good = next((s["got"] for s in r["samples"] if s["label"] == "good" and s["got"] != r["want"]), None)
         examples += [(prompt, x, False) for x in bad]
         examples += [(prompt, x, True) for x in (r["want"], good) if x]
-    return examples
+    return examples + random.Random(seed).sample(anchors, min(refusal_anchors, len(anchors)))
 
 
 def kto_weights(examples):
@@ -161,6 +166,8 @@ def main():
     ap.add_argument("--loss", choices=("dpo", "kto"), default="dpo")
     ap.add_argument("--onpolicy", type=Path, help="con --loss kto: file di collect_onpolicy.py")
     ap.add_argument("--undesirable-per-prompt", type=int, default=2, help="con --loss kto: risposte sbagliate per prompt")
+    ap.add_argument("--refusal-anchors", type=int, default=0,
+                    help="con --loss kto: rifiuti gia' giusti del modello aggiunti come desiderate")
     a = ap.parse_args()
     if (a.loss == "kto") != bool(a.onpolicy):
         ap.error("--onpolicy serve con --loss kto, e solo con quella")
@@ -179,7 +186,7 @@ def main():
     from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForImageTextToText, AutoTokenizer
 
     if a.loss == "kto":
-        data = build_kto_examples(read_jsonl_lenient(a.onpolicy), a.undesirable_per_prompt)
+        data = build_kto_examples(read_jsonl_lenient(a.onpolicy), a.undesirable_per_prompt, a.refusal_anchors)
         desirable_weight, undesirable_weight = kto_weights(data)
         counts = {"desiderate": sum(e[2] for e in data), "indesiderate": sum(not e[2] for e in data)}
         print("esempi KTO:", counts, f"peso desiderate {desirable_weight:.3f}")
@@ -325,7 +332,8 @@ def main():
     record = {"base": a.base, "dataset": a.dataset, "loss": a.loss, "beta": a.beta, "lr": a.lr, "epochs": a.epochs,
               ("examples" if a.loss == "kto" else "pairs"): counts}
     if a.loss == "kto":
-        record.update(onpolicy=str(a.onpolicy), undesirable_per_prompt=a.undesirable_per_prompt)
+        record.update(onpolicy=str(a.onpolicy), undesirable_per_prompt=a.undesirable_per_prompt,
+                      refusal_anchors=a.refusal_anchors)
     (Path(a.out) / "run.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
     phase("salvataggio LoRA", a.out + "/lora")
     model.save_pretrained(a.out + "/lora")

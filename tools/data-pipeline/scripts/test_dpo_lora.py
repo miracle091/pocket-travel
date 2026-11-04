@@ -123,6 +123,14 @@ class KtoTest(unittest.TestCase):
         examples = build_kto_examples([result("Meze.", (REFUSAL, "bad"), ("Meze.", "good"))])
         self.assertEqual([(c, d) for _, c, d in examples], [(REFUSAL, False), ("Meze.", True)])
 
+    def test_refusal_anchors_only_from_correct_refusals(self):
+        ok_neg = [dict(result(REFUSAL, (REFUSAL, "good")), kind="neg") for _ in range(3)]
+        ok_pos = dict(result("Meze.", ("Meze.", "good")), kind="pos")
+        wrong_neg = dict(result(REFUSAL, ("Meze.", "bad")), kind="neg")
+        examples = build_kto_examples(ok_neg + [ok_pos, wrong_neg], refusal_anchors=2)
+        self.assertEqual([(c, d) for _, c, d in examples], [("Meze.", False), (REFUSAL, True), (REFUSAL, True), (REFUSAL, True)])
+        self.assertEqual(3, len(build_kto_examples(ok_neg + [ok_pos, wrong_neg], refusal_anchors=10)) - 2)
+
     def test_weights_balance_the_classes(self):
         examples = [([], "a", False)] * 3 + [([], "b", True)] * 6
         desirable_weight, undesirable_weight = kto_weights(examples)
