@@ -70,6 +70,7 @@ class OnlineAlertsRepositoryTest {
             val body = when {
                 "gdacs" in url -> fixture("gdacs_events.json")
                 "usgs" in url -> fixture("usgs_events.json")
+                "meteoalarm-legacy-atom-portugal" in url -> fixture("meteoalarm_portugal.xml")
                 "/api/v1/warnings/" in url -> fixture("meteoalarm_cap.xml")
                 "meteoalarm" in url -> fixture("meteoalarm_events.xml")
                 "tsunami.gov" in url -> fixture("tsunami_empty.xml")
@@ -89,6 +90,9 @@ class OnlineAlertsRepositoryTest {
             listOf(
                 InstalledRegion("italia", "Italia", "it", "1", null, "1", null, null, null, null, 0),
                 InstalledRegion("stati-uniti-colorado", "Colorado", "us", "1", null, "1", null, null, null, null, 0),
+                InstalledRegion("portogallo", "Portogallo", "pt", "1", null, "1", null, null, null, null, 0),
+                InstalledRegion("portogallo-azzorre", "Azzorre", "pt", "1", null, "1", null, null, null, null, 0),
+                InstalledRegion("portogallo-madeira", "Madeira", "pt", "1", null, "1", null, null, null, null, 0),
             ),
         )
         return OnlineAlertsRepository(File(tempFolder.root, "alerts"), storage, regionRepository, client, Dispatchers.IO, clock)
@@ -120,6 +124,15 @@ class OnlineAlertsRepositoryTest {
         // Il nome del servizio nazionale viene dal messaggio CAP: il feed Atom non lo ha.
         assertEquals("Italian Air Force National Meteorological Service", result.meteoalarmSender)
         assertTrue(result.alerts.filter { it.source == AlertSource.METEOALARM }.all { it.issuedAt != null })
+    }
+
+    @Test
+    fun meteoalarmAlertsOfTheDistantIslandsStayOnTheirOwnRegion() = runBlocking {
+        suspend fun meteoalarmAreas(regionId: String) = checkNotNull(repository().alerts(regionId)).alerts
+            .filter { it.source == AlertSource.METEOALARM }.mapNotNull { it.areaName }
+        assertEquals(listOf("Lisboa"), meteoalarmAreas("portogallo"))
+        assertEquals(listOf("Açores - Grupo Central"), meteoalarmAreas("portogallo-azzorre"))
+        assertEquals(listOf("Madeira - Costa Sul"), meteoalarmAreas("portogallo-madeira"))
     }
 
     @Test

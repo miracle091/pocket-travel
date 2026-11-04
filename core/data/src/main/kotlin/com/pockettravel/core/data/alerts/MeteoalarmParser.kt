@@ -73,6 +73,7 @@ object MeteoalarmParser {
             areaName = entry.cap("areaDesc"),
             url = relatedLink(entry),
             issuedAt = entry.cap("sent")?.let(::instant),
+            zoneCode = entry.zoneCode(),
         )
     }
 
@@ -108,6 +109,17 @@ object MeteoalarmParser {
         return (0 until links.length).map { links.item(it) as? Element }
             .firstOrNull { it?.getAttribute("rel") == "related" }
             ?.getAttribute("href")?.takeIf { it.isNotBlank() }
+    }
+
+    // `cap:geocode` ha come figli `valueName` e `value` (senza prefisso): serve il geocode EMMA_ID o, dove manca (la Francia
+    // da' solo NUTS3, per esempio FR812 per il Gard), il NUTS3.
+    private fun Element.zoneCode(): String? {
+        val geocodes = getElementsByTagNameNS(CAP, "geocode")
+        val byName = (0 until geocodes.length).mapNotNull { geocodes.item(it) as? Element }.associate { geocode ->
+            geocode.getElementsByTagName("valueName").item(0)?.textContent?.trim() to
+                geocode.getElementsByTagName("value").item(0)?.textContent?.trim()?.takeIf { it.isNotEmpty() }
+        }
+        return byName["EMMA_ID"] ?: byName["NUTS3"]
     }
 
     private fun Element.cap(name: String): String? = child(CAP, name)

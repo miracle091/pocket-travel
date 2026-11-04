@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">
+  <title>MeteoAlarm - Alerting Europe for Extreme Weather</title>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>PT002</value>
+    </cap:geocode>
+    <cap:areaDesc>Açores - Grupo Central</cap:areaDesc>
+    <cap:event>Yellow Wind Warning</cap:event>
+    <cap:sent>2026-10-24T09:00:00+00:00</cap:sent>
+    <cap:expires>2026-10-26T22:59:00+00:00</cap:expires>
+    <cap:onset>2026-10-24T10:00:00+00:00</cap:onset>
+    <cap:severity>Moderate</cap:severity>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.620.0.PT.241024090000.001</cap:identifier>
+    <title>Yellow Wind Warning issued for Portugal - Açores - Grupo Central</title>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>PT024</value>
+    </cap:geocode>
+    <cap:areaDesc>Madeira - Costa Sul</cap:areaDesc>
+    <cap:event>Yellow Wind Warning</cap:event>
+    <cap:sent>2026-10-24T09:00:00+00:00</cap:sent>
+    <cap:expires>2026-10-26T22:59:00+00:00</cap:expires>
+    <cap:onset>2026-10-24T10:00:00+00:00</cap:onset>
+    <cap:severity>Moderate</cap:severity>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.620.0.PT.241024090000.002</cap:identifier>
+    <title>Yellow Wind Warning issued for Portugal - Madeira - Costa Sul</title>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>PT011</value>
+    </cap:geocode>
+    <cap:areaDesc>Lisboa</cap:areaDesc>
+    <cap:event>Yellow Wind Warning</cap:event>
+    <cap:sent>2026-10-24T09:00:00+00:00</cap:sent>
+    <cap:expires>2026-10-26T22:59:00+00:00</cap:expires>
+    <cap:onset>2026-10-24T10:00:00+00:00</cap:onset>
+    <cap:severity>Moderate</cap:severity>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <cap:identifier>2.49.0.0.620.0.PT.241024090000.003</cap:identifier>
+    <title>Yellow Wind Warning issued for Portugal - Lisboa</title>
+  </entry>
+</feed>

@@ -118,7 +118,7 @@ class OnlineAlertsRepository(
         val countryCode = regionRepository.installed(regionId)?.countryCode
         val bounds = regionStorage.mapBounds(regionId)?.let { AlertBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) }
         // Fonti in parallelo, nell'ordine dell'elenco: l'attesa si annulla (vedi get) e dura quanto la piu' lenta.
-        val all = sources(countryCode) + nationalSources(regionId, countryCode, bounds)
+        val all = sources(regionId, countryCode) + nationalSources(regionId, countryCode, bounds)
         val loaded = coroutineScope { all.map { source -> async { load(source) } }.awaitAll() }.filterNotNull()
         if (loaded.isEmpty()) return@withContext null
         RegionAlerts(
@@ -129,7 +129,7 @@ class OnlineAlertsRepository(
         )
     }
 
-    private fun sources(countryCode: String?): List<Source> {
+    private fun sources(regionId: String, countryCode: String?): List<Source> {
         val today = LocalDate.now(clock.withZone(ZoneOffset.UTC))
         val from = today.minusDays(GDACS_DAYS)
         return listOfNotNull(
@@ -138,7 +138,12 @@ class OnlineAlertsRepository(
             Source("usgs-day", AlertUrls.usgsDay(), JsonAlertParsers::parseUsgs),
             Source("usgs-significant", AlertUrls.usgsSignificantWeek(), JsonAlertParsers::parseUsgs),
             meteoalarmCountry(countryCode)?.let { country ->
-                Source("meteoalarm-$country", AlertUrls.meteoalarm(country), MeteoalarmParser::parse, afterDownload = { body -> saveSender(country, body) })
+                Source(
+                    "meteoalarm-$country",
+                    AlertUrls.meteoalarm(country),
+                    { body -> MeteoalarmParser.parse(body).inMeteoalarmRegion(regionId, countryCode) },
+                    afterDownload = { body -> saveSender(country, body) },
+                )
             },
         )
     }

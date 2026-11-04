@@ -28,6 +28,7 @@ enum class AlertLevel { LOW, MODERATE, HIGH, EXTREME }
  * @property url pagina della fonte con il dettaglio.
  * @property magnitude magnitudo di un terremoto (USGS).
  * @property feltReports segnalazioni di chi ha sentito la scossa (USGS "Did You Feel It?"), se ci sono.
+ * @property zoneCode codice della zona dell'allerta nella fonte (Meteoalarm `EMMA_ID`, per esempio PT002, o `NUTS3` dove manca, per esempio FR812), se c'e'.
  * @property issuedAt ora di emissione del messaggio (Meteoalarm, `cap:sent`), da mostrare accanto all'allerta.
  * @property eventCode tipo dell'evento con il codice o il nome inglese fisso della fonte (NWS "Winter Storm Warning", codice
  *   JMA, tipo ECCC), per riscrivere il titolo nella lingua dell'app; nullo per le fonti che lo hanno nel titolo.
@@ -51,6 +52,7 @@ data class Alert(
     val impactAlert: String? = null,
     val issuedAt: Instant? = null,
     val eventCode: String? = null,
+    val zoneCode: String? = null,
 ) {
     /** Vero se la validita' non e' finita a [now]. */
     fun isActiveAt(now: Instant): Boolean = endsAt?.isAfter(now) != false

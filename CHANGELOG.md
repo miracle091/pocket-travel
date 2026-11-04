@@ -12,6 +12,9 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 ### Modificato
 - Assistente IA, motore Online: le domande a Claude passano dalla Messages API di Anthropic invece che dal suo endpoint compatibile con OpenAI, che Anthropic indica per test e confronti. Credito esaurito, limite di richieste e servizio sovraccarico si riconoscono dal tipo dell'errore, non dal testo del messaggio.
 
+### Corretto
+- Allerte in corso: le allerte meteo MeteoAlarm delle Azzorre e di Madeira compaiono solo nella loro regione e non più nelle altre regioni del Portogallo; quelle delle Canarie non compaiono più nella regione Spagna. Ogni regione della Francia mostra solo le allerte dei suoi dipartimenti, non più quelle di tutta la Francia.
+
 ## [0.14.0] - 2026-11-04
 
 ### Aggiunto
