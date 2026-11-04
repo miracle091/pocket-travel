@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Job "after-deploy" di publish-regions.yml: rilancia in una run nuova (workflow_dispatch, che il GITHUB_TOKEN puo' fare) le
 # regioni che gli shard hanno rimandato per il budget di tempo (deferred-<shard>.txt) e, solo dalla run iniziale, quelle
-# fallite (failed-<shard>.txt). Al massimo 4 continuazioni in fila.
+# fallite (failed-<shard>.txt). Al massimo 4 continuazioni in fila. Con una continuazione lanciata scrive launched=true in
+# GITHUB_OUTPUT.
 # Ambiente: CONTINUATION, TIME_BUDGET_INPUT, POI_MAX_AGE_INPUT, FORCE_CITIES_INPUT (input della run), REF_NAME (ramo;
 # dall'ambiente perche' il nome di un ramo puo' contenere $(...)), GITHUB_REPOSITORY, GH_TOKEN.
 set -euo pipefail
@@ -37,5 +38,6 @@ ARGS=(-f regions="$DEFERRED" -f continuation="$NEXT")
 # Senza retry: il lancio non e' idempotente, e un dispatch riuscito con la risposta persa ne farebbe partire due. Se
 # fallisce, le regioni restano al calendario settimanale (quota adattiva).
 gh workflow run publish-regions.yml --repo "$GITHUB_REPOSITORY" --ref "$REF_NAME" "${ARGS[@]}"
+echo "launched=true" >> "${GITHUB_OUTPUT:-/dev/null}"
 echo "-- continuazione $NEXT lanciata con $(tr ',' '\n' <<< "$DEFERRED" | wc -l) regioni"
 echo "Continuazione $NEXT lanciata con le regioni rimandate: $DEFERRED" >> "$GITHUB_STEP_SUMMARY"

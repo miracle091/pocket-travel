@@ -1109,6 +1109,7 @@ jobs:
         continue-on-error: true
 
       - name: Rilancia le regioni rimandate
+        id: continue
         env:
           GH_TOKEN: ${{ github.token }}
           REF_NAME: ${{ github.ref_name }}
@@ -1117,6 +1118,18 @@ jobs:
           POI_MAX_AGE_INPUT: ${{ github.event.inputs.poi_max_age_days }}
           FORCE_CITIES_INPUT: ${{ github.event.inputs.force_cities }}
         run: bash .github/scripts/publish-regions/continue-deferred.sh
+
+      # Gli estratti di Geofabrik servono solo alle run dello stesso giorno (continuazioni e rilanci): li toglie l'ultima
+      # run della catena, quella che non lancia una continuazione, cosi' non occupano circa 1,5 GB della cache fino alla
+      # run del giorno dopo. Un rilancio a mano piu' tardi li riscarica da Geofabrik.
+      - name: Elimina le cache degli estratti di Geofabrik
+        if: ${{ !cancelled() && steps.continue.outputs.launched != 'true' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh cache list --repo "$GITHUB_REPOSITORY" --key geofabrik-poi- --limit 100 --json key --jq '.[].key' \
+            | while read -r key; do gh cache delete "$key" --repo "$GITHUB_REPOSITORY" || echo "::warning::cache $key non tolta"; done
 
       - if: needs.deploy.result == 'success'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2

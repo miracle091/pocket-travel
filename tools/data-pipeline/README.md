@@ -121,7 +121,8 @@ nelle cache di Actions.
 
 Nel job `build` la cartella degli estratti (`GEOFABRIK_CACHE`) sta in due cache di Actions, salvate anche se il job
 fallisce. Gli estratti ridotti ai POI e l'indice (`geofabrik-poi-<data UTC>-<shard>-…`) valgono un giorno: continuazioni
-e nuovi tentativi dello stesso giorno li riusano, anche tra shard, il giorno dopo si riparte. I confini di Nominatim e
+e nuovi tentativi dello stesso giorno li riusano, anche tra shard, il giorno dopo si riparte. Li toglie il job
+`after-deploy` dell'ultima run della catena, quella che non lancia una continuazione. I confini di Nominatim e
 i poligoni degli estratti (`geofabrik-borders-<shard>-<settimana ISO>-…`) valgono una settimana. Si salva solo se la
 run ha aggiunto file; gli estratti interi e i file `.part` restano fuori, e oltre 1,5 GB di estratti ridotti per shard
 non si salva nulla (il limite del repository è 10 GB, condivisi con Gradle, dump e traduzioni). Le copie superate le
