@@ -1,15 +1,19 @@
 package com.pockettravel.core.data.alerts
 
-private val AZORES = Regex("""^(A[cç]ores|Azores)\b""", RegexOption.IGNORE_CASE)
-private val MADEIRA = Regex("""^Madeira\b""", RegexOption.IGNORE_CASE)
+// I codici EMMA_ID del Portogallo non dicono l'isola: Azzorre e Madeira si riconoscono dal nome dell'area ("Açores - Grupo
+// Central", "Madeira - Costa Sul").
+private val AZORES = Regex("""\b(A[cç]ores|Azores)\b""", RegexOption.IGNORE_CASE)
+private val MADEIRA = Regex("""\bMadeira\b""", RegexOption.IGNORE_CASE)
 
-// Zone delle Canarie nel feed spagnolo (codice EMMA_ID): Gran Canaria, Lanzarote, Fuerteventura, La Palma, La Gomera,
-// El Hierro e Tenerife. Con il solo NUTS3 le Canarie sono ES70x.
-private val CANARY_ZONES = (120..132).map { "ES$it" }.toSet()
+// Zone delle Canarie nel feed spagnolo (EMMA_ID, elenco dei geocodici di MeteoAlarm): ES120-ES132 a terra (Gran Canaria,
+// Lanzarote, Fuerteventura, La Palma, La Gomera, El Hierro e Tenerife), ES879-ES889 sulla costa. Con il solo NUTS3 ES70x.
+private val CANARY_ZONES = ((120..132) + (879..889)).map { "ES$it" }.toSet()
 private const val CANARY_NUTS = "ES70"
 
-// Ceuta e Melilla nel feed spagnolo (EMMA_ID ES250 ed ES251, NUTS3 ES630 ed ES640): sono in Africa, fuori dalla regione Spagna.
-private val CEUTA_MELILLA_ZONES = setOf("ES250", "ES251", "ES630", "ES640")
+// Ceuta e Melilla nel feed spagnolo (EMMA_ID a terra e sulla costa, NUTS3): sono in Africa, fuori dalla regione Spagna.
+private val CEUTA_ZONES = setOf("ES250", "ES871", "ES630")
+private val MELILLA_ZONES = setOf("ES251", "ES872", "ES640")
+private val CEUTA_MELILLA_ZONES = CEUTA_ZONES + MELILLA_ZONES
 
 // Lunghezza del codice della regione francese dentro il NUTS3 del dipartimento ("FR81" in "FR812").
 private const val FRANCE_REGION_CODE = 4
@@ -34,20 +38,31 @@ private val FRANCE_REGIONS = mapOf(
 
 /**
  * Le allerte Meteoalarm che riguardano la regione [regionId]. Il feed e' per paese, ma alcune regioni del catalogo sono
- * una parte del paese: Azzorre e Madeira tengono solo le loro zone e le altre regioni del Portogallo le perdono, la regione
- * Spagna perde le Canarie, Ceuta e Melilla, e ogni regione della Francia tiene solo i suoi dipartimenti. Un'allerta con
- * una zona che non si riconosce resta, come quelle delle regioni che coprono tutto il paese.
+ * una parte del paese: Azzorre, Madeira, Canarie, Ceuta e Melilla tengono solo le loro zone, che le altre regioni del
+ * Portogallo e la regione Spagna perdono, e ogni regione della Francia tiene solo i suoi dipartimenti. Nelle regioni grandi
+ * un'allerta con una zona che non si riconosce resta, come in quelle che coprono tutto il paese.
  */
 fun List<Alert>.inMeteoalarmRegion(regionId: String, countryCode: String?): List<Alert> = filter { alert ->
-    val name = alert.areaName.orEmpty()
     val zone = alert.zoneCode.orEmpty()
-    when {
-        regionId == "portogallo-azzorre" -> AZORES.containsMatchIn(name)
-        regionId == "portogallo-madeira" -> MADEIRA.containsMatchIn(name)
-        countryCode.equals("pt", ignoreCase = true) -> !AZORES.containsMatchIn(name) && !MADEIRA.containsMatchIn(name)
-        countryCode.equals("es", ignoreCase = true) ->
-            zone !in CANARY_ZONES && !zone.startsWith(CANARY_NUTS) && zone !in CEUTA_MELILLA_ZONES
+    SMALL_REGIONS[regionId]?.invoke(alert) ?: when {
+        countryCode.equals("pt", ignoreCase = true) -> !alert.isAzores() && !alert.isMadeira()
+        countryCode.equals("es", ignoreCase = true) -> !alert.isCanary() && zone !in CEUTA_MELILLA_ZONES
         countryCode.equals("fr", ignoreCase = true) -> FRANCE_REGIONS[zone.take(FRANCE_REGION_CODE)]?.let { it == regionId } ?: true
         else -> true
     }
 }
+
+// Regioni che sono una piccola parte del paese del feed: tengono solo le allerte delle loro zone.
+private val SMALL_REGIONS: Map<String, (Alert) -> Boolean> = mapOf(
+    "portogallo-azzorre" to { it.isAzores() },
+    "portogallo-madeira" to { it.isMadeira() },
+    "isole-canarie" to { it.isCanary() },
+    "ceuta" to { it.zoneCode in CEUTA_ZONES },
+    "melilla" to { it.zoneCode in MELILLA_ZONES },
+)
+
+private fun Alert.isAzores(): Boolean = AZORES.containsMatchIn(areaName.orEmpty())
+
+private fun Alert.isMadeira(): Boolean = MADEIRA.containsMatchIn(areaName.orEmpty())
+
+private fun Alert.isCanary(): Boolean = zoneCode in CANARY_ZONES || zoneCode.orEmpty().startsWith(CANARY_NUTS)
