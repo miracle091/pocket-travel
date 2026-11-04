@@ -12,9 +12,18 @@ da quelle del test esteso:
              impara a rifiutare tutte le domande sulle citta';
   pos_near   risposta con il blocco "Punti di interesse entro..." (VICINO) contro il rifiuto;
   neg_near   rifiuto VICINO contro la prima riga del blocco.
-La loss DPO e' scritta qui (log-sigmoide di beta per la differenza dei log-rapporti) e non usa il DPOTrainer di TRL, che
-nell'ambiente di training non si importa: il modello di riferimento e' lo stesso modello con la LoRA spenta. Le
+La loss DPO e' scritta qui (log-sigmoide di beta per la differenza dei log-rapporti) e non usa il DPOTrainer di TRL:
+il modello di riferimento e' lo stesso modello con la LoRA spenta. Le
 log-probabilita' si sommano solo sui token della risposta, nello stesso formato di prompt di train_lora.py.
+
+Con --loss kto --onpolicy <file di collect_onpolicy.py>, invece delle coppie, KTO (arXiv 2402.01306, come il KTOTrainer
+di TRL) sugli errori del modello stesso: per ogni prompt con almeno una risposta sbagliata, le risposte sbagliate
+(al piu' --undesirable-per-prompt, diverse tra loro) sono indesiderate, la risposta del dataset e una risposta giusta del
+modello, se diversa, desiderate. I pesi delle due classi le portano a 1:1. Il riferimento z0 (stima del KL) e' la media,
+sul gruppo di --accum esempi, del log-rapporto di ogni prompt con la risposta dell'esempio dopo, senza gradiente e mai
+sotto zero. lr consigliata da TRL 5e-7 - 5e-6:
+  python dpo_lora.py --base <run> --dataset pocket_travel_sft.v11.it.jsonl --loss kto --onpolicy <file> --lr 5e-6 \\
+                     --out <cartella> --merge
 """
 import argparse
 import json
@@ -24,7 +33,7 @@ import re
 import sys
 from pathlib import Path
 
-from eval_common import SFT_DIR, TEST_REGIONS, chat_prompt_and_answer, context_of, extended_file
+from eval_common import SFT_DIR, TEST_REGIONS, chat_prompt_and_answer, context_of, extended_file, read_jsonl_lenient
 from text_only import text_only_base
 
 GROUPS = ("neg_city", "pos_city", "pos_near", "neg_near")
@@ -65,6 +74,40 @@ def dpo_loss(margin, beta):
         return max(x, 0.0) + math.log1p(math.exp(-abs(x)))
     import torch.nn.functional as F
     return F.softplus(-beta * margin)
+
+
+def kto_loss(logratio, z0, desirable, beta, desirable_weight=1.0, undesirable_weight=1.0):
+    """Loss KTO di un esempio: peso * (1 - sigmoide(beta * (logratio - z0))) se desiderato, con (z0 - logratio) se
+    indesiderato. Numero per un numero, tensore per un tensore."""
+    x = beta * (logratio - z0) if desirable else beta * (z0 - logratio)
+    weight = desirable_weight if desirable else undesirable_weight
+    if isinstance(x, (int, float)):  # 1 - sigmoide(x) = sigmoide(-x), senza overflow per |x| grandi
+        return weight * (math.exp(-x) / (1 + math.exp(-x)) if x >= 0 else 1 / (1 + math.exp(x)))
+    import torch
+    return weight * (1 - torch.sigmoid(x))
+
+
+def build_kto_examples(results, max_bad=2):
+    """[(messaggi del prompt, risposta, desiderata)] dai risultati di collect_onpolicy.py: per ogni prompt con almeno
+    una risposta "bad", al piu' max_bad risposte sbagliate diverse, la risposta del dataset e una giusta del modello se
+    diversa da quella del dataset."""
+    examples = []
+    for r in results:
+        bad = list(dict.fromkeys(s["got"] for s in r["samples"] if s["label"] == "bad" and s["got"]))[:max_bad]
+        if not bad:
+            continue
+        prompt = [{"role": "user", "content": r["prompt"]}]
+        good = next((s["got"] for s in r["samples"] if s["label"] == "good" and s["got"] != r["want"]), None)
+        examples += [(prompt, x, False) for x in bad]
+        examples += [(prompt, x, True) for x in (r["want"], good) if x]
+    return examples
+
+
+def kto_weights(examples):
+    """(peso desiderate, peso indesiderate) che portano le due classi a 1:1, come consiglia TRL."""
+    desirable = sum(e[2] for e in examples)
+    undesirable = len(examples) - desirable
+    return (undesirable / desirable if desirable else 1.0), 1.0
 
 
 def leftover_scale(pending, accum):
@@ -115,7 +158,12 @@ def main():
     ap.add_argument("--per-group", default="neg_city=800,pos_city=800,pos_near=400,neg_near=200",
                     help="coppie al piu' per gruppo")
     ap.add_argument("--merge", action="store_true", help="salva anche i pesi con la LoRA fusa (per convert_gguf.py)")
+    ap.add_argument("--loss", choices=("dpo", "kto"), default="dpo")
+    ap.add_argument("--onpolicy", type=Path, help="con --loss kto: file di collect_onpolicy.py")
+    ap.add_argument("--undesirable-per-prompt", type=int, default=2, help="con --loss kto: risposte sbagliate per prompt")
     a = ap.parse_args()
+    if (a.loss == "kto") != bool(a.onpolicy):
+        ap.error("--onpolicy serve con --loss kto, e solo con quella")
 
     import gpu_lock
     from status import Progress, phase
@@ -130,12 +178,19 @@ def main():
     from peft import LoraConfig, PeftModel, get_peft_model
     from transformers import AutoConfig, AutoModelForCausalLM, AutoModelForImageTextToText, AutoTokenizer
 
-    per_group = {k: int(v) for k, v in (item.split("=") for item in a.per_group.split(","))}
-    rows = [json.loads(line) for line in (SFT_DIR / a.dataset).open(encoding="utf-8")]
-    excluded = {json.loads(line)["region"] for line in (SFT_DIR / extended_file(a.dataset)).open(encoding="utf-8")}
-    pairs = build_pairs(rows, excluded, per_group)
-    print("coppie:", {g: len(p) for g, p in pairs.items()})
-    data = [p for items in pairs.values() for p in items]
+    if a.loss == "kto":
+        data = build_kto_examples(read_jsonl_lenient(a.onpolicy), a.undesirable_per_prompt)
+        desirable_weight, undesirable_weight = kto_weights(data)
+        counts = {"desiderate": sum(e[2] for e in data), "indesiderate": sum(not e[2] for e in data)}
+        print("esempi KTO:", counts, f"peso desiderate {desirable_weight:.3f}")
+    else:
+        per_group = {k: int(v) for k, v in (item.split("=") for item in a.per_group.split(","))}
+        rows = [json.loads(line) for line in (SFT_DIR / a.dataset).open(encoding="utf-8")]
+        excluded = {json.loads(line)["region"] for line in (SFT_DIR / extended_file(a.dataset)).open(encoding="utf-8")}
+        pairs = build_pairs(rows, excluded, per_group)
+        counts = {g: len(p) for g, p in pairs.items()}
+        print("coppie:", counts)
+        data = [p for items in pairs.values() for p in items]
     random.Random(42).shuffle(data)
 
     # bf16 nativo solo con capability >= 8, come train_lora.py: su Turing is_bf16_supported() e' vero ma emulato (lento)
@@ -194,10 +249,12 @@ def main():
     optimizer = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=a.lr)
     total = a.epochs * math.ceil(len(data) / a.accum)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: max(0.0, 1 - step / max(total, 1)))
-    phase("DPO", f"{len(data)} coppie, {total} passi, beta {a.beta}, lr {a.lr}")
-    progress = Progress("DPO", total, "passo", every=60)
+    name = a.loss.upper()
+    phase(name, f"{len(data)} {'esempi' if a.loss == 'kto' else 'coppie'}, {total} passi, beta {a.beta}, lr {a.lr}")
+    progress = Progress(name, total, "passo", every=60)
     model.train()
     step, losses, wins = 0, [], []
+    wins_label = "dal lato giusto di z0" if a.loss == "kto" else "preferita sopra"
 
     def optimizer_step(pending):
         nonlocal step
@@ -211,9 +268,39 @@ def main():
         step += 1
         recent = slice(-a.accum * 10, None)
         progress.update(step, f"loss {sum(losses[recent]) / len(losses[recent]):.3f} · "
-                              f"preferita sopra {100 * sum(wins[recent]) / len(wins[recent]):.0f}%".replace(".", ","))
+                              f"{wins_label} {100 * sum(wins[recent]) / len(wins[recent]):.0f}%".replace(".", ","))
+
+    def logratio(ids, start):
+        """Log-rapporto della risposta tra modello e riferimento (LoRA spenta); il gradiente passa solo dal modello."""
+        policy = answer_logps([ids], [start])[0]
+        with torch.no_grad(), model.disable_adapter():
+            reference = answer_logps([ids], [start])[0]
+        return policy - reference
+
+    def kto_epoch():
+        encoded = [(encode(prompt, completion), prompt, completion, desirable) for prompt, completion, desirable in data]
+        encoded = [e for e in encoded if len(e[0][0]) <= a.max_len]
+        for i in range(0, len(encoded), a.accum):
+            chunk = encoded[i:i + a.accum]
+            # z0: ogni prompt del gruppo con la risposta dell'esempio dopo, senza gradiente, come il KL di TRL
+            z0 = 0.0
+            if len(chunk) > 1:
+                with torch.no_grad():
+                    kl = [logratio(*ids) for ids in (encode(chunk[j][1], chunk[(j + 1) % len(chunk)][2])
+                                                    for j in range(len(chunk))) if len(ids[0]) <= a.max_len]
+                z0 = max(torch.stack(kl).mean().item(), 0.0) if kl else 0.0
+            for (ids, start), _, _, desirable in chunk:
+                r = logratio(ids, start)
+                loss = kto_loss(r, z0, desirable, a.beta, desirable_weight, undesirable_weight)
+                (loss / a.accum).backward()
+                losses.append(loss.item())
+                wins.append(float((r.item() > z0) == desirable))
+            optimizer_step(len(chunk))
 
     for _ in range(a.epochs):
+        if a.loss == "kto":
+            kto_epoch()
+            continue
         pending = 0  # coppie accumulate dall'ultimo passo dell'ottimizzatore
         for prompt_messages, chosen, rejected in data:
             (chosen_ids, start), (rejected_ids, _) = encode(prompt_messages, chosen), encode(prompt_messages, rejected)
@@ -235,9 +322,11 @@ def main():
             optimizer_step(pending)
     print("peak VRAM GiB:", round(torch.cuda.max_memory_allocated() / 2**30, 2))
     Path(a.out).mkdir(parents=True, exist_ok=True)
-    (Path(a.out) / "run.json").write_text(json.dumps({"base": a.base, "dataset": a.dataset, "beta": a.beta, "lr": a.lr,
-                                                      "epochs": a.epochs, "pairs": {g: len(p) for g, p in pairs.items()}},
-                                                     indent=2), encoding="utf-8")
+    record = {"base": a.base, "dataset": a.dataset, "loss": a.loss, "beta": a.beta, "lr": a.lr, "epochs": a.epochs,
+              ("examples" if a.loss == "kto" else "pairs"): counts}
+    if a.loss == "kto":
+        record.update(onpolicy=str(a.onpolicy), undesirable_per_prompt=a.undesirable_per_prompt)
+    (Path(a.out) / "run.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
     phase("salvataggio LoRA", a.out + "/lora")
     model.save_pretrained(a.out + "/lora")
     tok.save_pretrained(a.out + "/lora")

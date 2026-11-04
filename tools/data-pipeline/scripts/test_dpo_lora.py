@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Test delle coppie di dpo_lora.py: gruppi, risposte scartate, regioni escluse, tetto per gruppo.
+"""Test delle coppie di dpo_lora.py: gruppi, risposte scartate, regioni escluse, tetto per gruppo; esempi, loss e pesi
+di KTO.
 
 Uso: python test_dpo_lora.py
 """
 import math
 import unittest
 
-from dpo_lora import build_pairs, context_of, dpo_loss, dpo_margin, first_sentence, leftover_scale
+from dpo_lora import (build_kto_examples, build_pairs, context_of, dpo_loss, dpo_margin, first_sentence, kto_loss,
+                      kto_weights, leftover_scale)
 
 
 def row(kind, region, category, context, answer, question="Cosa c'e'?"):
@@ -86,6 +88,45 @@ class LossTest(unittest.TestCase):
     def test_loss_stable_for_large_margins(self):
         self.assertAlmostEqual(dpo_loss(1e6, 0.1), 0.0)
         self.assertAlmostEqual(dpo_loss(-1e6, 0.1), 1e5)
+
+
+def result(want, *samples):
+    """Risultato di collect_onpolicy.py con le risposte (got, label) date."""
+    return {"prompt": "Sei una guida turistica offline.\n\nCONTESTO: x\n\nDOMANDA: y", "want": want,
+            "samples": [{"seed": i, "got": got, "label": lab} for i, (got, lab) in enumerate(samples)]}
+
+
+class KtoTest(unittest.TestCase):
+    def test_loss_halves_at_z0_and_follows_the_class(self):
+        self.assertAlmostEqual(kto_loss(0.0, 0.0, True, 0.1), 0.5)
+        self.assertAlmostEqual(kto_loss(3.0, 1.0, False, 0.1), 1 / (1 + math.exp(-0.2)))
+        # sopra z0 la desiderata costa meno, l'indesiderata di piu'
+        self.assertLess(kto_loss(5.0, 0.0, True, 0.1), 0.5)
+        self.assertGreater(kto_loss(5.0, 0.0, False, 0.1), 0.5)
+        self.assertAlmostEqual(kto_loss(0.0, 0.0, True, 0.1, desirable_weight=2.0), 1.0)
+
+    def test_loss_stable_for_large_ratios(self):
+        self.assertAlmostEqual(kto_loss(1e6, 0.0, True, 0.1), 0.0)
+        self.assertAlmostEqual(kto_loss(-1e6, 0.0, True, 0.1), 1.0)
+
+    def test_examples_only_from_prompts_with_errors(self):
+        results = [result("Meze.", ("Meze.", "good")),
+                   result("Meze ovunque.", (REFUSAL, "bad"), (REFUSAL, "bad"), ("Altro.", "bad"), ("Meze, ovunque.", "good"),
+                          ("Dubbio", "unsure"))]
+        examples = build_kto_examples(results, max_bad=2)
+        self.assertEqual([(c, d) for _, c, d in examples],
+                         [(REFUSAL, False), ("Altro.", False), ("Meze ovunque.", True), ("Meze, ovunque.", True)])
+        self.assertEqual([m["role"] for m in examples[0][0]], ["user"])
+        self.assertEqual(1, len(build_kto_examples(results, max_bad=1)) - 2)
+
+    def test_good_sample_equal_to_want_not_repeated(self):
+        examples = build_kto_examples([result("Meze.", (REFUSAL, "bad"), ("Meze.", "good"))])
+        self.assertEqual([(c, d) for _, c, d in examples], [(REFUSAL, False), ("Meze.", True)])
+
+    def test_weights_balance_the_classes(self):
+        examples = [([], "a", False)] * 3 + [([], "b", True)] * 6
+        desirable_weight, undesirable_weight = kto_weights(examples)
+        self.assertAlmostEqual(6 * desirable_weight, 3 * undesirable_weight)
 
 
 class AccumulationTest(unittest.TestCase):

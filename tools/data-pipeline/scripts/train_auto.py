@@ -18,6 +18,13 @@ https://download.pytorch.org/whl/cu130 (cu132 piu' recente, cu126 per driver NVI
 Un venv per backend (es. .venv-rocm, .venv-cuda): ROCm e CUDA hanno wheel di PyTorch diverse, mai nello stesso venv,
 e i pacchetti con kernel compilati (bitsandbytes, xformers, flash-attn) vanno presi per quel backend.
 
+AMD con ROCm su Windows (i modelli v11 pubblicati, RX 7700 XT): il venv creato dall'installer di Unsloth Studio
+(uv, Python 3.13.5), con torch 2.11.0+rocm7.14.0, torchvision 0.26.0+rocm7.14.0 e torchaudio 2.11.0+rocm7.14.0
+(pacchetti amd-torch-device-gfx1101 e rocm-sdk-device-gfx1101 7.14.0 per la RX 7700 XT), triton-windows 3.8.0.post29,
+unsloth e unsloth-zoo 2026.10.8, transformers 5.5.0, trl 0.23.1, peft 0.18.1, datasets 4.3.0, accelerate 1.14.0,
+xformers 0.0.35, bitsandbytes 1.33.7.preview (wheel continuous-release_main di bitsandbytes per Windows). Non usa
+constraints-train.txt, che e' per NVIDIA.
+
 AMD su WSL2 (alternativa non ancora provata: i modelli pubblicati sono addestrati con ROCm su Windows): ROCm 7.2.1
 supporta su WSL2 le RX 7000, RX 7700 XT inclusa, con Ubuntu 24.04 o 22.04, il driver Adrenalin 26.2.2 e librocdxg
 (quickstart in https://github.com/ROCm/librocdxg); rocminfo deve mostrare gfx1101. PyTorch dalle wheel di AMD in
