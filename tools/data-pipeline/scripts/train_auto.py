@@ -3,7 +3,7 @@
 
 Uso: python train_auto.py [--dry-run] [--gpu N] [opzioni di train_lora.py]
   es. python train_auto.py --max-steps 2   (prova veloce)
-      python train_auto.py --model Qwen/Qwen3.5-0.8B --dataset pocket_travel_sft.v10.it.jsonl \\
+      python train_auto.py --model Qwen/Qwen3.5-0.8B --dataset pocket_travel_sft.v11.it.jsonl \\
           --epochs 1 --batch 2 --merge --out <cartella>   (ricetta dei modelli pubblicati)
       python train_auto.py --4bit --model <modello piu' grande>   (QLoRA: meno VRAM)
 Va eseguito col Python di un venv che abbia PyTorch (CUDA o ROCm), su Windows, Linux o WSL; HF_TOKEN, se serve

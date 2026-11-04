@@ -76,7 +76,7 @@ def llama_env(exe):
     return env
 
 SFT_DIR = Path(__file__).resolve().parent.parent / "data" / "sft"
-DEFAULT_DATASET = "pocket_travel_sft.v10.it.jsonl"
+DEFAULT_DATASET = "pocket_travel_sft.v11.it.jsonl"
 # Token massimi di una risposta nei test: le risposte del dataset arrivano a 450 caratteri (~120 token), quindi con
 # 256 una risposta piu' lunga del training resta intera. Rifiuti e "inizio uguale" leggono solo l'inizio.
 ANSWER_TOKENS = 256

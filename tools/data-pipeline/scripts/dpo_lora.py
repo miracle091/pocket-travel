@@ -2,7 +2,7 @@
 """DPO con LoRA su un modello gia' addestrato con train_lora.py (cartella merged), sui punti deboli del test esteso.
 
 Uso (stesso ambiente di train_lora.py; GPU discreta scelta come in train_lora.py):
-  python dpo_lora.py --base <run> --dataset pocket_travel_sft.v10.it.jsonl --out <cartella> [--merge]
+  python dpo_lora.py --base <run> --dataset pocket_travel_sft.v11.it.jsonl --out <cartella> [--merge]
 
 Coppie (risposta preferita, risposta scartata) dalle righe del dataset SFT, fuori dalle regioni di test (TEST_REGIONS) e
 da quelle del test esteso:
@@ -148,7 +148,7 @@ def build_pairs(rows, excluded_regions, per_group, seed=42):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", required=True, help="cartella di un run di train_lora.py (run.json e lora/)")
-    ap.add_argument("--dataset", default="pocket_travel_sft.v10.it.jsonl", help="file dentro data/sft/")
+    ap.add_argument("--dataset", default="pocket_travel_sft.v11.it.jsonl", help="file dentro data/sft/")
     ap.add_argument("--out", required=True)
     ap.add_argument("--beta", type=float, default=0.1)
     ap.add_argument("--lr", type=float, default=2e-5)

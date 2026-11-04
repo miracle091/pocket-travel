@@ -28,7 +28,7 @@ Scelte che contano per la qualita':
   delle altre (Viaggiare Sicuri le copre tutte e quattro); senza pesatura il modello vedrebbe soprattutto
   quelle. Il peso di ogni riga e' media_conteggio_categoria / conteggio_della_sua_categoria (nel train
   set), cosi' ogni categoria pesa in media 1 nella loss a prescindere da quante righe ha.
-- --dataset sceglie il file dentro data/sft/ (default pocket_travel_sft.v10.it.jsonl di generate_sft.py,
+- --dataset sceglie il file dentro data/sft/ (default pocket_travel_sft.v11.it.jsonl di generate_sft.py,
   pubblicabile, senza Viaggiare Sicuri; un file .with-vs, generato con generate_sft_dataset.py --vs, e' SOLO
   per uso locale/personale). L'ATTRIBUTION gemella (stesso nome, ATTRIBUTION al posto di pocket_travel_sft
   e .tsv al posto di .jsonl) viene copiata come ATTRIBUTION.tsv in <out>/lora (e <out>/merged con --merge), cosi' upload_hf.py verifica le fonti
@@ -119,8 +119,8 @@ ap.add_argument("--batch", type=int, default=4, help="esempi per passo sulla GPU
 ap.add_argument("--no-group-by-length", action="store_true",
                 help="batch in ordine casuale invece che per lunghezza (come i training fino al 4B del 2026-09-26)")
 ap.add_argument("--merge", action="store_true", help="salva anche i pesi con il LoRA fuso (per la conversione); lancia anche l'eval automatico (run_eval.py)")
-ap.add_argument("--dataset", default="pocket_travel_sft.v10.it.jsonl",
-                help="file dentro data/sft/ (default: il v10 italiano, pubblicabile; pocket_travel_sft.v10.en.jsonl per l'inglese)")
+ap.add_argument("--dataset", default="pocket_travel_sft.v11.it.jsonl",
+                help="file dentro data/sft/ (default: il v11 italiano, pubblicabile; pocket_travel_sft.v11.en.jsonl per l'inglese)")
 ap.add_argument("--out", default=str(SFT_DIR / "run-smollm2-135m"))
 a = ap.parse_args()
 gpu_lock.gpu_job("train_lora.py")
@@ -281,7 +281,7 @@ def encode(r):
 
 phase("preparazione dataset", a.dataset)
 dataset_path = SFT_DIR / a.dataset
-# ATTRIBUTION gemella del dataset (pocket_travel_sft.v10.it.jsonl -> ATTRIBUTION.v10.it.tsv, come li scrive
+# ATTRIBUTION gemella del dataset (pocket_travel_sft.v11.it.jsonl -> ATTRIBUTION.v11.it.tsv, come li scrive
 # generate_sft.py; lo stesso con il suffisso ".with-vs"): copiata nella cartella dei pesi salvati, cosi' upload_hf.py puo'
 # verificare le fonti usate per QUESTO training, non solo l'ultimo dataset generato in data/sft/.
 attribution_path = SFT_DIR / a.dataset.replace("pocket_travel_sft", "ATTRIBUTION").replace(".jsonl", ".tsv")
