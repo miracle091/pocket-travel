@@ -10,10 +10,13 @@ class MeteoalarmZonesTest {
         title = name, details = null, startsAt = null, endsAt = null, area = null, areaName = name, url = null, zoneCode = zone,
     )
 
-    private val spain = listOf(alert("Lanzarote", "ES123"), alert("Norte de Tenerife", "ES130"), alert("Litoral de Barcelona", "ES181"))
+    private val spain = listOf(
+        alert("Lanzarote", "ES123"), alert("Norte de Tenerife", "ES130"), alert("Ceuta", "ES250"), alert("Melilla", "ES251"),
+        alert("Litoral de Barcelona", "ES181"),
+    )
 
     @Test
-    fun canaryZonesAreNotInTheMainlandRegion() {
+    fun canaryCeutaAndMelillaZonesAreNotInTheMainlandRegion() {
         assertEquals(listOf("ES181"), spain.inMeteoalarmRegion("spagna", "es").map { it.id })
     }
 
@@ -64,6 +67,6 @@ class MeteoalarmZonesTest {
 
     @Test
     fun otherRegionsKeepTheWholeCountryFeed() {
-        assertEquals(3, spain.inMeteoalarmRegion("ceuta", "xx").size)
+        assertEquals(5, spain.inMeteoalarmRegion("ceuta", "xx").size)
     }
 }

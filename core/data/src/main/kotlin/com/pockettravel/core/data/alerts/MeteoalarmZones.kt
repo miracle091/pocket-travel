@@ -8,6 +8,9 @@ private val MADEIRA = Regex("""^Madeira\b""", RegexOption.IGNORE_CASE)
 private val CANARY_ZONES = (120..132).map { "ES$it" }.toSet()
 private const val CANARY_NUTS = "ES70"
 
+// Ceuta e Melilla nel feed spagnolo (EMMA_ID ES250 ed ES251, NUTS3 ES630 ed ES640): sono in Africa, fuori dalla regione Spagna.
+private val CEUTA_MELILLA_ZONES = setOf("ES250", "ES251", "ES630", "ES640")
+
 // Lunghezza del codice della regione francese dentro il NUTS3 del dipartimento ("FR81" in "FR812").
 private const val FRANCE_REGION_CODE = 4
 
@@ -32,8 +35,8 @@ private val FRANCE_REGIONS = mapOf(
 /**
  * Le allerte Meteoalarm che riguardano la regione [regionId]. Il feed e' per paese, ma alcune regioni del catalogo sono
  * una parte del paese: Azzorre e Madeira tengono solo le loro zone e le altre regioni del Portogallo le perdono, la regione
- * Spagna perde le Canarie, e ogni regione della Francia tiene solo i suoi dipartimenti. Un'allerta con una zona che non si
- * riconosce resta, come quelle delle regioni che coprono tutto il paese.
+ * Spagna perde le Canarie, Ceuta e Melilla, e ogni regione della Francia tiene solo i suoi dipartimenti. Un'allerta con
+ * una zona che non si riconosce resta, come quelle delle regioni che coprono tutto il paese.
  */
 fun List<Alert>.inMeteoalarmRegion(regionId: String, countryCode: String?): List<Alert> = filter { alert ->
     val name = alert.areaName.orEmpty()
@@ -42,7 +45,8 @@ fun List<Alert>.inMeteoalarmRegion(regionId: String, countryCode: String?): List
         regionId == "portogallo-azzorre" -> AZORES.containsMatchIn(name)
         regionId == "portogallo-madeira" -> MADEIRA.containsMatchIn(name)
         countryCode.equals("pt", ignoreCase = true) -> !AZORES.containsMatchIn(name) && !MADEIRA.containsMatchIn(name)
-        countryCode.equals("es", ignoreCase = true) -> zone !in CANARY_ZONES && !zone.startsWith(CANARY_NUTS)
+        countryCode.equals("es", ignoreCase = true) ->
+            zone !in CANARY_ZONES && !zone.startsWith(CANARY_NUTS) && zone !in CEUTA_MELILLA_ZONES
         countryCode.equals("fr", ignoreCase = true) -> FRANCE_REGIONS[zone.take(FRANCE_REGION_CODE)]?.let { it == regionId } ?: true
         else -> true
     }
