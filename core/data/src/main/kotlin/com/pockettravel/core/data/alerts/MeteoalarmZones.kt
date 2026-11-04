@@ -43,9 +43,9 @@ private val FRANCE_REGIONS = mapOf(
 
 /**
  * Le allerte Meteoalarm che riguardano la regione [regionId]. Il feed e' per paese, ma alcune regioni del catalogo sono
- * una parte del paese: Azzorre, Madeira, Canarie, Ceuta, Melilla e Svalbard tengono solo le loro zone, che le altre
+ * una parte del paese: Azzorre, Madeira, Canarie, Ceuta, Melilla e Svalbard tengono solo le loro aree, che le altre
  * regioni del Portogallo e le regioni Spagna e Norvegia perdono, e ogni regione della Francia tiene solo i suoi
- * dipartimenti. Nelle regioni grandi un'allerta con una zona che non si riconosce resta, come in quelle che coprono tutto
+ * dipartimenti. Nelle regioni grandi un'allerta con un'area che non si riconosce resta, come in quelle che coprono tutto
  * il paese.
  */
 fun List<Alert>.inMeteoalarmRegion(regionId: String, countryCode: String?): List<Alert> = filter { alert ->
@@ -59,7 +59,7 @@ fun List<Alert>.inMeteoalarmRegion(regionId: String, countryCode: String?): List
     }
 }
 
-// Regioni che sono una piccola parte del paese del feed: tengono solo le allerte delle loro zone.
+// Regioni che sono una piccola parte del paese del feed: tengono solo le allerte delle loro aree.
 private val SMALL_REGIONS: Map<String, (Alert) -> Boolean> = mapOf(
     "portogallo-azzorre" to { it.isAzores() },
     "portogallo-madeira" to { it.isMadeira() },

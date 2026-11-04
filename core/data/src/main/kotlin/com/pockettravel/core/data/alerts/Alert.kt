@@ -28,8 +28,8 @@ enum class AlertLevel { LOW, MODERATE, HIGH, EXTREME }
  * @property url pagina della fonte con il dettaglio.
  * @property magnitude magnitudo di un terremoto (USGS).
  * @property feltReports segnalazioni di chi ha sentito la scossa (USGS "Did You Feel It?"), se ci sono.
- * @property zoneCode codice della zona dell'allerta nella fonte (Meteoalarm `EMMA_ID`, per esempio PT002, o `NUTS3` dove manca, per esempio FR812), se c'e'.
- * @property zoneBounds rettangolo dei poligoni dell'allerta (Meteoalarm `cap:polygon`), solo per riconoscere la zona dove
+ * @property zoneCode codice dell'area dell'allerta nella fonte (Meteoalarm `EMMA_ID`, per esempio PT002, o `NUTS3` dove manca, per esempio FR812), se c'e'.
+ * @property zoneBounds rettangolo dei poligoni dell'allerta (Meteoalarm `cap:polygon`), solo per riconoscere l'area dove
  *   mancano i geocodici (Norvegia); non vale come [area], che limiterebbe l'allerta al rettangolo della regione.
  * @property issuedAt ora di emissione del messaggio (Meteoalarm, `cap:sent`), da mostrare accanto all'allerta.
  * @property eventCode tipo dell'evento con il codice o il nome inglese fisso della fonte (NWS "Winter Storm Warning", codice
