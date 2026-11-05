@@ -5,7 +5,7 @@ package com.pockettravel.core.data.alerts
 private val AZORES = Regex("""\b(A[cç]ores|Azores)\b""", RegexOption.IGNORE_CASE)
 private val MADEIRA = Regex("""\bMadeira\b""", RegexOption.IGNORE_CASE)
 
-// Zone delle Canarie nel feed spagnolo (EMMA_ID, elenco dei geocodici di MeteoAlarm): ES120-ES132 a terra (Gran Canaria,
+// Aree delle Canarie nel feed spagnolo (EMMA_ID, elenco dei geocodici di MeteoAlarm): ES120-ES132 a terra (Gran Canaria,
 // Lanzarote, Fuerteventura, La Palma, La Gomera, El Hierro e Tenerife), ES879-ES889 sulla costa. Con il solo NUTS3 ES70x.
 private val CANARY_ZONES = ((120..132) + (879..889)).map { "ES$it" }.toSet()
 private const val CANARY_NUTS = "ES70"
@@ -23,7 +23,7 @@ private const val JAN_MAYEN_MAX_LON = 0.0
 // Lunghezza del codice della regione francese dentro il NUTS3 del dipartimento ("FR81" in "FR812").
 private const val FRANCE_REGION_CODE = 4
 
-// Il feed francese da' il dipartimento con il NUTS3 del 2010 (FR812 Gard): le prime quattro cifre sono la regione di prima
+// Il feed francese da' il dipartimento con il NUTS3 del 2010 (FR812 Gard): i primi quattro caratteri sono la regione di prima
 // del 2016, contenuta per intero in una delle regioni del catalogo.
 private val FRANCE_REGIONS = mapOf(
     "FR10" to "francia-ile-de-france",
