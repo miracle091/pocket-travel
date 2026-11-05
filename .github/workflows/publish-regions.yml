@@ -54,6 +54,14 @@ on:
           build-cities.sh), per quando i dati sono calati davvero su Wikidata o Wikipedia.
         type: boolean
         default: false
+      only:
+        description: >
+          Dati da costruire in questa run: all = tutti; addresses, transit, guides, world-map o regions = solo civici,
+          mezzi pubblici, guide, mappa del mondo o regioni. Il catalogo tiene le voci pubblicate degli altri; i controlli
+          Overture e vaccinazioni girano solo con all.
+        type: choice
+        options: [all, addresses, transit, guides, world-map, regions]
+        default: all
       continuation:
         description: >
           Numero della continuazione automatica (la imposta il job "after-deploy" quando rilancia le
@@ -101,6 +109,7 @@ jobs:
       shard0_extra: ${{ steps.plan.outputs.shard0_extra }}
       shard1_extra: ${{ steps.plan.outputs.shard1_extra }}
       shard2_extra: ${{ steps.plan.outputs.shard2_extra }}
+      shards: ${{ steps.plan.outputs.shards }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -126,7 +135,7 @@ jobs:
   guides:
     name: Guide
     needs: plan
-    if: ${{ !(github.event.inputs.continuation > 0) }}
+    if: ${{ !(github.event.inputs.continuation > 0) && contains(fromJSON('["all","guides"]'), github.event.inputs.only || 'all') }}
     runs-on: ubuntu-24.04
     # 240: scaricare le pagine e generare le guide richiede pochi minuti, il resto e' il tetto di traduzione (75 minuti in
     # tutto, vedi GUIDES_TRANSLATE_SECONDS sotto) con la conversione dei modelli alla prima run.
@@ -229,7 +238,7 @@ jobs:
   # WORLD_MAP_MAX_AGE_DAYS giorni o manca: altrimenti nessun frammento, e mergeManifests riporta la voce pubblicata.
   world-map:
     name: Mappa del mondo
-    if: ${{ github.ref == 'refs/heads/main' && !(github.event.inputs.continuation > 0) }}
+    if: ${{ github.ref == 'refs/heads/main' && !(github.event.inputs.continuation > 0) && contains(fromJSON('["all","world-map"]'), github.event.inputs.only || 'all') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
@@ -269,7 +278,7 @@ jobs:
   # Indice (address-grid.json) e frammento di catalogo vanno al job "publish" come artifact. Non gira nelle continuazioni.
   address-grid:
     name: Civici
-    if: ${{ github.ref == 'refs/heads/main' && !(github.event.inputs.continuation > 0) }}
+    if: ${{ github.ref == 'refs/heads/main' && !(github.event.inputs.continuation > 0) && contains(fromJSON('["all","addresses"]'), github.event.inputs.only || 'all') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     permissions:
@@ -332,7 +341,7 @@ jobs:
   transit:
     name: Mezzi pubblici
     needs: plan
-    if: ${{ !(github.event.inputs.continuation > 0) }}
+    if: ${{ !(github.event.inputs.continuation > 0) && contains(fromJSON('["all","transit"]'), github.event.inputs.only || 'all') }}
     runs-on: ubuntu-24.04
     # Circa 120 reti: download in parallelo per host, conversione una rete alla volta (transit.sh); il download piu'
     # lungo e' la Toscana, ~15 minuti.
@@ -378,7 +387,7 @@ jobs:
   # decine di minuti) e mai bloccante: se fallisce si ripete alla run successiva.
   overture-check:
     name: Controllo Overture
-    if: ${{ github.ref == 'refs/heads/main' && !(github.event.inputs.continuation > 0) }}
+    if: ${{ github.ref == 'refs/heads/main' && !(github.event.inputs.continuation > 0) && (github.event.inputs.only || 'all') == 'all' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
@@ -453,7 +462,7 @@ jobs:
   # e non blocca la pubblicazione (nessuno lo aspetta, gli errori di rete diventano un warning).
   vaccinations-check:
     name: Controllo vaccinazioni
-    if: ${{ github.event.schedule == '0 2 * * 1' || (github.event_name == 'workflow_dispatch' && !(github.event.inputs.continuation > 0)) }}
+    if: ${{ github.event.schedule == '0 2 * * 1' || (github.event_name == 'workflow_dispatch' && !(github.event.inputs.continuation > 0) && (github.event.inputs.only || 'all') == 'all') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -484,6 +493,8 @@ jobs:
   build:
     name: Regioni (shard ${{ matrix.shard }})
     needs: plan
+    # Solo gli shard con regioni (output "shards" del job "plan"): uno shard vuoto non parte.
+    if: ${{ contains(fromJSON('["all","regions"]'), github.event.inputs.only || 'all') && needs.plan.outputs.shards != '[]' }}
     runs-on: ubuntu-24.04
     # Sotto le 6 h di GitHub (che interrompono il passo senza caricare i frammenti, run del
     # 2026-09-28). Il budget TIME_BUDGET_MINUTES (270) si conta dall'inizio del job, preparazione compresa; l'ultima
@@ -500,7 +511,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2]
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     env:
       SHARD: ${{ matrix.shard }}
       # Ogni regione torna in rotazione ogni 7 giorni e si rigenera oltre POI_MAX_AGE_DAYS giorni:
@@ -1124,9 +1135,10 @@ jobs:
 
       # Gli estratti di Geofabrik servono solo alle run dello stesso giorno (continuazioni e rilanci): li toglie l'ultima
       # run della catena, quella che non lancia una continuazione, cosi' non occupano circa 1,5 GB della cache fino alla
-      # run del giorno dopo. Un rilancio a mano piu' tardi li riscarica da Geofabrik.
+      # run del giorno dopo. Un rilancio a mano piu' tardi li riscarica da Geofabrik. Una run che non costruisce regioni
+      # (input only) non li tocca: possono servire a una catena ancora in corso.
       - name: Elimina le cache degli estratti di Geofabrik
-        if: ${{ !cancelled() && steps.continue.outputs.launched != 'true' }}
+        if: ${{ !cancelled() && steps.continue.outputs.launched != 'true' && contains(fromJSON('["all","regions"]'), github.event.inputs.only || 'all') }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}

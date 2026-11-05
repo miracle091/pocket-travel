@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Job "plan" di publish-regions.yml: sceglie le regioni della run (bucket del giorno, input manuale o tutte) e le
-# divide nei 3 shard del job "build", con la coda della quota adattiva. Scrive in $GITHUB_OUTPUT shard0..2 e
-# shard0_extra..shard2_extra.
+# divide nei 3 shard del job "build", con la coda della quota adattiva. Scrive in $GITHUB_OUTPUT shard0..2,
+# shard0_extra..shard2_extra e shards (elenco JSON degli shard non vuoti).
 # Ambiente: REGIONS_INPUT e POI_MAX_AGE_INPUT (input della run, mai interpolati nello script: niente iniezione di
 # comandi), SCHEDULE (stringa cron che ha innescato la run, vuota nelle run manuali), PAGES_BASE_URL.
 set -euo pipefail
@@ -49,8 +49,8 @@ echo "-- regioni selezionate: $SELECTED"
 # per peso decrescente e assegnate una a una, dalla piu' pesante alla piu' leggera, allo shard
 # con il carico cumulativo piu' basso al momento (bin-packing goloso, stesso principio di
 # generate-weekly-schedule.sh ma sui 3 shard invece che sui 7 giorni). Per run piccole/manuali
-# uno o due shard possono restare vuoti - il job "build" per quello shard non fa nulla e
-# termina subito, non e' un errore.
+# uno o due shard possono restare vuoti: il job "build" non parte per quello shard (output
+# "shards" in fondo).
 # Peso = secondi dell'ultima generazione completa della regione (region-timings.tsv,
 # pubblicato accanto a `manifest.json` dal job "publish"): le tile contano poco per i POI,
 # rigenerati ogni settimana e lunghi dove i punti sono tanti (Germania: poche tile, molti
@@ -151,3 +151,10 @@ fi
   echo "shard1=${SHARDS[1]}"
   echo "shard2=${SHARDS[2]}"
 } >> "$GITHUB_OUTPUT"
+# Shard con almeno una regione, del giorno o in coda (matrice del job "build"): "[]" se nessuno.
+NON_EMPTY=()
+for ((n = 0; n < SHARD_COUNT; n++)); do
+  [ -z "${SHARDS[$n]}${EXTRAS[$n]}" ] || NON_EMPTY+=("$n")
+done
+echo "shards=[$(IFS=,; echo "${NON_EMPTY[*]}")]" >> "$GITHUB_OUTPUT"
+echo "-- shard con regioni: [$(IFS=,; echo "${NON_EMPTY[*]}")]"

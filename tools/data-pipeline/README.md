@@ -20,13 +20,13 @@ dà un avviso. Per adeguarsi si aggiornano `lookups.dat` e i profili con una nuo
 | Job | Nome | Cosa fa |
 |---|---|---|
 | `plan` | Piano degli shard | crea le release mancanti, sceglie le regioni della run e le divide in 3 shard |
-| `build` | Regioni (shard N) | genera i pacchetti delle regioni dello shard (`scripts/build-region.sh`, `build-cities.sh`) |
+| `build` | Regioni (shard N) | genera i pacchetti delle regioni dello shard (`scripts/build-region.sh`, `build-cities.sh`); parte solo per gli shard con regioni |
 | `guides` | Guide | rigenera `guides.db` e `guides-en.db` per tutte le regioni; pubblica solo se cambiano |
 | `world-map` | Mappa del mondo | mappa del mondo z0-8, rigenerata ogni ~30 giorni o se assente |
 | `address-grid` | Civici | celle dei numeri civici della quota del giorno (sezione sotto) |
 | `transit` | Mezzi pubblici | reti di `transit-feeds.tsv`, ricostruite se il feed cambia o dopo 7 giorni; una rete con gli orari scaduti passa da sola tra le "Non incluse" e torna pubblicata quando gli orari tornano validi, con un warning nella run solo in questi due cambi di stato; finche' il feed scaricato ha lo stesso sha256 (`sourceSha256` nella voce di `missing`), la rete scaduta non si riconverte e resta muta; un host che non risponde a nessun tentativo di una rete (30 s per connettersi) non si riprova per le altre reti dello stesso job, che tengono la voce pubblicata; le reti con `url_rt` (feed GTFS-RT dell'ente) tengono i `trip_id` e gli `stop_id` del GTFS e hanno in `transit.json` `realtimeUrl` e `realtimeSizeBytes` |
 | `overture-check` | Controllo Overture | lista bianca delle fonti Overture, una volta per rilascio; esito in una issue |
-| `vaccinations-check` | Controllo vaccinazioni | deriva dei dati vaccinali, il lunedì e nelle run manuali |
+| `vaccinations-check` | Controllo vaccinazioni | deriva dei dati vaccinali, il lunedì e nelle run manuali con `only` uguale a `all` |
 | `publish` | Pubblicazione | unisce i frammenti di catalogo al `manifest.json` pubblicato e prepara il sito di Pages, senza la chiave di firma e senza permessi di scrittura |
 | `deploy` | Firma e deploy | firma i JSON del sito con `MANIFEST_SIGNING_KEY` e fa il deploy su Pages; non esegue né Gradle né script della pipeline |
 | `after-deploy` | Dopo il deploy | rilancia le regioni rimandate o fallite, toglie i frammenti in sospeso gestiti e prepara gli input della pulizia |
@@ -40,7 +40,10 @@ famiglia di chiavi restano le 2 voci usate più di recente; a mano, con `dry_run
 **Calendario.** Sette righe `schedule` (una al giorno) rigenerano il bucket del giorno, definito in
 `scripts/weekly-schedule.sh` (generato da `generate-weekly-schedule.sh`): la cadenza è settimanale perché i segmenti
 `.rd5` di BRouter si rigenerano ogni settimana. `workflow_dispatch` serve per le run mirate (`regions`) o per
-rigenerare tutte le regioni (`regions` vuoto).
+rigenerare tutte le regioni (`regions` vuoto). L'input `only` limita la run a un tipo di dati: `addresses`
+(`address-grid`), `transit`, `guides`, `world-map` o `regions` (`build`); gli altri job produttori e i due
+controlli non partono, e `publish` tiene le voci pubblicate di ciò che la run non ricostruisce. Esempio, solo
+due celle dei civici: `gh workflow run publish-regions.yml -f only=addresses -f address_cells="4/6/7,4/7/4"`.
 
 **Bucket e shard.** Il lavoro si divide su più giorni e, in ogni giorno, su 3 shard in parallelo, per due limiti:
 le 6 ore massime di un job di GitHub Actions e l'uso corretto dei mirror Overpass pubblici. La divisione tra shard è
