@@ -109,6 +109,7 @@ internal fun PlannerSheet(
                     when (preview.result) {
                         RouteResult.NotFound -> R.string.navigation_not_found
                         RouteResult.TimedOut -> R.string.navigation_timed_out
+                        is RouteResult.Isolated -> isolatedText(preview.result)
                         else -> R.string.navigation_failed
                     },
                 ),
@@ -218,6 +219,9 @@ private fun RouteSummary(
         Column(modifier = Modifier.weight(1f)) {
             Text(durationText(route.durationSeconds), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
             Text(distanceText(route.distanceMeters), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Partenza o destinazione su strade non collegate al resto della rete: IslandRetryRouteEngine le ha spostate.
+            if (route.startOffsetMeters > 0) OffsetNote(stringResource(R.string.planner_start_offset, distanceText(route.startOffsetMeters)))
+            if (route.endOffsetMeters > 0) OffsetNote(stringResource(R.string.planner_end_offset, distanceText(route.endOffsetMeters)))
         }
         if (startsFromMe) {
             // Pulsante tondo con l'icona, come la X che chiude la navigazione: il nome lo legge TalkBack.
@@ -262,6 +266,11 @@ private fun RouteSummary(
             }
         }
     }
+}
+
+@Composable
+private fun OffsetNote(text: String) {
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = Spacing.xs))
 }
 
 @Composable

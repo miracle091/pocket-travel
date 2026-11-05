@@ -162,6 +162,7 @@ fun NavigationInstructions(
                                 RouteResult.NoRoutingData -> R.string.navigation_outside_routing
                                 RouteResult.NotFound -> R.string.navigation_not_found
                                 RouteResult.TimedOut -> R.string.navigation_timed_out
+                                is RouteResult.Isolated -> isolatedText(state.result)
                                 else -> R.string.navigation_failed
                             },
                         ),

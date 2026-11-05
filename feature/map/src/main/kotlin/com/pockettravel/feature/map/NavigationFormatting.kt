@@ -66,6 +66,9 @@ internal fun turnIcon(type: TurnType): ImageVector = ImageVector.vectorResource(
     },
 )
 
+internal fun isolatedText(result: RouteResult.Isolated): Int =
+    if (result.atStart) R.string.navigation_isolated_start else R.string.navigation_isolated_destination
+
 // Sotto il chilometro a decine di metri, sopra in km con un decimale nel formato della lingua.
 @Composable
 internal fun distanceText(meters: Double): String {

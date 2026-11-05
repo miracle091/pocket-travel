@@ -30,11 +30,17 @@ data class TurnInstruction(
     val roundaboutExit: Int = 0,
 )
 
+/**
+ * [startOffsetMeters]/[endOffsetMeters]: metri tra la partenza o la destinazione chieste e l'inizio o la fine del
+ * percorso, quando [IslandRetryRouteEngine] le ha spostate sulla strada raggiungibile piu' vicina; 0 altrimenti.
+ */
 data class Route(
     val points: List<RoutePoint>,
     val distanceMeters: Double,
     val durationSeconds: Double,
     val instructions: List<TurnInstruction> = emptyList(),
+    val startOffsetMeters: Double = 0.0,
+    val endOffsetMeters: Double = 0.0,
 )
 
 sealed interface RouteResult {
@@ -48,6 +54,12 @@ sealed interface RouteResult {
 
     /** Calcolo troppo lungo per il dispositivo (tempo massimo superato): destinazione troppo lontana. */
     data object TimedOut : RouteResult
+
+    /**
+     * Partenza ([atStart]) o destinazione su strade non collegate al resto della rete del modo (piste di un
+     * aeroporto, strade interne di un resort), anche spostandole fino a [IslandRetryRouteEngine.MAX_OFFSET_METERS].
+     */
+    data class Isolated(val atStart: Boolean) : RouteResult
 
     /** Altro errore del motore. */
     data class Failed(val message: String) : RouteResult

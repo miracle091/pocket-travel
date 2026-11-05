@@ -191,6 +191,10 @@
     <string name="navigation_calculating_progress">About %1$d%% calculated</string>
     <string name="navigation_calculating_long">By car, calculating long routes can take a few minutes</string>
     <string name="navigation_timed_out">The route is too long to calculate on the device: choose a closer destination or another travel mode</string>
+    <string name="navigation_isolated_destination">The destination isn\'t connected to roads usable with the chosen travel mode, not even within 2 km: choose another travel mode</string>
+    <string name="navigation_isolated_start">The start isn\'t connected to roads usable with the chosen travel mode, not even within 2 km: choose another travel mode or another start</string>
+    <string name="planner_end_offset">Arrival on the nearest reachable road, %1$s from the destination</string>
+    <string name="planner_start_offset">Start from the nearest reachable road, %1$s from the starting point</string>
     <string name="turn_continue">Continue straight</string>
     <string name="turn_slight_left">Bear left</string>
     <string name="turn_left">Turn left</string>

@@ -10,7 +10,7 @@ class BRouterCarRouteCalculator(private val routeEngineFactory: RouteEngineFacto
         val engine = routeEngineFactory.create(listOf(regionId))
         return when (val result = engine.route(from.toRoutePoint(), to.toRoutePoint(), profile = UsageMode.AUTO.routingProfile)) {
             is RouteResult.Found -> CarRoute(result.route.distanceMeters, result.route.durationSeconds)
-            RouteResult.NoRoutingData, RouteResult.NotFound, RouteResult.TimedOut, is RouteResult.Failed -> null
+            RouteResult.NoRoutingData, RouteResult.NotFound, RouteResult.TimedOut, is RouteResult.Isolated, is RouteResult.Failed -> null
         }
     }
 }

@@ -118,9 +118,15 @@ class BRouterRouteEngine(
             // Messaggi di NodesCache/RoutingEngine: "datafile ... not found",
             // "from-position not mapped in existing datafile".
             // "... timeout after N seconds": tempo massimo (maxRunningTimeMillis) superato.
+            // "no track found" con pochi tratti esplorati: partenza su un'isola. BRouter controlla le isole solo attorno
+            // alla destinazione ("target island detected"); dalla partenza la ricerca si ferma sotto i 500 nodi e la
+            // ripete al piu' 5 volte scartando le strade dell'isola (RoutingEngine: MAXNODES_ISLAND_CHECK,
+            // getFreezeCount() < 5), poi dice "no track found". Una ricerca completa senza percorso esplora molto di piu'.
             return when {
                 "not found" in message || "not mapped" in message -> RouteResult.NoRoutingData
                 "timeout" in message -> RouteResult.TimedOut
+                "no track found" in message && engine.linksProcessed <= START_ISLAND_MAX_LINKS ->
+                    RouteResult.Failed("start island detected ($message)")
                 else -> RouteResult.Failed(message)
             }
         }
@@ -134,6 +140,10 @@ class BRouterRouteEngine(
         // annullato mentre aspetta (l'assistente IA al suo tempo massimo, col Navigatore che calcola) smette subito.
         private val BROUTER_RUNTIME_LOCK = ReentrantLock()
         private const val PROGRESS_INTERVAL_MILLIS = 250L
+
+        // Controllo dell'isola della destinazione (500 nodi) piu' 6 ricerche dalla partenza sotto i 500 nodi; con la
+        // partenza sull'isola dell'aeroporto di Malabo BRouter ne esplora circa 3.200.
+        private const val START_ISLAND_MAX_LINKS = 3_500
         private const val FIXED_POINT_SCALE = 1_000_000.0
         private const val LAT_OFFSET_DEGREES = 90.0
         private const val LON_OFFSET_DEGREES = 180.0

@@ -14,6 +14,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA, motore Online: le domande a Claude passano dalla Messages API di Anthropic invece che dal suo endpoint compatibile con OpenAI, che Anthropic indica per test e confronti. Credito esaurito, limite di richieste e servizio sovraccarico si riconoscono dal tipo dell'errore, non dal testo del messaggio.
 
 ### Corretto
+- Navigatore: una destinazione o una partenza su strade non collegate al resto della rete del modo scelto, come le strade interne di un aeroporto o di un resort, non dà più «Impossibile calcolare il percorso». Il percorso arriva alla strada raggiungibile più vicina, entro 2 km, e sotto la distanza compare «Arrivo sulla strada raggiungibile più vicina, a N m dalla destinazione» (o «Partenza dalla …»); se entro 2 km non ce n'è nessuna, un messaggio propone un altro modo di spostarsi.
 - Allerte in corso: le allerte meteo MeteoAlarm delle Azzorre e di Madeira compaiono solo nella loro regione e non più nelle altre regioni del Portogallo; quelle delle Canarie, di Ceuta e di Melilla non compaiono più nella regione Spagna, quelle delle Svalbard e di Jan Mayen nella regione Norvegia. Ogni regione della Francia mostra solo le allerte dei suoi dipartimenti, non più quelle di tutta la Francia.
 
 ## [0.14.0] - 2026-11-04

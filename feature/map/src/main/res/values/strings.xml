@@ -193,6 +193,10 @@
     <string name="navigation_calculating_progress">Avanzamento del calcolo: circa %1$d%%</string>
     <string name="navigation_calculating_long">In auto, il calcolo dei percorsi lunghi può richiedere alcuni minuti</string>
     <string name="navigation_timed_out">Il percorso è troppo lungo da calcolare sul dispositivo: scegli una destinazione più vicina o un altro modo di spostarsi</string>
+    <string name="navigation_isolated_destination">La destinazione non è collegata alle strade percorribili con il modo di spostarsi scelto, nemmeno entro 2 km: scegli un altro modo di spostarsi</string>
+    <string name="navigation_isolated_start">La partenza non è collegata alle strade percorribili con il modo di spostarsi scelto, nemmeno entro 2 km: scegli un altro modo di spostarsi o un\'altra partenza</string>
+    <string name="planner_end_offset">Arrivo sulla strada raggiungibile più vicina, a %1$s dalla destinazione</string>
+    <string name="planner_start_offset">Partenza dalla strada raggiungibile più vicina, a %1$s dal punto di partenza</string>
     <string name="turn_continue">Prosegui dritto</string>
     <string name="turn_slight_left">Tieni leggermente la sinistra</string>
     <string name="turn_left">Gira a sinistra</string>

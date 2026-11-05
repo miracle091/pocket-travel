@@ -23,6 +23,7 @@ import com.pockettravel.feature.map.ConnectivityObserver
 import com.pockettravel.feature.map.DepartureReminderScheduler
 import com.pockettravel.feature.map.FallbackRouteEngine
 import com.pockettravel.feature.map.GuidanceServiceStarter
+import com.pockettravel.feature.map.IslandRetryRouteEngine
 import com.pockettravel.feature.map.OfflineTileSource
 import com.pockettravel.feature.map.PmtilesTileSource
 import com.pockettravel.feature.map.RouteEngineFactory
@@ -80,8 +81,10 @@ object RouteEngineModule {
                 fun engine(segmentDir: File) = BRouterRouteEngine(segmentDir, profileDir, profileName, ROUTE_TIMEOUT_MILLIS, ioDispatcher, defaultDispatcher)
                 val dirs = regionIds.map { File(regionsDir, "$it/$ROUTING_DIR_NAME") }
                 val merged = mergedDirOrNull(dirs, mergedDir, ioDispatcher)
-                if (merged == null) engine(dirs.first())
-                else FallbackRouteEngine(engine(merged), dirs.map(::engine))
+                IslandRetryRouteEngine(
+                    if (merged == null) engine(dirs.first())
+                    else FallbackRouteEngine(engine(merged), dirs.map(::engine)),
+                )
             }
         }
     }
