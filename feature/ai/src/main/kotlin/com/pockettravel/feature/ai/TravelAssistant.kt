@@ -794,7 +794,7 @@ internal fun CitySection.citation(language: String): String {
  * Con [comparePhrases] il confronto con la guida generale conta solo le prime frasi della query: le parole della categoria
  * scelta dal modello (modelQuestionCategory), in fondo, scelgono le sezioni della regione ma non decidono se la guida
  * generale va in testa (alzerebbero la regione: "Where should I keep my wallet on crowded buses?" scelta "transport").
- * La ricerca (con buildFtsQuery, namedCities, focusStems e selectContext) e' replicata in
+ * La ricerca (con buildFtsQuery, namedCities, focusStems, withGeneralGuideShare e selectContext) e' replicata in
  * tools/data-pipeline/scripts/eval_retrieval.py, che la misura su dati pubblicati: va cambiata insieme.
  */
 internal fun rankSections(
@@ -1110,8 +1110,8 @@ internal fun buildOnDeviceContext(
     // Etichetta nella lingua del prompt: i modelli inglesi la vedono cosi' nel training (generate_sft_dataset_en.py).
     val label = if (language == "en") "Personal note" else "Nota personale"
     val noteText = note?.let { truncateContext("$label: ${it.title}\n${it.body}", NOTE_MAX_CHARS) }
-    val sectionsBudget = maxChars - (noteText?.let { it.length + 2 } ?: 0)
-    val sectionsText = selectContext(sections.map { it.body }, focusStems, sectionsBudget.coerceAtLeast(0))
+    val sectionsBudget = (maxChars - (noteText?.let { it.length + 2 } ?: 0)).coerceAtLeast(0)
+    val sectionsText = selectContext(withGeneralGuideShare(sections, focusStems, sectionsBudget).map { it.body }, focusStems, sectionsBudget)
     return listOfNotNull(sectionsText.takeIf { it.isNotBlank() }, noteText).joinToString("\n\n")
 }
 
@@ -1139,7 +1139,7 @@ internal fun buildOnlineContext(
     var remaining = maxChars - (noteBlock?.let { it.length + 2 } ?: 0)
     val blocks = mutableListOf<String>()
     val cited = mutableListOf<AssistantSection>()
-    for (section in sections) {
+    for (section in withGeneralGuideShare(sections, focusStems, remaining)) {
         val source = OnlinePromptTemplates.sourceOf(section.citation)
         val budget = remaining - OnlinePromptTemplates.contextBlock(source, "", language).length
         if (budget < MIN_SECTION_CHARS) break
@@ -1156,6 +1156,21 @@ internal fun buildOnlineContext(
 
 // Sotto questo spazio residuo una sezione in piu' sarebbe solo un frammento.
 private const val MIN_SECTION_CHARS = 50
+
+// Quota massima del contesto per la pagina della guida generale in testa quando dopo vengono altre sezioni: lunga, prendeva
+// tutto lo spazio e la sezione del paese trovata dalla ricerca restava fuori dal contesto.
+internal const val GENERAL_GUIDE_SHARE = 0.7
+
+/**
+ * [sections] con la pagina della guida generale in testa ridotta ai paragrafi con piu' radici [focusStems] che stanno in
+ * GENERAL_GUIDE_SHARE di [budget] (relevantParagraphs), se dopo vengono altre sezioni; altrimenti [sections] com'e'.
+ */
+internal fun withGeneralGuideShare(sections: List<AssistantSection>, focusStems: Set<String>, budget: Int): List<AssistantSection> {
+    val first = sections.firstOrNull()
+    if (first == null || !first.fromGeneralGuide || sections.size < 2) return sections
+    val share = (budget * GENERAL_GUIDE_SHARE).toInt()
+    return listOf(first.copy(body = relevantParagraphs(first.body, focusStems, share))) + sections.drop(1)
+}
 
 /**
  * Le sezioni [bodies], in ordine di rilevanza, unite da riga vuota entro [maxChars]: ognuna prende dallo spazio

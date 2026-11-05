@@ -124,6 +124,22 @@ class ReplicaTest(unittest.TestCase):
         self.assertEqual(ev.select_context(["A" * 100, storia], {"roman", "medio"}, max_chars=160),
                          "A" * 100 + "\n\nFondata dai Romani.\nNel Medioevo fu libero comune.")
 
+    def test_quota_della_guida_generale_in_testa(self):
+        # withGeneralGuideShare: stessi dati e stessi risultati di GeneralGuideShareTest.kt.
+        paragraphs = [f"g{i:02d} " + "x" * 95 for i in range(20)]
+        paragraphs.insert(15, "Il passaporto smarrito va denunciato.")
+        general = {"body": "\n".join(paragraphs), "general_guide": True}
+        country = {"body": "Per entrare serve il passaporto."}
+        shared = ev.general_guide_share([general, country], {"passa"})
+        kept = [f"g{i:02d} " + "x" * 95 for i in range(13)] + ["Il passaporto smarrito va denunciato."]
+        self.assertEqual(ev.select_context([s["body"] for s in shared], {"passa"}),
+                         "\n".join(kept) + "\n\nPer entrare serve il passaporto.")
+        self.assertEqual(shared[0]["section_body"], general["body"])
+        # Da sola, o non in testa, la pagina resta intera.
+        self.assertEqual(ev.general_guide_share([general], {"passa"}), [general])
+        self.assertEqual(ev.general_guide_share([country, general], {"passa"}), [country, general])
+        self.assertEqual(len(ev.select_context([general["body"]], {"passa"})), 1937)
+
 
 class SearchTest(unittest.TestCase):
     def setUp(self):

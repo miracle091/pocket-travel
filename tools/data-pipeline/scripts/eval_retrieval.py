@@ -95,6 +95,7 @@ CITY_CANDIDATE_CAP = 100         # CityRepository.CITY_CANDIDATE_CAP
 MAX_CONTEXT = 2000               # buildOnDeviceContext(maxChars)
 MRR_DEPTH = 10                   # sezioni della classifica per Hit@5 e MRR@10 (solo misura)
 MIN_SECTION_CHARS = 50           # TravelAssistant.MIN_SECTION_CHARS
+GENERAL_GUIDE_SHARE = 0.7        # TravelAssistant.GENERAL_GUIDE_SHARE
 MIN_CITY_NAME_CHARS = 3          # TravelAssistant.MIN_CITY_NAME_CHARS
 STEM_CHARS = 5                   # TravelAssistant.STEM_CHARS
 LONG_WORD_CHARS = 8              # TravelAssistant.LONG_WORD_CHARS
@@ -729,6 +730,17 @@ def climate_first(groups, sections):
     return [climate] + [s for s in sections if s is not climate]
 
 
+def general_guide_share(sections, stems, budget=MAX_CONTEXT):
+    """withGeneralGuideShare di buildOnDeviceContext: la pagina della guida generale in testa, se dopo vengono altre
+    sezioni, tiene solo i paragrafi con piu' radici che stanno in GENERAL_GUIDE_SHARE di [budget]; "section_body" resta
+    la sezione intera, per cercarvi la risposta attesa."""
+    if len(sections) < 2 or not sections[0].get("general_guide"):
+        return sections
+    first = sections[0]
+    body = relevant_paragraphs(first["body"], stems, int(budget * GENERAL_GUIDE_SHARE))
+    return [{**first, "body": body, "section_body": first.get("section_body", first["body"])}] + sections[1:]
+
+
 def select_context(bodies, stems, max_chars=MAX_CONTEXT):
     """selectContext."""
     parts, remaining = [], max_chars
@@ -792,7 +804,9 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
     guide per la categoria della domanda; le radici restano quelle della domanda. Una nazione diversa da quella di
     [region] nominata senza citta' (named_place) fa cercare nelle sue regioni, senza il suo nome nella query. Con
     [before_rag] la ricerca di prima della guida generale e della nazione nominata: solo la regione aperta e le sue citta'.
-    Con [pool] le prime [pool] sezioni della classifica invece del contesto, senza riordino (Hit@5 e MRR@10)."""
+    Con [pool] le prime [pool] sezioni della classifica invece del contesto, senza riordino (Hit@5 e MRR@10); altrimenti
+    la pagina della guida generale in testa ha gia' la sua quota del contesto (general_guide_share, che nell'app si
+    applica in buildOnDeviceContext)."""
     named = named_cities(question, cities, lang)
     city = named[0] if len(named) == 1 else None
     country = None if named or before_rag else named_place(question, region, lang)
@@ -846,7 +860,7 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
     sections, stems = climate_first(groups | model, rank()), focus_stems(base, city)
     if RERANK["scorer"]:
         sections = reranked(question, sections, rank(limit=RERANK["candidates"], general_extra=RERANK["general"]), stems, lang)
-    return sections, stems
+    return general_guide_share(sections, stems), stems
 
 
 # --- riordino col modello della chat (--rerank) ------------------------------------------------------------------------
