@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Test di --guide-sections di generate_sft.py: quali sezioni di guides.db entrano (consigli di travel.gc.ca e FCDO,
 Sleep e Talk di Wikivoyage nella lingua del dataset) e quali no (le "#for-nationality=", i Fatti rapidi, le sezioni che
-danno gia' i dump), le pagine condivise e il tetto per categoria, le licenze OGL in ATTRIBUTION, le domande nuove fuori
+danno gia' i dump, le tradotte da un modello Gemma o senza modello), le pagine condivise e il tetto per categoria, le
+licenze OGL e la nota della traduzione in ATTRIBUTION, le domande nuove fuori
 dal test esteso e i campi dei Fatti rapidi uguali a quelli della pipeline dei contenuti.
 
 Uso: python test_sft_guide_sections.py
@@ -94,6 +95,51 @@ class LoadGuideSectionsTest(unittest.TestCase):
         self.assertIsNone(guide_source("https://www.viaggiaresicuri.it/x", "it"))
         for lic in GUIDE_LICENSES.values():  # la dichiarazione che le due licenze chiedono
             self.assertRegex(lic, r"contains (public sector )?information licensed under the Open Government Licence")
+
+
+class TranslatedGuideSectionsTest(unittest.TestCase):
+    """Sezioni tradotte da translate_guides.py, con il modello in translatedBy: la stessa regola delle citta'
+    (translation_license)."""
+
+    MARIAN = "Helsinki-NLP/opus-mt-tc-big-en-it"
+
+    def sections(self, rows):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "guides.db"
+            with closing(sqlite3.connect(path)) as db:
+                db.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT, "
+                           "translated INTEGER NOT NULL DEFAULT 0, translatedBy TEXT)")
+                db.executemany("INSERT INTO guide_sections VALUES (?, ?, ?, ?, ?, ?, ?)", rows)
+                db.commit()
+            return load_guide_sections(path, "it")
+
+    def test_solo_modelli_con_licenza_verificata(self):
+        out = self.sections([
+            ("giappone", "SICUREZZA", "Sicurezza (Governo del Canada)", "Precauzioni normali.", GC, 1, self.MARIAN),
+            ("giappone", "SALUTE", "Salute (Governo del Canada)", "Gemma 4.", GC, 1, "google/gemma-4-12B-it"),
+            ("giappone", "DOGANE", "Dogane (Governo del Canada)", "TranslateGemma.", GC, 1, "translategemma-4b-it-Q4_K_M.gguf"),
+            ("giappone", "SOLDI", "Soldi (Governo del Canada)", "Gemma 3.", GC, 1, "google/gemma-3-12b-it"),
+            ("giappone", "TRASPORTI", "Trasporti (Governo del Canada)", "Licenza da verificare.", GC, 1, "index-translate-9b-q4_k_m"),
+            ("giappone", "USI_COSTUMI", "Usi (Governo del Canada)", "Senza modello.", GC, 1, None),
+            ("francia", "ALLOGGIO", "Dove alloggiare", "Gli alberghi sono cari.", "https://it.wikivoyage.org/wiki/Francia", 0, None)])
+        self.assertEqual(out, {"giappone": [("SICUREZZA", "Precauzioni normali.", GC, self.MARIAN),
+                                            ("SALUTE", "Gemma 4.", GC, "google/gemma-4-12B-it")],
+                               "francia": [("ALLOGGIO", "Gli alberghi sono cari.", "https://it.wikivoyage.org/wiki/Francia", False)]})
+
+    def test_licenza_dei_modelli(self):
+        for model in ("google/gemma-4-12B-it", "gemma-4-E4B-it-Q4_K_M.gguf", "gemma4-31b"):
+            self.assertEqual(generate_sft.translation_license(model), "Apache 2.0", model)
+        for model in ("translategemma-4b-it", "google/gemma-3-4b-it", "gemma-4b", "index-translate-9b", "", None):
+            self.assertIsNone(generate_sft.translation_license(model), model)
+
+    def test_nota_di_attribution(self):
+        L = LANGS["it"]
+        self.assertEqual(generate_sft.translation_note(self.MARIAN, L),
+                         f" (tradotta automaticamente dall'inglese, {self.MARIAN}, CC BY 4.0)")
+        self.assertEqual(generate_sft.translation_note("google/gemma-4-12B-it", L),
+                         " (tradotta automaticamente dall'inglese, google/gemma-4-12B-it, Apache 2.0)")
+        self.assertEqual(generate_sft.translation_note("Helsinki-NLP/opus-mt-tc-big-it-en", LANGS["en"]),
+                         " (machine-translated from Italian, Helsinki-NLP/opus-mt-tc-big-it-en, CC BY 4.0)")
 
 
 class SelectGuideSectionsTest(unittest.TestCase):

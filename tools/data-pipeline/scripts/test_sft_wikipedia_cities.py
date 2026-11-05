@@ -122,7 +122,7 @@ class CityDbTest(unittest.TestCase):
             db.commit()
             db.close()
             self.assertEqual(load_city_sections([str(path)]), {"afghanistan": {"Kabul": [
-                ("TRASPORTI", "Libera.", "u", False), ("SALUTE", "Marian.", "u", True)]}})
+                ("TRASPORTI", "Libera.", "u", False), ("SALUTE", "Marian.", "u", "Helsinki-NLP/opus-mt-tc-big-en-it")]}})
 
 
 def make_db(path, cities):

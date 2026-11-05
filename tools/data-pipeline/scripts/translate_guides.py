@@ -256,7 +256,7 @@ def other_titles(own_titles, other_titles, own_lang, other_lang, cache_dir):
 
 def write_overlay(path, translated, model):
     """Scrive le sezioni tradotte, ognuna con il [model] che le ha tradotte (id del modello): generateGuides e
-    generateCities lo conservano in translatedBy, e il generatore del dataset SFT esclude quelle di un modello Gemma."""
+    generateCities lo conservano in translatedBy, e il generatore del dataset SFT tiene solo quelle di un modello con una licenza verificata."""
     with open(path, "w", encoding="utf-8") as f:
         for (owner, category), rows in sorted(translated.items()):
             f.write(json.dumps({"owner": owner, "category": category, "model": model,

@@ -522,7 +522,9 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   (motivo `serie-di-misura` nell'elenco delle esclusioni), così il confronto dei modelli su quelle serie dopo il
   training resta pulito. Toglie sempre le risposte che cominciano con un rimando ("Tuttavia", "Questo", "They",
   "However"…) a una frase rimasta fuori dallo stesso paragrafo (motivo `risposta-con-rimando`): da sole non stanno in
-  piedi. Le note di `ATTRIBUTION` sono nella lingua del dataset. I file di output sono
+  piedi. Le note di `ATTRIBUTION` sono nella lingua del dataset. Le sezioni di `guides.db` e `cities.db` tradotte
+  automaticamente entrano solo se `translatedBy` nomina un modello con una licenza verificata (opus-mt, Gemma 4; non
+  Gemma 3 né TranslateGemma, che hanno i Gemma Terms of Use), e la loro riga di `ATTRIBUTION` dice che il testo è tradotto, con quale modello e con la licenza del modello. I file di output sono
   `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v11 con
   `--nearby`, `--distances`, `--cities-db`, `--emergency`, le domande in stile utente, `--city-daily-life`,
   `--balanced-negatives` o `--clear-questions` (i default), v9 senza nessuna di queste,

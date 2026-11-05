@@ -10,7 +10,9 @@ Traduzione incrociata (translate_dataset.py): per ogni regione e categoria, se l
 manca o e' molto piu' povera di quella nell'altra lingua (needs_translation), si usa la sezione dell'altra lingua
 tradotta con MarianMT. Il dataset inglese usa gli articoli originali di Wikipedia EN (enwiki) e traduce quelli di
 Wikipedia IT solo per i temi senza articolo inglese. Le righe con una sezione tradotta
-hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA 4.0, opera derivata).
+hanno "translated": true e ATTRIBUTION indica la traduzione automatica (CC BY-SA 4.0, opera derivata). Lo stesso per
+le sezioni di guides.db e cities.db tradotte da translate_guides.py, con il modello di translatedBy (translation_note);
+entrano solo quelle di un modello con una licenza verificata (translation_license).
 
 - positivi: sezione giusta + 0-2 sezioni distraenti, risposta = frasi della sezione (estrattivo); una risposta senza
   parole chiave della categoria o della domanda si scarta;
@@ -584,19 +586,38 @@ def city_db_region(spec):
     return path.name.split("--")[0], path
 
 
-def gemma_derived(model):
-    """True se il testo tradotto da [model] non puo' entrare nel dataset: un modello della famiglia Gemma (gemma,
-    translategemma) o un modello non dichiarato. I Gemma Terms of Use (1.1(e)(iii)) considerano "Model Derivative" un
-    modello addestrato sugli output di Gemma, quindi le traduzioni di Gemma si pubblicano nelle guide ma non si usano per
-    l'addestramento; senza il nome del modello (testo tradotto prima che translatedBy esistesse) non si puo' escludere
-    che sia Gemma, e si lascia fuori."""
-    return not model or "gemma" in model.lower()
+# Licenza dei modelli di traduzione di translatedBy, per la nota di ATTRIBUTION (translation_note)
+TRANSLATION_LICENSES = {model: MT_LICENSE for model in MT_MODELS.values()}
+
+# Gemma 4 (Apache 2.0) in un nome di translatedBy ("google/gemma-4-12B-it", "gemma-4-12b-it-Q4_K_M.gguf"), non
+# TranslateGemma ne' Gemma 3, che hanno i Gemma Terms of Use
+GEMMA4 = re.compile(r"(?<![a-z])gemma-?4(?:[-_.]|$)")
+GEMMA4_LICENSE = "Apache 2.0"
+
+
+def translation_license(model):
+    """La licenza del modello [model] (translatedBy) che ha tradotto una sezione, None se il testo non puo' entrare nel
+    dataset. Entrano solo i modelli con una licenza verificata: opus-mt (TRANSLATION_LICENSES) e Gemma 4. Restano fuori
+    i modelli senza licenza nota, quelli con i Gemma Terms of Use (Gemma 3, TranslateGemma: per 1.1(e)(iii) un modello
+    addestrato sui loro output e' un "Model Derivative", quindi le loro traduzioni si pubblicano nelle guide ma non si
+    usano per l'addestramento) e il testo senza modello (tradotto prima che translatedBy esistesse)."""
+    if not model:
+        return None
+    if model in TRANSLATION_LICENSES:
+        return TRANSLATION_LICENSES[model]
+    return GEMMA4_LICENSE if GEMMA4.search(model.lower()) else None
+
+
+def translation_note(model, L):
+    """Nota di ATTRIBUTION di un testo tradotto da [model] (translatedBy, con una licenza da translation_license):
+    " (tradotta automaticamente dall'inglese, <modello>, <licenza del modello>)" nella lingua di [L]."""
+    return f" ({L['translated']}, {model}, {translation_license(model)})"
 
 
 def load_city_sections(specs):
     """{regionId: {citta': [(categoria, corpo, sourceUrl, tradotta)]}} dai cities.db di [specs] (city_sections), senza le
-    sezioni tradotte da un modello Gemma o non dichiarato (gemma_derived). I cities.db pubblicati prima della colonna
-    translated hanno solo sezioni non tradotte."""
+    sezioni tradotte da un modello senza licenza verificata o non dichiarato (translation_license); tradotta e' il modello che ha tradotto la
+    sezione (translatedBy) o False. I cities.db pubblicati prima della colonna translated hanno solo sezioni non tradotte."""
     out = {}
     for spec in specs:
         region, path = city_db_region(spec)
@@ -605,9 +626,9 @@ def load_city_sections(specs):
             for city, cat, body, url, translated, model in db.execute(
                     f"SELECT city, category, body, sourceUrl, {'translated' if 'translated' in columns else '0'}, "
                     f"{'translatedBy' if 'translatedBy' in columns else 'NULL'} FROM city_sections ORDER BY city, rowid"):
-                if translated and gemma_derived(model):
+                if translated and translation_license(model) is None:
                     continue
-                out.setdefault(region, {}).setdefault(city, []).append((cat, body, url, bool(translated)))
+                out.setdefault(region, {}).setdefault(city, []).append((cat, body, url, model if translated else False))
     return out
 
 
@@ -820,21 +841,25 @@ def load_guide_sections(guides_db, lang, wikipedia=False):
     GUIDE_LICENSES e categorie GUIDE_ONLY_CATS di Wikivoyage nella lingua [lang], con [wikipedia] (--guide-wikipedia)
     anche le sezioni della voce di Wikipedia della regione (cucina, tradizioni, media, telecomunicazioni: le sceglie la
     pipeline delle guide, CountryWikipedia.kt; quelle sulle feste in HOLIDAY_CATEGORY); fuori le "#for-nationality=", i Fatti rapidi (a parte, load_quick_facts),
-    le sezioni tradotte da translate_guides.py (anche quelle di un modello non Gemma: ATTRIBUTION non dichiara ancora
-    il modello di una sezione di guides.db; per i modelli Gemma vedi gemma_derived) e la guida generale "_general", che ha domande sue (load_general_guide, GENERAL_GUIDE_QUESTIONS)."""
+    le sezioni tradotte da translate_guides.py con un modello senza licenza verificata o non dichiarato (translation_license, come per le citta')
+    e la guida generale "_general", che ha domande sue (load_general_guide, GENERAL_GUIDE_QUESTIONS). tradotta e' il
+    modello che ha tradotto la sezione (translatedBy) o False; i guides.db senza la colonna translatedBy hanno le
+    sezioni tradotte tutte senza modello, quindi fuori."""
     out = {}
     with closing(sqlite3.connect(guides_db)) as db:
-        has_translated = any(col[1] == "translated" for col in db.execute("PRAGMA table_info(guide_sections)"))
-        for rid, cat, title, body, url in db.execute(
-                "SELECT regionId, category, title, body, sourceUrl FROM guide_sections WHERE category != 'FATTI_RAPIDI' "
-                "AND regionId != '_general' "
-                f"AND instr(sourceUrl, '#for-nationality=') = 0 {'AND IFNULL(translated, 0) = 0' if has_translated else ''} "
-                "ORDER BY regionId, rowid"):
+        columns = {col[1] for col in db.execute("PRAGMA table_info(guide_sections)")}
+        for rid, cat, title, body, url, translated, model in db.execute(
+                "SELECT regionId, category, title, body, sourceUrl, "
+                f"{'IFNULL(translated, 0)' if 'translated' in columns else '0'}, "
+                f"{'translatedBy' if 'translatedBy' in columns else 'NULL'} FROM guide_sections WHERE category != 'FATTI_RAPIDI' "
+                "AND regionId != '_general' AND instr(sourceUrl, '#for-nationality=') = 0 ORDER BY regionId, rowid"):
+            if translated and translation_license(model) is None:
+                continue
             source = guide_source(url, lang)
             if source and (source in GUIDE_LICENSES.values() or cat in GUIDE_ONLY_CATS or (wikipedia and source == WIKI_LICENSE)):
                 if source == WIKI_LICENSE and title.lower() in WIKI_HOLIDAY_TITLES:
                     cat = HOLIDAY_CATEGORY
-                out.setdefault(rid, []).append((cat, body, url, False))
+                out.setdefault(rid, []).append((cat, body, url, model if translated else False))
     return out
 
 
@@ -1344,11 +1369,13 @@ def main():
         excluded.extend(dropped)
         for rid, gsecs in sorted(guide_secs.items()):
             name, secs, other_secs = data.get(rid, (names[rid], [], []))
-            data[rid] = (name, sorted(secs + [(c, b, tr) for c, b, _, tr in gsecs], key=lambda s: (s[0], s[1])), other_secs)
+            data[rid] = (name, sorted(secs + [(c, b, bool(tr)) for c, b, _, tr in gsecs], key=lambda s: (s[0], s[1])), other_secs)
             guide_bodies.update(b for _, b, _, _ in gsecs)
-            for url in dict.fromkeys(u for _, _, u, _ in gsecs):
-                attribution.append((rid, name, url, guide_source(url, lang)))
+            for url, tr in dict.fromkeys((u, tr) for _, _, u, tr in gsecs):  # una riga per pagina e modello di traduzione
+                attribution.append((rid, name, url, guide_source(url, lang) + (translation_note(tr, L) if tr else "")))
         print("sezioni da guides.db per categoria:", dict(Counter(c for s in guide_secs.values() for c, *_ in s)))
+        if models := Counter(tr for s in guide_secs.values() for *_, tr in s if tr):
+            print("sezioni da guides.db tradotte, per modello:", dict(models))
 
     keywords = L["keywords"]
     covers = lambda cat, text: it.covers(cat, text, keywords)
@@ -1658,8 +1685,7 @@ def main():
                 rows.append(row(kind, rid, cat, context, q, answer, any(s[3] for s in sections))); wiki[label] += 1
                 used.update({s[2]: s[3] for s in sections})
             for url, tr in used.items():
-                lic = (WIKI_LICENSE if "wikipedia.org" in url else "CC BY-SA 4.0") + (
-                    f" ({L['translated']}, {MT_MODELS[(other, lang)]}, {MT_LICENSE})" if tr else "")
+                lic = (WIKI_LICENSE if "wikipedia.org" in url else "CC BY-SA 4.0") + (translation_note(tr, L) if tr else "")
                 attribution.append((rid, name, url, lic))
         print(f"storia e clima: {len(wiki_cities)} citta', positivi {wiki['pos']}, con distrattore {wiki['distrattori']}, "
               f"rifiuti {wiki['neg']}")
