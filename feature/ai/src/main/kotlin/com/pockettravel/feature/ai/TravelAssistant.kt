@@ -1157,19 +1157,23 @@ internal fun buildOnlineContext(
 // Sotto questo spazio residuo una sezione in piu' sarebbe solo un frammento.
 private const val MIN_SECTION_CHARS = 50
 
-// Quota massima del contesto per la pagina della guida generale in testa quando dopo vengono altre sezioni: lunga, prendeva
-// tutto lo spazio e la sezione del paese trovata dalla ricerca restava fuori dal contesto.
+// Quota massima del contesto per la pagina della guida generale quando dopo vengono altre sezioni: lunga, prendeva tutto
+// lo spazio rimasto e la sezione del paese trovata dalla ricerca restava fuori dal contesto.
 internal const val GENERAL_GUIDE_SHARE = 0.7
 
 /**
- * [sections] con la pagina della guida generale in testa ridotta ai paragrafi con piu' radici [focusStems] che stanno in
- * GENERAL_GUIDE_SHARE di [budget] (relevantParagraphs), se dopo vengono altre sezioni; altrimenti [sections] com'e'.
+ * [sections] con la prima pagina della guida generale, in qualunque posto, ridotta ai paragrafi con piu' radici [focusStems]
+ * che stanno in GENERAL_GUIDE_SHARE di [budget] (relevantParagraphs), se dopo vengono altre sezioni; altrimenti [sections]
+ * com'e'. Le sezioni prima della pagina (previsioni, allerte, distanze, vaccinazioni, numeri di emergenza, POI, mezzi
+ * pubblici) restano intere. [budget] e' lo spazio di tutte le sezioni del contesto, non quello rimasto dopo le sezioni
+ * che precedono la pagina: se queste sono lunghe, selectContext e buildOnlineContext la riducono ancora a quello che resta.
  */
 internal fun withGeneralGuideShare(sections: List<AssistantSection>, focusStems: Set<String>, budget: Int): List<AssistantSection> {
-    val first = sections.firstOrNull()
-    if (first == null || !first.fromGeneralGuide || sections.size < 2) return sections
+    val index = sections.indexOfFirst { it.fromGeneralGuide }
+    if (index < 0 || index == sections.lastIndex) return sections
     val share = (budget * GENERAL_GUIDE_SHARE).toInt()
-    return listOf(first.copy(body = relevantParagraphs(first.body, focusStems, share))) + sections.drop(1)
+    val page = sections[index]
+    return sections.take(index) + page.copy(body = relevantParagraphs(page.body, focusStems, share)) + sections.drop(index + 1)
 }
 
 /**

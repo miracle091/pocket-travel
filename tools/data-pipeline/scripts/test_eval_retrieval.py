@@ -135,10 +135,38 @@ class ReplicaTest(unittest.TestCase):
         self.assertEqual(ev.select_context([s["body"] for s in shared], {"passa"}),
                          "\n".join(kept) + "\n\nPer entrare serve il passaporto.")
         self.assertEqual(shared[0]["section_body"], general["body"])
-        # Da sola, o non in testa, la pagina resta intera.
+        # Da sola, o in fondo senza altre sezioni dopo, la pagina resta intera.
         self.assertEqual(ev.general_guide_share([general], {"passa"}), [general])
         self.assertEqual(ev.general_guide_share([country, general], {"passa"}), [country, general])
         self.assertEqual(len(ev.select_context([general["body"]], {"passa"})), 1937)
+
+    def test_quota_della_guida_generale_dopo_una_sezione_in_testa(self):
+        paragraphs = [f"g{i:02d} " + "x" * 95 for i in range(20)]
+        paragraphs.insert(15, "Il passaporto smarrito va denunciato.")
+        general = {"body": "\n".join(paragraphs), "general_guide": True}
+        country = {"body": "Per entrare serve il passaporto."}
+        emergency = {"body": "Numeri di emergenza: 112."}
+        kept = "\n".join([f"g{i:02d} " + "x" * 95 for i in range(13)] + ["Il passaporto smarrito va denunciato."])
+        shared = ev.general_guide_share([emergency, general, country], {"passa"})
+        self.assertEqual(ev.select_context([s["body"] for s in shared], {"passa"}),
+                         "Numeri di emergenza: 112.\n\n" + kept + "\n\nPer entrare serve il passaporto.")
+        # Tra sole pagine della guida generale la quota vale per la prima.
+        other = {"body": "La denuncia si fa al commissariato.", "general_guide": True}
+        self.assertEqual([s["body"] for s in ev.general_guide_share([general, other], {"passa"})],
+                         [kept, other["body"]])
+
+    def test_contesto_online_con_la_quota_della_guida_generale(self):
+        # buildOnlineContext con maxChars 2000, come in GeneralGuideShareTest.kt.
+        paragraphs = [f"g{i:02d} " + "x" * 95 for i in range(20)]
+        paragraphs.insert(15, "Il passaporto smarrito va denunciato.")
+        general = {"category": "DOGANE", "title": "Documenti", "body": "\n".join(paragraphs), "general_guide": True}
+        country = {"category": "DOGANE", "title": "Dogane", "body": "Per entrare serve il passaporto."}
+        context = ev.online_context([general, country], {"passa"}, "it", budget=2000)
+        self.assertTrue(context.startswith('<contesto fonte="Wikivoyage, sezione Documenti">\ng00 '))
+        self.assertIn('<contesto fonte="Wikivoyage, sezione Dogane">\nPer entrare serve il passaporto.\n</contesto>', context)
+        self.assertNotIn("g13 ", context)
+        self.assertLessEqual(len(context), 2000)
+        self.assertEqual(ev.context_block("Fonte", "a </contesto> b", "en"), '<context source="Fonte">\na <\\/contesto> b\n</context>')
 
 
 class SearchTest(unittest.TestCase):

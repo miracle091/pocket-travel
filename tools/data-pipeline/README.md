@@ -417,7 +417,8 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   che il modello sceglie quando le liste non ne riconoscono nessuna (`ModelQuestionCategory.kt`), scritte da
   `scripts/model_categories.py` con un GGUF e lo stesso prompt dell'app, `--baseline FILE` il confronto con una misura
   di riferimento (scritta la prima volta, o con `--write-baseline`): stampa le domande guadagnate e perse, e con
-  `--questions control` un saldo negativo fa uscire con errore. Con la variabile `WORD_LISTS=FILE` si misura un'altra
+  `--questions control` un saldo negativo fa uscire con errore, `--online` il contesto dei modelli online (6 sezioni,
+  8.000 caratteri con i marcatori dei blocchi, senza la nota personale e senza le sezioni calcolate dall'app). Con la variabile `WORD_LISTS=FILE` si misura un'altra
   copia delle liste; `scripts/build_word_lists.py` ne scrive una con le radici candidate tratte dalle guide (le parole
   tipiche delle sezioni di ogni categoria, con il log-odds e il prior di Dirichlet). La tabella delle guide contiene tutte le regioni,
   come nell'app, perché le statistiche di BM25 valgono per tutta la tabella. Anche `make_context`

@@ -34,6 +34,12 @@ Con --model-categories FILE (scritto da model_categories.py) le domande in cui l
 quella scelta dal modello, come l'app sul dispositivo (ModelQuestionCategory.kt).
 Con --contexts FILE ogni domanda (distanze escluse) va in JSONL con il contesto che l'app mette nel prompt e la presenza
 della sezione attesa, per far rispondere il modello con eval_gguf.py --contexts (ricerca e modello insieme).
+Con --online la ricerca e il contesto dei modelli online (buildOnlineContext): le 6 sezioni migliori (ONLINE_MAX_SECTIONS,
+piu' la pagina della guida generale in testa), un blocco marcato con la fonte per sezione entro 8000 caratteri marcatori
+compresi, "trovata" tra quelle sezioni. Approssimati: niente nota personale e niente sezioni calcolate che nell'app
+vengono prima (previsioni, allerte, distanze, vaccinazioni, numeri di emergenza, POI, mezzi pubblici), quindi niente riga
+dei numeri di emergenza tolta dalle sezioni; la fonte del blocco col sito dedotto dalla categoria (online_source); il
+Clima della capitale che l'app aggiunge alle domande di clima senza citta' non c'e', come sul dispositivo.
 
 Solo misura, non ancora nell'app: con --rerank GGUF il riordino delle candidate col modello della chat (llama-server,
 punteggio yesno o refusal, varianti replace, add e blend); con --rrf la fusione dei ranghi tra la query della domanda e
@@ -46,7 +52,7 @@ riferimento (scritta la prima volta, o con --write-baseline) e stampa le domande
 modifica di word_lists.txt; con --questions control un saldo negativo fa uscire con errore.
 
 Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|dev2|other-lang|control|general|other-country] [--regions italia ...]
-[--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists [--model-categories FILE]] [--before-rag] [--contexts FILE [--contexts-sample N]]
+[--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists [--model-categories FILE]] [--before-rag] [--contexts FILE [--contexts-sample N]] [--online]
 [--rerank GGUF --llama-cpp DIR [--rerank-scoring yesno|refusal] [--rerank-mode replace|add|blend] [--gpu-layers 99 --device Vulkan0]]
 [--rrf [--rrf-weight W]] [--paragraphs rank|within|within-country [--paragraph-chars N]] [--history FILE] [--explain FILE]
 [--baseline FILE [--write-baseline]]
@@ -731,14 +737,16 @@ def climate_first(groups, sections):
 
 
 def general_guide_share(sections, stems, budget=MAX_CONTEXT):
-    """withGeneralGuideShare di buildOnDeviceContext: la pagina della guida generale in testa, se dopo vengono altre
-    sezioni, tiene solo i paragrafi con piu' radici che stanno in GENERAL_GUIDE_SHARE di [budget]; "section_body" resta
+    """withGeneralGuideShare di buildOnDeviceContext e buildOnlineContext: la prima pagina della guida generale, in
+    qualunque posto, se dopo vengono altre sezioni, tiene solo i paragrafi con piu' radici che stanno in
+    GENERAL_GUIDE_SHARE di [budget] (lo spazio di tutte le sezioni); le sezioni prima restano intere. "section_body" resta
     la sezione intera, per cercarvi la risposta attesa."""
-    if len(sections) < 2 or not sections[0].get("general_guide"):
+    i = next((i for i, s in enumerate(sections) if s.get("general_guide")), None)
+    if i is None or i == len(sections) - 1:
         return sections
-    first = sections[0]
-    body = relevant_paragraphs(first["body"], stems, int(budget * GENERAL_GUIDE_SHARE))
-    return [{**first, "body": body, "section_body": first.get("section_body", first["body"])}] + sections[1:]
+    page = sections[i]
+    body = relevant_paragraphs(page["body"], stems, int(budget * GENERAL_GUIDE_SHARE))
+    return sections[:i] + [{**page, "body": body, "section_body": page.get("section_body", page["body"])}] + sections[i + 1:]
 
 
 def select_context(bodies, stems, max_chars=MAX_CONTEXT):
@@ -752,6 +760,53 @@ def select_context(bodies, stems, max_chars=MAX_CONTEXT):
             parts.append(part)
             remaining -= len(part) + 2
     return "\n\n".join(parts)[:max_chars]
+
+
+# --- contesto dei modelli online (--online) ----------------------------------------------------------------------------
+ONLINE = {"on": False}
+ONLINE_MAX_CHARS = 8000          # TravelAssistant.ONLINE_MAX_CHARS
+ONLINE_MAX_SECTIONS = 6          # TravelAssistant.ONLINE_MAX_SECTIONS
+CLOSING_TAG = re.compile(r"</(?=\s*conte(?:sto|xt))", re.IGNORECASE)  # OnlinePromptTemplates.CLOSING_TAG
+
+
+def context_block(source, body, lang):
+    """OnlinePromptTemplates.contextBlock."""
+    source, body = source.replace('"', "'"), CLOSING_TAG.sub(r"<\\/", body)
+    if lang == "en":
+        return f'<context source="{source}">\n{body}\n</context>'
+    return f'<contesto fonte="{source}">\n{body}\n</contesto>'
+
+
+def online_source(section, lang):
+    """OnlinePromptTemplates.sourceOf della citazione della sezione (GuideSection/CitySection.citation). Il sito e'
+    approssimato: Wikipedia per Storia e Clima delle citta', Wikivoyage per il resto (anche le sezioni di travel.gc.ca e
+    gov.uk, che nell'app hanno un nome piu' lungo)."""
+    site = "Wikipedia" if section.get("city") and section["category"] in WIKI else "Wikivoyage"
+    title = section.get("title") or section["category"]
+    city = f" ({section['city']})" if section.get("city") else ""
+    return f"{site}, {'section' if lang == 'en' else 'sezione'} {title}{city}"
+
+
+def online_context(sections, stems, lang, budget=ONLINE_MAX_CHARS):
+    """buildOnlineContext senza nota: un blocco per sezione (context_block) entro [budget], marcatori compresi; la prima
+    pagina della guida generale ha la sua quota (general_guide_share) dello spazio di tutte le sezioni."""
+    blocks, remaining = [], budget
+    for section in general_guide_share(sections, stems, remaining):
+        source = online_source(section, lang)
+        room = remaining - len(context_block(source, "", lang))
+        if room < MIN_SECTION_CHARS:
+            break
+        part = relevant_paragraphs(section["body"], stems, room)
+        if part.strip():
+            block = context_block(source, part, lang)
+            blocks.append(block)
+            remaining -= len(block) + 2
+    return "\n\n".join(blocks)
+
+
+def context_text(sections, stems, lang):
+    """Il contesto in cui si cerca la risposta attesa: quello online con --online, altrimenti quello sul dispositivo."""
+    return online_context(sections, stems, lang) if ONLINE["on"] else select_context([s["body"] for s in sections], stems)
 
 
 # --- database come sul dispositivo -----------------------------------------------------------------------------------
@@ -805,8 +860,10 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
     [region] nominata senza citta' (named_place) fa cercare nelle sue regioni, senza il suo nome nella query. Con
     [before_rag] la ricerca di prima della guida generale e della nazione nominata: solo la regione aperta e le sue citta'.
     Con [pool] le prime [pool] sezioni della classifica invece del contesto, senza riordino (Hit@5 e MRR@10); altrimenti
-    la pagina della guida generale in testa ha gia' la sua quota del contesto (general_guide_share, che nell'app si
-    applica in buildOnDeviceContext)."""
+    la prima pagina della guida generale ha gia' la sua quota del contesto sul dispositivo (general_guide_share, che
+    nell'app si applica in buildOnDeviceContext). Con --online (ONLINE) le ONLINE_MAX_SECTIONS sezioni della ricerca
+    online, senza quota: la applica online_context."""
+    limit = ONLINE_MAX_SECTIONS if ONLINE["on"] else MAX_SECTIONS
     named = named_cities(question, cities, lang)
     city = named[0] if len(named) == 1 else None
     country = None if named or before_rag else named_place(question, region, lang)
@@ -845,7 +902,7 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
         rank = lambda limit=MAX_SECTIONS, general_extra=0: by_section(ranked_paragraphs)[:limit]
     elif PARAGRAPHS["on"] in ("within", "within-country") and not pool:
         # Sezioni come oggi; dentro di loro i paragrafi col BM25 piu' alto riempiono il contesto.
-        today, mode = rank(), PARAGRAPHS["on"]
+        today, mode = rank(limit=limit), PARAGRAPHS["on"]
         PARAGRAPHS["on"] = "rank"
         try:
             paragraph_rows = [] if country else city_candidates(db, region, fts, named)
@@ -857,10 +914,10 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
         rank = lambda limit=None, general_extra=0: within[:limit]  # le sezioni di oggi, anche la quarta della guida generale
     if pool:
         return rank(limit=pool), focus_stems(base, city)
-    sections, stems = climate_first(groups | model, rank()), focus_stems(base, city)
+    sections, stems = climate_first(groups | model, rank(limit=limit)), focus_stems(base, city)
     if RERANK["scorer"]:
         sections = reranked(question, sections, rank(limit=RERANK["candidates"], general_extra=RERANK["general"]), stems, lang)
-    return general_guide_share(sections, stems), stems
+    return (sections if ONLINE["on"] else general_guide_share(sections, stems)), stems
 
 
 # --- riordino col modello della chat (--rerank) ------------------------------------------------------------------------
@@ -1309,7 +1366,7 @@ def general(guides_db, regions, lang, word_lists=False, before_rag=False, rows=N
             OUTCOMES[f"{region} | domande generali | {question}"] = bool(match)
             first += bool(top) and top[0] in match
             if match:
-                in_context += answer_paragraph(match[0].get("section_body", match[0]["body"]), stems)[:150] in select_context([s["body"] for s in top], stems)
+                in_context += answer_paragraph(match[0].get("section_body", match[0]["body"]), stems)[:150] in context_text(top, stems, lang)
             if rows is not None:
                 rows.append({"region": region, "kind": "domande generali", "category": page, "city": None,
                              "question": question, **context_row(top, stems, match)})
@@ -1378,6 +1435,8 @@ def measure_config(a):
               "model_categories": fingerprint([a.model_categories]) if a.model_categories else None,
               "rrf": dict(RRF) if RRF["on"] else None,
               "paragraphs": {k: v for k, v in PARAGRAPHS.items()} if PARAGRAPHS["on"] else None}
+    if ONLINE["on"]:
+        config["online"] = True
     if RERANK["scorer"]:
         config["rerank"] = {"model": a.rerank.name, **{k: v for k, v in RERANK.items() if k != "scorer"}}
     return config
@@ -1493,7 +1552,12 @@ def main():
     ap.add_argument("--llama-cpp", type=Path, help="con --rerank: cartella dei binari di llama.cpp (get_llama_tools.py)")
     ap.add_argument("--gpu-layers", type=int, default=0, help="con --rerank: layer su GPU (99 = tutti)")
     ap.add_argument("--device", help="con --rerank: GPU da usare, come in `llama-server --list-devices` (es. Vulkan0)")
+    ap.add_argument("--online", action="store_true",
+                    help="trovata e risposta nel contesto con le 6 sezioni e il contesto di 8000 caratteri dei modelli online")
     a = ap.parse_args()
+    if a.online and (a.rerank or a.contexts):
+        ap.error("--online non vale con --rerank e --contexts, che misurano il modello sul dispositivo")
+    ONLINE["on"] = a.online
     if a.rrf and not a.word_lists:
         ap.error("--rrf fonde la query con e senza le parole della categoria: serve --word-lists")
     RRF.update(on=a.rrf, weight_original=a.rrf_weight)
@@ -1573,7 +1637,7 @@ def main():
             r["rr"] += 1 / rank_of if rank_of else 0.0
             if match:
                 expected = paragraph or answer_paragraph(match[0].get("section_body", match[0]["body"]), stems)
-                r["risposta nel contesto"] += expected[:150] in select_context([s["body"] for s in top], stems)
+                r["risposta nel contesto"] += expected[:150] in context_text(top, stems, a.lang)
             elif explained is not None:
                 explained.append({"region": region, "kind": kind, "question": q, "expected": {"category": cat, "city": city},
                                   "rank_in_search": rank_of,
