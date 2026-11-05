@@ -173,7 +173,13 @@ class RegionHubViewModel @Inject constructor(
         recentRegionStore.setLastRegionId(regionId)
         viewModelScope.launch {
             val region = regionRepository.installed(regionId)
-            val name = region?.let { localizedInstalledName(it.displayName, it.countryCode, Locale.getDefault()) }
+            // Il catalogo salvato, senza rete, ha il nome inglese anche dell'etichetta ("Madeira and Savage Islands").
+            val catalogEntry = if (region == null) {
+                null
+            } else {
+                runCatchingCancellable { manifestClient.savedManifest() }.getOrNull()?.regions?.firstOrNull { it.regionId == regionId }
+            }
+            val name = region?.let { installedRegionName(it.displayName, it.countryCode, catalogEntry, Locale.getDefault()) }
             // Nel frattempo il pannello puo' essere passato a un'altra regione.
             if (this@RegionHubViewModel.regionId.value != regionId) return@launch
             // Regione eliminata: non resta l'ultima aperta.

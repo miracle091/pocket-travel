@@ -5,11 +5,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.app.R
 import com.pockettravel.app.regions.RecentRegionStore
+import com.pockettravel.app.regions.installedRegionName
+import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.InstalledGuides
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionZonePreferences
+import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.feature.ai.AiSettingsStore
 import com.pockettravel.feature.ai.LlmModelManager
@@ -22,11 +25,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.pockettravel.app.regions.localizedInstalledName
 import java.util.Locale
 import javax.inject.Inject
 
@@ -67,8 +71,14 @@ class StorageViewModel @Inject constructor(
     private val aiSettingsStore: AiSettingsStore,
     private val recentRegionStore: RecentRegionStore,
     private val regionZonePreferences: RegionZonePreferences,
+    private val manifestClient: ManifestClient,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
+
+    // Le voci del catalogo salvato, senza rete, per i nomi nella lingua dell'interfaccia; vuote finché non arrivano.
+    private val catalogRegions = flow {
+        emit(runCatchingCancellable { manifestClient.savedManifest() }.getOrNull()?.regions.orEmpty().associateBy { it.regionId })
+    }.onStart { emit(emptyMap()) }
 
     private val modelState = MutableStateFlow(currentModelState())
     // Letto fuori dal thread principale (StorageManager.getAllocatableBytes puo' bloccare): 0 finche' non arriva.
@@ -80,12 +90,12 @@ class StorageViewModel @Inject constructor(
     }
 
     val uiState: StateFlow<StorageUiState> = combine(
-        regionRepository.observeInstalled(),
+        combine(regionRepository.observeInstalled(), catalogRegions, ::Pair),
         regionRepository.observeInstalledGuides(),
         modelState,
         availableBytes,
         message,
-    ) { regions, guides, model, available, currentMessage ->
+    ) { (regions, catalog), guides, model, available, currentMessage ->
         StorageUiState(
             guides = guides,
             installedRegions = regions.map { region ->
@@ -94,7 +104,7 @@ class StorageViewModel @Inject constructor(
                     .map { StoragePackageItem(it, regionRepository.packageBytes(region, it)) }
                 StorageRegionItem(
                     region.regionId,
-                    localizedInstalledName(region.displayName, region.countryCode, Locale.getDefault()),
+                    installedRegionName(region.displayName, region.countryCode, catalog[region.regionId], Locale.getDefault()),
                     region.countryCode,
                     region.sizeBytes,
                     packages,

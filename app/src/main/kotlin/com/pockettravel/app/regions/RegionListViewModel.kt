@@ -693,6 +693,14 @@ internal fun localizedInstalledName(displayName: String, countryCode: String?, l
     }
 }
 
+/**
+ * Il nome di una regione installata nella lingua dell'interfaccia: dalla voce del catalogo salvato quando c'e' (con
+ * l'etichetta inglese delle regioni di una nazione divisa, "Portugal - Madeira and Savage Islands"), altrimenti da
+ * [localizedInstalledName], che traduce solo la nazione.
+ */
+internal fun installedRegionName(displayName: String, countryCode: String?, catalogEntry: RegionManifestEntry?, locale: Locale): String =
+    catalogEntry?.localizedNames(locale)?.displayName ?: localizedInstalledName(displayName, countryCode, locale)
+
 /** Il nome di una regione di una nazione divisa ("Francia - Bretagna", anche con la nazione tradotta da [localizedInstalledName]). */
 internal fun isSplitCountryName(displayName: String, countryCode: String?, locale: Locale = Locale.getDefault()): Boolean =
     countryCode != null && listOf(Locale.ITALIAN, locale).any { displayName.startsWith("${countryName(countryCode, it)} - ") }

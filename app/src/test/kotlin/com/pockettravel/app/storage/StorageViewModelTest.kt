@@ -11,6 +11,7 @@ import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.data.RegionZonePreferences
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
+import com.pockettravel.core.sync.testing.FakeManifestClient
 import com.pockettravel.core.sync.testing.FakeRegionSyncScheduler
 import com.pockettravel.feature.ai.AiSettingsStore
 import com.pockettravel.feature.ai.OnDeviceLlmEngine
@@ -66,7 +67,7 @@ class StorageViewModelTest {
     private fun viewModel(
         regions: RegionRepository = repository,
         modelEngine: OnDeviceLlmEngine = engine,
-    ) = StorageViewModel(regions, scheduler, models, modelEngine, settings, recent, zones, mainDispatcher.dispatcher)
+    ) = StorageViewModel(regions, scheduler, models, modelEngine, settings, recent, zones, FakeManifestClient(), mainDispatcher.dispatcher)
 
     // uiState e' un WhileSubscribed: serve un osservatore per avere i valori.
     private fun TestScope.observe(viewModel: StorageViewModel) {

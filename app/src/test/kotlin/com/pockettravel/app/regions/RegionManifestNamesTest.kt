@@ -36,6 +36,17 @@ class RegionManifestNamesTest {
         groupLabelEn = "Brittany",
     )
 
+    @Test
+    fun `una regione installata prende il nome dal catalogo salvato, anche l'etichetta in inglese`() {
+        assertEquals("France - Brittany", installedRegionName("Francia - Bretagna", "fr", brittany, Locale.ENGLISH))
+        assertEquals("Francia - Bretagna", installedRegionName("Francia - Bretagna", "fr", brittany, Locale.ITALIAN))
+    }
+
+    @Test
+    fun `senza catalogo salvato una regione installata traduce solo la nazione`() {
+        assertEquals("France - Bretagna", installedRegionName("Francia - Bretagna", "fr", null, Locale.ENGLISH))
+    }
+
     private fun installed(map: String?, routing: String?, poi: String?) = InstalledRegion(
         "francia", "Francia", "fr", mapVersion = map, routingVersion = routing, poiVersion = poi, poiExtraVersion = null,
         addressesVersion = null, poiSizeBytes = poi?.let { 1L }, poiExtraSizeBytes = null, sizeBytes = 500,
