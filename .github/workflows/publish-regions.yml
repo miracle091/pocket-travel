@@ -511,7 +511,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+        shard: ${{ fromJSON(needs.plan.outputs.shards || '[]') }}
     env:
       SHARD: ${{ matrix.shard }}
       # Ogni regione torna in rotazione ogni 7 giorni e si rigenera oltre POI_MAX_AGE_DAYS giorni:

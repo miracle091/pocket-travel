@@ -70,7 +70,8 @@ class PlanShardsTest(unittest.TestCase):
         proc, out = self.plan(SCHEDULE="0 2 * * 5")
         self.assertEqual(0, proc.returncode, proc.stderr)
         self.assertEqual([], self.regions(out, ""))
-        self.assertEqual({"shard0", "shard1", "shard2", "shard0_extra", "shard1_extra", "shard2_extra"}, set(out))
+        self.assertEqual({"shard0", "shard1", "shard2", "shard0_extra", "shard1_extra", "shard2_extra", "shards"}, set(out))
+        self.assertEqual("[]", out["shards"])
 
     def test_bucket_vuoto_tiene_la_quota_adattiva(self):
         # Il giorno 5 e' vuoto: le regioni in ritardo e quelle di domani (giorno 6, vuoto qui) restano in coda.
@@ -78,12 +79,17 @@ class PlanShardsTest(unittest.TestCase):
         self.assertEqual(0, proc.returncode, proc.stderr)
         self.assertEqual([], self.regions(out, ""))
         self.assertEqual(["aaa"], [e.split(":")[0] for e in self.regions(out, "_extra")])
+        # Lo shard con la sola coda parte.
+        self.assertEqual(f"[{next(n for n in range(3) if out[f'shard{n}_extra'])}]", out["shards"])
 
     def test_input_manuale(self):
         proc, out = self.plan(REGIONS_INPUT=" aaa, ccc ")
         self.assertEqual(0, proc.returncode, proc.stderr)
         self.assertCountEqual(["aaa", "ccc"], self.regions(out, ""))
         self.assertEqual([], self.regions(out, "_extra"))
+        # Due regioni in due shard: il terzo, vuoto, non parte.
+        self.assertEqual(f"[{','.join(str(n) for n in range(3) if out[f'shard{n}'])}]", out["shards"])
+        self.assertEqual(2, out["shards"].count(",") + 1)
 
     def test_manuale_senza_regioni_le_costruisce_tutte(self):
         proc, out = self.plan()
