@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       resign_app_status:
-        description: "Solo app-status.json: lo ricostruisce dal tag della versione rilasciata e lo firma, senza ricompilare l'APK (serve app-release.apk nella release del tag)"
+        description: "Solo app-status.json: lo ricostruisce dal tag della versione rilasciata e lo firma, senza APK"
         type: boolean
         default: false
       update_models:
@@ -209,6 +209,11 @@ jobs:
         shell: bash
         run: rm -f "$RUNNER_TEMP/release.jks"
 
+      # Sul file compilato, prima di caricarlo: app-status.json firma l'impronta di questo APK.
+      - name: Impronta dell'APK per app-status.json
+        shell: bash
+        run: bash .github/scripts/apk-fingerprint.sh app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/apk-fingerprint.json"
+
       - name: Pubblica la release su GitHub
         shell: bash
         env:
@@ -278,13 +283,15 @@ jobs:
           }
           retry publish_release
 
-      # Le impronte calcolate prima della compilazione vanno al job publish-app-status, che compone e firma
-      # app-status.json senza eseguire codice di build.
-      - name: Passa le impronte dei modelli IA al job che firma app-status.json
+      # Le impronte dei modelli (calcolate prima della compilazione) e quella dell'APK vanno al job publish-app-status,
+      # che compone e firma app-status.json senza eseguire codice di build.
+      - name: Passa le impronte dei modelli IA e dell'APK al job che firma app-status.json
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ai-models
-          path: ${{ runner.temp }}/ai-models.json
+          path: |
+            ${{ runner.temp }}/ai-models.json
+            ${{ runner.temp }}/apk-fingerprint.json
           if-no-files-found: error
           retention-days: 1
 
@@ -316,20 +323,16 @@ jobs:
           name: ai-models
           path: ${{ runner.temp }}/ai-models
 
-      # Senza la chiave: il file di impronte arriva da un altro job e si controlla prima di firmarlo; l'APK si scarica
-      # dalla release appena pubblicata, per l'impronta del file che le app scaricheranno.
+      # Senza la chiave: i file di impronte (modelli e APK compilato) arrivano da un altro job e si controllano prima
+      # di firmarli.
       - name: Componi app-status.json
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          source .github/scripts/retry.sh
           VERSION="$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
           VERSION_CODE="$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)"
           APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
           AI_MODELS_FILE="$RUNNER_TEMP/ai-models/ai-models.json"
-          APK="$RUNNER_TEMP/app-release.apk"
 
           jq -e 'type == "array" and all(.[];
               (.modelId | type == "string" and test("^[A-Za-z0-9._-]+$"))
@@ -337,9 +340,8 @@ jobs:
               and (.sizeBytes | type == "number" and . > 0 and floor == .))' "$AI_MODELS_FILE" > /dev/null \
             || { echo "::error::ai-models.json non valido" >&2; exit 1; }
 
-          retry gh release download "v$VERSION" -p app-release.apk -O "$APK" --repo "$GITHUB_REPOSITORY" --clobber \
-            || { echo "::error::app-release.apk non e' nella release v$VERSION" >&2; exit 1; }
-          bash .github/scripts/compose-app-status.sh "$VERSION" "$VERSION_CODE" "$AI_MODELS_FILE" "$APK" "$APP_STATUS_FILE"
+          bash .github/scripts/compose-app-status.sh "$VERSION" "$VERSION_CODE" "$AI_MODELS_FILE" \
+            "$RUNNER_TEMP/ai-models/apk-fingerprint.json" "$APP_STATUS_FILE"
 
       - name: Firma e pubblica app-status.json (controllo aggiornamenti app/modelli IA sul dispositivo)
         shell: bash
@@ -367,7 +369,7 @@ jobs:
   # recenti rifiutano. Mai firmare il file online cosi' com'e': un asset manomesso diventerebbe firmato.
   # Il catalogo dei modelli e' quello del tag, non di main; le impronte sono quelle che coincidono con i file su
   # Hugging Face (resolve-ai-models.sh), cosi' quelle pubblicate da update-app-status-models non vanno perse.
-  # L'impronta dell'APK viene da app-release.apk della release del tag: se manca, il job si ferma.
+  # L'impronta dell'APK viene dal file online, se la sua firma e' valida e il versionCode e' lo stesso.
   resign-app-status:
     if: github.event_name == 'workflow_dispatch' && inputs.resign_app_status && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -400,11 +402,23 @@ jobs:
           VERSION_CODE="$(grep -oP 'versionCode = \K[0-9]+' "$RUNNER_TEMP/build.gradle.kts")"
           APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
           AI_MODELS_FILE="$RUNNER_TEMP/ai-models.json"
-          APK="$RUNNER_TEMP/app-release.apk"
+          APK_FINGERPRINT_FILE="$RUNNER_TEMP/apk-fingerprint.json"
           bash .github/scripts/resolve-ai-models.sh "$RUNNER_TEMP/LlmModelCatalog.kt" "$AI_MODELS_FILE"
-          retry gh release download "$TAG" -p app-release.apk -O "$APK" --repo "$GITHUB_REPOSITORY" --clobber \
-            || { echo "::error::app-release.apk non e' nella release $TAG" >&2; exit 1; }
-          bash .github/scripts/compose-app-status.sh "$VERSION" "$VERSION_CODE" "$AI_MODELS_FILE" "$APK" "$APP_STATUS_FILE"
+          # Impronta dell'APK solo dal file online con firma valida e lo stesso versionCode, mai dall'asset della release
+          # (sostituibile da chi ha accesso in scrittura). Altrimenti il file nuovo non ha l'impronta e l'app offre solo il link
+          # a GitHub.
+          echo '{}' > "$APK_FINGERPRINT_FILE"
+          if retry gh release download app-status --pattern 'app-status.json*' --dir "$RUNNER_TEMP/online" \
+              --repo "$GITHUB_REPOSITORY" --clobber \
+            && bash .github/scripts/verify-app-status.sh "$RUNNER_TEMP/online/app-status.json"; then
+            jq --argjson versionCode "$VERSION_CODE" \
+              '.appVersion | if .versionCode == $versionCode and .apkSha256 != null
+                then {apkSha256, apkSizeBytes} else {} end' \
+              "$RUNNER_TEMP/online/app-status.json" > "$APK_FINGERPRINT_FILE"
+          else
+            echo "::warning::app-status.json online assente o con firma non valida: il file nuovo non ha l'impronta dell'APK"
+          fi
+          bash .github/scripts/compose-app-status.sh "$VERSION" "$VERSION_CODE" "$AI_MODELS_FILE" "$APK_FINGERPRINT_FILE" "$APP_STATUS_FILE"
 
       - name: Firma e ripubblica app-status.json
         shell: bash

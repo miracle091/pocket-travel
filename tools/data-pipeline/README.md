@@ -179,8 +179,8 @@ file non firmati.
 
 `app-status.json` si aggiorna in tre modi, tutti in `publish-apk.yml`:
 - al rilascio dell'app (bump di `versionCode`): versione dal catalogo di main, con sha256 e dimensione
-  (`apkSha256`, `apkSizeBytes`) di `app-release.apk` scaricato dalla release appena pubblicata
-  (`.github/scripts/compose-app-status.sh`; facoltativi, assenti nei file fino alla 0.14.0); per ogni modello l'impronta
+  (`apkSha256`, `apkSizeBytes`) di `app-release.apk`, calcolati nel job che lo compila
+  (`.github/scripts/apk-fingerprint.sh`; facoltativi, assenti nei file fino alla 0.14.0); per ogni modello l'impronta
   che coincide con il file su Hugging Face, presa dal catalogo dei modelli o dal file online se la sua firma è valida
   (`scripts/resolve_ai_models.py`). Se nessuna coincide il job si ferma prima di compilare: una release che
   rifiuterebbe i download non esce;
@@ -190,7 +190,7 @@ file non firmati.
   download con queste impronte, quindi il modello nuovo si scarica senza rilasciare l'app; lo script poi
   aggiorna anche `LlmModelCatalog.kt`, che resta la riserva quando l'app non raggiunge `app-status.json`;
 - lancio manuale con `resign_app_status`: lo ricostruisce dal tag della versione rilasciata, con le stesse
-  regole del rilascio per le impronte (anche quella dell'APK della release del tag: senza APK si ferma), e lo firma.
+  regole del rilascio per le impronte (quella dell'APK solo dal file online con firma valida e lo stesso `versionCode`, altrimenti nessuna), e lo firma.
 
 Le model card dei sei modelli addestrati sulle guide (`model-cards/qwen3.5-*-GGUF.md`) non si modificano a mano: si
 generano con `scripts/render_cards.py` da `model-cards/template.md` (le parti comuni, con i blocchi
