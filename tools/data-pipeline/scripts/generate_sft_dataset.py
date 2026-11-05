@@ -10,8 +10,7 @@ Uso: python generate_sft_dataset.py [--limit N] [--negatives 0.2] [--seed 42] [-
 Con --dump-dir i testi vengono dai dump di dumps.wikimedia.org (Wikivoyage IT/EN, Wikipedia IT: vedi
 DUMP_WIKIS e wiki_dump.py) invece che dall'API, i titoli da sft-sources.tsv: stesso dump e stesso seed
 danno lo stesso dataset. --cities aggiunge le pagine delle citta' di Wikivoyage IT (escluse quelle delle
-regioni di test). Le domande fuori tema includono quelle di truthful_qa_italian
-(solo le domande, la risposta e' sempre il rifiuto).
+regioni di test).
 --recheck-missing cerca di nuovo le pagine date per inesistenti ("-" in sft-sources.tsv, cache vuote in raw/).
 Output (in tools/data-pipeline/data/sft/, git-ignored): pocket_travel_sft.jsonl + ATTRIBUTION.tsv di default
 (pubblicabile, senza VS) oppure pocket_travel_sft.with-vs.jsonl + ATTRIBUTION.with-vs.tsv (con --vs), piu'
@@ -47,7 +46,7 @@ from word_lists import STOPWORDS
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent / "data" / "sft"
-UA = {"User-Agent": "pocket-travel-sft/0.13 (https://github.com/miracle091/pocket-travel)"}
+UA = {"User-Agent": "pocket-travel-sft/0.14 (https://github.com/miracle091/pocket-travel)"}
 # Con --dump-dir: titolo della pagina di ogni fonte per regione (regionId, fonte, titolo), versionato cosi'
 # che dump + questo file bastino a rifare lo stesso dataset. Le regioni nuove si risolvono via API e si
 # aggiungono qui.
@@ -288,14 +287,13 @@ CITY_MIN_SECTION = 250
 # Domande fuori tema da dataset italiani pubblicati (vedi fetch_off_topic): ognuna al massimo due volte,
 # per non far imparare al modello poche frasi a memoria invece del concetto di "fuori tema".
 # (dataset, config, split, colonna della domanda, licenza, quante righe tenere)
-OFF_TOPIC_SOURCES = {
-    "truthful_qa_italian": ("sapienzanlp/truthful_qa_italian", "default", "validation", "input_translation", "Apache 2.0", 800),
-}
+# Nessuno oggi: sapienzanlp/truthful_qa_italian e' tradotto con TowerInstruct (CC BY-NC); le domande italiane
+# fuori tema vengono da OFF_TOPIC_TRAIN e, in generate_sft.py, da MKQA.
+OFF_TOPIC_SOURCES = {}
 OFF_TOPIC_MAX_USES = 2
 # Revisioni dei dataset delle domande fuori tema (italiani e inglesi), controllate da fetch_off_topic prima di
 # riempire la cache (travel_questions.require_revision)
 OFF_TOPIC_REVISIONS = {
-    "sapienzanlp/truthful_qa_italian": "b4b40c1dfd28c48ed5f3094de9172e56a7b222ca",
     "truthfulqa/truthful_qa": "741b8276f2d1982aa3d5b832d3ee81ed3b896490",
 }
 # Una domanda "fuori tema" che tocca i temi di viaggio (es. "consigli per restare in salute") non lo e'

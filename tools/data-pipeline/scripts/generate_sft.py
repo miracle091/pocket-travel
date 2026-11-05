@@ -1037,7 +1037,7 @@ def general_guide_example(rng, sec, q, others, answer_for):
 # Domande da dataset esterni (external_questions.py): al massimo FAQ_REFUSALS_MAX rifiuti sui servizi e MKQA_OFF_TOPIC
 # domande di MKQA tra le fuori tema (che restano --off-topic dei negativi: MKQA ne cambia la varieta', non il numero)
 FAQ_REFUSALS_MAX = 400
-MKQA_OFF_TOPIC = 500
+MKQA_OFF_TOPIC = 2500
 
 
 # Radici in piu' di CIBO_BEVANDE (dataset v11): specialita' e dolci. Senza, una sezione come "Dolci tipici sono la torta
