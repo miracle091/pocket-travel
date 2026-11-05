@@ -14,9 +14,10 @@ APK_FINGERPRINT_FILE="$4"
 OUT="$5"
 
 [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]] || { echo "::error::versionCode non valido: $VERSION_CODE" >&2; exit 1; }
-jq -e '. == {} or (keys == ["apkSha256", "apkSizeBytes"]
+# -s: il file deve avere un solo valore JSON, quello che il jq sotto legge come $apk[0].
+jq -e -s 'length == 1 and (.[0] | . == {} or (keys == ["apkSha256", "apkSizeBytes"]
     and (.apkSha256 | type == "string" and test("^[0-9a-f]{64}$"))
-    and (.apkSizeBytes | type == "number" and . > 0 and floor == .))' "$APK_FINGERPRINT_FILE" > /dev/null \
+    and (.apkSizeBytes | type == "number" and . > 0 and floor == .)))' "$APK_FINGERPRINT_FILE" > /dev/null \
   || { echo "::error::impronta dell'APK non valida: $APK_FINGERPRINT_FILE" >&2; exit 1; }
 
 jq -n \
@@ -26,6 +27,7 @@ jq -n \
   --slurpfile aiModels "$AI_MODELS_FILE" \
   --argjson publishedAt "$(date +%s)" \
   '{publishedAt: $publishedAt,
-    appVersion: ({versionName: $versionName, versionCode: $versionCode} + $apk[0]),
+    appVersion: (($apk[0] | if . == {} then {} else {apkSha256, apkSizeBytes} end)
+      + {versionName: $versionName, versionCode: $versionCode}),
     aiModels: $aiModels[0]}' \
   > "$OUT"

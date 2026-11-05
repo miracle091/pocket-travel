@@ -61,8 +61,9 @@ class ComposeAppStatusTest(unittest.TestCase):
 
     def test_si_ferma_con_un_impronta_incompleta_o_non_valida(self):
         for bad in ({"apkSha256": "a" * 64}, {"apkSha256": "a" * 63, "apkSizeBytes": 10},
-                    {"apkSha256": "a" * 64, "apkSizeBytes": 0}, {"apkSha256": "a" * 64, "apkSizeBytes": 10, "url": "x"}):
-            self.fingerprint.write_text(json.dumps(bad), encoding="utf-8")
+                    {"apkSha256": "a" * 64, "apkSizeBytes": 0}, {"apkSha256": "a" * 64, "apkSizeBytes": 10, "url": "x"},
+                    '{"versionCode": 999} {}', "", "[]"):
+            self.fingerprint.write_text(bad if isinstance(bad, str) else json.dumps(bad), encoding="utf-8")
             self.assertNotEqual(self.compose().returncode, 0, bad)
             self.assertFalse(self.out.exists())
 
