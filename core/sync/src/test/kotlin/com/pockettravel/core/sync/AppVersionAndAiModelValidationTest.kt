@@ -25,6 +25,34 @@ class AppVersionAndAiModelValidationTest {
     }
 
     @Test
+    fun `accetta una voce appVersion con l'impronta dell'APK`() {
+        AppVersionEntry(versionName = "0.15.0", versionCode = 15, apkSha256 = "a".repeat(64), apkSizeBytes = 19_000_000L).validate()
+    }
+
+    @Test
+    fun `rifiuta un'impronta dell'APK senza la dimensione, o la dimensione senza l'impronta`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AppVersionEntry(versionName = "0.15.0", versionCode = 15, apkSha256 = "a".repeat(64)).validate()
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AppVersionEntry(versionName = "0.15.0", versionCode = 15, apkSizeBytes = 19_000_000L).validate()
+        }
+    }
+
+    @Test
+    fun `rifiuta un'impronta dell'APK non esadecimale a 64 cifre o una dimensione non positiva`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AppVersionEntry(versionName = "0.15.0", versionCode = 15, apkSha256 = "g".repeat(64), apkSizeBytes = 19_000_000L).validate()
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AppVersionEntry(versionName = "0.15.0", versionCode = 15, apkSha256 = "a".repeat(63), apkSizeBytes = 19_000_000L).validate()
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AppVersionEntry(versionName = "0.15.0", versionCode = 15, apkSha256 = "a".repeat(64), apkSizeBytes = 0L).validate()
+        }
+    }
+
+    @Test
     fun `accetta una voce aiModel valida`() {
         AiModelManifestEntry(modelId = "qwen3-0.6b", modelVersion = "qwen3-0.6b-v2", sha256 = "a".repeat(64), sizeBytes = 600_000_000L).validate()
     }

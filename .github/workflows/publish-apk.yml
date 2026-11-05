@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       resign_app_status:
-        description: "Solo app-status.json: lo ricostruisce dal tag della versione rilasciata e lo firma, senza APK"
+        description: "Solo app-status.json: lo ricostruisce dal tag della versione rilasciata e lo firma, senza ricompilare l'APK (serve app-release.apk nella release del tag)"
         type: boolean
         default: false
       update_models:
@@ -316,15 +316,20 @@ jobs:
           name: ai-models
           path: ${{ runner.temp }}/ai-models
 
-      # Senza la chiave: il file di impronte arriva da un altro job e si controlla prima di firmarlo.
+      # Senza la chiave: il file di impronte arriva da un altro job e si controlla prima di firmarlo; l'APK si scarica
+      # dalla release appena pubblicata, per l'impronta del file che le app scaricheranno.
       - name: Componi app-status.json
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          source .github/scripts/retry.sh
           VERSION="$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
           VERSION_CODE="$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)"
           APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
           AI_MODELS_FILE="$RUNNER_TEMP/ai-models/ai-models.json"
+          APK="$RUNNER_TEMP/app-release.apk"
 
           jq -e 'type == "array" and all(.[];
               (.modelId | type == "string" and test("^[A-Za-z0-9._-]+$"))
@@ -332,15 +337,9 @@ jobs:
               and (.sizeBytes | type == "number" and . > 0 and floor == .))' "$AI_MODELS_FILE" > /dev/null \
             || { echo "::error::ai-models.json non valido" >&2; exit 1; }
 
-          # publishedAt (secondi Unix) prima della firma: l'app rifiuta un valore piu' basso dell'ultimo
-          # accettato (niente ritorno a una vecchia coppia file + .sig che nasconda l'aggiornamento).
-          jq -n \
-            --arg versionName "$VERSION" \
-            --argjson versionCode "$VERSION_CODE" \
-            --slurpfile aiModels "$AI_MODELS_FILE" \
-            --argjson publishedAt "$(date +%s)" \
-            '{publishedAt: $publishedAt, appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModels: $aiModels[0]}' \
-            > "$APP_STATUS_FILE"
+          retry gh release download "v$VERSION" -p app-release.apk -O "$APK" --repo "$GITHUB_REPOSITORY" --clobber \
+            || { echo "::error::app-release.apk non e' nella release v$VERSION" >&2; exit 1; }
+          bash .github/scripts/compose-app-status.sh "$VERSION" "$VERSION_CODE" "$AI_MODELS_FILE" "$APK" "$APP_STATUS_FILE"
 
       - name: Firma e pubblica app-status.json (controllo aggiornamenti app/modelli IA sul dispositivo)
         shell: bash
@@ -368,6 +367,7 @@ jobs:
   # recenti rifiutano. Mai firmare il file online cosi' com'e': un asset manomesso diventerebbe firmato.
   # Il catalogo dei modelli e' quello del tag, non di main; le impronte sono quelle che coincidono con i file su
   # Hugging Face (resolve-ai-models.sh), cosi' quelle pubblicate da update-app-status-models non vanno perse.
+  # L'impronta dell'APK viene da app-release.apk della release del tag: se manca, il job si ferma.
   resign-app-status:
     if: github.event_name == 'workflow_dispatch' && inputs.resign_app_status && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -391,6 +391,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          source .github/scripts/retry.sh
           TAG="v$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
           git rev-parse -q --verify "refs/tags/$TAG" >/dev/null || { echo "::error::$TAG non esiste ancora: rilascio in corso o fallito" >&2; exit 1; }
           git show "$TAG:app/build.gradle.kts" > "$RUNNER_TEMP/build.gradle.kts"
@@ -399,14 +400,11 @@ jobs:
           VERSION_CODE="$(grep -oP 'versionCode = \K[0-9]+' "$RUNNER_TEMP/build.gradle.kts")"
           APP_STATUS_FILE="$RUNNER_TEMP/app-status.json"
           AI_MODELS_FILE="$RUNNER_TEMP/ai-models.json"
+          APK="$RUNNER_TEMP/app-release.apk"
           bash .github/scripts/resolve-ai-models.sh "$RUNNER_TEMP/LlmModelCatalog.kt" "$AI_MODELS_FILE"
-          jq -n \
-            --arg versionName "$VERSION" \
-            --argjson versionCode "$VERSION_CODE" \
-            --slurpfile aiModels "$AI_MODELS_FILE" \
-            --argjson publishedAt "$(date +%s)" \
-            '{publishedAt: $publishedAt, appVersion: {versionName: $versionName, versionCode: $versionCode}, aiModels: $aiModels[0]}' \
-            > "$APP_STATUS_FILE"
+          retry gh release download "$TAG" -p app-release.apk -O "$APK" --repo "$GITHUB_REPOSITORY" --clobber \
+            || { echo "::error::app-release.apk non e' nella release $TAG" >&2; exit 1; }
+          bash .github/scripts/compose-app-status.sh "$VERSION" "$VERSION_CODE" "$AI_MODELS_FILE" "$APK" "$APP_STATUS_FILE"
 
       - name: Firma e ripubblica app-status.json
         shell: bash
@@ -491,12 +489,8 @@ jobs:
             echo "-- $ID ($FILE): $SHA, $SIZE byte"
           done
 
-          jq --slurpfile updates "$UPDATES" --argjson publishedAt "$(date +%s)" '
-            .publishedAt = $publishedAt
-            | .aiModels |= map(. as $m
-                | (first($updates[0][] | select(.modelId == $m.modelId)) // null) as $u
-                | if $u == null then . else .sha256 = $u.sha256 | .sizeBytes = $u.sizeBytes end)' \
-            "$ONLINE" > "$APP_STATUS_FILE"
+          jq --slurpfile updates "$UPDATES" --argjson publishedAt "$(date +%s)" \
+            -f .github/scripts/update-app-status-models.jq "$ONLINE" > "$APP_STATUS_FILE"
 
       - name: Firma e ripubblica app-status.json
         shell: bash

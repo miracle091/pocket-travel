@@ -11,8 +11,16 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class AppStatus(val appVersion: AppVersionEntry? = null, val aiModels: List<AiModelManifestEntry> = emptyList())
 
+// apkSha256 e apkSizeBytes: impronta e dimensione di app-release.apk della release v<versionName>, firmate con il
+// resto del file da publish-apk.yml. Facoltative: mancano nei file pubblicati fino alla 0.14.0; quando mancano, l'app
+// offre solo il link a GitHub.
 @Serializable
-data class AppVersionEntry(val versionName: String, val versionCode: Int)
+data class AppVersionEntry(
+    val versionName: String,
+    val versionCode: Int,
+    val apkSha256: String? = null,
+    val apkSizeBytes: Long? = null,
+)
 
 // Una entry per modello del catalogo (LlmModelCatalog.ALL): modelId
 // e' il discriminante per sapere a quale modello installato si riferisce l'entry (vedi
@@ -27,6 +35,9 @@ data class AiModelManifestEntry(val modelId: String, val modelVersion: String, v
 fun AppVersionEntry.validate() {
     require(versionName.matches(SAFE_NAME)) { "versionName non valido" }
     require(versionCode > 0) { "versionCode non valido" }
+    require((apkSha256 == null) == (apkSizeBytes == null)) { "apkSha256 e apkSizeBytes vanno insieme" }
+    require(apkSha256 == null || apkSha256.matches(SHA256_HEX)) { "apkSha256 non valido" }
+    require(apkSizeBytes == null || apkSizeBytes > 0) { "apkSizeBytes non valido" }
 }
 
 fun AiModelManifestEntry.validate() {
