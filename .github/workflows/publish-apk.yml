@@ -3,9 +3,9 @@ name: Publish APK
 # Compila un APK di release (mai debug, e mai come artifact di workflow) firmato con
 # la upload key e lo pubblica come asset di una GitHub Release, taggata con
 # versionName da app/build.gradle.kts.
-# Su push a main parte solo se versionCode e' cambiato rispetto al commit precedente
-# (vedi job check-version-bump) - un push senza bump di versione non deve ripubblicare
-# la stessa release. workflow_dispatch resta un modo per ripubblicare sullo stesso commit
+# Su push a main parte solo se il push tocca app/build.gradle.kts e versionCode e' cambiato
+# rispetto al commit precedente (vedi job check-version-bump) - un push senza bump di
+# versione non deve ripubblicare la stessa release. workflow_dispatch resta un modo per ripubblicare sullo stesso commit
 # (es. per rigenerare un asset corrotto) senza dover fare un bump finto; da un commit
 # diverso da quello del tag il job si ferma e serve un bump di versione.
 #
@@ -20,6 +20,8 @@ run-name: ${{ inputs.request_id != '' && format('Impronte dei modelli {0}', inpu
 on:
   push:
     branches: [main]
+    # versionCode e versionName stanno solo in app/build.gradle.kts: un push che non lo tocca non puo' contenere un bump.
+    paths: [app/build.gradle.kts]
   workflow_dispatch:
     inputs:
       resign_app_status:
@@ -131,24 +133,20 @@ jobs:
         with:
           cache-read-only: true
 
-      # Oggetti di llama.cpp gia' compilati dal job "build" di android-ci.yml (stessa chiave, stessa versione dell'NDK),
-      # in sola lettura: senza, llama.cpp si compila da zero (~3,5 minuti). Gli oggetti sono quelli che darebbe la
-      # compilazione da zero; la cache la scrive solo android-ci su main. Mai bloccante.
-      - name: Installa ccache
-        continue-on-error: true
+      # Heap del daemon a 3 GB solo in CI (gradle.properties ha 2 GB), come nel job "build" di android-ci.yml: il
+      # gradle.properties della cartella utente prevale su quello del progetto; gli altri argomenti restano quelli del progetto.
+      - name: Memoria di Gradle
         shell: bash
         run: |
-          echo "CCACHE_COMPILERCHECK=string:ndk-$(sed -n 's/^ *ndkVersion = "\(.*\)"/\1/p' feature/ai/build.gradle.kts)" >> "$GITHUB_ENV"
-          echo "LLAMA_COMMIT=$(git rev-parse HEAD:third-party/llama-cpp)" >> "$GITHUB_ENV"
-          sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache
+          set -euo pipefail
+          mkdir -p "$HOME/.gradle"
+          echo "org.gradle.jvmargs=$(sed -n 's/^org.gradle.jvmargs=//p' gradle.properties | sed 's/-Xmx[0-9]*[mMgG]/-Xmx3g/')" >> "$HOME/.gradle/gradle.properties"
 
-      - name: Cache di ccache per llama.cpp
-        continue-on-error: true
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /home/runner/.cache/ccache
-          key: ccache-llama-${{ env.LLAMA_COMMIT }}-${{ hashFiles('third-party/patches/llama-cpp/**', 'feature/ai/src/main/cpp/**', 'feature/ai/build.gradle.kts') }}
-          restore-keys: ccache-llama-
+      # Oggetti di llama.cpp gia' compilati dal job "build" di android-ci.yml (stessa chiave, stessa versione dell'NDK),
+      # in sola lettura: senza, llama.cpp si compila da zero (~3,5 minuti). Gli oggetti sono quelli che darebbe la
+      # compilazione da zero; la cache la scrive solo android-ci su main.
+      - name: ccache per llama.cpp
+        uses: ./.github/actions/setup-ccache-llama
 
       # Prima di compilare: una release con impronte dei modelli diverse dai file su Hugging Face
       # rifiuterebbe i download, quindi il job si ferma qui.

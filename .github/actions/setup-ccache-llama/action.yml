@@ -1,0 +1,43 @@
+name: ccache per llama.cpp
+description: >
+  Installa ccache e ripristina gli oggetti di llama.cpp (feature/ai, CMake per arm64-v8a e x86_64) compilati dal job
+  "build" di android-ci.yml, dopo actions/checkout con i submodule. Il salvataggio resta nel job, con la chiave
+  esposta qui come output. Mai bloccante: senza ccache o senza cache llama.cpp si compila da zero.
+outputs:
+  key:
+    description: Chiave esatta della cache, da riusare nel passo di salvataggio.
+    value: ${{ steps.key.outputs.key }}
+  cache-hit:
+    description: "'true' se la cache e' stata trovata con la chiave esatta."
+    value: ${{ steps.restore.outputs.cache-hit }}
+runs:
+  using: composite
+  steps:
+    # Il controllo del compilatore usa la versione dell'NDK (ndkVersion di feature/ai/build.gradle.kts, letta nel passo) e non
+    # la data del file, che cambierebbe se l'NDK venisse reinstallato. Il CMakeLists di feature/ai usa ccache se c'e'.
+    - name: Installa ccache
+      continue-on-error: true
+      shell: bash
+      run: |
+        echo "CCACHE_COMPILERCHECK=string:ndk-$(sed -n 's/^ *ndkVersion = "\(.*\)"/\1/p' feature/ai/build.gradle.kts)" >> "$GITHUB_ENV"
+        sudo apt-get -o Acquire::Retries=5 update -qq && sudo apt-get -o Acquire::Retries=5 install -y -qq ccache
+
+    # La chiave segue il commit del submodule third-party/llama-cpp, le patch, CMakeLists e build.gradle.kts di
+    # feature/ai (argomenti CMake, ABI, versione dell'NDK); senza corrispondenza esatta si riparte dalla cache piu'
+    # recente e si ricompilano solo i file cambiati.
+    - name: Chiave della cache
+      id: key
+      continue-on-error: true
+      shell: bash
+      env:
+        HASH: ${{ hashFiles('third-party/patches/llama-cpp/**', 'feature/ai/src/main/cpp/**', 'feature/ai/build.gradle.kts') }}
+      run: echo "key=ccache-llama-$(git rev-parse HEAD:third-party/llama-cpp)-$HASH" >> "$GITHUB_OUTPUT"
+
+    - name: Cache di ccache per llama.cpp
+      id: restore
+      continue-on-error: true
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: /home/runner/.cache/ccache
+        key: ${{ steps.key.outputs.key }}
+        restore-keys: ccache-llama-
