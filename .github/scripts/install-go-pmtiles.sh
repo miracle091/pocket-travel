@@ -6,6 +6,7 @@
 # Uso, dalla root del repository: bash .github/scripts/install-go-pmtiles.sh
 set -euo pipefail
 source .github/scripts/env.sh
+source .github/scripts/retry.sh
 
 GO_PMTILES_VERSION="1.31.2"
 case "$(uname -s)" in
@@ -20,7 +21,8 @@ case "$(uname -s)" in
 esac
 
 archive="$RUNNER_TEMP/$file"
-curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o "$archive" \
+# retry: tre tentativi con attese di 20 e 40 s, oltre a quelli ravvicinati di curl (GitHub a volte risponde 504 di fila).
+retry curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o "$archive" \
   "https://github.com/protomaps/go-pmtiles/releases/download/v${GO_PMTILES_VERSION}/$file"
 echo "$sha256  $archive" | sha256sum -c -
 mkdir -p "$RUNNER_TEMP/bin"

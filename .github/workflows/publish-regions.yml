@@ -4,14 +4,15 @@ name: Publish regions
 # Job, calendario settimanale, bucket e shard, run sovrapposte e permessi: sezione "Workflow publish-regions.yml" di
 # tools/data-pipeline/README.md. Gli script lunghi dei job sono in .github/scripts/publish-regions/.
 on:
+  # Alle 02:17 UTC: il minuto 0 e' il picco delle run programmate di GitHub, che le fa partire con ore di ritardo.
   schedule:
-    - cron: '0 2 * * 1'  # lunedi - bucket giorno 1 (piu' visitate)
-    - cron: '0 2 * * 2'  # martedi - bucket giorno 2
-    - cron: '0 2 * * 3'  # mercoledi - bucket giorno 3
-    - cron: '0 2 * * 4'  # giovedi - bucket giorno 4
-    - cron: '0 2 * * 5'  # venerdi - bucket giorno 5
-    - cron: '0 2 * * 6'  # sabato - bucket giorno 6
-    - cron: '0 2 * * 0'  # domenica - bucket giorno 7 (meno visitate)
+    - cron: '17 2 * * 1'  # lunedi - bucket giorno 1 (piu' visitate)
+    - cron: '17 2 * * 2'  # martedi - bucket giorno 2
+    - cron: '17 2 * * 3'  # mercoledi - bucket giorno 3
+    - cron: '17 2 * * 4'  # giovedi - bucket giorno 4
+    - cron: '17 2 * * 5'  # venerdi - bucket giorno 5
+    - cron: '17 2 * * 6'  # sabato - bucket giorno 6
+    - cron: '17 2 * * 0'  # domenica - bucket giorno 7 (meno visitate)
   workflow_dispatch:
     inputs:
       regions:
@@ -250,10 +251,10 @@ jobs:
         with:
           persist-credentials: false
 
+      # go-pmtiles lo installa world-map.sh, solo quando rigenera la mappa.
       - uses: ./.github/actions/setup-pipeline
         with:
           gradle: false
-          pmtiles: true
 
       - name: Rigenera la mappa del mondo se serve
         id: build
@@ -270,11 +271,11 @@ jobs:
           retention-days: 1
 
   # Celle della griglia adattiva dei civici (OSM + Overture), README della pipeline "Numeri civici a celle": una quota
-  # giornaliera (hash stabile dell'id mod 30), cosi' ogni cella si ricostruisce al piu' ogni 30 giorni; circa 55 celle,
-  # poche decine di minuti. Le celle vivono sulle release "address-cells-<n>" (n = hash dell'id mod
-  # ADDRESS_CELL_RELEASES, per il limite di 1000 asset per release). Da 6 release a 12: 12 e' multiplo di 6, quindi
-  # una cella con (hash mod 12) < 6 resta dov'e' e le altre passano alla release n+6 solo quando si rigenerano.
-  # Con ADDRESS_CELL_MIN_ZOOM 7 le celle salgono da circa 1500 a circa 3000, quindi circa 100 celle al giorno (stima).
+  # giornaliera (hash stabile dell'id mod 30), cosi' ogni cella si ricostruisce al piu' ogni 30 giorni. Le celle vivono
+  # sulle release "address-cells-<n>" (n = hash dell'id mod ADDRESS_CELL_RELEASES, per il limite di 1000 asset per
+  # release). Da 6 release a 12: 12 e' multiplo di 6, quindi una cella con (hash mod 12) < 6 resta dov'e' e le altre
+  # passano alla release n+6 solo quando si rigenerano. Con ADDRESS_CELL_MIN_ZOOM 7 la partizione ha circa 2000 celle
+  # (2066 a novembre 2026), quindi circa 70 al giorno; il numero esatto e' nella riga "celle nella partizione attuale" del log.
   # Indice (address-grid.json) e frammento di catalogo vanno al job "publish" come artifact. Non gira nelle continuazioni.
   address-grid:
     name: Civici
@@ -302,13 +303,17 @@ jobs:
           pmtiles: true
           duckdb: true
 
+      # Un solo elenco delle release esistenti (come ensure-releases.sh): ensure_release solo per le mancanti. Elenco non
+      # leggibile: restano tutte da controllare una per una.
       - name: Assicura le release delle celle
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           source .github/scripts/retry.sh
+          EXISTING_TAGS="$(retry gh release list --repo "$GITHUB_REPOSITORY" --limit 300 --json tagName --jq '.[].tagName')" || EXISTING_TAGS=""
           for n in $(seq 0 $((ADDRESS_CELL_RELEASES - 1))); do
+            if grep -qxF "address-cells-$n" <<< "$EXISTING_TAGS"; then continue; fi
             ensure_release "address-cells-$n" \
               "Civici a celle ($n/$ADDRESS_CELL_RELEASES)" \
               "Asset binari (celle addresses.pmtiles.xz e indici addresses-search.db.xz della griglia adattiva dei civici) per l'app Pocket Travel, referenziati da address-grid.json su GitHub Pages. Non e' una release software."
@@ -344,7 +349,7 @@ jobs:
     if: ${{ !(github.event.inputs.continuation > 0) && contains(fromJSON('["all","transit"]'), github.event.inputs.only || 'all') }}
     runs-on: ubuntu-24.04
     # Circa 120 reti: download in parallelo per host, conversione una rete alla volta (transit.sh); il download piu'
-    # lungo e' la Toscana, ~15 minuti.
+    # lungo e' la Toscana, da 6,5 a 22 minuti nelle run misurate.
     timeout-minutes: 150
     permissions:
       contents: write
@@ -462,7 +467,7 @@ jobs:
   # e non blocca la pubblicazione (nessuno lo aspetta, gli errori di rete diventano un warning).
   vaccinations-check:
     name: Controllo vaccinazioni
-    if: ${{ github.event.schedule == '0 2 * * 1' || (github.event_name == 'workflow_dispatch' && !(github.event.inputs.continuation > 0) && (github.event.inputs.only || 'all') == 'all') }}
+    if: ${{ github.event.schedule == '17 2 * * 1' || (github.event_name == 'workflow_dispatch' && !(github.event.inputs.continuation > 0) && (github.event.inputs.only || 'all') == 'all') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -787,9 +792,12 @@ jobs:
 
   # Unisce i frammenti di catalogo di shard, guide, mappa del mondo, civici e mezzi pubblici al `manifest.json` gia'
   # pubblicato e prepara il sito di Pages, che carica come artifact: firma e deploy sono nel job "deploy". Gira anche se
-  # uno shard e' fallito del tutto (!cancelled()), cosi' il lavoro degli shard riusciti non va perso; senza nessun
-  # frammento il passo "Assembla il sito" fallisce. Senza il frammento di un job (guide, mappa del mondo) resta la voce
-  # gia' pubblicata; se manca la voce delle guide la validazione ferma il deploy (la mappa del mondo e' facoltativa).
+  # uno shard e' fallito del tutto (!cancelled()), cosi' il lavoro degli shard riusciti non va perso. Senza nessun
+  # frammento il passo "Assembla il sito" fallisce nelle run che costruiscono regioni (only all o regions); con only
+  # guides, world-map, addresses o transit (guide e mappa non cambiate) finisce in verde con un avviso e output
+  # nothing=true, e "deploy", "after-deploy" e "cleanup" non girano. Senza il frammento di un job (guide, mappa del
+  # mondo) resta la voce gia' pubblicata; se manca la voce delle guide la validazione ferma il deploy (la mappa del
+  # mondo e' facoltativa).
   # Qui girano Gradle e gli script della pipeline, che elaborano dati di terzi: il job non ha MANIFEST_SIGNING_KEY ne'
   # permessi di scrittura, e Gradle gira senza daemon (--no-daemon, piu' "--stop" a fine job).
   publish:
@@ -807,6 +815,7 @@ jobs:
       contents: read
     outputs:
       pending_ok: ${{ steps.pending.outputs.ok }}
+      nothing: ${{ steps.assemble.outputs.nothing }}
       site_sha256: ${{ steps.site-hash.outputs.sha256 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -822,9 +831,10 @@ jobs:
           set -euo pipefail
           MIN_APP_VERSION_CODE="$(tr -dc '0-9' < tools/data-pipeline/min-app-version-code)"
           [[ "$MIN_APP_VERSION_CODE" =~ ^[0-9]+$ ]] || { echo "min-app-version-code non valido: non pubblico" >&2; exit 1; }
-          RELEASED_VERSION_CODE="$(curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 \
-            "https://github.com/$GITHUB_REPOSITORY/releases/download/app-status/app-status.json" \
-            | jq -r '.appVersion.versionCode // empty')"
+          source .github/scripts/retry.sh
+          APP_STATUS="$(retry curl -sSfL --max-time 120 \
+            "https://github.com/$GITHUB_REPOSITORY/releases/download/app-status/app-status.json")"
+          RELEASED_VERSION_CODE="$(jq -r '.appVersion.versionCode // empty' <<< "$APP_STATUS")"
           if ! [[ "$RELEASED_VERSION_CODE" =~ ^[0-9]+$ ]]; then
             echo "versionCode dell'app rilasciata non trovato in app-status.json: non pubblico" >&2
             exit 1
@@ -896,9 +906,13 @@ jobs:
 
       - name: Assembla il sito
         id: assemble
+        # Input dall'ambiente, non interpolato nello script.
+        env:
+          ONLY_INPUT: ${{ github.event.inputs.only }}
         run: bash .github/scripts/publish-regions/assemble.sh
 
       - name: Valida il catalogo prima del deploy
+        if: steps.assemble.outputs.nothing != 'true'
         env:
           SITE_DIR: ${{ steps.assemble.outputs.site_dir }}
           PAGES_HOST: ${{ steps.assemble.outputs.pages_host }}
@@ -915,6 +929,7 @@ jobs:
       # MergeManifests.kt). Altrimenti e' quasi certamente un merge incompleto: pubblicarlo farebbe
       # sparire regioni dall'app e la pulizia ne cancellerebbe gli asset.
       - name: Controlla che il nuovo manifest.json non perda regioni
+        if: steps.assemble.outputs.nothing != 'true'
         env:
           MANIFEST: ${{ steps.assemble.outputs.site_dir }}/manifest.json
         run: |
@@ -945,6 +960,7 @@ jobs:
       # Impronta del sito assemblato (sha256 dell'elenco "sha256 percorso" di tutti i file, in ordine): il job "deploy" la
       # ricalcola sull'artifact scaricato e non firma un sito diverso da quello controllato qui.
       - name: Calcola l'impronta del sito
+        if: steps.assemble.outputs.nothing != 'true'
         id: site-hash
         env:
           SITE_DIR: ${{ steps.assemble.outputs.site_dir }}
@@ -958,6 +974,7 @@ jobs:
       # (frammenti in sospeso scaricati sopra e cataloghi precedenti) vanno al job "after-deploy". Nome fisso con
       # overwrite: un rilancio del solo job che li legge non cerca un nome di un altro tentativo.
       - name: Carica il sito da firmare e pubblicare
+        if: steps.assemble.outputs.nothing != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: site-to-publish
@@ -968,6 +985,7 @@ jobs:
           retention-days: 1
 
       - name: Carica gli elenchi per i passi dopo il deploy
+        if: steps.assemble.outputs.nothing != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: after-deploy-inputs
@@ -995,7 +1013,7 @@ jobs:
   deploy:
     name: Firma e deploy
     needs: publish
-    if: ${{ github.ref == 'refs/heads/main' && !cancelled() && needs.publish.result == 'success' }}
+    if: ${{ github.ref == 'refs/heads/main' && !cancelled() && needs.publish.result == 'success' && needs.publish.outputs.nothing != 'true' }}
     concurrency:
       group: pages
       cancel-in-progress: false
@@ -1100,7 +1118,10 @@ jobs:
   after-deploy:
     name: Dopo il deploy
     needs: [publish, deploy]
-    if: ${{ github.ref == 'refs/heads/main' && !cancelled() }}
+    # Non gira se "publish" non aveva niente da pubblicare (nothing=true, solo con only guides, world-map, addresses o
+    # transit): senza regioni costruite non c'e' niente da rilanciare, e senza deploy non ci sono frammenti da togliere
+    # ne' cataloghi per la pulizia (il job "cleanup" salta di conseguenza).
+    if: ${{ github.ref == 'refs/heads/main' && !cancelled() && needs.publish.outputs.nothing != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # contents: write per togliere i frammenti in sospeso gestiti; actions: write per rilanciare le regioni rimandate.

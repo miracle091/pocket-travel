@@ -3,11 +3,14 @@
 # della run e a quelli in sospeso, region-timings.tsv, address-grid.json, transit.json, pagine delle licenze). Scarica
 # anche i file pubblicati prima di questa run (previous-*.json in $RUNNER_TEMP), che usano il controllo sulle regioni
 # perse e la pulizia degli asset. Scrive site_dir e pages_host in $GITHUB_OUTPUT.
-# Ambiente: PAGES_BASE_URL, GITHUB_REPOSITORY_OWNER.
+# Senza frammenti da unire la run finisce in verde con nothing=true in $GITHUB_OUTPUT (guide e mappa del mondo non
+# cambiate), tranne per ONLY_INPUT vuoto, all o regions: li' la run costruisce regioni e zero frammenti e' un errore.
+# Ambiente: PAGES_BASE_URL, GITHUB_REPOSITORY_OWNER, ONLY_INPUT (input "only" della run).
 set -euo pipefail
 source .github/scripts/env.sh
 # shellcheck source=tools/data-pipeline/scripts/lib.sh
 source tools/data-pipeline/scripts/lib.sh
+source .github/scripts/retry.sh
 shopt -s nullglob
 
 SITE_DIR="$RUNNER_TEMP/site"
@@ -16,19 +19,49 @@ mkdir -p "$SITE_DIR"
 # run a meno di 10 minuti dal deploy precedente leggerebbe i file di prima, e il merge e il controllo sulle regioni
 # perse partirebbero da un catalogo vecchio.
 FRESH="cb=$(date +%s)"
+# fetch_code <url> <file> [opzioni di curl...]: scarica <url> in <file> e stampa il codice HTTP (000 se la rete
+# fallisce). Gli errori di rete e i 408, 429 e 5xx si ritentano con retry (attese di 20 e 40 s); un 404 no.
+fetch_code() {
+  local url="$1" out="$2" code_file="$RUNNER_TEMP/http-code"
+  shift 2
+  rm -f "$code_file"
+  # shellcheck disable=SC2329 # chiamata da retry, qui sotto
+  _fetch_once() {
+    local code
+    curl -sSL --max-time 120 -H 'Cache-Control: no-cache' "$@" -o "$out" -w '%{http_code}' "$url" > "$code_file" || return 1
+    code="$(cat "$code_file")"
+    case "$code" in 408 | 429 | 5??) return 1 ;; esac
+  }
+  retry _fetch_once "$@" >&2 || true
+  cat "$code_file" 2> /dev/null || echo 000
+}
 # `manifest.json` pubblicato prima di questa run: lo usano il controllo sulle regioni perse (prima
 # del deploy) e la pulizia degli asset per il periodo di grazia di una generazione.
 # Solo un 404 vale come "prima pubblicazione" (segnata da first-publication): ogni altro
 # esito (rete, 5xx) dopo i tentativi ferma il passo, altrimenti il controllo sulle regioni
 # perse e la pulizia degli asset verrebbero saltati in silenzio.
 rm -f "$RUNNER_TEMP/previous-manifest.json" "$RUNNER_TEMP/previous-manifest.json.sig" "$RUNNER_TEMP/first-publication"
-MANIFEST_HTTP="$(curl -sSL --max-time 120 --retry 5 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$PAGES_BASE_URL/manifest.json?$FRESH" \
-  -o "$RUNNER_TEMP/previous-manifest.json" -w '%{http_code}' || true)"
+# Come l'app, il catalogo precedente si usa solo se la firma (manifest.json.sig) e' valida: un file manomesso sul sito
+# non deve finire nel merge. Subito dopo un deploy la CDN di Pages puo' servire per qualche minuto un manifest.json e una
+# firma di versioni diverse: fino a 4 tentativi a 20 s l'uno, ognuno con un parametro anti-cache nuovo.
+: "${SIGNATURE_RETRY_DELAY:=20}"  # secondi tra un tentativo e l'altro; i test lo azzerano
+SIGNATURE_OK=false
+MANIFEST_HTTP=""
+for attempt in 1 2 3 4; do
+  FRESH="cb=$(date +%s)"
+  MANIFEST_HTTP="$(fetch_code "$PAGES_BASE_URL/manifest.json?$FRESH" "$RUNNER_TEMP/previous-manifest.json")"
+  [ "$MANIFEST_HTTP" = 200 ] || break
+  if verify_published_signature "$RUNNER_TEMP/previous-manifest.json" "$PAGES_BASE_URL/manifest.json?$FRESH"; then
+    SIGNATURE_OK=true
+    break
+  fi
+  [ "$attempt" -lt 4 ] || break
+  echo "::warning::firma di manifest.json pubblicato non valida (tentativo $attempt/4), riprovo tra ${SIGNATURE_RETRY_DELAY}s" >&2
+  sleep "$SIGNATURE_RETRY_DELAY"
+done
 case "$MANIFEST_HTTP" in
   200)
-    # Come l'app, il catalogo precedente si usa solo se la firma (manifest.json.sig) e' valida: un file manomesso
-    # sul sito non deve finire nel merge.
-    if ! verify_published_signature "$RUNNER_TEMP/previous-manifest.json" "$PAGES_BASE_URL/manifest.json?$FRESH"; then
+    if [ "$SIGNATURE_OK" != true ]; then
       echo "::error::firma di manifest.json pubblicato mancante o non valida: non uso un manifest.json non verificabile" >&2
       exit 1
     fi
@@ -53,8 +86,7 @@ esac
 for index_name in address-grid transit; do
   INDEX_FILE="$RUNNER_TEMP/previous-$index_name.json"
   rm -f "$INDEX_FILE"
-  INDEX_HTTP="$(curl -sSL --max-time 120 --retry 5 --retry-all-errors --retry-delay 5 -H 'Cache-Control: no-cache' "$PAGES_BASE_URL/$index_name.json?$FRESH" \
-    -o "$INDEX_FILE" -w '%{http_code}' || true)"
+  INDEX_HTTP="$(fetch_code "$PAGES_BASE_URL/$index_name.json?$FRESH" "$INDEX_FILE")"
   case "$INDEX_HTTP" in
     200) ;;
     404)
@@ -114,8 +146,17 @@ while IFS=$'\x1f' read -r regionId reason; do
   echo "::warning::frammento di ${regionId:-?} scartato: $reason"
 done < <(awk -F'\t' '$3 == "scartata" { printf "%s\037%s\n", $2, $4 }' "$SELECTION_REPORT")
 if [ "${#FRAGMENT_FILES[@]}" -eq 0 ]; then
-  echo "Nessun frammento di catalogo da unire (ne' di questa run ne' in sospeso), niente da pubblicare" >&2
-  exit 1
+  case "${ONLY_INPUT:-all}" in
+    all | regions)
+      echo "Nessun frammento di catalogo da unire (ne' di questa run ne' in sospeso), niente da pubblicare" >&2
+      exit 1
+      ;;
+    *)
+      echo "::notice::nessun frammento di catalogo da unire (ne' di questa run ne' in sospeso): niente da pubblicare, il sito resta com'e'"
+      echo "nothing=true" >> "$GITHUB_OUTPUT"
+      exit 0
+      ;;
+  esac
 fi
 tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$MERGE_MANIFEST_URL" "${FRAGMENT_FILES[@]}"
 # Tempi per regione (peso degli shard nel job "plan"): quelli pubblicati, aggiornati con
@@ -123,8 +164,7 @@ tools/data-pipeline/scripts/assemble-site.sh "$SITE_DIR" "$MERGE_MANIFEST_URL" "
 PUBLISHED_TIMINGS="$RUNNER_TEMP/published-timings.tsv"
 # Solo un 404 (prima pubblicazione) parte da tempi vuoti: un errore passeggero fermerebbe altrimenti la run, perche'
 # azzererebbe i tempi di tutte le regioni non toccate da questa (e con loro il peso degli shard).
-TIMINGS_HTTP="$(curl -sSL --max-time 120 --retry 3 --retry-delay 5 -A "PocketTravelDataPipeline/1.0" -H 'Cache-Control: no-cache' \
-  "$PAGES_BASE_URL/region-timings.tsv?$FRESH" -o "$PUBLISHED_TIMINGS" -w '%{http_code}' || true)"
+TIMINGS_HTTP="$(fetch_code "$PAGES_BASE_URL/region-timings.tsv?$FRESH" "$PUBLISHED_TIMINGS" -A "PocketTravelDataPipeline/1.0")"
 case "$TIMINGS_HTTP" in
   200) ;;
   404)

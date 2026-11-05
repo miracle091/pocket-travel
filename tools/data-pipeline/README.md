@@ -37,13 +37,16 @@ cache in sola lettura, go-pmtiles, duckdb, osmium) è l'azione `.github/actions/
 superate (dump, frasi tradotte, Gradle, ccache) le toglie ogni giorno `.github/workflows/cache-cleanup.yml`: di ogni
 famiglia di chiavi restano le 2 voci usate più di recente; a mano, con `dry_run`, elenca senza cancellare.
 
-**Calendario.** Sette righe `schedule` (una al giorno) rigenerano il bucket del giorno, definito in
-`scripts/weekly-schedule.sh` (generato da `generate-weekly-schedule.sh`): la cadenza è settimanale perché i segmenti
+**Calendario.** Sette righe `schedule` (una al giorno, alle 02:17 UTC: il minuto 0 è il picco delle run
+programmate di GitHub) rigenerano il bucket del giorno, definito in `scripts/weekly-schedule.sh` (generato da `generate-weekly-schedule.sh`): la cadenza è settimanale perché i segmenti
 `.rd5` di BRouter si rigenerano ogni settimana. `workflow_dispatch` serve per le run mirate (`regions`) o per
 rigenerare tutte le regioni (`regions` vuoto). L'input `only` limita la run a un tipo di dati: `addresses`
 (`address-grid`), `transit`, `guides`, `world-map` o `regions` (`build`); gli altri job produttori e i due
 controlli non partono, e `publish` tiene le voci pubblicate di ciò che la run non ricostruisce. Esempio, solo
 due celle dei civici: `gh workflow run publish-regions.yml -f only=addresses -f address_cells="4/6/7,4/7/4"`.
+Con `guides` o `world-map` può non esserci niente da pubblicare (guide o mappa non cambiate): `publish` finisce in
+verde con un avviso (`nothing=true`) e `deploy`, `after-deploy` e `cleanup` non girano. Con `all` e `regions` zero
+frammenti restano un errore.
 
 **Bucket e shard.** Il lavoro si divide su più giorni e, in ogni giorno, su 3 shard in parallelo, per due limiti:
 le 6 ore massime di un job di GitHub Actions e l'uso corretto dei mirror Overpass pubblici. La divisione tra shard è
@@ -59,8 +62,11 @@ continuazione automatica.
 **Run sovrapposte.** Il workflow non ha `concurrency`: un gruppo tiene al massimo una run in attesa, e una run
 manuale lanciata durante un'altra farebbe annullare il bucket del giorno dopo rimasto in coda. Solo `publish` e `deploy` stanno
 nel gruppo `pages` e solo `cleanup` nel gruppo `asset-cleanup` (una pulizia annullata in coda non perde nulla: la
-successiva toglie gli stessi asset). Gli asset di run diverse non si scontrano (versione unica per run e tentativo) e
-la pulizia non tocca gli asset caricati da meno di 24 ore.
+successiva toglie gli stessi asset). Il gruppo `pages` tiene una sola run in attesa e una nuova annulla quella in
+attesa: con tre run vicine la pubblicazione di quella di mezzo si perde. Le regioni si recuperano dai frammenti in
+sospeso di `region-fragments`; guide, mappa del mondo e indici di civici e mezzi pubblici di quella run no. Una run
+manuale non si lancia mentre un'altra aspetta la pubblicazione. Gli asset di run diverse non si scontrano (versione
+unica per run e tentativo) e la pulizia non tocca gli asset caricati da meno di 24 ore.
 
 **Permessi.** A livello di workflow solo `contents: read`; `contents: write` ai job che creano release o caricano
 asset, `pages` e `id-token` solo a `deploy`, il job che ha anche la chiave di firma; `publish`, dove girano Gradle e gli script della pipeline, ha solo `contents: read`. `GH_TOKEN` sta nell'ambiente dei soli passi che chiamano `gh`; nel job `build` gli script della pipeline (`build-region.sh`, `build-cities.sh`, `build-cities-dump.sh`) girano senza (`env -u GH_TOKEN`), che serve solo agli upload. `deploy` firma solo un sito con la stessa impronta di quello assemblato e controllato da `publish`. I checkout dei job che scrivono sulle release hanno

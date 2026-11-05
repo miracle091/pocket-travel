@@ -2,7 +2,7 @@
 # Job "world-map" di publish-regions.yml: rigenera la mappa del mondo (z0-8, ~555 MB, release "world-map") solo se
 # quella pubblicata ha piu' di WORLD_MAP_MAX_AGE_DAYS giorni o manca; scrive changed=true|false in $GITHUB_OUTPUT e,
 # se l'ha rigenerata, il frammento di catalogo in $RUNNER_TEMP/fragments/world-map.json.
-# Ambiente: PAGES_BASE_URL, WORLD_MAP_MAX_AGE_DAYS, GITHUB_REPOSITORY, GH_TOKEN.
+# Installa go-pmtiles solo se la rigenera. Ambiente: PAGES_BASE_URL, WORLD_MAP_MAX_AGE_DAYS, GITHUB_REPOSITORY, GH_TOKEN.
 set -euo pipefail
 source .github/scripts/env.sh
 : "${WORLD_MAP_MAX_AGE_DAYS:=30}"  # fuori dal workflow, lo stesso valore
@@ -35,6 +35,11 @@ fi
 ensure_release world-map \
   "Mappa del mondo" \
   "Mappa del mondo a bassa risoluzione (z0-8) per l'app Pocket Travel, letta online a pezzi. Non e' una release software."
+
+# go-pmtiles serve solo qui, quando la mappa si rigenera (circa ogni 30 giorni). La cartella va nel PATH di questo
+# script: $GITHUB_PATH vale solo per i passi successivi.
+bash .github/scripts/install-go-pmtiles.sh
+export PATH="$RUNNER_TEMP/bin:$PATH"
 
 # Estratta direttamente col nome dell'asset: niente copia di un file da ~555 MB
 ASSET_NAME="world-${PROTOMAPS_DATE}-z8.pmtiles"

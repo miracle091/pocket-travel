@@ -41,7 +41,7 @@ class AssembleRequestsTest(unittest.TestCase):
             tree = Path(d)
             if "/manifest.json" in files and "/manifest.json.sig" not in files:
                 files = {**files, "/manifest.json.sig": sign_manifest(tree, files["/manifest.json"], signature_valid)}
-            for f in (SCRIPT, ".github/scripts/verify-app-status.sh", ".github/scripts/env.sh", "tools/data-pipeline/scripts/portable.sh", "tools/data-pipeline/scripts/lib.sh"):
+            for f in (SCRIPT, ".github/scripts/verify-app-status.sh", ".github/scripts/env.sh", ".github/scripts/retry.sh", "tools/data-pipeline/scripts/portable.sh", "tools/data-pipeline/scripts/lib.sh"):
                 fx.copy(f, tree)
             fx.write(tree / "gradlew", "#!/usr/bin/env bash\nexit 1\n", executable=True)
             runner = tree / "runner"
@@ -49,7 +49,7 @@ class AssembleRequestsTest(unittest.TestCase):
             with fx.serve(files) as server:
                 env = fx.environment(tree, GITHUB_REPOSITORY=repository, GITHUB_REPOSITORY_OWNER="o", RUNNER_TEMP=runner.as_posix(),
                                      GITHUB_OUTPUT=(runner / "out").as_posix(), GITHUB_STEP_SUMMARY=(runner / "summary").as_posix(),
-                                     PAGES_BASE_URL=server.base)
+                                     PAGES_BASE_URL=server.base, SIGNATURE_RETRY_DELAY="0")
                 proc = fx.run_bash([SCRIPT], tree, env)
                 return proc, list(server.requests)
 
@@ -68,6 +68,9 @@ class AssembleRequestsTest(unittest.TestCase):
         self.assertNotEqual(0, proc.returncode)
         self.assertIn("firma di manifest.json pubblicato mancante o non valida", proc.stderr)
         self.assertNotIn("/address-grid.json", {urlsplit(p).path for p, _ in requests})
+        # 4 tentativi, e la diagnostica della firma su stderr.
+        self.assertEqual(4, sum(urlsplit(p).path == "/manifest.json" for p, _ in requests))
+        self.assertIn("firma:", proc.stderr)
 
     def test_firma_vuota_ferma_il_passo(self):
         proc, _ = self.run_assemble({"/manifest.json": b"{}", "/manifest.json.sig": b""})

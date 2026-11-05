@@ -196,6 +196,7 @@ fetch_published_manifest() {
     esac
     break
   done
+  case "$code" in 200 | 404) ;; *) echo "-- manifest.json $url: HTTP ${code:-000}, curl exit $rc" >&2 ;; esac
   # Un file firmato dal sito si usa solo con la firma valida, come fa l'app: "firma" al posto di 200 se non lo e'.
   if [ "$code" = 200 ] && [ "$url" != "$1" ] && ! verify_published_signature "$out" "$url"; then
     code=firma
@@ -215,8 +216,17 @@ verify_published_signature() {
   local query="cb=$(date +%s)"
   case "$2" in *\?*) query="${2#*\?}" ;; esac
   rm -f "$file.sig"
-  curl -sSf --max-time 120 --retry 5 --retry-delay 5 -H 'Cache-Control: no-cache' -o "$file.sig" "${2%%\?*}.sig?$query" 2>/dev/null \
-    && (cd "$root" && bash .github/scripts/verify-app-status.sh "$file") > /dev/null 2>&1
+  # Il passo che fallisce va su stderr (codice HTTP del .sig o esito di openssl), mai il contenuto dei file.
+  local sig_url="${2%%\?*}.sig?$query" sig_code sig_rc=0 verify_out
+  sig_code="$(curl -sS --max-time 120 --retry 5 --retry-delay 5 -H 'Cache-Control: no-cache' -o "$file.sig" -w '%{http_code}' "$sig_url")" || sig_rc=$?
+  if [ "$sig_rc" -ne 0 ] || [ "$sig_code" != 200 ]; then
+    echo "-- firma: $sig_url non scaricata (HTTP ${sig_code:-000}, curl exit $sig_rc)" >&2
+    return 1
+  fi
+  if ! verify_out="$(cd "$root" && bash .github/scripts/verify-app-status.sh "$file" 2>&1)"; then
+    echo "-- firma: verifica con $sig_url fallita: $(tr '\n' ' ' <<< "$verify_out")" >&2
+    return 1
+  fi
 }
 
 # without_empty_tiles <manifest.json> <regionId>: legge da stdin l'array JSON [{name, sourceKey}] delle tile .rd5 attese

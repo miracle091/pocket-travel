@@ -25,6 +25,7 @@ source tools/data-pipeline/scripts/lib.sh
 TRANSLATE_DEADLINE=$(( $(date +%s) + TRANSLATE_TOTAL_MINUTES * 60 ))
 export TRANSLATE_DEADLINE
 
+# Il job "build" non parte per gli shard vuoti (la matrice li esclude): questo ramo serve alle prove in locale.
 if [ -z "$SELECTED" ] && [ -z "$EXTRA" ]; then
   echo "-- shard $SHARD vuoto, nulla da fare"
   echo "has_fragments=false" >> "$GITHUB_OUTPUT"

@@ -56,18 +56,18 @@ class PlanShardsTest(unittest.TestCase):
         return [r for shard in range(3) for r in output[f"shard{shard}{key}"].split(",") if r]
 
     def test_bucket_del_giorno(self):
-        proc, out = self.plan(SCHEDULE="0 2 * * 3")
+        proc, out = self.plan(SCHEDULE="17 2 * * 3")
         self.assertEqual(0, proc.returncode, proc.stderr)
         self.assertCountEqual(["aaa", "bbb"], self.regions(out, ""))
 
     def test_domenica_e_il_giorno_7(self):
         self.set_schedule({7: ["ddd"]}, {r: 2 for r in REGIONS})
-        proc, out = self.plan(SCHEDULE="0 2 * * 0")
+        proc, out = self.plan(SCHEDULE="17 2 * * 0")
         self.assertEqual(0, proc.returncode, proc.stderr)
         self.assertEqual(["ddd"], self.regions(out, ""))
 
     def test_bucket_vuoto_non_costruisce_tutte_le_regioni(self):
-        proc, out = self.plan(SCHEDULE="0 2 * * 5")
+        proc, out = self.plan(SCHEDULE="17 2 * * 5")
         self.assertEqual(0, proc.returncode, proc.stderr)
         self.assertEqual([], self.regions(out, ""))
         self.assertEqual({"shard0", "shard1", "shard2", "shard0_extra", "shard1_extra", "shard2_extra", "shards"}, set(out))
@@ -75,7 +75,7 @@ class PlanShardsTest(unittest.TestCase):
 
     def test_bucket_vuoto_tiene_la_quota_adattiva(self):
         # Il giorno 5 e' vuoto: le regioni in ritardo e quelle di domani (giorno 6, vuoto qui) restano in coda.
-        proc, out = self.plan({"/manifest.json": manifest({"aaa": "2020.01.01", "bbb": "2999.01.01", "ccc": "2999.01.01", "ddd": "2999.01.01"})}, SCHEDULE="0 2 * * 5")
+        proc, out = self.plan({"/manifest.json": manifest({"aaa": "2020.01.01", "bbb": "2999.01.01", "ccc": "2999.01.01", "ddd": "2999.01.01"})}, SCHEDULE="17 2 * * 5")
         self.assertEqual(0, proc.returncode, proc.stderr)
         self.assertEqual([], self.regions(out, ""))
         self.assertEqual(["aaa"], [e.split(":")[0] for e in self.regions(out, "_extra")])
@@ -119,13 +119,13 @@ class PlanShardsTest(unittest.TestCase):
         # Oggi (giorno 3) aaa e bbb; ccc ha i POI vecchi (in ritardo), ddd e' di domani (giorno 4).
         self.set_schedule({3: ["aaa", "bbb"], 4: ["ddd"]}, {r: 2 for r in REGIONS})
         files = {"/manifest.json": manifest({"aaa": "2999.01.01", "bbb": "2999.01.01", "ccc": "2020.01.01", "ddd": "2999.01.01"})}
-        proc, out = self.plan(files, SCHEDULE="0 2 * * 3")
+        proc, out = self.plan(files, SCHEDULE="17 2 * * 3")
         self.assertEqual(0, proc.returncode, proc.stderr)
         self.assertCountEqual(["aaa", "bbb"], self.regions(out, ""))
         self.assertEqual(["ccc:100", "ddd:100"], sorted(self.regions(out, "_extra")))
 
     def test_catalogo_non_leggibile_avvisa_e_non_aggiunge_ritardi(self):
-        proc, out = self.plan(SCHEDULE="0 2 * * 3")
+        proc, out = self.plan(SCHEDULE="17 2 * * 3")
         self.assertEqual(0, proc.returncode, proc.stderr)
         self.assertIn("manifest.json pubblicato non leggibile", proc.stdout)
         self.assertEqual(["ccc:100"], self.regions(out, "_extra"))
