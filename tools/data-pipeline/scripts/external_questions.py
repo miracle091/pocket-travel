@@ -10,7 +10,7 @@ Fonti:
   rifiuti realistici per le guide, che non parlano di cio' che un albergo decide per conto suo. Il file inglese pesa
   ~27 GB: se ne leggono WINDOWS finestre di WINDOW_BYTES, equidistanti (il file e' ordinato per sito, quindi coprono
   tutto l'alfabeto), senza mai salvare il file intero; le righe dell'argomento finiscono in un file intermedio.
-- MKQA (apple/mkqa, CC BY 3.0, 10.000 domande di cultura generale uguali in 24 lingue): coppie (it, en) fuori
+- MKQA (apple/mkqa, CC BY-SA 3.0, 10.000 domande di cultura generale uguali in 24 lingue): coppie (it, en) fuori
   argomento. Il file e' su GitHub, non nel repository Hugging Face (che ha solo lo script di caricamento).
 
 Filtri (conteggi e motivi di scarto nel Counter `stats` che i caricatori ricevono):
@@ -61,11 +61,11 @@ ATTRIBUTION = {
     "it": [("-", "domande di FAQ di siti di hotel e servizi turistici (PaDaS-Lab/webfaq; solo le domande)",
             f"https://huggingface.co/datasets/{WEBFAQ}/tree/{WEBFAQ_REVISION}", "CC BY 4.0"),
            ("-", "domande di cultura generale (apple/mkqa; solo le domande)",
-            MKQA_PAGE, "CC BY 3.0")],
+            MKQA_PAGE, "CC BY-SA 3.0")],
     "en": [("-", "questions from FAQs of hotel and tourist service sites (PaDaS-Lab/webfaq; questions only)",
             f"https://huggingface.co/datasets/{WEBFAQ}/tree/{WEBFAQ_REVISION}", "CC BY 4.0"),
            ("-", "general knowledge questions (apple/mkqa; questions only)",
-            MKQA_PAGE, "CC BY 3.0")],
+            MKQA_PAGE, "CC BY-SA 3.0")],
 }
 
 FAQ_CACHE = "faq_refusals.{lang}.tsv"

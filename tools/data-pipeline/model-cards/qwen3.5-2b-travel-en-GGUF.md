@@ -157,5 +157,5 @@ same rule for both models.
   ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) as declared by the copy; the original [Stanford Alpaca](https://github.com/tatsu-lab/stanford_alpaca) data is
   [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)), [WebFAQ](https://huggingface.co/datasets/PaDaS-Lab/webfaq) by PaDaS-Lab
   ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)), [MKQA](https://github.com/apple-aiml-research/ml-mkqa) by Apple
-  ([CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)).
+  ([CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)).
 - No content from [Viaggiare Sicuri](https://www.viaggiaresicuri.it/) (Farnesina) is included.

@@ -511,7 +511,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   solo la parola dell'etichetta del blocco; i rifiuti delle città hanno a volte nel contesto la sezione di una categoria
   vicina che non risponde (Come arrivare per gli spostamenti in città, Dove dormire per Dove mangiare). Di default
   (`--external-questions`) entrano rifiuti sulle domande di servizio degli alloggi di WebFAQ (CC BY 4.0: check-in,
-  animali, parcheggio dell'hotel, che le guide non coprono) e domande fuori tema di MKQA (CC BY 3.0) nelle due lingue,
+  animali, parcheggio dell'hotel, che le guide non coprono) e domande fuori tema di MKQA (CC BY-SA 3.0) nelle due lingue,
   sempre solo le domande (`scripts/external_questions.py`, cache in `data/sft/raw/`). Con `--retrieval-rows <n>` e
   `--retrieval-cache <cartella>` aggiunge circa n righe con il contesto che la ricerca dell'app sceglie davvero
   (`scripts/sft_retrieval.py`, che usa `eval_retrieval.py` sui `guides.db` e `cities.db` pubblicati), su città fuori

@@ -296,7 +296,7 @@ class CacheTest(unittest.TestCase):
                 self.assertTrue(row[2].startswith("https://"))
         self.assertIn("domande", eq.ATTRIBUTION["it"][0][1])
         self.assertIn("questions", eq.ATTRIBUTION["en"][0][1])
-        self.assertEqual({r[3] for rows in eq.ATTRIBUTION.values() for r in rows}, {"CC BY 4.0", "CC BY 3.0"})
+        self.assertEqual({r[3] for rows in eq.ATTRIBUTION.values() for r in rows}, {"CC BY 4.0", "CC BY-SA 3.0"})
 
 
 class EvalSetTest(unittest.TestCase):
