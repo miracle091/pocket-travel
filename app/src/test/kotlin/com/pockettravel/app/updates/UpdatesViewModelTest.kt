@@ -11,9 +11,12 @@ import com.pockettravel.core.data.InstalledGuides
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.sync.AiModelManifestEntry
 import com.pockettravel.core.sync.AppStatus
+import com.pockettravel.core.sync.AppUpdateFailure
+import com.pockettravel.core.sync.AppUpdateState
 import com.pockettravel.core.sync.AppVersionEntry
 import com.pockettravel.core.sync.GuidesManifestEntry
 import com.pockettravel.core.sync.testing.FakeAppStatusClient
+import com.pockettravel.core.sync.testing.FakeAppUpdateDownloads
 import com.pockettravel.core.sync.testing.FakeManifestClient
 import com.pockettravel.core.sync.testing.FakeRegionSyncScheduler
 import com.pockettravel.feature.ai.LlmModelDownloadWorker
@@ -21,6 +24,7 @@ import com.pockettravel.feature.ai.testing.FakeAiModelUpdates
 import com.pockettravel.feature.map.ConnectivityChecker
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -33,6 +37,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
 import java.io.IOException
 import java.util.Locale
 import java.util.UUID
@@ -50,9 +55,12 @@ class UpdatesViewModelTest {
     private val scheduler = FakeRegionSyncScheduler()
     private val models = FakeAiModelUpdates()
     private val connectivity = FakeConnectivityChecker()
+    private val downloads = FakeAppUpdateDownloads()
+    private val installer = FakeAppInstaller()
     private lateinit var previousLocale: Locale
 
     private val newApp = AppVersionEntry("1.2.0", 20)
+    private val newAppWithApk = AppVersionEntry("1.2.0", 20, apkSha256 = "a".repeat(64), apkSizeBytes = 19_000_000L)
     private val newModel = AiModelManifestEntry("qwen3.5-0.8b", "v2.gguf", "d".repeat(64), 500L)
 
     @Before
@@ -68,7 +76,7 @@ class UpdatesViewModelTest {
     }
 
     private fun viewModel() = UpdatesViewModel(
-        InstalledVersionCode { installedVersionCode }, status, manifests, repository, scheduler, models, connectivity,
+        InstalledVersionCode { installedVersionCode }, status, manifests, repository, scheduler, models, connectivity, downloads, installer,
     )
 
     private fun work(state: WorkInfo.State, progress: Data = Data.EMPTY) = WorkInfo(UUID.randomUUID(), state, emptySet(), progress = progress)
@@ -330,6 +338,118 @@ class UpdatesViewModelTest {
     }
 
     @Test
+    fun `aggiornare l'app avvia il download senza rete a consumo`() = runTest {
+        status.status = AppStatus(appVersion = newAppWithApk)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.updateApp()
+        advanceUntilIdle()
+
+        assertEquals(listOf(newAppWithApk to false), downloads.started)
+    }
+
+    @Test
+    fun `senza aggiornamento dell'app o senza impronta il download non parte`() = runTest {
+        val none = viewModel()
+        advanceUntilIdle()
+        none.updateApp()
+        status.status = AppStatus(appVersion = newApp)
+        val noApk = viewModel()
+        advanceUntilIdle()
+        noApk.updateApp()
+        advanceUntilIdle()
+
+        assertTrue(downloads.started.isEmpty())
+    }
+
+    @Test
+    fun `lo stato del download dell'app arriva nello stato e si puo' annullare`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        downloads.state.value = AppUpdateState.Downloading(1_000L, 4_000L)
+        advanceUntilIdle()
+        assertEquals(AppUpdateState.Downloading(1_000L, 4_000L), viewModel.uiState.value.appDownload)
+
+        viewModel.cancelAppDownload()
+        assertEquals(1, downloads.cancelled)
+
+        downloads.state.value = AppUpdateState.Failed(AppUpdateFailure.SIGNATURE)
+        advanceUntilIdle()
+        assertEquals(AppUpdateState.Failed(AppUpdateFailure.SIGNATURE), viewModel.uiState.value.appDownload)
+    }
+
+    @Test
+    fun `installare senza il permesso chiede il passo verso le impostazioni`() = runTest {
+        val viewModel = viewModel()
+        downloads.state.value = AppUpdateState.Ready(20, File("20.apk"))
+        installer.allowed = false
+        advanceUntilIdle()
+
+        viewModel.installApp()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.installPermissionNeeded)
+        assertTrue(installer.installed.isEmpty())
+
+        viewModel.openInstallSettings()
+        assertEquals(1, installer.settingsOpened)
+    }
+
+    @Test
+    fun `con il permesso concesso installa l'apk pronto e toglie la richiesta`() = runTest {
+        val viewModel = viewModel()
+        val apk = File("20.apk")
+        downloads.state.value = AppUpdateState.Ready(20, apk)
+        installer.allowed = false
+        advanceUntilIdle()
+        viewModel.installApp()
+        installer.allowed = true
+
+        viewModel.installApp()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.installPermissionNeeded)
+        assertEquals(listOf(apk), installer.installed)
+        assertEquals(AppInstallStatus.Installing, viewModel.uiState.value.appInstall)
+    }
+
+    @Test
+    fun `installare senza un apk pronto o con un'installazione in corso non fa nulla`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.installApp()
+        assertTrue(installer.installed.isEmpty())
+
+        downloads.state.value = AppUpdateState.Ready(20, File("20.apk"))
+        advanceUntilIdle()
+        viewModel.installApp()
+        advanceUntilIdle()
+        viewModel.installApp()
+        advanceUntilIdle()
+
+        assertEquals(1, installer.installed.size)
+    }
+
+    @Test
+    fun `l'installazione fallita o annullata arriva nello stato e si puo' riprovare`() = runTest {
+        val viewModel = viewModel()
+        downloads.state.value = AppUpdateState.Ready(20, File("20.apk"))
+        advanceUntilIdle()
+        viewModel.installApp()
+        advanceUntilIdle()
+
+        installer.status.value = AppInstallStatus.Failed
+        advanceUntilIdle()
+        assertEquals(AppInstallStatus.Failed, viewModel.uiState.value.appInstall)
+
+        viewModel.installApp()
+        advanceUntilIdle()
+        assertEquals(2, installer.installed.size)
+    }
+
+    @Test
     fun `scaricare il modello senza aggiornamento non fa nulla`() = runTest {
         val viewModel = viewModel()
         advanceUntilIdle()
@@ -427,4 +547,22 @@ class UpdatesViewModelTest {
 
 private class FakeConnectivityChecker(var online: Boolean = true) : ConnectivityChecker {
     override fun isOnline() = online
+}
+
+private class FakeAppInstaller : AppInstaller {
+    override val status = MutableStateFlow(AppInstallStatus.Idle)
+    var allowed = true
+    var settingsOpened = 0
+    val installed = mutableListOf<File>()
+
+    override fun canInstall() = allowed
+
+    override fun openInstallSettings() {
+        settingsOpened++
+    }
+
+    override suspend fun install(file: File) {
+        installed += file
+        status.value = AppInstallStatus.Installing
+    }
 }

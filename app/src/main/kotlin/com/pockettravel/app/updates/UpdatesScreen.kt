@@ -98,7 +98,18 @@ fun UpdatesScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Spacing.l, vertical = Spacing.s),
         ) {
-            state.appUpdate?.let { AppSection(it) }
+            state.appUpdate?.let { app ->
+                AppSection(
+                    app = app,
+                    state = state,
+                    actions = AppSectionActions(
+                        onUpdate = viewModel::updateApp,
+                        onCancel = viewModel::cancelAppDownload,
+                        onInstall = viewModel::installApp,
+                        onOpenInstallSettings = viewModel::openInstallSettings,
+                    ),
+                )
+            }
             if (outdated.isNotEmpty()) {
                 RegionsSection(
                     outdated = outdated,

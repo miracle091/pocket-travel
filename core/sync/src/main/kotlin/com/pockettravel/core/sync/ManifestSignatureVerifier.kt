@@ -136,6 +136,6 @@ class ManifestSignatureVerifier @Inject constructor(
 
         /** File che vengono sempre dal progetto, firmati con la sua chiave, qualunque sia il catalogo. */
         val PROJECT_KINDS = setOf(APP_STATUS_KIND, ONLINE_MODELS_KIND)
-        private val PROJECT_URLS = setOf(SyncConfig.APP_STATUS_URL, SyncConfig.ONLINE_MODELS_URL)
+        private val PROJECT_URLS = setOf(SyncConfig.appStatusUrl, SyncConfig.ONLINE_MODELS_URL)
     }
 }

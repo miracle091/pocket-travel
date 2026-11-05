@@ -74,12 +74,21 @@ object SyncConfig {
     // (manifest.json sopra) — tenerli nello stesso file avrebbe legato due cicli di pubblicazione
     // indipendenti tra loro.
     const val APP_STATUS_URL = "https://github.com/miracle091/pocket-travel/releases/download/app-status/app-status.json"
+
+    // Indirizzo in uso: quello ufficiale, o in debug BuildConfig.APP_STATUS_URL_OVERRIDE (vuoto nel release).
+    val appStatusUrl: String get() = BuildConfig.APP_STATUS_URL_OVERRIDE.ifEmpty { APP_STATUS_URL }
     const val APP_UPDATE_CHECK_WORK_NAME = "app-update-check"
     const val APP_UPDATE_DOWNLOAD_WORK_NAME = "app-update-download"
 
     // APK della release v<versionName>: l'impronta di app-status.json vale solo per questo indirizzo, mai per
     // releases/latest. Host github.com gia' ammesso; il redirect verso lo storage degli asset lo segue OkHttp.
-    fun appApkUrl(versionName: String) = "https://github.com/miracle091/pocket-travel/releases/download/v$versionName/app-release.apk"
+    // Con l'override di debug di app-status.json l'APK e' app-release.apk nella stessa cartella, qualunque sia la versione.
+    fun appApkUrl(versionName: String): String =
+        if (BuildConfig.APP_STATUS_URL_OVERRIDE.isNotEmpty()) {
+            BuildConfig.APP_STATUS_URL_OVERRIDE.substringBeforeLast('/') + "/app-release.apk"
+        } else {
+            "https://github.com/miracle091/pocket-travel/releases/download/v$versionName/app-release.apk"
+        }
     const val ALERT_NOTIFICATIONS_WORK_NAME = "alert-notifications"
 
     // Modelli proposti per i servizi online (OnlineModelList), sulla stessa release: cambia a ogni modifica di

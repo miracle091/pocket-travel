@@ -175,7 +175,7 @@ class SignedFileCache internal constructor(
     // Copie dei cataloghi usati prima: il catalogo cambia solo al riavvio dell'app, quindi basta una pulizia per processo.
     // Restano le copie del catalogo in uso e dei due file del progetto, che valgono con qualunque catalogo.
     private fun forgetOthers() {
-        val keep = listOf(SyncConfig.MANIFEST_URL, SyncConfig.APP_STATUS_URL, SyncConfig.ONLINE_MODELS_URL).map(::key).toSet()
+        val keep = listOf(SyncConfig.MANIFEST_URL, SyncConfig.appStatusUrl, SyncConfig.ONLINE_MODELS_URL).map(::key).toSet()
         dir.listFiles().orEmpty().filter { it.name.substringBefore('.') !in keep }.forEach(File::delete)
     }
 

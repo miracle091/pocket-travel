@@ -1,7 +1,12 @@
 package com.pockettravel.app.updates
 
+import androidx.annotation.StringRes
+import com.pockettravel.app.R
 import com.pockettravel.app.regions.RegionStatus
 import com.pockettravel.app.regions.RegionUiItem
+import com.pockettravel.core.sync.AppUpdateFailure
+import com.pockettravel.core.sync.AppUpdateState
+import com.pockettravel.core.sync.AppVersionEntry
 
 /** Le nazioni installate con almeno un pacchetto da aggiornare. */
 internal fun outdatedRegions(items: List<RegionUiItem>): List<RegionUiItem> =
@@ -30,3 +35,23 @@ internal fun updateAllNeedsConfirmation(metered: Boolean, pending: List<RegionUi
  * e la schermata tiene i valori di prima.
  */
 internal fun updateCheckOffline(appStatusReached: Boolean, deviceOnline: Boolean): Boolean = !appStatusReached && !deviceOnline
+
+/** Il download che riguarda [app]: un APK pronto di un'altra versione (rimasto da prima) non conta. */
+internal fun relevantDownload(download: AppUpdateState, app: AppVersionEntry): AppUpdateState =
+    if (download is AppUpdateState.Ready && download.versionCode != app.versionCode) AppUpdateState.Idle else download
+
+/** Avanzamento 0..1 del download; null finché il totale non è noto. */
+internal fun AppUpdateState.Downloading.fraction(): Float? =
+    if (totalBytes > 0) (bytesDownloaded.toFloat() / totalBytes).coerceIn(0f, 1f) else null
+
+/** Il testo di un download fallito: la firma e i file non validi rimandano a GitHub, la rete a un nuovo tentativo. */
+@StringRes
+internal fun AppUpdateFailure.messageRes(): Int = when (this) {
+    AppUpdateFailure.NETWORK -> R.string.updates_app_error_download
+    AppUpdateFailure.SIGNATURE -> R.string.updates_app_error_signature
+    AppUpdateFailure.INVALID_FILE,
+    AppUpdateFailure.UNREADABLE,
+    AppUpdateFailure.PACKAGE,
+    AppUpdateFailure.NOT_NEWER,
+    -> R.string.updates_app_error_file
+}

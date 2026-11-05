@@ -10,6 +10,8 @@ import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.sync.AiModelManifestEntry
 import com.pockettravel.core.sync.AppStatusClient
+import com.pockettravel.core.sync.AppUpdateDownloads
+import com.pockettravel.core.sync.AppUpdateState
 import com.pockettravel.core.sync.AppVersionEntry
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionSyncScheduler
@@ -42,6 +44,11 @@ data class UpdatesUiState(
     val isChecking: Boolean = true,
     // L'ultimo controllo non ha raggiunto la rete (updateCheckOffline): senza rete non si puo' dire "Tutto aggiornato".
     val offline: Boolean = false,
+    // Download dell'APK dell'aggiornamento dell'app e esito dell'installazione.
+    val appDownload: AppUpdateState = AppUpdateState.Idle,
+    val appInstall: AppInstallStatus = AppInstallStatus.Idle,
+    // "Installa" toccato senza il permesso "Installa app sconosciute": la sezione lo spiega e apre le impostazioni.
+    val installPermissionNeeded: Boolean = false,
     // Messaggio una tantum (Snackbar), poi onMessageShown().
     @StringRes val message: Int? = null,
 )
@@ -59,6 +66,8 @@ class UpdatesViewModel @Inject constructor(
     private val regionSyncScheduler: RegionSyncScheduler,
     private val aiModelUpdates: AiModelUpdates,
     private val connectivityChecker: ConnectivityChecker,
+    private val appUpdateDownloads: AppUpdateDownloads,
+    private val appInstaller: AppInstaller,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(UpdatesUiState())
@@ -75,6 +84,12 @@ class UpdatesViewModel @Inject constructor(
                 _uiState.update { it.copy(guidesSyncing = info.isActive()) }
                 if (info?.state == WorkInfo.State.SUCCEEDED) recheckGuides()
             }
+        }
+        viewModelScope.launch {
+            appUpdateDownloads.state.collect { download -> _uiState.update { it.copy(appDownload = download) } }
+        }
+        viewModelScope.launch {
+            appInstaller.status.collect { install -> _uiState.update { it.copy(appInstall = install) } }
         }
         viewModelScope.launch {
             aiModelUpdates.observeDownload().collect { info ->
@@ -122,6 +137,30 @@ class UpdatesViewModel @Inject constructor(
     /** Scarica le guide ora, anche su rete mobile: il pulsante è la scelta dell'utente. */
     fun updateGuides() {
         viewModelScope.launch { regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = false) }
+    }
+
+    /** Scarica l'APK dell'aggiornamento. Con una rete a consumo il lavoro aspetta il Wi-Fi. */
+    fun updateApp() {
+        val entry = _uiState.value.appUpdate ?: return
+        viewModelScope.launch { appUpdateDownloads.start(entry, allowMetered = false) }
+    }
+
+    fun cancelAppDownload() {
+        appUpdateDownloads.cancel()
+    }
+
+    /** Installa l'APK scaricato; senza il permesso lo stato chiede il passo verso le impostazioni. */
+    fun installApp() {
+        val state = _uiState.value
+        val ready = state.appDownload as? AppUpdateState.Ready ?: return
+        if (state.appInstall == AppInstallStatus.Installing) return
+        val allowed = appInstaller.canInstall()
+        _uiState.update { it.copy(installPermissionNeeded = !allowed) }
+        if (allowed) viewModelScope.launch { appInstaller.install(ready.file) }
+    }
+
+    fun openInstallSettings() {
+        appInstaller.openInstallSettings()
     }
 
     fun downloadModel() {

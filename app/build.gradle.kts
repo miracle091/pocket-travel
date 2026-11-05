@@ -85,6 +85,15 @@ android {
     }
 }
 
+// Solo debug, per provare l'aggiornamento dell'app sull'emulatore con due build di versionCode diverso
+// (-PpocketTravel.versionCode=16); mai nel release.
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        val override = providers.gradleProperty("pocketTravel.versionCode").orNull?.toIntOrNull()
+        if (override != null) variant.outputs.forEach { it.versionCode.set(override) }
+    }
+}
+
 // Schermata Licenze: il plugin scrive per ogni variante res/raw/aboutlibraries.json con le dipendenze dei classpath
 // della variante e le definizioni a mano di app/aboutlibraries (libraries/ per i componenti fuori da Gradle e gli
 // avvisi di copyright, licenses/ per i testi). Senza rete: i testi delle licenze stanno tutti in licenses/.

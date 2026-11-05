@@ -3,6 +3,11 @@
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Aggiornamento dell'app da dentro l'app (PackageInstaller): senza il primo il sistema rifiuta la sessione;
+         il secondo toglie la finestra di conferma di Android 12+ quando le condizioni lo permettono. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+
     <!-- Posizione solo per la navigazione (GPS, in primo piano, chiesta al primo "Indicazioni"):
          niente ACCESS_BACKGROUND_LOCATION. COARSE va chiesto insieme a FINE da Android 12. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -37,6 +42,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Esito della sessione di installazione (AppInstallReceiver): lo riceve solo l'app. -->
+        <receiver
+            android:name=".updates.AppInstallReceiver"
+            android:exported="false" />
 
         <!-- Disabilita l'auto-init di default di WorkManager (via androidx.startup): senza
              questo, WorkManager si inizializza da solo prima che PocketTravelApp (Configuration.

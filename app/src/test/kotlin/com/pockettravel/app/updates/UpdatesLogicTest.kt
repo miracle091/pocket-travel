@@ -2,8 +2,13 @@ package com.pockettravel.app.updates
 
 import com.pockettravel.app.regions.RegionStatus
 import com.pockettravel.app.regions.RegionUiItem
+import com.pockettravel.app.R
+import com.pockettravel.core.sync.AppUpdateFailure
+import com.pockettravel.core.sync.AppUpdateState
+import com.pockettravel.core.sync.AppVersionEntry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -102,5 +107,30 @@ class UpdatesLogicTest {
         assertFalse(updateCheckOffline(appStatusReached = true, deviceOnline = false))
         // Rete presente ma app-status non arrivato: errore del server, restano i valori di prima.
         assertFalse(updateCheckOffline(appStatusReached = false, deviceOnline = true))
+    }
+
+    @Test
+    fun `un apk pronto di un'altra versione non riguarda l'aggiornamento mostrato`() {
+        val app = AppVersionEntry("1.2.0", 20)
+        val old = AppUpdateState.Ready(19, java.io.File("19.apk"))
+        val current = AppUpdateState.Ready(20, java.io.File("20.apk"))
+        assertEquals(AppUpdateState.Idle, relevantDownload(old, app))
+        assertEquals(current, relevantDownload(current, app))
+        assertEquals(AppUpdateState.Idle, relevantDownload(AppUpdateState.Idle, app))
+    }
+
+    @Test
+    fun `l'avanzamento del download dell'app e' noto solo con il totale`() {
+        assertNull(AppUpdateState.Downloading(10L, 0L).fraction())
+        assertEquals(0.25f, AppUpdateState.Downloading(250L, 1_000L).fraction())
+        assertEquals(1f, AppUpdateState.Downloading(2_000L, 1_000L).fraction())
+    }
+
+    @Test
+    fun `ogni fallimento del download ha il suo testo`() {
+        assertEquals(R.string.updates_app_error_signature, AppUpdateFailure.SIGNATURE.messageRes())
+        assertEquals(R.string.updates_app_error_download, AppUpdateFailure.NETWORK.messageRes())
+        assertEquals(R.string.updates_app_error_file, AppUpdateFailure.INVALID_FILE.messageRes())
+        assertEquals(R.string.updates_app_error_file, AppUpdateFailure.NOT_NEWER.messageRes())
     }
 }

@@ -11,15 +11,20 @@ android {
 
     defaultConfig {
         buildConfigField("String", "MANIFEST_URL_OVERRIDE", "\"\"")
+        buildConfigField("String", "APP_STATUS_URL_OVERRIDE", "\"\"")
     }
 
     // Solo debug: catalogo di debug (es. un server locale per provare i pacchetti sull'emulatore),
     // passato con -PpocketTravel.manifestUrl=http://10.0.2.2:8000/manifest.json. Vuoto = catalogo ufficiale o
-    // personalizzato.
+    // personalizzato. Allo stesso modo -PpocketTravel.appStatusUrl=http://10.0.2.2:8000/app-status.json sostituisce
+    // app-status.json (e l'APK, servito accanto come app-release.apk) per provare l'aggiornamento dell'app; senza
+    // manifestUrl la firma ufficiale non verrebbe verificata con successo, quindi va usata insieme.
     buildTypes {
         getByName("debug") {
             val manifestUrl = providers.gradleProperty("pocketTravel.manifestUrl").getOrElse("")
             buildConfigField("String", "MANIFEST_URL_OVERRIDE", "\"$manifestUrl\"")
+            val appStatusUrl = providers.gradleProperty("pocketTravel.appStatusUrl").getOrElse("")
+            buildConfigField("String", "APP_STATUS_URL_OVERRIDE", "\"$appStatusUrl\"")
         }
     }
 

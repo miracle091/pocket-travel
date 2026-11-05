@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
@@ -45,6 +46,7 @@ import com.pockettravel.app.regions.label
 import com.pockettravel.app.regions.rowActions
 import com.pockettravel.app.regions.sizeText
 import com.pockettravel.core.sync.AiModelManifestEntry
+import com.pockettravel.core.sync.AppUpdateState
 import com.pockettravel.core.sync.AppVersionEntry
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CountryFlag
@@ -53,23 +55,79 @@ import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.IndeterminateDownloadProgressIndicator
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.R as UiR
 
 internal const val PERCENT = 100
 
+/** Le azioni della sezione dell'app. */
+internal class AppSectionActions(
+    val onUpdate: () -> Unit,
+    val onCancel: () -> Unit,
+    val onInstall: () -> Unit,
+    val onOpenInstallSettings: () -> Unit,
+)
+
+/** La sezione dell'app: titolo, testo di stato, azione principale, avanzamento e "Scarica da GitHub" come ripiego. */
 @Composable
-internal fun AppSection(app: AppVersionEntry) {
+internal fun AppSection(app: AppVersionEntry, state: UpdatesUiState, actions: AppSectionActions) {
     val context = LocalContext.current
+    val hasApk = app.apkSha256 != null && app.apkSizeBytes != null
+    val download = relevantDownload(state.appDownload, app)
+    val permissionStep = download is AppUpdateState.Ready && state.installPermissionNeeded
     SectionHeader(stringResource(R.string.updates_section_app))
     UpdateSurface {
-        ListItem(
-            supportingContent = { Text(stringResource(R.string.updates_app_subtitle)) },
-            leadingContent = { Icon(AppIcons.Download, contentDescription = null) },
-            trailingContent = {
-                FilledTonalButton(onClick = { openReleasesPage(context) }) { Text(stringResource(R.string.updates_app_download)) }
-            },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            content = { Text(stringResource(R.string.updates_app_title, app.versionName)) },
-        )
+        Column {
+            ListItem(
+                supportingContent = { Text(appStatusText(download, state)) },
+                leadingContent = { Icon(AppIcons.Download, contentDescription = null) },
+                trailingContent = {
+                    if (hasApk) AppPrimaryButton(app, download, installing = state.appInstall == AppInstallStatus.Installing, actions)
+                    else FilledTonalButton(onClick = { openReleasesPage(context) }) { Text(stringResource(R.string.updates_app_download)) }
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                content = { Text(stringResource(R.string.updates_app_title, app.versionName)) },
+            )
+            if (download is AppUpdateState.Downloading) {
+                val fraction = download.fraction()
+                val modifier = Modifier.fillMaxWidth().padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m)
+                if (fraction != null) DownloadProgressIndicator(progress = { fraction }, modifier = modifier) else IndeterminateDownloadProgressIndicator(modifier = modifier)
+            }
+            if (permissionStep) {
+                OutlinedButton(
+                    onClick = actions.onOpenInstallSettings,
+                    modifier = Modifier.padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m),
+                ) { Text(stringResource(R.string.updates_app_permission_button)) }
+            }
+            if (hasApk) {
+                TextButton(onClick = { openReleasesPage(context) }, modifier = Modifier.padding(start = Spacing.s, bottom = Spacing.xs)) {
+                    Text(stringResource(R.string.updates_app_download))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun appStatusText(download: AppUpdateState, state: UpdatesUiState): String = when (download) {
+    is AppUpdateState.Downloading -> stringResource(R.string.regions_status_downloading, ((download.fraction() ?: 0f) * PERCENT).toInt())
+    is AppUpdateState.Failed -> stringResource(download.reason.messageRes())
+    is AppUpdateState.Ready -> when {
+        state.installPermissionNeeded -> stringResource(R.string.updates_app_permission)
+        state.appInstall == AppInstallStatus.Failed -> stringResource(R.string.updates_app_error_install)
+        else -> stringResource(R.string.updates_app_subtitle)
+    }
+    AppUpdateState.Idle -> stringResource(R.string.updates_app_subtitle)
+}
+
+@Composable
+private fun AppPrimaryButton(app: AppVersionEntry, download: AppUpdateState, installing: Boolean, actions: AppSectionActions) {
+    when (download) {
+        is AppUpdateState.Downloading -> OutlinedButton(onClick = actions.onCancel) { Text(stringResource(UiR.string.confirm_cancel)) }
+        is AppUpdateState.Ready ->
+            FilledTonalButton(onClick = actions.onInstall, enabled = !installing) { Text(stringResource(R.string.updates_app_install)) }
+        is AppUpdateState.Failed, AppUpdateState.Idle -> FilledTonalButton(onClick = actions.onUpdate) {
+            Text(stringResource(R.string.updates_app_update, Formatter.formatShortFileSize(LocalContext.current, app.apkSizeBytes ?: 0L)))
+        }
     }
 }
 

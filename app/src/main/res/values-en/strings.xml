@@ -138,6 +138,14 @@
     <string name="updates_app_title">Pocket Travel %1$s</string>
     <string name="updates_app_subtitle">New version available</string>
     <string name="updates_app_download">Download from GitHub</string>
+    <string name="updates_app_update">Update · %1$s</string>
+    <string name="updates_app_install">Install</string>
+    <string name="updates_app_permission">To install updates, allow Pocket Travel to install apps</string>
+    <string name="updates_app_permission_button">Install unknown apps</string>
+    <string name="updates_app_error_signature">This APK isn\'t signed like the installed app: download it from GitHub</string>
+    <string name="updates_app_error_download">Couldn\'t download the update. Try again</string>
+    <string name="updates_app_error_file">The downloaded file isn\'t valid: download it from GitHub</string>
+    <string name="updates_app_error_install">Installation failed. Try again</string>
     <string name="updates_section_regions">Countries</string>
     <string name="updates_region_details">%1$s · %2$s</string>
     <string name="updates_all">Update all · %1$s</string>

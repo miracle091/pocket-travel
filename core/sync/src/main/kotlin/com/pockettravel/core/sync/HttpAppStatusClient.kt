@@ -9,7 +9,7 @@ class HttpAppStatusClient @Inject constructor(
     private val signedFileCache: SignedFileCache,
 ) : AppStatusClient {
     override suspend fun fetchAppStatus(): AppStatus = signedFileCache.fetch(
-        SyncConfig.APP_STATUS_URL,
+        SyncConfig.appStatusUrl,
         httpError = { code ->
             // Errori temporanei del server: IOException, come per `manifest.json`, cosi' i worker riprovano.
             if (isRetryableHttpStatus(code)) throw IOException("App status fetch failed: HTTP $code")

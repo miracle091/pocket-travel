@@ -141,6 +141,14 @@
     <string name="updates_app_title">Pocket Travel %1$s</string>
     <string name="updates_app_subtitle">Nuova versione disponibile</string>
     <string name="updates_app_download">Scarica da GitHub</string>
+    <string name="updates_app_update">Aggiorna · %1$s</string>
+    <string name="updates_app_install">Installa</string>
+    <string name="updates_app_permission">Per installare gli aggiornamenti, consenti a Pocket Travel di installare app</string>
+    <string name="updates_app_permission_button">Installa app sconosciute</string>
+    <string name="updates_app_error_signature">Questo APK non è firmato come l\'app installata: scaricalo da GitHub</string>
+    <string name="updates_app_error_download">Impossibile scaricare l\'aggiornamento. Riprova</string>
+    <string name="updates_app_error_file">Il file scaricato non è valido: scaricalo da GitHub</string>
+    <string name="updates_app_error_install">Installazione non riuscita. Riprova</string>
     <string name="updates_section_regions">Nazioni</string>
     <string name="updates_region_details">%1$s · %2$s</string>
     <string name="updates_all">Aggiorna tutto · %1$s</string>
