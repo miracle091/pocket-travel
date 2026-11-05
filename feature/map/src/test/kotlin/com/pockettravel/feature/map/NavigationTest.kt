@@ -39,6 +39,12 @@ class NavigationTest {
 
     private fun fix(point: RoutePoint, timeMillis: Long = NOW) = GpsFix(point.latitude, point.longitude, 5f, timeMillis)
 
+    // Fuori strada per due posizioni di fila, quante ne servono per ricalcolare.
+    private fun confirmedOffRoute(): NavigationProgress {
+        tracker.progress(RoutePoint(44.999, 10.0025), NOW - 1_000)
+        return tracker.progress(RoutePoint(44.999, 10.0025), NOW)
+    }
+
     private fun state(
         permission: Boolean = true,
         gpsEnabled: Boolean = true,
@@ -174,7 +180,7 @@ class NavigationTest {
 
     @Test
     fun `si ricalcola fuori strada, non piu' di una volta ogni intervallo`() {
-        val offRoute = tracker.progress(RoutePoint(44.999, 10.0025))
+        val offRoute = confirmedOffRoute()
         val onRoute = tracker.progress(start)
 
         assertTrue(shouldRecalculate(offRoute, calculating = false, lastCalculationMillis = NOW - RECALCULATION_INTERVAL_MILLIS, nowMillis = NOW))
@@ -185,7 +191,7 @@ class NavigationTest {
 
     @Test
     fun `con la precisione del GPS peggiore della soglia non si ricalcola`() {
-        val offRoute = tracker.progress(RoutePoint(44.999, 10.0025))
+        val offRoute = confirmedOffRoute()
         val sinceLong = NOW - RECALCULATION_INTERVAL_MILLIS
 
         assertTrue(shouldRecalculate(offRoute, false, sinceLong, NOW, accuracyMeters = 30f))

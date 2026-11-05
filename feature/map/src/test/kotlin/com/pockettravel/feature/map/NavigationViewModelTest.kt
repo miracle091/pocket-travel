@@ -414,6 +414,44 @@ class NavigationViewModelTest {
     }
 
     @Test
+    fun `una sola posizione fuori percorso non fa ricalcolare, la seconda di fila si'`() = runTest {
+        engines.defaultResult = RouteResult.Found(route)
+        val viewModel = viewModel()
+        viewModel.begin()
+        val t0 = clock.millis()
+        gps.emit(fix(origin, t0))
+        runCurrent()
+
+        val off = RoutePoint(45.003, 10.0)
+        gps.emit(fix(off, t0 + 11_000))
+        runCurrent()
+        assertEquals(1, engines.requests.size)
+
+        gps.emit(fix(off, t0 + 12_000))
+        runCurrent()
+        assertEquals(2, engines.requests.size)
+    }
+
+    @Test
+    fun `fuori dalle regioni con la rete stradale il ricalcolo non chiama il motore e il percorso resta`() = runTest {
+        engines.defaultResult = RouteResult.Found(route)
+        val viewModel = viewModel()
+        viewModel.begin()
+        val t0 = clock.millis()
+        gps.emit(fix(origin, t0))
+        runCurrent()
+
+        // A nord della regione r1 (44-46 di latitudine), oltre il margine: la linea verso la meta esce dalle regioni.
+        val outside = RoutePoint(47.5, 10.0)
+        gps.emit(fix(outside, t0 + 11_000))
+        gps.emit(fix(outside, t0 + 12_000))
+        runCurrent()
+
+        assertEquals(1, engines.requests.size)
+        assertEquals(route, (viewModel.uiState.value.status as NavigationStatus.Navigating).route)
+    }
+
+    @Test
     fun `l'eta' della posizione segue l'orologio monotono e non quello di sistema`() = runTest {
         engines.defaultResult = RouteResult.Found(route)
         gps.elapsedRealtime = { 1_000L + testScheduler.currentTime }

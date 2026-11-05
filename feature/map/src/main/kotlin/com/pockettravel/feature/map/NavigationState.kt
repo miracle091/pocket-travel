@@ -4,11 +4,15 @@ import com.pockettravel.core.data.MapBounds
 import kotlin.math.abs
 import kotlin.math.ceil
 
-/** Modo scelto nella schermata di navigazione: stessi profili BRouter dei modi di [UsageMode]. */
-enum class RouteProfile(val routingProfile: String) {
-    WALK("shortest"),
-    BIKE("trekking"),
-    CAR("car-vario"),
+/**
+ * Modo scelto nella schermata di navigazione: stessi profili BRouter dei modi di [UsageMode]. [offRouteMeters]: oltre
+ * questa distanza dal percorso si e' fuori strada (a piedi le strade sono piu' strette e si va piano); [maxSpeedMps]:
+ * la velocita' massima credibile, che limita quanto avanti lungo il percorso puo' stare la posizione successiva.
+ */
+enum class RouteProfile(val routingProfile: String, val offRouteMeters: Double, val maxSpeedMps: Double) {
+    WALK("shortest", WALK_OFF_ROUTE_METERS, WALK_MAX_SPEED_MPS),
+    BIKE("trekking", BIKE_OFF_ROUTE_METERS, BIKE_MAX_SPEED_MPS),
+    CAR("car-vario", CAR_OFF_ROUTE_METERS, CAR_MAX_SPEED_MPS),
     ;
 
     companion object {
@@ -20,6 +24,15 @@ enum class RouteProfile(val routingProfile: String) {
         }
     }
 }
+
+private const val WALK_OFF_ROUTE_METERS = 30.0
+private const val BIKE_OFF_ROUTE_METERS = 35.0
+private const val CAR_OFF_ROUTE_METERS = 40.0
+
+// Di corsa, in bici in discesa, in autostrada.
+private const val WALK_MAX_SPEED_MPS = 5.0
+private const val BIKE_MAX_SPEED_MPS = 15.0
+private const val CAR_MAX_SPEED_MPS = 60.0
 
 /** Profilo BRouter e sue variabili (vedi RouteEngine.route) per un percorso. */
 data class BRouterProfile(val profile: String, val params: Map<String, String> = emptyMap()) {
@@ -115,14 +128,15 @@ fun navigationUiState(
         return NavigationStatus.Unavailable(routeResult)
     }
     val position = RoutePoint(lastFix.latitude, lastFix.longitude)
-    val progress = trackerFor(found.route).progress(position)
+    val progress = trackerFor(found.route).progress(position, lastFix.timeMillis)
     return NavigationStatus.Navigating(found.route, progress, position, signalLost)
 }
 
 /**
- * Se ricalcolare il percorso: fuori strada, nessun calcolo in corso e l'ultimo avviato da almeno
+ * Se ricalcolare il percorso: fuori strada per [OFF_ROUTE_CONFIRMATIONS] posizioni di fila (una sola posizione
+ * sbagliata del GPS non basta), nessun calcolo in corso e l'ultimo avviato da almeno
  * [RECALCULATION_INTERVAL_MILLIS] (con un segnale che oscilla attorno alla soglia non si ricalcola
- * a ogni posizione). Con una precisione ([accuracyMeters]) peggiore della soglia di fuori strada la posizione
+ * a ogni posizione). Con una precisione ([accuracyMeters]) peggiore di [MAX_RECALCULATION_ACCURACY_METERS] la posizione
  * non dice se si e' usciti dal percorso (canyon urbani, gallerie): non si ricalcola.
  */
 fun shouldRecalculate(
@@ -132,8 +146,14 @@ fun shouldRecalculate(
     nowMillis: Long,
     accuracyMeters: Float = 0f,
 ): Boolean =
-    progress.offRoute && !calculating && accuracyMeters <= NavigationTracker.OFF_ROUTE_METERS &&
+    progress.offRouteFixes >= OFF_ROUTE_CONFIRMATIONS && !calculating && accuracyMeters <= MAX_RECALCULATION_ACCURACY_METERS &&
         nowMillis - lastCalculationMillis >= RECALCULATION_INTERVAL_MILLIS
+
+/** Posizioni fuori strada di fila prima di ricalcolare. */
+const val OFF_ROUTE_CONFIRMATIONS = 2
+
+/** Con una precisione del GPS peggiore di questa non si ricalcola. */
+const val MAX_RECALCULATION_ACCURACY_METERS = 40f
 
 /** Una posizione piu' vecchia di cosi' non vale: il segnale GPS e' perso. */
 const val FIX_MAX_AGE_MILLIS = 10_000L

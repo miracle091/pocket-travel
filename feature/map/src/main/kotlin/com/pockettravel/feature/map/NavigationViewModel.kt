@@ -119,7 +119,7 @@ class NavigationViewModel @Inject constructor(
     private var trackerRoute: Route? = null
 
     private fun trackerFor(route: Route): NavigationTracker =
-        tracker?.takeIf { trackerRoute === route } ?: NavigationTracker(route).also { tracker = it; trackerRoute = route }
+        tracker?.takeIf { trackerRoute === route } ?: NavigationTracker(route, _routeProfile.value).also { tracker = it; trackerRoute = route }
 
     private val navigationStatus: StateFlow<NavigationStatus> = combine(
         combine(permissionGranted, gpsEnabled, lastFix, ::Triple),
@@ -303,7 +303,7 @@ class NavigationViewModel @Inject constructor(
         when (val result = routeResult.value) {
             null -> if (!calculating.value) {
                 // "Avvia" dall'anteprima del percorso: il percorso c'e' gia', si ricalcola solo se la posizione e' fuori percorso.
-                val preview = previewToUse?.takeIf { !trackerFor(it.route).progress(RoutePoint(fix.latitude, fix.longitude)).offRoute }
+                val preview = previewToUse?.takeIf { !trackerFor(it.route).progress(RoutePoint(fix.latitude, fix.longitude), fix.timeMillis).offRoute }
                 previewToUse = null
                 if (preview != null) {
                     simulationLog.log(preview.route)
@@ -314,7 +314,7 @@ class NavigationViewModel @Inject constructor(
                 }
             }
             is RouteResult.Found -> {
-                val progress = trackerFor(result.route).progress(RoutePoint(fix.latitude, fix.longitude))
+                val progress = trackerFor(result.route).progress(RoutePoint(fix.latitude, fix.longitude), fix.timeMillis)
                 if (progress.arrived && navigationPreferences.stopGpsOnArrival.value) {
                     _arrivedAtMillis.value = clock.millis()
                     arrived.value = true
@@ -349,11 +349,18 @@ class NavigationViewModel @Inject constructor(
             val self = coroutineContext[Job]
             try {
                 val start = RoutePoint(from.latitude, from.longitude)
-                val regionIds = navigationRegionIds(regionId, routingRegions(), start, target.point)
+                val candidates = routingRegions()
+                val regionIds = navigationRegionIds(regionId, candidates, start, target.point)
                 _regionIds.value = regionIds
-                val result = routeEngineFactory.create(regionIds).route(start, target.point, choice.profile, choice.params) { progress ->
-                    // Annullato ma non ancora sostituito: un avanzamento in ritardo non sporca quello del calcolo nuovo.
-                    if (calculationJob === self && self?.isActive == true) calculationProgress.value = progress
+                // Fuori dalle regioni con la rete stradale (un ricalcolo dopo una deviazione oltre il confine) BRouter
+                // cercherebbe fino al tempo massimo: "manca la rete stradale" subito, come nell'anteprima.
+                val result = if (leavesRoutingRegions(candidates, start, target.point)) {
+                    RouteResult.NoRoutingData
+                } else {
+                    routeEngineFactory.create(regionIds).route(start, target.point, choice.profile, choice.params) { progress ->
+                        // Annullato ma non ancora sostituito: un avanzamento in ritardo non sporca quello del calcolo nuovo.
+                        if (calculationJob === self && self?.isActive == true) calculationProgress.value = progress
+                    }
                 }
                 if (result is RouteResult.Found) simulationLog.log(result.route)
                 // Un ricalcolo fuori percorso fallito (partenza in un parcheggio, tempo scaduto) non butta
@@ -365,7 +372,7 @@ class NavigationViewModel @Inject constructor(
                     streetNames.clear()
                     // La notifica mostra subito la prima svolta, invece di "Calcolo del percorso" fino alla posizione successiva.
                     val fix = lastFix.value ?: from
-                    publish(result.route, trackerFor(result.route).progress(RoutePoint(fix.latitude, fix.longitude)))
+                    publish(result.route, trackerFor(result.route).progress(RoutePoint(fix.latitude, fix.longitude), fix.timeMillis))
                 }
             } finally {
                 if (calculationJob === self) calculating.value = false
@@ -422,12 +429,23 @@ data class NavigationUiState(
 
 /**
  * Solo nelle build di debug: i punti del percorso nel log (tag [SIMULATION_LOG_TAG]), letti dallo script
- * che sull'emulatore muove il GPS lungo il percorso con "adb emu geo fix" per provare la navigazione.
+ * che sull'emulatore muove il GPS lungo il percorso con "adb emu geo fix" per provare la navigazione. Logcat tronca le righe
+ * oltre circa 4 KB: i punti vanno su piu' righe, "route <metri> <secondi> <parte>/<parti> lon,lat;lon,lat;...".
  */
 internal fun logRouteForSimulation(route: Route) {
     if (!BuildConfig.DEBUG) return
-    val points = route.points.joinToString(";") { "%.6f,%.6f".format(java.util.Locale.ROOT, it.longitude, it.latitude) }
-    Log.d(SIMULATION_LOG_TAG, "route ${route.distanceMeters.toInt()} ${route.durationSeconds.toInt()} $points")
+    for (line in routeLogLines(route)) Log.d(SIMULATION_LOG_TAG, line)
+}
+
+internal fun routeLogLines(route: Route): List<String> {
+    val parts = route.points.chunked(SIMULATION_LOG_POINTS_PER_LINE)
+    return parts.mapIndexed { index, part ->
+        val points = part.joinToString(";") { "%.6f,%.6f".format(java.util.Locale.ROOT, it.longitude, it.latitude) }
+        "route ${route.distanceMeters.toInt()} ${route.durationSeconds.toInt()} ${index + 1}/${parts.size} $points"
+    }
 }
 
 internal const val SIMULATION_LOG_TAG = "PocketTravelRoute"
+
+// Un punto occupa al piu' 23 caratteri: 150 stanno in circa 3,5 KB.
+private const val SIMULATION_LOG_POINTS_PER_LINE = 150

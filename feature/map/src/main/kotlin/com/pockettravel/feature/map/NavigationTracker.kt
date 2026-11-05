@@ -24,6 +24,8 @@ data class NavigationProgress(
     /** La posizione riportata sul percorso, e il tratto da li' fino alla prossima indicazione. */
     val positionOnRoute: RoutePoint,
     val pathToNext: List<RoutePoint>,
+    /** Posizioni di fila con [offRoute] vero, questa compresa (0 sul percorso). */
+    val offRouteFixes: Int,
 )
 
 /**
@@ -31,7 +33,7 @@ data class NavigationProgress(
  * Le distanze sono calcolate qui sui punti del percorso (approssimazione piana locale, precisa
  * a pochi metri sulle distanze di una svolta), non prese da BRouter.
  */
-class NavigationTracker(private val route: Route) {
+class NavigationTracker(private val route: Route, private val profile: RouteProfile = RouteProfile.CAR) {
     private val cumulative: DoubleArray = DoubleArray(route.points.size).also { acc ->
         for (i in 1 until route.points.size) acc[i] = acc[i - 1] + distanceMeters(route.points[i - 1], route.points[i])
     }
@@ -47,9 +49,9 @@ class NavigationTracker(private val route: Route) {
 
     private class Projection(val segment: Int, val fraction: Double, val distance: Double)
 
-    // Il tratto piu' vicino a [position] da [from] in avanti, tra quelli con la posizione proiettata oltre
-    // [minTravelled] metri dalla partenza (a parita' di distanza vince il primo); null se nessuno. La scansione si ferma
-    // ai tratti che iniziano oltre [maxTravelled] metri dalla partenza. Le proiezioni non creano oggetti: l'unico
+    // Il tratto piu' vicino a [position] da [from] in avanti, tra quelli con la posizione proiettata tra
+    // [minTravelled] e [maxTravelled] metri dalla partenza (a parita' di distanza vince il primo); null se nessuno. La
+    // scansione si ferma ai tratti che iniziano oltre [maxTravelled]. Le proiezioni non creano oggetti: l'unico
     // nuovo e' quello del tratto migliore.
     private fun nearestSegment(position: RoutePoint, from: Int, minTravelled: Double, maxTravelled: Double): Projection? {
         val points = route.points
@@ -60,8 +62,8 @@ class NavigationTracker(private val route: Route) {
             if (cumulative[i] > maxTravelled) break
             projectInto(position, points[i], points[i + 1], scratch)
             projectedSegments++
-            val ahead = cumulative[i] + scratch[0] * (cumulative[i + 1] - cumulative[i]) >= minTravelled
-            if (scratch[1] < bestDistanceSquared && ahead) {
+            val travelled = cumulative[i] + scratch[0] * (cumulative[i + 1] - cumulative[i])
+            if (scratch[1] < bestDistanceSquared && travelled >= minTravelled && travelled <= maxTravelled) {
                 bestDistanceSquared = scratch[1]
                 bestFraction = scratch[0]
                 bestSegment = i
@@ -83,14 +85,11 @@ class NavigationTracker(private val route: Route) {
 
     // Il tratto di [position] (vedi progress), e aggiorna il punto piu' avanti raggiunto. Con un solo punto o senza tratti:
     // la distanza dall'unico punto, tratto 0.
-    private fun locate(position: RoutePoint): Projection {
+    private fun locate(position: RoutePoint, lookaheadMeters: Double): Projection {
         val points = route.points
         if (points.size < 2) return Projection(0, 0.0, points.firstOrNull()?.let { distanceMeters(position, it) } ?: Double.MAX_VALUE)
-        val minTravelled = maxTravelled - BACK_MARGIN_METERS
-        var from = frontSegment
-        while (from > 0 && cumulative[from] > minTravelled) from--
-        val ahead = nearestSegment(position, from, minTravelled, maxTravelled + LOOKAHEAD_METERS)
-        val overall = if (ahead == null || ahead.distance > OFF_ROUTE_METERS) {
+        val ahead = nearestAroundFront(position, lookaheadMeters)
+        val overall = if (ahead == null || ahead.distance > profile.offRouteMeters) {
             nearestSegment(position, 0, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY)
         } else {
             null
@@ -105,24 +104,72 @@ class NavigationTracker(private val route: Route) {
         return best
     }
 
+    // Il tratto piu' vicino nella finestra attorno al punto piu' avanti raggiunto: da [BACK_MARGIN_METERS] dietro a
+    // [lookaheadMeters] davanti. L'errore del GPS puo' riportare la posizione indietro di piu' del margine (dopo una
+    // posizione spostata in avanti, a passo d'uomo): allora il tratto giusto e' poco dietro la finestra e quello trovato
+    // nella finestra e' un altro, piu' lontano. Il tratto poco dietro vince solo se e' piu' vicino di [TIE_METERS]: dopo
+    // un'inversione a U andata e ritorno passano per gli stessi punti, e resta il ritorno.
+    private fun nearestAroundFront(position: RoutePoint, lookaheadMeters: Double): Projection? {
+        val window = nearestAhead(position, maxTravelled - BACK_MARGIN_METERS, maxTravelled + lookaheadMeters)
+        val behind = nearestAhead(position, maxTravelled - GPS_MARGIN_METERS, maxTravelled - BACK_MARGIN_METERS)
+        return if (behind != null && (window == null || behind.distance < window.distance - TIE_METERS)) behind else window
+    }
+
+    // Il tratto piu' vicino con la posizione proiettata tra [minTravelled] e [maxTravelled] metri dalla partenza.
+    private fun nearestAhead(position: RoutePoint, minTravelled: Double, maxTravelled: Double): Projection? {
+        var from = frontSegment
+        while (from > 0 && cumulative[from] > minTravelled) from--
+        return nearestSegment(position, from, minTravelled, maxTravelled)
+    }
+
     /**
      * Un tracker segue un solo percorso con la sua posizione: la ricerca del tratto parte da quello piu' avanti
      * raggiunto, con un margine all'indietro ([BACK_MARGIN_METERS]), e passa a tutto il percorso solo se li' la
      * posizione e' lontana. Dopo un'inversione a U la posizione resta cosi' sul tratto di ritorno, non su quello
-     * d'andata (che passa per gli stessi punti). In avanti la ricerca guarda solo [LOOKAHEAD_METERS], quindi il costo
+     * d'andata (che passa per gli stessi punti). In avanti la ricerca guarda al piu' [LOOKAHEAD_METERS], quindi il costo
      * per posizione non cresce con la lunghezza del percorso, tranne quando si e' fuori percorso.
+     *
+     * Con l'ora della posizione ([timeMillis], quella di [GpsFix]) la ricerca in avanti si ferma a quanto si puo' percorrere
+     * dalla posizione precedente alla velocita' tenuta finora lungo il percorso (con un margine, e al piu' quella massima
+     * del mezzo), piu' un margine per l'errore del GPS: su un tornante o all'incrocio di un percorso a forbice la
+     * posizione non salta al passaggio successivo, che e' vicino ma molto piu' avanti lungo il percorso. Una finestra
+     * troppo corta (un'accelerazione brusca) costa solo la ricerca su tutto il percorso. La stessa posizione con la
+     * stessa ora (o senza ora) da' lo stesso risultato senza rifare la ricerca.
      */
-    fun progress(position: RoutePoint): NavigationProgress {
-        lastProgress?.let { if (position == lastPosition) return it }
-        return computeProgress(position).also {
+    fun progress(position: RoutePoint, timeMillis: Long? = null): NavigationProgress {
+        lastProgress?.let { if (position == lastPosition && (timeMillis == null || timeMillis == lastTimeMillis)) return it }
+        val previousTime = lastTimeMillis
+        val previousReached = maxTravelled
+        val seconds = if (timeMillis == null || previousTime == null) null else (timeMillis - previousTime).coerceAtLeast(0) / MILLIS_PER_SECOND
+        return computeProgress(position, seconds?.let(::reachableMeters) ?: LOOKAHEAD_METERS).also {
             lastPosition = position
             lastProgress = it
+            if (timeMillis != null) lastTimeMillis = timeMillis
+            if (seconds != null && seconds > 0) updateSpeed((maxTravelled - previousReached) / seconds)
         }
     }
 
-    private fun computeProgress(position: RoutePoint): NavigationProgress {
+    // Quanto avanti lungo il percorso puo' stare una posizione [seconds] dopo la precedente.
+    private fun reachableMeters(seconds: Double): Double {
+        val speed = speedMps?.let { (it * SPEED_FACTOR + SPEED_SLACK_MPS).coerceAtMost(profile.maxSpeedMps) } ?: profile.maxSpeedMps
+        return (speed * seconds + GPS_MARGIN_METERS).coerceAtMost(LOOKAHEAD_METERS)
+    }
+
+    // Media mobile della velocita' lungo il percorso, con [observedMps] dell'ultima posizione (negativa dopo una ripartenza).
+    private fun updateSpeed(observedMps: Double) {
+        val observed = observedMps.coerceIn(0.0, profile.maxSpeedMps)
+        speedMps = speedMps?.let { previous -> previous + (observed - previous) * SPEED_SMOOTHING } ?: observed
+    }
+
+    // Ora dell'ultima posizione calcolata con un'ora, per la finestra in avanti; velocita' media lungo il percorso
+    // (null prima di due posizioni con l'ora); posizioni fuori strada di fila.
+    private var lastTimeMillis: Long? = null
+    private var speedMps: Double? = null
+    private var offRouteFixes = 0
+
+    private fun computeProgress(position: RoutePoint, lookaheadMeters: Double): NavigationProgress {
         val points = route.points
-        val best = locate(position)
+        val best = locate(position, lookaheadMeters)
         val bestSegment = best.segment
         val bestFraction = best.fraction
         val bestDistance = best.distance
@@ -130,9 +177,11 @@ class NavigationTracker(private val route: Route) {
             cumulative[bestSegment] + bestFraction * (cumulative[bestSegment + 1] - cumulative[bestSegment])
         val remaining = (totalMeters - travelled).coerceAtLeast(0.0)
 
-        // Prossima indicazione: la prima il cui punto sta oltre la posizione proiettata.
+        // Prossima indicazione: la prima il cui punto sta oltre il punto piu' avanti raggiunto, che la posizione (con
+        // l'errore del GPS indietro di qualche metro) non fa tornare a una svolta gia' superata.
         val instructions = route.instructions.ifEmpty { listOf(TurnInstruction(TurnType.ARRIVE, 0.0, points.lastIndex)) }
-        val nextIndex = instructions.indexOfFirst { cumulative.getOrElse(it.pointIndex) { totalMeters } > travelled + PASSED_TURN_METERS }
+        val reached = maxOf(travelled, maxTravelled)
+        val nextIndex = instructions.indexOfFirst { cumulative.getOrElse(it.pointIndex) { totalMeters } > reached + PASSED_TURN_METERS }
             .let { if (it == -1) instructions.lastIndex else it }
         val next = instructions[nextIndex]
         val distanceToNext = (cumulative.getOrElse(next.pointIndex) { totalMeters } - travelled).coerceAtLeast(0.0)
@@ -148,7 +197,8 @@ class NavigationTracker(private val route: Route) {
         // non e' un'uscita dal percorso, altrimenti si ricalcolerebbe di continuo. Solo entro
         // [APPROACH_START_MAX_METERS]: partendo nella direzione sbagliata si e' fuori strada e si ricalcola.
         val approachingStart = bestSegment == 0 && bestFraction == 0.0 && bestDistance <= APPROACH_START_MAX_METERS
-        val offRoute = bestDistance > OFF_ROUTE_METERS && !approachingStart
+        val offRoute = bestDistance > profile.offRouteMeters && !approachingStart
+        offRouteFixes = if (offRoute) offRouteFixes + 1 else 0
         return NavigationProgress(
             nextInstruction = next,
             nextInstructionIndex = nextIndex,
@@ -158,13 +208,11 @@ class NavigationTracker(private val route: Route) {
             arrived = !offRoute && remaining <= ARRIVAL_METERS,
             positionOnRoute = positionOnRoute,
             pathToNext = pathToNext,
+            offRouteFixes = offRouteFixes,
         )
     }
 
     companion object {
-        /** Oltre questa distanza dal percorso si e' fuori strada e si ricalcola. */
-        const val OFF_ROUTE_METERS = 40.0
-
         /** Dall'inizio del percorso fino a questa distanza si sta ancora raggiungendo la partenza, senza ricalcolare. */
         const val APPROACH_START_MAX_METERS = 150.0
 
@@ -173,6 +221,21 @@ class NavigationTracker(private val route: Route) {
 
         /** Quanto in avanti, rispetto al punto piu' avanti raggiunto, si cerca il tratto piu' vicino. */
         private const val LOOKAHEAD_METERS = 2000.0
+
+        /** Oltre la strada percorribile tra due posizioni, quanto in avanti puo' spostarle l'errore del GPS. */
+        private const val GPS_MARGIN_METERS = 30.0
+
+        private const val MILLIS_PER_SECOND = 1000.0
+
+        /** La finestra in avanti vale [SPEED_FACTOR] volte la velocita' media piu' [SPEED_SLACK_MPS], per le accelerazioni. */
+        private const val SPEED_FACTOR = 1.5
+        private const val SPEED_SLACK_MPS = 5.0
+
+        /** Peso della velocita' dell'ultima posizione nella media. */
+        private const val SPEED_SMOOTHING = 0.5
+
+        /** Differenza di distanza sotto la quale due tratti sono vicini uguali. */
+        private const val TIE_METERS = 1.0
 
         /** A meno di questa distanza dalla fine del percorso si e' arrivati. */
         const val ARRIVAL_METERS = 20.0
