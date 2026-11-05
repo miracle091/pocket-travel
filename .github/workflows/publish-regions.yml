@@ -303,6 +303,54 @@ jobs:
           pmtiles: true
           duckdb: true
 
+      # Seme della partizione rigenerato a ogni rilascio Overture (README della pipeline): nelle run con il seme in cache
+      # costa solo la richiesta dell'elenco dei rilasci. Mai bloccante: senza seme rigenerato vale quello del repository.
+      - name: Rilascio Overture del seme
+        id: seed-release
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          echo "release=$(python3 tools/data-pipeline/scripts/overture_addresses.py --print-release)" >> "$GITHUB_OUTPUT"
+
+      - name: Seme gia' rigenerato?
+        id: seed-cache
+        if: steps.seed-release.outputs.release != ''
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/address-seed
+          key: address-seed-${{ steps.seed-release.outputs.release }}
+
+      - name: Rigenera il seme
+        id: seed-build
+        if: steps.seed-release.outputs.release != '' && steps.seed-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        timeout-minutes: 30
+        env:
+          OVERTURE_RELEASE: ${{ steps.seed-release.outputs.release }}
+          ADDRESS_SEED_DIR: ${{ runner.temp }}/address-seed
+        run: bash .github/scripts/publish-regions/address-seed.sh
+
+      - name: Salva il seme rigenerato
+        if: steps.seed-build.outcome == 'success'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/address-seed
+          key: address-seed-${{ steps.seed-release.outputs.release }}
+
+      - name: Scegli il seme
+        env:
+          SEED_BUILD: ${{ steps.seed-build.outcome }}
+        run: |
+          SEED="$RUNNER_TEMP/address-seed/address-grid-seed.tsv"
+          if [ -s "$SEED" ]; then
+            echo "ADDRESS_GRID_SEED=$SEED" >> "$GITHUB_ENV"
+            # Le celle senza copertura si segnalano solo nella run che rigenera il seme, una volta per rilascio.
+            [ "$SEED_BUILD" != success ] || echo "ADDRESS_GRID_SEED_FRESH=true" >> "$GITHUB_ENV"
+            echo "-- seme rigenerato: $(wc -l < "$SEED") celle"
+          else
+            echo "::warning::seme dei civici non rigenerato (Overture o DuckDB non disponibili): vale quello del repository"
+          fi
+
       # Un solo elenco delle release esistenti (come ensure-releases.sh): ensure_release solo per le mancanti. Elenco non
       # leggibile: restano tutte da controllare una per una.
       - name: Assicura le release delle celle

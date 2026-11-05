@@ -3,6 +3,8 @@
 # le carica sulle release "address-cells-<n>" e genera l'indice address-grid.json con il suo frammento di catalogo
 # ($RUNNER_TEMP/address-grid-index/address-grid.json, $RUNNER_TEMP/fragments/address-grid.json).
 # Ambiente: PAGES_BASE_URL, ADDRESS_CELL_RELEASES, ADDRESS_CELL_MAX_AGE_DAYS (letto da build-address-cell.sh),
+# ADDRESS_GRID_SEED (seme rigenerato, facoltativo), ADDRESS_GRID_SEED_FRESH (true nella run che lo rigenera),
+# ADDRESS_CELL_MIN_ZOOM,
 # ADDRESS_CELLS_INPUT (input della run, mai interpolato nello script), GITHUB_REPOSITORY, GITHUB_RUN_NUMBER,
 # GITHUB_RUN_ATTEMPT, GH_TOKEN.
 set -euo pipefail
@@ -12,10 +14,14 @@ source .github/scripts/env.sh
 # shellcheck source=tools/data-pipeline/scripts/lib.sh
 source tools/data-pipeline/scripts/lib.sh
 INDEX_URL="$PAGES_BASE_URL/address-grid.json"
+# Seme: quello rigenerato dal passo "Seme dei civici" (address-seed.sh), se c'e'; altrimenti quello del repository.
+REPO_SEED_FILE=tools/data-pipeline/address-grid-seed.tsv
+SEED_FILE="${ADDRESS_GRID_SEED:-$REPO_SEED_FILE}"
+[ -s "$SEED_FILE" ] || SEED_FILE="$REPO_SEED_FILE"
 
 # Partizione attuale: le celle dell'indice pubblicato (fonte di verita', include le celle
-# divise da run precedenti) piu' le celle del seme versionato nel repo non ancora coperte,
-# cioe' ne' pubblicate ne' antenate di una cella pubblicata (divisa). Senza il seme la
+# divise da run precedenti) piu' le celle del seme ($SEED_FILE) non ancora coperte,
+# cioe' ne' pubblicate ne' antenate o discendenti di una cella pubblicata. Senza il seme la
 # partizione resterebbe ferma alle celle della prima quota pubblicata. Alla primissima
 # pubblicazione (404) e' il solo seme.
 IDS_FILE="$RUNNER_TEMP/all-cell-ids.txt"
@@ -27,17 +33,20 @@ PUBLISHED_INDEX_ARG=""
 PUBLISHED_INDEX_HTTP="$(fetch_published_manifest "$INDEX_URL" "$PUBLISHED_INDEX_FILE")"
 if [ "$PUBLISHED_INDEX_HTTP" = "200" ]; then
   jq -r '.cells[].id' "$PUBLISHED_INDEX_FILE" > "$IDS_FILE"
-  # Prima passata (le celle pubblicate): segna ognuna e tutti i suoi antenati come
-  # coperti. Seconda passata (il seme): aggiunge le celle non coperte.
-  awk -F/ 'NR == FNR { z = $1; x = $2; y = $3
-                       while (z >= 0) { covered[z "/" x "/" y] = 1; z--; x = int(x / 2); y = int(y / 2) }
-                       next }
-           $0 != "" && !($0 in covered)' "$IDS_FILE" tools/data-pipeline/address-grid-seed.tsv \
+  # Le righe del seme non coperte (ne' pubblicate, ne' antenate o discendenti di una pubblicata)
+  # si aggiungono alla partizione.
+  python3 tools/data-pipeline/scripts/address_seed_uncovered.py ids "$SEED_FILE" "$IDS_FILE" \
     > "$RUNNER_TEMP/uncovered-seed-ids.txt"
+  # Il seme appena rigenerato puo' avere celle nuove (civici apparsi in un rilascio Overture): un warning per ciascuna,
+  # solo nella run che lo rigenera.
+  if [ "$SEED_FILE" != "$REPO_SEED_FILE" ] && [ "${ADDRESS_GRID_SEED_FRESH:-}" = true ]; then
+    python3 tools/data-pipeline/scripts/address_seed_uncovered.py warn "$SEED_FILE" "$IDS_FILE" "$REPO_SEED_FILE" \
+      --min-zoom "${ADDRESS_CELL_MIN_ZOOM:-7}" || true
+  fi
   cat "$RUNNER_TEMP/uncovered-seed-ids.txt" >> "$IDS_FILE"
   PUBLISHED_INDEX_ARG="$PUBLISHED_INDEX_FILE"
 elif [ "$PUBLISHED_INDEX_HTTP" = "404" ]; then
-  cp tools/data-pipeline/address-grid-seed.tsv "$IDS_FILE"
+  cp "$SEED_FILE" "$IDS_FILE"
   rm -f "$PUBLISHED_INDEX_FILE"
 else
   echo "ERRORE: indice civici non scaricabile da $INDEX_URL (HTTP ${PUBLISHED_INDEX_HTTP:-000})" >&2

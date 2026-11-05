@@ -251,7 +251,21 @@ I numeri civici (OSM + Overture) non si pubblicano per regione ma in celle di un
   vie, un indice di ricerca `addresses-search.db`. Le celle senza dati non esistono.
 - **Partizione**: le celle dell'indice pubblicato più quelle del seme `address-grid-seed.tsv` (righe
   `z/x/y`, da `scripts/seed-address-grid.py`) non ancora coperte, cioè né pubblicate né antenate di una
-  cella pubblicata. Nessuna cella dell'indice è antenata di un'altra.
+  cella pubblicata, né discendenti di una cella pubblicata (`scripts/address_seed_uncovered.py`). Nessuna
+  cella dell'indice è antenata di un'altra.
+- **Seme rigenerato**: a ogni rilascio Overture il job rigenera il seme prima di costruire la partizione
+  (`.github/scripts/publish-regions/address-seed.sh`). `scripts/overture_rowgroups.py` legge dal rilascio
+  solo i metadati Parquet del tema addresses (`parquet_metadata`: rettangolo e righe di ogni row group, circa
+  16.000 row group in 20 secondi) e scrive il CSV che legge `seed-address-grid.py`, lanciato con
+  `--min-zoom 7` sul `manifest.json` pubblicato. Il seme sta in `actions/cache` con chiave
+  `address-seed-<rilascio>`: le run con il seme in cache fanno solo la richiesta dell'elenco dei rilasci.
+  Nella run che rigenera il seme, ogni sua riga a zoom 7 o più senza copertura dell'indice pubblicato produce
+  un `::warning::` con l'id della cella (segnalando quelle assenti dal seme del repository: aree dove i civici
+  sono comparsi in un rilascio nuovo). Quelle celle entrano nella quota giornaliera come le altre righe del
+  seme; una cella che resta senza civici non si pubblica e torna nella quota dopo 30 giorni (a novembre 2026
+  il seme rigenerato ha 160 righe senza copertura, quello del repository 36, soprattutto in Groenlandia,
+  Alaska e Madagascar). Se Overture o DuckDB falliscono, il passo non blocca la run e vale il seme del repository
+  (`address-grid-seed.tsv`, da rigenerare a mano con gli stessi due script).
 - **Crescita**: se il `.xz` di una cella supera `ADDRESS_CELL_MAX_BYTES` (10.000.000 byte) si pubblicano al
   suo posto i 4 figli con dati, ricorsivamente fino a z14 (lì la cella resta oltre il tetto, con un
   warning). Una cella sotto `ADDRESS_CELL_MIN_ZOOM` (7 nel workflow) si divide anche sotto il tetto,
