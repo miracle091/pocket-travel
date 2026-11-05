@@ -26,6 +26,8 @@ from pathlib import Path
 BASE = "https://data.international.gc.ca/travel-voyage/"
 USER_AGENT = "pocket-travel-data-pipeline/1.0 (+https://github.com/miracle091/pocket-travel; vaccinations draft, sequential requests)"
 DELAY_SECONDS = 0.7
+ATTEMPTS = 3  # tentativi per richiesta, con attesa crescente tra l'uno e l'altro
+RETRY_SECONDS = 5
 
 # Titolo del blocco Travel.gc.ca -> codice vaccino di recommended.tsv.
 VACCINE_TITLES = {
@@ -48,14 +50,23 @@ def fetch(name: str, cache: Path) -> str | None:
     if target.exists():
         return target.read_text(encoding="utf-8")
     request = urllib.request.Request(BASE + name, headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            body = response.read().decode("utf-8")
-    except urllib.error.HTTPError as error:
-        if error.code == 404:
-            target.write_text("", encoding="utf-8")
-            return None
-        raise
+    for attempt in range(1, ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                body = response.read().decode("utf-8")
+            break
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                target.write_text("", encoding="utf-8")
+                return None
+            # Gli altri 4xx non passano da soli; i 5xx si ritentano.
+            if error.code < 500 or attempt == ATTEMPTS:
+                raise
+        except OSError:
+            # URLError, timeout e connessioni interrotte: errori passeggeri.
+            if attempt == ATTEMPTS:
+                raise
+        time.sleep(RETRY_SECONDS * attempt)
     target.write_text(body, encoding="utf-8")
     time.sleep(DELAY_SECONDS)
     return body

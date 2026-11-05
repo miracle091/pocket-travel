@@ -44,6 +44,15 @@ class FingerprintsTest(unittest.TestCase):
                          drift.fingerprints_of("it", "<p>niente</p>", "<h3>Visas</h3><p>No polio here.</p>"))
 
 
+class DownloadTest(unittest.TestCase):
+    def test_timeout_di_lettura_diventa_un_motivo(self):
+        # Un timeout durante read() e' un TimeoutError, non un URLError: deve finire nel resoconto.
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.side_effect = TimeoutError("The read operation timed out")
+        with mock.patch.object(drift.urllib.request, "urlopen", return_value=response):
+            self.assertEqual("errore di rete (The read operation timed out)", drift.download("https://x/"))
+
+
 class BaselineTest(unittest.TestCase):
     def test_scrittura_e_lettura(self):
         values = {("yf", "ke"): "a | b", ("vaccini", "ke"): "", ("hajj-pdf", "sa"): "abc"}

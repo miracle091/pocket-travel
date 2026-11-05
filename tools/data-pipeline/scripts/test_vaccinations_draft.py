@@ -92,9 +92,43 @@ class FetchTest(unittest.TestCase):
         error = urllib.error.HTTPError("http://x", 500, "Boom", {}, None)
         self.addCleanup(error.close)
         with tempfile.TemporaryDirectory() as d, \
-                mock.patch("vaccinations_draft.urllib.request.urlopen", side_effect=error):
+                mock.patch("vaccinations_draft.urllib.request.urlopen", side_effect=error), \
+                mock.patch("vaccinations_draft.time.sleep"):
             with self.assertRaises(urllib.error.HTTPError):
                 vd.fetch("d.json", Path(d))
+
+    def test_errore_5xx_passeggero_ritentato(self):
+        error = urllib.error.HTTPError("http://x", 503, "Unavailable", {}, None)
+        self.addCleanup(error.close)
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = b'{"ok": true}'
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch("vaccinations_draft.urllib.request.urlopen", side_effect=[error, response]) as urlopen, \
+                mock.patch("vaccinations_draft.time.sleep") as sleep:
+            self.assertEqual('{"ok": true}', vd.fetch("e.json", Path(d)))
+        self.assertEqual(2, urlopen.call_count)
+        sleep.assert_has_calls([mock.call(vd.RETRY_SECONDS), mock.call(vd.DELAY_SECONDS)])
+
+    def test_timeout_ritentato_poi_rilanciato(self):
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch("vaccinations_draft.urllib.request.urlopen", side_effect=TimeoutError()) as urlopen, \
+                mock.patch("vaccinations_draft.time.sleep"):
+            with self.assertRaises(TimeoutError):
+                vd.fetch("f.json", Path(d))
+        self.assertEqual(vd.ATTEMPTS, urlopen.call_count)
+
+    def test_404_e_altri_4xx_non_ritentano(self):
+        for code in (404, 403):
+            error = urllib.error.HTTPError("http://x", code, "No", {}, None)
+            self.addCleanup(error.close)
+            with tempfile.TemporaryDirectory() as d, \
+                    mock.patch("vaccinations_draft.urllib.request.urlopen", side_effect=error) as urlopen, \
+                    mock.patch("vaccinations_draft.time.sleep"):
+                try:
+                    vd.fetch("g.json", Path(d))
+                except urllib.error.HTTPError:
+                    pass
+            self.assertEqual(1, urlopen.call_count)
 
 
 class MainTest(unittest.TestCase):

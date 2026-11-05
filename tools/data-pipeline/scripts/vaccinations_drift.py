@@ -89,6 +89,8 @@ def download(url: str) -> bytes | str:
         return f"HTTP {error.code}"
     except urllib.error.URLError as error:
         return f"errore di rete ({error.reason})"
+    except OSError as error:  # timeout o connessione chiusa durante read()
+        return f"errore di rete ({error})"
 
 
 def collect(cache: Path) -> dict[tuple[str, str], str]:

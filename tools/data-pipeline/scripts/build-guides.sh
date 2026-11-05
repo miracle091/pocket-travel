@@ -266,36 +266,67 @@ if [ "$LANG_CODE" = "en" ]; then
   ADVICE_TSV="$WORKDIR/travel-advice.tsv"
   mkdir -p "$ADVICE_DIR"
   : > "$ADVICE_TSV"
-  ADVICE_OK=0 ADVICE_TRIED=0 FCDO_OK=0 FCDO_TRIED=0
+  # I due siti sono host diversi: un ciclo in background per host, ciascuno con il suo ritmo (0,2 s tra una richiesta e
+  # l'altra). Ogni ciclo scrive il proprio log e i propri contatori in file, stampati dopo l'attesa di entrambi; il TSV si
+  # compone poi in sequenza, nell'ordine delle regioni.
+  fetch_gc_advice() {
+    local tried=0 ok=0 spec regionId flagCode advice
+    for spec in "${ALL_REGIONS[@]}"; do
+      IFS='|' read -r regionId _ _ _ _ _ _ flagCode _ <<< "$spec"
+      [ -n "$flagCode" ] || continue
+      advice="$ADVICE_DIR/$flagCode.json"
+      if [ ! -e "$advice" ] && [ ! -e "$advice.none" ]; then
+        tried=$((tried + 1))
+        if curl -sSf --max-time 60 --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$advice" \
+          "https://data.international.gc.ca/travel-voyage/cta-cap-$flagCode.json" 2>/dev/null; then
+          ok=$((ok + 1))
+        else
+          rm -f "$advice"
+          : > "$advice.none"  # niente pagina (es. il Canada stesso) o errore: non si riprova per le altre regioni del paese
+        fi
+        sleep 0.2
+      fi
+    done
+    echo "$ok $tried" > "$ADVICE_DIR/gc.count"
+  }
+  fetch_fcdo_advice() {
+    local tried=0 ok=0 spec flagCode fcdo slug
+    for spec in "${ALL_REGIONS[@]}"; do
+      IFS='|' read -r _ _ _ _ _ _ _ flagCode _ <<< "$spec"
+      [ -n "$flagCode" ] || continue
+      fcdo="$ADVICE_DIR/$flagCode.fcdo.json"
+      slug="${FCDO_SLUGS[$flagCode]:-}"
+      if [ -n "$slug" ] && [ ! -e "$fcdo" ] && [ ! -e "$fcdo.none" ]; then
+        tried=$((tried + 1))
+        if curl -sSf --compressed --max-time 60 --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$fcdo" \
+          "https://www.gov.uk/api/content/foreign-travel-advice/$slug" 2>/dev/null; then
+          ok=$((ok + 1))
+        else
+          rm -f "$fcdo"
+          : > "$fcdo.none"
+          echo "::warning::pagina FCDO non scaricata per $flagCode ($slug): restano le sezioni britanniche pubblicate"
+        fi
+        sleep 0.2
+      fi
+    done
+    echo "$ok $tried" > "$ADVICE_DIR/fcdo.count"
+  }
+  fetch_gc_advice > "$ADVICE_DIR/gc.log" 2>&1 &
+  GC_PID=$!
+  fetch_fcdo_advice > "$ADVICE_DIR/fcdo.log" 2>&1 &
+  FCDO_PID=$!
+  ADVICE_FAILED=0
+  wait "$GC_PID" || ADVICE_FAILED=1
+  wait "$FCDO_PID" || ADVICE_FAILED=1
+  cat "$ADVICE_DIR/gc.log" "$ADVICE_DIR/fcdo.log"
+  [ "$ADVICE_FAILED" = 0 ] || { echo "ERRORE: scaricamento dei consigli di viaggio fallito" >&2; exit 1; }
+  read -r ADVICE_OK ADVICE_TRIED < "$ADVICE_DIR/gc.count"
+  read -r FCDO_OK FCDO_TRIED < "$ADVICE_DIR/fcdo.count"
   for spec in "${ALL_REGIONS[@]}"; do
     IFS='|' read -r regionId _ _ _ _ _ _ flagCode _ <<< "$spec"
     [ -n "$flagCode" ] || { printf '%s\t\n' "$regionId" >> "$ADVICE_TSV"; continue; }
     advice="$ADVICE_DIR/$flagCode.json"
-    if [ ! -e "$advice" ] && [ ! -e "$advice.none" ]; then
-      ADVICE_TRIED=$((ADVICE_TRIED + 1))
-      if curl -sSf --max-time 60 --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$advice" \
-        "https://data.international.gc.ca/travel-voyage/cta-cap-$flagCode.json" 2>/dev/null; then
-        ADVICE_OK=$((ADVICE_OK + 1))
-      else
-        rm -f "$advice"
-        : > "$advice.none"  # niente pagina (es. il Canada stesso) o errore: non si riprova per le altre regioni del paese
-      fi
-      sleep 0.2
-    fi
     fcdo="$ADVICE_DIR/$flagCode.fcdo.json"
-    slug="${FCDO_SLUGS[$flagCode]:-}"
-    if [ -n "$slug" ] && [ ! -e "$fcdo" ] && [ ! -e "$fcdo.none" ]; then
-      FCDO_TRIED=$((FCDO_TRIED + 1))
-      if curl -sSf --compressed --max-time 60 --retry 3 --retry-delay 5 -A "$PIPELINE_USER_AGENT" -o "$fcdo" \
-        "https://www.gov.uk/api/content/foreign-travel-advice/$slug" 2>/dev/null; then
-        FCDO_OK=$((FCDO_OK + 1))
-      else
-        rm -f "$fcdo"
-        : > "$fcdo.none"
-        echo "::warning::pagina FCDO non scaricata per $flagCode ($slug): restano le sezioni britanniche pubblicate"
-      fi
-      sleep 0.2
-    fi
     gcFile="" fcdoFile=""
     [ -s "$advice" ] && gcFile="$(winpath "$advice")"
     [ -s "$fcdo" ] && fcdoFile="$(winpath "$fcdo")"
