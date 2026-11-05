@@ -12,6 +12,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ### Modificato
 - Assistente IA, motore Online: le domande a Claude passano dalla Messages API di Anthropic invece che dal suo endpoint compatibile con OpenAI, che Anthropic indica per test e confronti. Credito esaurito, limite di richieste e servizio sovraccarico si riconoscono dal tipo dell'errore, non dal testo del messaggio.
+- Assistente IA, motore Sul dispositivo: sotto le risposte di Qwen3.5 0.8B, Qwen3.5 2B e Qwen3 4B Instruct 2507 il nome del modello apre la sua pagina di Qwen su HuggingFace invece del repository di Unsloth da cui si scarica il file. I modelli addestrati sulle guide aprono ancora la loro pagina di Pocket Travel.
 - Guide: le sezioni tradotte automaticamente hanno sotto il titolo "Tradotta automaticamente con un modello IA, con revisione parziale" invece di "senza revisione umana", e la nota di licenza dei consigli di viaggio del Canada dice lo stesso. Le guide si ripubblicano anche quando cambia solo il modello che ha tradotto una sezione.
 
 ### Corretto

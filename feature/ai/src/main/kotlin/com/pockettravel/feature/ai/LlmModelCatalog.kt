@@ -23,6 +23,8 @@ data class LlmModelDefinition(
     // Lingua in cui risponde un modello addestrato sulle guide ("it" o "en"). Null per gli ufficiali, che
     // rispondono nella lingua del prompt.
     val language: String? = null,
+    // Pagina del modello dell'autore, aperta dal nome sotto le risposte; null: il repository del file GGUF (`url`).
+    val pageUrl: String? = null,
 )
 
 /** Da dove viene il modello: la lista dei modelli li mostra in due gruppi separati. */
@@ -54,6 +56,7 @@ object LlmModelCatalog {
             sha256 = "3177ebd67afe4438374da19e690bc1b98756f7e0fea9240e1be404336156a7b5",
             sizeBytes = 558_772_480L,
             minRamTier = RamTier.MINIMO,
+            pageUrl = "https://huggingface.co/Qwen/Qwen3.5-0.8B",
         ),
         LlmModelDefinition(
             id = "qwen3.5-2b",
@@ -63,6 +66,7 @@ object LlmModelCatalog {
             sha256 = "0af96165ea615bea39a04118d63f0b6d35908aea850ee4a51aa6151d851b8b35",
             sizeBytes = 1_339_752_704L,
             minRamTier = RamTier.CONFORTEVOLE,
+            pageUrl = "https://huggingface.co/Qwen/Qwen3.5-2B",
         ),
         LlmModelDefinition(
             id = "qwen3-4b-instruct-2507",
@@ -72,6 +76,7 @@ object LlmModelCatalog {
             sha256 = "4bbe1f2f8ebe69fad3be8e15d69f220b06448a9dd26f82d7d81cce88ebfc39fd",
             sizeBytes = 2_546_340_960L,
             minRamTier = RamTier.AMPIA,
+            pageUrl = "https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507",
         ),
         // Addestrati sulle guide (uno per fascia di RAM e per lingua), pubblicati sull'organizzazione HuggingFace
         // pockettravel (upload_hf.py, dataset v11, caricati il 2026-11-02): sha256 e dimensioni ricontrollati via API

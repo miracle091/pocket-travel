@@ -128,9 +128,10 @@ internal fun AiUiState.currentModelCredit(): ModelCredit? = when (mode) {
     AiEngineMode.ONLINE -> onlineModels[onlineProvider]?.let { ModelCredit(it, onlineProvider.modelsPageUrl) }
 }
 
-// La pagina del repository HuggingFace da cui si scarica il file: per i modelli addestrati sulle guide quella di pockettravel.
+// La pagina dell'autore per i modelli ufficiali (pageUrl), altrimenti il repository HuggingFace da cui si scarica il file:
+// per i modelli addestrati sulle guide quello di pockettravel.
 internal fun onDeviceModelCredit(modelId: String): ModelCredit? =
-    LlmModelCatalog.ALL.firstOrNull { it.id == modelId }?.let { ModelCredit(it.displayName, it.url.substringBefore("/resolve/")) }
+    LlmModelCatalog.ALL.firstOrNull { it.id == modelId }?.let { ModelCredit(it.displayName, it.pageUrl ?: it.url.substringBefore("/resolve/")) }
 
 /** La cronologia delle conversazioni, cifrata: si apre solo dopo la biometria. */
 sealed interface HistoryUiState {

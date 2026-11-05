@@ -54,7 +54,7 @@ class StartingTurnTest {
     @Test
     fun `il turno concluso tiene il suo modello, la domanda nuova prende quello scelto`() {
         val answer = AssistantAnswer("Si'", emptyList(), false)
-        val old = ModelCredit("Qwen3.5 2B", "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF")
+        val old = ModelCredit("Qwen3.5 2B", "https://huggingface.co/Qwen/Qwen3.5-2B")
         val state = state(askedQuestion = "Serve il visto?", answer = answer)
             .copy(answerCredit = old, selectedModelId = "pt-qwen3.5-0.8b")
 
@@ -64,6 +64,16 @@ class StartingTurnTest {
         assertEquals(
             ModelCredit("Pocket Travel 0.8B (Qwen3.5)", "https://huggingface.co/pockettravel/qwen3.5-0.8b-travel-it-GGUF"),
             next.answerCredit,
+        )
+    }
+
+    @Test
+    fun `un modello ufficiale porta alla pagina dell'autore, non al repository del file GGUF`() {
+        assertEquals(ModelCredit("Qwen3.5 0.8B", "https://huggingface.co/Qwen/Qwen3.5-0.8B"), onDeviceModelCredit("qwen3.5-0.8b"))
+        assertEquals(ModelCredit("Qwen3.5 2B", "https://huggingface.co/Qwen/Qwen3.5-2B"), onDeviceModelCredit("qwen3.5-2b"))
+        assertEquals(
+            ModelCredit("Qwen3 4B Instruct 2507", "https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507"),
+            onDeviceModelCredit("qwen3-4b-instruct-2507"),
         )
     }
 
