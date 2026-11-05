@@ -777,7 +777,8 @@ private fun readRegionGuide(db: File, regionId: String): RegionGuide? =
 
 private const val MISSIONS_QUERY =
     "SELECT wikidata, sending, host, kind, name, name_en, city, address, phone, website, email, lat, lon FROM diplomatic_missions ORDER BY 1"
-private const val GUIDE_SECTIONS_QUERY = "SELECT regionId, category, title, body, sourceUrl, translated FROM guide_sections"
+// Con translatedBy: un cambio del solo modello della traduzione ripubblica le guide (il modello decide anche l'uso nel dataset SFT).
+private const val GUIDE_SECTIONS_QUERY = "SELECT regionId, category, title, body, sourceUrl, translated, translatedBy FROM guide_sections"
 private const val TRAVEL_ADVICE_URLS = "(sourceUrl LIKE 'https://$TRAVEL_ADVICE_HOST/%' OR sourceUrl LIKE '$FCDO_ADVICE_PREFIX%')"
 // Senza la data di download: cambia a ogni run anche quando i consigli no.
 private const val TRAVEL_ADVICE_STATE_QUERY = "SELECT regionId, advisory_state, regional FROM travel_advice_meta ORDER BY 1"
@@ -789,7 +790,7 @@ private const val TRAVEL_ADVICE_STATE_QUERY = "SELECT regionId, advisory_state, 
  */
 fun sameGuidesContent(a: File, b: File, includeMissions: Boolean = true, includeTravelAdvice: Boolean = true): Boolean {
     val queries = listOfNotNull(
-        (if (includeTravelAdvice) GUIDE_SECTIONS_QUERY else "$GUIDE_SECTIONS_QUERY WHERE NOT $TRAVEL_ADVICE_URLS") + " ORDER BY 1, 2, 3, 4, 5, 6",
+        (if (includeTravelAdvice) GUIDE_SECTIONS_QUERY else "$GUIDE_SECTIONS_QUERY WHERE NOT $TRAVEL_ADVICE_URLS") + " ORDER BY 1, 2, 3, 4, 5, 6, 7",
         TRAVEL_ADVICE_STATE_QUERY.takeIf { includeTravelAdvice },
         "SELECT regionId, general, police, ambulance, fire FROM emergency_numbers ORDER BY 1",
         "SELECT regionId FROM emergency_numbers_none ORDER BY 1",
@@ -810,7 +811,7 @@ fun sameMissions(a: File, b: File): Boolean = readRows(a, MISSIONS_QUERY) == rea
 
 /** Stesse sezioni di travel.gc.ca e dell'FCDO e stesso livello di rischio per regione nei due guides.db. */
 fun sameTravelAdvice(a: File, b: File): Boolean = listOf(
-    "$GUIDE_SECTIONS_QUERY WHERE $TRAVEL_ADVICE_URLS ORDER BY 1, 2, 3, 4, 5, 6",
+    "$GUIDE_SECTIONS_QUERY WHERE $TRAVEL_ADVICE_URLS ORDER BY 1, 2, 3, 4, 5, 6, 7",
     TRAVEL_ADVICE_STATE_QUERY,
 ).all { sql -> readRows(a, sql) == readRows(b, sql) }
 

@@ -12,6 +12,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ### Modificato
 - Assistente IA, motore Online: le domande a Claude passano dalla Messages API di Anthropic invece che dal suo endpoint compatibile con OpenAI, che Anthropic indica per test e confronti. Credito esaurito, limite di richieste e servizio sovraccarico si riconoscono dal tipo dell'errore, non dal testo del messaggio.
+- Guide: le sezioni tradotte automaticamente hanno sotto il titolo "Tradotta automaticamente con un modello IA, con revisione parziale" invece di "senza revisione umana", e la nota di licenza dei consigli di viaggio del Canada dice lo stesso. Le guide si ripubblicano anche quando cambia solo il modello che ha tradotto una sezione.
 
 ### Corretto
 - Navigatore: una destinazione o una partenza su strade non collegate al resto della rete del modo scelto, come le strade interne di un aeroporto o di un resort, non dà più «Impossibile calcolare il percorso». Il percorso arriva alla strada raggiungibile più vicina, entro 2 km, e sotto la distanza compare «Arrivo sulla strada raggiungibile più vicina, a N m dalla destinazione» (o «Partenza dalla …»); se entro 2 km non ce n'è nessuna, un messaggio propone un altro modo di spostarsi.

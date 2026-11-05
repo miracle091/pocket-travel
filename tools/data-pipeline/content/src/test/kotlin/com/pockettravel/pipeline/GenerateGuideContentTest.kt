@@ -778,6 +778,18 @@ class GenerateGuideContentTest {
     }
 
     @Test
+    fun `sameGuidesContent distingue il modello che ha tradotto la sezione`() {
+        withTempDbs(2) { (opusMt, otherModel) ->
+            val section = GuideSectionRow("SICUREZZA", "Sicurezza", "testo", translated = true, translatedBy = "opus-mt-tc-big-en-it")
+            writeGuidesDb(listOf(RegionGuide("italia", "https://example.org/a", listOf(section))), opusMt)
+            writeGuidesDb(listOf(RegionGuide("italia", "https://example.org/a", listOf(section.copy(translatedBy = "gemma")))), otherModel)
+
+            assertFalse(sameGuidesContent(opusMt, otherModel))
+            assertTrue(sameGuidesContent(opusMt, opusMt))
+        }
+    }
+
+    @Test
     fun `sameGuidesContent puo' ignorare le sezioni dei consigli di viaggio e sameTravelAdvice guarda solo quelle`() {
         withTempDbs(2) { (a, b) ->
             val fixed = GuideSectionRow("SICUREZZA", "Sicurezza", "testo")
