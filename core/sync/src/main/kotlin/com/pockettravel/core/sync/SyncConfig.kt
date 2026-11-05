@@ -75,6 +75,11 @@ object SyncConfig {
     // indipendenti tra loro.
     const val APP_STATUS_URL = "https://github.com/miracle091/pocket-travel/releases/download/app-status/app-status.json"
     const val APP_UPDATE_CHECK_WORK_NAME = "app-update-check"
+    const val APP_UPDATE_DOWNLOAD_WORK_NAME = "app-update-download"
+
+    // APK della release v<versionName>: l'impronta di app-status.json vale solo per questo indirizzo, mai per
+    // releases/latest. Host github.com gia' ammesso; il redirect verso lo storage degli asset lo segue OkHttp.
+    fun appApkUrl(versionName: String) = "https://github.com/miracle091/pocket-travel/releases/download/v$versionName/app-release.apk"
     const val ALERT_NOTIFICATIONS_WORK_NAME = "alert-notifications"
 
     // Modelli proposti per i servizi online (OnlineModelList), sulla stessa release: cambia a ogni modifica di

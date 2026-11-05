@@ -55,9 +55,7 @@ internal class UpdateThrottle(private val intervalMillis: Long = 1_000L) {
 /** Notifica in primo piano del download di una regione, con barra di avanzamento e "Annulla". */
 internal class RegionDownloadNotification(private val context: Context) {
     init {
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, context.getString(R.string.sync_download_channel), NotificationManager.IMPORTANCE_LOW),
-        )
+        createDownloadChannel(context)
     }
 
     fun build(workId: UUID, regionName: String, kinds: Set<PackageKind>, phase: DownloadPhase): Notification {
@@ -111,7 +109,14 @@ internal class RegionDownloadNotification(private val context: Context) {
         PackageKind.TRANSIT -> R.string.sync_package_transit
     }
 
-    private companion object {
-        const val CHANNEL_ID = "region-download"
-    }
+}
+
+private const val CHANNEL_ID = "region-download"
+
+/** Il canale dei download (regioni e aggiornamento dell'app); crearlo di nuovo non cambia niente. */
+internal fun createDownloadChannel(context: Context): String {
+    context.getSystemService(NotificationManager::class.java).createNotificationChannel(
+        NotificationChannel(CHANNEL_ID, context.getString(R.string.sync_download_channel), NotificationManager.IMPORTANCE_LOW),
+    )
+    return CHANNEL_ID
 }

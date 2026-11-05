@@ -1,7 +1,9 @@
 package com.pockettravel.core.sync.di
 
 import com.pockettravel.core.sync.AddressGridClient
+import com.pockettravel.core.sync.ApkInspector
 import com.pockettravel.core.sync.AppStatusClient
+import com.pockettravel.core.sync.AppUpdateDownloads
 import com.pockettravel.core.sync.CatalogPreferences
 import com.pockettravel.core.sync.DefaultCatalogPreferences
 import com.pockettravel.core.sync.HttpAppStatusClient
@@ -11,8 +13,10 @@ import com.pockettravel.core.sync.HttpTransitClient
 import com.pockettravel.core.sync.HttpOnlineModelsClient
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.OnlineModelsClient
+import com.pockettravel.core.sync.PackageManagerApkInspector
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.TransitClient
+import com.pockettravel.core.sync.WorkManagerAppUpdateDownloads
 import com.pockettravel.core.sync.WorkManagerRegionSyncScheduler
 import dagger.Binds
 import dagger.Module
@@ -44,4 +48,10 @@ abstract class SyncBindingsModule {
 
     @Binds
     abstract fun bindCatalogPreferences(impl: DefaultCatalogPreferences): CatalogPreferences
+
+    @Binds
+    abstract fun bindAppUpdateDownloads(impl: WorkManagerAppUpdateDownloads): AppUpdateDownloads
+
+    @Binds
+    abstract fun bindApkInspector(impl: PackageManagerApkInspector): ApkInspector
 }

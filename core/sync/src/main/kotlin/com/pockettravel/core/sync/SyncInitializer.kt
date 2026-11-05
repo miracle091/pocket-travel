@@ -12,6 +12,8 @@ class SyncInitializer @Inject constructor(
     private val regionSyncScheduler: RegionSyncScheduler,
     private val appUpdateCheckScheduler: AppUpdateCheckScheduler,
     private val regionStartupRecovery: RegionStartupRecovery,
+    private val appUpdateStorage: AppUpdateStorage,
+    private val apkInspector: ApkInspector,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : AppInitializer {
 
@@ -25,6 +27,9 @@ class SyncInitializer @Inject constructor(
             // runCatching: un'eccezione non gestita in questo scope farebbe chiudere l'app all'avvio.
             runCatching { regionStartupRecovery.run() }
                 .onFailure { Log.w("SyncInitializer", "Recupero dei pacchetti regionali fallito", it) }
+            // APK scaricati per un aggiornamento già installato (anche dal browser) e file estranei.
+            runCatching { appUpdateStorage.cleanUp(apkInspector.installed().versionCode) }
+                .onFailure { Log.w("SyncInitializer", "Pulizia degli APK scaricati fallita", it) }
         }
     }
 }

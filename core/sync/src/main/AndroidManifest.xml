@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- AppUpdateDownloads.isNetworkMetered: rete a consumo prima del download dell'aggiornamento dell'app -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- RegionPackageDownloadWorker: il download di una regione gira in primo piano (tipo dataSync) con la sua notifica -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
