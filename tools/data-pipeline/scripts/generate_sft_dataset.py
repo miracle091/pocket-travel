@@ -10,7 +10,7 @@ Uso: python generate_sft_dataset.py [--limit N] [--negatives 0.2] [--seed 42] [-
 Con --dump-dir i testi vengono dai dump di dumps.wikimedia.org (Wikivoyage IT/EN, Wikipedia IT: vedi
 DUMP_WIKIS e wiki_dump.py) invece che dall'API, i titoli da sft-sources.tsv: stesso dump e stesso seed
 danno lo stesso dataset. --cities aggiunge le pagine delle citta' di Wikivoyage IT (escluse quelle delle
-regioni di test). Le domande fuori tema includono quelle di truthful_qa_italian e alpaca-cleaned-italian
+regioni di test). Le domande fuori tema includono quelle di truthful_qa_italian
 (solo le domande, la risposta e' sempre il rifiuto).
 --recheck-missing cerca di nuovo le pagine date per inesistenti ("-" in sft-sources.tsv, cache vuote in raw/).
 Output (in tools/data-pipeline/data/sft/, git-ignored): pocket_travel_sft.jsonl + ATTRIBUTION.tsv di default
@@ -47,7 +47,7 @@ from word_lists import STOPWORDS
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent / "data" / "sft"
-UA = {"User-Agent": "pocket-travel-sft/0.12 (https://github.com/miracle091/pocket-travel)"}
+UA = {"User-Agent": "pocket-travel-sft/0.13 (https://github.com/miracle091/pocket-travel)"}
 # Con --dump-dir: titolo della pagina di ogni fonte per regione (regionId, fonte, titolo), versionato cosi'
 # che dump + questo file bastino a rifare lo stesso dataset. Le regioni nuove si risolvono via API e si
 # aggiungono qui.
@@ -288,21 +288,15 @@ CITY_MIN_SECTION = 250
 # Domande fuori tema da dataset italiani pubblicati (vedi fetch_off_topic): ognuna al massimo due volte,
 # per non far imparare al modello poche frasi a memoria invece del concetto di "fuori tema".
 # (dataset, config, split, colonna della domanda, licenza, quante righe tenere)
-# Le copie "cleaned" di Alpaca si dichiarano CC BY 4.0, ma i dati originali di Stanford Alpaca sono CC BY-NC 4.0 (solo
-# ricerca): la riga di ATTRIBUTION riporta la licenza d'origine. Se ne usano solo le domande, con il rifiuto come risposta.
-ALPACA_LICENSE = "CC BY-NC 4.0 (dati originali di Stanford Alpaca; la copia dichiara CC BY 4.0)"
 OFF_TOPIC_SOURCES = {
     "truthful_qa_italian": ("sapienzanlp/truthful_qa_italian", "default", "validation", "input_translation", "Apache 2.0", 800),
-    "alpaca_cleaned_italian": ("DanielSc4/alpaca-cleaned-italian", "it", "train", "instruction", ALPACA_LICENSE, 1500),
 }
 OFF_TOPIC_MAX_USES = 2
 # Revisioni dei dataset delle domande fuori tema (italiani e inglesi), controllate da fetch_off_topic prima di
 # riempire la cache (travel_questions.require_revision)
 OFF_TOPIC_REVISIONS = {
     "sapienzanlp/truthful_qa_italian": "b4b40c1dfd28c48ed5f3094de9172e56a7b222ca",
-    "DanielSc4/alpaca-cleaned-italian": "87525b0178ba16266de4fee61dc39525354a1ab7",
     "truthfulqa/truthful_qa": "741b8276f2d1982aa3d5b832d3ee81ed3b896490",
-    "yahma/alpaca-cleaned": "12567cabf869d7c92e573c7c783905fc160e9639",
 }
 # Una domanda "fuori tema" che tocca i temi di viaggio (es. "consigli per restare in salute") non lo e'
 # davvero: si scarta se contiene una radice di KEYWORDS o una di queste.
@@ -652,8 +646,6 @@ def fetch_off_topic(sources=OFF_TOPIC_SOURCES, keywords=KEYWORDS, travel_stems=T
                 for r in rows:
                     q = (r["row"].get(column) or "").strip()
                     low = q.lower()
-                    if column == "instruction" and r["row"].get("input"):
-                        continue  # alpaca: niente istruzioni con un testo di input a parte
                     if not 10 <= len(q) <= 160 or "\n" in q:
                         continue
                     if any(s in low for s in travel_stems) or any(k in low for ks in keywords.values() for k in ks):

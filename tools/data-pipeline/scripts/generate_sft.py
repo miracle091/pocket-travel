@@ -1051,14 +1051,12 @@ def with_food_keywords(L, lang):
     return {**L, "keywords": {**L["keywords"], "CIBO_BEVANDE": L["keywords"]["CIBO_BEVANDE"] + FOOD_KEYWORDS[lang]}}
 
 
-# Note di ATTRIBUTION nella lingua del dataset (le scrivono in italiano anche altri moduli: travel_questions.py,
-# ALPACA_LICENSE): testi fissi e, per quelli con un nome o una data, (espressione, sostituzione).
+# Note di ATTRIBUTION nella lingua del dataset (le scrive in italiano anche travel_questions.py): testi fissi e, per quelli con un nome o una data, (espressione, sostituzione).
 ATTRIBUTION_EN = {
     "CC BY-SA 4.0 (testo delle pagine elencate sopra)": "CC BY-SA 4.0 (text of the pages listed above)",
     "fonti per riga nel file: Travel.gc.ca e gov.uk (Open Government Licence), Wikipedia e Wikivoyage (CC BY-SA 4.0), Wikidata (CC0)":
         "sources per row in the file: Travel.gc.ca and gov.uk (Open Government Licence), Wikipedia and Wikivoyage (CC BY-SA 4.0), "
         "Wikidata (CC0)",
-    it.ALPACA_LICENSE: "CC BY-NC 4.0 (original Stanford Alpaca data; the copy declares CC BY 4.0)",
     "fatti rapidi: Wikidata (capitale, valuta, prefisso, lato di guida e dove manca Wikivoyage)":
         "quick facts: Wikidata (capital, currency, calling code, driving side, and where Wikivoyage has none)",
     "vaccinazioni: Travel.gc.ca (Governo del Canada)": "vaccinations: Travel.gc.ca (Government of Canada)",

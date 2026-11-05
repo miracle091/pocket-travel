@@ -13,7 +13,7 @@ sono qui: domande, parole chiave, rifiuto e testo di fallback in inglese.
 Regioni di test (TEST_REGIONS) come nel dataset italiano: le loro righe restano nel file (train_lora.py le tiene
 fuori dal training, il test base le usa); fuori invece le citta' e le regioni la cui pagina EN e' quella di una
 regione di test o vi appartiene risalendo {{IsPartOf}} (es. figi-occidentali ha la stessa pagina "Fiji" di figi-lau).
-Domande fuori tema anche da truthfulqa/truthful_qa (Apache 2.0) e yahma/alpaca-cleaned (Stanford Alpaca, CC BY-NC 4.0, vedi ALPACA_LICENSE): solo le domande,
+Domande fuori tema anche da truthfulqa/truthful_qa (Apache 2.0): solo le domande,
 la risposta e' sempre il rifiuto.
 
 Uso: python generate_sft_dataset_en.py --dump-dir <cartella dei dump> [--dump-date MM-AAAA] [--cities 1500]
@@ -33,7 +33,7 @@ from pathlib import Path
 
 import wiki_dump
 from eval_common import TEST_REGIONS, replaced_when_done
-from generate_sft_dataset import (ALPACA_LICENSE, CITY_MAX_QUESTIONS, CITY_MIN_SECTION, CITY_QUESTIONS_EN, DUMP_WIKIS,
+from generate_sft_dataset import (CITY_MAX_QUESTIONS, CITY_MIN_SECTION, CITY_QUESTIONS_EN, DUMP_WIKIS,
                                   EN_HEADING_TO_CATEGORY, MAX_CONTEXT, OFF_TOPIC_MAX_USES, OFF_TOPIC_TRAIN_EN, OUT,
                                   OFF_TOPIC_REVISIONS, QUESTIONS_EN, SOURCE_URL, WIKI_QUESTIONS_EN, covers, fetch_off_topic, load_quick_facts,
                                   load_regions, load_sources, make_context, parse_sections, pick_answer, write_excluded)
@@ -147,7 +147,6 @@ OFF_TOPIC_TRAIN = OFF_TOPIC_TRAIN_EN + [
 # (dataset, config, split, colonna della domanda, licenza, quante righe tenere), come OFF_TOPIC_SOURCES
 OFF_TOPIC_SOURCES = {
     "truthful_qa": ("truthfulqa/truthful_qa", "generation", "validation", "question", "Apache 2.0", 800),
-    "alpaca_cleaned": ("yahma/alpaca-cleaned", "default", "train", "instruction", ALPACA_LICENSE, 1500),
 }
 TRAVEL_STEMS = ("travel", "touris", "vacation", "holiday", "trip", "abroad", "visit", "city", "cities", "country",
                 "countries", "nation")

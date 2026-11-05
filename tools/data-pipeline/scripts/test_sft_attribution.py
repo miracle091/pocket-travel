@@ -19,7 +19,6 @@ class LocalizedAttributionTest(unittest.TestCase):
     def rows(self):
         return ([("-", f"dump {w} del 2026-10-01", wiki_dump.export_url(w, "2026-10-01"), "CC BY-SA 4.0 (testo delle pagine elencate sopra)")
                  for w in ("enwikivoyage", "enwiki")]
-                + [("-", "off-topic (alpaca_cleaned)", "https://huggingface.co/datasets/yahma/alpaca-cleaned", it.ALPACA_LICENSE)]
                 + generate_sft.VACC_ATTRIBUTION + travel_questions.ATTRIBUTION
                 + [("_general", "guida generale", "https://en.wikivoyage.org/wiki/Visa", "CC BY-SA 4.0")]
                 + [(r, n, u, l) for r, n, u, l in [("-", "numeri di emergenza", "https://github.com/x/emergency-numbers.tsv",

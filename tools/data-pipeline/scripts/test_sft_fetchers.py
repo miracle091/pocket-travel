@@ -180,7 +180,7 @@ class OffTopicTest(unittest.TestCase):
                 cached = (Path(tmp) / "raw" / "offtopic_prova.txt").read_text(encoding="utf-8")
         return result, again, cached, calls, revision
 
-    def test_filtri_lunghezza_a_capo_temi_di_viaggio_e_input_alpaca(self):
+    def test_filtri_lunghezza_a_capo_e_temi_di_viaggio(self):
         rows = [{"q": "Chi ha dipinto la Gioconda?"},
                 {"q": "Corta"},                                   # meno di 10 caratteri
                 {"q": "x" * 161},                                 # troppo lunga
@@ -207,19 +207,6 @@ class OffTopicTest(unittest.TestCase):
         result, _, _, calls, _ = self.run_fetch({0: rows0}, keep=10)
         self.assertEqual(2, len(result["prova"]))
         self.assertEqual([0, 100], calls)                 # pagina vuota: fine
-
-    def test_colonna_instruction_scarta_le_righe_con_input(self):
-        sources = {"alpaca": ("ds/alpaca", "it", "train", "instruction", "CC", 5)}
-        rows = [{"instruction": "Spiega la fotosintesi clorofilliana.", "input": ""},
-                {"instruction": "Riassumi questo testo seguente.", "input": "Testo da riassumere"}]
-        with tempfile.TemporaryDirectory() as tmp:
-            (Path(tmp) / "raw").mkdir()
-            with mock.patch.object(g, "OUT", Path(tmp)), mock.patch.object(g, "require_revision"), mock.patch("time.sleep"), \
-                    mock.patch.dict(g.OFF_TOPIC_REVISIONS, {"ds/alpaca": "b" * 40}), \
-                    mock.patch.object(g, "get", side_effect=[json.dumps({"rows": [{"row": r} for r in rows]}),
-                                                             json.dumps({"rows": []})]):
-                result = g.fetch_off_topic(sources)
-        self.assertEqual(["Spiega la fotosintesi clorofilliana."], result["alpaca"])
 
     def test_errore_429_si_riprova_altri_4xx_salgono(self):
         sources = {"prova": ("ds/prova", "default", "train", "q", "MIT", 1)}
