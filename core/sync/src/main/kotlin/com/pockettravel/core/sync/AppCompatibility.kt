@@ -40,7 +40,7 @@ class AppCompatibility internal constructor(
     // Senza chi lo raccoglie (nessuna schermata aperta) il messaggio si perde: lo chiede solo un download toccato dall'utente.
     private val _updateRequiredMessages = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
-    /** Un evento per ogni download bloccato chiesto dall'utente: l'app mostra il messaggio con l'azione "Aggiornamenti". */
+    /** Un evento per ogni download bloccato chiesto dall'utente: l'app mostra il messaggio con l'azione "Aggiorna", che apre Aggiornamenti. */
     val updateRequiredMessages: SharedFlow<Unit> = _updateRequiredMessages.asSharedFlow()
 
     /** Breve messaggio all'utente che ha appena chiesto un download bloccato. */
