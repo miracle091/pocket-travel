@@ -117,6 +117,10 @@ class UpdatesLogicTest {
         assertEquals(AppUpdateState.Idle, relevantDownload(old, app))
         assertEquals(current, relevantDownload(current, app))
         assertEquals(AppUpdateState.Idle, relevantDownload(AppUpdateState.Idle, app))
+        // Un errore di una versione precedente non blocca quella nuova.
+        assertEquals(AppUpdateState.Idle, relevantDownload(AppUpdateState.Failed(AppUpdateFailure.SIGNATURE, 19), app))
+        val failed = AppUpdateState.Failed(AppUpdateFailure.SIGNATURE, 20)
+        assertEquals(failed, relevantDownload(failed, app))
     }
 
     @Test
@@ -132,5 +136,15 @@ class UpdatesLogicTest {
         assertEquals(R.string.updates_app_error_download, AppUpdateFailure.NETWORK.messageRes())
         assertEquals(R.string.updates_app_error_file, AppUpdateFailure.INVALID_FILE.messageRes())
         assertEquals(R.string.updates_app_error_file, AppUpdateFailure.NOT_NEWER.messageRes())
+    }
+
+    @Test
+    fun `si riprova solo dopo un errore che un nuovo download puo' evitare`() {
+        assertTrue(AppUpdateFailure.NETWORK.canRetry())
+        assertTrue(AppUpdateFailure.INVALID_FILE.canRetry())
+        assertFalse(AppUpdateFailure.UNREADABLE.canRetry())
+        assertFalse(AppUpdateFailure.PACKAGE.canRetry())
+        assertFalse(AppUpdateFailure.NOT_NEWER.canRetry())
+        assertFalse(AppUpdateFailure.SIGNATURE.canRetry())
     }
 }

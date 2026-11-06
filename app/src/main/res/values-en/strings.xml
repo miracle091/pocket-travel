@@ -147,6 +147,8 @@
     <string name="updates_app_error_file">The downloaded file isn\'t valid: download it from GitHub</string>
     <string name="updates_app_error_install">Installation failed. Try again</string>
     <string name="updates_app_install_cancelled">Installation cancelled</string>
+    <string name="updates_app_waiting_network">Waiting for network · %1$d%%</string>
+    <string name="updates_app_waiting_wifi">Waiting for Wi-Fi · %1$d%%</string>
     <string name="updates_app_whats_new">What\'s new</string>
     <string name="updates_app_metered_title">Download without Wi-Fi?</string>
     <string name="updates_app_metered_message">The update is %1$s and will use your metered connection</string>

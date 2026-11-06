@@ -2,6 +2,8 @@ package com.pockettravel.core.sync
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.Data
@@ -11,8 +13,11 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.io.File
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -21,13 +26,20 @@ import javax.inject.Inject
 sealed interface AppUpdateState {
     data object Idle : AppUpdateState
 
-    /** [totalBytes] è 0 finché il download non è partito. */
-    data class Downloading(val bytesDownloaded: Long, val totalBytes: Long) : AppUpdateState
+    /** [totalBytes] è 0 finché il download non è partito; [waitingFor] non nullo se manca la rete che il download chiede. */
+    data class Downloading(val bytesDownloaded: Long, val totalBytes: Long, val waitingFor: AppUpdateWait? = null) : AppUpdateState
 
     /** [file] è l'APK scaricato e controllato (impronta, pacchetto, versione e firma). */
     data class Ready(val versionCode: Int, val file: File) : AppUpdateState
-    data class Failed(val reason: AppUpdateFailure) : AppUpdateState
+    /** [versionCode]: la versione del download fallito, 0 se il lavoro non l'ha scritta. */
+    data class Failed(val reason: AppUpdateFailure, val versionCode: Int) : AppUpdateState
 }
+
+/** La rete che manca a un download fermo: una qualunque, o una senza limiti di traffico se l'utente non ha accettato la rete a consumo. */
+enum class AppUpdateWait { NETWORK, WIFI }
+
+/** La rete attiva: [connected] con internet raggiungibile, [unmetered] senza limiti di traffico. */
+internal data class ActiveNetwork(val connected: Boolean, val unmetered: Boolean)
 
 /** Il download dell'APK di un aggiornamento: parte solo da una chiamata esplicita, mai da solo. */
 interface AppUpdateDownloads {
@@ -51,14 +63,40 @@ class WorkManagerAppUpdateDownloads @Inject constructor(
 ) : AppUpdateDownloads {
     private val workManager get() = WorkManager.getInstance(context)
 
+    private val connectivityManager get() = context.getSystemService(ConnectivityManager::class.java)
+
     override val state: Flow<AppUpdateState>
-        get() = workManager.getWorkInfosForUniqueWorkFlow(SyncConfig.APP_UPDATE_DOWNLOAD_WORK_NAME).map { infos ->
+        get() = combine(workManager.getWorkInfosForUniqueWorkFlow(SyncConfig.APP_UPDATE_DOWNLOAD_WORK_NAME), activeNetwork()) { infos, network ->
             val info = infos.firstOrNull()
-            appUpdateState(info?.state, info?.outputData ?: Data.EMPTY, info?.progress ?: Data.EMPTY, storage)
+            appUpdateState(
+                info?.state,
+                info?.outputData ?: Data.EMPTY,
+                info?.progress ?: Data.EMPTY,
+                storage,
+                info?.tags.orEmpty(),
+                networkWait(info?.constraints?.requiredNetworkType, network),
+            )
         }
 
-    override fun isNetworkMetered(): Boolean =
-        context.getSystemService(ConnectivityManager::class.java).isActiveNetworkMetered
+    override fun isNetworkMetered(): Boolean = connectivityManager.isActiveNetworkMetered
+
+    private fun activeNetwork(): Flow<ActiveNetwork> = callbackFlow {
+        fun send(capabilities: NetworkCapabilities?) {
+            trySend(
+                ActiveNetwork(
+                    connected = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
+                    unmetered = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) == true,
+                ),
+            )
+        }
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) = send(capabilities)
+            override fun onLost(network: Network) = send(null)
+        }
+        send(connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork))
+        connectivityManager.registerDefaultNetworkCallback(callback)
+        awaitClose { connectivityManager.unregisterNetworkCallback(callback) }
+    }.distinctUntilChanged()
 
     override suspend fun start(entry: AppVersionEntry, allowMetered: Boolean): Boolean {
         val hasApk = entry.apkSha256 != null && entry.apkSizeBytes != null
@@ -73,6 +111,8 @@ class WorkManagerAppUpdateDownloads @Inject constructor(
             val request = OneTimeWorkRequestBuilder<AppUpdateDownloadWorker>()
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(network).build())
                 .setInputData(data)
+                .addTag(TAG_VERSION_CODE + entry.versionCode)
+                .addTag(TAG_TOTAL_BYTES + (entry.apkSizeBytes ?: 0L))
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
             workManager.enqueueUniqueWork(SyncConfig.APP_UPDATE_DOWNLOAD_WORK_NAME, ExistingWorkPolicy.KEEP, request)
@@ -85,13 +125,39 @@ class WorkManagerAppUpdateDownloads @Inject constructor(
     }
 }
 
-internal fun appUpdateState(workState: WorkInfo.State?, output: Data, progress: Data, storage: AppUpdateStorage): AppUpdateState =
+// Versione e peso dell'APK nei tag del lavoro: WorkManager non espone i dati d'ingresso.
+internal const val TAG_VERSION_CODE = "app-update-version-code:"
+internal const val TAG_TOTAL_BYTES = "app-update-total-bytes:"
+
+private fun Set<String>.tagValue(prefix: String): Long? = firstOrNull { it.startsWith(prefix) }?.removePrefix(prefix)?.toLongOrNull()
+
+/** La rete che manca al download, o null se quella attiva va bene ([required] è il vincolo del lavoro). */
+internal fun networkWait(required: NetworkType?, network: ActiveNetwork): AppUpdateWait? = when {
+    required == NetworkType.UNMETERED && !(network.connected && network.unmetered) -> AppUpdateWait.WIFI
+    required != null && required != NetworkType.NOT_REQUIRED && !network.connected -> AppUpdateWait.NETWORK
+    else -> null
+}
+
+@Suppress("LongParameterList") // Lo stato si compone da tutte le parti del WorkInfo e dalla rete.
+internal fun appUpdateState(
+    workState: WorkInfo.State?,
+    output: Data,
+    progress: Data,
+    storage: AppUpdateStorage,
+    tags: Set<String> = emptySet(),
+    waitingFor: AppUpdateWait? = null,
+): AppUpdateState =
     when (workState) {
         null, WorkInfo.State.CANCELLED -> AppUpdateState.Idle
-        WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED -> AppUpdateState.Downloading(
-            progress.getLong(AppUpdateDownloadWorker.KEY_BYTES_DOWNLOADED, 0L),
-            progress.getLong(AppUpdateDownloadWorker.KEY_TOTAL_BYTES, 0L),
-        )
+        WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING, WorkInfo.State.BLOCKED -> {
+            // L'avanzamento c'è solo mentre il lavoro gira: fermo per la rete, si legge dal file parziale.
+            val partBytes = tags.tagValue(TAG_VERSION_CODE)?.let { storage.partFile(it.toInt()).length() } ?: 0L
+            AppUpdateState.Downloading(
+                progress.getLong(AppUpdateDownloadWorker.KEY_BYTES_DOWNLOADED, partBytes),
+                progress.getLong(AppUpdateDownloadWorker.KEY_TOTAL_BYTES, tags.tagValue(TAG_TOTAL_BYTES) ?: 0L),
+                waitingFor,
+            )
+        }
         WorkInfo.State.SUCCEEDED -> {
             val versionCode = output.getInt(AppUpdateDownloadWorker.KEY_VERSION_CODE, 0)
             val file = storage.apkFile(versionCode)
@@ -101,5 +167,6 @@ internal fun appUpdateState(workState: WorkInfo.State?, output: Data, progress: 
         WorkInfo.State.FAILED -> AppUpdateState.Failed(
             AppUpdateFailure.entries.firstOrNull { it.name == output.getString(AppUpdateDownloadWorker.KEY_FAILURE) }
                 ?: AppUpdateFailure.NETWORK,
+            output.getInt(AppUpdateDownloadWorker.KEY_VERSION_CODE, 0),
         )
     }

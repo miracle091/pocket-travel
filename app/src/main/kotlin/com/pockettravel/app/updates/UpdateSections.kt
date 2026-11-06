@@ -49,6 +49,7 @@ import com.pockettravel.app.regions.rowActions
 import com.pockettravel.app.regions.sizeText
 import com.pockettravel.core.sync.AiModelManifestEntry
 import com.pockettravel.core.sync.AppUpdateState
+import com.pockettravel.core.sync.AppUpdateWait
 import com.pockettravel.core.sync.AppVersionEntry
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CountryFlag
@@ -74,8 +75,9 @@ internal class AppSectionActions(
 @Composable
 internal fun AppSection(app: AppVersionEntry, state: UpdatesUiState, actions: AppSectionActions) {
     val context = LocalContext.current
-    val hasApk = app.apkSha256 != null && app.apkSizeBytes != null
     val download = relevantDownload(state.appDownload, app)
+    // Senza impronta, o dopo un errore che lo stesso APK ripeterebbe, l'unica strada è GitHub.
+    val inAppUpdate = app.apkSha256 != null && app.apkSizeBytes != null && (download as? AppUpdateState.Failed)?.reason?.canRetry() != false
     val permissionStep = download is AppUpdateState.Ready && state.installPermissionNeeded
     SectionHeader(stringResource(R.string.updates_section_app))
     UpdateSurface {
@@ -93,7 +95,7 @@ internal fun AppSection(app: AppVersionEntry, state: UpdatesUiState, actions: Ap
             }
             // Sotto il testo e non in fondo alla riga: con i caratteri grandi il pulsante con la dimensione lascerebbe al nome poche lettere per riga.
             Box(modifier = Modifier.padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m)) {
-                if (hasApk) AppPrimaryButton(app, download, installing = state.appInstall == AppInstallStatus.Installing, actions)
+                if (inAppUpdate) AppPrimaryButton(app, download, installing = state.appInstall == AppInstallStatus.Installing, actions)
                 else FilledTonalButton(onClick = { openUrl(context, SyncConfig.APP_RELEASES_URL) }) { Text(stringResource(R.string.updates_app_download)) }
             }
             if (permissionStep) {
@@ -102,12 +104,12 @@ internal fun AppSection(app: AppVersionEntry, state: UpdatesUiState, actions: Ap
                     modifier = Modifier.padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m),
                 ) { Text(stringResource(R.string.updates_app_permission_button)) }
             }
-            // "Scarica da GitHub" qui solo come ripiego: senza impronta è già l'azione principale.
+            // "Scarica da GitHub" qui solo come ripiego: altrimenti è già l'azione principale.
             FlowRow(modifier = Modifier.padding(start = Spacing.s, bottom = Spacing.xs)) {
                 TextButton(onClick = { openUrl(context, SyncConfig.appReleaseNotesUrl(app.versionName)) }) {
                     Text(stringResource(R.string.updates_app_whats_new))
                 }
-                if (hasApk) {
+                if (inAppUpdate) {
                     TextButton(onClick = { openUrl(context, SyncConfig.APP_RELEASES_URL) }) { Text(stringResource(R.string.updates_app_download)) }
                 }
             }
@@ -117,7 +119,14 @@ internal fun AppSection(app: AppVersionEntry, state: UpdatesUiState, actions: Ap
 
 @Composable
 private fun appStatusText(download: AppUpdateState, state: UpdatesUiState): String = when (download) {
-    is AppUpdateState.Downloading -> stringResource(R.string.regions_status_downloading, ((download.fraction() ?: 0f) * PERCENT).toInt())
+    is AppUpdateState.Downloading -> {
+        val percent = ((download.fraction() ?: 0f) * PERCENT).toInt()
+        when (download.waitingFor) {
+            AppUpdateWait.NETWORK -> stringResource(R.string.updates_app_waiting_network, percent)
+            AppUpdateWait.WIFI -> stringResource(R.string.updates_app_waiting_wifi, percent)
+            null -> stringResource(R.string.regions_status_downloading, percent)
+        }
+    }
     is AppUpdateState.Failed -> stringResource(download.reason.messageRes())
     is AppUpdateState.Ready -> when {
         state.installPermissionNeeded -> stringResource(R.string.updates_app_permission)

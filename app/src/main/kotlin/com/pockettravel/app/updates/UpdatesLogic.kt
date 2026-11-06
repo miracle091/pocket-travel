@@ -36,9 +36,12 @@ internal fun updateAllNeedsConfirmation(metered: Boolean, pending: List<RegionUi
  */
 internal fun updateCheckOffline(appStatusReached: Boolean, deviceOnline: Boolean): Boolean = !appStatusReached && !deviceOnline
 
-/** Il download che riguarda [app]: un APK pronto di un'altra versione (rimasto da prima) non conta. */
-internal fun relevantDownload(download: AppUpdateState, app: AppVersionEntry): AppUpdateState =
-    if (download is AppUpdateState.Ready && download.versionCode != app.versionCode) AppUpdateState.Idle else download
+/** Il download che riguarda [app]: un APK pronto o un errore di un'altra versione (rimasti da prima) non contano. */
+internal fun relevantDownload(download: AppUpdateState, app: AppVersionEntry): AppUpdateState = when (download) {
+    is AppUpdateState.Ready -> if (download.versionCode != app.versionCode) AppUpdateState.Idle else download
+    is AppUpdateState.Failed -> if (download.versionCode != app.versionCode) AppUpdateState.Idle else download
+    AppUpdateState.Idle, is AppUpdateState.Downloading -> download
+}
 
 /** Avanzamento 0..1 del download; null finché il totale non è noto. */
 internal fun AppUpdateState.Downloading.fraction(): Float? =
@@ -54,4 +57,13 @@ internal fun AppUpdateFailure.messageRes(): Int = when (this) {
     AppUpdateFailure.PACKAGE,
     AppUpdateFailure.NOT_NEWER,
     -> R.string.updates_app_error_file
+}
+
+/**
+ * Vero se un nuovo download può riuscire: rete persa, o file arrivato diverso dall'impronta. Con firma, pacchetto,
+ * versione o archivio sbagliati lo stesso APK verrebbe scartato di nuovo, e resta solo "Scarica da GitHub".
+ */
+internal fun AppUpdateFailure.canRetry(): Boolean = when (this) {
+    AppUpdateFailure.NETWORK, AppUpdateFailure.INVALID_FILE -> true
+    AppUpdateFailure.UNREADABLE, AppUpdateFailure.PACKAGE, AppUpdateFailure.NOT_NEWER, AppUpdateFailure.SIGNATURE -> false
 }

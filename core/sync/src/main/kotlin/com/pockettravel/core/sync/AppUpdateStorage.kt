@@ -12,9 +12,11 @@ class AppUpdateStorage(val dir: File) {
 
     fun apkFile(versionCode: Int) = File(dir, "$versionCode.apk")
 
+    fun partFile(versionCode: Int) = File(dir, "$versionCode.apk.part")
+
     fun delete(versionCode: Int) {
         apkFile(versionCode).delete()
-        File(dir, "$versionCode.apk.part").delete()
+        partFile(versionCode).delete()
     }
 
     /** Toglie i file dell'app già installata (anche dopo un aggiornamento fatto dal browser) e ogni file estraneo. */

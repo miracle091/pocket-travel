@@ -1,6 +1,7 @@
 package com.pockettravel.core.sync
 
 import androidx.work.Data
+import androidx.work.NetworkType
 import androidx.work.WorkInfo
 import com.pockettravel.core.data.RegionStorage
 import kotlinx.coroutines.Dispatchers
@@ -144,8 +145,8 @@ class AppUpdateTest {
             .build()
         assertEquals(AppUpdateState.Downloading(5, 20), appUpdateState(WorkInfo.State.RUNNING, Data.EMPTY, progress, storage))
         assertEquals(AppUpdateState.Downloading(0, 0), appUpdateState(WorkInfo.State.ENQUEUED, Data.EMPTY, Data.EMPTY, storage))
-        val failed = Data.Builder().putString(AppUpdateDownloadWorker.KEY_FAILURE, "SIGNATURE").build()
-        assertEquals(AppUpdateState.Failed(AppUpdateFailure.SIGNATURE), appUpdateState(WorkInfo.State.FAILED, failed, Data.EMPTY, storage))
+        val failed = Data.Builder().putString(AppUpdateDownloadWorker.KEY_FAILURE, "SIGNATURE").putInt(AppUpdateDownloadWorker.KEY_VERSION_CODE, 11).build()
+        assertEquals(AppUpdateState.Failed(AppUpdateFailure.SIGNATURE, 11), appUpdateState(WorkInfo.State.FAILED, failed, Data.EMPTY, storage))
 
         val done = Data.Builder().putInt(AppUpdateDownloadWorker.KEY_VERSION_CODE, 11).build()
         assertEquals(AppUpdateState.Idle, appUpdateState(WorkInfo.State.SUCCEEDED, done, Data.EMPTY, storage))
@@ -155,5 +156,34 @@ class AppUpdateTest {
             AppUpdateState.Ready(11, storage.apkFile(11)),
             appUpdateState(WorkInfo.State.SUCCEEDED, done, Data.EMPTY, storage),
         )
+    }
+
+    @Test
+    fun `download fermo per la rete legge i byte dal file parziale`() {
+        storage.dir.mkdirs()
+        storage.partFile(11).writeBytes(ByteArray(5))
+        val tags = setOf(TAG_VERSION_CODE + 11, TAG_TOTAL_BYTES + 20)
+        assertEquals(
+            AppUpdateState.Downloading(5, 20, AppUpdateWait.NETWORK),
+            appUpdateState(WorkInfo.State.ENQUEUED, Data.EMPTY, Data.EMPTY, storage, tags, AppUpdateWait.NETWORK),
+        )
+        val progress = Data.Builder()
+            .putLong(AppUpdateDownloadWorker.KEY_BYTES_DOWNLOADED, 8)
+            .putLong(AppUpdateDownloadWorker.KEY_TOTAL_BYTES, 20)
+            .build()
+        assertEquals(AppUpdateState.Downloading(8, 20), appUpdateState(WorkInfo.State.RUNNING, Data.EMPTY, progress, storage, tags))
+    }
+
+    @Test
+    fun `rete che manca al download`() {
+        val none = ActiveNetwork(connected = false, unmetered = false)
+        val mobile = ActiveNetwork(connected = true, unmetered = false)
+        val wifi = ActiveNetwork(connected = true, unmetered = true)
+        assertEquals(AppUpdateWait.NETWORK, networkWait(NetworkType.CONNECTED, none))
+        assertNull(networkWait(NetworkType.CONNECTED, mobile))
+        assertEquals(AppUpdateWait.WIFI, networkWait(NetworkType.UNMETERED, mobile))
+        assertEquals(AppUpdateWait.WIFI, networkWait(NetworkType.UNMETERED, none))
+        assertNull(networkWait(NetworkType.UNMETERED, wifi))
+        assertNull(networkWait(null, none))
     }
 }

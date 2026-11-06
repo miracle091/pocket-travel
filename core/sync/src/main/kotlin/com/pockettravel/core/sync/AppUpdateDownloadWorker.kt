@@ -76,7 +76,8 @@ class AppUpdateDownloadWorker @AssistedInject constructor(
         return runCatching { entry.validate() }.map { entry }.getOrNull()
     }
 
-    private fun failureData(failure: AppUpdateFailure) = workDataOf(KEY_FAILURE to failure.name)
+    private fun failureData(failure: AppUpdateFailure) =
+        workDataOf(KEY_FAILURE to failure.name, KEY_VERSION_CODE to inputData.getInt(KEY_VERSION_CODE, 0))
 
     // Il motivo dello stop si legge da Android 12.
     private fun cancelledByUser(): Boolean =

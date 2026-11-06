@@ -421,9 +421,9 @@ class UpdatesViewModelTest {
         viewModel.cancelAppDownload()
         assertEquals(1, downloads.cancelled)
 
-        downloads.state.value = AppUpdateState.Failed(AppUpdateFailure.SIGNATURE)
+        downloads.state.value = AppUpdateState.Failed(AppUpdateFailure.SIGNATURE, 20)
         advanceUntilIdle()
-        assertEquals(AppUpdateState.Failed(AppUpdateFailure.SIGNATURE), viewModel.uiState.value.appDownload)
+        assertEquals(AppUpdateState.Failed(AppUpdateFailure.SIGNATURE, 20), viewModel.uiState.value.appDownload)
     }
 
     @Test

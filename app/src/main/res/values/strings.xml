@@ -150,6 +150,8 @@
     <string name="updates_app_error_file">Il file scaricato non è valido: scaricalo da GitHub</string>
     <string name="updates_app_error_install">Installazione non riuscita. Riprova</string>
     <string name="updates_app_install_cancelled">Installazione annullata</string>
+    <string name="updates_app_waiting_network">In attesa della rete · %1$d%%</string>
+    <string name="updates_app_waiting_wifi">In attesa del Wi-Fi · %1$d%%</string>
     <string name="updates_app_whats_new">Novità della versione</string>
     <string name="updates_app_metered_title">Scaricare senza Wi-Fi?</string>
     <string name="updates_app_metered_message">L\'aggiornamento pesa %1$s e userà la rete a consumo</string>

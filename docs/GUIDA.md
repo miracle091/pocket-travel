@@ -109,6 +109,26 @@ python -m http.server 8000 --directory <cartella con manifest.json>
 
 Per provare il tempo reale dei mezzi pubblici con una rete appena costruita: `build-transit.sh <id> <versione> http://10.0.2.2:8000 <cartella>` su una riga di `transit-feeds.tsv` con `url_rt`, poi nella cartella del catalogo di debug il `transit.json` pubblicato con la voce della rete presa da `transit-entries.jsonl`, e in `manifest.json` la voce `transit` con indirizzo, peso e sha256 del `transit.json` nuovo. Con la rete, il riquadro di una fermata di quella rete mostra ritardi e soppressioni accanto all'orario e "In tempo reale, aggiornato alle …"; in modalità aereo (`adb shell cmd connectivity airplane-mode enable`) le partenze tornano quelle dell'orario. I test del lettore del feed usano i feed registrati in `core/data/src/test/resources/gtfs-rt/`.
 
+### Provare l'aggiornamento dell'app
+
+Nelle build di debug `pocketTravel.appStatusUrl` fa leggere `app-status.json` da un server locale, e l'APK dell'aggiornamento è `app-release.apk` nella stessa cartella; `pocketTravel.versionCode` cambia il numero di versione della build. Le firme non si controllano, come per il catalogo di debug. Per passare dalla build 16 alla 17:
+
+1. Compilare la 17 con `./gradlew :app:assembleDebug -PpocketTravel.manifestUrl=http://10.0.2.2:8000/manifest.json -PpocketTravel.appStatusUrl=http://10.0.2.2:8000/app-status.json -PpocketTravel.versionCode=17` e copiare `app/build/outputs/apk/debug/app-debug.apk` come `app-release.apk` nella cartella del server.
+2. Mettere nella stessa cartella `manifest.json` e un `app-status.json` con `appVersion` `{"versionName": "...", "versionCode": 17, "apkSha256": "<sha256 dell'APK>", "apkSizeBytes": <dimensione in byte>}` (si parte da quello pubblicato, scaricato dalla release `app-status`).
+3. Installare la 16 con `./gradlew :app:installDebug` e le stesse proprietà, ma `versionCode=16`, avviare `python -m http.server 8000` nella cartella e aprire Altro > Aggiornamenti.
+
+Casi da provare:
+
+- **Permesso "Installa app sconosciute"**: la prima volta la sezione App mostra il pulsante verso le impostazioni; per darlo senza toccarle, `adb shell appops set com.pockettravel.app REQUEST_INSTALL_PACKAGES allow` (`deny` per toglierlo).
+- **Rete a consumo**: `adb shell cmd netpolicy set metered-network AndroidWifi true` (`false` per tornare indietro); "Aggiorna" chiede conferma con il peso.
+- **Annullamento nella finestra di sistema**: fino ad Android 11 la finestra "Vuoi aggiornare questa app?" compare sempre. Da Android 12 un'app che aggiorna sé stessa la salta; per vederla serve una build di prova della 16 senza la riga `UPDATE_PACKAGES_WITHOUT_USER_ACTION` del manifest. "Annulla" lascia "Installazione annullata" e "Installa" ancora attivo.
+- **Rete persa a metà download**: `adb shell cmd connectivity airplane-mode enable` durante l'avanzamento; il download riprende quando torna la rete. `http.server` ignora l'intestazione `Range`, quindi con lui il download riparte da zero: per vedere la ripresa dal punto raggiunto serve un server che risponda 206. Su Android 8 il comando della modalità aereo non c'è: si ferma il server a metà download e lo si riavvia.
+- **Firma diversa**: come `app-release.apk` l'APK di una release ufficiale (da GitHub, con il suo sha256 e la sua dimensione in `app-status.json`), che non ha la firma di debug della build installata e un `versionCode` più alto (con `pocketTravel.versionCode` più basso, o `adb install -r -d`). Dopo il download viene scartato con l'invito a scaricarlo da GitHub, e "Scarica da GitHub" resta l'unica azione.
+
+Sull'emulatore Android 8 i download lunghi da `10.0.2.2` arrivano con qualche byte in meno, e il controllo dell'impronta li rifiuta: lì si passa per adb con `adb reverse tcp:8000 tcp:8000`, compilando con gli indirizzi `http://127.0.0.1:8000/...` e aggiungendo per quella build `127.0.0.1` a `app/src/debug/res/xml/network_security_config_debug.xml`.
+
+Dopo l'aggiornamento Android chiude l'app; la notifica "Pocket Travel aggiornata alla …" la riapre.
+
 Per provare l'app in un'altra lingua senza cambiare quella del dispositivo:
 
 ```bash
