@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
- * [RegionSyncScheduler] in memoria: non esegue nulla, registra le richieste ([enqueued], [guidesSyncs], [cancelled],
+ * [RegionSyncScheduler] in memoria: non esegue nulla, registra le richieste ([enqueued], [guidesSyncs], [citiesReloads], [cancelled],
  * [periodicChecks]) e tiene lo stato dei download che il test puo' leggere e cambiare ([downloadState], [guidesSync],
  * [downloadingRegions], [pendingDownloads]). Con [rejectDownloads] i download non vengono accodati, come con l'app da aggiornare.
  */
@@ -21,6 +21,7 @@ class FakeRegionSyncScheduler : RegionSyncScheduler {
         private set
     val enqueued = mutableListOf<Pair<RegionManifestEntry, Set<PackageKind>>>()
     val guidesSyncs = mutableListOf<GuidesSyncRequest>()
+    val citiesReloads = mutableListOf<List<RegionManifestEntry>>()
     val cancelled = mutableListOf<String>()
     var rejectDownloads = false
 
@@ -49,6 +50,10 @@ class FakeRegionSyncScheduler : RegionSyncScheduler {
     override suspend fun enqueueGuidesSync(onlyOnWifi: Boolean, automatic: Boolean) {
         guidesSyncs += GuidesSyncRequest(onlyOnWifi, automatic)
         guidesSyncPending = true
+    }
+
+    override suspend fun reloadCitiesForLanguage(entries: List<RegionManifestEntry>) {
+        citiesReloads += listOf(entries)
     }
 
     override fun observeGuidesSync(): Flow<WorkInfo?> = guidesSync

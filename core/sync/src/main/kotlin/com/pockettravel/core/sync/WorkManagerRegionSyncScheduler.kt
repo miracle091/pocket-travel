@@ -7,6 +7,7 @@ import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
@@ -56,6 +57,23 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
             appCompatibility.showUpdateRequiredMessage()
             return@withContext null
         }
+        val request = enqueueDownloadRequest(entry, kinds, NetworkType.CONNECTED)
+        // KEEP: un import delle guide in corso non si annulla per un download di regione.
+        enqueueGuidesSync(onlyOnWifi = false, automatic = true)
+        workManager.getWorkInfoByIdFlow(request.id)
+    }
+
+    override suspend fun reloadCitiesForLanguage(entries: List<RegionManifestEntry>): Unit = withContext(ioDispatcher) {
+        workManager.cancelAllWorkByTag(CITIES_LANGUAGE_TAG)
+        // In automatico: con l'app da aggiornare si salta in silenzio, come le guide.
+        if (appCompatibility.requiresAppUpdate()) return@withContext
+        entries.forEach { entry ->
+            val anyNetwork = (entry.cities?.downloadFile?.sizeBytes ?: 0L) < GUIDES_METERED_MAX_BYTES
+            enqueueDownloadRequest(entry, setOf(PackageKind.CITIES), if (anyNetwork) NetworkType.CONNECTED else NetworkType.UNMETERED, CITIES_LANGUAGE_TAG)
+        }
+    }
+
+    private fun enqueueDownloadRequest(entry: RegionManifestEntry, kinds: Set<PackageKind>, networkType: NetworkType, vararg tags: String): OneTimeWorkRequest {
         val data = Data.Builder()
             .putString(
                 RegionPackageDownloadWorker.KEY_MANIFEST_ENTRY_FILE,
@@ -67,12 +85,13 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
             .putStringArray(RegionPackageDownloadWorker.KEY_PACKAGE_KINDS, kinds.map { it.name }.toTypedArray())
             .build()
         val request = OneTimeWorkRequestBuilder<RegionPackageDownloadWorker>()
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(networkType).build())
             .setInputData(data)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .addTag(SyncConfig.DOWNLOAD_TAG)
             .addTag(tagFor(entry.regionId))
             .addTag(ENQUEUED_AT_TAG + System.currentTimeMillis())
+            .apply { tags.forEach(::addTag) }
             .build()
         // Un nome univoco per richiesta, non una catena sul nome della regione (APPEND_OR_REPLACE): se un download
         // fallisce, WorkManager segnerebbe come falliti anche quelli accodati dopo. Le richieste della stessa regione
@@ -83,9 +102,7 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
             ExistingWorkPolicy.KEEP,
             request,
         )
-        // KEEP: un import delle guide in corso non si annulla per un download di regione.
-        enqueueGuidesSync(onlyOnWifi = false, automatic = true)
-        workManager.getWorkInfoByIdFlow(request.id)
+        return request
     }
 
     override suspend fun enqueueGuidesSync(onlyOnWifi: Boolean, automatic: Boolean): Unit = withContext(ioDispatcher) {
@@ -130,9 +147,9 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
     override fun cancelDownload(regionId: String) {
         workManager.cancelAllWorkByTag(tagFor(regionId))
     }
-
-    private fun tagFor(regionId: String) = "${SyncConfig.DOWNLOAD_TAG}:$regionId"
 }
+
+private fun tagFor(regionId: String) = "${SyncConfig.DOWNLOAD_TAG}:$regionId"
 
 /**
  * Cosa fare di un controllo delle guide gia' in coda: in automatico lo si tiene, a meno che la rete richiesta sia
@@ -143,6 +160,9 @@ internal fun guidesSyncPolicy(automatic: Boolean, requested: NetworkType, queued
 
 // Non comincia con "$DOWNLOAD_TAG:", che observeDownloadingRegions legge come id di una regione.
 internal const val ENQUEUED_AT_TAG = "region-download-at:"
+
+// Le ricariche delle citta' dopo un cambio di lingua: un cambio successivo le annulla.
+private const val CITIES_LANGUAGE_TAG = "cities-language-reload"
 
 /**
  * Il download da mostrare tra quelli di una regione: quello in corso, poi uno non ancora finito, altrimenti l'ultimo accodato. WorkManager

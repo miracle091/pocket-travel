@@ -25,6 +25,13 @@ interface RegionSyncScheduler {
      */
     suspend fun enqueueGuidesSync(onlyOnWifi: Boolean, automatic: Boolean = onlyOnWifi)
 
+    /**
+     * Dopo un cambio di lingua: annulla le ricariche delle citta' ancora in coda per la lingua di prima e riscarica
+     * le citta' di [entries] (da [citiesToReload]), una regione per lavoro. Sotto i 5 MB compressi su qualunque rete,
+     * sopra solo su Wi-Fi, come le guide. Con [entries] vuoto annulla soltanto.
+     */
+    suspend fun reloadCitiesForLanguage(entries: List<RegionManifestEntry>)
+
     fun observeGuidesSync(): Flow<WorkInfo?>
 
     /** Lo stato del download della regione: quello non ancora finito, altrimenti l'ultimo; null senza download. */

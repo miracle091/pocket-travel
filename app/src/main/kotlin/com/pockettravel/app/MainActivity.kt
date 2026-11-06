@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
+import android.os.LocaleList
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,12 +24,10 @@ import com.pockettravel.app.navigation.OpenScreenRequests
 import com.pockettravel.app.navigation.PocketTravelNavHost
 import com.pockettravel.app.settings.AppLanguage
 import com.pockettravel.app.settings.ThemePreferences
-import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.sync.AlertNotifier
-import com.pockettravel.core.sync.RegionSyncScheduler
+import com.pockettravel.core.sync.LanguageChangeReload
 import com.pockettravel.core.sync.UpdateAvailableNotifier
-import com.pockettravel.core.sync.isEnglishGuidesVersion
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.feature.map.NavigationService
 import com.pockettravel.feature.map.NavigationSession
@@ -41,8 +40,7 @@ import kotlinx.coroutines.launch
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     @Inject lateinit var themePreferences: ThemePreferences
-    @Inject lateinit var regionRepository: RegionRepository
-    @Inject lateinit var regionSyncScheduler: RegionSyncScheduler
+    @Inject lateinit var languageChangeReload: LanguageChangeReload
 
     @Inject lateinit var navigationSession: NavigationSession
 
@@ -55,21 +53,23 @@ class MainActivity : FragmentActivity() {
     }
 
     // Lingua cambiata senza ricreare l'activity (configChanges nel manifest): Compose segue da solo la nuova
-    // configurazione, le guide vanno riscaricate nella lingua nuova.
+    // configurazione, guide e citta' vanno riscaricate nella lingua nuova.
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        syncGuidesLanguage()
+        reloadForLanguage()
     }
 
-    // Guide installate in una lingua diversa da quella dell'interfaccia (lingua appena cambiata):
-    // si scaricano subito quelle giuste. Se il catalogo non offre guide inglesi il worker non fa nulla.
-    private fun syncGuidesLanguage() {
-        lifecycleScope.launch {
-            val installed = regionRepository.installedGuidesVersion()
-            if (installed != null && isEnglishGuidesVersion(installed) != (currentGuidesLanguage() == "en")) {
-                regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = false)
-            }
-        }
+    // Solo quando la lingua cambia: anche rotazione e tema passano da onConfigurationChanged, e il confronto legge il catalogo salvato.
+    private var reloadedLanguage: String? = null
+
+    private fun reloadForLanguage() {
+        // Un processo gia' vivo senza schermate (avviato da WorkManager) quando cambia la lingua per app tiene la lingua
+        // predefinita di prima, mentre l'activity ha gia' quella nuova: currentGuidesLanguage() la legge in tutta l'app.
+        LocaleList.setDefault(resources.configuration.locales)
+        val language = currentGuidesLanguage()
+        if (language == reloadedLanguage) return
+        reloadedLanguage = language
+        lifecycleScope.launch { languageChangeReload.run(language) }
     }
 
     // Fino ad Android 12 la lingua scelta nell'app si applica qui (da 13 ci pensa il sistema).
@@ -86,7 +86,7 @@ class MainActivity : FragmentActivity() {
         // Activity ricreata dal tocco sulla notifica (non gia' aperta): onNewIntent non scatta, lo legge il NavHost.
         val openNavigator = savedInstanceState == null && intent.getBooleanExtra(NavigationService.EXTRA_OPEN_NAVIGATOR, false)
         if (savedInstanceState == null) intent.requestOpenScreen()
-        syncGuidesLanguage()
+        reloadForLanguage()
         setContent {
             val useDynamicColor by themePreferences.useDynamicColor.collectAsStateWithLifecycle()
             val forceDark by themePreferences.forceDark.collectAsStateWithLifecycle()

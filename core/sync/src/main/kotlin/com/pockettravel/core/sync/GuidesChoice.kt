@@ -1,5 +1,6 @@
 package com.pockettravel.core.sync
 
+import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.currentGuidesLanguage
 
 /**
@@ -51,6 +52,17 @@ fun RegionManifest.forLanguage(language: String = currentGuidesLanguage()): Regi
  */
 fun RegionManifestEntry.hasCitiesIn(language: String): Boolean =
     cities == null || isEnglishGuidesVersion(cities.version) == (language == "en")
+
+/**
+ * Le regioni installate con le citta' nell'altra lingua, da riscaricare dopo un cambio di lingua: le voci di questo
+ * catalogo (passato per [forLanguage] con [language]) che hanno le citta' in [language]. Una regione senza citta'
+ * inglesi resta con quelle italiane anche in inglese: non c'e' altro da prendere.
+ */
+fun RegionManifest.citiesToReload(installed: List<InstalledRegion>, language: String): List<RegionManifestEntry> {
+    val english = language == "en"
+    val stale = installed.filter { it.citiesVersion != null && isEnglishGuidesVersion(it.citiesVersion) != english }.mapTo(mutableSetOf()) { it.regionId }
+    return regions.filter { it.regionId in stale && it.cities != null && it.hasCitiesIn(language) }
+}
 
 // "-" e non "/": le versioni dei pacchetti di regione finiscono nei percorsi di staging (isSafeVersion).
 private const val ENGLISH_PREFIX = "en-"
