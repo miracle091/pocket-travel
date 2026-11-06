@@ -24,9 +24,9 @@ class AppInstallReceiver : BroadcastReceiver() {
         val results = EntryPointAccessors.fromApplication(context.applicationContext, Results::class.java).appInstallResults()
         when (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> openSystemDialog(context, intent, results)
-            // Android chiude l'app per sostituirla e non la riapre: non c'è altro da fare.
+            // Android chiude l'app per sostituirla e non la riapre: la notifica arriva da AppUpdatedReceiver.
             PackageInstaller.STATUS_SUCCESS -> Unit
-            // Include STATUS_FAILURE_ABORTED, l'utente che annulla nella finestra di sistema.
+            PackageInstaller.STATUS_FAILURE_ABORTED -> results.set(AppInstallStatus.Cancelled)
             else -> results.set(AppInstallStatus.Failed)
         }
     }

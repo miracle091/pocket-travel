@@ -2,17 +2,21 @@ package com.pockettravel.core.sync
 
 import androidx.core.content.edit
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AppCompatibilityTest {
 
     private val files = InMemoryPreferencesFactory()
-    private var messages = 0
 
-    private fun compatibility(installed: Long = 10L) = AppCompatibility(files, { installed }, { messages++ })
+    private fun compatibility(installed: Long = 10L) = AppCompatibility(files) { installed }
 
     @Test
     fun `senza versione minima l'app non va aggiornata`() {
@@ -62,9 +66,15 @@ class AppCompatibilityTest {
     }
 
     @Test
-    fun `il messaggio all'utente passa dal gestore dato`() {
-        compatibility().showUpdateRequiredMessage()
+    fun `il messaggio all'utente arriva a chi lo raccoglie, uno per richiesta`() = runTest {
+        val compatibility = compatibility()
+        var messages = 0
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { compatibility.updateRequiredMessages.collect { messages++ } }
 
-        assertEquals(1, messages)
+        compatibility.showUpdateRequiredMessage()
+        compatibility.showUpdateRequiredMessage()
+
+        assertEquals(2, messages)
+        job.cancel()
     }
 }

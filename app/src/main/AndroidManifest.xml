@@ -48,6 +48,15 @@
             android:name=".updates.AppInstallReceiver"
             android:exported="false" />
 
+        <!-- Dopo un aggiornamento installato dall'app, la notifica che la riapre (AppUpdatedReceiver): lo manda solo il sistema. -->
+        <receiver
+            android:name=".updates.AppUpdatedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Disabilita l'auto-init di default di WorkManager (via androidx.startup): senza
              questo, WorkManager si inizializza da solo prima che PocketTravelApp (Configuration.
              Provider) possa fornire HiltWorkerFactory, e ogni @HiltWorker fallisce con

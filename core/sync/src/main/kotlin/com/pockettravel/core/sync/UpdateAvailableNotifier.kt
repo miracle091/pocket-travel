@@ -73,6 +73,17 @@ class UpdateAvailableNotifier @Inject constructor(
         )
     }
 
+    /** Dopo un aggiornamento installato dall'app: Android chiude l'app per sostituirla e non la riapre, la notifica la riapre. */
+    fun notifyAppUpdated(versionName: String) {
+        notify(
+            APP_CHANNEL_ID,
+            APP_NOTIFICATION_ID,
+            context.getString(R.string.sync_app_updated_title, versionName),
+            text = null,
+            openApp(screen = null),
+        )
+    }
+
     fun notifyAiModelUpdateAvailable(entry: AiModelManifestEntry) {
         notify(
             AI_MODEL_CHANNEL_ID,
@@ -86,15 +97,16 @@ class UpdateAvailableNotifier @Inject constructor(
     // Peso con l'unita' giusta (kB, MB, GB), come in Spazio di archiviazione: in MB interi una nazione piccola dava "0 MB".
     private fun size(bytes: Long): String = Formatter.formatShortFileSize(context, bytes)
 
-    // L'activity di avvio dell'app (intent esplicito) con la schermata da aprire: la legge MainActivity.
-    private fun openApp(screen: String): PendingIntent? {
+    // L'activity di avvio dell'app (intent esplicito) con la schermata da aprire, se c'è: la legge MainActivity.
+    private fun openApp(screen: String?): PendingIntent? {
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: return null
-        intent.putExtra(EXTRA_OPEN_SCREEN, screen).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        if (screen != null) intent.putExtra(EXTRA_OPEN_SCREEN, screen)
+        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         return PendingIntent.getActivity(context, screen.hashCode(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
     @SuppressLint("MissingPermission")
-    private fun notify(channelId: String, notificationId: Int, title: String, text: String, contentIntent: PendingIntent?) {
+    private fun notify(channelId: String, notificationId: Int, title: String, text: String?, contentIntent: PendingIntent?) {
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=

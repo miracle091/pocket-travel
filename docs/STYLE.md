@@ -224,6 +224,8 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Pulsante che installa l'aggiornamento dell'app scaricato | Installa | Install |
 | Permesso di sistema per installare gli aggiornamenti dell'app (nome di Android) | Installa app sconosciute | Install unknown apps |
 | Rete che Android segna come a consumo (dati mobili, hotspot di un altro telefono) | rete a consumo | metered connection |
+| Collegamento alle note della release dell'app su GitHub, nella sezione App di Aggiornamenti | Novità della versione | What's new |
+| Ora dell'ultimo controllo riuscito, sotto "Controlla gli aggiornamenti" | Ultimo controllo: … | Last checked: … |
 | Punti di interesse tolti per mancanza di spazio, da scaricare di nuovo | punti di interesse da riscaricare | points of interest to download again |
 | Livello di una vaccinazione non obbligatoria (altrove "consigliato" resta) | raccomandata | recommended |
 | Scalo aereo nelle regole delle vaccinazioni | scalo | stopover |

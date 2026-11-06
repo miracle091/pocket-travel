@@ -98,4 +98,7 @@ object SyncConfig {
     // Pagina dell'ultima release dell'app (l'APK), aperta dalla notifica di aggiornamento: le release dei dati non sono
     // mai segnate come "Latest".
     const val APP_RELEASES_URL = "https://github.com/miracle091/pocket-travel/releases/latest"
+
+    // Pagina della release v<versionName> ("Novità della versione"): le sue note sono la sezione di CHANGELOG.md della versione.
+    fun appReleaseNotesUrl(versionName: String): String = "https://github.com/miracle091/pocket-travel/releases/tag/v$versionName"
 }

@@ -146,6 +146,11 @@
     <string name="updates_app_error_download">Couldn\'t download the update. Try again</string>
     <string name="updates_app_error_file">The downloaded file isn\'t valid: download it from GitHub</string>
     <string name="updates_app_error_install">Installation failed. Try again</string>
+    <string name="updates_app_install_cancelled">Installation cancelled</string>
+    <string name="updates_app_whats_new">What\'s new</string>
+    <string name="updates_app_metered_title">Download without Wi-Fi?</string>
+    <string name="updates_app_metered_message">The update is %1$s and will use your metered connection</string>
+    <string name="updates_last_checked">Last checked: %1$s</string>
     <string name="updates_section_regions">Countries</string>
     <string name="updates_region_details">%1$s · %2$s</string>
     <string name="updates_all">Update all · %1$s</string>

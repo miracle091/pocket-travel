@@ -77,6 +77,7 @@ import com.pockettravel.app.regions.RegionWorldMap
 import com.pockettravel.app.regions.navigatorViewModels
 import com.pockettravel.app.regions.rowActions
 import com.pockettravel.app.storage.StorageScreen
+import com.pockettravel.app.updates.UpdateRequiredMessages
 import com.pockettravel.app.updates.UpdatesScreen
 import com.pockettravel.app.updates.UpdatesViewModel
 import com.pockettravel.app.updates.outdatedRegions
@@ -163,6 +164,12 @@ fun PocketTravelNavHost(
 
     OpenScreenRequestsEffect(navController, currentDestination)
 
+    val navigationSuiteType = if (currentTopLevel != null) {
+        NavigationSuiteScaffoldDefaults.navigationSuiteType(adaptiveInfo)
+    } else {
+        NavigationSuiteType.None
+    }
+
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             TopLevelDestination.entries.forEach { destination ->
@@ -175,12 +182,9 @@ fun PocketTravelNavHost(
                 )
             }
         },
-        layoutType = if (currentTopLevel != null) {
-            NavigationSuiteScaffoldDefaults.navigationSuiteType(adaptiveInfo)
-        } else {
-            NavigationSuiteType.None
-        },
+        layoutType = navigationSuiteType,
     ) {
+        Box(modifier = Modifier.fillMaxSize()) {
         SharedTransitionLayout {
         CompositionLocalProvider(LocalSharedTransitionScope provides this) {
         NavHost(
@@ -354,6 +358,8 @@ fun PocketTravelNavHost(
         }
         }
         }
+        UpdateRequiredMessages(aboveBottomBar = navigationSuiteType in BOTTOM_BARS)
+        }
     }
 }
 
@@ -419,6 +425,13 @@ private fun NavHostController.navigateToOfficialSource(url: String) {
     val name = officialSourcesRegistry.firstOrNull { it.url == url }?.name.orEmpty()
     navigate(InAppBrowserRoute(url, name))
 }
+
+// Barre di navigazione in basso, che coprono già la barra di sistema (le rail stanno di lato).
+private val BOTTOM_BARS = setOf(
+    NavigationSuiteType.NavigationBar,
+    NavigationSuiteType.ShortNavigationBarCompact,
+    NavigationSuiteType.ShortNavigationBarMedium,
+)
 
 // Transizioni M3 (durate "medium" della spec di motion). Le animazioni Compose rispettano da sole
 // l'impostazione di sistema "Rimuovi animazioni".

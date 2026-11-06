@@ -149,6 +149,11 @@
     <string name="updates_app_error_download">Impossibile scaricare l\'aggiornamento. Riprova</string>
     <string name="updates_app_error_file">Il file scaricato non è valido: scaricalo da GitHub</string>
     <string name="updates_app_error_install">Installazione non riuscita. Riprova</string>
+    <string name="updates_app_install_cancelled">Installazione annullata</string>
+    <string name="updates_app_whats_new">Novità della versione</string>
+    <string name="updates_app_metered_title">Scaricare senza Wi-Fi?</string>
+    <string name="updates_app_metered_message">L\'aggiornamento pesa %1$s e userà la rete a consumo</string>
+    <string name="updates_last_checked">Ultimo controllo: %1$s</string>
     <string name="updates_section_regions">Nazioni</string>
     <string name="updates_region_details">%1$s · %2$s</string>
     <string name="updates_all">Aggiorna tutto · %1$s</string>

@@ -8,6 +8,8 @@ import android.content.Context
 import android.content.ActivityNotFoundException
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -67,7 +69,8 @@ internal class AppSectionActions(
     val onOpenInstallSettings: () -> Unit,
 )
 
-/** La sezione dell'app: titolo, testo di stato, azione principale, avanzamento e "Scarica da GitHub" come ripiego. */
+/** La sezione dell'app: titolo, testo di stato, azione principale, avanzamento, "Novità della versione" e "Scarica da GitHub" come ripiego. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun AppSection(app: AppVersionEntry, state: UpdatesUiState, actions: AppSectionActions) {
     val context = LocalContext.current
@@ -80,10 +83,6 @@ internal fun AppSection(app: AppVersionEntry, state: UpdatesUiState, actions: Ap
             ListItem(
                 supportingContent = { Text(appStatusText(download, state)) },
                 leadingContent = { Icon(AppIcons.Download, contentDescription = null) },
-                trailingContent = {
-                    if (hasApk) AppPrimaryButton(app, download, installing = state.appInstall == AppInstallStatus.Installing, actions)
-                    else FilledTonalButton(onClick = { openReleasesPage(context) }) { Text(stringResource(R.string.updates_app_download)) }
-                },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 content = { Text(stringResource(R.string.updates_app_title, app.versionName)) },
             )
@@ -92,15 +91,24 @@ internal fun AppSection(app: AppVersionEntry, state: UpdatesUiState, actions: Ap
                 val modifier = Modifier.fillMaxWidth().padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m)
                 if (fraction != null) DownloadProgressIndicator(progress = { fraction }, modifier = modifier) else IndeterminateDownloadProgressIndicator(modifier = modifier)
             }
+            // Sotto il testo e non in fondo alla riga: con i caratteri grandi il pulsante con la dimensione lascerebbe al nome poche lettere per riga.
+            Box(modifier = Modifier.padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m)) {
+                if (hasApk) AppPrimaryButton(app, download, installing = state.appInstall == AppInstallStatus.Installing, actions)
+                else FilledTonalButton(onClick = { openUrl(context, SyncConfig.APP_RELEASES_URL) }) { Text(stringResource(R.string.updates_app_download)) }
+            }
             if (permissionStep) {
                 OutlinedButton(
                     onClick = actions.onOpenInstallSettings,
                     modifier = Modifier.padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m),
                 ) { Text(stringResource(R.string.updates_app_permission_button)) }
             }
-            if (hasApk) {
-                TextButton(onClick = { openReleasesPage(context) }, modifier = Modifier.padding(start = Spacing.s, bottom = Spacing.xs)) {
-                    Text(stringResource(R.string.updates_app_download))
+            // "Scarica da GitHub" qui solo come ripiego: senza impronta è già l'azione principale.
+            FlowRow(modifier = Modifier.padding(start = Spacing.s, bottom = Spacing.xs)) {
+                TextButton(onClick = { openUrl(context, SyncConfig.appReleaseNotesUrl(app.versionName)) }) {
+                    Text(stringResource(R.string.updates_app_whats_new))
+                }
+                if (hasApk) {
+                    TextButton(onClick = { openUrl(context, SyncConfig.APP_RELEASES_URL) }) { Text(stringResource(R.string.updates_app_download)) }
                 }
             }
         }
@@ -114,6 +122,7 @@ private fun appStatusText(download: AppUpdateState, state: UpdatesUiState): Stri
     is AppUpdateState.Ready -> when {
         state.installPermissionNeeded -> stringResource(R.string.updates_app_permission)
         state.appInstall == AppInstallStatus.Failed -> stringResource(R.string.updates_app_error_install)
+        state.appInstall == AppInstallStatus.Cancelled -> stringResource(R.string.updates_app_install_cancelled)
         else -> stringResource(R.string.updates_app_subtitle)
     }
     AppUpdateState.Idle -> stringResource(R.string.updates_app_subtitle)
@@ -275,9 +284,9 @@ internal fun UpdateTotal.text(context: Context): String {
     }
 }
 
-private fun openReleasesPage(context: Context) {
+private fun openUrl(context: Context, url: String) {
     try {
-        context.startActivity(Intent(Intent.ACTION_VIEW, SyncConfig.APP_RELEASES_URL.toUri()))
+        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
     } catch (_: ActivityNotFoundException) {
         // Nessun browser installato: non c'è dove aprire la pagina.
     }

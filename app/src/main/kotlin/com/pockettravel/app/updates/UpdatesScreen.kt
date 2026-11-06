@@ -1,5 +1,7 @@
 package com.pockettravel.app.updates
 
+import android.text.format.DateUtils
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -29,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
@@ -37,6 +41,7 @@ import com.pockettravel.app.regions.RegionListViewModel
 import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.app.regions.RegionUiItem
 import com.pockettravel.app.regions.rowActions
+import com.pockettravel.core.sync.AppVersionEntry
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.EmptyState
@@ -132,8 +137,11 @@ fun UpdatesScreen(
                     viewModel.refresh(userRequested = true)
                 },
             )
+            state.lastCheckedAtMillis?.let { LastChecked(it) }
         }
     }
+
+    MeteredAppUpdateDialog(state.appUpdate.takeIf { state.meteredConfirmation }, viewModel::answerMeteredUpdate)
 
     if (confirmUpdateAll) {
         ConfirmationDialog(
@@ -183,4 +191,33 @@ private fun CheckNowButton(checking: Boolean, onClick: () -> Unit) {
         }
         Text(stringResource(R.string.regions_check_updates), modifier = Modifier.padding(start = Spacing.s))
     }
+}
+
+// Ora dell'ultimo controllo riuscito: solo l'ora se è di oggi, altrimenti anche la data.
+@Composable
+private fun LastChecked(millis: Long) {
+    val context = LocalContext.current
+    val dateFlags = if (DateUtils.isToday(millis)) 0 else DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH or DateUtils.FORMAT_SHOW_YEAR
+    val time = DateUtils.formatDateTime(context, millis, DateUtils.FORMAT_SHOW_TIME or dateFlags)
+    Text(
+        text = stringResource(R.string.updates_last_checked, time),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.l),
+        textAlign = TextAlign.Center,
+    )
+}
+
+// Conferma prima di scaricare l'APK su una rete a consumo; app null = nessuna conferma in corso.
+@Composable
+private fun MeteredAppUpdateDialog(app: AppVersionEntry?, onAnswer: (download: Boolean) -> Unit) {
+    if (app == null) return
+    ConfirmationDialog(
+        title = stringResource(R.string.updates_app_metered_title),
+        message = stringResource(R.string.updates_app_metered_message, Formatter.formatShortFileSize(LocalContext.current, app.apkSizeBytes ?: 0L)),
+        confirmLabel = stringResource(R.string.regions_large_download_confirm),
+        destructive = false,
+        onConfirm = { onAnswer(true) },
+        onDismiss = { onAnswer(false) },
+    )
 }

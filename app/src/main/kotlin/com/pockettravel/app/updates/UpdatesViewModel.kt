@@ -49,6 +49,10 @@ data class UpdatesUiState(
     val appInstall: AppInstallStatus = AppInstallStatus.Idle,
     // "Installa" toccato senza il permesso "Installa app sconosciute": la sezione lo spiega e apre le impostazioni.
     val installPermissionNeeded: Boolean = false,
+    // "Aggiorna" toccato con una rete a consumo: la schermata chiede conferma prima di scaricare.
+    val meteredConfirmation: Boolean = false,
+    // Ora (epoch ms) dell'ultimo controllo riuscito di app-status.json, anche del controllo periodico; null se mai.
+    val lastCheckedAtMillis: Long? = null,
     // Messaggio una tantum (Snackbar), poi onMessageShown().
     @StringRes val message: Int? = null,
 )
@@ -129,7 +133,7 @@ class UpdatesViewModel @Inject constructor(
                     _uiState.update { it.copy(guidesUpdate = if (outdated) GuidesUpdate(choice.entry.downloadFile.sizeBytes) else null) }
                 }
             } finally {
-                _uiState.update { it.copy(isChecking = false) }
+                _uiState.update { it.copy(isChecking = false, lastCheckedAtMillis = appStatusClient.lastCheckedAtMillis()) }
             }
         }
     }
@@ -139,10 +143,21 @@ class UpdatesViewModel @Inject constructor(
         viewModelScope.launch { regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = false) }
     }
 
-    /** Scarica l'APK dell'aggiornamento. Con una rete a consumo il lavoro aspetta il Wi-Fi. */
+    /** Scarica l'APK dell'aggiornamento; con una rete a consumo chiede prima conferma ([answerMeteredUpdate]). */
     fun updateApp() {
         val entry = _uiState.value.appUpdate ?: return
+        if (entry.apkSha256 != null && appUpdateDownloads.isNetworkMetered()) {
+            _uiState.update { it.copy(meteredConfirmation = true) }
+            return
+        }
         viewModelScope.launch { appUpdateDownloads.start(entry, allowMetered = false) }
+    }
+
+    /** La risposta alla conferma: con il sì il download va con qualunque rete. */
+    fun answerMeteredUpdate(download: Boolean) {
+        _uiState.update { it.copy(meteredConfirmation = false) }
+        val entry = _uiState.value.appUpdate
+        if (download && entry != null) viewModelScope.launch { appUpdateDownloads.start(entry, allowMetered = true) }
     }
 
     fun cancelAppDownload() {
@@ -156,7 +171,7 @@ class UpdatesViewModel @Inject constructor(
         if (state.appInstall == AppInstallStatus.Installing) return
         val allowed = appInstaller.canInstall()
         _uiState.update { it.copy(installPermissionNeeded = !allowed) }
-        if (allowed) viewModelScope.launch { appInstaller.install(ready.file) }
+        if (allowed) viewModelScope.launch { appInstaller.install(ready.file, ready.versionCode) }
     }
 
     fun openInstallSettings() {

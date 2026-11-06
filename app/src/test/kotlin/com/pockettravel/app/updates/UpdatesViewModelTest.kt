@@ -350,6 +350,52 @@ class UpdatesViewModelTest {
     }
 
     @Test
+    fun `con una rete a consumo aggiornare l'app chiede conferma e parte solo con il si'`() = runTest {
+        status.status = AppStatus(appVersion = newAppWithApk)
+        downloads.metered = true
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.updateApp()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.meteredConfirmation)
+        assertTrue(downloads.started.isEmpty())
+
+        viewModel.answerMeteredUpdate(download = false)
+        assertFalse(viewModel.uiState.value.meteredConfirmation)
+        assertTrue(downloads.started.isEmpty())
+
+        viewModel.updateApp()
+        viewModel.answerMeteredUpdate(download = true)
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.meteredConfirmation)
+        assertEquals(listOf(newAppWithApk to true), downloads.started)
+    }
+
+    @Test
+    fun `l'ora dell'ultimo controllo riuscito arriva nello stato e resta se il controllo dopo fallisce`() = runTest {
+        status.now = 5_000L
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertEquals(5_000L, viewModel.uiState.value.lastCheckedAtMillis)
+
+        status.now = 9_000L
+        status.failure = IOException("rete")
+        viewModel.refresh(userRequested = true)
+        advanceUntilIdle()
+        assertEquals(5_000L, viewModel.uiState.value.lastCheckedAtMillis)
+    }
+
+    @Test
+    fun `senza un controllo riuscito non c'e' un'ora dell'ultimo controllo`() = runTest {
+        status.failure = IOException("rete")
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.lastCheckedAtMillis)
+    }
+
+    @Test
     fun `senza aggiornamento dell'app o senza impronta il download non parte`() = runTest {
         val none = viewModel()
         advanceUntilIdle()
@@ -447,6 +493,14 @@ class UpdatesViewModelTest {
         viewModel.installApp()
         advanceUntilIdle()
         assertEquals(2, installer.installed.size)
+
+        installer.status.value = AppInstallStatus.Cancelled
+        advanceUntilIdle()
+        assertEquals(AppInstallStatus.Cancelled, viewModel.uiState.value.appInstall)
+
+        viewModel.installApp()
+        advanceUntilIdle()
+        assertEquals(3, installer.installed.size)
     }
 
     @Test
@@ -561,7 +615,7 @@ private class FakeAppInstaller : AppInstaller {
         settingsOpened++
     }
 
-    override suspend fun install(file: File) {
+    override suspend fun install(file: File, versionCode: Int) {
         installed += file
         status.value = AppInstallStatus.Installing
     }

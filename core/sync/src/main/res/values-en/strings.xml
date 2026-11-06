@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_update_required_for_download">Update the app to download this data, which uses a newer format</string>
+    <string name="app_update_required_for_download">Update Pocket Travel to download countries</string>
+    <string name="app_update_required_action">Update</string>
     <string name="sync_download_channel">Downloads</string>
     <string name="sync_download_cancel">Cancel</string>
     <string name="sync_download_progress">%1$s · %2$s of %3$s</string>
     <string name="sync_download_extracting_map">Extracting the map · %1$d%%</string>
     <string name="sync_download_installing">Installing…</string>
     <string name="sync_app_update_title">App update</string>
+    <string name="sync_app_updated_title">Pocket Travel updated to %1$s</string>
     <string name="sync_package_map">Map</string>
     <string name="sync_package_routing">Road network</string>
     <string name="sync_package_poi">Points of interest</string>

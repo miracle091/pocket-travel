@@ -32,8 +32,11 @@ enum class AppInstallStatus {
     /** Sessione consegnata al sistema: può chiedere la sua conferma all'utente. */
     Installing,
 
-    /** Sessione non riuscita o annullata dall'utente nella finestra di sistema. */
+    /** Sessione non riuscita. */
     Failed,
+
+    /** L'utente ha annullato nella finestra di sistema: l'APK resta verificato e si può installare di nuovo. */
+    Cancelled,
 }
 
 /** Installa l'APK scaricato dell'aggiornamento: dietro un'interfaccia perché il ViewModel si prova con un fake. */
@@ -46,8 +49,8 @@ interface AppInstaller {
     /** Apre la pagina delle impostazioni di sistema del permesso "Installa app sconosciute" per questa app. */
     fun openInstallSettings()
 
-    /** Avvia la sessione di installazione di [file]; l'esito arriva in [status]. */
-    suspend fun install(file: File)
+    /** Avvia la sessione di installazione di [file], l'APK di [versionCode]; l'esito arriva in [status]. */
+    suspend fun install(file: File, versionCode: Int)
 }
 
 /** Esito delle sessioni, scritto da [PackageAppInstaller] e da [AppInstallReceiver]. */
@@ -66,6 +69,7 @@ class AppInstallResults @Inject constructor() {
 class PackageAppInstaller @Inject constructor(
     @ApplicationContext private val context: Context,
     private val results: AppInstallResults,
+    private val pendingInstall: PendingAppInstall,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : AppInstaller {
     override val status: StateFlow<AppInstallStatus> = results.status
@@ -82,8 +86,9 @@ class PackageAppInstaller @Inject constructor(
         }
     }
 
-    override suspend fun install(file: File) {
+    override suspend fun install(file: File, versionCode: Int) {
         results.set(AppInstallStatus.Installing)
+        pendingInstall.set(versionCode)
         try {
             withContext(ioDispatcher) { commitSession(file) }
         } catch (error: CancellationException) {

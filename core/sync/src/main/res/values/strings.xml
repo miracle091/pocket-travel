@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:locale="it">
-    <string name="app_update_required_for_download">Aggiorna l\'app per scaricare questi dati, che usano un formato più recente</string>
+    <string name="app_update_required_for_download">Aggiorna Pocket Travel per scaricare le nazioni</string>
+    <string name="app_update_required_action">Aggiorna</string>
     <string name="sync_download_channel">Download</string>
     <string name="sync_download_cancel">Annulla</string>
     <string name="sync_download_progress">%1$s · %2$s di %3$s</string>
     <string name="sync_download_extracting_map">Estrazione della mappa · %1$d%%</string>
     <string name="sync_download_installing">Installazione…</string>
     <string name="sync_app_update_title">Aggiornamento dell\'app</string>
+    <string name="sync_app_updated_title">Pocket Travel aggiornata alla %1$s</string>
     <string name="sync_package_map">Mappa</string>
     <string name="sync_package_routing">Rete stradale</string>
     <string name="sync_package_poi">Punti di interesse</string>
