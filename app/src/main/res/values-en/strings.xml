@@ -221,6 +221,8 @@
     <string name="storage_delete">Delete %1$s</string>
     <string name="storage_delete_title">%1$s: delete the data?</string>
     <string name="storage_delete_message">The data saved on the device will be removed to free up this space</string>
+    <string name="storage_contents_expand">Show the content</string>
+    <string name="storage_contents_collapse">Hide the content</string>
 
     <!-- Anteprima regione -->
     <string name="preview_banner_title">Preview without download</string>

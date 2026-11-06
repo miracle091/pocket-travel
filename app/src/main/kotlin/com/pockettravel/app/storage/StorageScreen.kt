@@ -1,10 +1,17 @@
 package com.pockettravel.app.storage
 
 import android.text.format.Formatter
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,13 +37,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -123,9 +134,11 @@ fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewMode
             if (uiState.installedRegions.isEmpty()) {
                 EmptyLine(stringResource(R.string.storage_no_regions))
             } else {
-                // Una superficie per regione: il totale (elimina tutto) e sotto mappa, rete stradale e POI.
-                // key: il dialogo di conferma (rememberSaveable nella riga) resta alla sua regione se l'elenco cambia.
+                // Una superficie per regione: il totale (elimina tutto) e sotto, chiusi finche' non si tocca la regione,
+                // mappa, rete stradale e POI. key: il dialogo di conferma e l'apertura (rememberSaveable) restano alla
+                // loro regione se l'elenco cambia.
                 uiState.installedRegions.forEach { region -> key(region.regionId) {
+                    var expanded by rememberSaveable { mutableStateOf(false) }
                     Surface(
                         shape = MaterialTheme.shapes.large,
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -138,19 +151,25 @@ fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewMode
                                 title = region.displayName,
                                 supporting = Formatter.formatShortFileSize(context, region.sizeBytes),
                                 onDelete = { viewModel.deleteRegion(region.regionId) },
+                                expanded = expanded,
+                                onToggle = { expanded = !expanded },
                             )
-                            region.packages.forEach { pkg -> key(pkg.kind) {
-                                HorizontalDivider(modifier = Modifier.padding(start = Spacing.l + 56.dp))
-                                StorageRow(
-                                    icon = pkg.kind.icon(),
-                                    title = stringResource(pkg.kind.label()),
-                                    supporting = pkg.sizeBytes?.let { Formatter.formatShortFileSize(context, it) } ?: "—",
-                                    onDelete = { viewModel.deletePackage(region.regionId, pkg.kind) },
-                                    deleteTitle = stringResource(pkg.kind.deleteTitle(), region.displayName),
-                                    deleteMessage = stringResource(R.string.package_delete_message),
-                                    modifier = Modifier.padding(start = Spacing.l),
-                                )
-                            } }
+                            AnimatedVisibility(visible = expanded) {
+                                Column {
+                                    region.packages.forEach { pkg -> key(pkg.kind) {
+                                        HorizontalDivider(modifier = Modifier.padding(start = Spacing.l + 56.dp))
+                                        StorageRow(
+                                            icon = pkg.kind.icon(),
+                                            title = stringResource(pkg.kind.label()),
+                                            supporting = pkg.sizeBytes?.let { Formatter.formatShortFileSize(context, it) } ?: "—",
+                                            onDelete = { viewModel.deletePackage(region.regionId, pkg.kind) },
+                                            deleteTitle = stringResource(pkg.kind.deleteTitle(), region.displayName),
+                                            deleteMessage = stringResource(R.string.package_delete_message),
+                                            underToggle = true,
+                                        )
+                                    } }
+                                }
+                            }
                         }
                     }
                 } }
@@ -205,23 +224,47 @@ private fun StorageRow(
     onDelete: (() -> Unit)? = null,
     deleteTitle: String = stringResource(R.string.storage_delete_title, title),
     deleteMessage: String = stringResource(R.string.storage_delete_message),
+    // Non null: la riga apre e chiude i contenuti sotto di lei.
+    expanded: Boolean? = null,
+    onToggle: () -> Unit = {},
+    // Sotto una riga che si apre: uno spazio al posto della freccia, cosi' i cestini stanno in colonna.
+    underToggle: Boolean = false,
 ) {
     var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
+    val toggle = expanded?.let { isExpanded ->
+        val stateText = stringResource(if (isExpanded) R.string.continent_expanded else R.string.continent_collapsed)
+        val actionLabel = stringResource(if (isExpanded) R.string.storage_contents_collapse else R.string.storage_contents_expand)
+        Modifier
+            .clickable(onClickLabel = actionLabel, role = Role.Button, onClick = onToggle)
+            .semantics { stateDescription = stateText }
+    } ?: Modifier
+    val rotation by animateFloatAsState(if (expanded == true) 180f else 0f, label = "storageChevron")
 
     ListItem(
         supportingContent = { Text(supporting) },
         leadingContent = {
-            CountryFlag(countryCode, size = 40.dp) { Icon(icon, contentDescription = null) }
-        },
-        trailingContent = onDelete?.let {
-            {
-                IconButton(onClick = { showDeleteConfirm = true }) {
-                    Icon(AppIcons.Delete, contentDescription = stringResource(R.string.storage_delete, title))
-                }
+            // Le icone nella stessa colonna da 40 dp delle bandiere, centrate.
+            CountryFlag(countryCode, size = 40.dp) {
+                Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null) }
             }
         },
+        trailingContent = if (onDelete != null || expanded != null) {
+            {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onDelete != null) {
+                        IconButton(onClick = { showDeleteConfirm = true }) {
+                            Icon(AppIcons.Delete, contentDescription = stringResource(R.string.storage_delete, title))
+                        }
+                    }
+                    if (expanded != null) Icon(AppIcons.ExpandMore, contentDescription = null, modifier = Modifier.rotate(rotation))
+                    if (underToggle) Spacer(modifier = Modifier.size(24.dp))
+                }
+            }
+        } else {
+            null
+        },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = modifier,
+        modifier = modifier.then(toggle),
         content = { Text(title) },
     )
 
