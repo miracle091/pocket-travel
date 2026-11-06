@@ -109,6 +109,9 @@
     </plurals>
     <string name="ai_privacy_openrouter_zdr_only">Con le impostazioni normali dell\'account le domande possono andare anche a fornitori che le conservano per i controlli contro gli abusi. Per escluderli si sceglie «ZDR only» nelle impostazioni sulla privacy di OpenRouter</string>
     <string name="ai_privacy_openrouter_settings">Impostazioni sulla privacy di OpenRouter</string>
+    <string name="ai_privacy_outside_eu">Con questo modello Alibaba Cloud può eseguire la domanda fuori dall\'Unione europea</string>
+    <string name="ai_privacy_claude_plan_credits">I piani Max, Ultra e Team di claude.ai includono ogni mese crediti API (100, 200 e fino a 500 USD). Si collegano a un\'organizzazione della Console da claude.ai, in Impostazioni → Fatturazione, e si usano con una chiave API normale</string>
+    <string name="ai_privacy_claude_plan_credits_link">Crediti API dei piani di Claude</string>
     <string name="ai_privacy_upstream">Con questo modello DeepInfra inoltra le domande al servizio di %1$s: conservazione e addestramento seguono le sue regole</string>
     <string name="ai_privacy_free_plan_training">Nel piano gratuito %1$s usa le domande per addestrare i modelli, salvo disattivazione nelle impostazioni sulla privacy dell\'account</string>
     <string name="ai_privacy_gemini_paid_eu">Nell\'Unione europea serve una chiave del piano a pagamento</string>

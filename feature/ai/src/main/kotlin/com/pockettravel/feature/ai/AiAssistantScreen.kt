@@ -1422,7 +1422,9 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
 
 // Cosa fa delle domande il servizio scelto, con il collegamento ai suoi impegni sulla privacy; per Gemini anche
 // l'avviso sul piano a pagamento nell'UE (condizioni di Gemini per le app usate nello Spazio economico europeo), per
-// OpenRouter come escludere i fornitori che conservano le domande. Con un modello di Anthropic o Google su DeepInfra
+// OpenRouter come escludere i fornitori che conservano le domande, per Claude i crediti API inclusi nei piani di
+// claude.ai (un'app di terzi non può usare l'accesso con l'account claude.ai), per i modelli Max di Alibaba il calcolo
+// che può avvenire fuori dall'UE. Con un modello di Anthropic o Google su DeepInfra
 // valgono le regole di quei servizi ([OnlineProvider.upstreamFor]), e il collegamento porta alle loro.
 @Composable
 private fun ProviderPrivacy(provider: OnlineProvider, model: String?) {
@@ -1458,6 +1460,25 @@ private fun ProviderPrivacy(provider: OnlineProvider, model: String?) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        if (provider.mayRunOutsideEu(model)) {
+            Text(
+                stringResource(R.string.ai_privacy_outside_eu),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (provider == OnlineProvider.CLAUDE) {
+            Text(
+                stringResource(R.string.ai_privacy_claude_plan_credits),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(onClick = { uriHandler.openUri(CLAUDE_PLAN_CREDITS_URL) }) {
+                Text(stringResource(R.string.ai_privacy_claude_plan_credits_link))
+                Spacer(modifier = Modifier.width(Spacing.s))
+                Icon(AppIcons.OpenExternal, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
+        }
         if (provider == OnlineProvider.OPENROUTER) {
             Text(
                 stringResource(R.string.ai_privacy_openrouter_zdr_only),
@@ -1479,6 +1500,8 @@ private fun ProviderPrivacy(provider: OnlineProvider, model: String?) {
 }
 
 private const val OPENROUTER_PRIVACY_SETTINGS_URL = "https://openrouter.ai/settings/privacy"
+
+private const val CLAUDE_PLAN_CREDITS_URL = "https://platform.claude.com/docs/en/about-claude/api-credits-for-subscribers"
 
 private fun privacyGroupTitle(privacy: OnlinePrivacy): Int = when (privacy) {
     OnlinePrivacy.NOT_KEPT -> R.string.ai_privacy_group_not_kept

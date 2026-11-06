@@ -164,6 +164,12 @@ enum class OnlineProvider(
         model.startsWith("google/") && !model.startsWith("google/gemma") -> GEMINI
         else -> null
     }
+
+    /**
+     * True se con [model] il servizio può eseguire la domanda fuori dall'UE: a Francoforte i modelli Max di Alibaba
+     * hanno ambito "Global", non "EU", quindi il calcolo non resta per forza nella regione.
+     */
+    fun mayRunOutsideEu(model: String?): Boolean = this == ALIBABA && model != null && "-max" in model
 }
 
 internal fun isValidAccountId(id: String): Boolean = ACCOUNT_ID.matches(id.trim())

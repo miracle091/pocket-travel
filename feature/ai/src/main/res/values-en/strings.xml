@@ -108,6 +108,9 @@
     </plurals>
     <string name="ai_privacy_openrouter_zdr_only">With the default account settings, questions can also go to providers that keep them for abuse checks. To exclude them, choose \"ZDR only\" in the OpenRouter privacy settings</string>
     <string name="ai_privacy_openrouter_settings">OpenRouter privacy settings</string>
+    <string name="ai_privacy_outside_eu">With this model Alibaba Cloud may process the question outside the European Union</string>
+    <string name="ai_privacy_claude_plan_credits">Claude Max, Ultra and Team plans on claude.ai include monthly API credits (100, 200 and up to 500 USD). They are linked to a Console organization from claude.ai, in Settings → Billing, and used with a regular API key</string>
+    <string name="ai_privacy_claude_plan_credits_link">Claude plan API credits</string>
     <string name="ai_privacy_upstream">With this model DeepInfra forwards questions to the %1$s service: retention and training follow its rules</string>
     <string name="ai_privacy_free_plan_training">On the free plan %1$s uses questions to train models, unless turned off in the account privacy settings</string>
     <string name="ai_privacy_gemini_paid_eu">In the European Union a paid plan key is required</string>

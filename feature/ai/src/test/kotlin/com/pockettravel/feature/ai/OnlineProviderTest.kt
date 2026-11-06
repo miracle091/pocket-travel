@@ -82,6 +82,14 @@ class OnlineProviderTest {
     }
 
     @Test
+    fun `only the Max models of Alibaba may run outside the EU`() {
+        assertTrue(OnlineProvider.ALIBABA.mayRunOutsideEu("qwen3.8-max"))
+        assertFalse(OnlineProvider.ALIBABA.mayRunOutsideEu("qwen3.8-flash"))
+        assertFalse(OnlineProvider.ALIBABA.mayRunOutsideEu(null))
+        assertFalse(OnlineProvider.OPENROUTER.mayRunOutsideEu("qwen/qwen3.8-max"))
+    }
+
+    @Test
     fun `OpenRouter asks for zero data retention, the other services send no routing`() {
         val server = MockWebServer()
         server.start()
