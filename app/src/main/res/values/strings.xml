@@ -406,4 +406,8 @@
     <string name="crash_report_screen">Schermata: %1$s</string>
     <string name="crash_report_model">Modello caricato: %1$s (fascia %2$s, dispositivo %3$s)</string>
     <string name="crash_notice_smaller_model">Il modello %1$s richiede più RAM di questo dispositivo. Scarica %2$s</string>
+    <string name="model_language_title">Modello dell\'assistente IA</string>
+    <string name="model_language_text">%1$s risponde solo in %2$s. Per le risposte in %3$s serve il modello in %3$s: %4$s, %5$s</string>
+    <string name="model_language_download">Scarica</string>
+    <string name="model_language_not_now">Non ora</string>
 </resources>

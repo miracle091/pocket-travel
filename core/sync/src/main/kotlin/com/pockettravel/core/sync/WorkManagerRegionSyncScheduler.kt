@@ -30,6 +30,7 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
     private val json: Json,
     private val appCompatibility: AppCompatibility,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val cityPackageCopies: CityPackageCopies,
 ) : RegionSyncScheduler {
     private val workManager get() = WorkManager.getInstance(context)
 
@@ -68,8 +69,14 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
         // In automatico: con l'app da aggiornare si salta in silenzio, come le guide.
         if (appCompatibility.requiresAppUpdate()) return@withContext
         entries.forEach { entry ->
-            val anyNetwork = (entry.cities?.downloadFile?.sizeBytes ?: 0L) < GUIDES_METERED_MAX_BYTES
-            enqueueDownloadRequest(entry, setOf(PackageKind.CITIES), if (anyNetwork) NetworkType.CONNECTED else NetworkType.UNMETERED, CITIES_LANGUAGE_TAG)
+            val file = entry.cities?.downloadFile ?: return@forEach
+            val network = when {
+                // Copia gia' sul telefono (CityPackageCopies): si reinstalla anche senza rete.
+                cityPackageCopies.has(entry.regionId, file) -> NetworkType.NOT_REQUIRED
+                file.sizeBytes < GUIDES_METERED_MAX_BYTES -> NetworkType.CONNECTED
+                else -> NetworkType.UNMETERED
+            }
+            enqueueDownloadRequest(entry, setOf(PackageKind.CITIES), network, CITIES_LANGUAGE_TAG)
         }
     }
 

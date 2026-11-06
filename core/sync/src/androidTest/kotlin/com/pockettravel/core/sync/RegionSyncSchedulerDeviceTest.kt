@@ -7,6 +7,7 @@ import androidx.work.NetworkType
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.pockettravel.core.data.PackageKind
+import com.pockettravel.core.data.RegionStorage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.After
@@ -31,7 +32,7 @@ class RegionSyncSchedulerDeviceTest {
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
     private val json = Json { ignoreUnknownKeys = true }
     private val compatibility = AppCompatibility(context) { context.getSharedPreferences(it, Context.MODE_PRIVATE) }
-    private val scheduler = WorkManagerRegionSyncScheduler(context, json, compatibility, Dispatchers.IO)
+    private val scheduler = WorkManagerRegionSyncScheduler(context, json, compatibility, Dispatchers.IO, CityPackageCopies(RegionStorage(File(context.cacheDir, "regions-test"), File(context.cacheDir, "staging-test"))))
     private val workManager get() = WorkManager.getInstance(context)
     private val sha = "a".repeat(64)
 

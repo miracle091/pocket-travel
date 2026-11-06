@@ -72,6 +72,8 @@ class RegionPackageDownloader @Inject constructor(
         stagingVersion: String,
         files: List<RegionManifestFile>,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
+        // Per nome di file: una copia gia' sul telefono da provare prima della rete (CityPackageCopies).
+        localCopies: Map<String, File> = emptyMap(),
     ): File =
         withContext(ioDispatcher) {
             // Lo staging delle altre versioni non si tocca: puo' essere il .part di un lavoro fallito che riprendera'.
@@ -87,7 +89,7 @@ class RegionPackageDownloader @Inject constructor(
             files.forEach { file ->
                 val baseBytes = bytesBeforeCurrentFile
                 val target = File(staging, file.name)
-                if (reuseLocalCopy(file, target, listOf(File(stagedRouting, file.name), File(installedRouting, file.name)))) {
+                if (reuseLocalCopy(file, target, listOfNotNull(File(stagedRouting, file.name), File(installedRouting, file.name), localCopies[file.name]))) {
                     onProgress(baseBytes + file.sizeBytes, totalBytes)
                 } else {
                     downloadAndVerify(file, target) { fileBytesDownloaded ->

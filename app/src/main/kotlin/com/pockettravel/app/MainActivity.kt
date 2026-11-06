@@ -19,6 +19,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.pockettravel.app.assistant.ModelLanguageNoticeHost
 import com.pockettravel.app.crash.CrashNoticeHost
 import com.pockettravel.app.navigation.OpenScreenRequests
 import com.pockettravel.app.navigation.PocketTravelNavHost
@@ -103,6 +104,7 @@ class MainActivity : FragmentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     PocketTravelNavHost(openNavigatorOnStart = openNavigator)
                     CrashNoticeHost()
+                    ModelLanguageNoticeHost()
                 }
             }
         }

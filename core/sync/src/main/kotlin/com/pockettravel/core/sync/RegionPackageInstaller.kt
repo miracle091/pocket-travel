@@ -32,6 +32,7 @@ class RegionPackageInstaller @Inject constructor(
     private val routingSegmentsInstaller: RoutingSegmentsInstaller,
     private val pmtilesExtractor: PmtilesExtractor,
     private val cityImporter: CityImporter,
+    private val cityPackageCopies: CityPackageCopies,
     private val addressGridInstaller: RegionAddressGridInstaller,
     private val mapDetailPreferences: MapDetailPreferences,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
@@ -96,7 +97,11 @@ class RegionPackageInstaller @Inject constructor(
             // Sotto il lock: fuori, annullerebbe l'attivazione in corso di un altro lavoro sulla stessa regione.
             withContext(ioDispatcher) { regionRepository.recoverInterruptedActivations(entry.regionId) }
             onStagingVersion(stagingVersion)
-            val staging = downloader.downloadLocked(entry.regionId, stagingVersion, files, onProgress)
+            val cityFile = if (PackageKind.CITIES in kinds) entry.cities!!.downloadFile else null
+            val localCopies = cityFile?.let { mapOf(it.name to cityPackageCopies.fileFor(entry.regionId, it)) }.orEmpty()
+            val staging = downloader.downloadLocked(entry.regionId, stagingVersion, files, onProgress, localCopies)
+            // Prima di decomprimere, che cancella il file scaricato: la copia serve al prossimo cambio di lingua.
+            cityFile?.let { withContext(ioDispatcher) { cityPackageCopies.keep(entry.regionId, it, File(staging, it.name)) } }
             if (PackageKind.POI in kinds) unpackXz(staging, entry.poi.file, entry.poi.fileXz, ioDispatcher)
             if (PackageKind.POI_EXTRA in kinds) unpackXz(staging, entry.poiExtra!!.file, entry.poiExtra.fileXz, ioDispatcher)
             if (PackageKind.ADDRESSES in kinds) {

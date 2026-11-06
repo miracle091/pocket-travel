@@ -105,6 +105,7 @@ class RegionPackageInstallerDeviceTest {
         RoutingSegmentsInstaller(Dispatchers.IO),
         PmtilesExtractor(OkHttpClient()),
         CityImporter(db.cityDao(), db, Dispatchers.IO),
+        CityPackageCopies(storage),
         RegionAddressGridInstaller(storage),
         MapDetailPreferences { name -> context.getSharedPreferences(name, Context.MODE_PRIVATE) },
         Dispatchers.IO,

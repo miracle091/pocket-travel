@@ -396,4 +396,8 @@
     <string name="crash_report_screen">Screen: %1$s</string>
     <string name="crash_report_model">Loaded model: %1$s (RAM tier %2$s, device %3$s)</string>
     <string name="crash_notice_smaller_model">The %1$s model needs more RAM than this device has. Download %2$s</string>
+    <string name="model_language_title">AI assistant model</string>
+    <string name="model_language_text">%1$s only answers in %2$s. Answers in %3$s need the %3$s model: %4$s, %5$s</string>
+    <string name="model_language_download">Download</string>
+    <string name="model_language_not_now">Not now</string>
 </resources>

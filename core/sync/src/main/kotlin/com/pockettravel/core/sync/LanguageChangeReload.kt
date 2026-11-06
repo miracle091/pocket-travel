@@ -25,20 +25,30 @@ class LanguageChangeReload @Inject constructor(
             scheduler.enqueueGuidesSync(onlyOnWifi = false)
         }
         val installed = regionRepository.observeInstalled().first()
-        // Qualunque errore del catalogo (rete, firma, formato) lascia le ricariche gia' in coda: le riprende il prossimo avvio.
+        // Qualunque errore del catalogo salvato (file, firma, formato) lascia le ricariche gia' in coda: le riprende il prossimo avvio.
         @Suppress("TooGenericExceptionCaught")
-        val toReload = try {
-            val saved = manifestClient.savedManifest()
-            if (saved?.citiesToReload(installed, language).isNullOrEmpty()) {
-                emptyList()
-            } else {
-                manifestClient.fetchManifest().citiesToReload(installed, language)
-            }
+        val saved = try {
+            manifestClient.savedManifest()?.citiesToReload(installed, language).orEmpty()
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            Log.w(TAG, "Catalogo non letto", error)
+            Log.w(TAG, "Catalogo salvato non letto", error)
             return
+        }
+        // Le versioni piu' recenti dal catalogo online; senza rete quelle del catalogo salvato, che le copie gia' sul
+        // telefono (CityPackageCopies) reinstallano subito.
+        @Suppress("TooGenericExceptionCaught")
+        val toReload = if (saved.isEmpty()) {
+            saved
+        } else {
+            try {
+                manifestClient.fetchManifest().citiesToReload(installed, language)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Log.w(TAG, "Catalogo non scaricato, si usa quello salvato", error)
+                saved
+            }
         }
         // Anche vuoto: annulla le ricariche di un cambio di lingua precedente ancora in coda.
         scheduler.reloadCitiesForLanguage(toReload)
