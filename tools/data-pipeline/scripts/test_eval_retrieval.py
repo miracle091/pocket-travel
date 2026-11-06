@@ -399,6 +399,16 @@ class SearchTest(unittest.TestCase):
         self.assertEqual((row["found"], row["section_in_context"], row["answer_in_context"]), (True, True, True))
         self.assertEqual(ev.context_row(top[:1], {"alber"}, [])["found"], False)
 
+    def test_parti_del_contesto_con_sezione_attesa_e_pagina_generale(self):
+        top = [{"title": "Documenti", "category": "DOGANE", "general_guide": True, "body": "Alberghi e documenti.\nAltro."},
+               {"title": "Dormire", "category": "ALLOGGI", "city": "Roma", "body": "Alberghi sul lungomare."},
+               {"title": "Vuota", "category": "COSA_FARE", "body": "  "}]
+        parts = ev.context_row(top, {"alber"}, [top[1]])["parts"]
+        self.assertEqual([("Documenti", True, False), ("Dormire", False, True)],
+                         [(p["title"], p["general_guide"], p["expected"]) for p in parts])
+        self.assertEqual("Roma", parts[1]["city"])
+        self.assertEqual(ev.select_context([s["body"] for s in top], {"alber"}), "\n\n".join(p["text"] for p in parts))
+
     def test_stesse_domande_in_ogni_variante(self):
         rows = [{"kind": k, "question": f"{k}{i}"} for k in ("paese", "distanze") for i in range(10)]
         with tempfile.TemporaryDirectory() as tmp:

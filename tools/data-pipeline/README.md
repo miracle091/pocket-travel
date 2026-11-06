@@ -424,6 +424,19 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   come nell'app, perché le statistiche di BM25 valgono per tutta la tabella. Anche `make_context`
   (`generate_sft_dataset.py`), che costruisce il contesto dei dataset SFT e dei set di valutazione, sceglie i paragrafi
   come l'app (`test_make_context.py` lo confronta con la replica di `eval_retrieval.py`).
+- **Ricerca e modello insieme**: `eval_retrieval.py --contexts FILE` scrive per ogni domanda il contesto dell'app e le
+  sezioni entrate nel contesto (`parts`: titolo, categoria, città, se è la sezione attesa o una pagina della guida
+  generale, paragrafi); `eval_gguf.py --contexts FILE ...` fa rispondere il modello a quei contesti e stampa i rifiuti
+  con e senza la sezione attesa nel contesto e quante risposte usano la sezione attesa o la pagina della guida
+  generale, con il confronto tra la prima ricerca dei file e le altre. `eval_answers.py <risposte> [--baseline RICERCA]`
+  rifà lo stesso conto sulle risposte salvate con `--answers`. Una risposta usa una sezione se almeno il 30% delle sue
+  parole di 6 o più lettere sta nei paragrafi di quella sezione: è una misura lessicale, utile per confrontare due
+  ricerche sulle stesse domande, non come valore assoluto.
+- **Controllo di un GGUF**: prima di misurare o caricare un GGUF, `scripts/check_gguf.py <file .gguf> --tokenizer
+  <tokenizer.json del modello base> --llama-cpp <binari> [--lang en]` stampa i metadati del tokenizer e controlla che
+  l'EOS o l'EOT sia `<|im_end|>`, che ci sia il template e che llama.cpp tokenizzi il prompt dell'app come il tokenizer
+  di Hugging Face; altrimenti esce con errore. Servono i pacchetti `gguf` e `tokenizers`, gli stessi della conversione
+  (`requirements/requirements-convert_hf_to_gguf.txt` di llama.cpp).
 - **Guide**: la sottosezione "Costo della vita" ("Cost of living" in inglese) viene omessa da guide e città. Le guide
   delle nazioni hanno anche "Cosa vedere" e "Cosa fare" ("See" e "Do"), come quelle delle città, categoria `COSA_VEDERE`. I fatti
   rapidi delle guide inglesi comprendono anche la lingua e i numeri di emergenza, come quelli italiani.

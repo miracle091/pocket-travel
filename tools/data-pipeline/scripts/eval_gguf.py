@@ -12,7 +12,9 @@ token precedenti forzati nel prompt (una richiesta /completion di un token per o
 anche N risposte campionate per riga (semi 0..N-1) per controllare quella probabilita' sulla frequenza osservata:
   python eval_gguf.py <file .gguf> --llama-cpp <cartella> --extended --app-sampling [--samples 20 --kinds pos_near neg_city]
 Con --contexts il modello risponde con il contesto prodotto dalla ricerca vera (ricerca e modello insieme): per lingua,
-serie e variante della ricerca, rifiuti con la sezione attesa nel contesto (del modello) e senza (della ricerca).
+serie e variante della ricerca, rifiuti con la sezione attesa nel contesto (del modello) e senza (della ricerca); con le
+sezioni del contesto ("parts" di eval_retrieval.py --contexts) anche quante risposte usano la sezione attesa o la pagina
+della guida generale, e il confronto della prima ricerca dei file con le altre (context_use_report di eval_common.py).
 Dopo le metriche dei rifiuti, i controlli sulle istruzioni (instruction_checks di eval_common.py), anche nei campi di
 --answers: fedelta' al contesto, risposte oltre 450 caratteri, lingua, <think> iniziale; eval_answers.py li rifa' su
 risposte gia' salvate. Con --system "<testo>" il prompt ha prima un turno system (l'app non lo manda): serve a misurare
@@ -39,7 +41,7 @@ from gguf import GGUFReader
 
 import gpu_lock
 import vram
-from eval_common import (ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, instruction_checks, is_refusal,
+from eval_common import (ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, print_context_use_report, instruction_checks, is_refusal,
                          knowledge_turns, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
                          print_report, question_lang, question_of, refusal_prefix, refusal_summary, sample, score, text_lang, uses_empty_think)
 from status import Progress, phase
@@ -229,6 +231,7 @@ def answer_contexts(url):
     for (lang, series, search), (n, with_section, refused_with, refused_without) in sorted(context_report(test).items()):
         print(f"{lang} {series} {search}: {n} | {with_section} | {refused_with}/{with_section} | "
               f"{refused_without}/{n - with_section}")
+    print_context_use_report(test)
 
 
 stats = {}  # tipo di riga -> [(ha rifiutato, risposta ok)]

@@ -749,17 +749,22 @@ def general_guide_share(sections, stems, budget=MAX_CONTEXT):
     return sections[:i] + [{**page, "body": body, "section_body": page.get("section_body", page["body"])}] + sections[i + 1:]
 
 
-def select_context(bodies, stems, max_chars=MAX_CONTEXT):
-    """selectContext."""
+def context_parts(bodies, stems, max_chars=MAX_CONTEXT):
+    """selectContext sezione per sezione: (indice in [bodies], paragrafi entrati nel contesto)."""
     parts, remaining = [], max_chars
-    for body in bodies:
+    for i, body in enumerate(bodies):
         if remaining < MIN_SECTION_CHARS:
             break
         part = relevant_paragraphs(body, stems, remaining)
         if part.strip():
-            parts.append(part)
+            parts.append((i, part))
             remaining -= len(part) + 2
-    return "\n\n".join(parts)[:max_chars]
+    return parts
+
+
+def select_context(bodies, stems, max_chars=MAX_CONTEXT):
+    """selectContext."""
+    return "\n\n".join(part for _, part in context_parts(bodies, stems, max_chars))[:max_chars]
 
 
 # --- contesto dei modelli online (--online) ----------------------------------------------------------------------------
@@ -1216,14 +1221,18 @@ def context_row(top, stems, match):
     """Il contesto che l'app mette nel prompt (buildOnDeviceContext senza nota: selectContext dei corpi delle sezioni) e
     se la sezione attesa vi e' entrata: "section_in_context" se almeno un suo paragrafo e' nel contesto (selectContext
     puo' lasciarla fuori o tagliarla), "answer_in_context" se c'e' il suo paragrafo con piu' radici della domanda, che
-    resta in "answer_paragraph" (per spostarlo nel contesto con eval_gguf.py --answer-position)."""
+    resta in "answer_paragraph" (per spostarlo nel contesto con eval_gguf.py --answer-position). "parts" sono le sezioni
+    entrate nel contesto, nell'ordine, con i loro paragrafi: eval_gguf.py vi cerca la parte che la risposta usa."""
     context = select_context([s["body"] for s in top], stems)
     paragraphs = [p for s in match for p in s["body"].split("\n") if p.strip()]
     answer = answer_paragraph(match[0].get("section_body", match[0]["body"]), stems) if match else None
     in_context = bool(answer) and answer[:150] in context
+    parts = [{"title": top[i].get("title"), "category": top[i].get("category"), "city": top[i].get("city"),
+              "general_guide": bool(top[i].get("general_guide")), "expected": any(top[i] is m for m in match), "text": part}
+             for i, part in context_parts([s["body"] for s in top], stems)]
     return {"context": context, "found": bool(match),
             "section_in_context": any(p[:150] in context for p in paragraphs),
-            "answer_in_context": in_context, "answer_paragraph": answer if in_context else None}
+            "answer_in_context": in_context, "answer_paragraph": answer if in_context else None, "parts": parts}
 
 
 def write_contexts(path, rows, sample):

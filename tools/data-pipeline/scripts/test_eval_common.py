@@ -487,5 +487,39 @@ class JsonlResumeTest(unittest.TestCase):
             self.assertEqual(b'{"a": 1}\n', path.read_bytes())
 
 
+def used_row(search, got, refused=False, question="Serve il visto?", context=None):
+    parts = [{"general_guide": True, "expected": False, "text": "Documenti di viaggio: passaporto valido e assicurazione sanitaria."},
+             {"general_guide": False, "expected": True, "text": "Ingresso in Canada: visto elettronico obbligatorio."}]
+    return {"lang": "it", "series": "direct", "search": search, "region": "canada", "question": question, "got": got,
+            "refused": refused, "context": context or search, "parts": parts}
+
+
+class ContextUseTest(unittest.TestCase):
+    def test_parte_usata_se_almeno_il_30_per_cento_delle_parole_lunghe(self):
+        self.assertTrue(eval_common.uses_part("Serve il visto elettronico obbligatorio.", "visto elettronico obbligatorio"))
+        self.assertFalse(eval_common.uses_part("Serve il visto elettronico.", "elettronico"))  # una parola sola
+        self.assertFalse(eval_common.uses_part("Porta passaporto, assicurazione e ombrello pieghevole robusto colorato leggero.",
+                                               "passaporto assicurazione"))  # 2 su 7
+
+    def test_uso_per_ricerca_e_confronto_con_la_ricerca_di_riferimento(self):
+        rows = [used_row("attuale", "Porta passaporto valido e assicurazione sanitaria."),
+                used_row("attuale", "Il contesto non dice nulla.", refused=True, question="Serve il vaccino?"),
+                used_row("variante", "Serve il visto elettronico obbligatorio."),
+                used_row("variante", "Il visto elettronico obbligatorio.", question="Serve il vaccino?"),
+                used_row("altra", "Porta passaporto valido e assicurazione sanitaria.", context="attuale")]
+        use, first, paired = eval_common.context_use_report(rows)
+        self.assertEqual("attuale", first)
+        self.assertEqual((1, 0, 1), use[("it", "direct", "attuale")])  # il rifiuto non conta tra le risposte
+        self.assertEqual((2, 2, 0), use[("it", "direct", "variante")])
+        # domande, nuovi rifiuti, rifiuti tolti, ora usa l'attesa, non la usa piu'; "altra" ha lo stesso contesto
+        self.assertEqual({("it", "direct", "variante"): [2, 0, 1, 2, 0]}, paired)
+        self.assertEqual("variante", eval_common.context_use_report(rows, "variante")[1])
+
+    def test_righe_senza_parti_ignorate(self):
+        row = used_row("attuale", "x")
+        del row["parts"]
+        self.assertEqual(({}, None, {}), eval_common.context_use_report([row]))
+
+
 if __name__ == "__main__":
     unittest.main()

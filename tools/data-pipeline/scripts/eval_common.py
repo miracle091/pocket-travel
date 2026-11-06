@@ -160,6 +160,64 @@ def context_report(rows):
     return out
 
 
+def long_words(text):
+    return set(re.findall(r"\w{6,}", text.lower()))
+
+
+def uses_part(answer, text, share=0.3):
+    """La risposta usa una parte del contesto se almeno [share] delle sue parole di 6 o piu' lettere (e almeno 2) stanno
+    in quella parte. Misura lessicale: serve a confrontare due ricerche sulle stesse domande, non come valore assoluto."""
+    words = long_words(answer)
+    common = len(words & long_words(text))
+    return bool(words) and common >= 2 and common / len(words) >= share
+
+
+def context_use_report(rows, baseline=None):
+    """Righe di eval_gguf.py --contexts con "parts" (eval_retrieval.py --contexts) -> (per (lingua, serie, ricerca):
+    risposte non rifiutate, quante usano la sezione attesa, quante la pagina della guida generale; per ogni ricerca
+    diversa da [baseline] (di default la prima delle righe), sulle domande col contesto diverso da quello di [baseline]:
+    nuovi rifiuti, rifiuti tolti, ora usa la sezione attesa, non la usa piu')."""
+    use, by_question, first = {}, {}, baseline
+    for r in rows:
+        if "parts" not in r:
+            continue
+        first = first or r["search"]
+        answered = not r["refused"]
+        expected = answered and any(p["expected"] and uses_part(r["got"], p["text"]) for p in r["parts"])
+        general = answered and any(p["general_guide"] and uses_part(r["got"], p["text"]) for p in r["parts"])
+        n, n_expected, n_general = use.get((r["lang"], r["series"], r["search"]), (0, 0, 0))
+        use[(r["lang"], r["series"], r["search"])] = (n + answered, n_expected + expected, n_general + general)
+        key = (r["lang"], r["series"], r.get("region"), r["question"])
+        by_question.setdefault(key, {})[r["search"]] = (r["context"], r["refused"], expected)
+    paired = {}
+    for (lang, series, *_), by_search in by_question.items():
+        if first not in by_search:
+            continue
+        context, refused, expected = by_search[first]
+        for search, (other_context, other_refused, other_expected) in by_search.items():
+            if search == first or other_context == context:
+                continue
+            counts = paired.setdefault((lang, series, search), [0, 0, 0, 0, 0])
+            for i, flag in enumerate((True, other_refused and not refused, refused and not other_refused,
+                                      other_expected and not expected, expected and not other_expected)):
+                counts[i] += flag
+    return use, first, paired
+
+
+def print_context_use_report(rows, baseline=None):
+    use, first, paired = context_use_report(rows, baseline)
+    if not use:
+        return
+    print("lingua serie ricerca: risposte | usano la sezione attesa | usano la pagina della guida generale")
+    for (lang, series, search), (n, expected, general) in sorted(use.items()):
+        print(f"{lang} {series} {search}: {n} | {expected} | {general}")
+    if paired:
+        print(f"rispetto a {first}, sulle domande col contesto diverso: domande | nuovi rifiuti | rifiuti tolti | "
+              "ora usa la sezione attesa | non la usa piu'")
+        for (lang, series, search), counts in sorted(paired.items()):
+            print(f"{lang} {series} {search}: " + " | ".join(str(c) for c in counts))
+
+
 def read_jsonl_lenient(path):
     """Le righe JSON valide di un JSONL; una riga non valida (per esempio troncata in coda da un'interruzione) si ignora."""
     rows = []
