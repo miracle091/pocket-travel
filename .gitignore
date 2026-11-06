@@ -10,7 +10,7 @@ captures/
 .cxx/
 .cache/
 *.hprof
-/.kotlin/
+.kotlin/
 node_modules/
 .env*
 unsloth_compiled_cache/
