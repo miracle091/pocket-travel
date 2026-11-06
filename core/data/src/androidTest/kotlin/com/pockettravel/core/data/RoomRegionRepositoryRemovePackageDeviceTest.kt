@@ -10,6 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -67,6 +68,20 @@ class RoomRegionRepositoryRemovePackageDeviceTest {
         assertNotNull(installed)
         assertNull(installed?.mapVersion)
         assertEquals("2", installed?.routingVersion)
+    }
+
+    @Test
+    fun leCopieDelleCittaSiCancellanoConLeCitta() = runBlocking {
+        val regionDir = storage.directoryFor("italia")
+        File(regionDir, RegionStorage.MAP_FILE).apply { parentFile?.mkdirs() }.writeBytes(ByteArray(5))
+        val copies = File(regionDir, RegionStorage.CITIES_COPIES_DIR).apply { mkdirs() }
+        File(copies, "abc").writeBytes(ByteArray(40))
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.MAP to "1", PackageKind.CITIES to "1"), citiesSizeBytes = 300)
+
+        repository.removePackage("italia", PackageKind.CITIES)
+
+        assertFalse(copies.exists())
+        assertEquals(5L, repository.installed("italia")?.sizeBytes)
     }
 
     @Test

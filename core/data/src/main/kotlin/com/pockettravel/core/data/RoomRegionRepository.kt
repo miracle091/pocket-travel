@@ -76,7 +76,8 @@ class RoomRegionRepository @Inject constructor(
                     regionStorage.deletePackage(regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
                 }
                 PackageKind.TRANSIT -> check(regionStorage.deletePackage(regionId, RegionStorage.TRANSIT_DIR)) { "Impossibile eliminare gli orari dei mezzi di $regionId" }
-                PackageKind.POI, PackageKind.POI_EXTRA, PackageKind.CITIES -> Unit
+                PackageKind.CITIES -> regionStorage.deletePackage(regionId, RegionStorage.CITIES_COPIES_DIR)
+                PackageKind.POI, PackageKind.POI_EXTRA -> Unit
             }
             diskBytes(regionId)
         }
@@ -180,7 +181,7 @@ class RoomRegionRepository @Inject constructor(
         regionStorage.packageBytes(regionId, RegionStorage.MAP_FILE) + regionStorage.packageBytes(regionId, RegionStorage.ROUTING_DIR) +
             regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_FILE) + regionStorage.packageBytes(regionId, RegionStorage.PREVIEW_FILE) +
             regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_CELLS_FILE) + regionStorage.packageBytes(regionId, RegionStorage.TRANSIT_DIR) +
-            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
+            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_SEARCH_DIR) + regionStorage.packageBytes(regionId, RegionStorage.CITIES_COPIES_DIR)
 
     override suspend fun fillCountryCode(regionId: String, countryCode: String) = installedRegionDao.fillCountryCode(regionId, countryCode)
 
@@ -240,7 +241,7 @@ class RoomRegionRepository @Inject constructor(
             regionStorage.packageBytes(region.regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
         kind == PackageKind.TRANSIT -> regionStorage.packageBytes(region.regionId, RegionStorage.TRANSIT_DIR)
         kind == PackageKind.POI_EXTRA -> region.poiExtraSizeBytes
-        kind == PackageKind.CITIES -> region.citiesSizeBytes
+        kind == PackageKind.CITIES -> region.citiesSizeBytes?.plus(regionStorage.packageBytes(region.regionId, RegionStorage.CITIES_COPIES_DIR))
         else -> region.poiSizeBytes
     }
 

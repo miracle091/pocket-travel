@@ -227,7 +227,11 @@ class RegionStorage @Inject constructor(
         const val TRANSIT_DIR = "transit"
         // Nome, attribuzione e licenza di ogni rete di TRANSIT_DIR (vedi TransitFeedInfo), per il riquadro delle partenze.
         const val TRANSIT_FEEDS_FILE = "feeds.json"
-        private val PACKAGE_NAMES = setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE, PREVIEW_FILE, ADDRESSES_CELLS_FILE, ADDRESSES_SEARCH_DIR, TRANSIT_DIR)
+        // Copie compresse dei pacchetti delle citta' in ogni lingua (CityPackageCopies, core/sync): contano nella
+        // dimensione delle citta' e si cancellano con loro.
+        const val CITIES_COPIES_DIR = "cities-copies"
+        private val PACKAGE_NAMES =
+            setOf(MAP_FILE, ROUTING_DIR, ADDRESSES_FILE, PREVIEW_FILE, ADDRESSES_CELLS_FILE, ADDRESSES_SEARCH_DIR, TRANSIT_DIR, CITIES_COPIES_DIR)
         // Istanze di RegionStorage non condivise: due recuperi della stessa regione non si sovrappongono.
         private val RECOVERY_LOCK = Any()
         // Seconda riga di .pending quando l'attivazione non sostituisce nessun pacchetto.

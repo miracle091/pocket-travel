@@ -286,6 +286,19 @@ class RegionRepositoryTest {
     }
 
     @Test
+    fun `le copie delle citta' contano nella dimensione della regione e delle citta'`() = runBlocking {
+        val (repository, _) = newRepository()
+        val copies = File(regionStorage.directoryFor("italia"), RegionStorage.CITIES_COPIES_DIR).apply { mkdirs() }
+        File(copies, "abc").writeBytes(ByteArray(40))
+        regionStorage.directoryFor("italia").resolve(RegionStorage.MAP_FILE).writeBytes(ByteArray(5))
+
+        repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.MAP to "1", PackageKind.CITIES to "1"), citiesSizeBytes = 300)
+        val installed = checkNotNull(repository.installed("italia"))
+        assertEquals(345L, installed.sizeBytes)
+        assertEquals(340L, repository.packageBytes(installed, PackageKind.CITIES))
+    }
+
+    @Test
     fun `forgetMissingPackages non tocca una regione con tutti i file`() = runBlocking {
         val (repository, _) = newRepository()
         File(regionStorage.directoryFor("italia"), RegionStorage.MAP_FILE).apply { parentFile!!.mkdirs() }.writeBytes(ByteArray(10))
