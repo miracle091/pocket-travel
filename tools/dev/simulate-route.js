@@ -7,7 +7,7 @@
 // Navigatore, si sceglie la meta e si tocca "Avvia" (con il GPS dell'emulatore sulla partenza, per esempio
 // `adb emu geo fix 24.105 56.95`), cosi' il percorso e' nel log.
 //
-// Uso: node tools/dev/simulate-route.js [metri al secondo] [secondi massimi] [percorso di adb] [opzioni]
+// Uso: bun (o node) tools/dev/simulate-route.js [metri al secondo] [secondi massimi] [percorso di adb] [opzioni]
 //   metri al secondo  velocita' simulata, default 8 (a piedi ~1.4, in bici ~4.5, in auto in citta' ~12)
 //   secondi massimi   quante posizioni mandare al massimo, default tutto il percorso
 //   percorso di adb   default "adb" dal PATH
