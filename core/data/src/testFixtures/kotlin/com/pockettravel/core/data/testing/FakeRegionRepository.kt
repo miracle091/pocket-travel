@@ -21,6 +21,9 @@ class FakeRegionRepository(initial: List<InstalledRegion> = emptyList()) : Regio
     /** Dimensioni su disco dei pacchetti su file (mappa, rete stradale, civici, orari), per regione e tipo. */
     val packageSizes = mutableMapOf<Pair<String, PackageKind>, Long>()
 
+    /** Byte delle copie delle citta' per regione, che [regionBytes] aggiunge alla dimensione registrata. */
+    val cityCopiesBytes = mutableMapOf<String, Long>()
+
     /** Pacchetti registrati ma senza file su disco, per regione: li toglie [forgetMissingPackages]. */
     val missingPackages = mutableMapOf<String, Set<PackageKind>>()
     val addressCells = mutableMapOf<String, Map<String, String>>()
@@ -156,7 +159,7 @@ class FakeRegionRepository(initial: List<InstalledRegion> = emptyList()) : Regio
         installedRegions.update { list -> list.filterNot { it.regionId == regionId } }
     }
 
-    override fun regionBytes(region: InstalledRegion): Long = region.sizeBytes
+    override fun regionBytes(region: InstalledRegion): Long = region.sizeBytes + (cityCopiesBytes[region.regionId] ?: 0L)
 
     override fun packageBytes(region: InstalledRegion, kind: PackageKind): Long? = when {
         region.versionOf(kind) == null -> null

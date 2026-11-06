@@ -80,6 +80,17 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
     }
 
     @Test
+    fun `la dimensione della regione installata comprende le copie delle citta' sul disco`() = runTest {
+        repository.installedRegions.value = listOf(installed())
+        repository.cityCopiesBytes["italia"] = 40L
+        val viewModel = viewModel()
+
+        observe(viewModel)
+
+        assertEquals(140L, viewModel.items.single().sizeBytes)
+    }
+
+    @Test
     fun `se il catalogo ha un pacchetto piu' recente la regione e' da aggiornare e pesa solo il cambiato`() = runTest {
         repository.installedRegions.value = listOf(installed(poi = "p0"))
         val viewModel = viewModel()

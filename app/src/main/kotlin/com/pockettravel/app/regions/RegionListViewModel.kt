@@ -214,7 +214,9 @@ class RegionListViewModel @Inject constructor(
         // Con "Percorsi di navigazione" la dimensione di "Scarica" comprende la rete stradale.
         combine(regionRepository.observeInstalled(), usageModePreferences.wantsDirections, ::Pair),
         replacedRegions,
-    ) { (zonedRegions, currentLocale, fromSaved), (installed, wantsDirections), replacedByManifest ->
+    ) { (zonedRegions, currentLocale, fromSaved), (installedOnDb, wantsDirections), replacedByManifest ->
+        // Con le copie delle citta' lette dal disco, come in Spazio di archiviazione.
+        val installed = installedOnDb.map { it.copy(sizeBytes = regionRepository.regionBytes(it)) }
         val remoteRegions = zonedRegions.map { it.first }
         val installedByRegion = installed.associateBy { it.regionId }
         // Senza catalogo (offline, o non ancora letto) le nazioni installate restano apribili: i loro dati sono sul dispositivo.
@@ -237,7 +239,7 @@ class RegionListViewModel @Inject constructor(
         }
         RegionCatalog(items, replacedItems(installed, remoteRegions, replacedByManifest))
     }
-        // packageBytes legge le dimensioni di mappa e rete stradale dal disco.
+        // packageBytes e regionBytes leggono dal disco le dimensioni di mappa, rete stradale e copie delle citta'.
         .flowOn(ioDispatcher)
 
     // Parte vuoto: l'elenco non aspetta la prima risposta di WorkManager.
