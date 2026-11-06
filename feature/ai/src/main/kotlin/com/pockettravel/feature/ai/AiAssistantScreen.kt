@@ -1355,7 +1355,7 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
                 }
             }
         }
-        ProviderPrivacy(provider)
+        ProviderPrivacy(provider, uiState.onlineModels[provider])
         OnlineModelChoice(
             provider = provider,
             options = uiState.onlineModelOptions,
@@ -1421,18 +1421,29 @@ private fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
 }
 
 // Cosa fa delle domande il servizio scelto, con il collegamento ai suoi impegni sulla privacy; per Gemini anche
-// l'avviso sul piano a pagamento nell'UE (condizioni di Gemini per le app usate nello Spazio economico europeo).
+// l'avviso sul piano a pagamento nell'UE (condizioni di Gemini per le app usate nello Spazio economico europeo), per
+// OpenRouter come escludere i fornitori che conservano le domande. Con un modello di Anthropic o Google su DeepInfra
+// valgono le regole di quei servizi ([OnlineProvider.upstreamFor]), e il collegamento porta alle loro.
 @Composable
-private fun ProviderPrivacy(provider: OnlineProvider) {
+private fun ProviderPrivacy(provider: OnlineProvider, model: String?) {
     val uriHandler = LocalUriHandler.current
-    val text = when (provider.terms.privacy) {
-        OnlinePrivacy.NOT_KEPT -> R.string.ai_privacy_not_kept
-        OnlinePrivacy.KEPT_30_DAYS -> R.string.ai_privacy_kept_30_days
-        OnlinePrivacy.FREE_PLAN_TRAINING -> R.string.ai_privacy_free_plan_training
+    val upstream = provider.upstreamFor(model)
+    val text = when {
+        upstream != null -> stringResource(R.string.ai_privacy_upstream, if (upstream == OnlineProvider.CLAUDE) "Anthropic" else "Google")
+        else -> when (provider.terms.privacy) {
+            OnlinePrivacy.NOT_KEPT -> stringResource(R.string.ai_privacy_not_kept, provider.displayName)
+            OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS -> pluralStringResource(
+                R.plurals.ai_privacy_kept,
+                provider.terms.retentionDays,
+                provider.displayName,
+                provider.terms.retentionDays,
+            )
+            OnlinePrivacy.FREE_PLAN_TRAINING -> stringResource(R.string.ai_privacy_free_plan_training, provider.displayName)
+        }
     }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         Text(
-            stringResource(text, provider.displayName),
+            text,
             style = MaterialTheme.typography.bodyMedium,
             color = if (provider.terms.privacy == OnlinePrivacy.FREE_PLAN_TRAINING) {
                 MaterialTheme.colorScheme.error
@@ -1447,7 +1458,19 @@ private fun ProviderPrivacy(provider: OnlineProvider) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        TextButton(onClick = { uriHandler.openUri(provider.terms.privacyUrl) }) {
+        if (provider == OnlineProvider.OPENROUTER) {
+            Text(
+                stringResource(R.string.ai_privacy_openrouter_zdr_only),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(onClick = { uriHandler.openUri(OPENROUTER_PRIVACY_SETTINGS_URL) }) {
+                Text(stringResource(R.string.ai_privacy_openrouter_settings))
+                Spacer(modifier = Modifier.width(Spacing.s))
+                Icon(AppIcons.OpenExternal, contentDescription = null, modifier = Modifier.size(18.dp))
+            }
+        }
+        TextButton(onClick = { uriHandler.openUri((upstream ?: provider).terms.privacyUrl) }) {
             Text(stringResource(R.string.ai_privacy_commitments))
             Spacer(modifier = Modifier.width(Spacing.s))
             Icon(AppIcons.OpenExternal, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -1455,9 +1478,11 @@ private fun ProviderPrivacy(provider: OnlineProvider) {
     }
 }
 
+private const val OPENROUTER_PRIVACY_SETTINGS_URL = "https://openrouter.ai/settings/privacy"
+
 private fun privacyGroupTitle(privacy: OnlinePrivacy): Int = when (privacy) {
     OnlinePrivacy.NOT_KEPT -> R.string.ai_privacy_group_not_kept
-    OnlinePrivacy.KEPT_30_DAYS -> R.string.ai_privacy_group_kept_30_days
+    OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS -> R.string.ai_privacy_group_kept
     OnlinePrivacy.FREE_PLAN_TRAINING -> R.string.ai_privacy_group_free_plan_training
 }
 

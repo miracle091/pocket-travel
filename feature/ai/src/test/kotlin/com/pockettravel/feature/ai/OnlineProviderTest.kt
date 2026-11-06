@@ -57,6 +57,31 @@ class OnlineProviderTest {
     }
 
     @Test
+    fun `services that keep questions say for how many days, Gemini 55`() {
+        val kept = OnlineProvider.entries.filter { it.terms.privacy == OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS }
+        assertEquals(
+            mapOf(
+                OnlineProvider.CHATGPT to 30,
+                OnlineProvider.GEMINI to 55,
+                OnlineProvider.CLAUDE to 30,
+                OnlineProvider.GROQ to 30,
+                OnlineProvider.ALIBABA to 30,
+            ),
+            kept.associateWith { it.terms.retentionDays },
+        )
+    }
+
+    @Test
+    fun `DeepInfra passes Claude and Gemini models to Anthropic and Google, open models stay with it`() {
+        assertEquals(OnlineProvider.CLAUDE, OnlineProvider.DEEPINFRA.upstreamFor("anthropic/claude-sonnet-5"))
+        assertEquals(OnlineProvider.GEMINI, OnlineProvider.DEEPINFRA.upstreamFor("google/gemini-3.5-flash"))
+        assertNull(OnlineProvider.DEEPINFRA.upstreamFor("google/gemma-4-31B-it"))
+        assertNull(OnlineProvider.DEEPINFRA.upstreamFor("zai-org/GLM-5.3"))
+        assertNull(OnlineProvider.DEEPINFRA.upstreamFor(null))
+        assertNull(OnlineProvider.OPENROUTER.upstreamFor("anthropic/claude-sonnet-5"))
+    }
+
+    @Test
     fun `OpenRouter asks for zero data retention, the other services send no routing`() {
         val server = MockWebServer()
         server.start()

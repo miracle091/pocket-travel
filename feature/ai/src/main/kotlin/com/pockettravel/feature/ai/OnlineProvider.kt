@@ -22,7 +22,7 @@ enum class OnlineProvider(
         "https://platform.openai.com/api-keys",
         "sk-",
         "https://platform.openai.com/docs/models",
-        OnlineTerms(OnlinePrivacy.KEPT_30_DAYS, "https://developers.openai.com/api/docs/guides/your-data"),
+        OnlineTerms(OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS, "https://developers.openai.com/api/docs/guides/your-data"),
     ),
     MISTRAL(
         "Mistral AI",
@@ -38,7 +38,7 @@ enum class OnlineProvider(
         "https://aistudio.google.com/apikey",
         "AIza",
         "https://ai.google.dev/gemini-api/docs/models",
-        OnlineTerms(OnlinePrivacy.KEPT_30_DAYS, "https://ai.google.dev/gemini-api/terms"),
+        OnlineTerms(OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS, "https://aistudio.google.com/docs/terms", retentionDays = 55),
     ),
     CLAUDE(
         "Claude (Anthropic)",
@@ -46,7 +46,7 @@ enum class OnlineProvider(
         "https://console.anthropic.com/settings/keys",
         "sk-ant-",
         "https://docs.anthropic.com/en/docs/about-claude/models",
-        OnlineTerms(OnlinePrivacy.KEPT_30_DAYS, "https://privacy.claude.com/en/articles/7996866", api = OnlineApi.ANTHROPIC_MESSAGES),
+        OnlineTerms(OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS, "https://privacy.claude.com/en/articles/7996866", api = OnlineApi.ANTHROPIC_MESSAGES),
     ),
     REGOLO(
         "Regolo.ai",
@@ -94,7 +94,7 @@ enum class OnlineProvider(
         "https://console.groq.com/keys",
         "gsk_",
         "https://console.groq.com/docs/models",
-        OnlineTerms(OnlinePrivacy.KEPT_30_DAYS, "https://console.groq.com/docs/your-data"),
+        OnlineTerms(OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS, "https://console.groq.com/docs/your-data"),
     ),
     OPENROUTER(
         "OpenRouter",
@@ -118,7 +118,7 @@ enum class OnlineProvider(
         "https://modelstudio.console.alibabacloud.com/eu-central-1?tab=dashboard#/api-key",
         "sk-",
         "https://www.alibabacloud.com/help/en/model-studio/models",
-        OnlineTerms(OnlinePrivacy.KEPT_30_DAYS, "https://www.alibabacloud.com/help/en/model-studio/privacy-notice", idField = OnlineIdField.WORKSPACE_ID),
+        OnlineTerms(OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS, "https://www.alibabacloud.com/help/en/model-studio/data-retention-policy", idField = OnlineIdField.WORKSPACE_ID),
     ),
     CLOUDFLARE(
         "Cloudflare Workers AI",
@@ -153,6 +153,17 @@ enum class OnlineProvider(
         id != null && isValidAccountId(id) -> baseUrl.replace("{id}", id.trim())
         else -> null
     }
+
+    /**
+     * Il servizio a cui DeepInfra passa le domande per [model]: per i modelli di Anthropic e Google (non Gemma, che
+     * DeepInfra esegue da sé) valgono conservazione e addestramento di quei servizi, non i suoi. Null negli altri casi.
+     */
+    fun upstreamFor(model: String?): OnlineProvider? = when {
+        this != DEEPINFRA || model == null -> null
+        model.startsWith("anthropic/") -> CLAUDE
+        model.startsWith("google/") && !model.startsWith("google/gemma") -> GEMINI
+        else -> null
+    }
 }
 
 internal fun isValidAccountId(id: String): Boolean = ACCOUNT_ID.matches(id.trim())
@@ -163,7 +174,10 @@ private val ACCOUNT_ID = Regex("[A-Za-z0-9-]{1,64}")
  * Condizioni di un servizio. [privacy]: cosa fa delle domande, per il gruppo nella scelta del servizio; [privacyUrl]:
  * la sua pagina con gli impegni sulla privacy. [idField]: il dato dell'account che va nell'indirizzo, null se non
  * serve. [zeroDataRetention]: OpenRouter manda la domanda solo ai fornitori che non la conservano
- * (`provider.zdr` in ogni richiesta). [hasModelList]: false se il servizio non ha `GET /models` (Cloudflare).
+ * (`provider.zdr` in ogni richiesta); con le impostazioni normali di un account self-serve ammette anche quelli che la
+ * conservano solo contro gli abusi ("Safety Retention"), esclusi solo con «ZDR only» nell'account. [hasModelList]:
+ * false se il servizio non ha `GET /models` (Cloudflare). [retentionDays]: per quanti giorni il servizio conserva le
+ * domande, solo per [OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS].
  */
 data class OnlineTerms(
     val privacy: OnlinePrivacy,
@@ -172,13 +186,15 @@ data class OnlineTerms(
     val idField: OnlineIdField? = null,
     val zeroDataRetention: Boolean = false,
     val hasModelList: Boolean = true,
+    val retentionDays: Int = 30,
 )
 
 /**
  * Cosa fa il servizio delle domande con le impostazioni normali, secondo le sue condizioni: non le conserva, le
- * conserva fino a 30 giorni per i controlli contro gli abusi, o nel piano gratuito le usa per addestrare i modelli.
+ * conserva per qualche settimana per i controlli contro gli abusi ([OnlineTerms.retentionDays]), o nel piano gratuito
+ * le usa per addestrare i modelli.
  */
-enum class OnlinePrivacy { NOT_KEPT, KEPT_30_DAYS, FREE_PLAN_TRAINING }
+enum class OnlinePrivacy { NOT_KEPT, KEPT_FOR_ABUSE_CHECKS, FREE_PLAN_TRAINING }
 
 /** Dato dell'account che il servizio vuole nell'indirizzo, oltre alla chiave. */
 enum class OnlineIdField { ACCOUNT_ID, PRODUCT_ID, WORKSPACE_ID }

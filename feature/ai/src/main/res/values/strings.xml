@@ -99,10 +99,17 @@
     <string name="ai_provider_get_key">Crea la chiave su %1$s</string>
     <string name="ai_api_key_placeholder">Inizia con %1$s…</string>
     <string name="ai_privacy_group_not_kept">Domande non conservate</string>
-    <string name="ai_privacy_group_kept_30_days">Domande conservate fino a 30 giorni</string>
+    <string name="ai_privacy_group_kept">Domande conservate contro gli abusi</string>
     <string name="ai_privacy_group_free_plan_training">Addestramento nel piano gratuito</string>
     <string name="ai_privacy_not_kept">%1$s non conserva le domande e non le usa per addestrare i modelli</string>
-    <string name="ai_privacy_kept_30_days">%1$s conserva le domande fino a 30 giorni per i controlli contro gli abusi e non le usa per addestrare i modelli</string>
+    <plurals name="ai_privacy_kept">
+        <item quantity="one">%1$s conserva le domande fino a %2$d giorno per i controlli contro gli abusi e non le usa per addestrare i modelli</item>
+        <item quantity="many">%1$s conserva le domande fino a %2$d giorni per i controlli contro gli abusi e non le usa per addestrare i modelli</item>
+        <item quantity="other">%1$s conserva le domande fino a %2$d giorni per i controlli contro gli abusi e non le usa per addestrare i modelli</item>
+    </plurals>
+    <string name="ai_privacy_openrouter_zdr_only">Con le impostazioni normali dell\'account le domande possono andare anche a fornitori che le conservano per i controlli contro gli abusi. Per escluderli si sceglie «ZDR only» nelle impostazioni sulla privacy di OpenRouter</string>
+    <string name="ai_privacy_openrouter_settings">Impostazioni sulla privacy di OpenRouter</string>
+    <string name="ai_privacy_upstream">Con questo modello DeepInfra inoltra le domande al servizio di %1$s: conservazione e addestramento seguono le sue regole</string>
     <string name="ai_privacy_free_plan_training">Nel piano gratuito %1$s usa le domande per addestrare i modelli, salvo disattivazione nelle impostazioni sulla privacy dell\'account</string>
     <string name="ai_privacy_gemini_paid_eu">Nell\'Unione europea serve una chiave del piano a pagamento</string>
     <string name="ai_privacy_commitments">Impegni sulla privacy</string>

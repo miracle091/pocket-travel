@@ -99,10 +99,16 @@
     <string name="ai_provider_get_key">Create the key on %1$s</string>
     <string name="ai_api_key_placeholder">Starts with %1$s…</string>
     <string name="ai_privacy_group_not_kept">Questions not kept</string>
-    <string name="ai_privacy_group_kept_30_days">Questions kept up to 30 days</string>
+    <string name="ai_privacy_group_kept">Questions kept for abuse checks</string>
     <string name="ai_privacy_group_free_plan_training">Training on the free plan</string>
     <string name="ai_privacy_not_kept">%1$s does not keep questions and does not use them to train models</string>
-    <string name="ai_privacy_kept_30_days">%1$s keeps questions for up to 30 days for abuse checks and does not use them to train models</string>
+    <plurals name="ai_privacy_kept">
+        <item quantity="one">%1$s keeps questions for up to %2$d day for abuse checks and does not use them to train models</item>
+        <item quantity="other">%1$s keeps questions for up to %2$d days for abuse checks and does not use them to train models</item>
+    </plurals>
+    <string name="ai_privacy_openrouter_zdr_only">With the default account settings, questions can also go to providers that keep them for abuse checks. To exclude them, choose \"ZDR only\" in the OpenRouter privacy settings</string>
+    <string name="ai_privacy_openrouter_settings">OpenRouter privacy settings</string>
+    <string name="ai_privacy_upstream">With this model DeepInfra forwards questions to the %1$s service: retention and training follow its rules</string>
     <string name="ai_privacy_free_plan_training">On the free plan %1$s uses questions to train models, unless turned off in the account privacy settings</string>
     <string name="ai_privacy_gemini_paid_eu">In the European Union a paid plan key is required</string>
     <string name="ai_privacy_commitments">Privacy commitments</string>
