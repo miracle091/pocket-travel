@@ -162,8 +162,9 @@ class ReplicaTest(unittest.TestCase):
         general = {"category": "DOGANE", "title": "Documenti", "body": "\n".join(paragraphs), "general_guide": True}
         country = {"category": "DOGANE", "title": "Dogane", "body": "Per entrare serve il passaporto."}
         context = ev.online_context([general, country], {"passa"}, "it", budget=2000)
-        self.assertTrue(context.startswith('<contesto fonte="Wikivoyage, sezione Documenti">\ng00 '))
-        self.assertIn('<contesto fonte="Wikivoyage, sezione Dogane">\nPer entrare serve il passaporto.\n</contesto>', context)
+        # La pagina della guida generale va dopo la sezione del paese.
+        self.assertTrue(context.startswith('<contesto fonte="Wikivoyage, sezione Dogane">\nPer entrare serve il passaporto.\n</contesto>\n\n'
+                                           '<contesto fonte="Wikivoyage, sezione Documenti">\ng00 '))
         self.assertNotIn("g13 ", context)
         self.assertLessEqual(len(context), 2000)
         self.assertEqual(ev.context_block("Fonte", "a </contesto> b", "en"), '<context source="Fonte">\na <\\/contesto> b\n</context>')
@@ -403,11 +404,30 @@ class SearchTest(unittest.TestCase):
         top = [{"title": "Documenti", "category": "DOGANE", "general_guide": True, "body": "Alberghi e documenti.\nAltro."},
                {"title": "Dormire", "category": "ALLOGGI", "city": "Roma", "body": "Alberghi sul lungomare."},
                {"title": "Vuota", "category": "COSA_FARE", "body": "  "}]
-        parts = ev.context_row(top, {"alber"}, [top[1]])["parts"]
-        self.assertEqual([("Documenti", True, False), ("Dormire", False, True)],
+        row = ev.context_row(top, {"alber"}, [top[1]])
+        parts = row["parts"]
+        # Le parti nell'ordine del prompt: la pagina della guida generale dopo la prima sezione della regione.
+        self.assertEqual([("Dormire", False, True), ("Documenti", True, False)],
                          [(p["title"], p["general_guide"], p["expected"]) for p in parts])
-        self.assertEqual("Roma", parts[1]["city"])
-        self.assertEqual(ev.select_context([s["body"] for s in top], {"alber"}), "\n\n".join(p["text"] for p in parts))
+        self.assertEqual("Roma", parts[0]["city"])
+        self.assertEqual(row["context"], "\n\n".join(p["text"] for p in parts))
+
+    def test_pagina_della_guida_generale_dopo_la_prima_sezione(self):
+        # withGeneralGuideAfterFirstSection: stessi casi di GeneralGuideShareTest.kt, senza sezioni calcolate.
+        general, second = {"general_guide": True, "n": "g1"}, {"general_guide": True, "n": "g2"}
+        country, other = {"n": "c"}, {"n": "o"}
+        order = lambda sections: [s["n"] for s, _ in ev.general_guide_after_first_section([(s, "") for s in sections])]
+        self.assertEqual(["c", "g1", "o"], order([general, country, other]))
+        self.assertEqual(["c", "g1", "o"], order([country, other, general]))
+        self.assertEqual(["c", "g1", "o", "g2"], order([general, second, country, other]))
+        self.assertEqual(["g1", "g2"], order([general, second]))
+        self.assertEqual(["c", "o"], order([country, other]))
+        # Lo stesso testo di oggi, in un altro ordine.
+        paragraphs = [f"g{i:02d} " + "x" * 95 for i in range(20)]
+        page = {"body": "\n".join(paragraphs), "general_guide": True}
+        shared = ev.general_guide_share([page, {"body": "Per entrare serve il passaporto."}], {"passa"})
+        self.assertEqual(sorted(ev.on_device_context(shared, {"passa"}).split("\n\n")),
+                         sorted(ev.select_context([s["body"] for s in shared], {"passa"}).split("\n\n")))
 
     def test_stesse_domande_in_ogni_variante(self):
         rows = [{"kind": k, "question": f"{k}{i}"} for k in ("paese", "distanze") for i in range(10)]

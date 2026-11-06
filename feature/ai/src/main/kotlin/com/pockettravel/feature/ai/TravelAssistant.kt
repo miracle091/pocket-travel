@@ -737,6 +737,8 @@ internal data class AssistantSection(
     val citation: String,
     // Sezione della guida generale: non riguarda il paese, quindi non accende il banner delle fonti ufficiali.
     val fromGeneralGuide: Boolean = false,
+    // Sezione trovata dalla ricerca nelle guide; false per quelle calcolate dall'app (previsioni, allerte, distanze, POI...).
+    val fromSearch: Boolean = false,
 )
 
 /**
@@ -755,6 +757,7 @@ private fun GuideSection.toAssistantSection(language: String) = AssistantSection
     category = category,
     citation = citation(language),
     fromGeneralGuide = regionId == GENERAL_GUIDE_REGION_ID,
+    fromSearch = true,
 )
 
 /** La fonte sotto la risposta per questa sezione; resolveGuideCitation la ricostruisce per risalire alla sezione da una fonte salvata. */
@@ -769,7 +772,8 @@ internal fun GuideSection.citation(language: String): String {
     return if (language == "en") "Source: $site, section $title — $url" else "Fonte: $site, sezione $title — $url"
 }
 
-private fun CitySection.toAssistantSection(language: String) = AssistantSection(body = body, category = category, citation = citation(language))
+private fun CitySection.toAssistantSection(language: String) =
+    AssistantSection(body = body, category = category, citation = citation(language), fromSearch = true)
 
 // Storia e Clima delle citta' vengono dalla voce di Wikipedia, il resto da Wikivoyage: il sito si legge dal link.
 internal fun CitySection.citation(language: String): String {
@@ -794,8 +798,9 @@ internal fun CitySection.citation(language: String): String {
  * Con [comparePhrases] il confronto con la guida generale conta solo le prime frasi della query: le parole della categoria
  * scelta dal modello (modelQuestionCategory), in fondo, scelgono le sezioni della regione ma non decidono se la guida
  * generale va in testa (alzerebbero la regione: "Where should I keep my wallet on crowded buses?" scelta "transport").
- * La ricerca (con buildFtsQuery, namedCities, focusStems, withGeneralGuideShare e selectContext) e' replicata in
- * tools/data-pipeline/scripts/eval_retrieval.py, che la misura su dati pubblicati: va cambiata insieme.
+ * La ricerca (con buildFtsQuery, namedCities, focusStems, withGeneralGuideShare, selectContext e
+ * withGeneralGuideAfterFirstSection) e' replicata in tools/data-pipeline/scripts/eval_retrieval.py, che la misura su dati
+ * pubblicati: va cambiata insieme.
  */
 internal fun rankSections(
     guideMatches: List<Pair<GuideSection, FtsMatchInfo>>,
@@ -1111,7 +1116,9 @@ internal fun buildOnDeviceContext(
     val label = if (language == "en") "Personal note" else "Nota personale"
     val noteText = note?.let { truncateContext("$label: ${it.title}\n${it.body}", NOTE_MAX_CHARS) }
     val sectionsBudget = (maxChars - (noteText?.let { it.length + 2 } ?: 0)).coerceAtLeast(0)
-    val sectionsText = selectContext(withGeneralGuideShare(sections, focusStems, sectionsBudget).map { it.body }, focusStems, sectionsBudget)
+    val shared = withGeneralGuideShare(sections, focusStems, sectionsBudget)
+    val parts = contextParts(shared.map { it.body }, focusStems, sectionsBudget).map { (index, part) -> shared[index] to part }
+    val sectionsText = truncateContext(withGeneralGuideAfterFirstSection(parts).joinToString("\n\n") { it.second }, sectionsBudget)
     return listOfNotNull(sectionsText.takeIf { it.isNotBlank() }, noteText).joinToString("\n\n")
 }
 
@@ -1137,8 +1144,7 @@ internal fun buildOnlineContext(
         OnlinePromptTemplates.contextBlock(label, truncateContext("${it.title}\n${it.body}", NOTE_MAX_CHARS), language)
     }
     var remaining = maxChars - (noteBlock?.let { it.length + 2 } ?: 0)
-    val blocks = mutableListOf<String>()
-    val cited = mutableListOf<AssistantSection>()
+    val blocks = mutableListOf<Pair<AssistantSection, String>>()
     for (section in withGeneralGuideShare(sections, focusStems, remaining)) {
         val source = OnlinePromptTemplates.sourceOf(section.citation)
         val budget = remaining - OnlinePromptTemplates.contextBlock(source, "", language).length
@@ -1146,12 +1152,13 @@ internal fun buildOnlineContext(
         val part = relevantParagraphs(section.body, focusStems, budget)
         if (part.isNotBlank()) {
             val block = OnlinePromptTemplates.contextBlock(source, part, language)
-            blocks += block
-            cited += section
+            blocks += section to block
             remaining -= block.length + 2
         }
     }
-    return OnlineContext((blocks + listOfNotNull(noteBlock)).joinToString("\n\n"), cited.map { it.citation })
+    // Le fonti restano nell'ordine della ricerca, come nel motore sul dispositivo (citedSections).
+    val text = (withGeneralGuideAfterFirstSection(blocks).map { it.second } + listOfNotNull(noteBlock)).joinToString("\n\n")
+    return OnlineContext(text, blocks.map { it.first.citation })
 }
 
 // Sotto questo spazio residuo una sezione in piu' sarebbe solo un frammento.
@@ -1177,21 +1184,40 @@ internal fun withGeneralGuideShare(sections: List<AssistantSection>, focusStems:
 }
 
 /**
+ * [parts] (sezione e testo entrato nel contesto, nell'ordine in cui si e' riempito lo spazio) con la prima pagina della
+ * guida generale subito dopo la prima sezione della ricerca che non e' della guida generale, e le altre pagine della guida
+ * generale dopo le sezioni della ricerca; le sezioni calcolate restano in testa. Lo spazio e i paragrafi restano quelli
+ * scelti prima: cambia solo l'ordine. In testa, la pagina lunga fa rispondere il modello solo con lei anche quando la
+ * risposta era nella sezione del paese: misurato col modello 2B, a parita' di rifiuti, la sezione del paese usata in 16
+ * risposte su 33 invece di 9 nelle domande di controllo italiane.
+ */
+internal fun <T> withGeneralGuideAfterFirstSection(parts: List<Pair<AssistantSection, T>>): List<Pair<AssistantSection, T>> {
+    val (searched, computed) = parts.partition { it.first.fromSearch }
+    val (general, others) = searched.partition { it.first.fromGeneralGuide }
+    if (general.isEmpty() || others.isEmpty()) return parts
+    return computed + others.first() + general.first() + others.drop(1) + general.drop(1)
+}
+
+/**
  * Le sezioni [bodies], in ordine di rilevanza, unite da riga vuota entro [maxChars]: ognuna prende dallo spazio
  * rimasto quello che le serve, intera se ci sta, altrimenti i paragrafi con piu' radici [focusStems] (relevantParagraphs).
  */
-internal fun selectContext(bodies: List<String>, focusStems: Set<String>, maxChars: Int): String {
-    val parts = mutableListOf<String>()
+internal fun selectContext(bodies: List<String>, focusStems: Set<String>, maxChars: Int): String =
+    truncateContext(contextParts(bodies, focusStems, maxChars).joinToString("\n\n") { it.second }, maxChars)
+
+/** [selectContext] sezione per sezione: (indice in [bodies], testo entrato nel contesto). */
+internal fun contextParts(bodies: List<String>, focusStems: Set<String>, maxChars: Int): List<Pair<Int, String>> {
+    val parts = mutableListOf<Pair<Int, String>>()
     var remaining = maxChars
-    for (body in bodies) {
+    for ((index, body) in bodies.withIndex()) {
         if (remaining < MIN_SECTION_CHARS) break
         val part = relevantParagraphs(body, focusStems, remaining)
         if (part.isNotBlank()) {
-            parts += part
+            parts += index to part
             remaining -= part.length + 2
         }
     }
-    return truncateContext(parts.joinToString("\n\n"), maxChars)
+    return parts
 }
 
 /**

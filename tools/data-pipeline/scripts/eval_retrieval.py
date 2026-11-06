@@ -767,6 +767,28 @@ def select_context(bodies, stems, max_chars=MAX_CONTEXT):
     return "\n\n".join(part for _, part in context_parts(bodies, stems, max_chars))[:max_chars]
 
 
+def general_guide_after_first_section(parts):
+    """withGeneralGuideAfterFirstSection: [parts] (sezione, testo entrato nel contesto) con la prima pagina della guida
+    generale subito dopo la prima sezione che non e' della guida generale, e le altre pagine della guida generale in
+    fondo. Qui tutte le sezioni vengono dalla ricerca: nell'app le sezioni calcolate restano in testa."""
+    general = [p for p in parts if p[0].get("general_guide")]
+    others = [p for p in parts if not p[0].get("general_guide")]
+    if not general or not others:
+        return parts
+    return [others[0], general[0]] + others[1:] + general[1:]
+
+
+def on_device_parts(sections, stems, max_chars=MAX_CONTEXT):
+    """Le parti del contesto sul dispositivo (buildOnDeviceContext senza nota) nell'ordine del prompt: (sezione, testo)."""
+    parts = [(sections[i], part) for i, part in context_parts([s["body"] for s in sections], stems, max_chars)]
+    return general_guide_after_first_section(parts)
+
+
+def on_device_context(sections, stems, max_chars=MAX_CONTEXT):
+    """buildOnDeviceContext senza nota."""
+    return "\n\n".join(part for _, part in on_device_parts(sections, stems, max_chars))[:max_chars]
+
+
 # --- contesto dei modelli online (--online) ----------------------------------------------------------------------------
 ONLINE = {"on": False}
 ONLINE_MAX_CHARS = 8000          # TravelAssistant.ONLINE_MAX_CHARS
@@ -794,7 +816,8 @@ def online_source(section, lang):
 
 def online_context(sections, stems, lang, budget=ONLINE_MAX_CHARS):
     """buildOnlineContext senza nota: un blocco per sezione (context_block) entro [budget], marcatori compresi; la prima
-    pagina della guida generale ha la sua quota (general_guide_share) dello spazio di tutte le sezioni."""
+    pagina della guida generale ha la sua quota (general_guide_share) dello spazio di tutte le sezioni e va dopo la prima
+    sezione che non e' della guida generale (general_guide_after_first_section)."""
     blocks, remaining = [], budget
     for section in general_guide_share(sections, stems, remaining):
         source = online_source(section, lang)
@@ -804,14 +827,14 @@ def online_context(sections, stems, lang, budget=ONLINE_MAX_CHARS):
         part = relevant_paragraphs(section["body"], stems, room)
         if part.strip():
             block = context_block(source, part, lang)
-            blocks.append(block)
+            blocks.append((section, block))
             remaining -= len(block) + 2
-    return "\n\n".join(blocks)
+    return "\n\n".join(block for _, block in general_guide_after_first_section(blocks))
 
 
 def context_text(sections, stems, lang):
     """Il contesto in cui si cerca la risposta attesa: quello online con --online, altrimenti quello sul dispositivo."""
-    return online_context(sections, stems, lang) if ONLINE["on"] else select_context([s["body"] for s in sections], stems)
+    return online_context(sections, stems, lang) if ONLINE["on"] else on_device_context(sections, stems)
 
 
 # --- database come sul dispositivo -----------------------------------------------------------------------------------
@@ -1218,18 +1241,19 @@ def answer_paragraph(body, stems):
 
 
 def context_row(top, stems, match):
-    """Il contesto che l'app mette nel prompt (buildOnDeviceContext senza nota: selectContext dei corpi delle sezioni) e
+    """Il contesto che l'app mette nel prompt (buildOnDeviceContext senza nota, on_device_parts) e
     se la sezione attesa vi e' entrata: "section_in_context" se almeno un suo paragrafo e' nel contesto (selectContext
     puo' lasciarla fuori o tagliarla), "answer_in_context" se c'e' il suo paragrafo con piu' radici della domanda, che
     resta in "answer_paragraph" (per spostarlo nel contesto con eval_gguf.py --answer-position). "parts" sono le sezioni
     entrate nel contesto, nell'ordine, con i loro paragrafi: eval_gguf.py vi cerca la parte che la risposta usa."""
-    context = select_context([s["body"] for s in top], stems)
+    ordered = on_device_parts(top, stems)
+    context = "\n\n".join(part for _, part in ordered)[:MAX_CONTEXT]
     paragraphs = [p for s in match for p in s["body"].split("\n") if p.strip()]
     answer = answer_paragraph(match[0].get("section_body", match[0]["body"]), stems) if match else None
     in_context = bool(answer) and answer[:150] in context
-    parts = [{"title": top[i].get("title"), "category": top[i].get("category"), "city": top[i].get("city"),
-              "general_guide": bool(top[i].get("general_guide")), "expected": any(top[i] is m for m in match), "text": part}
-             for i, part in context_parts([s["body"] for s in top], stems)]
+    parts = [{"title": s.get("title"), "category": s.get("category"), "city": s.get("city"),
+              "general_guide": bool(s.get("general_guide")), "expected": any(s is m for m in match), "text": part}
+             for s, part in ordered]
     return {"context": context, "found": bool(match),
             "section_in_context": any(p[:150] in context for p in paragraphs),
             "answer_in_context": in_context, "answer_paragraph": answer if in_context else None, "parts": parts}
