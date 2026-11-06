@@ -96,28 +96,29 @@ class StorageViewModel @Inject constructor(
         availableBytes,
         message,
     ) { (regions, catalog), guides, model, available, currentMessage ->
+        val installedRegions = regions.map { region ->
+            val packages = PackageKind.entries
+                .filter { region.versionOf(it) != null }
+                .map { StoragePackageItem(it, regionRepository.packageBytes(region, it)) }
+            StorageRegionItem(
+                region.regionId,
+                installedRegionName(region.displayName, region.countryCode, catalog[region.regionId], Locale.getDefault()),
+                region.countryCode,
+                regionRepository.regionBytes(region),
+                packages,
+            )
+        }
         StorageUiState(
             guides = guides,
-            installedRegions = regions.map { region ->
-                val packages = PackageKind.entries
-                    .filter { region.versionOf(it) != null }
-                    .map { StoragePackageItem(it, regionRepository.packageBytes(region, it)) }
-                StorageRegionItem(
-                    region.regionId,
-                    installedRegionName(region.displayName, region.countryCode, catalog[region.regionId], Locale.getDefault()),
-                    region.countryCode,
-                    region.sizeBytes,
-                    packages,
-                )
-            },
-            regionsSizeBytes = regions.sumOf { it.sizeBytes } + (guides?.sizeBytes ?: 0L),
+            installedRegions = installedRegions,
+            regionsSizeBytes = installedRegions.sumOf { it.sizeBytes } + (guides?.sizeBytes ?: 0L),
             isModelDownloaded = model.isDownloaded,
             modelSizeBytes = model.sizeBytes,
             availableBytes = available,
             message = currentMessage,
         )
     }
-        // packageBytes legge le dimensioni di mappa e rete stradale dal disco.
+        // packageBytes e regionBytes leggono dal disco le dimensioni di mappa, rete stradale e copie delle citta'.
         .flowOn(ioDispatcher)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
 

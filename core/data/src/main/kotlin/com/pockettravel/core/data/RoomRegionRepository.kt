@@ -181,7 +181,7 @@ class RoomRegionRepository @Inject constructor(
         regionStorage.packageBytes(regionId, RegionStorage.MAP_FILE) + regionStorage.packageBytes(regionId, RegionStorage.ROUTING_DIR) +
             regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_FILE) + regionStorage.packageBytes(regionId, RegionStorage.PREVIEW_FILE) +
             regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_CELLS_FILE) + regionStorage.packageBytes(regionId, RegionStorage.TRANSIT_DIR) +
-            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_SEARCH_DIR) + regionStorage.packageBytes(regionId, RegionStorage.CITIES_COPIES_DIR)
+            regionStorage.packageBytes(regionId, RegionStorage.ADDRESSES_SEARCH_DIR)
 
     override suspend fun fillCountryCode(regionId: String, countryCode: String) = installedRegionDao.fillCountryCode(regionId, countryCode)
 
@@ -244,6 +244,9 @@ class RoomRegionRepository @Inject constructor(
         kind == PackageKind.CITIES -> region.citiesSizeBytes?.plus(regionStorage.packageBytes(region.regionId, RegionStorage.CITIES_COPIES_DIR))
         else -> region.poiSizeBytes
     }
+
+    override fun regionBytes(region: InstalledRegion): Long =
+        region.sizeBytes + regionStorage.packageBytes(region.regionId, RegionStorage.CITIES_COPIES_DIR)
 
     override fun availableStorageBytes(): Long = regionStorage.availableBytes()
 

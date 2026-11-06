@@ -294,8 +294,13 @@ class RegionRepositoryTest {
 
         repository.markPackagesInstalled("italia", "Italia", "it", mapOf(PackageKind.MAP to "1", PackageKind.CITIES to "1"), citiesSizeBytes = 300)
         val installed = checkNotNull(repository.installed("italia"))
-        assertEquals(345L, installed.sizeBytes)
+        // Lette dal disco, non registrate: il download di un'altra regione le puo' togliere.
+        assertEquals(305L, installed.sizeBytes)
+        assertEquals(345L, repository.regionBytes(installed))
         assertEquals(340L, repository.packageBytes(installed, PackageKind.CITIES))
+        File(copies, "abc").delete()
+        assertEquals(305L, repository.regionBytes(installed))
+        assertEquals(300L, repository.packageBytes(installed, PackageKind.CITIES))
     }
 
     @Test

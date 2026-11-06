@@ -156,6 +156,8 @@ class FakeRegionRepository(initial: List<InstalledRegion> = emptyList()) : Regio
         installedRegions.update { list -> list.filterNot { it.regionId == regionId } }
     }
 
+    override fun regionBytes(region: InstalledRegion): Long = region.sizeBytes
+
     override fun packageBytes(region: InstalledRegion, kind: PackageKind): Long? = when {
         region.versionOf(kind) == null -> null
         kind == PackageKind.POI_EXTRA -> region.poiExtraSizeBytes

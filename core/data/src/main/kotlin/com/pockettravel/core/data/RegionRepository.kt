@@ -63,6 +63,12 @@ interface RegionRepository {
     /** Byte occupati da un pacchetto installato: mappa, rete stradale, civici e orari dei mezzi dal disco, POI (base ed extra) e citta' dalla dimensione registrata. */
     fun packageBytes(region: InstalledRegion, kind: PackageKind): Long?
 
+    /**
+     * Byte occupati dalla regione: [InstalledRegion.sizeBytes] piu' le copie delle citta' lette dal disco, che il download
+     * di un'altra regione puo' togliere senza aggiornare la dimensione registrata di questa.
+     */
+    fun regionBytes(region: InstalledRegion): Long
+
     fun availableStorageBytes(): Long
 
     /** Celle dei civici a griglia gia' installate (id -> version), per la dimensione da scaricare (RegionListViewModel). */
