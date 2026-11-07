@@ -345,6 +345,8 @@ class FiltroOverpassTest(unittest.TestCase):
         self.assertFalse(f("way", {"highway": "pedestrian", **famoso}))
         self.assertTrue(f("relation", {"highway": "pedestrian", "type": "multipolygon", **famoso}))
         self.assertFalse(f("relation", {"highway": "pedestrian", "type": "route", **famoso}))
+        # osmium export toglie type=multipolygon dalle aree di relazione: la piazza arriva senza.
+        self.assertTrue(f("relation", {"highway": "pedestrian", **famoso}))
         self.assertFalse(f("way", {"highway": "pedestrian", "area": "yes", "name": "Senza wikidata"}))
         # Relazioni di vie con un nome di piazza (place des Vosges): non tutte le vie.
         vosges = {"type": "associatedStreet", "name": "Place des Vosges", "wikidata": "Q1", "wikipedia": "fr:Place des Vosges"}
@@ -481,6 +483,32 @@ class RelazioniSpezzateTest(unittest.TestCase):
                     f.write(os.linesep)
 
             self.assertEqual(geofabrik_pois.relazioni_esportate(path), {7})
+
+
+@unittest.skipUnless(shutil.which("osmium"), "osmium non installato")
+class PiazzaPedonaleMultipoligonoTest(unittest.TestCase):
+    def test_piazza_pedonale_multipolygon_esportata_da_osmium_arriva_nell_xml(self):
+        """Place de la Bastille (relazione 10950251): osmium export ne fa un'area senza type=multipolygon, e il filtro
+        deve tenerla lo stesso."""
+        xml = ["<osm version='0.6'>"]
+        xml += [f'<node id="{i}" version="1" lon="{x}" lat="{y}"/>'
+                for i, (x, y) in {1: (0, 0), 2: (2, 0), 3: (2, 2), 4: (0, 2)}.items()]
+        xml += ['<way id="10" version="1"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/></way>',
+                '<relation id="5" version="1"><member type="way" ref="10" role="outer"/><tag k="type" v="multipolygon"/>'
+                '<tag k="highway" v="pedestrian"/><tag k="name" v="Place Prova"/><tag k="wikidata" v="Q1"/></relation>',
+                "</osm>"]
+        with tempfile.TemporaryDirectory() as tmp:
+            pbf, source, out = (os.path.join(tmp, n) for n in ("a.osm.pbf", "a.geojsonseq", "out.xml"))
+            with open(pbf + ".xml", "w", encoding="utf-8") as f:
+                f.write(os.linesep.join(xml))
+            subprocess.run(["osmium", "cat", "--overwrite", "--no-progress", pbf + ".xml", "-o", pbf], check=True)
+            subprocess.run(["osmium", "export", "--overwrite", "--no-progress", "-f", "geojsonseq", "-x",
+                            "print_record_separator=false", "-a", "type,id", pbf, "-o", source], check=True)
+
+            geofabrik_pois.scrivi_xml([source], (-1, -1, 3, 3), out)
+
+            with open(out, encoding="utf-8") as f:
+                self.assertIn('<relation id="5">', f.read())
 
 
 class AnelliDiVieTest(unittest.TestCase):

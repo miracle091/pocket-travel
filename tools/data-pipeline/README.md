@@ -155,7 +155,8 @@ toglie il job stesso.
   `scripts/poi_wikidata.py` chiede a Wikidata (CC0), a lotti di 250 elementi, quante voci di Wikipedia e degli altri
   progetti sono collegate (`sitelinks`) e se il luogo è tutelato (`heritage` 1) o patrimonio dell'umanità UNESCO o parte
   di uno (`heritage` 2). Toglie il tag quando l'elemento non ha coordinate (una persona, come Napoleone sulla sua tomba)
-  o le ha a più di 20 km dal POI, e quando è un centro abitato (un ufficio postale o una stazione con l'elemento del
+  o le ha a più di 20 km dal POI (150 km per parchi nazionali, riserve naturali e catene montuose, il cui punto su
+  Wikidata può stare lontano da quello di OSM: Fuji-Hakone-Izu 88 km), e quando è un centro abitato (un ufficio postale o una stazione con l'elemento del
   comune ne prenderebbero la fama). Le risposte valgono 60 giorni nella cache di `POI_WIKIDATA_CACHE`; dopo 10 minuti
   (`POI_WIKIDATA_MAX_SECONDS`) gli elementi rimasti aspettano la run successiva. Un errore non fa fallire la regione.
   `generatePoi` scrive già `heritage` 2 quando il POI ha il tag OSM `ref:whc` (il numero del sito) o

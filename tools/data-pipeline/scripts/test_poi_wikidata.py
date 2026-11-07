@@ -36,13 +36,15 @@ def answer(*rows):
     return {"results": {"bindings": list(rows)}}
 
 
-def poi_db(path, qids, at=PARIS):
+def poi_db(path, qids, at=PARIS, osm_tag="amenity=cafe"):
     """poi.db con le sole colonne che lo script legge e scrive, una riga per elemento di [qids] (None: senza), tutte nel
-    punto [at]."""
+    punto [at] e con il tipo [osm_tag]."""
     with closing(sqlite3.connect(path)) as db:
-        db.execute("CREATE TABLE poi (name TEXT NOT NULL, latE6 INTEGER NOT NULL, lonE6 INTEGER NOT NULL, "
-                   "wikidata INTEGER, sitelinks INTEGER, heritage INTEGER)")
-        db.executemany("INSERT INTO poi (name, latE6, lonE6, wikidata) VALUES (?, ?, ?, ?)",
+        db.execute("CREATE TABLE poi (name TEXT NOT NULL, code INTEGER NOT NULL, latE6 INTEGER NOT NULL, "
+                   "lonE6 INTEGER NOT NULL, wikidata INTEGER, sitelinks INTEGER, heritage INTEGER)")
+        db.execute("CREATE TABLE poi_code (code INTEGER PRIMARY KEY, category TEXT NOT NULL, osmTag TEXT NOT NULL)")
+        db.execute("INSERT INTO poi_code VALUES (1, 'x', ?)", (osm_tag,))
+        db.executemany("INSERT INTO poi (name, code, latE6, lonE6, wikidata) VALUES (?, 1, ?, ?, ?)",
                        [(f"p{i}", round(at[0] * 1e6), round(at[1] * 1e6), q) for i, q in enumerate(qids)])
         db.commit()
     return path
@@ -115,6 +117,17 @@ class AnnotateTest(unittest.TestCase):
             self.assertEqual((1, 0, 4), poi_wikidata.annotate([base], None, date(2026, 10, 27)))
         self.assertEqual([(None, None, None), (None, None, None), (None, None, None), (8, 12, None),
                           (None, None, None)], rows(base))
+
+    def test_un_parco_nazionale_tiene_il_tag_anche_a_80_km_dal_punto_di_wikidata(self):
+        # Fuji-Hakone-Izu: il punto OSM e' a 88 km da quello di Wikidata; un caffe' con lo stesso tag no.
+        parco = poi_db(self.tmp / "parco.db", [1137542], osm_tag="boundary=national_park")
+        caffe = poi_db(self.tmp / "caffe.db", [1137542])
+        lontano = (PARIS[0] + 0.75, PARIS[1])
+        with mock.patch("poi_wikidata._post", return_value=answer(binding(1137542, 33, at=lontano))), \
+                mock.patch("poi_wikidata.time.sleep"):
+            self.assertEqual((1, 0, 1), poi_wikidata.annotate([parco, caffe], None, date(2026, 10, 27)))
+        self.assertEqual([(1137542, 33, None)], rows(parco))
+        self.assertEqual([(None, None, None)], rows(caffe))
 
     def test_il_patrimonio_unesco_di_osm_non_si_abbassa(self):
         # heritage 2 scritto da generatePoi (ref:whc): resta con un elemento solo tutelato (10285), senza patrimonio

@@ -49,9 +49,12 @@ CACHE_MAX_AGE_DAYS = 60  # fama e tutele cambiano di rado
 MAX_SECONDS_ENV = "POI_WIKIDATA_MAX_SECONDS"
 # Ile-de-France, 9.800 elementi: 8 minuti con un 429. Le regioni piu' grandi si completano in piu' run, con la cache.
 MAX_SECONDS = 10 * 60
-# Oltre questa distanza tra il POI e le coordinate dell'elemento il tag indica un altro luogo; abbastanza larga per i
-# parchi nazionali e le catene montuose, il cui punto OSM e quello di Wikidata possono essere lontani.
+# Oltre questa distanza tra il POI e le coordinate dell'elemento il tag indica un altro luogo.
 MAX_KM = 20
+# Parchi nazionali, riserve e catene montuose: il punto OSM e' dentro l'area, quello di Wikidata e' un punto qualsiasi del
+# parco, e per un parco lungo (Fuji-Hakone-Izu: 88 km, Kirishima-Kinkowan: 40 km, Aso-Kuju: 30 km) sta oltre MAX_KM.
+MAX_KM_AREE = 150
+AREE = {"boundary=national_park", "leisure=nature_reserve", "natural=mountain_range"}
 PROTECTED = 1
 UNESCO = 2
 POINT = re.compile(r"Point\(([-0-9.eE]+) ([-0-9.eE]+)\)")
@@ -159,12 +162,13 @@ def annotate(paths, cache_path=None, today=None, max_seconds=MAX_SECONDS):
     for path in paths:
         with closing(sqlite3.connect(path)) as db:
             updates = []
-            for rowid, q, lat_e6, lon_e6 in db.execute(
-                    "SELECT rowid, wikidata, latE6, lonE6 FROM poi WHERE wikidata IS NOT NULL").fetchall():
+            for rowid, q, lat_e6, lon_e6, osm_tag in db.execute(
+                    "SELECT p.rowid, p.wikidata, p.latE6, p.lonE6, c.osmTag FROM poi p "
+                    "LEFT JOIN poi_code c ON c.code = p.code WHERE p.wikidata IS NOT NULL").fetchall():
                 if str(q) not in cache:
                     continue
                 links, heritage, lat, lon, _ = cache[str(q)]
-                if lat is None or _km(lat, lon, lat_e6 / 1e6, lon_e6 / 1e6) > MAX_KM:
+                if lat is None or _km(lat, lon, lat_e6 / 1e6, lon_e6 / 1e6) > (MAX_KM_AREE if osm_tag in AREE else MAX_KM):
                     updates.append((None, None, None, rowid))
                     dropped += 1
                 else:

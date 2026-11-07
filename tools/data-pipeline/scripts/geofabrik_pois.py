@@ -138,7 +138,7 @@ def filtro_overpass(kind, tags):
             (kind in ("way", "relation") and tags.get("amenity") == "library") or
             (kind == "way" and tags.get("highway") == "pedestrian" and tags.get("area") == "yes") or
             (kind == "relation" and (
-                (tags.get("highway") == "pedestrian" and tags.get("type") == "multipolygon") or
+                (tags.get("highway") == "pedestrian" and tags.get("type", "multipolygon") == "multipolygon") or
                 tags.get("type") == "site" or
                 (tags.get("type") == "associatedStreet" and "wikipedia" in tags and NOME_DI_PIAZZA.match(tags["name"]))))):
         return True
