@@ -28,7 +28,8 @@ sull'indice o con un indice ritoccato.
    assembla come area, perche' stanno in piu' estratti regionali e in ciascuno hanno solo una parte delle vie (Picos de
    Europa, Fuji-Hakone-Izu), si assemblano dall'unione degli estratti ridotti (esporta_relazioni_spezzate). Con --border si scrive solo un oggetto con il
    punto dentro il confine (Confine); con --sibling, solo se il punto spetta alla regione e non a una sorella (vince).
-   I POI culturali dentro il perimetro di un sito UNESCO prendono il suo ref:whc (perimetri_unesco); con --overpass no.
+   I POI culturali dentro il perimetro di un sito UNESCO prendono il suo ref:whc (perimetri_unesco); con --overpass
+   solo se --perimetri da' i perimetri (perimetri_overpass).
 
 Esce con codice 1 se qualcosa non va (download, osmium): build-region.sh ripiega allora su Overpass.
 """
@@ -715,9 +716,29 @@ def perimetri_di_siti(clipped, tmp, nome):
     for rid, ref in siti.items():
         vie = [[nodes[n] for n in ways[mid]] for kind, mid in relations.get(rid, ({}, []))[1]
                if kind == "w" and ways.get(mid) and all(n in nodes for n in ways[mid])]
-        # Un anello piatto (stessa latitudine) non ha lati per Confine, e l'errore manderebbe la regione su Overpass.
-        out += [(ref, rettangolo([ring]), Confine({"type": "Polygon", "coordinates": [ring]}))
-                for ring in anelli_di_vie(vie) if len({y for _, y in ring}) > 1]
+        out += perimetri_da_vie(ref, vie)
+    return out
+
+
+def perimetri_da_vie(ref, vie):
+    """[(ref, rettangolo, Confine)], uno per anello chiuso delle vie (anelli_di_vie). Un anello piatto (stessa
+    latitudine) non ha lati per Confine, e l'errore manderebbe la regione su Overpass: si scarta."""
+    return [(ref, rettangolo([ring]), Confine({"type": "Polygon", "coordinates": [ring]}))
+            for ring in anelli_di_vie(vie) if len({y for _, y in ring}) > 1]
+
+
+def perimetri_overpass(path):
+    """[(ref:whc, rettangolo, Confine)] dal file "out geom" di Overpass con le way e le relazioni con ref:whc
+    (fetch_overpass_whc in build-region.sh), per il ripiego: gli anelli delle way chiuse e delle vie membro delle
+    relazioni, multipolygon comprese (i buchi non contano), come perimetri_di_siti."""
+    out = []
+    for elem in ElementTree.parse(path).getroot():
+        ref = next((t.get("v", "").strip() for t in elem.findall("tag") if t.get("k") == "ref:whc"), "")
+        if elem.tag not in ("way", "relation") or not ref:
+            continue
+        parti = [elem] if elem.tag == "way" else elem.findall("member[@type='way']")
+        out += perimetri_da_vie(ref, [[(float(nd.get("lon")), float(nd.get("lat"))) for nd in p.findall("nd")
+                                       if nd.get("lat")] for p in parti])
     return out
 
 
@@ -799,6 +820,15 @@ def del_patrimonio(tags):
     return any(v not in MINORI.get(k, ()) for k, v in motivi) or (bool(motivi) and "name" in tags)
 
 
+def ref_del_perimetro(tags, lon, lat, perimetri):
+    """ref:whc del primo perimetro [(ref, rettangolo, Confine)] che contiene il punto, per un POI del patrimonio
+    (del_patrimonio) senza ref:whc proprio; altrimenti None."""
+    if not perimetri or str(tags.get("ref:whc", "")).strip() or not del_patrimonio(tags):
+        return None
+    return next((r for r, (x0, y0, x1, y1), area in perimetri
+                 if x0 <= lon <= x1 and y0 <= lat <= y1 and area.dentro(lon, lat)), None)
+
+
 def scrivi_xml(sources, bbox, out, relazioni=(), confine=None, sorelle=(), regione=None, siti=()):
     """Scrive gli oggetti di ogni geojsonseq in sources, piu' le relazioni [(id, tag, lon, lat)] di relazioni_non_aree,
     nell'XML di Overpass; ritorna quanti. Con confine (Confine) solo quelli con il punto dentro; con sorelle solo quelli
@@ -838,12 +868,10 @@ def scrivi_xml(sources, bbox, out, relazioni=(), confine=None, sorelle=(), regio
                 ceduti.add((kind, oid))
                 continue
             seen.add((kind, oid))
-            if perimetri and not str(props.get("ref:whc", "")).strip() and del_patrimonio(props):
-                ref = next((r for r, (x0, y0, x1, y1), area in perimetri
-                            if x0 <= lon <= x1 and y0 <= lat <= y1 and area.dentro(lon, lat)), None)
-                if ref:
-                    props["ref:whc"] = ref
-                    promossi.add((kind, oid))
+            ref = ref_del_perimetro(props, lon, lat, perimetri)
+            if ref:
+                props["ref:whc"] = ref
+                promossi.add((kind, oid))
             tags = "".join(f"<tag k={quoteattr(k)} v={quoteattr(str(v))}/>" for k, v in props.items())
             if kind == "node":
                 xml.write(f'<node id="{oid}" lat="{lat:.7f}" lon="{lon:.7f}">{tags}</node>\n')
@@ -860,13 +888,14 @@ def scrivi_xml(sources, bbox, out, relazioni=(), confine=None, sorelle=(), regio
     return len(seen)
 
 
-def filtra_overpass(paths, bbox, out, confine=None, sorelle=(), regione=None):
+def filtra_overpass(paths, bbox, out, confine=None, sorelle=(), regione=None, perimetri=()):
     """Ripiego Overpass: gli oggetti dei file XML di Overpass (chunk di build-region.sh, "out center") nel bbox, con il
     punto dentro il confine e che spettano alla regione (vince), una volta sola, in out; ritorna quanti. Il punto e' il
     nodo o il <center> della way o della relazione: per un'area a C o una via aperta non e' quello di punto(), quindi
-    build-region.sh non scrive borderRule e scope e la run dopo rigenera i POI dagli estratti Geofabrik."""
+    build-region.sh non scrive borderRule e scope e la run dopo rigenera i POI dagli estratti Geofabrik. I perimetri
+    UNESCO (perimetri_overpass) promuovono i POI come in scrivi_xml."""
     minx, miny, maxx, maxy = bbox
-    seen, fuori, ceduti = set(), set(), set()
+    seen, fuori, ceduti, promossi = set(), set(), set(), set()
     with open(out, "w", encoding="utf-8") as xml:
         xml.write('<?xml version="1.0" encoding="UTF-8"?>\n<osm version="0.6" generator="geofabrik_pois.py">\n')
         for path in paths:
@@ -887,6 +916,10 @@ def filtra_overpass(paths, bbox, out, confine=None, sorelle=(), regione=None):
                     ceduti.add(key)
                     continue
                 seen.add(key)
+                ref = ref_del_perimetro({t.get("k"): t.get("v") for t in elem.findall("tag")}, lon, lat, perimetri)
+                if ref:
+                    ElementTree.SubElement(elem, "tag", k="ref:whc", v=ref)
+                    promossi.add(key)
                 elem.tail = "\n"
                 xml.write(ElementTree.tostring(elem, encoding="unicode"))
         xml.write("</osm>\n")
@@ -894,6 +927,8 @@ def filtra_overpass(paths, bbox, out, confine=None, sorelle=(), regione=None):
         print(f"-- overpass: {len(fuori - seen)} oggetti fuori dal confine scartati", flush=True)
     if sorelle:
         print(f"-- overpass: {len(ceduti - seen)} oggetti ceduti alle regioni sorelle", flush=True)
+    if perimetri:
+        print(f"-- overpass: {len(perimetri)} perimetri UNESCO, {len(promossi)} POI promossi", flush=True)
     return len(seen)
 
 
@@ -906,6 +941,8 @@ def main():
     parser.add_argument("--overpass", action="append", default=[], metavar="FILE",
                         help="ripiego Overpass (ripetibile): filtra questi file XML di Overpass con bbox, --border e "
                              "--sibling (filtra_overpass) invece di leggere gli estratti Geofabrik")
+    parser.add_argument("--perimetri", metavar="FILE",
+                        help="con --overpass: way e relazioni con ref:whc di Overpass \"out geom\" (perimetri_overpass)")
     parser.add_argument("--user-agent", default="PocketTravel-pipeline")
     parser.add_argument("--border", help="confine della nazione (Feature GeoJSON di country_border.py): i POI fuori si scartano")
     parser.add_argument("--id", help="id della regione, per --sibling")
@@ -923,7 +960,8 @@ def main():
         if args.border:
             with open(args.border, encoding="utf-8") as f:
                 confine = Confine(json.load(f))
-        count = filtra_overpass(args.overpass, bbox, args.out, confine, sorelle, args.id)
+        perimetri = perimetri_overpass(args.perimetri) if args.perimetri else ()
+        count = filtra_overpass(args.overpass, bbox, args.out, confine, sorelle, args.id, perimetri)
         print(f"-- overpass: {count} oggetti POI in {args.out}", flush=True)
         return
     if not args.cache:

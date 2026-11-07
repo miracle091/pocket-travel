@@ -163,7 +163,8 @@ toglie il job stesso.
   abbassa mai quel valore. Quando `ref:whc` sta solo sul perimetro del sito ("Paris, rives de la Seine"), `geofabrik_pois.py`
   lo copia sui POI con il punto dentro che sono tutelati o culturali (tag `heritage` o `historic`, musei, attrazioni,
   opere d'arte, panorami, luoghi di culto; opere d'arte, targhe ed edicole solo con un nome): il Louvre sì, i bar del
-  centro no; il ripiego su Overpass non ha i perimetri.
+  centro no. Nel ripiego su Overpass i perimetri arrivano da una query a parte (`out geom`); se fallisce, i POI restano
+  senza fino alla run dopo, che li rigenera dagli estratti.
   Il patrimonio UNESCO è solo un fatto di OSM e di Wikidata: nessun emblema e nessun dato dai
   siti dell'UNESCO; la pagina delle licenze dice che Pocket Travel non è affiliata all'UNESCO.
 

@@ -787,6 +787,35 @@ class FiltraOverpassTest(unittest.TestCase):
             root = ElementTree.parse(out).getroot()
         return count, [(e.tag, e.get("id")) for e in root], root, stdout.getvalue()
 
+    def test_perimetri_unesco_di_overpass_out_geom(self):
+        def nd(x, y):
+            return f'<nd ref="0" lat="{y}" lon="{x}"/>'
+        # Relazione type=site con il contorno in due vie (come Venezia) e una way chiusa di un altro sito.
+        geom = ('<?xml version="1.0" encoding="UTF-8"?><osm version="0.6">'
+                '<relation id="9"><bounds minlat="0" minlon="0" maxlat="1" maxlon="1"/>'
+                f'<member type="way" ref="91" role="">{nd(0, 0)}{nd(1, 0)}{nd(1, 1)}</member>'
+                f'<member type="way" ref="92" role="">{nd(0, 0)}{nd(0, 1)}{nd(1, 1)}</member>'
+                '<member type="node" ref="93" role="" lat="0.5" lon="0.5"/>'
+                '<tag k="type" v="site"/><tag k="ref:whc" v="394"/></relation>'
+                f'<way id="8">{nd(1.8, 0.2)}{nd(1.99, 0.2)}{nd(1.99, 0.8)}{nd(1.8, 0.2)}'
+                '<tag k="ref:whc" v="600"/></way>'
+                f'<way id="10">{nd(3, 3)}{nd(4, 4)}<tag k="ref:whc" v="1"/></way></osm>')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "whc.osm.xml")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(geom)
+            perimetri = geofabrik_pois.perimetri_overpass(path)
+        # La way 10 e' aperta: nessun anello.
+        self.assertEqual([(ref, rect) for ref, rect, _ in perimetri],
+                         [("394", (0.0, 0.0, 1.0, 1.0)), ("600", (1.8, 0.2, 1.99, 0.8))])
+
+        count, _, root, stdout = self.filtra(perimetri=perimetri)
+        whc = {e.get("id"): e.find("tag[@k='ref:whc']").get("v") for e in root if e.find("tag[@k='ref:whc']") is not None}
+        # Il museo (relazione 5) e' dentro il sito 394; i bar no, anche il nodo 7 dentro il sito 600.
+        self.assertEqual(whc, {"5": "394"})
+        self.assertEqual(count, 5)
+        self.assertIn("2 perimetri UNESCO, 1 POI promossi", stdout)
+
     def test_bbox_e_un_oggetto_una_volta_sola(self):
         count, ids, root, _ = self.filtra()
         # Il nodo 6 e' fuori dal bbox, la way 4 non ha <center>, la nota non e' un oggetto.

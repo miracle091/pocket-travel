@@ -742,9 +742,25 @@ fetch_overpass_chunk() {
   # Trasporti: stazioni (treno e metro), autostazioni, aeroporti con codice IATA (niente aviosuperfici).
   query="${query}nw[\"railway\"~\"^(station|halt)$\"]${bbox};nwr[\"aeroway\"=\"aerodrome\"][\"iata\"]${bbox};"
   query="${query});out center;"
-  for attempt in $(seq 1 "$ATTEMPTS"); do
+  overpass_post "$query" "$outFile" "$ATTEMPTS" "Overpass POI"
+}
+
+# Perimetri dei siti UNESCO per il ripiego (geofabrik_pois.py --perimetri): way e relazioni con ref:whc nel rettangolo
+# della regione, senza l'area della nazione (un perimetro puo' uscirne), con la geometria intera ("out geom"). Sono
+# pochi oggetti (2.847 nel mondo nel 2026-10): due tentativi bastano, e senza i POI restano senza patrimonio UNESCO
+# fino alla run dopo, che li rigenera da Geofabrik.
+fetch_overpass_whc() {
+  overpass_post "[out:xml][timeout:300];wr[\"ref:whc\"](${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON});out geom;" "$1" 2 \
+    "Overpass perimetri UNESCO"
+}
+
+# overpass_post <query> <file> <tentativi> <etichetta>: la query sugli OVERPASS_ENDPOINTS a turno, finche' una
+# risposta e' valida.
+overpass_post() {
+  local query="$1" outFile="$2" attempts="$3" label="$4"
+  for attempt in $(seq 1 "$attempts"); do
     local endpoint="${OVERPASS_ENDPOINTS[$(( (attempt - 1) % ${#OVERPASS_ENDPOINTS[@]} ))]}"
-    echo "-- tentativo $attempt/$ATTEMPTS su $endpoint..."
+    echo "-- tentativo $attempt/$attempts su $endpoint..."
     # Tolto prima di ogni tentativo: senza, un tentativo fallito prima di scrivere lascerebbe il file
     # del tentativo precedente.
     rm -f "$outFile"
@@ -754,11 +770,11 @@ fetch_overpass_chunk() {
     # lo scambierebbe per una risposta valida, producendo silenziosamente 0 POI (visto con
     # l'Italia: timeout:180 troppo basso per un bbox nazionale). Serve anche l'esito di curl: un
     # download interrotto (--max-time, connessione chiusa) lascia un XML troncato che inizia con <osm.
-    if download_with_progress "$outFile" "Overpass POI ($endpoint)" -sS --max-time 950 -A "$PIPELINE_USER_AGENT" "$endpoint" --data-urlencode "data=${query}" -o "$outFile" \
+    if download_with_progress "$outFile" "$label ($endpoint)" -sS --max-time 950 -A "$PIPELINE_USER_AGENT" "$endpoint" --data-urlencode "data=${query}" -o "$outFile" \
       && grep -q "<osm" "$outFile" && ! grep -q "<remark>" "$outFile"; then
       return 0
     fi
-    if [ "$attempt" -lt "$ATTEMPTS" ]; then
+    if [ "$attempt" -lt "$attempts" ]; then
       local wait=$(( attempt * 20 > 120 ? 120 : attempt * 20 ))
       echo "-- $endpoint non disponibile o in timeout, riprovo tra ${wait}s..."
       sleep "$wait"
@@ -870,12 +886,22 @@ fi
 # Ripiego Overpass: l'area della nazione nella query tiene anche le vie e le aree a cavallo del confine e nessuna
 # regola divide le sorelle russe. geofabrik_pois.py --overpass applica confine e sorelle sul nodo o sul <center>;
 # borderRule e scope restano fuori dalla voce (sezione 4), quindi la run dopo rigenera i POI da Geofabrik.
+# Il filtro applica anche i perimetri UNESCO (fetch_overpass_whc), come geofabrik_pois.py sugli estratti.
 OVERPASS_FILTERED=false
-if [ -z "$GEOFABRIK_XML" ] && { [ -n "$BORDER_FILE" ] || [ -n "$POI_SCOPE" ]; }; then
+WHC_PERIMETERS=""
+if [ -z "$GEOFABRIK_XML" ]; then
+  if fetch_overpass_whc "$WORKDIR/poi-whc.osm.xml"; then
+    WHC_PERIMETERS="$WORKDIR/poi-whc.osm.xml"
+  else
+    echo "::warning::$REGION_ID: perimetri UNESCO non scaricati da Overpass, i POI dentro i siti restano senza patrimonio UNESCO fino alla prossima run"
+  fi
+fi
+if [ -z "$GEOFABRIK_XML" ] && { [ -n "$BORDER_FILE" ] || [ -n "$POI_SCOPE" ] || [ -n "$WHC_PERIMETERS" ]; }; then
   OVERPASS_ARGS=()
   for f in "${POI_XML_FILES[@]}"; do OVERPASS_ARGS+=(--overpass "$f"); done
   if python3 "$SCRIPT_DIR/geofabrik_pois.py" --bbox="$MIN_LON,$MIN_LAT,$MAX_LON,$MAX_LAT" ${BORDER_FILE:+--border "$BORDER_FILE"} \
-    ${SIBLING_ARGS[@]+"${SIBLING_ARGS[@]}"} "${OVERPASS_ARGS[@]}" --out "$WORKDIR/poi-overpass.osm.xml"; then
+    ${SIBLING_ARGS[@]+"${SIBLING_ARGS[@]}"} "${OVERPASS_ARGS[@]}" ${WHC_PERIMETERS:+--perimetri "$WHC_PERIMETERS"} \
+    --out "$WORKDIR/poi-overpass.osm.xml"; then
     POI_XML_FILES=("$WORKDIR/poi-overpass.osm.xml")
     OVERPASS_FILTERED=true
   else
