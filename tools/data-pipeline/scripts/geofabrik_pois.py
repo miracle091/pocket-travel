@@ -87,6 +87,9 @@ TAGS_FILTER = [
 ]
 # POI che un perimetro UNESCO promuove: gia' tutelati o culturali, non ogni bar del centro di Roma o di Venezia.
 TURISMO_DEL_PATRIMONIO = {"attraction", "museum", "artwork", "viewpoint"}
+# Oggetti minori (opere d'arte, targhe, edicole e croci votive): promossi solo con un nome. Senza erano meta' dei promossi
+# (336 opere d'arte a Parigi, 104 edicole a Venezia, quasi tutte anonime).
+MINORI = {"tourism": {"artwork"}, "historic": {"memorial", "wayside_shrine", "wayside_cross"}}
 # Paesi che un estratto contiene ma l'indice non elenca: gcc-states ha anche l'Arabia Saudita, quello
 # dell'Irlanda l'Irlanda del Nord, quello della Malesia Singapore e Brunei.
 PAESI_MANCANTI = {"gcc-states": {"SA"}, "ireland-and-northern-ireland": {"GB"},
@@ -788,9 +791,12 @@ def perimetri_unesco(sources):
 
 
 def del_patrimonio(tags):
-    """True per un POI che un perimetro UNESCO promuove (TURISMO_DEL_PATRIMONIO)."""
-    return ("heritage" in tags or "historic" in tags or tags.get("tourism") in TURISMO_DEL_PATRIMONIO or
-            tags.get("amenity") == "place_of_worship")
+    """True per un POI che un perimetro UNESCO promuove (TURISMO_DEL_PATRIMONIO; MINORI solo con un nome)."""
+    if "heritage" in tags or tags.get("amenity") == "place_of_worship":
+        return True
+    motivi = [(k, tags[k]) for k in ("tourism", "historic")
+              if k in tags and (k == "historic" or tags[k] in TURISMO_DEL_PATRIMONIO)]
+    return any(v not in MINORI.get(k, ()) for k, v in motivi) or (bool(motivi) and "name" in tags)
 
 
 def scrivi_xml(sources, bbox, out, relazioni=(), confine=None, sorelle=(), regione=None, siti=()):

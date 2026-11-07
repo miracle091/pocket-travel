@@ -576,7 +576,14 @@ class ScriviXmlTest(unittest.TestCase):
             nodo(4, 2.4, 48.4, historic="monument", **{"ref:whc": "91"}),
             nodo(5, 3.5, 48.5, amenity="place_of_worship"),
             nodo(6, 2.7, 48.7, shop="books", heritage="2"),
+            # Opere d'arte, targhe ed edicole solo con un nome; una rovina anche senza.
+            nodo(7, 2.5, 48.6, tourism="artwork", historic="memorial"),
+            nodo(8, 2.5, 48.7, historic="wayside_shrine"),
+            nodo(9, 2.6, 48.5, historic="ruins"),
         ]
+        for x in features[-3:]:
+            del x["properties"]["name"]
+        features.append(nodo(10, 2.6, 48.7, historic="memorial"))
         with tempfile.TemporaryDirectory() as tmp:
             source = os.path.join(tmp, "a.geojsonseq")
             with open(source, "w", encoding="utf-8") as f:
@@ -586,9 +593,9 @@ class ScriviXmlTest(unittest.TestCase):
             root = ElementTree.parse(out).getroot()
 
         whc = {int(e.get("id")): e.find("tag[@k='ref:whc']") for e in root}
-        self.assertEqual(count, 6)
+        self.assertEqual(count, 10)
         self.assertEqual({nid: t.get("v") for nid, t in whc.items() if t is not None},
-                         {2: "600", 3: "600", 4: "91", 6: "600"})
+                         {2: "600", 3: "600", 4: "91", 6: "600", 9: "600", 10: "600"})
 
 
 def anello(x0, y0, x1, y1):
