@@ -745,13 +745,15 @@ fetch_overpass_chunk() {
   overpass_post "$query" "$outFile" "$ATTEMPTS" "Overpass POI"
 }
 
-# Perimetri dei siti UNESCO per il ripiego (geofabrik_pois.py --perimetri): way e relazioni con ref:whc nel rettangolo
-# della regione, senza l'area della nazione (un perimetro puo' uscirne), con la geometria intera ("out geom"). Sono
-# pochi oggetti (2.847 nel mondo nel 2026-10): due tentativi bastano, e senza i POI restano senza patrimonio UNESCO
-# fino alla run dopo, che li rigenera da Geofabrik.
+# Perimetri dei siti UNESCO per il ripiego (geofabrik_pois.py --perimetri): way e relazioni con ref:whc, e le aree
+# protette con heritage=1 (confini con il numero solo in ref, come Bath), nel rettangolo della regione, senza l'area
+# della nazione (un perimetro puo' uscirne), con la geometria intera ("out geom"). Sono pochi oggetti (2.847 con
+# ref:whc nel mondo nel 2026-10): due tentativi bastano, e senza i POI restano senza patrimonio UNESCO fino alla run
+# dopo, che li rigenera da Geofabrik.
 fetch_overpass_whc() {
-  overpass_post "[out:xml][timeout:300];wr[\"ref:whc\"](${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON});out geom;" "$1" 2 \
-    "Overpass perimetri UNESCO"
+  local bbox="${MIN_LAT},${MIN_LON},${MAX_LAT},${MAX_LON}"
+  overpass_post "[out:xml][timeout:300];(wr[\"ref:whc\"](${bbox});wr[boundary=protected_area][heritage=1](${bbox}););out geom;" \
+    "$1" 2 "Overpass perimetri UNESCO"
 }
 
 # overpass_post <query> <file> <tentativi> <etichetta>: la query sugli OVERPASS_ENDPOINTS a turno, finche' una

@@ -159,11 +159,14 @@ toglie il job stesso.
   comune ne prenderebbero la fama). Le risposte valgono 60 giorni nella cache di `POI_WIKIDATA_CACHE`; dopo 10 minuti
   (`POI_WIKIDATA_MAX_SECONDS`) gli elementi rimasti aspettano la run successiva. Un errore non fa fallire la regione.
   `generatePoi` scrive già `heritage` 2 quando il POI ha il tag OSM `ref:whc` (il numero del sito) o
-  `heritage:operator=whc`, perché su Wikidata l'appartenenza al sito manca spesso (il Colosseo); `poi_wikidata.py` non
+  `heritage:operator` con `whc` tra i valori, perché su Wikidata l'appartenenza al sito manca spesso (il Colosseo); `poi_wikidata.py` non
   abbassa mai quel valore. Quando `ref:whc` sta solo sul perimetro del sito ("Paris, rives de la Seine"), `geofabrik_pois.py`
   lo copia sui POI con il punto dentro che sono tutelati o culturali (tag `heritage` o `historic`, musei, attrazioni,
-  opere d'arte, panorami, luoghi di culto; opere d'arte, targhe ed edicole solo con un nome): il Louvre sì, i bar del
-  centro no. Nel ripiego su Overpass i perimetri arrivano da una query a parte (`out geom`); se fallisce, i POI restano
+  opere d'arte, panorami, luoghi di culto; opere d'arte, targhe ed edicole solo con un nome; giardini, torri e ponti
+  solo con wikidata; mai Stolpersteine, targhe commemorative, pietre di confine e miliari): il Louvre sì, i bar del
+  centro no. Valgono anche i POI a meno di 10 m dal bordo, come le porte sulle mura. Il perimetro è anche quello delle
+  relazioni membro di un sito (Amburgo) o un'area protetta con `heritage=1` e il numero del sito in `ref` (Bath); non lo
+  sono le regioni (`boundary=region`, le Dolomiti) e le zone tampone. Nel ripiego su Overpass i perimetri arrivano da una query a parte (`out geom`); se fallisce, i POI restano
   senza fino alla run dopo, che li rigenera dagli estratti.
   Il patrimonio UNESCO è solo un fatto di OSM e di Wikidata: nessun emblema e nessun dato dai
   siti dell'UNESCO; la pagina delle licenze dice che Pocket Travel non è affiliata all'UNESCO.

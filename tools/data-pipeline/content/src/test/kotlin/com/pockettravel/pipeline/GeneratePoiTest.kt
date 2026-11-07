@@ -324,13 +324,17 @@ class GeneratePoiTest {
                 node(2, mapOf("tourism" to "museum", "name" to "Sito", "heritage" to "1", "heritage:operator" to "whc")) +
                 // Bene tutelato dallo Stato, non dall'UNESCO: il livello 1 di Wikidata lo scrive poi_wikidata.py.
                 node(3, mapOf("tourism" to "museum", "name" to "Tutelato", "heritage" to "2", "heritage:operator" to "mibact")) +
-                node(4, mapOf("tourism" to "museum", "name" to "Vuoto", "ref:whc" to " ")),
+                node(4, mapOf("tourism" to "museum", "name" to "Vuoto", "ref:whc" to " ")) +
+                node(5, mapOf("historic" to "castle", "name" to "Doppio", "heritage:operator" to "mibact; whc")),
         )
-        assertEquals(listOf(2, 2, null, null), pois.map { it.heritage })
+        assertEquals(listOf(2, 2, null, null, 2), pois.map { it.heritage })
         withDb { db ->
             writePoiDb(pois, db)
             assertEquals(
-                listOf(listOf("Colosseo", "2"), listOf("Sito", "2"), listOf("Tutelato", null), listOf("Vuoto", null)),
+                listOf(
+                    listOf("Colosseo", "2"), listOf("Sito", "2"), listOf("Tutelato", null), listOf("Vuoto", null),
+                    listOf("Doppio", "2"),
+                ),
                 rowsOf(db, "SELECT name, heritage FROM poi ORDER BY rowid"),
             )
         }

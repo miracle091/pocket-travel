@@ -522,6 +522,31 @@ class PerimetriDiSitiTest(unittest.TestCase):
         self.assertTrue(siti[0][2].dentro(1, 1))
         self.assertFalse(siti[0][2].dentro(3, 1))
 
+    def test_vie_delle_relazioni_membro(self):
+        """Come Amburgo (sito 1467): la Speicherstadt e' una way membro, il Kontorhausviertel una multipolygon membro."""
+        nodi = {1: (0, 0), 2: (2, 0), 3: (2, 2), 4: (0, 2), 5: (5, 0), 6: (6, 0), 7: (6, 1), 8: (5, 1)}
+        xml = ["<osm version='0.6'>"]
+        xml += [f'<node id="{i}" version="1" lon="{x}" lat="{y}"/>' for i, (x, y) in nodi.items()]
+        xml += ['<way id="10" version="1"><nd ref="1"/><nd ref="2"/><nd ref="3"/><nd ref="4"/><nd ref="1"/></way>',
+                '<way id="12" version="1"><nd ref="5"/><nd ref="6"/><nd ref="7"/><nd ref="8"/><nd ref="5"/></way>',
+                '<relation id="3" version="1"><member type="way" ref="12" role="outer"/>'
+                '<tag k="type" v="multipolygon"/><tag k="ref:whc" v="1467"/></relation>',
+                '<relation id="1" version="1"><member type="way" ref="10" role=""/>'
+                '<member type="relation" ref="3" role=""/><tag k="type" v="site"/><tag k="ref:whc" v="1467"/>'
+                '</relation>', "</osm>"]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "a.osm.pbf")
+            with open(path + ".xml", "w", encoding="utf-8") as f:
+                f.write(os.linesep.join(xml))
+            subprocess.run(["osmium", "cat", "--overwrite", "--no-progress", path + ".xml", "-o", path], check=True)
+
+            siti = geofabrik_pois.perimetri_di_siti(path, tmp, "a")
+            # Un perimetro multipolygon a cavallo di due estratti va assemblato sull'unione (relazioni_spezzate).
+            _, ad_area = geofabrik_pois.relazioni_non_aree(path, tmp, "a")
+
+        self.assertEqual(sorted((ref, rect) for ref, rect, _ in siti), [("1467", (0, 0, 2, 2)), ("1467", (5, 0, 6, 1))])
+        self.assertEqual(ad_area, {3})
+
 
 class ScriviXmlTest(unittest.TestCase):
     def test_nodi_e_centri_nel_bbox_una_volta_sola(self):
@@ -596,6 +621,56 @@ class ScriviXmlTest(unittest.TestCase):
         self.assertEqual(count, 10)
         self.assertEqual({nid: t.get("v") for nid, t in whc.items() if t is not None},
                          {2: "600", 3: "600", 4: "91", 6: "600", 9: "600", 10: "600"})
+
+    def test_regione_e_zona_tampone_no_confine_con_ref_si_bordo_e_rumore(self):
+        def area(fid, x0, x1, **tags):
+            return {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [anello(x0, 48, x1, 49)]},
+                    "properties": {"@type": "relation", "@id": fid, "type": "boundary", **tags}}
+
+        def nodo(nid, x, y, **tags):
+            return {"type": "Feature", "geometry": {"type": "Point", "coordinates": [x, y]},
+                    "properties": {"@type": "node", "@id": nid, "name": f"n{nid}", **tags}}
+        # 5 m e 30 m a est del lato x=6 di "Bath", a 48,5 gradi di latitudine.
+        grado = 111_320 * math.cos(math.radians(48.5))
+        features = [
+            area(1, 0, 2, boundary="region", **{"ref:whc": "1237rev"}),
+            area(2, 2, 4, boundary="protected_area", name="Pufferzone Altstadt", **{"ref:whc": "931bis"}),
+            area(3, 5, 6, boundary="protected_area", heritage="1", ref="428", name="City of Bath WHS"),
+            area(4, 7, 8, boundary="protected_area", heritage="1", ref="ES6140004"),
+            nodo(1, 1, 48.5, amenity="place_of_worship"),
+            nodo(2, 3, 48.5, amenity="place_of_worship"),
+            nodo(3, 5.5, 48.5, amenity="place_of_worship"),
+            nodo(4, 6 + 5 / grado, 48.5, historic="city_gate"),
+            nodo(5, 6 + 30 / grado, 48.5, historic="city_gate"),
+            nodo(6, 5.5, 48.6, historic="memorial", memorial="stolperstein"),
+            nodo(7, 5.5, 48.7, historic="milestone"),
+            nodo(8, 5.6, 48.5, leisure="garden", wikidata="Q6066338"),
+            nodo(9, 5.6, 48.6, leisure="garden"),
+            nodo(10, 7.5, 48.5, amenity="place_of_worship"),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            source = os.path.join(tmp, "a.geojsonseq")
+            with open(source, "w", encoding="utf-8") as f:
+                f.writelines(json.dumps(x) + "\n" for x in features)
+            out = os.path.join(tmp, "out.osm.xml")
+            geofabrik_pois.scrivi_xml([source], (-1, 40, 10, 50), out)
+            root = ElementTree.parse(out).getroot()
+
+        whc = {int(e.get("id")): e.find("tag[@k='ref:whc']") for e in root if e.tag == "node"}
+        self.assertEqual({nid: t.get("v") for nid, t in whc.items() if t is not None}, {3: "428", 4: "428", 8: "428"})
+
+
+class RefDelSitoTest(unittest.TestCase):
+    def test_ref_whc_o_ref_numerico_di_un_area_protetta_heritage_1(self):
+        ref = geofabrik_pois.ref_del_sito
+        self.assertEqual(ref({"ref:whc": " 600 "}), "600")
+        self.assertEqual(ref({"boundary": "protected_area", "heritage": "1", "ref": "428"}), "428")
+        self.assertEqual(ref({"boundary": "protected_area", "heritage": "1", "ref": "ES6140004"}), "")
+        self.assertEqual(ref({"heritage": "1", "ref": "428"}), "")
+        self.assertEqual(ref({"boundary": "political", "ref:whc": "500"}), "")
+        self.assertEqual(ref({"boundary": "administrative", "ref:whc": "286", "name": "Città del Vaticano"}), "286")
+        self.assertEqual(ref({"ref:whc": "931bis", "protection_title:en": "buffer zone - world heritage"}), "")
+        self.assertEqual(ref({"ref:whc": "1237rev", "name": "Marmolada"}), "1237rev")
 
 
 def anello(x0, y0, x1, y1):

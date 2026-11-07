@@ -85,12 +85,28 @@ TAGS_FILTER = [
     *[f"r/name={prefisso} *" for prefisso in PREFISSI_DI_PIAZZA],
     # Perimetri dei siti UNESCO (perimetri_unesco): 2.847 oggetti con ref:whc nel mondo (2026-10-27).
     "wr/ref:whc",
+    # Confini di siti con il numero solo in ref (ref_del_sito): "City of Bath WHS", ref=428.
+    "wr/heritage=1",
 ]
+# Poligoni con ref:whc che non sono il sito (ref_del_sito): la regione delle Dolomiti (boundary=region, 4.951 km2
+# contro i 1.419 del sito) e le zone tampone (Graz, "Pufferzone", ref:whc=931bis). I confini amministrativi restano:
+# quello della Citta' del Vaticano e' il sito 286.
+CONFINI_NON_DEL_SITO = {"region", "political"}
+ZONA_TAMPONE = re.compile(r"buffer|puffer|tampon|amortigu", re.IGNORECASE)
+# Distanza dal bordo del perimetro entro cui un POI e' nel sito: le porte stanno sulle mura (Puerta de la Justicia
+# all'Alhambra, Porta dei Rifiuti a Gerusalemme) e il punto nel poligono le mette dentro o fuori a caso.
+BORDO_METRI = 10
 # POI che un perimetro UNESCO promuove: gia' tutelati o culturali, non ogni bar del centro di Roma o di Venezia.
 TURISMO_DEL_PATRIMONIO = {"attraction", "museum", "artwork", "viewpoint"}
 # Oggetti minori (opere d'arte, targhe, edicole e croci votive): promossi solo con un nome. Senza erano meta' dei promossi
 # (336 opere d'arte a Parigi, 104 edicole a Venezia, quasi tutte anonime).
 MINORI = {"tourism": {"artwork"}, "historic": {"memorial", "wayside_shrine", "wayside_cross"}}
+# Mai promossi, anche con un nome: le Stolpersteine (30 dei 48 memoriali promossi a Berlino), le targhe, le pietre di
+# confine e miliari (44 a Kyoto, lungo il bordo dei siti).
+RUMORE = {"memorial": {"stolperstein", "plaque", "blue_plaque", "ghost_bike", "bench"},
+          "historic": {"boundary_stone", "milestone"}}
+# Promossi solo con wikidata: il Patio de los Arrayanes dell'Alhambra, le torri e i ponti famosi dentro un sito.
+DEL_PATRIMONIO_CON_WIKIDATA = {"leisure": {"garden"}, "man_made": {"tower", "bridge"}}
 # Paesi che un estratto contiene ma l'indice non elenca: gcc-states ha anche l'Arabia Saudita, quello
 # dell'Irlanda l'Irlanda del Nord, quello della Malesia Singapore e Brunei.
 PAESI_MANCANTI = {"gcc-states": {"SA"}, "ireland-and-northern-ireland": {"GB"},
@@ -581,6 +597,20 @@ class Confine:
                 inside = not inside
         return inside
 
+    def vicino(self, x, y, metri):
+        """True se il punto dista meno di metri da un lato (non orizzontale) del confine."""
+        mx, my = 111_320 * math.cos(math.radians(y)), 111_320
+        dy = metri / my
+        if not self.miny - dy <= y <= self.maxy + dy:
+            return False
+        for i in range(self.fascia(y - dy), self.fascia(y + dy) + 1):
+            for x1, y1, x2, y2 in self.fasce[i]:
+                ax, ay, bx, by = (x1 - x) * mx, (y1 - y) * my, (x2 - x) * mx, (y2 - y) * my
+                t = max(0.0, min(1.0, -(ax * (bx - ax) + ay * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2)))
+                if math.hypot(ax + t * (bx - ax), ay + t * (by - ay)) < metri:
+                    return True
+        return False
+
 
 def leggi_opl(path):
     """Nodi {id: (lon, lat)}, way {id: [id dei nodi]} e relazioni {id: (tag, [(n|w|r, id)])} di un file OPL di osmium
@@ -641,8 +671,11 @@ def relazioni_non_aree(clipped, tmp, nome):
     rels = os.path.join(tmp, f"{nome}-relazioni.opl")
     subprocess.run(["osmium", "cat", "--overwrite", "--no-progress", "-t", "relation", clipped,
                     "-f", "opl,add_metadata=false", "-o", rels], check=True)
-    del_filtro = {rid: tags for rid, (tags, _) in leggi_opl(rels)[2].items() if filtro_overpass("relation", tags)}
-    ad_area = {rid for rid, tags in del_filtro.items() if tags.get("type") in ("multipolygon", "boundary")}
+    relazioni = leggi_opl(rels)[2]
+    del_filtro = {rid: tags for rid, (tags, _) in relazioni.items() if filtro_overpass("relation", tags)}
+    # Anche i perimetri UNESCO (ref_del_sito) a cavallo di due estratti, che altrimenti non diventano aree.
+    ad_area = {rid for rid, (tags, _) in relazioni.items() if tags.get("type") in ("multipolygon", "boundary")
+               and (rid in del_filtro or ref_del_sito(tags))}
     candidates = [rid for rid in del_filtro if rid not in ad_area]
     if not candidates:
         return [], ad_area
@@ -694,12 +727,13 @@ def anelli_di_vie(vie):
 def perimetri_di_siti(clipped, tmp, nome):
     """[(ref:whc, rettangolo, Confine)] delle relazioni con ref:whc che osmium export non assembla come aree ("Venezia e
     la sua laguna" e' type=site, con il contorno della citta' tra le vie membro): un anello per ogni giro chiuso delle
-    vie membro (anelli_di_vie). Un punto dentro un anello qualsiasi e' nel sito."""
+    vie membro (anelli_di_vie), anche di quelle delle relazioni membro (il Kontorhausviertel di Amburgo, multipolygon nel
+    sito 1467 con la Speicherstadt). Un punto dentro un anello qualsiasi e' nel sito."""
     rels = os.path.join(tmp, f"{nome}-siti.opl")
     subprocess.run(["osmium", "cat", "--overwrite", "--no-progress", "-t", "relation", clipped,
                     "-f", "opl,add_metadata=false", "-o", rels], check=True)
-    siti = {rid: tags["ref:whc"].strip() for rid, (tags, _) in leggi_opl(rels)[2].items()
-            if tags.get("ref:whc", "").strip() and tags.get("type") not in ("multipolygon", "boundary")}
+    siti = {rid: ref for rid, (tags, _) in leggi_opl(rels)[2].items()
+            if (ref := ref_del_sito(tags)) and tags.get("type") not in ("multipolygon", "boundary")}
     if not siti:
         return []
     ids = os.path.join(tmp, f"{nome}-siti.txt")
@@ -714,7 +748,9 @@ def perimetri_di_siti(clipped, tmp, nome):
     nodes, ways, relations = leggi_opl(members)
     out = []
     for rid, ref in siti.items():
-        vie = [[nodes[n] for n in ways[mid]] for kind, mid in relations.get(rid, ({}, []))[1]
+        membri = relations.get(rid, ({}, []))[1]
+        membri = membri + [m for kind, mid in membri if kind == "r" for m in relations.get(mid, ({}, []))[1]]
+        vie = [[nodes[n] for n in ways[mid]] for kind, mid in membri
                if kind == "w" and ways.get(mid) and all(n in nodes for n in ways[mid])]
         out += perimetri_da_vie(ref, vie)
     return out
@@ -733,7 +769,7 @@ def perimetri_overpass(path):
     relazioni, multipolygon comprese (i buchi non contano), come perimetri_di_siti."""
     out = []
     for elem in ElementTree.parse(path).getroot():
-        ref = next((t.get("v", "").strip() for t in elem.findall("tag") if t.get("k") == "ref:whc"), "")
+        ref = ref_del_sito({t.get("k"): t.get("v", "") for t in elem.findall("tag")})
         if elem.tag not in ("way", "relation") or not ref:
             continue
         parti = [elem] if elem.tag == "way" else elem.findall("member[@type='way']")
@@ -800,20 +836,39 @@ def perimetri_unesco(sources):
     for source in sources:
         with open(source, encoding="utf-8") as lines:
             for line in lines:
-                if '"ref:whc"' not in line:
+                if '"ref:whc"' not in line and '"heritage"' not in line:
                     continue
                 feature = json.loads(line.strip().lstrip("\x1e"))
                 props, geometry = feature["properties"], feature["geometry"]
-                ref, key = str(props.get("ref:whc", "")).strip(), (props["@type"], props["@id"])
+                ref, key = ref_del_sito(props), (props["@type"], props["@id"])
                 if ref and geometry["type"] in ("Polygon", "MultiPolygon") and key not in seen:
                     seen.add(key)
                     out.append((ref, rettangolo(anelli(geometry)), Confine(geometry)))
     return out
 
 
+def ref_del_sito(tags):
+    """Numero del sito UNESCO di un perimetro: ref:whc, o ref di sole cifre su un'area protetta con heritage=1 (i
+    confini dei siti inglesi, "City of Bath WHS" e Westminster, non hanno ref:whc); "" per i poligoni che non sono il
+    sito (CONFINI_NON_DEL_SITO, ZONA_TAMPONE nel nome o nel protection_title)."""
+    if tags.get("boundary") in CONFINI_NON_DEL_SITO or any(
+            ZONA_TAMPONE.search(str(v)) for k, v in tags.items() if k.startswith(("name", "protection_title"))):
+        return ""
+    ref = str(tags.get("ref:whc", "")).strip()
+    if not ref and tags.get("boundary") == "protected_area" and str(tags.get("heritage")) == "1":
+        ref = str(tags.get("ref", "")).strip()
+        ref = ref if ref.isdigit() else ""
+    return ref
+
+
 def del_patrimonio(tags):
-    """True per un POI che un perimetro UNESCO promuove (TURISMO_DEL_PATRIMONIO; MINORI solo con un nome)."""
+    """True per un POI che un perimetro UNESCO promuove (TURISMO_DEL_PATRIMONIO; MINORI solo con un nome; RUMORE mai;
+    DEL_PATRIMONIO_CON_WIKIDATA solo con wikidata)."""
+    if any(tags.get(k) in valori for k, valori in RUMORE.items()):
+        return False
     if "heritage" in tags or tags.get("amenity") == "place_of_worship":
+        return True
+    if "wikidata" in tags and any(tags.get(k) in valori for k, valori in DEL_PATRIMONIO_CON_WIKIDATA.items()):
         return True
     motivi = [(k, tags[k]) for k in ("tourism", "historic")
               if k in tags and (k == "historic" or tags[k] in TURISMO_DEL_PATRIMONIO)]
@@ -822,11 +877,14 @@ def del_patrimonio(tags):
 
 def ref_del_perimetro(tags, lon, lat, perimetri):
     """ref:whc del primo perimetro [(ref, rettangolo, Confine)] che contiene il punto, per un POI del patrimonio
-    (del_patrimonio) senza ref:whc proprio; altrimenti None."""
+    (del_patrimonio) senza ref:whc proprio, anche a meno di BORDO_METRI dal bordo; altrimenti None."""
     if not perimetri or str(tags.get("ref:whc", "")).strip() or not del_patrimonio(tags):
         return None
+    # BORDO_METRI in gradi, con il margine della longitudine fino a 70 gradi di latitudine.
+    m = BORDO_METRI / 111_320 * 3
     return next((r for r, (x0, y0, x1, y1), area in perimetri
-                 if x0 <= lon <= x1 and y0 <= lat <= y1 and area.dentro(lon, lat)), None)
+                 if x0 - m <= lon <= x1 + m and y0 - m <= lat <= y1 + m
+                 and (area.dentro(lon, lat) or area.vicino(lon, lat, BORDO_METRI))), None)
 
 
 def scrivi_xml(sources, bbox, out, relazioni=(), confine=None, sorelle=(), regione=None, siti=()):

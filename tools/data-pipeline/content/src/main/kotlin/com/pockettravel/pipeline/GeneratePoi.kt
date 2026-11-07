@@ -151,7 +151,7 @@ data class Poi(
     // poi_wikidata.py dopo generatePoi, e serve all'app per il racconto del luogo.
     val wikidata: Long? = null,
     // 2 (patrimonio dell'umanita' UNESCO o parte di uno) dal tag OSM "ref:whc", il numero del sito, o da
-    // heritage:operator=whc; poi_wikidata.py aggiunge gli altri casi da Wikidata senza abbassarlo.
+    // heritage:operator con whc tra i valori (anche "whc;mhs"); poi_wikidata.py aggiunge gli altri casi da Wikidata senza abbassarlo.
     val heritage: Int? = null,
 )
 
@@ -210,7 +210,7 @@ private fun poiFromKey(tags: Map<String, String>, lat: Double, lon: Double, tagK
         toiletsWheelchair = tags["toilets:wheelchair"],
         capacityDisabled = tags["capacity:disabled"]?.trim()?.toIntOrNull()?.takeIf { it > 0 },
         wikidata = wikidataNumber(tags["wikidata"]),
-        heritage = 2.takeIf { !tags["ref:whc"].isNullOrBlank() || tags["heritage:operator"] == "whc" },
+        heritage = 2.takeIf { !tags["ref:whc"].isNullOrBlank() || tags["heritage:operator"]?.split(';')?.any { it.trim() == "whc" } == true },
     )
 }
 
