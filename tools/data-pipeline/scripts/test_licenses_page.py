@@ -99,6 +99,14 @@ class DataSourcesTest(unittest.TestCase):
         self.assertIn('<a href="https://www.weather.gov">NOAA National Weather Service</a></td>'
                       '<td><a href="https://www.weather.gov/disclaimer">Pubblico dominio</a>', page)
 
+    def test_wikidata_heritage_without_unesco_affiliation(self):
+        it = licenses_page.build_page("it", [], [], {}, DAY)
+        en = licenses_page.build_page("en", [], [], {}, DAY)
+        self.assertIn("fama e patrimonio dei punti di interesse", it)
+        self.assertIn("fame and heritage of points of interest", en)
+        self.assertIn("<p>Pocket Travel non è affiliata all'UNESCO", it.replace("&#x27;", "'"))
+        self.assertIn("<p>Pocket Travel is not affiliated with UNESCO", en)
+
     def test_definition_without_use_is_an_error(self):
         with tempfile.TemporaryDirectory() as root:
             self.write_defs(root, [{"name": "Fonte nuova", "licenses": ["public-domain-x"], "tag": "data"}])

@@ -59,6 +59,8 @@ TEXTS = {
         ],
         "data_title": "Dati", "use": "Uso nell'app", "public_domain": "Pubblico dominio",
         "gov_note": "I testi governativi sono adattati e riscritti, e non sono approvati dai governi che li pubblicano.",
+        "unesco_note": "Pocket Travel non è affiliata all'UNESCO: il patrimonio dell'umanità UNESCO dei punti di "
+                       "interesse viene da Wikidata.",
         "addr": "Numeri civici",
         "addr_text": "Da OpenStreetMap e dai registri ufficiali raccolti da Overture Maps; le attribuzioni "
                      "complete sono nella schermata Licenze dell'app.",
@@ -91,6 +93,8 @@ TEXTS = {
         ],
         "data_title": "Data", "use": "Use in the app", "public_domain": "Public domain",
         "gov_note": "Government texts are adapted and rewritten, and are not endorsed by the governments that publish them.",
+        "unesco_note": "Pocket Travel is not affiliated with UNESCO: the UNESCO World Heritage status of points of "
+                       "interest comes from Wikidata.",
         "addr": "House numbers",
         "addr_text": "From OpenStreetMap and the official registries collected by Overture Maps; the full "
                      "attributions are in the app's Licenses screen.",
@@ -115,7 +119,8 @@ DATA_USE = {
     "Wikivoyage": ("guide (adattate)", "guides (adapted)"),
     "Wikipedia": ("storia e clima delle città; cucina, tradizioni, media e telecomunicazioni delle guide",
                   "city history and climate; cuisine, traditions, media and telecommunications in the guides"),
-    "Wikidata": ("fatti rapidi, ambasciate, compagnie aeree", "quick facts, embassies, airlines"),
+    "Wikidata": ("fatti rapidi, ambasciate, compagnie aeree, fama e patrimonio dei punti di interesse",
+                 "quick facts, embassies, airlines, fame and heritage of points of interest"),
     "Open-Meteo.com, GeoNames": ("meteo e coordinate delle città, uso non commerciale", "weather and city coordinates, non-commercial use"),
     "Open English WordNet, MultiWordNet": ("parole per riconoscere l'argomento delle domande all'assistente IA",
                                            "words for recognizing the topic of questions to the AI assistant"),
@@ -258,7 +263,7 @@ def build_page(lang, attributions, feeds, regions, day, sources=None):
         use = DATA_USE[name][0 if lang == "it" else 1]
         out.append(f"<tr><td>{link(name, website)}</td><td>{license_cell(licenses, lang)}</td><td>{html.escape(use)}</td></tr>")
     out.append("</table></div>")
-    out += [f"<p>{html.escape(n)}</p>" for n in OGL_NOTES + [t["gov_note"]]]
+    out += [f"<p>{html.escape(n)}</p>" for n in OGL_NOTES + [t["gov_note"], t["unesco_note"]]]
     out.append(f"<h2>{t['addr']} ({len(attributions)})</h2><p>{t['addr_text']}</p>")
     if attributions:
         by_license = {}
