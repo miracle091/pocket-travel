@@ -158,8 +158,10 @@ toglie il job stesso.
   o le ha a più di 20 km dal POI, e quando è un centro abitato (un ufficio postale o una stazione con l'elemento del
   comune ne prenderebbero la fama). Le risposte valgono 60 giorni nella cache di `POI_WIKIDATA_CACHE`; dopo 10 minuti
   (`POI_WIKIDATA_MAX_SECONDS`) gli elementi rimasti aspettano la run successiva. Un errore non fa fallire la regione.
-  Il patrimonio UNESCO è solo un fatto di Wikidata: nessun emblema e nessun dato dai siti dell'UNESCO; la pagina
-  delle licenze dice che Pocket Travel non è affiliata all'UNESCO.
+  `generatePoi` scrive già `heritage` 2 quando il POI ha il tag OSM `ref:whc` (il numero del sito) o
+  `heritage:operator=whc`, perché su Wikidata l'appartenenza al sito manca spesso (il Colosseo); `poi_wikidata.py` non
+  abbassa mai quel valore. Il patrimonio UNESCO è solo un fatto di OSM e di Wikidata: nessun emblema e nessun dato dai
+  siti dell'UNESCO; la pagina delle licenze dice che Pocket Travel non è affiliata all'UNESCO.
 
 ## Firma dei file JSON
 

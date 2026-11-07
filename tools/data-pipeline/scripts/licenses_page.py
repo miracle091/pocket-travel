@@ -60,7 +60,7 @@ TEXTS = {
         "data_title": "Dati", "use": "Uso nell'app", "public_domain": "Pubblico dominio",
         "gov_note": "I testi governativi sono adattati e riscritti, e non sono approvati dai governi che li pubblicano.",
         "unesco_note": "Pocket Travel non è affiliata all'UNESCO: il patrimonio dell'umanità UNESCO dei punti di "
-                       "interesse viene da Wikidata.",
+                       "interesse viene da OpenStreetMap e Wikidata.",
         "addr": "Numeri civici",
         "addr_text": "Da OpenStreetMap e dai registri ufficiali raccolti da Overture Maps; le attribuzioni "
                      "complete sono nella schermata Licenze dell'app.",
@@ -94,7 +94,7 @@ TEXTS = {
         "data_title": "Data", "use": "Use in the app", "public_domain": "Public domain",
         "gov_note": "Government texts are adapted and rewritten, and are not endorsed by the governments that publish them.",
         "unesco_note": "Pocket Travel is not affiliated with UNESCO: the UNESCO World Heritage status of points of "
-                       "interest comes from Wikidata.",
+                       "interest comes from OpenStreetMap and Wikidata.",
         "addr": "House numbers",
         "addr_text": "From OpenStreetMap and the official registries collected by Overture Maps; the full "
                      "attributions are in the app's Licenses screen.",
@@ -111,7 +111,8 @@ ABOUTLIBRARIES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", 
 # Uso nell'app di ogni fonte di dati, per il nome delle sue definizioni in app/aboutlibraries/libraries (le definizioni
 # con lo stesso nome, come le tre di Travel.gc.ca, sono una riga sola). L'ordine e' quello della tabella.
 DATA_USE = {
-    "OpenStreetMap": ("mappe, punti di interesse, civici, ambasciate", "maps, points of interest, house numbers, embassies"),
+    "OpenStreetMap": ("mappe, punti di interesse e il loro patrimonio UNESCO, civici, ambasciate",
+                      "maps, points of interest and their UNESCO World Heritage status, house numbers, embassies"),
     "Protomaps": ("mappa, mappa d'insieme e mappa del mondo", "map, overview map and world map"),
     "Natural Earth": ("confini della mappa del mondo", "world map borders"),
     "OurAirports, Wikidata": ("aeroporti", "airports"),

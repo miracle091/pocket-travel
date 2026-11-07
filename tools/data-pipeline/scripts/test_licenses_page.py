@@ -104,6 +104,8 @@ class DataSourcesTest(unittest.TestCase):
         en = licenses_page.build_page("en", [], [], {}, DAY)
         self.assertIn("fama e patrimonio dei punti di interesse", it)
         self.assertIn("fame and heritage of points of interest", en)
+        self.assertIn("punti di interesse e il loro patrimonio UNESCO", it)
+        self.assertIn("UNESCO dei punti di interesse viene da OpenStreetMap e Wikidata.", it)
         self.assertIn("<p>Pocket Travel non è affiliata all'UNESCO", it.replace("&#x27;", "'"))
         self.assertIn("<p>Pocket Travel is not affiliated with UNESCO", en)
 

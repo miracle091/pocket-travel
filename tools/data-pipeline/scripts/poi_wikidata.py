@@ -4,11 +4,11 @@ e al racconto del luogo.
 
 - sitelinks: quante voci di Wikipedia e degli altri progetti Wikimedia sono collegate all'elemento, la misura di fama
   piu' semplice e uguale per tutti i paesi (la Torre Eiffel ne ha quasi 200, una chiesa di paese 1 o 2).
-- heritage: 2 se l'elemento e' un patrimonio dell'umanita' UNESCO o ne fa parte (P757, P1435 = Q9259, o P361 verso un
-  elemento con P757), 1 se ha un'altra tutela (P1435: monumento nazionale, bene vincolato, listed building...), NULL
+- heritage: 2 se l'elemento e' un patrimonio dell'umanita' UNESCO o ne fa parte (P757, P1435 = Q9259, P361 verso un
+  elemento con P757 o P527 da un elemento con P757), 1 se ha un'altra tutela (P1435: monumento nazionale, bene vincolato, listed building...), NULL
   altrimenti. Solo il fatto, da Wikidata (CC0): nessun dato o testo dai siti dell'UNESCO. L'appartenenza a un sito
   UNESCO manca spesso su Wikidata (il Colosseo non e' legato al centro storico di Roma): heritage 2 e' sicuro, la sua
-  assenza no.
+  assenza no. Il 2 che generatePoi scrive dal tag OSM ref:whc non si abbassa mai, neanche quando il tag si toglie.
 
 Un tag wikidata che non indica il luogo si toglie, con fama e patrimonio: l'elemento non esiste piu', non ha coordinate
 (P625: e' una persona o un concetto, come la tomba di Napoleone con l'elemento di Napoleone), le ha a piu' di MAX_KM
@@ -65,6 +65,7 @@ QUERY = """SELECT ?item ?links (MIN(STR(?c)) AS ?coord) (MAX(?p) AS ?protected) 
   OPTIONAL { ?item wdt:P1435 [] . BIND(1 AS ?p) }
   OPTIONAL {
     { ?item wdt:P757 [] } UNION { ?item wdt:P1435 wd:Q9259 } UNION { ?item wdt:P361 ?whole . ?whole wdt:P757 [] }
+    UNION { ?site wdt:P527 ?item . ?site wdt:P757 [] }
     BIND(1 AS ?u)
   }
 } GROUP BY ?item ?links"""
@@ -170,7 +171,9 @@ def annotate(paths, cache_path=None, today=None, max_seconds=MAX_SECONDS):
                     updates.append((q, links, heritage, rowid))
                     valid += 1
                     unesco += heritage == UNESCO
-            db.executemany("UPDATE poi SET wikidata = ?, sitelinks = ?, heritage = ? WHERE rowid = ?", updates)
+            # Il patrimonio non si abbassa: heritage 2 da ref:whc di OSM (generatePoi) resta anche col tag tolto.
+            db.executemany("UPDATE poi SET wikidata = ?, sitelinks = ?, "
+                           "heritage = NULLIF(MAX(IFNULL(heritage, 0), IFNULL(?, 0)), 0) WHERE rowid = ?", updates)
             db.commit()
     if cache_path:
         _save_cache(cache_path, cache)

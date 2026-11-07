@@ -150,6 +150,9 @@ data class Poi(
     // Elemento Wikidata del tag OSM "wikidata", senza la Q (Q19675 -> 19675): fama e patrimonio li aggiunge
     // poi_wikidata.py dopo generatePoi, e serve all'app per il racconto del luogo.
     val wikidata: Long? = null,
+    // 2 (patrimonio dell'umanita' UNESCO o parte di uno) dal tag OSM "ref:whc", il numero del sito, o da
+    // heritage:operator=whc; poi_wikidata.py aggiunge gli altri casi da Wikidata senza abbassarlo.
+    val heritage: Int? = null,
 )
 
 // Vince la prima chiave dell'elenco che da' un POI pubblicato: tourism=yes accanto a leisure=garden, o un'area
@@ -207,6 +210,7 @@ private fun poiFromKey(tags: Map<String, String>, lat: Double, lon: Double, tagK
         toiletsWheelchair = tags["toilets:wheelchair"],
         capacityDisabled = tags["capacity:disabled"]?.trim()?.toIntOrNull()?.takeIf { it > 0 },
         wikidata = wikidataNumber(tags["wikidata"]),
+        heritage = 2.takeIf { !tags["ref:whc"].isNullOrBlank() || tags["heritage:operator"] == "whc" },
     )
 }
 
@@ -243,7 +247,7 @@ private fun addressOf(tags: Map<String, String>): String? {
  *   wheelchair facoltativi, openingHours e address per cibo, alloggi, ambasciate, farmacie, ospedali e negozi, website ed email per alloggi e ambasciate, country (paese rappresentato) per le ambasciate, toiletsWheelchair (bagni accessibili, qualunque POI) e
  *   capacityDisabled (posti auto per disabili, parcheggi), wikidata (numero dell'elemento Wikidata), sitelinks (voci di
  *   Wikipedia e degli altri progetti collegate all'elemento: la fama del luogo) e heritage (1 bene tutelato, 2 patrimonio
- *   dell'umanita' UNESCO o parte di uno), questi due scritti da poi_wikidata.py (colonne aggiunte in seguito: le versioni
+ *   dell'umanita' UNESCO o parte di uno; 2 anche dal tag OSM ref:whc, scritto qui), scritti da poi_wikidata.py (colonne aggiunte in seguito: le versioni
  *   dell'app che non le conoscono non le selezionano). Niente colonna
  *   regionId (sarebbe costante su ogni riga: la regione la passa comunque chi importa il file).
  * - PRAGMA user_version = [POI_DB_FORMAT_VERSION]: marcatore di formato per PoiImporter, che
@@ -302,7 +306,7 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
                 heritage INTEGER
             )
             """.trimIndent(),
-        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair, openingHours, address, website, email, country, nameEn, nameIt, toiletsWheelchair, capacityDisabled, wikidata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        insertSql = "INSERT INTO poi (name, code, latE6, lonE6, phone, wheelchair, openingHours, address, website, email, country, nameEn, nameIt, toiletsWheelchair, capacityDisabled, wikidata, heritage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         rows = pois,
     ) { insert, poi ->
         insert.setString(1, poi.name)
@@ -321,6 +325,11 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
         insert.setString(14, poi.toiletsWheelchair)
         if (poi.capacityDisabled != null) insert.setInt(15, poi.capacityDisabled) else insert.setNull(15, java.sql.Types.INTEGER)
         if (poi.wikidata != null) insert.setLong(16, poi.wikidata) else insert.setNull(16, java.sql.Types.INTEGER)
+        if (poi.heritage != null) {
+            insert.setInt(HERITAGE_PARAM, poi.heritage)
+        } else {
+            insert.setNull(HERITAGE_PARAM, java.sql.Types.INTEGER)
+        }
     }
 
     // A parte (non e' una tabella): writeSqliteTable ricrea una tabella per volta, il marcatore di
@@ -332,6 +341,9 @@ fun writePoiDb(pois: List<Poi>, outputDb: File) {
 
 /** Formato compatto (poi_code + microgradi), vedi [writePoiDb]. 0 (assente) e' il vecchio formato. */
 const val POI_DB_FORMAT_VERSION = 1
+
+// Posizione di heritage, l'ultima colonna, nell'INSERT di writePoiDb.
+private const val HERITAGE_PARAM = 17
 
 // Parcheggi non aperti a tutti (tag access OSM): l'app li mostra con un segnalino a parte. Resta
 // osmTag "amenity=parking", cambia solo category.

@@ -317,6 +317,26 @@ class GeneratePoiTest {
     }
 
     @Test
+    fun `patrimonio UNESCO dal tag OSM ref whc o heritage operator whc, scritto in poi db`() {
+        val pois = readOsm(
+            """<relation id="1834818"><center lat="41.89" lon="12.49"/><tag k="tourism" v="attraction"/>""" +
+                """<tag k="name" v="Colosseo"/><tag k="ref:whc" v="91"/></relation>""" +
+                node(2, mapOf("tourism" to "museum", "name" to "Sito", "heritage" to "1", "heritage:operator" to "whc")) +
+                // Bene tutelato dallo Stato, non dall'UNESCO: il livello 1 di Wikidata lo scrive poi_wikidata.py.
+                node(3, mapOf("tourism" to "museum", "name" to "Tutelato", "heritage" to "2", "heritage:operator" to "mibact")) +
+                node(4, mapOf("tourism" to "museum", "name" to "Vuoto", "ref:whc" to " ")),
+        )
+        assertEquals(listOf(2, 2, null, null), pois.map { it.heritage })
+        withDb { db ->
+            writePoiDb(pois, db)
+            assertEquals(
+                listOf(listOf("Colosseo", "2"), listOf("Sito", "2"), listOf("Tutelato", null), listOf("Vuoto", null)),
+                rowsOf(db, "SELECT name, heritage FROM poi ORDER BY rowid"),
+            )
+        }
+    }
+
+    @Test
     fun `stalli per disabili da parking_space=disabled o capacity disabled, gli altri stalli restano generici`() {
         val dir = kotlin.io.path.createTempDirectory("pocket-travel-poi").toFile()
         val xml = File(dir, "a.xml")

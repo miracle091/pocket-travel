@@ -116,6 +116,19 @@ class AnnotateTest(unittest.TestCase):
         self.assertEqual([(None, None, None), (None, None, None), (None, None, None), (8, 12, None),
                           (None, None, None)], rows(base))
 
+    def test_il_patrimonio_unesco_di_osm_non_si_abbassa(self):
+        # heritage 2 scritto da generatePoi (ref:whc): resta con un elemento solo tutelato (10285), senza patrimonio
+        # (1) e quando il tag si toglie perche' l'elemento e' lontano (90); un POI senza ref:whc prende quello di Wikidata.
+        base = poi_db(self.tmp / "poi.db", [10285, 1, 90, 10285])
+        with closing(sqlite3.connect(base)) as db:
+            db.execute("UPDATE poi SET heritage = 2 WHERE rowid < 4")
+            db.commit()
+        with mock.patch("poi_wikidata._post", return_value=answer(
+                binding(10285, 148, protected=True), binding(1, 3), binding(90, 400, at=(45.76, 4.84)))), \
+                mock.patch("poi_wikidata.time.sleep"):
+            poi_wikidata.annotate([base], None, date(2026, 11, 7))
+        self.assertEqual([(10285, 148, 2), (1, 3, 2), (None, None, 2), (10285, 148, 1)], rows(base))
+
     def test_la_cache_fresca_evita_la_query_quella_scaduta_no(self):
         base = poi_db(self.tmp / "poi.db", [1, 2])
         cache = self.tmp / "poi-wikidata.json"
