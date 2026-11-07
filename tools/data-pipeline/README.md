@@ -163,7 +163,7 @@ toglie il job stesso.
   abbassa mai quel valore. Quando `ref:whc` sta solo sul perimetro del sito ("Paris, rives de la Seine"), `geofabrik_pois.py`
   lo copia sui POI con il punto dentro che sono tutelati o culturali (tag `heritage` o `historic`, musei, attrazioni,
   opere d'arte, panorami, luoghi di culto; opere d'arte, targhe ed edicole solo con un nome; giardini, torri e ponti
-  solo con wikidata; mai Stolpersteine, targhe commemorative, pietre di confine e miliari): il Louvre sì, i bar del
+  solo con wikidata; mai senza nome né wikidata, Stolpersteine, targhe commemorative, pietre di confine e miliari): il Louvre sì, i bar del
   centro no. Valgono anche i POI a meno di 10 m dal bordo, come le porte sulle mura. Il perimetro è anche quello delle
   relazioni membro di un sito (Amburgo) o un'area protetta con `heritage=1` e il numero del sito in `ref` (Bath); non lo
   sono le regioni (`boundary=region`, le Dolomiti) e le zone tampone. Nel ripiego su Overpass i perimetri arrivano da una query a parte (`out geom`); se fallisce, i POI restano

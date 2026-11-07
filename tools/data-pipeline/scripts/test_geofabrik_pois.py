@@ -601,7 +601,7 @@ class ScriviXmlTest(unittest.TestCase):
             nodo(4, 2.4, 48.4, historic="monument", **{"ref:whc": "91"}),
             nodo(5, 3.5, 48.5, amenity="place_of_worship"),
             nodo(6, 2.7, 48.7, shop="books", heritage="2"),
-            # Opere d'arte, targhe ed edicole solo con un nome; una rovina anche senza.
+            # Opere d'arte, targhe ed edicole solo con un nome; una rovina senza nome solo con wikidata.
             nodo(7, 2.5, 48.6, tourism="artwork", historic="memorial"),
             nodo(8, 2.5, 48.7, historic="wayside_shrine"),
             nodo(9, 2.6, 48.5, historic="ruins"),
@@ -609,6 +609,8 @@ class ScriviXmlTest(unittest.TestCase):
         for x in features[-3:]:
             del x["properties"]["name"]
         features.append(nodo(10, 2.6, 48.7, historic="memorial"))
+        features.append(nodo(11, 2.6, 48.8, historic="ruins", wikidata="Q1"))
+        del features[-1]["properties"]["name"]
         with tempfile.TemporaryDirectory() as tmp:
             source = os.path.join(tmp, "a.geojsonseq")
             with open(source, "w", encoding="utf-8") as f:
@@ -618,9 +620,9 @@ class ScriviXmlTest(unittest.TestCase):
             root = ElementTree.parse(out).getroot()
 
         whc = {int(e.get("id")): e.find("tag[@k='ref:whc']") for e in root}
-        self.assertEqual(count, 10)
+        self.assertEqual(count, 11)
         self.assertEqual({nid: t.get("v") for nid, t in whc.items() if t is not None},
-                         {2: "600", 3: "600", 4: "91", 6: "600", 9: "600", 10: "600"})
+                         {2: "600", 3: "600", 4: "91", 6: "600", 10: "600", 11: "600"})
 
     def test_regione_e_zona_tampone_no_confine_con_ref_si_bordo_e_rumore(self):
         def area(fid, x0, x1, **tags):
@@ -842,7 +844,8 @@ class FiltraOverpassTest(unittest.TestCase):
                '<node id="2" lat="0.5" lon="1.5"><tag k="amenity" v="cafe"/></node>'
                '<way id="3"><center lat="0.5" lon="0.9"/><tag k="amenity" v="parking"/></way>'
                '<way id="4"><tag k="amenity" v="parking"/></way>'
-               '<relation id="5"><center lat="0.5" lon="0.95"/><tag k="tourism" v="museum"/></relation>'
+               '<relation id="5"><center lat="0.5" lon="0.95"/><tag k="tourism" v="museum"/><tag k="name" v="M"/>'
+               '</relation>'
                '<node id="6" lat="5" lon="5"><tag k="amenity" v="cafe"/></node></osm>')
     # Secondo chunk: la way 3 a cavallo dei due chunk torna, e il nodo 7 sta nella sovrapposizione con la sorella.
     CHUNK_2 = ('<?xml version="1.0" encoding="UTF-8"?><osm version="0.6">'

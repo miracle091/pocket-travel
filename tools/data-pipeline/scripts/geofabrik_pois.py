@@ -863,8 +863,9 @@ def ref_del_sito(tags):
 
 def del_patrimonio(tags):
     """True per un POI che un perimetro UNESCO promuove (TURISMO_DEL_PATRIMONIO; MINORI solo con un nome; RUMORE mai;
-    DEL_PATRIMONIO_CON_WIKIDATA solo con wikidata)."""
-    if any(tags.get(k) in valori for k, valori in RUMORE.items()):
+    DEL_PATRIMONIO_CON_WIKIDATA solo con wikidata). Senza nome ne' wikidata mai: l'app lo mostrerebbe come "Panorama" o
+    "Luogo di culto" (398 dei 2.149 promossi di 15 zone, per lo piu' panorami di Machu Picchu e di Yellowstone)."""
+    if any(tags.get(k) in valori for k, valori in RUMORE.items()) or not ("name" in tags or "wikidata" in tags):
         return False
     if "heritage" in tags or tags.get("amenity") == "place_of_worship":
         return True
