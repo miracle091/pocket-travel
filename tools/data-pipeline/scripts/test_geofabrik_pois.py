@@ -483,6 +483,46 @@ class RelazioniSpezzateTest(unittest.TestCase):
             self.assertEqual(geofabrik_pois.relazioni_esportate(path), {7})
 
 
+class AnelliDiVieTest(unittest.TestCase):
+    def test_vie_in_disordine_e_al_contrario_un_tratto_aperto_si_scarta(self):
+        a, b, c, d = (0, 0), (2, 0), (2, 2), (0, 2)
+        rings = geofabrik_pois.anelli_di_vie([[a, b], [d, c], [c, b], [d, a], [(5, 5), (6, 6)], [a]])
+        self.assertEqual(len(rings), 1)
+        self.assertEqual(set(rings[0]), {a, b, c, d})
+        self.assertEqual(rings[0][0], rings[0][-1])
+        confine = geofabrik_pois.Confine({"type": "Polygon", "coordinates": rings})
+        self.assertTrue(confine.dentro(1, 1))
+        self.assertFalse(confine.dentro(3, 1))
+
+
+@unittest.skipUnless(shutil.which("osmium"), "osmium non installato")
+class PerimetriDiSitiTest(unittest.TestCase):
+    def test_sito_con_il_contorno_tra_le_vie_membro(self):
+        """Come "Venezia e la sua laguna": relazione type=site con ref:whc, contorno in due vie senza tag; una
+        multipolygon con ref:whc la assembla gia' osmium export (perimetri_unesco) e qui non conta."""
+        xml = ["<osm version='0.6'>"]
+        xml += [f'<node id="{i}" version="1" lon="{x}" lat="{y}"/>'
+                for i, (x, y) in {1: (0, 0), 2: (2, 0), 3: (2, 2), 4: (0, 2)}.items()]
+        xml += ['<way id="10" version="1"><nd ref="1"/><nd ref="2"/><nd ref="3"/></way>',
+                '<way id="11" version="1"><nd ref="1"/><nd ref="4"/><nd ref="3"/></way>']
+        for rid, tipo in ((1, "site"), (2, "multipolygon")):
+            xml.append(f'<relation id="{rid}" version="1"><member type="way" ref="10" role=""/>'
+                       f'<member type="way" ref="11" role=""/><tag k="type" v="{tipo}"/><tag k="ref:whc" v="39{rid}"/>'
+                       '</relation>')
+        xml.append("</osm>")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "a.osm.pbf")
+            with open(path + ".xml", "w", encoding="utf-8") as f:
+                f.write(os.linesep.join(xml))
+            subprocess.run(["osmium", "cat", "--overwrite", "--no-progress", path + ".xml", "-o", path], check=True)
+
+            siti = geofabrik_pois.perimetri_di_siti(path, tmp, "a")
+
+        self.assertEqual([(ref, rect) for ref, rect, _ in siti], [("391", (0, 0, 2, 2))])
+        self.assertTrue(siti[0][2].dentro(1, 1))
+        self.assertFalse(siti[0][2].dentro(3, 1))
+
+
 class ScriviXmlTest(unittest.TestCase):
     def test_nodi_e_centri_nel_bbox_una_volta_sola(self):
         features = [
@@ -518,6 +558,37 @@ class ScriviXmlTest(unittest.TestCase):
         self.assertEqual(name, 'Kafe & "Rīga"')
         self.assertIn('<way id="2"><center lat="56.2000000" lon="24.1000000"/>', xml)
         self.assertEqual(xml.count("<way "), 1)
+
+    def test_perimetro_unesco_promuove_solo_i_poi_del_patrimonio(self):
+        def nodo(nid, x, y, **tags):
+            return {"type": "Feature", "geometry": {"type": "Point", "coordinates": [x, y]},
+                    "properties": {"@type": "node", "@id": nid, "name": f"n{nid}", **tags}}
+        perimetro = [[[2, 48], [3, 48], [3, 49], [2, 49], [2, 48]]]
+        features = [
+            # Way chiusa del perimetro: come linea non conta, come area si'; non e' un POI.
+            {"type": "Feature", "geometry": {"type": "LineString", "coordinates": perimetro[0]},
+             "properties": {"@type": "way", "@id": 10, "boundary": "protected_area", "ref:whc": "600"}},
+            {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": perimetro},
+             "properties": {"@type": "way", "@id": 10, "boundary": "protected_area", "ref:whc": "600"}},
+            nodo(1, 2.5, 48.5, amenity="cafe"),
+            nodo(2, 2.5, 48.5, amenity="place_of_worship"),
+            nodo(3, 2.6, 48.6, tourism="museum"),
+            nodo(4, 2.4, 48.4, historic="monument", **{"ref:whc": "91"}),
+            nodo(5, 3.5, 48.5, amenity="place_of_worship"),
+            nodo(6, 2.7, 48.7, shop="books", heritage="2"),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            source = os.path.join(tmp, "a.geojsonseq")
+            with open(source, "w", encoding="utf-8") as f:
+                f.writelines(json.dumps(x) + "\n" for x in features)
+            out = os.path.join(tmp, "out.osm.xml")
+            count = geofabrik_pois.scrivi_xml([source], (0, 40, 10, 50), out)
+            root = ElementTree.parse(out).getroot()
+
+        whc = {int(e.get("id")): e.find("tag[@k='ref:whc']") for e in root}
+        self.assertEqual(count, 6)
+        self.assertEqual({nid: t.get("v") for nid, t in whc.items() if t is not None},
+                         {2: "600", 3: "600", 4: "91", 6: "600"})
 
 
 def anello(x0, y0, x1, y1):

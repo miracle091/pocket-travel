@@ -160,7 +160,10 @@ toglie il job stesso.
   (`POI_WIKIDATA_MAX_SECONDS`) gli elementi rimasti aspettano la run successiva. Un errore non fa fallire la regione.
   `generatePoi` scrive già `heritage` 2 quando il POI ha il tag OSM `ref:whc` (il numero del sito) o
   `heritage:operator=whc`, perché su Wikidata l'appartenenza al sito manca spesso (il Colosseo); `poi_wikidata.py` non
-  abbassa mai quel valore. Il patrimonio UNESCO è solo un fatto di OSM e di Wikidata: nessun emblema e nessun dato dai
+  abbassa mai quel valore. Quando `ref:whc` sta solo sul perimetro del sito ("Paris, rives de la Seine"), `geofabrik_pois.py`
+  lo copia sui POI con il punto dentro che sono tutelati o culturali (tag `heritage` o `historic`, musei, attrazioni,
+  opere d'arte, panorami, luoghi di culto): il Louvre sì, i bar del centro no; il ripiego su Overpass non ha i perimetri.
+  Il patrimonio UNESCO è solo un fatto di OSM e di Wikidata: nessun emblema e nessun dato dai
   siti dell'UNESCO; la pagina delle licenze dice che Pocket Travel non è affiliata all'UNESCO.
 
 ## Firma dei file JSON

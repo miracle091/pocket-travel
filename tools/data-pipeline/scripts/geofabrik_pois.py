@@ -28,6 +28,7 @@ sull'indice o con un indice ritoccato.
    assembla come area, perche' stanno in piu' estratti regionali e in ciascuno hanno solo una parte delle vie (Picos de
    Europa, Fuji-Hakone-Izu), si assemblano dall'unione degli estratti ridotti (esporta_relazioni_spezzate). Con --border si scrive solo un oggetto con il
    punto dentro il confine (Confine); con --sibling, solo se il punto spetta alla regione e non a una sorella (vince).
+   I POI culturali dentro il perimetro di un sito UNESCO prendono il suo ref:whc (perimetri_unesco); con --overpass no.
 
 Esce con codice 1 se qualcosa non va (download, osmium): build-region.sh ripiega allora su Overpass.
 """
@@ -81,7 +82,11 @@ TAGS_FILTER = [
     # migliaia, contro milioni di vie pedonali), le relazioni di vie solo se il nome comincia come quello di una piazza.
     "wr/amenity=library", "nwr/natural=peak,mountain_range", "w/wikidata", "r/highway=pedestrian", "r/type=site",
     *[f"r/name={prefisso} *" for prefisso in PREFISSI_DI_PIAZZA],
+    # Perimetri dei siti UNESCO (perimetri_unesco): 2.847 oggetti con ref:whc nel mondo (2026-10-27).
+    "wr/ref:whc",
 ]
+# POI che un perimetro UNESCO promuove: gia' tutelati o culturali, non ogni bar del centro di Roma o di Venezia.
+TURISMO_DEL_PATRIMONIO = {"attraction", "museum", "artwork", "viewpoint"}
 # Paesi che un estratto contiene ma l'indice non elenca: gcc-states ha anche l'Arabia Saudita, quello
 # dell'Irlanda l'Irlanda del Nord, quello della Malesia Singapore e Brunei.
 PAESI_MANCANTI = {"gcc-states": {"SA"}, "ireland-and-northern-ireland": {"GB"},
@@ -656,6 +661,63 @@ def relazioni_non_aree(clipped, tmp, nome):
     return out, ad_area
 
 
+def anelli_di_vie(vie):
+    """Anelli chiusi formati unendo per gli estremi le vie [[(lon, lat)]]; i tratti che non si chiudono si scartano."""
+    rings, aperte = [], [list(v) for v in vie if len(v) > 1]
+    while aperte:
+        ring = aperte.pop()
+        while ring[0] != ring[-1]:
+            for i, v in enumerate(aperte):
+                if v[0] == ring[-1]:
+                    ring += v[1:]
+                elif v[-1] == ring[-1]:
+                    ring += v[-2::-1]
+                elif v[-1] == ring[0]:
+                    ring = v[:-1] + ring
+                elif v[0] == ring[0]:
+                    ring = v[:0:-1] + ring
+                else:
+                    continue
+                del aperte[i]
+                break
+            else:
+                break
+        if len(ring) > 3 and ring[0] == ring[-1]:
+            rings.append(ring)
+    return rings
+
+
+def perimetri_di_siti(clipped, tmp, nome):
+    """[(ref:whc, rettangolo, Confine)] delle relazioni con ref:whc che osmium export non assembla come aree ("Venezia e
+    la sua laguna" e' type=site, con il contorno della citta' tra le vie membro): un anello per ogni giro chiuso delle
+    vie membro (anelli_di_vie). Un punto dentro un anello qualsiasi e' nel sito."""
+    rels = os.path.join(tmp, f"{nome}-siti.opl")
+    subprocess.run(["osmium", "cat", "--overwrite", "--no-progress", "-t", "relation", clipped,
+                    "-f", "opl,add_metadata=false", "-o", rels], check=True)
+    siti = {rid: tags["ref:whc"].strip() for rid, (tags, _) in leggi_opl(rels)[2].items()
+            if tags.get("ref:whc", "").strip() and tags.get("type") not in ("multipolygon", "boundary")}
+    if not siti:
+        return []
+    ids = os.path.join(tmp, f"{nome}-siti.txt")
+    with open(ids, "w", encoding="utf-8") as f:
+        f.writelines(f"r{rid}\n" for rid in siti)
+    members = os.path.join(tmp, f"{nome}-membri-siti.opl")
+    # Codice 1: membri che non ci sono, come in relazioni_non_aree.
+    result = subprocess.run(["osmium", "getid", "--overwrite", "--no-progress", "-r", "-i", ids, clipped,
+                             "-f", "opl,add_metadata=false", "-o", members])
+    if result.returncode not in (0, 1) or not os.path.exists(members):
+        raise subprocess.CalledProcessError(result.returncode, result.args)
+    nodes, ways, relations = leggi_opl(members)
+    out = []
+    for rid, ref in siti.items():
+        vie = [[nodes[n] for n in ways[mid]] for kind, mid in relations.get(rid, ({}, []))[1]
+               if kind == "w" and ways.get(mid) and all(n in nodes for n in ways[mid])]
+        # Un anello piatto (stessa latitudine) non ha lati per Confine, e l'errore manderebbe la regione su Overpass.
+        out += [(ref, rettangolo([ring]), Confine({"type": "Polygon", "coordinates": [ring]}))
+                for ring in anelli_di_vie(vie) if len({y for _, y in ring}) > 1]
+    return out
+
+
 AREA_DI_RELAZIONE = re.compile(r'"@type":\s*"relation",\s*"@id":\s*(\d+)')
 
 
@@ -707,12 +769,39 @@ def vince(lon, lat, regione, bbox, sorelle):
     return True
 
 
-def scrivi_xml(sources, bbox, out, relazioni=(), confine=None, sorelle=(), regione=None):
+def perimetri_unesco(sources):
+    """[(ref:whc, rettangolo, Confine)] delle aree con ref:whc nei geojsonseq: il perimetro di un sito UNESCO
+    ("Paris, rives de la Seine", ref:whc=600), sul quale OSM non ripete il tag per ogni monumento (Louvre, Notre-Dame)."""
+    out, seen = [], set()
+    for source in sources:
+        with open(source, encoding="utf-8") as lines:
+            for line in lines:
+                if '"ref:whc"' not in line:
+                    continue
+                feature = json.loads(line.strip().lstrip("\x1e"))
+                props, geometry = feature["properties"], feature["geometry"]
+                ref, key = str(props.get("ref:whc", "")).strip(), (props["@type"], props["@id"])
+                if ref and geometry["type"] in ("Polygon", "MultiPolygon") and key not in seen:
+                    seen.add(key)
+                    out.append((ref, rettangolo(anelli(geometry)), Confine(geometry)))
+    return out
+
+
+def del_patrimonio(tags):
+    """True per un POI che un perimetro UNESCO promuove (TURISMO_DEL_PATRIMONIO)."""
+    return ("heritage" in tags or "historic" in tags or tags.get("tourism") in TURISMO_DEL_PATRIMONIO or
+            tags.get("amenity") == "place_of_worship")
+
+
+def scrivi_xml(sources, bbox, out, relazioni=(), confine=None, sorelle=(), regione=None, siti=()):
     """Scrive gli oggetti di ogni geojsonseq in sources, piu' le relazioni [(id, tag, lon, lat)] di relazioni_non_aree,
     nell'XML di Overpass; ritorna quanti. Con confine (Confine) solo quelli con il punto dentro; con sorelle solo quelli
-    che spettano alla regione (vince)."""
+    che spettano alla regione (vince). Un POI del patrimonio (del_patrimonio) senza ref:whc proprio, con il punto dentro
+    un perimetro UNESCO (perimetri_unesco, o siti di perimetri_di_siti), prende il ref:whc del perimetro: generatePoi
+    gli da' heritage 2."""
     minx, miny, maxx, maxy = bbox
-    seen, fuori, ceduti = set(), set(), set()
+    seen, fuori, ceduti, promossi = set(), set(), set(), set()
+    perimetri = perimetri_unesco(sources) + list(siti)
 
     def oggetti():
         for source in sources:
@@ -743,6 +832,12 @@ def scrivi_xml(sources, bbox, out, relazioni=(), confine=None, sorelle=(), regio
                 ceduti.add((kind, oid))
                 continue
             seen.add((kind, oid))
+            if perimetri and not str(props.get("ref:whc", "")).strip() and del_patrimonio(props):
+                ref = next((r for r, (x0, y0, x1, y1), area in perimetri
+                            if x0 <= lon <= x1 and y0 <= lat <= y1 and area.dentro(lon, lat)), None)
+                if ref:
+                    props["ref:whc"] = ref
+                    promossi.add((kind, oid))
             tags = "".join(f"<tag k={quoteattr(k)} v={quoteattr(str(v))}/>" for k, v in props.items())
             if kind == "node":
                 xml.write(f'<node id="{oid}" lat="{lat:.7f}" lon="{lon:.7f}">{tags}</node>\n')
@@ -754,6 +849,8 @@ def scrivi_xml(sources, bbox, out, relazioni=(), confine=None, sorelle=(), regio
         print(f"-- geofabrik: {len(fuori - seen)} oggetti fuori dal confine scartati", flush=True)
     if sorelle:
         print(f"-- geofabrik: {len(ceduti - seen)} oggetti ceduti alle regioni sorelle", flush=True)
+    if perimetri:
+        print(f"-- geofabrik: {len(perimetri)} perimetri UNESCO, {len(promossi)} POI promossi", flush=True)
     return len(seen)
 
 
@@ -844,7 +941,7 @@ def main():
 
     ridotti = estratti_ridotti(extracts, args.cache, args.user_agent)
     with tempfile.TemporaryDirectory() as tmp:
-        sources, relazioni, ad_area, esportate = [], [], set(), set()
+        sources, relazioni, ad_area, esportate, siti = [], [], set(), set(), []
         for (cid, _), reduced in zip(extracts, ridotti):
             # Prima il ritaglio sul bbox: San Marino esporterebbe altrimenti tutto il nord-est d'Italia. "types=any":
             # complete anche le relazioni non multipolygon che escono dal bbox (parchi nazionali type=boundary, siti
@@ -868,11 +965,12 @@ def main():
             relazioni += non_aree
             ad_area |= aree
             esportate |= relazioni_esportate(source)
+            siti += perimetri_di_siti(clipped, tmp, nome_file(cid))
         spezzate = ad_area - esportate
         if spezzate and len(ridotti) > 1:
             print(f"-- geofabrik: {len(spezzate)} relazioni senza area negli estratti, le assemblo dall'unione", flush=True)
             sources.append(esporta_relazioni_spezzate(spezzate, ridotti, tmp))
-        count = scrivi_xml(sources, bbox, args.out, relazioni, confine, sorelle, args.id)
+        count = scrivi_xml(sources, bbox, args.out, relazioni, confine, sorelle, args.id, siti)
     # Nessun oggetto e' quasi certamente un errore (formato di osmium cambiato, filtro sbagliato): meglio Overpass.
     if count == 0:
         sys.exit("nessun oggetto POI dagli estratti Geofabrik")
