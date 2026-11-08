@@ -3,6 +3,7 @@ package com.pockettravel.core.data.crypto
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import javax.crypto.Cipher
@@ -47,6 +48,14 @@ class VaultKeyEnvelopeTest {
         val unwrapped = VaultKeyEnvelope(files).completeUnlock(VaultKeyEnvelope.UnlockCipher.Unwrap(second), second)
 
         assertArrayEquals(dek, unwrapped)
+    }
+
+    @Test
+    fun `una chiave avvolta rovinata nel file da' null, non un crash`() {
+        val files = InMemoryPreferencesFactory()
+        files.open("vault_key_envelope_v2").edit().putString("wrapped_dek", "non-base64!:abc").commit()
+
+        assertNull(VaultKeyEnvelope(files).prepareUnlockCipher())
     }
 
     @Test

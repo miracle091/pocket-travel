@@ -29,8 +29,8 @@ class VaultKeyEnvelope @Inject constructor(preferences: PreferencesFactory) {
     // invalidata (impronte aggiunte o tolte, setInvalidatedByBiometricEnrollment): la chiave di
     // sessione avvolta non si recupera piu', resta solo reset().
     fun prepareUnlockCipher(): UnlockCipher? {
-        val wrappedIv = AesGcmCodec.decodeIv(prefs.getString(KEY_WRAPPED_DEK, null) ?: "")
         return try {
+            val wrappedIv = AesGcmCodec.decodeIv(prefs.getString(KEY_WRAPPED_DEK, null) ?: "")
             if (wrappedIv != null) {
                 UnlockCipher.Unwrap(kek.newDecryptionCipher(wrappedIv))
             } else {
@@ -41,6 +41,9 @@ class VaultKeyEnvelope @Inject constructor(preferences: PreferencesFactory) {
             null
         } catch (_: IllegalStateException) {
             // Chiave sparita dal Keystore.
+            null
+        } catch (_: IllegalArgumentException) {
+            // Chiave avvolta rovinata nel file (Base64 non valido): come una KEK invalidata, resta solo reset().
             null
         }
     }

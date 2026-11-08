@@ -250,14 +250,20 @@ private fun LockedContent(viewModel: VaultViewModel, onUnlock: () -> Unit, onNot
     val promptCancel = stringResource(R.string.vault_prompt_cancel)
     val unlockFailed = stringResource(R.string.vault_unlock_failed)
     val authFailed = stringResource(R.string.vault_auth_failed)
+    val systemUpdateNeeded = stringResource(R.string.vault_system_update_needed)
 
     fun showPrompt() {
         val activity = context as FragmentActivity
         // Senza biometria forte la chiave non si crea ne' si usa: si mostra la spiegazione, non un errore.
         val authCode = BiometricManager.from(context).canAuthenticate(ALLOWED_AUTHENTICATORS)
         if (authCode != BiometricManager.BIOMETRIC_SUCCESS) {
-            // Biometria assente: la spiegazione. Sensore momentaneamente non disponibile: resta bloccata, si riprova.
-            if (isBiometricMissing(authCode)) onNotEnrolled() else errorMessage = unlockFailed
+            // Biometria assente: la spiegazione. Aggiornamento di sistema richiesto: lo si dice.
+            // Sensore momentaneamente non disponibile: resta bloccata, si riprova.
+            when {
+                isBiometricMissing(authCode) -> onNotEnrolled()
+                needsSystemUpdate(authCode) -> errorMessage = systemUpdateNeeded
+                else -> errorMessage = unlockFailed
+            }
             return
         }
         val unlockIntent = viewModel.prepareUnlockCipher() ?: run {

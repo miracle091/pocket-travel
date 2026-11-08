@@ -13,6 +13,7 @@
     <string name="vault_prompt_subtitle">Usa la biometria del dispositivo</string>
     <string name="vault_prompt_cancel">Annulla</string>
     <string name="vault_unlock_failed">Sblocco non riuscito. Riprova</string>
+    <string name="vault_system_update_needed">Per usare la biometria serve un aggiornamento di sicurezza del dispositivo. Aggiorna il sistema e riprova</string>
     <string name="vault_auth_failed">Autenticazione non riuscita. Riprova</string>
     <string name="vault_key_invalidated_title">La chiave dei documenti non è più valida</string>
     <string name="vault_key_invalidated_body">Può succedere se le impronte del dispositivo sono cambiate o se la chiave è andata persa: i documenti salvati non si possono più aprire. Reimposta la cassaforte per ricominciare</string>

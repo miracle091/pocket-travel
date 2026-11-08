@@ -3,8 +3,12 @@ package com.pockettravel.feature.vault
 import androidx.biometric.BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE
 import androidx.biometric.BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED
 import androidx.biometric.BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
+import androidx.biometric.BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED
+import androidx.biometric.BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED
 import androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VaultGateTest {
@@ -43,5 +47,13 @@ class VaultGateTest {
         assertEquals(GateStatus.LOCKED, initialGateStatus(BIOMETRIC_ERROR_HW_UNAVAILABLE, isUnlocked = false))
         assertEquals(GateStatus.NOT_ENROLLED, initialGateStatus(BIOMETRIC_ERROR_NONE_ENROLLED, isUnlocked = false))
         assertEquals(GateStatus.UNLOCKED, initialGateStatus(BIOMETRIC_SUCCESS, isUnlocked = true))
+    }
+
+    @Test
+    fun `aggiornamento di sicurezza richiesto o biometria non supportata chiedono di aggiornare il sistema`() {
+        assertTrue(needsSystemUpdate(BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED))
+        assertTrue(needsSystemUpdate(BIOMETRIC_ERROR_UNSUPPORTED))
+        assertFalse(needsSystemUpdate(BIOMETRIC_ERROR_HW_UNAVAILABLE))
+        assertFalse(needsSystemUpdate(BIOMETRIC_ERROR_NONE_ENROLLED))
     }
 }

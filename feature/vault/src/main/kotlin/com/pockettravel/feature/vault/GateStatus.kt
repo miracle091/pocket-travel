@@ -10,6 +10,10 @@ internal enum class GateStatus { NOT_ENROLLED, LOCKED, UNLOCKED }
 internal fun isBiometricMissing(authCode: Int): Boolean =
     authCode == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED || authCode == BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
 
+// Biometria che il sistema non lascia usare finche' non si aggiorna: riprovare non serve, va detto.
+internal fun needsSystemUpdate(authCode: Int): Boolean =
+    authCode == BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED || authCode == BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED
+
 internal fun initialGateStatus(authCode: Int, isUnlocked: Boolean): GateStatus = when {
     isBiometricMissing(authCode) -> GateStatus.NOT_ENROLLED
     isUnlocked -> GateStatus.UNLOCKED
