@@ -25,11 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -62,7 +58,6 @@ import com.pockettravel.app.navigation.graph.tutorialScreen
 import com.pockettravel.app.navigation.graph.updatesScreen
 import com.pockettravel.app.navigation.graph.vaultScreen
 import com.pockettravel.app.onboarding.OnboardingViewModel
-import com.pockettravel.app.regions.RegionTab
 import com.pockettravel.app.regions.navigatorViewModels
 import com.pockettravel.app.updates.UpdateRequiredMessages
 import com.pockettravel.core.data.officialSourcesRegistry
@@ -103,8 +98,6 @@ fun PocketTravelNavHost(
     navController: NavHostController = rememberNavController(),
 ) {
     val startDestination = remember { startDestinationViewModel.startDestination }
-    val initialRegionId = remember { startDestinationViewModel.initialRegionId }
-    var initialRegionOpened by rememberSaveable { mutableStateOf(false) }
 
     val currentDestination = navController.currentBackStackEntryAsState().value?.destination
     // Nome della schermata per il rapporto di una chiusura inattesa: la rotta senza i valori degli argomenti.
@@ -126,20 +119,14 @@ fun PocketTravelNavHost(
         }
     }
 
-    // App gia' in uso: riparte dalla mappa dell'ultima regione, impilata sopra l'elenco regioni
-    // (una volta sola, non dopo una ricreazione dell'activity: il back stack e' gia' ripristinato).
+    // Ultima regione e Navigatore dalla notifica (StartDestinationViewModel.startCommands): i collector di
+    // openNavigatorRequests non c'erano ancora quando l'activity ha letto l'intent, quindi qui si naviga direttamente.
     LaunchedEffect(Unit) {
-        if (!initialRegionOpened && initialRegionId != null) {
-            initialRegionOpened = true
-            navController.navigate(RegionHubRoute(initialRegionId, tab = RegionTab.MAP.key))
-        }
-    }
-
-    // Dopo la regione iniziale, che altrimenti resterebbe in cima: i collector di openNavigatorRequests non c'erano ancora
-    // quando l'activity ha letto l'intent, quindi qui si naviga direttamente (solo se una navigazione e' in corso).
-    LaunchedEffect(Unit) {
-        if (openNavigatorOnStart && startDestination != OnboardingRoute && navigationViewModel.isNavigating) {
-            navController.navigateTopLevel(NavigatorRoute)
+        startDestinationViewModel.startCommands(openNavigatorOnStart, navigationViewModel.isNavigating).forEach { command ->
+            when (command) {
+                is StartCommand.Open -> navController.navigate(command.route)
+                is StartCommand.OpenTopLevel -> navController.navigateTopLevel(command.route)
+            }
         }
     }
 
