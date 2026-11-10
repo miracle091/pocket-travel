@@ -1,5 +1,6 @@
 package com.pockettravel.app.navigation
 
+import com.pockettravel.app.regions.RegionTab
 import kotlinx.serialization.Serializable
 
 // Rotte type-safe di Navigation Compose: gli argomenti sono proprieta' tipizzate e la libreria li
@@ -29,7 +30,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable data object SettingsRoute
 
-@Serializable data class RegionHubRoute(val regionId: String, val tab: String = "guide")
+@Serializable data class RegionHubRoute(val regionId: String, val tab: String = RegionTab.GUIDE.key)
 
 @Serializable data class RegionPreviewRoute(val regionId: String, val name: String = "")
 

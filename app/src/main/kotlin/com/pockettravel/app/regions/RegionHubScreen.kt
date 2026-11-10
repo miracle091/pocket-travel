@@ -70,7 +70,7 @@ private const val TAB_CROSSFADE_MS = 250
 @Composable
 fun RegionHubScreen(
     regionId: String,
-    initialTab: String = "guide",
+    initialTab: String = RegionTab.GUIDE.key,
     onBack: () -> Unit,
     onOpenOfficialSource: (url: String) -> Unit = {},
     onOpenSource: (url: String, title: String) -> Unit = { _, _ -> },

@@ -276,6 +276,8 @@
     <string name="planner_where_to">Dove vuoi andare?</string>
     <string name="planner_from">Partenza</string>
     <string name="planner_to">Destinazione</string>
+    <!-- Letto da TalkBack sulle righe di partenza e destinazione: etichetta, poi il luogo scelto. -->
+    <string name="planner_place_field">%1$s: %2$s</string>
     <string name="planner_my_position">La tua posizione</string>
     <string name="planner_swap">Scambia partenza e destinazione</string>
     <string name="planner_recents">Recenti</string>

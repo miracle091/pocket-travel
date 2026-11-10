@@ -2,8 +2,8 @@ package com.pockettravel.feature.ai.llamacpp
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.content.pm.ApplicationInfo
 import androidx.core.content.edit
+import com.pockettravel.core.ui.isDebugBuild
 import java.io.File
 
 /**
@@ -25,7 +25,7 @@ object CpuBackendOverride {
         fileNames?.filter { VARIANT_FILE.matches(it) }?.sorted().orEmpty()
 
     /** Variante scelta per il prossimo avvio; null se la sceglie ggml o se la build non e' di debug. */
-    fun saved(context: Context): String? = saved(prefs(context), isDebuggable(context))
+    fun saved(context: Context): String? = saved(prefs(context), isDebugBuild(context))
 
     /** Come [saved], sulle preferenze [prefs] di una build [debuggable] o no. */
     fun saved(prefs: SharedPreferences, debuggable: Boolean): String? =
@@ -48,6 +48,4 @@ object CpuBackendOverride {
     }
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-
-    internal fun isDebuggable(context: Context) = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 }

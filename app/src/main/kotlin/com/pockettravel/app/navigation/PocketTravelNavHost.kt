@@ -62,8 +62,6 @@ import com.pockettravel.app.browser.InAppBrowserScreen
 import com.pockettravel.app.crash.CrashContext
 import com.pockettravel.app.licenses.LicenseScreen
 import com.pockettravel.app.licenses.LicensesScreen
-import com.pockettravel.app.settings.SettingsScreen
-import com.pockettravel.app.settings.SettingsViewModel
 import com.pockettravel.app.more.MoreScreen
 import com.pockettravel.app.onboarding.OnboardingScreen
 import com.pockettravel.app.onboarding.OnboardingViewModel
@@ -73,9 +71,12 @@ import com.pockettravel.app.regions.RegionListScreen
 import com.pockettravel.app.regions.RegionListViewModel
 import com.pockettravel.app.regions.RegionPreviewScreen
 import com.pockettravel.app.regions.RegionStatus
+import com.pockettravel.app.regions.RegionTab
 import com.pockettravel.app.regions.RegionWorldMap
 import com.pockettravel.app.regions.navigatorViewModels
 import com.pockettravel.app.regions.rowActions
+import com.pockettravel.app.settings.SettingsScreen
+import com.pockettravel.app.settings.SettingsViewModel
 import com.pockettravel.app.storage.StorageScreen
 import com.pockettravel.app.updates.UpdateRequiredMessages
 import com.pockettravel.app.updates.UpdatesScreen
@@ -87,9 +88,9 @@ import com.pockettravel.core.sync.AlertNotifier
 import com.pockettravel.core.sync.UpdateAvailableNotifier
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ContextualHint
-import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.feature.sources.OfficialSourcesScreen
 import com.pockettravel.feature.vault.DocumentsScreen
+import com.pockettravel.core.ui.R as UiR
 
 // Le destinazioni principali della barra/rail di navigazione (M3: il menu laterale modale e'
 // sconsigliato, sostituito dalla navigation suite). La barra compare solo su queste: le
@@ -150,7 +151,7 @@ fun PocketTravelNavHost(
     LaunchedEffect(Unit) {
         if (!initialRegionOpened && initialRegionId != null) {
             initialRegionOpened = true
-            navController.navigate(RegionHubRoute(initialRegionId, tab = "map"))
+            navController.navigate(RegionHubRoute(initialRegionId, tab = RegionTab.MAP.key))
         }
     }
 

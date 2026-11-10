@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Process
 import com.pockettravel.core.data.PreferencesFactory
+import com.pockettravel.core.ui.isDebugBuild
 import com.pockettravel.feature.ai.llamacpp.CpuBackendOverride
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -31,7 +32,7 @@ class AndroidCpuBackendStore @Inject constructor(
     private val prefs = preferencesFactory.open(CpuBackendOverride.PREFS)
 
     override fun available(): List<String> = CpuBackendOverride.available(context)
-    override fun saved(): String? = CpuBackendOverride.saved(prefs, CpuBackendOverride.isDebuggable(context))
+    override fun saved(): String? = CpuBackendOverride.saved(prefs, isDebugBuild(context))
     override fun save(fileName: String?) = CpuBackendOverride.save(prefs, fileName)
 }
 

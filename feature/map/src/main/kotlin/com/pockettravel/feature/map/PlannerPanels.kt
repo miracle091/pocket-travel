@@ -120,11 +120,12 @@ internal fun RoutePanel(
 // Riga bassa come un campo di testo, senza etichetta visibile (la dice l'icona): TalkBack la legge.
 @Composable
 private fun PlaceField(icon: ImageVector, iconTint: Color, label: String, text: String, onClick: () -> Unit) {
+    val description = stringResource(R.string.planner_place_field, label, text)
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).semantics { contentDescription = "$label: $text" },
+        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).semantics { contentDescription = description },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = Spacing.m)) {
             Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))

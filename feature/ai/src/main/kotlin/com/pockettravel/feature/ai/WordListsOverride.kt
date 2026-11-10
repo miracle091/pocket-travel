@@ -1,9 +1,9 @@
 package com.pockettravel.feature.ai
 
 import android.content.Context
-import android.content.pm.ApplicationInfo
 import androidx.core.content.edit
 import com.pockettravel.core.data.PreferencesFactory
+import com.pockettravel.core.ui.isDebugBuild
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,7 +22,7 @@ class WordListsOverride(
     constructor(
         preferencesFactory: PreferencesFactory,
         @ApplicationContext context: Context,
-    ) : this(preferencesFactory, context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0)
+    ) : this(preferencesFactory, isDebugBuild(context))
 
     private val prefs = preferencesFactory.open(PREFS)
 

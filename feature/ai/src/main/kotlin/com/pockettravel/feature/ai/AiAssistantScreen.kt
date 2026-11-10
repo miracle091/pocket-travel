@@ -1,21 +1,19 @@
 package com.pockettravel.feature.ai
 
 import android.Manifest
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.text.format.Formatter
+import android.view.WindowManager
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material3.FilledTonalButton
-import android.text.format.Formatter
-import android.view.WindowManager
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +38,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -81,16 +80,16 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -112,8 +111,8 @@ import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.WeatherCard
+import com.pockettravel.core.ui.isDebugBuild
 import com.pockettravel.core.ui.isOnCellularNetwork
-import com.pockettravel.core.ui.R as UiR
 import java.io.File
 import java.io.InputStream
 import java.text.NumberFormat
@@ -124,6 +123,7 @@ import java.time.format.FormatStyle
 import java.util.Currency
 import javax.crypto.Cipher
 import kotlin.math.roundToInt
+import com.pockettravel.core.ui.R as UiR
 
 // Il ViewModel sopravvive al cambio di lingua dell'app, ma il modello in uso dipende dalla lingua: con la stessa
 // istanza la schermata crederebbe ancora scaricato il modello dell'altra lingua e ogni domanda finirebbe in errore.
@@ -1690,5 +1690,5 @@ private fun AiConversationPreview() {
 @Composable
 private fun isDebugBuild(): Boolean {
     val context = LocalContext.current
-    return remember(context) { context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 }
+    return remember(context) { isDebugBuild(context) }
 }
