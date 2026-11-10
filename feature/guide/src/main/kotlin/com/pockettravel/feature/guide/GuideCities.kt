@@ -61,9 +61,6 @@ import com.pockettravel.core.ui.WeatherCard
 
 private const val MILLION = 1_000_000L
 private const val MILLION_DOUBLE = 1_000_000.0
-private const val POPULATION_ROUND_FROM = 10_000L
-private const val POPULATION_ROUND_STEP = 1_000L
-private const val POPULATION_ROUND_HALF_STEP = 500L
 
 
 // Riquadro delle guide delle citta': titolo con il numero di guide, le 5 citta' principali (per popolazione) in un
@@ -317,11 +314,6 @@ private fun populationText(population: Long): String {
         val millions = java.text.NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 1 }.format(population / MILLION_DOUBLE)
         stringResource(R.string.guide_city_population_millions, millions)
     } else {
-        val rounded = if (population >= POPULATION_ROUND_FROM) {
-            (population + POPULATION_ROUND_HALF_STEP) / POPULATION_ROUND_STEP * POPULATION_ROUND_STEP
-        } else {
-            population
-        }
-        stringResource(R.string.guide_city_population, java.text.NumberFormat.getIntegerInstance(locale).format(rounded))
+        stringResource(R.string.guide_city_population, java.text.NumberFormat.getIntegerInstance(locale).format(roundedPopulation(population)))
     }
 }

@@ -44,8 +44,6 @@ import com.pockettravel.core.ui.InfoCardHeader
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.countryName
 import com.pockettravel.core.ui.safeWebUrl
-import java.util.Locale
-import kotlin.math.roundToInt
 
 // numbers nullo: la regione non ha un numero di emergenza centralizzato, e il riquadro lo dichiara.
 @Composable
@@ -211,15 +209,6 @@ private fun EmbassyRow(entry: EmbassyEntry, onOpenLink: (url: String, title: Str
 // Il sito arriva da Wikidata, modificabile da chiunque: solo http(s), senza schema si assume https.
 private fun webUrl(website: String): String? = safeWebUrl(website)
 
-private const val METERS_PER_KM = 1000
-private const val DISTANCE_DECIMALS_BELOW_KM = 10
-// "800 m", "2,3 km", "45 km": decimali solo sotto i 10 km, nel formato della lingua.
-private fun distanceText(km: Double): String = when {
-    km < 1 -> "${(km * METERS_PER_KM).roundToInt()} m"
-    km < DISTANCE_DECIMALS_BELOW_KM -> String.format(Locale.getDefault(), "%.1f km", km)
-    else -> "${km.roundToInt()} km"
-}
-
 private fun MissionKind.label(): Int = when (this) {
     MissionKind.EMBASSY -> R.string.emergency_kind_embassy
     MissionKind.CONSULATE_GENERAL -> R.string.emergency_kind_consulate_general
@@ -248,22 +237,4 @@ private fun TravelAdviceRow(source: OfficialSource, destination: String?, descri
             Icon(imageVector = AppIcons.OpenExternal, contentDescription = null)
         }
     }
-}
-
-// Se il numero generale coincide con tutti gli altri (es. 911 negli Stati Uniti, 112 in
-// Andorra) mostra una sola riga invece di quattro identiche; altrimenti raggruppa per numero
-// (es. Giappone: ambulanza e vigili del fuoco condividono il 119) cosi' un numero condiviso
-// non compare due volte.
-private fun EmergencyNumbers.entries(): List<Pair<List<Int>, String>> {
-    val generalNumber = general
-    if (generalNumber != null && generalNumber == police && generalNumber == ambulance && generalNumber == fire) {
-        return listOf(listOf(R.string.emergency_single) to generalNumber)
-    }
-    val labeled = buildList {
-        general?.let { add(R.string.emergency_general to it) }
-        add(R.string.emergency_police to police)
-        add(R.string.emergency_ambulance to ambulance)
-        add(R.string.emergency_fire to fire)
-    }
-    return labeled.groupBy({ it.second }, { it.first }).map { (number, labels) -> labels to number }
 }

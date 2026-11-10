@@ -2,7 +2,6 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>ComplexCondition:GuideEmergency.kt:generalNumber != null &amp;&amp; generalNumber == police &amp;&amp; generalNumber == ambulance &amp;&amp; generalNumber == fire</ID>
     <ID>CyclomaticComplexMethod:GuideSections.kt:@Composable private fun GuideCategory.icon: ImageVector</ID>
     <ID>CyclomaticComplexMethod:GuideSections.kt:@StringRes private fun GuideCategory.displayName: Int</ID>
     <ID>CyclomaticComplexMethod:VaccinationScreen.kt:@Composable private fun VaccinationItem.reasonText: String?</ID>
@@ -29,7 +28,6 @@
     <ID>NoConsecutiveBlankLines:VaccinationScreen.kt: </ID>
     <ID>NoUnusedImports:GuideViewModel.kt:com.pockettravel.feature.guide.GuideViewModel.kt</ID>
     <ID>NoUnusedImports:TravelAdviceNotice.kt:com.pockettravel.feature.guide.TravelAdviceNotice.kt</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:GuideEmergency.kt:// "800 m", "2,3 km", "45 km": decimali solo sotto i 10 km, nel formato della lingua.</ID>
     <ID>SpacingBetweenDeclarationsWithComments:GuideViewModel.kt:GuideViewModel$// Tutte le sezioni della regione: in uiState solo quelle per la nazionalita' scelta (isGuideSectionFor).</ID>
   </CurrentIssues>
 </SmellBaseline>
