@@ -58,7 +58,8 @@ import com.pockettravel.app.navigation.graph.tutorialScreen
 import com.pockettravel.app.navigation.graph.updatesScreen
 import com.pockettravel.app.navigation.graph.vaultScreen
 import com.pockettravel.app.onboarding.OnboardingViewModel
-import com.pockettravel.app.regions.navigatorViewModels
+import com.pockettravel.app.regions.LocalNavigatorViewModels
+import com.pockettravel.app.regions.NavigatorViewModels
 import com.pockettravel.app.updates.UpdateRequiredMessages
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.sync.AlertNotifier
@@ -94,6 +95,8 @@ fun PocketTravelNavHost(
     openNavigatorOnStart: Boolean = false,
     onboardingViewModel: OnboardingViewModel = hiltViewModel(),
     startDestinationViewModel: StartDestinationViewModel = hiltViewModel(),
+    // Dell'activity, come gli altri ViewModel qui (fuori dal NavHost): li leggono le schermate con LocalNavigatorViewModels.
+    navigatorViewModels: NavigatorViewModels = NavigatorViewModels(hiltViewModel(), hiltViewModel()),
     // Parametro per i test di navigazione su JVM (TestNavHostController); in produzione resta quello salvato e ripristinato.
     navController: NavHostController = rememberNavController(),
 ) {
@@ -110,7 +113,7 @@ fun PocketTravelNavHost(
 
     // Notifica della navigazione toccata con l'app aperta: fuori dall'hub di una regione (che passa da solo alla sua scheda) si
     // apre il Navigatore della barra, che mostra la stessa navigazione.
-    val (_, navigationViewModel) = navigatorViewModels()
+    val navigationViewModel = navigatorViewModels.navigation
     LaunchedEffect(navigationViewModel) {
         navigationViewModel.openNavigatorRequests.collect {
             if (navigationViewModel.isNavigating && navController.currentDestination?.hasRoute<RegionHubRoute>() != true) {
@@ -154,7 +157,7 @@ fun PocketTravelNavHost(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
         SharedTransitionLayout {
-        CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+        CompositionLocalProvider(LocalSharedTransitionScope provides this, LocalNavigatorViewModels provides navigatorViewModels) {
         NavHost(
             navController = navController,
             startDestination = startDestination,

@@ -1,15 +1,13 @@
 package com.pockettravel.app.regions
 
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,17 +26,6 @@ import com.pockettravel.core.ui.Spacing
 import com.pockettravel.feature.map.NavigationPlannerScreen
 import com.pockettravel.feature.map.NavigationPlannerViewModel
 import com.pockettravel.feature.map.NavigationViewModel
-
-/**
- * Pianificatore e navigazione, uno solo per tutta l'app (legati all'activity, non alla schermata): la scheda Navigatore della pagina della regione e
- * il Navigatore della barra mostrano la stessa destinazione e la stessa navigazione in corso, e una navigazione avviata da una
- * parte non compare dall'altra come "interrotta" (con un secondo GPS acceso).
- */
-@Composable
-fun navigatorViewModels(): Pair<NavigationPlannerViewModel, NavigationViewModel> {
-    val activity = LocalActivity.current as ComponentActivity
-    return hiltViewModel<NavigationPlannerViewModel>(activity) to hiltViewModel<NavigationViewModel>(activity)
-}
 
 /**
  * Il Navigatore con la rete stradale da scaricare (catalogo e download stanno in app, non in feature:map): nella scheda Navigatore della pagina della
@@ -69,7 +56,7 @@ fun RegionNavigatorScreen(
 @Composable
 fun GlobalNavigatorScreen(onOpenCountries: () -> Unit, routingViewModel: RoutingDownloadViewModel = hiltViewModel()) {
     val hasRegions by routingViewModel.hasRegions.collectAsStateWithLifecycle()
-    val (plannerViewModel, navigationViewModel) = navigatorViewModels()
+    val (plannerViewModel, navigationViewModel) = LocalNavigatorViewModels.current
     // Senza barra del titolo: la voce selezionata nella barra in basso dice gia' dove si e', e la mappa ha piu' spazio.
     Surface(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {

@@ -98,7 +98,7 @@ fun RegionHubScreen(
     LaunchedEffect(regionId) { viewModel.load(regionId) }
     // Qui e non dentro la scheda: "Percorso" dalla Mappa le passa la destinazione prima di aprirla, e la notifica della
     // navigazione riporta in primo piano il Navigatore. Uno solo per l'app, come quello della barra principale.
-    val (plannerViewModel, navigationViewModel) = navigatorViewModels()
+    val (plannerViewModel, navigationViewModel) = LocalNavigatorViewModels.current
     LaunchedEffect(navigationViewModel) {
         navigationViewModel.openNavigatorRequests.collect {
             if (navigationViewModel.isNavigating) selectedTab = RegionTab.NAVIGATION
