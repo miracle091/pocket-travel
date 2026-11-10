@@ -1,7 +1,10 @@
 [versions]
 agp = "9.5.0"
 kotlin = "2.4.21"
-ksp = "2.3.13"
+# Non la 2.3.13: due task KSP nello stesso processo di Gradle possono perdere le classi delle librerie e finire
+# senza il codice generato (binding di Hilt, RegionDatabase_Impl mancanti). Si passa alla versione che
+# contiene la correzione (google/ksp#3294), non ancora rilasciata il 2026-11-10.
+ksp = "2.3.12"
 coreKtx = "1.19.1"
 lifecycle = "2.11.0"
 composeBom = "2026.09.00"
