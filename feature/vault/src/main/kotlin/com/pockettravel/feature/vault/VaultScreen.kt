@@ -4,9 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Matrix
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -69,7 +66,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -85,7 +81,6 @@ import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
-import androidx.exifinterface.media.ExifInterface
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -102,9 +97,7 @@ import com.pockettravel.core.ui.Spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayInputStream
 import java.util.UUID
-import com.pockettravel.core.ui.R as UiR
 
 // Solo BIOMETRIC_STRONG: il BiometricPrompt qui e' legato a un CryptoObject (vedi showPrompt),
 // e androidx.biometric non supporta CryptoObject insieme a DEVICE_CREDENTIAL (IllegalArgumentException
@@ -487,9 +480,7 @@ private fun PhotoThumbnail(
     var bitmap by remember(fileName) { mutableStateOf(viewModel.cachedThumbnail(fileName)) }
     val thumbnailPx = with(LocalDensity.current) { 72.dp.roundToPx() }
     LaunchedEffect(fileName) {
-        if (bitmap != null) return@LaunchedEffect
-        bitmap = viewModel.loadPhoto(fileName)?.let { bytes -> decodeSampled(bytes, thumbnailPx) }
-            ?.also { viewModel.cacheThumbnail(fileName, it) }
+        if (bitmap == null) bitmap = viewModel.thumbnail(fileName, thumbnailPx)
     }
     Box(modifier = Modifier.size(72.dp)) {
         Surface(
@@ -532,7 +523,7 @@ private fun PhotoViewerDialog(viewModel: VaultViewModel, fileName: String, onDis
     var bitmap by remember(fileName) { mutableStateOf<ImageBitmap?>(null) }
     val screenWidthPx = LocalWindowInfo.current.containerSize.width
     LaunchedEffect(fileName) {
-        bitmap = viewModel.loadPhoto(fileName)?.let { bytes -> decodeSampled(bytes, screenWidthPx) }
+        bitmap = viewModel.photo(fileName, screenWidthPx)
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -544,26 +535,6 @@ private fun PhotoViewerDialog(viewModel: VaultViewModel, fileName: String, onDis
             }
         },
     )
-}
-
-// Decodifica fuori dal main thread, ridotta (inSampleSize, potenze di 2) finche' il lato corto resta
-// almeno [targetPx]: una foto della fotocamera a piena risoluzione occupa decine di MB in memoria.
-private suspend fun decodeSampled(bytes: ByteArray, targetPx: Int): ImageBitmap? = withContext(Dispatchers.Default) {
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-    var sampleSize = 1
-    while (minOf(bounds.outWidth, bounds.outHeight) / (sampleSize * 2) >= targetPx) sampleSize *= 2
-    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sampleSize })
-        ?: return@withContext null
-    // CameraX salva la rotazione del dispositivo nel tag EXIF Orientation, che BitmapFactory ignora: senza,
-    // una foto scattata in verticale comparirebbe di lato.
-    val degrees = runCatching { ExifInterface(ByteArrayInputStream(bytes)).rotationDegrees }.getOrDefault(0)
-    val upright = if (degrees == 0) {
-        bitmap
-    } else {
-        Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { postRotate(degrees.toFloat()) }, true)
-    }
-    upright.asImageBitmap()
 }
 
 // existing == null crea un nuovo documento; altrimenti modifica quello passato (stesso id,
@@ -636,14 +607,14 @@ private fun PassportEditDialog(
     DisposableEffect(Unit) {
         onDispose {
             if (!closed && activity?.isChangingConfigurations != true) {
-                (photoFileNames - initialPhotoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
+                viewModel.discardUnusedPhotos(initialPhotoFileNames, photoFileNames, saved = false)
             }
         }
     }
     val cancel = {
         closed = true
         viewModel.drafts.clear()
-        (photoFileNames - initialPhotoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
+        viewModel.discardUnusedPhotos(initialPhotoFileNames, photoFileNames, saved = false)
         onDismiss()
     }
     val canSave = canSaveDocument(documentType, fullName, documentNumber)
@@ -672,7 +643,7 @@ private fun PassportEditDialog(
                             onClick = {
                                 closed = true
                                 viewModel.drafts.clear()
-                                (initialPhotoFileNames - photoFileNames.toSet()).forEach { viewModel.discardPhoto(it) }
+                                viewModel.discardUnusedPhotos(initialPhotoFileNames, photoFileNames, saved = true)
                                 onSave(
                                     Passport(
                                         id = existing?.id ?: UUID.randomUUID().toString(),

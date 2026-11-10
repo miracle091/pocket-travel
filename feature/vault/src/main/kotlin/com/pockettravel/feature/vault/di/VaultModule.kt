@@ -3,6 +3,8 @@ package com.pockettravel.feature.vault.di
 import android.content.Context
 import com.pockettravel.core.data.AppInitializer
 import com.pockettravel.core.data.IoDispatcher
+import com.pockettravel.feature.vault.BitmapPhotoLoader
+import com.pockettravel.feature.vault.PhotoLoader
 import com.pockettravel.feature.vault.wipeCameraTmp
 import dagger.Module
 import dagger.Provides
@@ -17,6 +19,9 @@ import kotlinx.coroutines.launch
 @Module
 @InstallIn(SingletonComponent::class)
 object VaultModule {
+
+    @Provides
+    fun providePhotoLoader(loader: BitmapPhotoLoader): PhotoLoader = loader
 
     // Foto del passaporto rimaste in chiaro nella cache se l'app e' stata chiusa durante uno scatto.
     @Provides

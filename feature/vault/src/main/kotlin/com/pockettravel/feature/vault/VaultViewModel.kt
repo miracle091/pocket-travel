@@ -27,6 +27,7 @@ enum class VaultResetState { IDLE, RESETTING, DONE, FAILED }
 class VaultViewModel @Inject constructor(
     private val repository: PassportRepository,
     private val keyEnvelope: VaultKeyEnvelope,
+    private val photoLoader: PhotoLoader,
 ) : ViewModel() {
 
     // Nessuno stato di sblocco persistito qui: la schermata ripresenta sempre il prompt
@@ -49,10 +50,16 @@ class VaultViewModel @Inject constructor(
 
     fun cachedThumbnail(fileName: String): ImageBitmap? = thumbnails.get(fileName)
 
-    fun cacheThumbnail(fileName: String, image: ImageBitmap) {
-        // Una decodifica finita dopo il blocco non deve rimettere in cache una foto in chiaro.
-        if (repository.isUnlocked) thumbnails.put(fileName, image)
-    }
+    // Null finché la cassaforte è bloccata o se la foto non si legge. Da chiamare dal main thread, come
+    // lock(): così il controllo di sblocco e l'inserimento in cache non si separano.
+    suspend fun thumbnail(fileName: String, targetPx: Int): ImageBitmap? =
+        thumbnails.get(fileName) ?: photo(fileName, targetPx)?.also { image ->
+            // Una decodifica finita dopo il blocco non deve rimettere in cache una foto in chiaro.
+            if (repository.isUnlocked) thumbnails.put(fileName, image)
+        }
+
+    suspend fun photo(fileName: String, targetPx: Int): ImageBitmap? =
+        repository.loadPhoto(fileName)?.let { bytes -> photoLoader.decode(bytes, targetPx) }
 
     fun prepareUnlockCipher(): VaultKeyEnvelope.UnlockCipher? = keyEnvelope.prepareUnlockCipher()
 
@@ -122,10 +129,12 @@ class VaultViewModel @Inject constructor(
         null
     }
 
-    suspend fun loadPhoto(fileName: String): ByteArray? = repository.loadPhoto(fileName)
-
-    fun discardPhoto(fileName: String) {
-        viewModelScope.launch { repository.deletePhoto(fileName) }
+    // Chiusura del modulo con le foto [initial] del documento e [current] della bozza. Salvato: si cancellano
+    // le foto tolte, solo ora, così un Annulla non rompe i riferimenti del documento già su disco. Non salvato
+    // (Annulla o uscita dalla composizione): si cancellano le foto scattate in questa modifica.
+    fun discardUnusedPhotos(initial: List<String>, current: List<String>, saved: Boolean) {
+        val unused = if (saved) initial - current.toSet() else current - initial.toSet()
+        viewModelScope.launch { unused.forEach { repository.deletePhoto(it) } }
     }
 
     private companion object {

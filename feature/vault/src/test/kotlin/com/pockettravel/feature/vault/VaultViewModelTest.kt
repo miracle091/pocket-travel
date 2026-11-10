@@ -67,6 +67,11 @@ class VaultViewModelTest {
     private val dao = FakePassportDao()
     private val photosDir = createTempDirectory("vault-view-model-test").toFile()
     private val files = InMemoryPreferencesFactory()
+    private var decodedPhotos = 0
+    private val photoLoader = PhotoLoader { _, targetPx ->
+        decodedPhotos++
+        FakeImageBitmap(targetPx, targetPx)
+    }
     private val kek = SecretKeySpec(ByteArray(32) { it.toByte() }, "AES")
 
     private val passport = Passport(id = "p1", fullName = "Mario Rossi", documentNumber = "AA1234567", nationality = "IT")
@@ -86,6 +91,7 @@ class VaultViewModelTest {
     private fun newViewModel() = VaultViewModel(
         PassportRepository(dao, PassportPhotoStore(photosDir), dispatcher),
         VaultKeyEnvelope(files),
+        photoLoader,
     )
 
     private fun encryptionCipher() = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, kek) }
@@ -204,22 +210,70 @@ class VaultViewModelTest {
     }
 
     @Test
-    fun `una miniatura finita dopo il blocco non entra in cache`() {
+    fun `da bloccato nessuna foto si carica`() = runTest(dispatcher) {
         val viewModel = newViewModel()
-        viewModel.cacheThumbnail("a.jpg", FakeImageBitmap(4, 4))
+        viewModel.unlockFirstTime()
+        val fileName = checkNotNull(viewModel.savePhoto(byteArrayOf(1, 2, 3)))
+        viewModel.lock()
 
-        assertNull(viewModel.cachedThumbnail("a.jpg"))
+        assertNull(viewModel.thumbnail(fileName, 72))
+        assertNull(viewModel.photo(fileName, 1080))
+        assertNull(viewModel.cachedThumbnail(fileName))
     }
 
     @Test
-    fun `da sbloccato la miniatura si tiene e il blocco la toglie`() {
+    fun `la miniatura si decodifica una volta sola e il blocco la toglie dalla cache`() = runTest(dispatcher) {
         val viewModel = newViewModel()
         viewModel.unlockFirstTime()
-        viewModel.cacheThumbnail("a.jpg", FakeImageBitmap(4, 4))
-        assertNotNull(viewModel.cachedThumbnail("a.jpg"))
+        val fileName = checkNotNull(viewModel.savePhoto(byteArrayOf(1, 2, 3)))
+
+        assertEquals(72, viewModel.thumbnail(fileName, 72)?.width)
+        assertNotNull(viewModel.thumbnail(fileName, 72))
+        assertEquals(1, decodedPhotos)
 
         viewModel.lock()
 
-        assertNull(viewModel.cachedThumbnail("a.jpg"))
+        assertNull(viewModel.cachedThumbnail(fileName))
+    }
+
+    @Test
+    fun `la foto intera non entra nella cache delle miniature`() = runTest(dispatcher) {
+        val viewModel = newViewModel()
+        viewModel.unlockFirstTime()
+        val fileName = checkNotNull(viewModel.savePhoto(byteArrayOf(1, 2, 3)))
+
+        assertEquals(1080, viewModel.photo(fileName, 1080)?.width)
+
+        assertNull(viewModel.cachedThumbnail(fileName))
+    }
+
+    @Test
+    fun `chiudere senza salvare cancella solo le foto nuove`() = runTest(dispatcher) {
+        val viewModel = newViewModel()
+        viewModel.unlockFirstTime()
+        val saved = checkNotNull(viewModel.savePhoto(byteArrayOf(1)))
+        val added = checkNotNull(viewModel.savePhoto(byteArrayOf(2)))
+
+        viewModel.discardUnusedPhotos(initial = listOf(saved), current = listOf(saved, added), saved = false)
+        advanceUntilIdle()
+
+        assertNotNull(viewModel.photo(saved, 72))
+        assertNull(viewModel.photo(added, 72))
+    }
+
+    @Test
+    fun `salvare cancella solo le foto tolte dal documento`() = runTest(dispatcher) {
+        val viewModel = newViewModel()
+        viewModel.unlockFirstTime()
+        val removed = checkNotNull(viewModel.savePhoto(byteArrayOf(1)))
+        val kept = checkNotNull(viewModel.savePhoto(byteArrayOf(2)))
+        val added = checkNotNull(viewModel.savePhoto(byteArrayOf(3)))
+
+        viewModel.discardUnusedPhotos(initial = listOf(removed, kept), current = listOf(kept, added), saved = true)
+        advanceUntilIdle()
+
+        assertNull(viewModel.photo(removed, 72))
+        assertNotNull(viewModel.photo(kept, 72))
+        assertNotNull(viewModel.photo(added, 72))
     }
 }
