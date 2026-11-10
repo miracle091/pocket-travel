@@ -1,6 +1,8 @@
 package com.pockettravel.app.regions
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RegionGroupingTest {
@@ -99,5 +101,16 @@ class RegionGroupingTest {
         assertEquals(RegionGroup.Downloaded, groups[0].first)
         assertEquals(listOf("Andorra", "San Marino"), groups[0].second.map { it.displayName })
         assertEquals(listOf("Belgio"), groups[1].second.map { it.displayName })
+    }
+
+    @Test
+    fun `una voce ha un aggiornamento se ce l'ha la regione o una delle regioni della nazione`() {
+        val italia = region("Italia", "Europa", RegionStatus.UPDATE_AVAILABLE)
+        val andorra = region("Andorra", "Europa", RegionStatus.INSTALLED)
+
+        assertTrue(RegionListEntry.Single(italia).hasUpdate())
+        assertFalse(RegionListEntry.Single(andorra).hasUpdate())
+        assertTrue(RegionListEntry.Country("Spagna", "ES", listOf(andorra, italia)).hasUpdate())
+        assertFalse(RegionListEntry.Country("Spagna", "ES", listOf(andorra)).hasUpdate())
     }
 }
