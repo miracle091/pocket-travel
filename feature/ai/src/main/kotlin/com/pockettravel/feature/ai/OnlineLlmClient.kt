@@ -226,7 +226,7 @@ class OnlineLlmClient @Inject constructor(
         val payload = line.takeIf { it.startsWith("data:") }?.removePrefix("data:")?.trim() ?: return null
         val obj = json.parseToJsonElement(payload) as? JsonObject
         return when (obj?.get("type")?.jsonPrimitive?.contentOrNull) {
-            "content_block_delta" -> (obj?.get("delta") as? JsonObject)
+            "content_block_delta" -> (obj.get("delta") as? JsonObject)
                 ?.takeIf { it["type"]?.jsonPrimitive?.contentOrNull == "text_delta" }
                 ?.let { SseChunk(it["text"]?.jsonPrimitive?.contentOrNull, finished = false, error = null) }
             "message_stop" -> SseChunk(null, finished = true, error = null)
