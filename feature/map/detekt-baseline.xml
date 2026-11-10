@@ -36,7 +36,6 @@
     <ID>TooGenericExceptionCaught:RouteEngineModule.kt:RouteEngineModule$error: Exception</ID>
     <ID>TooManyFunctions:NavigationPlannerViewModel.kt:NavigationPlannerViewModel : ViewModel</ID>
     <ID>TooManyFunctions:NavigationViewModel.kt:NavigationViewModel : ViewModel</ID>
-    <ID>TooManyFunctions:OfflineTileSource.kt:com.pockettravel.feature.map.OfflineTileSource.kt</ID>
     <ID>UnusedParameter:NavigationActiveContent.kt:destinationName: String</ID>
     <ID>BackingPropertyNaming:MapRouteViewModel.kt:MapRouteViewModel$// Categorie presenti nell'area, comprese quelle filtrate: il foglio dei filtri deve poterle riattivare. private val _presentCategories = MutableStateFlow&lt;Set&lt;PoiCategory&gt;&gt;(emptySet())</ID>
     <ID>BackingPropertyNaming:MapRouteViewModel.kt:MapRouteViewModel$// Partenze del POI di trasporto aperto nel riquadro: null finche' si leggono o senza POI. private val _transitBoard = MutableStateFlow&lt;TransitBoard?&gt;(null)</ID>

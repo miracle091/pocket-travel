@@ -10,7 +10,6 @@
     <ID>CyclomaticComplexMethod:RegionPackageInstaller.kt:RegionPackageInstaller$suspend fun install</ID>
     <ID>DestructuringDeclarationWithTooManyEntries:RegionZoneRestriction.kt:val (ew, lon, ns, lat) = match.destructured</ID>
     <ID>LongMethod:PmtilesExtractor.kt:PmtilesExtractor$private fun fetchTiles: PmtilesExtractionStats</ID>
-    <ID>LongMethod:PmtilesWriter.kt:PmtilesWriter$fun write</ID>
     <ID>LongMethod:RegionPackageDownloader.kt:RegionPackageDownloader$internal suspend fun downloadAndVerify</ID>
     <ID>LongMethod:RegionPackageInstaller.kt:RegionPackageInstaller$suspend fun install</ID>
     <ID>LoopWithTooManyJumpStatements:PmtilesExtractor.kt:PmtilesExtractor$for</ID>
