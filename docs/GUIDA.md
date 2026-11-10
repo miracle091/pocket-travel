@@ -33,6 +33,15 @@ python .github/scripts/check-dependencies.py app.txt pipeline.txt
 
 detekt segnala solo i problemi nuovi: quelli già presenti stanno nel `detekt-baseline.xml` di ogni modulo. La baseline di un modulo si rigenera (`./gradlew :feature:map:detektBaseline`) solo quando si sposta codice che contiene già un problema registrato, non per far passare codice nuovo.
 
+detekt controlla anche la formattazione del codice Kotlin con le regole di ktlint (stile `intellij_idea`, senza limite di lunghezza delle righe; la configurazione è in `config/detekt/detekt.yml`, sezione `ktlint`). Gli script Gradle `.kts` restano fuori. I problemi di formattazione si correggono in automatico, per un modulo o per tutti:
+
+```bash
+./gradlew :feature:map:detekt --auto-correct
+./gradlew detekt --auto-correct
+```
+
+La correzione riscrive anche i problemi già nel baseline, quindi cambia pure righe che non si stavano toccando: conviene lanciarla sul modulo che si modifica e controllare il diff prima del commit.
+
 I test di interfaccia (`src/androidTest`, con `createComposeRule`) girano sull'emulatore: installa l'APK dei test del modulo e lancia la classe, per esempio:
 
 ```bash

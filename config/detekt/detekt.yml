@@ -18,3 +18,45 @@ style:
     active: false
   UnusedPrivateFunction:
     ignoreAnnotated: ['Preview']
+
+# Formattazione di ktlint (stile intellij_idea, il predefinito del wrapper). Spente le regole sugli a
+# capo di firme, argomenti e istruzioni: il progetto li scrive a modo suo e cambierebbero migliaia di
+# righe senza correggere errori. Wrapping resta accesa perche' le regole delle virgole finali dipendono
+# da lei. Il wrapper da' a ogni regola che va a capo per lunghezza un suo maxLineLength (120 se non
+# indicato): 2147483647 e' il valore che ktlint legge come "nessun limite", come max_line_length = off.
+# Correzione automatica: ./gradlew detekt --auto-correct.
+ktlint:
+  MaximumLineLength:
+    active: false
+  BinaryExpressionWrapping:
+    maxLineLength: 2147483647
+  ContextReceiverListWrapping:
+    maxLineLength: 2147483647
+  ContextReceiverMapping:
+    maxLineLength: 2147483647
+  FunctionExpressionBody:
+    maxLineLength: 2147483647
+  FunctionLiteral:
+    maxLineLength: 2147483647
+  FunctionReturnTypeSpacing:
+    maxLineLength: 2147483647
+  ParameterListSpacing:
+    maxLineLength: 2147483647
+  ParameterWrapping:
+    maxLineLength: 2147483647
+  PropertyWrapping:
+    maxLineLength: 2147483647
+  Wrapping:
+    maxLineLength: 2147483647
+  FunctionSignature:
+    active: false
+  BlankLineBetweenWhenConditions:
+    active: false
+  ArgumentListWrapping:
+    active: false
+  StatementWrapping:
+    active: false
+  ParameterListWrapping:
+    active: false
+  ClassSignature:
+    active: false

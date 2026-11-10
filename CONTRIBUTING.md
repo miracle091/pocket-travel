@@ -44,7 +44,7 @@ La [guida per sviluppatori](docs/GUIDA.md) spiega come preparare l'ambiente, com
 | Area | Regola |
 |---|---|
 | Moduli | ogni `feature/*` dipende solo da `core/*` |
-| Stile | `detekt` e `lint` senza nuovi avvisi; commenti in italiano, al presente |
+| Stile | `detekt` (con la formattazione di ktlint: `./gradlew detekt --auto-correct` la corregge) e `lint` senza nuovi avvisi; commenti in italiano, al presente |
 | Dipendenze | in `gradle/libs.versions.toml`, motivate per peso, licenza e funzionamento offline |
 | Database | ogni modifica allo schema Room ha una migrazione in `Migrations.kt` e un test in `RegionDatabaseMigrationTest` |
 | Terze parti | BRouter e llama.cpp non si modificano: le modifiche sono patch in `third-party/patches/` |

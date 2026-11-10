@@ -4,5 +4,10 @@
   <CurrentIssues>
     <ID>CyclomaticComplexMethod:PoiRules.kt:fun poiCategoryOf: PoiCategory</ID>
     <ID>LongMethod:PoiRules.kt:fun poiCategoryOf: PoiCategory</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:PoiRules.kt:// Anche impianti sportivi, piscine, saune e terme.</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:PoiRules.kt:// Cimiteri con un nome (Pere-Lachaise, Staglieno): quelli senza nome restano nascosti come gli altri POI.</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:PoiRules.kt:// Luoghi dove fare il bagno all'aperto e capanni per osservare gli uccelli.</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:PoiRules.kt:PoiCategory.ALTRO$// Tag senza una categoria precisa: nascosti e non pubblicati (isPoiHiddenOnMap). Resta per i filtri gia' salvati.</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:PoiRules.kt:PoiCategory.LUOGHI_DI_CULTO$// "Da vedere", divisa per tipo (SIGHT_CATEGORIES); ATTRAZIONI raccoglie quello che resta.</ID>
   </CurrentIssues>
 </SmellBaseline>

@@ -184,5 +184,57 @@
     <ID>TooManyFunctions:GenerateGuideContent.kt:com.pockettravel.pipeline.GenerateGuideContent.kt</ID>
     <ID>TooManyFunctions:GenerateTravelAdvice.kt:com.pockettravel.pipeline.GenerateTravelAdvice.kt</ID>
     <ID>TooManyFunctions:ValidateManifest.kt:com.pockettravel.pipeline.ValidateManifest.kt</ID>
+    <ID>FunctionExpressionBody:GenerateEmergencyNumbers.kt:{ return emergencyNumbersByRegion[regionId]?.let { emergencyNumbersLine(it, english) } }</ID>
+    <ID>FunctionLiteral:GenerateAddresses.kt:&lt;anonymous&gt;</ID>
+    <ID>ImportOrdering:GeneratePoi.kt:import com.pockettravel.core.poi.poiHasContacts import com.pockettravel.core.poi.PoiPackage import com.pockettravel.core.poi.poiHasDetails import com.pockettravel.core.poi.poiPackageOf import org.xml.sax.Attributes import org.xml.sax.helpers.DefaultHandler import java.io.File import java.sql.DriverManager import java.text.Normalizer import javax.xml.parsers.SAXParserFactory import kotlin.math.roundToInt</ID>
+    <ID>ImportOrdering:PublishedFormatTest.kt:import java.io.File import java.io.RandomAccessFile import java.sql.Connection import java.sql.DriverManager import java.time.LocalDate import java.util.zip.ZipEntry import java.util.zip.ZipOutputStream import org.json.JSONArray import org.json.JSONObject import org.junit.Assert.fail import org.junit.Rule import org.junit.Test import org.junit.rules.TemporaryFolder</ID>
+    <ID>Indentation:GenerateCities.kt: </ID>
+    <ID>Indentation:GenerateDiplomaticMissions.kt: </ID>
+    <ID>Indentation:GenerateEmergencyNumbers.kt: </ID>
+    <ID>Indentation:GenerateGuideContent.kt: </ID>
+    <ID>Indentation:GeneratePoi.kt: </ID>
+    <ID>Indentation:GenerateVaccinations.kt: </ID>
+    <ID>Kdoc:AddressSearch.kt:/** * Indice di ricerca dei civici per via (addresses-search.db, uno per cella della griglia): una riga * per civico che ha una via, cosi' l'app trova "via Roma 12" senza leggere il pmtiles. Il formato * (versione 2) e' descritto su [writeAddressSearchDb]. I civici senza via restano solo nel pmtiles. */</ID>
+    <ID>Kdoc:GenerateCities.kt:/** * Righe di un &lt;regionId&gt;.cities.jsonl (una per citta': {"city": titolo, "text": wikitext grezzo}), * scritto da extract-cities-dump.py (build-cities-dump.sh) con un solo passaggio sul dump di * Wikivoyage IT per tutte le regioni -&gt; le sue city_sections. Il campo facoltativo "wikipedia" * ({"title": voce, "text": sezioni Storia/Clima in wikitext}, city_wikipedia.py) aggiunge le sezioni * STORIA e CLIMA dopo quelle di Wikivoyage, pulite con la stessa cleanBody. */</ID>
+    <ID>MultiLineIfElse:GenerateGuideContent.kt:println("::warning::guide: $regionId senza dump in questa run e senza guida pubblicata, resta vuota")</ID>
+    <ID>MultiLineIfElse:GenerateGuideContent.kt:println("guide: $regionId senza dump in questa run, ricopio le sezioni pubblicate")</ID>
+    <ID>MultiLineIfElse:GenerateTransit.kt:field.append(ch)</ID>
+    <ID>MultiLineIfElse:GenerateTransit.kt:when (ch) { '"' -&gt; inQuotes = true ',' -&gt; { fields += field.toString(); field.setLength(0) } '\n' -&gt; endRow() '\r' -&gt; Unit else -&gt; field.append(ch) }</ID>
+    <ID>MultiLineIfElse:GenerateTravelAdvice.kt:"$noteTitle: $note"</ID>
+    <ID>MultiLineIfElse:GenerateTravelAdvice.kt:note</ID>
+    <ID>MultiLineIfElse:GenerateVaccinationsTest.kt:GenerateVaccinationsTest$assertEquals("yf-entry ${it.iso2}: from_list con rule ${it.rule}", "", it.fromList)</ID>
+    <ID>MultiLineIfElse:GenerateVaccinationsTest.kt:GenerateVaccinationsTest$checkIsoList("yf-entry ${it.iso2}", it.fromList)</ID>
+    <ID>MultiLineIfElse:SelectFragments.kt:candidates += Pending(file, regionId, updatedAt)</ID>
+    <ID>MultiLineIfElse:SelectFragments.kt:report += FragmentChoice(file, regionId, "scartata", problem)</ID>
+    <ID>MultilineLoop:AddressSearch.kt:RoadIndex$for (dc in -1..1) { buckets[(row + dr) to (col + dc)]?.forEach { segment -&gt; val distance = distanceToSegmentMeters(latE6, lonE6, segment, kx, ky) if (distance &lt;= bestDistance) { bestDistance = distance bestName = segment.name } } }</ID>
+    <ID>SpacingAroundOperators:GenerateGuideContent.kt:=</ID>
+    <ID>SpacingBetweenDeclarationsWithAnnotations:ValidateManifestTest.kt:ValidateManifestTest$@Test fun `rifiuta un indice senza attribuzioni`</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateCities.kt:/** * Indirizzo di una voce di Wikipedia o Wikivoyage: spazi come "_", lettere non ASCII e apostrofi lasciati * leggibili (Uri li accetta), codificati solo i caratteri che spezzerebbero il percorso: "%", "?", "#" e * quelli non ammessi in un URL. */</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// "()" o "(, )" rimasti dopo aver tolto i template che stavano tra parentesi</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// ";Termine" (lista di definizione wiki): Wikivoyage la usa come sottotitolo dentro un elenco</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// "&lt;/&gt;" (tag chiuso senza nome, refuso di alcune pagine) compreso.</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// Con translatedBy: un cambio del solo modello della traduzione ripubblica le guide (il modello decide anche l'uso nel dataset SFT).</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// Corsivo ('') e grassetto (''') si tolgono, ma un apostrofo attaccato resta: "l'''Arte" e' l' + corsivo,</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// Da tenere prima di htmlTagRegex: quest'ultimo toglie solo i tag &lt;ref&gt;/&lt;/ref&gt;, lasciando il</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// L'indirizzo finisce alla prima "]" o spazio, il testo sulla stessa riga: con \S+ un link senza testo</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// Senza la data di download: cambia a ogni run anche quando i consigli no.</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// Spazi rimasti prima della punteggiatura, anche quelli senza interruzione che la tipografia francese mette prima dei</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// Spazio a larghezza zero, trattino facoltativo, giunzione e BOM: invisibili, pesano 2-3 byte e rompono la ricerca</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// Template che mostrano il loro primo parametro cosi' com'e'. Non {{lang|fr|testo}}: il primo e' il codice della lingua.</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// Template di Wikivoyage che portano testo da mostrare: il nome del luogo (marker, see, do, eat...)</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateGuideContent.kt:// Wikivoyage IT scrive il giapponese con uno spazio fra i caratteri ("そ ば", "在 留 カ ー ド"): fra due caratteri CJK</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateTravelAdvice.kt:// "Learn more:" con i link che lo seguono, in fondo ai blocchi della salute: fuori dal sito sono titoli orfani.</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateTravelAdvice.kt:// Fine frase: punto, ! o ? e una maiuscola, una cifra o una virgoletta dopo lo spazio, ma non dopo un'abbreviazione:</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateTravelAdvice.kt:// Le righe dei recapiti dopo la frase che nomina il centro, in una sezione gia' pubblicata.</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateTravelAdvice.kt:// Nome della malattia di un blocco a scomparsa della salute ("&lt;details&gt;&lt;summary&gt;Dengue&lt;/summary&gt;"): un sottotitolo.</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateTravelAdvice.kt:// Paragrafo fatto solo di un link a un'altra pagina di travel.gc.ca ("Drugs, alcohol and travel"): fuori dal sito e' un titolo orfano.</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateTravelAdvice.kt:// Riquadro ripetuto in testa a ogni parte ("This travel advice covers Israel and Palestine."): una volta per sezione e' troppo.</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:GenerateTravelAdviceTest.kt:GenerateTravelAdviceTest$// Un guides.db come lo scrive generateGuides: sezioni di Wikivoyage, consigli di travel.gc.ca e travel_advice_meta.</ID>
+    <ID>TrailingCommaOnCallSite:GenerateGuideContentTest.kt:GenerateGuideContentTest$( "SELECT category, title, sourceUrl FROM guide_sections ORDER BY category" )</ID>
+    <ID>TrailingCommaOnCallSite:GeneratePoiTest.kt:GeneratePoiTest$( "SELECT poi.name, poi_code.category, poi_code.osmTag FROM poi JOIN poi_code ON poi.code = poi_code.code" )</ID>
+    <ID>Wrapping:GenerateAddresses.kt:-&gt;</ID>
+    <ID>Wrapping:GenerateAddresses.kt:lines.mapNotNull { line -&gt; val fields = line.split('\t') val lat = fields.getOrNull(0)?.toDoubleOrNull() ?: return@mapNotNull null val lon = fields.getOrNull(1)?.toDoubleOrNull() ?: return@mapNotNull null val number = fields.getOrNull(2)?.trim().orEmpty() if (number.isEmpty() || lon !in minLon..maxLon || lat !in minLat..maxLat) return@mapNotNull null Address((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number, fields.optionalText(3), fields.optionalText(4)) }.toList()</ID>
+    <ID>Wrapping:GenerateAddresses.kt:lines.mapNotNull { line -&gt; val fields = line.split('\t') val lat = fields.getOrNull(0)?.toDoubleOrNull() ?: return@mapNotNull null val lon = fields.getOrNull(1)?.toDoubleOrNull() ?: return@mapNotNull null val number = fields.getOrNull(2)?.trim().orEmpty() val dataset = fields.getOrNull(3)?.trim().orEmpty() if (number.isEmpty() || lon !in minLon..maxLon || lat !in minLat..maxLat) return@mapNotNull null OvertureAddress((lat * 1e6).roundToInt(), (lon * 1e6).roundToInt(), number, dataset, fields.optionalText(4), fields.optionalText(5)) }.toList()</ID>
+    <ID>Wrapping:GenerateTransitTest.kt:GenerateTransitTest$(</ID>
   </CurrentIssues>
 </SmellBaseline>

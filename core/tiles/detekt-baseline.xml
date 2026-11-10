@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MultilineLoop:TileIdBlocksTest.kt:TileIdBlocksTest$for (y in 0 until 64) { val ancestor = Hilbert.zxyToIndex(6 - levels, (x shr levels).toLong(), (y shr levels).toLong()) val index = Hilbert.zxyToIndex(6, x.toLong(), y.toLong()) assertTrue("tile 6/$x/$y", index in (ancestor shl (2 * levels)) until ((ancestor + 1) shl (2 * levels))) }</ID>
+    <ID>MultilineLoop:TileIdBlocksTest.kt:TileIdBlocksTest$for (y in listOf(0L, last / 3, last / 2, last)) { assertEquals("tile $zoom/$x/$y", Hilbert.zxyToIndex(zoom, x, y), hilbertIndex(zoom, x, y)) }</ID>
+    <ID>SpacingAroundComma:TileIdBlocks.kt:,</ID>
+  </CurrentIssues>
+</SmellBaseline>
