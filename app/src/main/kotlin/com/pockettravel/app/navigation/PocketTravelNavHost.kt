@@ -14,18 +14,9 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
@@ -43,53 +34,41 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.toRoute
 import androidx.window.core.layout.WindowSizeClass
 import com.pockettravel.app.R
-import com.pockettravel.app.browser.InAppBrowserScreen
 import com.pockettravel.app.crash.CrashContext
-import com.pockettravel.app.licenses.LicenseScreen
-import com.pockettravel.app.licenses.LicensesScreen
-import com.pockettravel.app.more.MoreScreen
-import com.pockettravel.app.onboarding.OnboardingScreen
+import com.pockettravel.app.navigation.graph.inAppBrowserScreen
+import com.pockettravel.app.navigation.graph.licenseScreen
+import com.pockettravel.app.navigation.graph.licensesScreen
+import com.pockettravel.app.navigation.graph.moreScreen
+import com.pockettravel.app.navigation.graph.navigatorScreen
+import com.pockettravel.app.navigation.graph.onboardingScreen
+import com.pockettravel.app.navigation.graph.regionHubScreen
+import com.pockettravel.app.navigation.graph.regionPreviewScreen
+import com.pockettravel.app.navigation.graph.regionsScreen
+import com.pockettravel.app.navigation.graph.settingsScreen
+import com.pockettravel.app.navigation.graph.sourcesScreen
+import com.pockettravel.app.navigation.graph.storageScreen
+import com.pockettravel.app.navigation.graph.tutorialScreen
+import com.pockettravel.app.navigation.graph.updatesScreen
+import com.pockettravel.app.navigation.graph.vaultScreen
 import com.pockettravel.app.onboarding.OnboardingViewModel
-import com.pockettravel.app.regions.GlobalNavigatorScreen
-import com.pockettravel.app.regions.RegionHubScreen
-import com.pockettravel.app.regions.RegionListScreen
-import com.pockettravel.app.regions.RegionListViewModel
-import com.pockettravel.app.regions.RegionPreviewScreen
-import com.pockettravel.app.regions.RegionStatus
 import com.pockettravel.app.regions.RegionTab
-import com.pockettravel.app.regions.RegionWorldMap
 import com.pockettravel.app.regions.navigatorViewModels
-import com.pockettravel.app.regions.rowActions
-import com.pockettravel.app.settings.SettingsScreen
-import com.pockettravel.app.settings.SettingsViewModel
-import com.pockettravel.app.storage.StorageScreen
 import com.pockettravel.app.updates.UpdateRequiredMessages
-import com.pockettravel.app.updates.UpdatesScreen
-import com.pockettravel.app.updates.UpdatesViewModel
-import com.pockettravel.app.updates.outdatedRegions
-import com.pockettravel.app.updates.updatesCount
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.sync.AlertNotifier
 import com.pockettravel.core.sync.UpdateAvailableNotifier
 import com.pockettravel.core.ui.AppIcons
-import com.pockettravel.core.ui.ContextualHint
-import com.pockettravel.feature.sources.OfficialSourcesScreen
-import com.pockettravel.feature.vault.DocumentsScreen
 import com.pockettravel.core.ui.R as UiR
 
 // Le destinazioni principali della barra/rail di navigazione (M3: il menu laterale modale e'
@@ -199,164 +178,21 @@ fun PocketTravelNavHost(
             popEnterTransition = { sharedAxisEnter(forward = false) },
             popExitTransition = { sharedAxisExit(forward = false) },
         ) {
-            composable<OnboardingRoute> {
-                OnboardingScreen(
-                    viewModel = onboardingViewModel,
-                    // Un secondo tocco su "Inizia" durante la transizione non impila un'altra lista Regioni.
-                    onComplete = dropUnlessResumed {
-                        navController.navigate(RegionsRoute) {
-                            popUpTo(OnboardingRoute) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
-                )
-            }
-            composable<RegionsRoute>(enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
-                val onPreviewClick = { regionId: String, displayName: String ->
-                    navController.navigate(RegionPreviewRoute(regionId, displayName))
-                }
-                if (isExpanded) {
-                    RegionsListDetail(navController = navController, onPreviewClick = onPreviewClick)
-                } else {
-                    RegionContainerTransformScope(this) {
-                        RegionListScreen(
-                            onRegionClick = { regionId -> navController.navigate(RegionHubRoute(regionId)) },
-                            onPreviewClick = onPreviewClick,
-                        )
-                    }
-                }
-            }
-            composable<NavigatorRoute>(enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
-                GlobalNavigatorScreen(onOpenCountries = { navController.navigateTopLevel(RegionsRoute) })
-            }
-            composable<VaultRoute>(enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) {
-                // Il suggerimento sta sotto la barra di stato (inset consumato, DocumentsScreen non lo ripete).
-                Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
-                    ContextualHint(
-                        hintId = "vault",
-                        icon = AppIcons.Passport,
-                        title = stringResource(R.string.hint_vault_title),
-                        body = stringResource(R.string.hint_vault_body),
-                    )
-                    Box(modifier = Modifier.weight(1f)) { DocumentsScreen() }
-                }
-            }
-            composable<MoreRoute>(enterTransition = topLevelEnter, exitTransition = topLevelExit, popEnterTransition = topLevelPopEnter) { backStackEntry ->
-                // Gli stessi ViewModel di Aggiornamenti (nella voce RegionsRoute sotto): il badge conta senza aprire la schermata.
-                val regionsEntry = remember(backStackEntry) { navController.getBackStackEntry(RegionsRoute) }
-                val listState by hiltViewModel<RegionListViewModel>(regionsEntry).uiState.collectAsStateWithLifecycle()
-                val updatesState by hiltViewModel<UpdatesViewModel>(regionsEntry).uiState.collectAsStateWithLifecycle()
-                MoreScreen(
-                    updatesCount = updatesCount(
-                        appUpdate = updatesState.appUpdate != null,
-                        regionUpdates = outdatedRegions(listState.items).size,
-                        guidesUpdate = updatesState.guidesUpdate != null,
-                        modelUpdate = updatesState.modelUpdate != null,
-                    ),
-                    onOpenUpdates = { navController.navigate(UpdatesRoute) },
-                    onOpenSettings = { navController.navigate(SettingsRoute) },
-                    onOpenSources = { navController.navigate(SourcesRoute) },
-                    onOpenStorage = { navController.navigate(StorageRoute) },
-                    onOpenTutorial = { navController.navigate(TutorialRoute) },
-                    onOpenLicenses = { navController.navigate(LicensesRoute) },
-                )
-            }
-            composable<UpdatesRoute> { backStackEntry ->
-                // Lo stesso ViewModel dell'elenco (nella voce RegionsRoute sotto): l'aggiornamento di una nazione parte dal suo percorso.
-                val regionsEntry = remember(backStackEntry) { navController.getBackStackEntry(RegionsRoute) }
-                UpdatesScreen(
-                    onBack = dropUnlessResumed { navController.popBackStack() },
-                    regionListViewModel = hiltViewModel(regionsEntry),
-                    viewModel = hiltViewModel(regionsEntry),
-                )
-            }
-            composable<SettingsRoute> {
-                SettingsScreen(onBack = dropUnlessResumed { navController.popBackStack() })
-            }
-            composable<TutorialRoute> {
-                OnboardingScreen(
-                    viewModel = onboardingViewModel,
-                    onComplete = dropUnlessResumed { navController.popBackStack() },
-                )
-            }
-            composable<StorageRoute> {
-                StorageScreen(onBack = dropUnlessResumed { navController.popBackStack() })
-            }
-            composable<SourcesRoute> {
-                // Stesse preferenze delle Impostazioni: la nazionalita' sceglie le Fonti ufficiali del proprio paese.
-                val nationality by hiltViewModel<SettingsViewModel>().nationality.collectAsStateWithLifecycle()
-                Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        OfficialSourcesScreen(
-                            nationality = nationality,
-                            onBack = dropUnlessResumed { navController.popBackStack() },
-                            onOpenSource = { url, title -> navController.navigate(InAppBrowserRoute(url, title)) },
-                        )
-                    }
-                    ContextualHint(
-                        hintId = "sources",
-                        icon = AppIcons.OfficialAuthority,
-                        title = stringResource(R.string.hint_sources_title),
-                        body = stringResource(R.string.hint_sources_body),
-                    )
-                }
-            }
-            composable<LicensesRoute> {
-                LicensesScreen(
-                    viewModel = hiltViewModel(),
-                    onBack = dropUnlessResumed { navController.popBackStack() },
-                    onOpenLibrary = { navController.navigate(LicenseRoute(it)) },
-                    onOpenLink = { navController.navigate(InAppBrowserRoute(it)) },
-                )
-            }
-            composable<LicenseRoute> { backStackEntry ->
-                // Lo stesso ViewModel dell'elenco (sta nella voce LicensesRoute sotto): i dati sono gia' letti.
-                LicenseScreen(
-                    viewModel = hiltViewModel(remember(backStackEntry) { navController.getBackStackEntry(LicensesRoute) }),
-                    uniqueId = backStackEntry.toRoute<LicenseRoute>().uniqueId,
-                    onBack = dropUnlessResumed { navController.popBackStack() },
-                    onOpenLink = { navController.navigate(InAppBrowserRoute(it)) },
-                )
-            }
-            composable<RegionHubRoute>(
-                // Dall'elenco regioni la riga si trasforma nell'hub (container transform): la
-                // schermata sotto sfuma invece di scorrere, per non spostare la riga che si allarga.
-                enterTransition = { if (initialState.destination.hasRoute<RegionsRoute>()) containerFadeIn() else sharedAxisEnter(forward = true) },
-                popExitTransition = { if (targetState.destination.hasRoute<RegionsRoute>()) containerFadeOut() else sharedAxisExit(forward = false) },
-            ) { backStackEntry ->
-                val route = backStackEntry.toRoute<RegionHubRoute>()
-                RegionContainerTransformScope(this) {
-                    RegionHubScreen(
-                        regionId = route.regionId,
-                        initialTab = route.tab,
-                        onBack = { if (!navController.popBackStack()) navController.navigate(RegionsRoute) },
-                        onOpenOfficialSource = { url -> navController.navigateToOfficialSource(url) },
-                        onOpenSource = { url, title -> navController.navigate(InAppBrowserRoute(url, title)) },
-                    )
-                }
-            }
-            composable<RegionPreviewRoute> { backStackEntry ->
-                val route = backStackEntry.toRoute<RegionPreviewRoute>()
-                // Lo stesso ViewModel dell'elenco (sta nella voce RegionsRoute sotto): il download parte dal suo percorso.
-                val listViewModel: RegionListViewModel = hiltViewModel(remember(backStackEntry) { navController.getBackStackEntry(RegionsRoute) })
-                val listState by listViewModel.uiState.collectAsStateWithLifecycle()
-                RegionPreviewScreen(
-                    regionId = route.regionId,
-                    displayName = route.name.ifBlank { route.regionId },
-                    onBack = dropUnlessResumed { navController.popBackStack() },
-                    item = listState.items.firstOrNull { it.regionId == route.regionId },
-                    downloading = route.regionId in listState.downloadingRegions,
-                    rowActions = listViewModel.rowActions(),
-                    // Il download completo si segue dalla lista Regioni (barra di avanzamento gia'
-                    // presente li'), non duplicata qui: torna semplicemente indietro.
-                    onDownloadFull = dropUnlessResumed { navController.popBackStack() },
-                    onOpenSource = { url, title -> navController.navigate(InAppBrowserRoute(url, title)) },
-                )
-            }
-            composable<InAppBrowserRoute> { backStackEntry ->
-                val route = backStackEntry.toRoute<InAppBrowserRoute>()
-                InAppBrowserScreen(url = route.url, title = route.title, onBack = dropUnlessResumed { navController.popBackStack() })
-            }
+            onboardingScreen(navController, onboardingViewModel)
+            regionsScreen(navController, isExpanded)
+            navigatorScreen(navController)
+            vaultScreen()
+            moreScreen(navController)
+            updatesScreen(navController)
+            settingsScreen(navController)
+            tutorialScreen(navController, onboardingViewModel)
+            storageScreen(navController)
+            sourcesScreen(navController)
+            licensesScreen(navController)
+            licenseScreen(navController)
+            regionHubScreen(navController)
+            regionPreviewScreen(navController)
+            inAppBrowserScreen(navController)
         }
         }
         }
@@ -365,57 +201,10 @@ fun PocketTravelNavHost(
     }
 }
 
-// Schermi larghi (>= 840 dp): elenco regioni e hub della regione scelta affiancati, invece di
-// un elenco a tutta larghezza che apre l'hub a schermo intero.
-@Composable
-private fun RegionsListDetail(
-    navController: NavHostController,
-    onPreviewClick: (regionId: String, displayName: String) -> Unit,
-    regionListViewModel: RegionListViewModel = hiltViewModel(),
-) {
-    var selectedRegionId by rememberSaveable { mutableStateOf<String?>(null) }
-    Row(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.width(400.dp).fillMaxHeight()) {
-            RegionListScreen(onRegionClick = { selectedRegionId = it }, onPreviewClick = onPreviewClick, showMapToggle = false)
-        }
-        VerticalDivider()
-        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-            val regionId = selectedRegionId
-            if (regionId == null) {
-                // Nessuna regione scelta: il pannello di destra mostra la mappa delle nazioni, dove
-                // toccare una nazione equivale a sceglierlo dall'elenco.
-                val uiState by regionListViewModel.uiState.collectAsStateWithLifecycle()
-                RegionWorldMap(
-                    items = uiState.items,
-                    rowActions = regionListViewModel.rowActions(),
-                    onRegionClick = { item ->
-                        if (item.status == RegionStatus.NOT_INSTALLED) {
-                            onPreviewClick(item.regionId, item.displayName)
-                        } else {
-                            selectedRegionId = item.regionId
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                key(regionId) {
-                    RegionHubScreen(
-                        regionId = regionId,
-                        onBack = { selectedRegionId = null },
-                        onOpenOfficialSource = { url -> navController.navigateToOfficialSource(url) },
-                        onOpenSource = { url, title -> navController.navigate(InAppBrowserRoute(url, title)) },
-                        compactNavigation = true,
-                    )
-                }
-            }
-        }
-    }
-}
-
 // Cambio di destinazione principale: una sola copia di ciascuna nel back stack, con lo stato
 // (scroll, scheda) salvato e ripristinato; l'elenco regioni resta sempre in fondo, cosi' "Indietro"
 // da Documenti/Altro ci torna.
-private fun NavHostController.navigateTopLevel(route: Any) {
+internal fun NavHostController.navigateTopLevel(route: Any) {
     navigate(route) {
         popUpTo(RegionsRoute) { saveState = true }
         launchSingleTop = true
@@ -423,7 +212,7 @@ private fun NavHostController.navigateTopLevel(route: Any) {
     }
 }
 
-private fun NavHostController.navigateToOfficialSource(url: String) {
+internal fun NavHostController.navigateToOfficialSource(url: String) {
     val name = officialSourcesRegistry.firstOrNull { it.url == url }?.name.orEmpty()
     navigate(InAppBrowserRoute(url, name))
 }
@@ -449,10 +238,10 @@ private fun sharedAxisOffset(forward: Boolean): Int {
     return if (forward) px else -px
 }
 
-private fun sharedAxisEnter(forward: Boolean): EnterTransition =
+internal fun sharedAxisEnter(forward: Boolean): EnterTransition =
     slideInHorizontally(tween(MOTION_MS)) { sharedAxisOffset(forward) } + fadeIn(tween(MOTION_MS / 2, delayMillis = MOTION_MS / QUARTER))
 
-private fun sharedAxisExit(forward: Boolean): ExitTransition =
+internal fun sharedAxisExit(forward: Boolean): ExitTransition =
     slideOutHorizontally(tween(MOTION_MS)) { -sharedAxisOffset(forward) } + fadeOut(tween(MOTION_MS / QUARTER))
 
 private fun fadeThroughEnter(): EnterTransition =
@@ -484,10 +273,10 @@ private fun NavBackStackEntry.isTopLevel() = TopLevelDestination.entries.any { d
 
 private fun NavBackStackEntry.isRegionHub() = destination.hasRoute<RegionHubRoute>()
 
-private val topLevelEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+internal val topLevelEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
     if (initialState.isTopLevel()) fadeThroughEnter() else sharedAxisEnter(forward = true)
 }
-private val topLevelExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+internal val topLevelExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
     when {
         targetState.isTopLevel() -> fadeThroughExit()
         // Verso l'hub: container transform, l'elenco sfuma sotto la riga che si allarga.
@@ -495,7 +284,7 @@ private val topLevelExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -
         else -> sharedAxisExit(forward = true)
     }
 }
-private val topLevelPopEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+internal val topLevelPopEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
     when {
         initialState.isTopLevel() -> fadeThroughEnter()
         initialState.isRegionHub() -> containerFadeIn()
