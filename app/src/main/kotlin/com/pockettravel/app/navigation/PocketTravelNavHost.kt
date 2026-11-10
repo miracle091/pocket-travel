@@ -120,8 +120,9 @@ fun PocketTravelNavHost(
     openNavigatorOnStart: Boolean = false,
     onboardingViewModel: OnboardingViewModel = hiltViewModel(),
     startDestinationViewModel: StartDestinationViewModel = hiltViewModel(),
+    // Parametro per i test di navigazione su JVM (TestNavHostController); in produzione resta quello salvato e ripristinato.
+    navController: NavHostController = rememberNavController(),
 ) {
-    val navController = rememberNavController()
     val startDestination = remember { startDestinationViewModel.startDestination }
     val initialRegionId = remember { startDestinationViewModel.initialRegionId }
     var initialRegionOpened by rememberSaveable { mutableStateOf(false) }

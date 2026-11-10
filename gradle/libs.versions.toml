@@ -23,6 +23,8 @@ hiltWork = "1.4.0"
 planetiler = "0.10.2"
 sqliteJdbc = "3.54.1.0"
 junit = "4.13.2"
+# La 4.17 (2026-09-10) e' la prima stabile con SDK 37, il compileSdk del progetto: i test di navigazione dell'app girano su JVM.
+robolectric = "4.17"
 pmtilesReader = "0.3.7"
 orgJson = "20260814"
 aboutLibraries = "15.3.0"
@@ -71,6 +73,7 @@ navigation-compose = { group = "androidx.navigation", name = "navigation-compose
 navigation-testing = { group = "androidx.navigation", name = "navigation-testing", version.ref = "navigationCompose" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
+hilt-android-testing = { group = "com.google.dagger", name = "hilt-android-testing", version.ref = "hilt" }
 hilt-lifecycle-viewmodel-compose = { group = "androidx.hilt", name = "hilt-lifecycle-viewmodel-compose", version.ref = "hiltLifecycleViewmodelCompose" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
@@ -102,6 +105,7 @@ androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", 
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 pmtiles-reader = { group = "ch.poole.geo.pmtiles-reader", name = "Reader", version.ref = "pmtilesReader" }
 org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 aboutlibraries-core = { group = "com.mikepenz", name = "aboutlibraries-core", version.ref = "aboutLibraries" }

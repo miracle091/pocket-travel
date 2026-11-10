@@ -78,6 +78,26 @@ android {
         }
     }
 
+    // Robolectric legge risorse e manifest dell'app (test di navigazione su JVM).
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        // Robolectric sul JDK 17+ usa classi interne del JDK (elenco della sua guida di avvio).
+        unitTests.all {
+            it.jvmArgs(
+                "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                "--add-opens=java.base/java.util=ALL-UNNAMED",
+                "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+                "--add-opens=java.base/java.io=ALL-UNNAMED",
+                "--add-opens=java.base/java.net=ALL-UNNAMED",
+                "--add-opens=java.base/java.nio=ALL-UNNAMED",
+                "--add-opens=java.base/java.text=ALL-UNNAMED",
+                "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+                "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
+                "--enable-native-access=ALL-UNNAMED",
+            )
+        }
+    }
+
     // Timber arriva solo come dipendenza transitiva di MapLibre, insieme al suo controllo lint:
     // il progetto usa android.util.Log ovunque, quindi "usa Timber" non si applica.
     lint {
@@ -164,6 +184,17 @@ dependencies {
     testImplementation(testFixtures(project(":core:data")))
     testImplementation(testFixtures(project(":core:sync")))
     testImplementation(testFixtures(project(":feature:ai")))
+    testImplementation(testFixtures(project(":feature:map")))
+    // Test di navigazione su JVM (NavHost vero, grafo Hilt di test): Robolectric con Compose e Hilt.
+    testImplementation(libs.robolectric)
+    testImplementation(libs.hilt.android.testing)
+    testImplementation(libs.navigation.testing)
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.androidx.test.ext.junit)
+    // Il client HTTP di test (rifiuta ogni richiesta) e il Json che i moduli di Sync forniscono.
+    testImplementation(libs.okhttp)
+    testImplementation(libs.kotlinx.serialization.json)
+    kspTest(libs.hilt.compiler)
 
     androidTestImplementation(libs.navigation.testing)
     // L'APK dei test usa le stesse versioni dell'app (consistent resolution di AGP): ui-test-junit4 e
