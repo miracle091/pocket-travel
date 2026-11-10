@@ -19,27 +19,26 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.viewinterop.AndroidView
 import com.pockettravel.core.data.MapBounds
+import com.pockettravel.core.data.NearbyPois
+import com.pockettravel.core.data.poiCategory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 import com.pockettravel.core.ui.R as UiR
-import org.maplibre.android.style.layers.SymbolLayer
-import org.maplibre.android.style.expressions.Expression
-import com.pockettravel.core.data.NearbyPois
-import com.pockettravel.core.data.poiCategory
-import kotlin.math.cos
 
 /**
  * Mappa di sfondo della scheda: la regione, poi il percorso con la partenza (cerchio pieno) e l'arrivo
@@ -175,11 +174,10 @@ internal fun PlannerMap(
                 framed.size == 1 -> map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(framed[0].latitude, framed[0].longitude), SINGLE_POINT_ZOOM))
                 // Senza destinazione, con la posizione: il cerchio dei POI vicini (150, 300 o 600 m), cioe' lo zoom adatto alla distanza.
                 nearby != null && position != null -> {
-                    val dLat = nearby.radiusMeters / METERS_PER_DEGREE
-                    val dLon = dLat / cos(Math.toRadians(position.latitude))
+                    val box = boundsAround(position, nearby.radiusMeters)
                     val bounds = LatLngBounds.Builder()
-                        .include(LatLng(position.latitude - dLat, position.longitude - dLon))
-                        .include(LatLng(position.latitude + dLat, position.longitude + dLon))
+                        .include(LatLng(box.minLat, box.minLon))
+                        .include(LatLng(box.maxLat, box.maxLon))
                         .build()
                     map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0, topPaddingPx.toInt(), 0, bottomPaddingPx.toInt()))
                 }
@@ -219,7 +217,6 @@ private const val PLANNER_POI_SOURCE = "planner-poi"
 private const val PLANNER_POSITION_SOURCE = "planner-position"
 private const val PLANNER_POI_ICON = "icon"
 private const val PLANNER_POI_ICON_PREFIX = "planner-poi-"
-private const val METERS_PER_DEGREE = 111_320.0
 
 // Spessori e raggi (px) dei livelli della mappa: percorso, anello e punto di partenza, posizione.
 private const val ROUTE_LINE_WIDTH = 7f
