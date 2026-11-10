@@ -2,8 +2,8 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>CyclomaticComplexMethod:AiAssistantScreen.kt:@Composable private fun ModelRow</ID>
-    <ID>CyclomaticComplexMethod:AiAssistantScreen.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun AssistantHeader</ID>
+    <ID>CyclomaticComplexMethod:AiModelSettings.kt:@Composable private fun ModelRow</ID>
+    <ID>CyclomaticComplexMethod:AssistantHeader.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun AssistantHeader</ID>
     <ID>CyclomaticComplexMethod:TravelAssistant.kt:private fun TransitMode.promptName: String</ID>
     <ID>ReturnCount:TravelAssistant.kt:TravelAssistant$private suspend fun nearbyPoiSection: AssistantSection?</ID>
     <ID>ReturnCount:TravelAssistant.kt:TravelAssistant$private suspend fun transitSection: AssistantSection?</ID>
@@ -11,7 +11,6 @@
     <ID>TooGenericExceptionCaught:AiAssistantViewModel.kt:AiAssistantViewModel$error: Exception</ID>
     <ID>TooGenericExceptionCaught:InferenceEngineImpl.kt:InferenceEngineImpl$e: Exception</ID>
     <ID>TooGenericExceptionCaught:InferenceEngineImpl.kt:InferenceEngineImpl$e: Throwable</ID>
-    <ID>TooManyFunctions:AiAssistantScreen.kt:com.pockettravel.feature.ai.AiAssistantScreen.kt</ID>
     <ID>TooManyFunctions:AiAssistantViewModel.kt:AiAssistantViewModel : ViewModel</ID>
     <ID>TooManyFunctions:AiSettingsStore.kt:AiSettingsStore</ID>
     <ID>TooManyFunctions:FileLlmModelManager.kt:FileLlmModelManager : LlmModelManager</ID>
@@ -39,9 +38,9 @@
     <ID>MixedConditionOperators:TravelAssistant.kt:TravelAssistant$guideRepository.searchCandidates(regionId, query).none { isGuideSectionFor(it.first.sourceUrl, nationality) } &amp;&amp; cityRepository.candidates(regionId, query, emptyList()).isEmpty()</ID>
     <ID>MixedConditionOperators:TravelAssistant.kt:TravelAssistant$namedCities(question, cityNames, language).isEmpty() &amp;&amp; buildFtsQuery(question, regionId).let { query -&gt; query.isBlank() || guideRepository.searchCandidates(regionId, query).none { isGuideSectionFor(it.first.sourceUrl, nationality) } &amp;&amp; cityRepository.candidates(regionId, query, emptyList()).isEmpty() }</ID>
     <ID>MixedConditionOperators:TravelAssistant.kt:countryFirst != false &amp;&amp; world.score &gt; generalGuideFirstRatio(language, generalQuestion) * top.maxOf { it.compareScore }</ID>
-    <ID>MultiLineIfElse:AiAssistantScreen.kt:Surface( shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth().semantics { if (!streaming) liveRegion = LiveRegionMode.Polite }, ) { // animateContentSize: la bolla cresce con morbidezza da "Sto pensando…" alla risposta. Column(modifier = Modifier.animateContentSize().padding(Spacing.l)) { (uiState.notice as? ChatNotice.ModelSwitched)?.let { ModelSwitchedLine(it) } AnswerContent(uiState, streaming, onOpenOfficialSource, actions, readAloud) } }</ID>
-    <ID>MultiLineIfElse:AiAssistantScreen.kt:null</ID>
-    <ID>MultiLineIfElse:AiAssistantScreen.kt:uiState.availableModels.firstOrNull { it.id != uiState.selectedModelId &amp;&amp; it.id in uiState.downloadedModelIds }</ID>
+    <ID>MultiLineIfElse:AiConversation.kt:Surface( shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth().semantics { if (!streaming) liveRegion = LiveRegionMode.Polite }, ) { // animateContentSize: la bolla cresce con morbidezza da "Sto pensando…" alla risposta. Column(modifier = Modifier.animateContentSize().padding(Spacing.l)) { (uiState.notice as? ChatNotice.ModelSwitched)?.let { ModelSwitchedLine(it) } AnswerContent(uiState, streaming, onOpenOfficialSource, actions, readAloud) } }</ID>
+    <ID>MultiLineIfElse:AssistantHeader.kt:null</ID>
+    <ID>MultiLineIfElse:AssistantHeader.kt:uiState.availableModels.firstOrNull { it.id != uiState.selectedModelId &amp;&amp; it.id in uiState.downloadedModelIds }</ID>
     <ID>MultiLineIfElse:TravelAssistant.kt:" (estimated time)"</ID>
     <ID>MultiLineIfElse:TravelAssistant.kt:" (orario stimato)"</ID>
     <ID>MultiLineIfElse:TravelAssistant.kt:section</ID>
