@@ -30,8 +30,14 @@ class QuickFactsExchangeRateTest {
         assertEquals("1 EUR ≈ 2.141.000 IRR", exchangeRateText(IndicativeRate("EUR", "IRR", 2140720.0, day), Locale.ITALIAN)?.substringBefore(" ("))
         assertEquals("1 EUR ≈ 2,141,000 IRR", exchangeRateText(IndicativeRate("EUR", "IRR", 2140720.0, day), Locale.ENGLISH)?.substringBefore(" ("))
         assertEquals("1 EUR ≈ 0,3467 KWD", exchangeRateText(IndicativeRate("EUR", "KWD", 0.34667, day), Locale.ITALIAN)?.substringBefore(" ("))
-        assertEquals("1 JPY ≈ 0,005714 EUR", exchangeRateText(IndicativeRate("JPY", "EUR", 1 / 175.0, day), Locale.ITALIAN)?.substringBefore(" ("))
         assertEquals("1 EUR ≈ 1.733 ARS", exchangeRateText(IndicativeRate("EUR", "ARS", 1733.0, day), Locale.ITALIAN)?.substringBefore(" ("))
+        assertEquals("1 GBP ≈ 0,01 EUR", exchangeRateText(IndicativeRate("GBP", "EUR", 0.01, day), Locale.ITALIAN)?.substringBefore(" ("))
+    }
+
+    @Test
+    fun `sotto 0,01 il tasso si legge al contrario`() {
+        assertEquals("1 EUR ≈ 175 JPY", exchangeRateText(IndicativeRate("JPY", "EUR", 1 / 175.0, day), Locale.ITALIAN)?.substringBefore(" ("))
+        assertEquals("1 EUR ≈ 1,733 ARS", exchangeRateText(IndicativeRate("ARS", "EUR", 1 / 1733.0, day), Locale.ENGLISH)?.substringBefore(" ("))
     }
 
     @Test

@@ -25,6 +25,9 @@ private const val CUBAN_PESO = "CUP"
 // Cifre significative del tasso: abbastanza per un conto a mente, senza la falsa precisione del dato.
 private const val RATE_SIGNIFICANT_DIGITS = 4
 
+// Sotto questo tasso ("1 ARS ≈ 0,0005772 EUR") si mostra quello inverso, che si legge meglio ("1 EUR ≈ 1.733 ARS").
+private const val INVERTED_BELOW = 0.01
+
 /** Codice ISO 4217 della valuta del paese [countryCode] (ISO 3166-1 alpha-2), null se il paese non ne ha una nota. */
 internal fun currencyCodeOf(countryCode: String): String? = runCatching {
     Currency.getInstance(Locale.Builder().setRegion(countryCode).build())?.currencyCode
@@ -39,16 +42,17 @@ internal fun ExchangeRateTable.rateFor(homeCountry: String?, destinationCountry:
 
 /**
  * "1 EUR ≈ 37,52 THB (Frankfurter, 11 nov 2026), indicativo" / "1 EUR ≈ 37.52 THB (Frankfurter, Nov 11, 2026), indicative",
- * nella lingua della guida ([locale]), con la nota sul cambio reale per le valute con un mercato parallelo e per il peso
- * cubano; null senza tasso.
+ * nella lingua della guida ([locale]), al contrario sotto [INVERTED_BELOW], con la nota sul cambio reale per le valute con
+ * un mercato parallelo e per il peso cubano; null senza tasso.
  */
 internal fun exchangeRateText(rate: IndicativeRate?, locale: Locale): String? {
     rate ?: return null
     val italian = locale.language == Locale.ITALIAN.language
-    val rounded = BigDecimal(rate.rate).round(MathContext(RATE_SIGNIFICANT_DIGITS))
+    val shown = if (rate.rate < INVERTED_BELOW) rate.copy(from = rate.to, to = rate.from, rate = 1 / rate.rate) else rate
+    val rounded = BigDecimal(shown.rate).round(MathContext(RATE_SIGNIFICANT_DIGITS))
     val number = NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = rounded.scale().coerceAtLeast(0) }.format(rounded)
     val date = rate.date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
-    val text = "1 ${rate.from} ≈ $number ${rate.to} (Frankfurter, $date), " + if (italian) "indicativo" else "indicative"
+    val text = "1 ${shown.from} ≈ $number ${shown.to} (Frankfurter, $date), " + if (italian) "indicativo" else "indicative"
     val cuba = rate.from == CUBAN_PESO || rate.to == CUBAN_PESO
     val parallel = rate.from in PARALLEL_MARKET_CURRENCIES || rate.to in PARALLEL_MARKET_CURRENCIES
     return when {
