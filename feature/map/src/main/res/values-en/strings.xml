@@ -268,6 +268,17 @@
     <string name="transit_mode_cable">Cable car</string>
     <string name="transit_mode_monorail">Monorail</string>
     <string name="transit_mode_other">Other vehicle</string>
+    <!-- Nearby stops: list on the map, star in the departures board, line filter in the board. -->
+    <string name="nearby_title">Nearby stops</string>
+    <string name="nearby_origin_position">Near you</string>
+    <string name="nearby_origin_map">Near the center of the map</string>
+    <string name="nearby_mode_all">All</string>
+    <string name="nearby_empty">No stops within %1$d m. Move the map and reopen the list</string>
+    <string name="nearby_open_departures">Show departures</string>
+    <string name="nearby_favorite">Favorite stop</string>
+    <string name="nearby_favorite_add">Add the stop to favorites</string>
+    <string name="nearby_favorite_remove">Remove the stop from favorites</string>
+    <string name="nearby_line_all">All lines</string>
     <string name="planner_where_to">Where to?</string>
     <string name="planner_from">From</string>
     <string name="planner_to">To</string>

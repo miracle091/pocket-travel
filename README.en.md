@@ -57,7 +57,7 @@ The app announces new versions with a notification; the changes are in the [CHAN
 | 💉 | **Vaccinations** | Required, recommended and to discuss with a doctor, calculated offline from departure, stopovers and countries visited |
 | 🗺️ | **Map** | Restaurants, hotels, pharmacies, ATMs and much more, with hours and contacts, filtered by travel mode |
 | 🧭 | **Navigator** | Walking, cycling and driving routes, across countries too, with turn-by-turn navigation even with the screen off |
-| 🚌 | **Public transport** | Departures in the next three hours at stops and stations, for open-data networks in 32 countries, mostly in Europe, and in the United States, Canada, Australia, New Zealand and Japan; with a connection, real-time delays and canceled trips where the operator publishes them |
+| 🚌 | **Public transport** | Departures in the next three hours at stops and stations, for open-data networks in 32 countries, mostly in Europe, and in the United States, Canada, Australia, New Zealand and Japan; stops within 500 meters with their next departures; with a connection, real-time delays and canceled trips where the operator publishes them |
 | 🤖 | **AI assistant** | Short answers based on the downloaded guide and the notes, even without internet |
 | 🔐 | **Documents and notes** | Encrypted passport and tickets, unlocked with fingerprint or face; encrypted travel notes |
 | 🏛️ | **Official sources** | Foreign ministry of the user's country, WHO and CDC |

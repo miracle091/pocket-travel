@@ -1,5 +1,6 @@
 package com.pockettravel.core.data.testing
 
+import com.pockettravel.core.data.NearbyStop
 import com.pockettravel.core.data.RealtimeFeed
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitMode
@@ -36,5 +37,22 @@ class FakeTransitRepository : TransitRepository {
         requests += Request(regionId, latitude, longitude, stationModes, now, realtime)
         failure?.let { throw it }
         return boards[regionId] ?: defaultBoard
+    }
+
+    /** La risposta di [nearbyStops]. */
+    var nearbyStops: List<NearbyStop> = emptyList()
+    val nearbyRequests = mutableListOf<Request>()
+
+    override suspend fun nearbyStops(
+        regionId: String,
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Double,
+        now: Instant,
+        realtime: Map<String, RealtimeFeed>,
+    ): List<NearbyStop> {
+        nearbyRequests += Request(regionId, latitude, longitude, emptySet(), now, realtime)
+        failure?.let { throw it }
+        return nearbyStops
     }
 }

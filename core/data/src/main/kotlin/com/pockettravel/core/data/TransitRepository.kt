@@ -17,4 +17,14 @@ interface TransitRepository {
         now: Instant = Instant.now(),
         realtime: Map<String, RealtimeFeed> = emptyMap(),
     ): TransitBoard
+
+    /** Fermate entro [radiusMeters] da un punto, dalla piu' vicina; le reti scadute (Expired) e illeggibili si saltano. */
+    suspend fun nearbyStops(
+        regionId: String,
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Double = NEARBY_STOPS_RADIUS_M,
+        now: Instant = Instant.now(),
+        realtime: Map<String, RealtimeFeed> = emptyMap(),
+    ): List<NearbyStop>
 }

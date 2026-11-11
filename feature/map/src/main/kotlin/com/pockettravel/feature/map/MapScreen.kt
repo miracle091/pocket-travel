@@ -2,6 +2,7 @@ package com.pockettravel.feature.map
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.LocalActivity
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,14 +22,17 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,9 +56,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.MapBounds
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.poi.PoiCategory
@@ -63,7 +69,6 @@ import com.pockettravel.core.ui.PoiColors
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.label
 import com.pockettravel.core.ui.safeWebUrl
-import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -78,6 +83,7 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
+import java.time.LocalDate
 import com.pockettravel.core.ui.R as UiR
 
 private const val PIN_ICON_PREFIX = "pocket-travel-pin-"
@@ -134,8 +140,17 @@ fun MapScreen(
     onTransitStopChange: (MapPin?) -> Unit = {},
     // Area inquadrata a ogni fermo della mappa, dopo il primo inquadramento: i segnalini si leggono solo li'.
     onViewportChange: (MapBounds) -> Unit = {},
+    // Elenco "Fermate vicine" e fermate salvate della regione: stesso ciclo di vita del ViewModel della scheda Mappa.
+    nearbyViewModel: NearbyStopsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    val nearby by nearbyViewModel.state.collectAsStateWithLifecycle()
+    LaunchedEffect(regionId) { nearbyViewModel.setRegion(regionId) }
+    // Cambiando scheda l'elenco si chiude (e smette di rileggersi ogni minuto); ruotando lo schermo resta aperto.
+    val activity = LocalActivity.current
+    DisposableEffect(Unit) {
+        onDispose { if (activity?.isChangingConfigurations != true) nearbyViewModel.close() }
+    }
     MapLibreInitializer.ensureInitialized(context)
 
     val mapView = rememberMapViewWithLifecycle()
@@ -153,7 +168,9 @@ fun MapScreen(
     // Saveable come id, non come MapPin: resta valido dopo una rotazione risolvendolo di nuovo
     // sulla lista pins corrente, invece di riaprire il foglio su un pin ormai stantio.
     var selectedPinId by rememberSaveable { mutableStateOf<String?>(null) }
-    val selectedPin = pins.firstOrNull { it.id == selectedPinId }
+    // Una fermata scelta nell'elenco "Fermate vicine": non e' un POI della mappa, quindi sta qui e non si ritrova per id.
+    var stopPin by remember { mutableStateOf<MapPin?>(null) }
+    val selectedPin = pins.firstOrNull { it.id == selectedPinId } ?: stopPin
     // Le partenze si leggono solo per un POI di trasporto aperto e con gli orari installati; anche quando
     // il pacchetto finisce di installarsi con il riquadro aperto. Uscendo dalla schermata, o con l'app in background
     // (Home, schermo spento), smettono di essere rilette ogni minuto: niente download del tempo reale in background.
@@ -307,6 +324,20 @@ fun MapScreen(
             factory = { mapView },
         )
 
+        // Fermate vicine, solo con gli orari installati: senza non c'e' niente da elencare. Al centro, come "Mostra l'elenco"
+        // sulla mappa delle nazioni, per non coprire logo e attribuzione di MapLibre in basso a sinistra.
+        if (transitPackage == TransitPackageState.INSTALLED) {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    mapView.getMapAsync { map ->
+                        map.cameraPosition.target?.let { nearbyViewModel.open(it.latitude, it.longitude) }
+                    }
+                },
+                icon = { Icon(ImageVector.vectorResource(UiR.drawable.ms_directions_bus), contentDescription = null) },
+                text = { Text(stringResource(R.string.nearby_title)) },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(Spacing.l),
+            )
+        }
         // Filtri nel foglio a gruppi che si apre dal pulsante in basso: con 20 e piu' categorie una fila
         // sopra la mappa la coprirebbe e ne mostrerebbe solo tre o quattro.
         // Il numero sul pulsante dice quante categorie della regione sono nascoste.
@@ -347,14 +378,26 @@ fun MapScreen(
         )
     }
 
+    if (nearby.open) {
+        NearbyStopsSheet(
+            state = nearby,
+            onModeChange = nearbyViewModel::setMode,
+            onStopClick = { stop ->
+                nearbyViewModel.close()
+                stopPin = stop.toPin()
+            },
+            onDismiss = nearbyViewModel::close,
+        )
+    }
+
     selectedPin?.let { pin ->
-        ModalBottomSheet(onDismissRequest = { selectedPinId = null }) {
+        ModalBottomSheet(onDismissRequest = { selectedPinId = null; stopPin = null }) {
             // Scorre: il tabellone di una fermata affollata ha una riga per linea, anche decine.
             Column(
                 modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
                     .padding(start = Spacing.xl, end = Spacing.xl, bottom = Spacing.xxl),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     PoiBadge(pin.category, size = 40)
                     Spacer(modifier = Modifier.width(Spacing.l))
                     // Titolo: il nome, o il tipo preciso se OSM non ha un nome. Sotto il tipo, non la
@@ -363,7 +406,7 @@ fun MapScreen(
                     // Nome nella lingua dell'interfaccia; quello locale sotto, piu' piccolo, per
                     // riconoscerlo sui cartelli ("Kiyomizu-dera" / "清水寺").
                     val shownName = pin.displayName(LocalLocale.current.platformLocale.language)
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = shownName ?: type ?: stringResource(pin.category.label()),
                             style = MaterialTheme.typography.titleLarge,
@@ -381,6 +424,21 @@ fun MapScreen(
                                 text = type,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    // Stella: salva la fermata tra quelle in cima a "Fermate vicine", o la toglie. Solo per le fermate con un nome e gli orari installati.
+                    val stopName = shownName ?: pin.name
+                    if (pin.category in TRANSIT_CATEGORIES && transitPackage == TransitPackageState.INSTALLED && stopName != null) {
+                        val favorite = isFavoriteStop(nearby.favorites, stopName, pin.latitude, pin.longitude)
+                        IconToggleButton(
+                            checked = favorite,
+                            onCheckedChange = { nearbyViewModel.toggleFavorite(stopName, pin.latitude, pin.longitude) },
+                        ) {
+                            Icon(
+                                ImageVector.vectorResource(if (favorite) UiR.drawable.ms_star_fill else UiR.drawable.ms_star),
+                                contentDescription = stringResource(if (favorite) R.string.nearby_favorite_remove else R.string.nearby_favorite_add),
+                                tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -404,6 +462,7 @@ fun MapScreen(
                     Button(
                         onClick = {
                             selectedPinId = null
+                            stopPin = null
                             navigate(pin)
                         },
                     ) {

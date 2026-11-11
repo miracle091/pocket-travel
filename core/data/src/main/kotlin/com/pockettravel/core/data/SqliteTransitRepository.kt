@@ -25,17 +25,41 @@ class SqliteTransitRepository @Inject constructor(
         realtime: Map<String, RealtimeFeed>,
     ): TransitBoard =
         withContext(ioDispatcher) {
-            val dir = File(regionStorage.directoryFor(regionId), RegionStorage.TRANSIT_DIR)
-            val infos = runCatching { TransitFeedInfo.decode(File(dir, RegionStorage.TRANSIT_FEEDS_FILE).readText()) }.getOrDefault(emptyList())
-            val boards = dir.listFiles { file -> file.isFile && file.extension == "db" }.orEmpty().mapNotNull { file ->
-                runCatching {
-                    SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                        readFeedBoard(SqliteTransitQuery(db), infos.firstOrNull { it.id == file.nameWithoutExtension }, latitude, longitude, now, stationModes, realtime[file.nameWithoutExtension])
-                    }
-                }.onFailure { if (it is CancellationException) throw it }.getOrNull()
-            }
-            combineBoards(boards)
+            combineBoards(
+                readFeeds(regionId) { query, info, id ->
+                    readFeedBoard(query, info, latitude, longitude, now, stationModes, realtime[id])
+                },
+            )
         }
+
+    override suspend fun nearbyStops(
+        regionId: String,
+        latitude: Double,
+        longitude: Double,
+        radiusMeters: Double,
+        now: Instant,
+        realtime: Map<String, RealtimeFeed>,
+    ): List<NearbyStop> =
+        withContext(ioDispatcher) {
+            mergeNearbyStops(
+                readFeeds(regionId) { query, info, id ->
+                    readFeedNearbyStops(query, info, latitude, longitude, radiusMeters, now, realtime[id])
+                },
+            )
+        }
+
+    // Apre ogni rete installata della regione; una illeggibile o senza esito (null) si salta.
+    private fun <T> readFeeds(regionId: String, read: (TransitQuery, TransitFeedInfo?, String) -> T?): List<T> {
+        val dir = File(regionStorage.directoryFor(regionId), RegionStorage.TRANSIT_DIR)
+        val infos = runCatching { TransitFeedInfo.decode(File(dir, RegionStorage.TRANSIT_FEEDS_FILE).readText()) }.getOrDefault(emptyList())
+        return dir.listFiles { file -> file.isFile && file.extension == "db" }.orEmpty().mapNotNull { file ->
+            runCatching {
+                SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+                    read(SqliteTransitQuery(db), infos.firstOrNull { it.id == file.nameWithoutExtension }, file.nameWithoutExtension)
+                }
+            }.onFailure { if (it is CancellationException) throw it }.getOrNull()
+        }
+    }
 }
 
 /** L'ultimo giorno di validita' degli orari di una transit.db (`valid_until`), null se il file non si apre o la data manca. */

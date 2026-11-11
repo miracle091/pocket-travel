@@ -199,6 +199,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Opzione di accessibilità | in sedia a rotelle | wheelchair |
 | Accessibilità dal tag OSM `wheelchair`, nel riquadro di treno, metro, autobus e traghetto | stazione | station |
 | Accessibilità dal GTFS della rete (`wheelchair_boarding`) | fermata dei mezzi | public transport stop |
+| Fermata segnata con la stella, in cima a «Fermate vicine» | fermata preferita | favorite stop |
 | Categoria della guida con i dati essenziali | Fatti rapidi | Quick facts |
 | Mappa a bassa risoluzione installata da sola | mappa d'insieme | overview map |
 | Mappa per scegliere la nazione | mappa delle nazioni | country map |

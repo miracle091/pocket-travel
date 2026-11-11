@@ -29,6 +29,7 @@ dependencies {
     implementation(libs.maplibre.android.sdk)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.hilt.lifecycle.viewmodel.compose)
     // Richiesta del permesso di posizione dalla schermata di navigazione.
     implementation(libs.androidx.activity.compose)
     // Feed GTFS-RT del tempo reale, scaricati dall'ente.

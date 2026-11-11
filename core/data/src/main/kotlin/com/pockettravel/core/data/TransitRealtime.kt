@@ -125,8 +125,17 @@ internal fun applyRealtime(
     calls: List<RealtimeCall>,
     feed: RealtimeFeed,
     zone: ZoneId,
-): List<TransitDeparture> {
-    if (found.isEmpty()) return found
+): List<TransitDeparture> = applyRealtimeIndexed(db, found, calls, feed, zone).map { it.second }
+
+/** Come [applyRealtime], con l'indice in [found] di ogni partenza rimasta. */
+internal fun applyRealtimeIndexed(
+    db: TransitQuery,
+    found: List<TransitDeparture>,
+    calls: List<RealtimeCall>,
+    feed: RealtimeFeed,
+    zone: ZoneId,
+): List<Pair<Int, TransitDeparture>> {
+    if (found.isEmpty()) return emptyList()
     fun names(table: String, column: String, ids: Collection<Int>): Map<Int, String> =
         db.query("SELECT id, $column FROM $table WHERE id IN (${ids.distinct().joinToString(",")})") { it.int(0) to it.string(1).orEmpty() }.toMap()
     val tripIds = names("gtfs_trip", "trip_id", calls.map { it.trip })
@@ -134,11 +143,11 @@ internal fun applyRealtime(
     return found.mapIndexedNotNull { i, departure ->
         val call = calls[i]
         val tripId = tripIds[call.trip]
-        if (departure.estimated || tripId == null) return@mapIndexedNotNull departure
+        if (departure.estimated || tripId == null) return@mapIndexedNotNull i to departure
         val key = RealtimeKey(tripId, stopIds[call.stop], call.serviceDate, gtfsEpochSeconds(call.serviceDate, call.serviceMinute, zone))
         if (tripOf(key, feed)?.deleted == true) return@mapIndexedNotNull null
         val status = realtimeOf(key, feed)
-        departure.copy(realtime = status, inMinutes = departure.inMinutes + status.delayMinutes)
+        i to departure.copy(realtime = status, inMinutes = departure.inMinutes + status.delayMinutes)
     }
 }
 

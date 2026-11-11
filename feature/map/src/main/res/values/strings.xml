@@ -273,6 +273,17 @@
     <string name="transit_mode_cable">Funivia</string>
     <string name="transit_mode_monorail">Monorotaia</string>
     <string name="transit_mode_other">Altro mezzo</string>
+    <!-- Fermate vicine: elenco sulla mappa, stella nel tabellone, filtro per linea nel tabellone. -->
+    <string name="nearby_title">Fermate vicine</string>
+    <string name="nearby_origin_position">Vicino a te</string>
+    <string name="nearby_origin_map">Vicino al centro della mappa</string>
+    <string name="nearby_mode_all">Tutti</string>
+    <string name="nearby_empty">Nessuna fermata entro %1$d m. Sposta la mappa e riapri l\'elenco</string>
+    <string name="nearby_open_departures">Mostra le partenze</string>
+    <string name="nearby_favorite">Fermata preferita</string>
+    <string name="nearby_favorite_add">Aggiungi la fermata alle preferite</string>
+    <string name="nearby_favorite_remove">Togli la fermata dalle preferite</string>
+    <string name="nearby_line_all">Tutte le linee</string>
     <string name="planner_where_to">Dove vuoi andare?</string>
     <string name="planner_from">Partenza</string>
     <string name="planner_to">Destinazione</string>

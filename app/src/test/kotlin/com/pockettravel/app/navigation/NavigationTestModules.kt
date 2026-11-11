@@ -7,6 +7,7 @@ import com.pockettravel.core.data.AddressSearchRepository
 import com.pockettravel.core.data.CarRouteCalculator
 import com.pockettravel.core.data.ExchangeRateTable
 import com.pockettravel.core.data.ExchangeRates
+import com.pockettravel.core.data.FavoriteStopsRepository
 import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.TransitRepository
@@ -18,6 +19,7 @@ import com.pockettravel.core.data.alerts.AlertsRepository
 import com.pockettravel.core.data.alerts.RegionAlerts
 import com.pockettravel.core.data.di.RepositoryModule
 import com.pockettravel.core.data.testing.FakeAddressSearchRepository
+import com.pockettravel.core.data.testing.FakeFavoriteStopsRepository
 import com.pockettravel.core.data.testing.FakeLastKnownPosition
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.FakeTransitRepository
@@ -181,6 +183,9 @@ object TestRepositoryModule {
 
     @Provides
     fun transitRepository(): TransitRepository = FakeTransitRepository()
+
+    @Provides
+    fun favoriteStopsRepository(): FavoriteStopsRepository = FakeFavoriteStopsRepository()
 
     @Provides
     fun addressSearchRepository(): AddressSearchRepository = FakeAddressSearchRepository()

@@ -9,8 +9,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import kotlin.math.cos
-import kotlin.math.hypot
 
 /*
  * Tabellone delle partenze dei mezzi pubblici, dai transit.db (una rete GTFS l'uno) installati nella
@@ -178,7 +176,6 @@ private const val MINUTES_PER_DAY = 1440
 
 // Un servizio stimato prende i giorni di una settimana prima.
 private const val ESTIMATED_SHIFT_DAYS = 7L
-private const val METERS_PER_DEGREE = 111_320.0
 private val BASIC_DATE = DateTimeFormatter.BASIC_ISO_DATE
 
 /** Righe di una query, per non legare la logica ne' ad android.database ne' a JDBC. */
@@ -209,61 +206,102 @@ internal fun readFeedBoard(
     stationModes: Set<TransitMode> = emptySet(),
     realtime: RealtimeFeed? = null,
 ): TransitBoard? {
-    val meta = db.query("SELECT key, value FROM meta") { it.string(0).orEmpty() to it.string(1).orEmpty() }.toMap()
-    // Un formato diverso da quello che l'app sa leggere: la rete si ignora finche' non si aggiorna.
-    if (meta["format"]?.toIntOrNull() != TRANSIT_DB_FORMAT) return null
-    val zone = ZoneId.of(meta.getValue("timezone"))
-    val windowStart = LocalDate.parse(meta.getValue("window_start"), BASIC_DATE)
-    val validUntil = LocalDate.parse(meta.getValue("valid_until"), BASIC_DATE)
-    val windowDays = meta["window_days"]?.toIntOrNull()
+    val meta = readFeedMeta(db) ?: return null
     val stops = nearbyStopIds(db, latitude, longitude, stationModes)
     if (stops.isEmpty()) return null
-    val feeds = listOfNotNull(feed?.copy(dataDate = windowStart))
-    // Colonne wheelchair di stop e trip: solo nei transit.db costruiti dopo che la pipeline le ha aggiunte, vedi meta.
-    val hasWheelchair = meta["wheelchair"] == "1"
+    val feeds = listOfNotNull(feed?.copy(dataDate = meta.windowStart))
+    val today = now.atZone(meta.zone).toLocalDate()
+    val found = readStopDepartures(db, meta, feed, stops, now, realtime) ?: return TransitBoard.Expired(meta.validUntil, feeds)
+    return TransitBoard.Departures(
+        found.map { it.departure }, meta.validUntil, ChronoUnit.DAYS.between(today, meta.validUntil).toInt(), feeds, if (meta.hasWheelchair) stopWheelchair(db, stops.joinToString(",")) else null,
+        expired = if (today > meta.validUntil) listOf(TransitBoard.Expired(meta.validUntil, feeds, estimated = true)) else emptyList(),
+    )
+}
 
-    val local = now.atZone(zone)
-    val today = local.toLocalDate()
+/** La tabella meta di transit.db. */
+internal class FeedMeta(
+    val zone: ZoneId,
+    val windowStart: LocalDate,
+    val validUntil: LocalDate,
+    val windowDays: Int?,
+    // Colonne wheelchair di stop e trip: solo nei transit.db costruiti dopo che la pipeline le ha aggiunte.
+    val hasWheelchair: Boolean,
+    val gtfsIds: Boolean,
+)
+
+/** Null se il formato e' diverso da quello che l'app sa leggere: la rete si ignora finche' non si aggiorna. */
+internal fun readFeedMeta(db: TransitQuery): FeedMeta? {
+    val meta = db.query("SELECT key, value FROM meta") { it.string(0).orEmpty() to it.string(1).orEmpty() }.toMap()
+    if (meta["format"]?.toIntOrNull() != TRANSIT_DB_FORMAT) return null
+    return FeedMeta(
+        zone = ZoneId.of(meta.getValue("timezone")),
+        windowStart = LocalDate.parse(meta.getValue("window_start"), BASIC_DATE),
+        validUntil = LocalDate.parse(meta.getValue("valid_until"), BASIC_DATE),
+        windowDays = meta["window_days"]?.toIntOrNull(),
+        hasWheelchair = meta["wheelchair"] == "1",
+        gtfsIds = meta["gtfs_ids"] == "1",
+    )
+}
+
+/** Una partenza e la fermata (id di transit.db) da cui parte. */
+internal class StopDeparture(val departure: TransitDeparture, val stop: Long)
+
+/**
+ * Le partenze nella finestra dalle fermate [stops], in ordine di ora, con il tempo reale di [realtime] se la rete ha gli id GTFS.
+ * Null se gli orari sono fuori dalla finestra di validita' (oltre un giorno prima dell'inizio, o dopo la fine). [perStop]:
+ * una corsa che passa da piu' fermate con lo stesso minuto vale una partenza per fermata, non una sola.
+ */
+internal fun readStopDepartures(
+    db: TransitQuery,
+    meta: FeedMeta,
+    feed: TransitFeedInfo?,
+    stops: List<Long>,
+    now: Instant,
+    realtime: RealtimeFeed?,
+    perStop: Boolean = false,
+): List<StopDeparture>? {
+    val today = now.atZone(meta.zone).toLocalDate()
     // window_start e' la data di costruzione nel fuso della rete: con un fuso avanti rispetto a chi ha
     // costruito puo' essere domani. Quel giorno di scarto non e' scaduto: nessuna partenza oggi (dayIndex < 0
     // sotto), ma quelle dopo mezzanotte si vedono.
-    if (today.plusDays(1) < windowStart || today > validUntil.plusDays(TRANSIT_GRACE_DAYS)) return TransitBoard.Expired(validUntil, feeds)
-    val grace = today > validUntil // scaduta da poco: i giorni dopo la scadenza prendono i servizi di 7 giorni prima
+    if (today.plusDays(1) < meta.windowStart || today > meta.validUntil.plusDays(TRANSIT_GRACE_DAYS)) return null
+    val grace = today > meta.validUntil // scaduta da poco: i giorni dopo la scadenza prendono i servizi di 7 giorni prima
     // Minuti GTFS (dal "mezzogiorno meno 12 ore"), non dell'orologio: nei giorni del cambio d'ora differiscono di 60.
-    val nowMinute = Math.floorDiv(now.epochSecond - gtfsEpochSeconds(today, 0, zone), 60L).toInt()
+    val nowMinute = Math.floorDiv(now.epochSecond - gtfsEpochSeconds(today, 0, meta.zone), 60L).toInt()
     // Con il tempo reale si leggono anche le partenze programmate fino a [REALTIME_LOOKBACK_MINUTES] fa: in ritardo
     // possono essere ancora da venire.
-    val realtimeFeed = realtime?.takeIf { meta["gtfs_ids"] == "1" }
+    val realtimeFeed = realtime?.takeIf { meta.gtfsIds }
 
     val ids = stops.joinToString(",")
-    val found = mutableListOf<TransitDeparture>()
+    val found = mutableListOf<StopDeparture>()
     // Per il tempo reale, una per ogni partenza in [found].
     val calls = mutableListOf<RealtimeCall>()
-    val seen = mutableSetOf<Triple<Int, Int, Int>>()
+    val seen = mutableSetOf<List<Int>>()
     // Ieri (servizi che passano la mezzanotte, minuti oltre 1440), oggi e domani (partenze subito dopo
     // mezzanotte quando la finestra la attraversa): minuto di servizio = minuto assoluto - offset * 1440.
     for (offset in -1..1) {
         val from = maxOf(0, nowMinute - (if (realtimeFeed != null) REALTIME_LOOKBACK_MINUTES else 0) - offset * MINUTES_PER_DAY)
         val to = nowMinute + TRANSIT_WINDOW_MINUTES - offset * MINUTES_PER_DAY
         if (to < from) continue
-        val estimated = grace && today.plusDays(offset.toLong()) > validUntil
-        val dayIndex = ChronoUnit.DAYS.between(windowStart, today.plusDays(offset - if (estimated) ESTIMATED_SHIFT_DAYS else 0L)).toInt()
+        val estimated = grace && today.plusDays(offset.toLong()) > meta.validUntil
+        val dayIndex = ChronoUnit.DAYS.between(meta.windowStart, today.plusDays(offset - if (estimated) ESTIMATED_SHIFT_DAYS else 0L)).toInt()
         if (dayIndex < 0) continue
         // Formato 2 (GenerateTransit): i pattern della fermata, poi le loro corse per minuto di partenza
         // (chiave della tabella trip); il passaggio alla fermata e' partenza + offset.
         val rows = db.query(
-            "SELECT t.start + ps.offset AS minute, t.id, r.short_name, r.long_name, r.type, r.color, r.text_color, h.text, sv.days, ${if (hasWheelchair) "t.wheelchair" else "NULL"}, ps.stop " +
+            "SELECT t.start + ps.offset AS minute, t.id, r.short_name, r.long_name, r.type, r.color, r.text_color, h.text, sv.days, ${if (meta.hasWheelchair) "t.wheelchair" else "NULL"}, ps.stop " +
                 "FROM pattern_stop ps JOIN trip t ON t.pattern = ps.pattern AND t.start BETWEEN $from - ps.offset AND $to - ps.offset " +
                 "JOIN route r ON r.id = t.route JOIN service sv ON sv.id = t.service LEFT JOIN headsign h ON h.id = t.headsign " +
                 "WHERE ps.stop IN ($ids) ORDER BY minute",
         ) { row ->
             val days = row.bytes(DEP_COL_DAYS)
-            if (days == null || !isServiceActive(days, dayIndex, windowDays)) return@query null
+            if (days == null || !isServiceActive(days, dayIndex, meta.windowDays)) return@query null
             val minute = row.int(DEP_COL_MINUTE)
-            if (!seen.add(Triple(row.int(DEP_COL_TRIP), offset, minute))) return@query null
+            val key = listOf(row.int(DEP_COL_TRIP), offset, minute) + if (perStop) listOf(row.int(DEP_COL_STOP)) else emptyList()
+            if (!seen.add(key)) return@query null
             val absolute = offset * MINUTES_PER_DAY + minute
             val color = parseGtfsColor(row.string(DEP_COL_COLOR))
-            TransitDeparture(
+            val departure = TransitDeparture(
                 line = row.string(DEP_COL_SHORT_NAME)?.takeIf { it.isNotBlank() } ?: row.string(DEP_COL_LONG_NAME)?.takeIf { it.isNotBlank() } ?: "?",
                 mode = transitModeOf(row.int(DEP_COL_TYPE)),
                 color = color,
@@ -274,14 +312,15 @@ internal fun readFeedBoard(
                 wheelchair = wheelchairOf(row.string(DEP_COL_WHEELCHAIR)),
                 estimated = estimated,
                 network = feed?.id,
-            ) to RealtimeCall(row.int(DEP_COL_TRIP), row.int(DEP_COL_STOP), today.plusDays(offset.toLong()), minute)
+            )
+            StopDeparture(departure, row.int(DEP_COL_STOP).toLong()) to RealtimeCall(row.int(DEP_COL_TRIP), row.int(DEP_COL_STOP), today.plusDays(offset.toLong()), minute)
         }.filterNotNull()
         rows.forEach { (departure, call) -> found += departure; calls += call }
     }
-    return TransitBoard.Departures(
-        (realtimeFeed?.let { applyRealtime(db, found, calls, it, zone) } ?: found).filter { it.inMinutes >= 0 }.sortedBy { it.inMinutes }, validUntil, ChronoUnit.DAYS.between(today, validUntil).toInt(), feeds, if (hasWheelchair) stopWheelchair(db, ids) else null,
-        expired = if (grace) listOf(TransitBoard.Expired(validUntil, feeds, estimated = true)) else emptyList(),
-    )
+    val withRealtime = realtimeFeed?.let { rt ->
+        applyRealtimeIndexed(db, found.map { it.departure }, calls, rt, meta.zone).map { (i, departure) -> StopDeparture(departure, found[i].stop) }
+    } ?: found
+    return withRealtime.filter { it.departure.inMinutes >= 0 }.sortedBy { it.departure.inMinutes }
 }
 
 /** wheelchair_boarding delle fermate [ids]: true se almeno una e' accessibile, false se nessuna e almeno una no. */
@@ -295,54 +334,6 @@ internal fun wheelchairOf(value: String?): Boolean? = when (value) {
     "1" -> true
     "2" -> false
     else -> null
-}
-
-/**
- * Fermate del gruppo del punto: quelle entro [TRANSIT_STOP_RADIUS_M] (rettangolo in microgradi, poi
- * distanza), con le loro stazioni (parent) e tutte le banchine di quelle stazioni. Per una stazione senza
- * fermate cosi' vicine, il gruppo della fermata piu' vicina entro [TRANSIT_STATION_RADIUS_M] servita da uno dei
- * [stationModes]. Vuoto se nessuna.
- */
-internal fun nearbyStopIds(db: TransitQuery, latitude: Double, longitude: Double, stationModes: Set<TransitMode> = emptySet()): List<Long> {
-    val radius = if (stationModes.isEmpty()) TRANSIT_STOP_RADIUS_M else TRANSIT_STATION_RADIUS_M
-    val dLat = radius / METERS_PER_DEGREE
-    val dLon = dLat / maxOf(cos(Math.toRadians(latitude)), 0.01)
-    fun micro(degrees: Double) = Math.round(degrees * MICRODEGREES_PER_DEGREE)
-    val rows = db.query(
-        "SELECT id, parent, latE6, lonE6 FROM stop WHERE latE6 BETWEEN ${micro(latitude - dLat)} AND ${micro(latitude + dLat)} " +
-            "AND lonE6 BETWEEN ${micro(longitude - dLon)} AND ${micro(longitude + dLon)}",
-    ) { StopRow(it.string(STOP_COL_ID)!!.toLong(), it.string(STOP_COL_PARENT)?.toLong(), it.string(STOP_COL_LAT)!!.toLong(), it.string(STOP_COL_LON)!!.toLong()) }
-    val distances = rows.associateWith { distanceMeters(latitude, longitude, it.latE6 / MICRODEGREES_PER_DEGREE, it.lonE6 / MICRODEGREES_PER_DEGREE) }
-    val near = distances.filterValues { it <= TRANSIT_STOP_RADIUS_M }.keys
-        .ifEmpty { listOfNotNull(nearestServedStop(db, distances.filterValues { it <= radius }, stationModes)) }
-    if (near.isEmpty()) return emptyList()
-    val ids = near.mapTo(mutableSetOf()) { it.id }
-    val stations = near.mapTo(mutableSetOf()) { it.parent ?: it.id }
-    ids += db.query("SELECT id FROM stop WHERE id IN (${stations.joinToString(",")}) OR parent IN (${stations.joinToString(",")})") { it.string(0)!!.toLong() }
-    return ids.sorted()
-}
-
-/**
- * La piu' vicina tra le fermate [candidates] (con la distanza) servite da linee di uno dei [modes]; le stazioni parent
- * non hanno passaggi, le loro banchine si'. Null se nessuna.
- */
-private fun nearestServedStop(db: TransitQuery, candidates: Map<StopRow, Double>, modes: Set<TransitMode>): StopRow? {
-    if (candidates.isEmpty()) return null
-    val served = db.query(
-        "SELECT DISTINCT ps.stop, r.type FROM pattern_stop ps JOIN trip t ON t.pattern = ps.pattern JOIN route r ON r.id = t.route " +
-            "WHERE ps.stop IN (${candidates.keys.joinToString(",") { it.id.toString() }})",
-    ) { it.string(0)?.toLongOrNull() to transitModeOf(it.int(1)) }
-        .filter { it.second in modes }.mapNotNullTo(mutableSetOf()) { it.first }
-    return candidates.filterKeys { it.id in served }.minByOrNull { it.value }?.key
-}
-
-private data class StopRow(val id: Long, val parent: Long?, val latE6: Long, val lonE6: Long)
-
-/** Distanza approssimata (piano locale), abbondante per qualche centinaio di metri. */
-internal fun distanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-    val dy = (lat2 - lat1) * METERS_PER_DEGREE
-    val dx = (lon2 - lon1) * METERS_PER_DEGREE * cos(Math.toRadians((lat1 + lat2) / 2))
-    return hypot(dx, dy)
 }
 
 /**
@@ -377,8 +368,6 @@ private const val LUMA_GREEN = 0.587
 private const val LUMA_BLUE = 0.114
 private const val DARK_TEXT_LUMA_THRESHOLD = 150
 
-private const val MICRODEGREES_PER_DEGREE = 1e6
-
 // Colonne della query delle partenze (dopo il minuto, l'id della corsa e i dati della linea).
 private const val DEP_COL_MINUTE = 0
 private const val DEP_COL_TRIP = 1
@@ -394,12 +383,6 @@ private const val DEP_COL_STOP = 10
 
 /** Con il tempo reale, quanto indietro si leggono le partenze programmate: in ritardo possono essere ancora da venire. */
 internal const val REALTIME_LOOKBACK_MINUTES = 60
-
-// Colonne della query delle fermate vicine.
-private const val STOP_COL_ID = 0
-private const val STOP_COL_PARENT = 1
-private const val STOP_COL_LAT = 2
-private const val STOP_COL_LON = 3
 
 /** Nero o bianco, quello che si legge meglio sul colore [background]. */
 internal fun contrastingTextColor(background: Int): Int {

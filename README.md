@@ -56,7 +56,7 @@ L'app segnala le nuove versioni con una notifica; le novità sono nel [CHANGELOG
 | 💉 | **Vaccinazioni** | Obbligatorie, raccomandate e da valutare con il medico, calcolate offline da partenza, scali e paesi visitati |
 | 🗺️ | **Mappa** | Ristoranti, hotel, farmacie, bancomat e molto altro, con orari e contatti, filtrati per modo di spostarsi |
 | 🧭 | **Navigatore** | Percorsi a piedi, in bici e in auto, anche tra nazioni, con la navigazione passo passo anche a schermo spento |
-| 🚌 | **Mezzi pubblici** | Partenze delle tre ore successive in fermate e stazioni, per le reti con dati aperti di 32 nazioni, per lo più europee, e di Stati Uniti, Canada, Australia, Nuova Zelanda e Giappone; con la rete, ritardi e corse soppresse in tempo reale dove l'ente li pubblica |
+| 🚌 | **Mezzi pubblici** | Partenze delle tre ore successive in fermate e stazioni, per le reti con dati aperti di 32 nazioni, per lo più europee, e di Stati Uniti, Canada, Australia, Nuova Zelanda e Giappone; le fermate entro 500 metri con le prossime partenze; con la rete, ritardi e corse soppresse in tempo reale dove l'ente li pubblica |
 | 🤖 | **Assistente IA** | Risposte brevi sulla guida scaricata e sulle note, anche senza internet |
 | 🔐 | **Documenti e note** | Passaporto e biglietti cifrati, sbloccabili con impronta o volto; note di viaggio cifrate |
 | 🏛️ | **Fonti ufficiali** | Ministero degli esteri del proprio paese, OMS e CDC |

@@ -4,18 +4,20 @@ import com.pockettravel.core.data.AddressSearchRepository
 import com.pockettravel.core.data.AndroidLastKnownPosition
 import com.pockettravel.core.data.AppInitializer
 import com.pockettravel.core.data.ConversationRetention
+import com.pockettravel.core.data.FavoriteStopsRepository
 import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.OpenMeteoWeatherRepository
+import com.pockettravel.core.data.PreferencesFavoriteStopsRepository
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RoomRegionRepository
 import com.pockettravel.core.data.SqliteAddressSearchRepository
 import com.pockettravel.core.data.SqliteTransitRepository
 import com.pockettravel.core.data.TransitRepository
 import com.pockettravel.core.data.WeatherRepository
-import com.pockettravel.core.data.alerts.AlertsRepository
-import com.pockettravel.core.data.alerts.OnlineAlertsRepository
 import com.pockettravel.core.data.advice.OnlineTravelAdviceUpdates
 import com.pockettravel.core.data.advice.TravelAdviceUpdates
+import com.pockettravel.core.data.alerts.AlertsRepository
+import com.pockettravel.core.data.alerts.OnlineAlertsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -32,6 +34,9 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindTransitRepository(impl: SqliteTransitRepository): TransitRepository
+
+    @Binds
+    abstract fun bindFavoriteStopsRepository(impl: PreferencesFavoriteStopsRepository): FavoriteStopsRepository
 
     @Binds
     abstract fun bindAddressSearchRepository(impl: SqliteAddressSearchRepository): AddressSearchRepository

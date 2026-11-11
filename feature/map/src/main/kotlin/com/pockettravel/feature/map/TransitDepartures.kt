@@ -8,20 +8,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
@@ -33,7 +34,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -46,12 +46,12 @@ import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
-import com.pockettravel.core.ui.R as UiR
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Date
 import java.util.TimeZone
+import com.pockettravel.core.ui.R as UiR
 
 /**
  * Stato del pacchetto orari dei mezzi pubblici della regione, per il riquadro delle fermate: [UNKNOWN] non mostra
@@ -94,6 +94,7 @@ internal fun TransitDeparturesSection(
     realtime: TransitRealtimeUi? = null,
     onRefreshRealtime: () -> Unit = {},
 ) {
+    var selectedLine by rememberSaveable { mutableStateOf<String?>(null) }
     if (state == TransitPackageState.UNKNOWN) return
     Column(modifier = Modifier.fillMaxWidth().padding(top = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         Text(
@@ -152,7 +153,12 @@ internal fun TransitDeparturesSection(
                         if (updateNearExpired) TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
                     }
                     if (board.items.isEmpty()) Note(stringResource(R.string.transit_none_soon))
-                    board.items.forEach { DepartureRow(it, showAccessibility) }
+                    // Filtro per linea: solo se le partenze mostrate sono di piu' linee; una linea scelta che sparisce
+                    // dopo un aggiornamento vale "Tutte".
+                    val lines = board.items.map { it.line }.distinct()
+                    val shown = selectedLine?.takeIf { it in lines }
+                    if (lines.size > 1) LineFilter(lines, shown) { selectedLine = it }
+                    board.items.filter { shown == null || it.line == shown }.forEach { DepartureRow(it, showAccessibility) }
                     // Con le sole reti scadute da poco la scadenza e' gia' nella nota sopra.
                     if (board.daysLeft >= 0) Note(stringResource(R.string.transit_valid_until, formatDate(board.validUntil)))
                     if (board.expiresSoon) {
@@ -252,22 +258,7 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
             contentDescription = listOfNotNull(description, realtimeSpoken, laterSpoken, accessibleText).joinToString(", ")
         },
     ) {
-        // Il colore della linea e' solo decorazione: sigla, mezzo e destinazione stanno in chiaro.
-        Surface(
-            shape = MaterialTheme.shapes.small,
-            color = departure.color?.let(::Color) ?: MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = departure.textColor?.let(::Color) ?: MaterialTheme.colorScheme.onSecondaryContainer,
-        ) {
-            Text(
-                text = departure.line,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(min = 44.dp, max = 96.dp).padding(horizontal = Spacing.s, vertical = Spacing.xs),
-            )
-        }
+        LineBadge(departure)
         Column(modifier = Modifier.weight(1f)) {
             Text(text = departure.headsign ?: mode, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (departure.headsign != null) {
@@ -367,7 +358,7 @@ private fun formatDate(date: LocalDate): String =
     date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(LocalLocale.current.platformLocale))
 
 @StringRes
-private fun TransitMode.label(): Int = when (this) {
+internal fun TransitMode.label(): Int = when (this) {
     TransitMode.TRAM -> R.string.transit_mode_tram
     TransitMode.METRO -> R.string.transit_mode_metro
     TransitMode.TRAIN -> R.string.transit_mode_train
