@@ -247,14 +247,18 @@ def parse_dissolved_airlines(risultati):
 
 
 def parse_optd_airlines(testo, iata_noti, chiuse=frozenset()):
-    """Compagnie ancora valide di optd_airlines.csv (env_id e validity_to vuoti) con un codice IATA che non e' in
-    [iata_noti] e non chiuse secondo [chiuse] (parse_dissolved_airlines): (iata, icao, nome)."""
+    """Compagnie ancora valide di optd_airlines.csv (env_id e validity_to vuoti, tipo diverso da G = sistema di
+    prenotazione) con un codice IATA che non e' in [iata_noti] e non chiuse secondo [chiuse]
+    (parse_dissolved_airlines): (iata, icao, nome)."""
     righe = set()
     for riga in csv.DictReader(io.StringIO(testo), delimiter="^", quoting=csv.QUOTE_NONE):
         iata = pulisci(riga.get("2char_code")).upper()
         icao = pulisci(riga.get("3char_code")).upper()
         nome = pulisci(riga.get("name"))
         if riga.get("env_id") or riga.get("validity_to") or not IATA.fullmatch(iata) or iata in iata_noti or not nome:
+            continue
+        # type "G": sistemi di prenotazione e fornitori di servizi (Amadeus 1A, Sabre 1S, Travelport 1G, SITA...).
+        if riga.get("type") == "G":
             continue
         icao = icao if ICAO.fullmatch(icao) else ""
         if (nome.casefold(), iata) in chiuse or (icao and (nome.casefold(), icao) in chiuse):

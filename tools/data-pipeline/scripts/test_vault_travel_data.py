@@ -266,6 +266,17 @@ class OptdTest(unittest.TestCase):
         ]) + "\n"
         self.assertEqual({("NK", "NKS", "Spirit Airlines"), ("KE", "", "Korean Air")}, v.parse_optd_airlines(testo, {"AZ"}))
 
+    def test_sistemi_di_prenotazione_tolti(self):
+        testo = "\n".join([
+            "pk^env_id^validity_from^validity_to^3char_code^2char_code^num_code^name^type",
+            "a^^1987-01-01^^AGT^1A^790^Amadeus^G",
+            "b^^^^^1S^0^Sabre^G",
+            "c^^2015-01-01^^NKS^NK^487^Spirit Airlines^P",
+            "d^^2015-01-01^^KEA^KE^180^Korean Air^PC",
+        ]) + "\n"
+        self.assertEqual({("NK", "NKS", "Spirit Airlines"), ("KE", "KEA", "Korean Air")},
+                         v.parse_optd_airlines(testo, set()))
+
     def test_compagnie_chiuse_tolte_con_nome_e_codice(self):
         testo = "\n".join([
             "pk^env_id^validity_from^validity_to^3char_code^2char_code^num_code^name^flt_freq",

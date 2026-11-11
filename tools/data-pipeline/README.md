@@ -337,7 +337,8 @@ Indice, firmato come gli altri JSON e puntato dalla voce `"addressGrid": { "vers
 `scripts/vault_travel_data.py` scrive `airports.tsv.gz` e `airlines.tsv.gz` in `feature/vault/src/main/assets`; si
 lancia a mano e i due file si committano. Fonti:
 
-- aeroporti da OurAirports (pubblico dominio), compagnie da Wikidata (CC0);
+- aeroporti da OurAirports (pubblico dominio), compagnie da Wikidata (CC0) e da OpenTravelData, senza i sistemi di
+  prenotazione (tipo `G`, come Amadeus `1A` e Sabre `1S`);
 - nomi italiani delle città da Wikidata (CC0), senza i luoghi che sono regioni o contee (ABC dava "Castiglia-La
   Mancia");
 - da OpenTravelData (CC BY 4.0, nomi da GeoNames, CC BY 4.0):
