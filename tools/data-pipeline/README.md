@@ -489,9 +489,10 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   è corretto anche con Holm-Bonferroni su tutti i tipi, perché su una dozzina di confronti qualche p < 0,05 esce per
   caso. `scripts/check_regressions.py <riferimento> <nuovo> [--bench BASE NUOVO]` esce con 1 se le risposte giuste di
   tutti i negativi o di tutti i positivi calano di oltre `--points` punti (default 3), se un tipo di riga peggiora con
-  p < 0,05 dopo la correzione di Holm, se la quota di risposte fuori dal contesto, oltre 450 caratteri o nella lingua
-  sbagliata cresce di oltre `--points` punti, se i due file hanno meno dell'80% delle righe in comune o se tg cala di
-  oltre `--tg-percent` (default 10).
+  p < 0,05 dopo la correzione di Holm, se la quota di risposte oltre 450 caratteri o nella lingua sbagliata cresce di
+  oltre `--points` punti, se i due file hanno meno dell'80% delle righe in comune o se tg cala di oltre `--tg-percent`
+  (default 10). La quota di risposte fuori dal contesto compare solo come avviso: la misura è lessicale e i modelli
+  che parafrasano, come quelli online, darebbero falsi allarmi.
 - **Controllo di un GGUF**: prima di misurare o caricare un GGUF, `scripts/check_gguf.py <file .gguf> --tokenizer
   <tokenizer.json del modello base> --llama-cpp <binari> [--lang en]` stampa i metadati del tokenizer e controlla che
   l'EOS o l'EOT sia `<|im_end|>`, che ci sia il template e che llama.cpp tokenizzi il prompt dell'app come il tokenizer

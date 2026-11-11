@@ -150,9 +150,9 @@ class MutationTest(unittest.TestCase):
         good = answer_file(lambda kind, want: want)
         english = answer_file(lambda kind, want: "The museum is in the centre." if kind == "pos_para" else want)
         lines, regressions = instruction_regressions(good, english, 3.0)
-        # le parole inglesi non sono nel contesto italiano: anche fuori dal contesto
-        self.assertEqual(["fuori dal contesto: 0.0% -> 50.0% delle righe", "lingua sbagliata: 0.0% -> 50.0% delle righe"],
-                         regressions)
+        # le parole inglesi non sono nel contesto italiano: anche fuori dal contesto, che pero' resta un avviso
+        self.assertEqual(["lingua sbagliata: 0.0% -> 50.0% delle righe"], regressions)
+        self.assertIn("fuori dal contesto: 0.0% -> 50.0% delle righe (solo avviso, misura lessicale)", lines)
         self.assertIn("oltre 450 caratteri: 0.0% -> 0.0% delle righe", lines)
         self.assertEqual(([], []), instruction_regressions([], english, 3.0))
 

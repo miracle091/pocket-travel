@@ -12,7 +12,8 @@ le risposte al test esteso (eval_gguf.py --extended --answers, o eval_online.py 
 Regressione: le risposte giuste di tutti i negativi (rifiuti) o di tutti i positivi calano di oltre --points punti
 percentuali, un singolo tipo di riga peggiora in modo significativo (McNemar esatto, p < 0,05 dopo la correzione di
 Holm-Bonferroni sulla famiglia dei tipi di riga con righe appaiate, come in compare_answers.py), la quota di righe
-fuori dal contesto, oltre 450 caratteri o nella lingua sbagliata cresce di oltre --points punti, i due file hanno
+oltre 450 caratteri o nella lingua sbagliata cresce di oltre --points punti (quella fuori dal contesto e' solo un
+avviso), i due file hanno
 troppe poche righe in comune (appaiate meno dell'80% di quelle del file piu' corto: il confronto non regge), o la mediana di tg (token/s di risposta) cala di oltre --tg-percent. I benchmark si confrontano solo con
 stesso dispositivo, thread e token (la chiave di confronto senza impronta del modello e versione di llama.cpp). Esce con
 1 se c'e' una regressione, cosi' un comando o uno script che lo lancia se ne accorge; il rapporto di compare_answers.py
@@ -68,9 +69,10 @@ def answer_regressions(base_rows, new_rows, points):
 
 def instruction_regressions(base_rows, new_rows, points):
     """Righe del rapporto e regressioni dei controlli sulle istruzioni (instruction_counts di compare_answers.py): la
-    quota di righe fuori dal contesto, oltre 450 caratteri o nella lingua sbagliata cresce di oltre points punti. Le
-    risposte giuste contano solo il rifiuto: senza questo controllo passerebbero risposte tutte in inglese o troncate al
-    limite di token."""
+    quota di righe oltre 450 caratteri o nella lingua sbagliata cresce di oltre points punti. Le risposte giuste contano
+    solo il rifiuto: senza questo controllo passerebbero risposte tutte in inglese o troncate al limite di token. Le
+    righe fuori dal contesto restano nel rapporto come avviso: la misura e' lessicale e i modelli che parafrasano (gli
+    online) darebbero falsi allarmi."""
     if not base_rows or not new_rows:
         return [], []
     before, after = instruction_counts(base_rows), instruction_counts(new_rows)
@@ -78,9 +80,12 @@ def instruction_regressions(base_rows, new_rows, points):
     for check in before:
         share_before, share_after = 100 * before[check] / len(base_rows), 100 * after[check] / len(new_rows)
         line = f"{check}: {share_before:.1f}% -> {share_after:.1f}% delle righe"
-        lines.append(line)
-        if share_after - share_before > points:
-            regressions.append(line)
+        if check == "fuori dal contesto":
+            lines.append(line + " (solo avviso, misura lessicale)")
+        else:
+            lines.append(line)
+            if share_after - share_before > points:
+                regressions.append(line)
     return lines, regressions
 
 
