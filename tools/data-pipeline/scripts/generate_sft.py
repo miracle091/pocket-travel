@@ -592,20 +592,23 @@ TRANSLATION_LICENSES = {model: MT_LICENSE for model in MT_MODELS.values()}
 # Gemma 4 (Apache 2.0) in un nome di translatedBy ("google/gemma-4-12B-it", "gemma-4-12b-it-Q4_K_M.gguf"), non
 # TranslateGemma ne' Gemma 3, che hanno i Gemma Terms of Use
 GEMMA4 = re.compile(r"(?<![a-z])gemma-?4(?:[-_.]|$)")
-GEMMA4_LICENSE = "Apache 2.0"
+# Index-Translate-9B (IndexTeam/Index-Translate-9B, Apache 2.0 come la base Qwen3.5-9B, senza limiti sugli output)
+INDEX_TRANSLATE = re.compile(r"(?<![a-z])index-translate-")
+APACHE_LICENSE = "Apache 2.0"
 
 
 def translation_license(model):
     """La licenza del modello [model] (translatedBy) che ha tradotto una sezione, None se il testo non puo' entrare nel
-    dataset. Entrano solo i modelli con una licenza verificata: opus-mt (TRANSLATION_LICENSES) e Gemma 4. Restano fuori
-    i modelli senza licenza nota, quelli con i Gemma Terms of Use (Gemma 3, TranslateGemma: per 1.1(e)(iii) un modello
+    dataset. Entrano solo i modelli con una licenza verificata: opus-mt (TRANSLATION_LICENSES), Gemma 4 e Index-Translate.
+    Restano fuori i modelli senza licenza nota, quelli con i Gemma Terms of Use (Gemma 3, TranslateGemma: per 1.1(e)(iii) un modello
     addestrato sui loro output e' un "Model Derivative", quindi le loro traduzioni si pubblicano nelle guide ma non si
     usano per l'addestramento) e il testo senza modello (tradotto prima che translatedBy esistesse)."""
     if not model:
         return None
     if model in TRANSLATION_LICENSES:
         return TRANSLATION_LICENSES[model]
-    return GEMMA4_LICENSE if GEMMA4.search(model.lower()) else None
+    name = model.lower()
+    return APACHE_LICENSE if GEMMA4.search(name) or INDEX_TRANSLATE.search(name) else None
 
 
 def translation_note(model, L):

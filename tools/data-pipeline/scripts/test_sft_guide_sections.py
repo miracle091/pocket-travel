@@ -119,17 +119,20 @@ class TranslatedGuideSectionsTest(unittest.TestCase):
             ("giappone", "SALUTE", "Salute (Governo del Canada)", "Gemma 4.", GC, 1, "google/gemma-4-12B-it"),
             ("giappone", "DOGANE", "Dogane (Governo del Canada)", "TranslateGemma.", GC, 1, "translategemma-4b-it-Q4_K_M.gguf"),
             ("giappone", "SOLDI", "Soldi (Governo del Canada)", "Gemma 3.", GC, 1, "google/gemma-3-12b-it"),
-            ("giappone", "TRASPORTI", "Trasporti (Governo del Canada)", "Licenza da verificare.", GC, 1, "index-translate-9b-q4_k_m"),
+            ("giappone", "TRASPORTI", "Trasporti (Governo del Canada)", "Index-Translate.", GC, 1, "index-translate-9b-q4_k_m"),
+            ("giappone", "CLIMA", "Clima (Governo del Canada)", "Licenza da verificare.", GC, 1, "seed-x-ppo-7b"),
             ("giappone", "USI_COSTUMI", "Usi (Governo del Canada)", "Senza modello.", GC, 1, None),
             ("francia", "ALLOGGIO", "Dove alloggiare", "Gli alberghi sono cari.", "https://it.wikivoyage.org/wiki/Francia", 0, None)])
         self.assertEqual(out, {"giappone": [("SICUREZZA", "Precauzioni normali.", GC, self.MARIAN),
-                                            ("SALUTE", "Gemma 4.", GC, "google/gemma-4-12B-it")],
+                                            ("SALUTE", "Gemma 4.", GC, "google/gemma-4-12B-it"),
+                                            ("TRASPORTI", "Index-Translate.", GC, "index-translate-9b-q4_k_m")],
                                "francia": [("ALLOGGIO", "Gli alberghi sono cari.", "https://it.wikivoyage.org/wiki/Francia", False)]})
 
     def test_licenza_dei_modelli(self):
-        for model in ("google/gemma-4-12B-it", "gemma-4-E4B-it-Q4_K_M.gguf", "gemma4-31b"):
+        for model in ("google/gemma-4-12B-it", "gemma-4-E4B-it-Q4_K_M.gguf", "gemma4-31b", "IndexTeam/Index-Translate-9B",
+                      "index-translate-9b-q4_k_m.gguf"):
             self.assertEqual(generate_sft.translation_license(model), "Apache 2.0", model)
-        for model in ("translategemma-4b-it", "google/gemma-3-4b-it", "gemma-4b", "index-translate-9b", "", None):
+        for model in ("translategemma-4b-it", "google/gemma-3-4b-it", "gemma-4b", "seed-x-ppo-7b", "", None):
             self.assertIsNone(generate_sft.translation_license(model), model)
 
     def test_nota_di_attribution(self):
