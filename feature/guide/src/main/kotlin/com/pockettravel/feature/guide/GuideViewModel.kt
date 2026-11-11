@@ -105,9 +105,9 @@ class GuideViewModel @Inject constructor(
     private val _cityUiState = MutableStateFlow(CityGuideUiState())
     val cityUiState: StateFlow<CityGuideUiState> = _cityUiState.asStateFlow()
 
-    // regionId non e' costruito nella ViewModel (nessun uso di SavedStateHandle in questo
-    // progetto): arriva a runtime dalla composable, come AiAssistantViewModel.ask(regionId) —
-    // stesso pattern, per coerenza di stile.
+    // regionId non viene dallo SavedStateHandle: arriva a runtime dalla composable, come
+    // AiAssistantViewModel.ask(regionId). La sezione scelta e le citta' stanno in rememberSaveable
+    // nella schermata e sopravvivono alla morte del processo.
     private var loadedForRegionId: String? = null
     private var loadedCatalogCountry: String? = null
     private var citiesJob: Job? = null

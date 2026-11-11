@@ -2,6 +2,7 @@ package com.pockettravel.feature.ai
 
 import android.util.Log
 import androidx.annotation.StringRes
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
@@ -20,9 +21,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import java.io.File
 import java.io.IOException
@@ -151,6 +152,7 @@ sealed interface HistoryUiState {
 
 @HiltViewModel
 class AiAssistantViewModel @Inject constructor(
+    private val savedStateHandle: SavedStateHandle,
     private val deviceAiCapability: DeviceAiCapability,
     private val modelManager: LlmModelManager,
     private val travelAssistant: TravelAssistant,
@@ -176,6 +178,7 @@ class AiAssistantViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(
         AiUiState(
+            question = savedStateHandle.savedQuestion(),
             // Sotto i 3 GB il motore sul dispositivo non va nemmeno offerto come opzione
             // (DeviceAiCapability.isOnDeviceAiSupported): forzare Online qui evita che
             // un motore salvato in precedenza (o il default ON_DEVICE) resti selezionato su un
@@ -204,6 +207,7 @@ class AiAssistantViewModel @Inject constructor(
     val uiState: StateFlow<AiUiState> = _uiState.asStateFlow()
 
     init {
+        savedStateHandle.keepQuestion(viewModelScope, _uiState)
         // "Ferma" della notifica della risposta in corso (AnswerService).
         viewModelScope.launch {
             answerKeepAlive.stopRequests.collect { stopAnswer() }
