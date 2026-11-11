@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import com.pockettravel.feature.ai.DeviceAiCapability.Companion.generationThreadCountFor
 import com.pockettravel.feature.ai.DeviceAiCapability.Companion.inferenceThreadCountFor
 import com.pockettravel.feature.ai.DeviceAiCapability.Companion.isOnDeviceAiSupportedIn
 import com.pockettravel.feature.ai.DeviceAiCapability.Companion.ramTierFor
@@ -94,6 +95,17 @@ class DeviceAiCapabilityTest {
         assertEquals(4, inferenceThreadCountFor(RamTier.CONFORTEVOLE, availableCores = 16))
         assertEquals(6, inferenceThreadCountFor(RamTier.AMPIA, availableCores = 16))
         assertEquals(6, inferenceThreadCountFor(RamTier.PUNTA, availableCores = 16))
+    }
+
+    @Test
+    fun `generationThreadCountFor uses the fast cores, never more than the prompt threads`() {
+        // Pixel 8: 1 core da 2,91 GHz, 4 da 2,37, 4 piccoli da 1,70.
+        val pixel8 = listOf(1_704_000L, 1_704_000L, 1_704_000L, 1_704_000L, 2_367_000L, 2_367_000L, 2_367_000L, 2_367_000L, 2_914_000L)
+        assertEquals(5, generationThreadCountFor(pixel8, promptThreads = 6))
+        assertEquals(2, generationThreadCountFor(List(2) { 2_400_000L } + List(6) { 1_600_000L }, promptThreads = 4))
+        assertEquals(4, generationThreadCountFor(List(8) { 2_000_000L }, promptThreads = 4))
+        // Emulatore x86: nessuna frequenza leggibile, vale la regola di oggi.
+        assertEquals(3, generationThreadCountFor(emptyList(), promptThreads = 3))
     }
 
     @Test

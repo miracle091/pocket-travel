@@ -44,6 +44,9 @@ class DeviceAiCapability @Inject constructor(
      */
     fun inferenceThreadCount(): Int = inferenceThreadCountFor(ramTier(), Runtime.getRuntime().availableProcessors())
 
+    /** Thread della generazione di llama.cpp, letti da /sys: chiamare fuori dal main thread. */
+    fun generationThreadCount(): Int = generationThreadCountFor(readCoreMaxFreqsKhz(), inferenceThreadCount())
+
     companion object {
         // Soglie all'85% di 3, 4, 6, 8 e 12 GiB: un dispositivo da N GB riporta in totalMem meno di N GiB (memoria riservata,
         // GB decimali) ma non sotto l'85%, e un dispositivo della taglia sotto non ci arriva. Le fasce vengono dalla
@@ -88,5 +91,14 @@ class DeviceAiCapability @Inject constructor(
             }
             return (availableCores - 1).coerceIn(1, cap)
         }
+
+        /**
+         * Thread della generazione: solo i core veloci ([fastCoreCount]), mai piu' dei [promptThreads] della regola di
+         * [inferenceThreadCountFor], che restano per il prompt. Un token alla volta e' limitato dalla memoria, e un
+         * thread su un core piccolo fa aspettare gli altri a ogni token; il prompt, un blocco di token insieme, usa
+         * tutti i core della regola.
+         */
+        fun generationThreadCountFor(maxFreqsKhz: List<Long>, promptThreads: Int): Int =
+            fastCoreCount(maxFreqsKhz, promptThreads).coerceAtMost(promptThreads)
     }
 }

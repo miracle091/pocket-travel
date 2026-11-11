@@ -27,7 +27,8 @@ interface InferenceEngine {
      * Load a model from the given path.
      *
      * [speculativeNgram] accende la decodifica speculativa ngram (ai_chat.cpp, NGRAM_SIZE_N): utile ai modelli che
-     * copiano frasi del contesto, come quelli addestrati sulle guide.
+     * copiano frasi del contesto, come quelli addestrati sulle guide. [nThreads] decodifica la risposta,
+     * [nThreadsBatch] il prompt.
      *
      * @throws UnsupportedArchitectureException if model architecture not supported
      */
@@ -37,6 +38,7 @@ interface InferenceEngine {
         topP: Float = DEFAULT_TOP_P,
         nThreads: Int = DEFAULT_N_THREADS,
         speculativeNgram: Boolean = false,
+        nThreadsBatch: Int = nThreads,
     )
 
     /**

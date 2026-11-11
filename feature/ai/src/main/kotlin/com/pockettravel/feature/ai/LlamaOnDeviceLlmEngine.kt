@@ -195,7 +195,8 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
                 path,
                 topK = TOP_K,
                 topP = TOP_P,
-                nThreads = deviceAiCapability.inferenceThreadCount(),
+                nThreads = deviceAiCapability.generationThreadCount(),
+                nThreadsBatch = deviceAiCapability.inferenceThreadCount(),
                 // Sugli Ufficiali, che rispondono con frasi proprie, il ngram propone poco e guadagna meno del 13%.
                 speculativeNgram = definition.origin == ModelOrigin.ADDESTRATO,
             )

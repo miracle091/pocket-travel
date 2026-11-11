@@ -178,13 +178,14 @@ static jint load_impl(JNIEnv *env, jstring jmodel_path) {
     return 0;
 }
 
-static llama_context *init_context(llama_model *model, const int n_threads, const int n_ctx = DEFAULT_CONTEXT_SIZE) {
+static llama_context *init_context(llama_model *model, const int n_threads, const int n_threads_batch,
+                                   const int n_ctx = DEFAULT_CONTEXT_SIZE) {
     if (!model) {
         LOGe("%s: model cannot be null", __func__);
         return nullptr;
     }
 
-    LOGi("%s: Using %d threads", __func__, n_threads);
+    LOGi("%s: Using %d threads, %d for the prompt", __func__, n_threads, n_threads_batch);
 
     // Context parameters setup
     llama_context_params ctx_params = llama_context_default_params();
@@ -197,7 +198,7 @@ static llama_context *init_context(llama_model *model, const int n_threads, cons
     ctx_params.n_batch = BATCH_SIZE;
     ctx_params.n_ubatch = BATCH_SIZE;
     ctx_params.n_threads = n_threads;
-    ctx_params.n_threads_batch = n_threads;
+    ctx_params.n_threads_batch = n_threads_batch;
     auto *context = llama_init_from_model(model, ctx_params);
     if (context == nullptr) {
         LOGe("%s: llama_new_context_with_model() returned null)", __func__);
@@ -364,8 +365,9 @@ static ChatFormat choose_chat_format(const bool jinja_parsed) {
 
 // top_k/top_p passati da Kotlin (OnDeviceLlmEngine): il riferimento Arm usa solo i default di
 // common_params_sampling, qui il campionamento lo sceglie il chiamante.
-static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads, jboolean speculative) {
-    auto *context = init_context(g_model, n_threads > 0 ? n_threads : DEFAULT_N_THREADS);
+static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads, jint n_threads_batch, jboolean speculative) {
+    auto *context = init_context(g_model, n_threads > 0 ? n_threads : DEFAULT_N_THREADS,
+                                 n_threads_batch > 0 ? n_threads_batch : DEFAULT_N_THREADS);
     if (!context) { return 1; }
     g_context = context;
     g_batch = common_batch(context);
@@ -1047,9 +1049,9 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_load(JNIE
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_prepare(JNIEnv * /*env*/, jobject /*unused*/, jint top_k, jfloat top_p, jint n_threads,
-                                                                              jboolean speculative) {
+                                                                              jint n_threads_batch, jboolean speculative) {
     try {
-        return prepare_impl(top_k, top_p, n_threads, speculative);
+        return prepare_impl(top_k, top_p, n_threads, n_threads_batch, speculative);
     } catch (const std::exception &e) {
         LOGe("%s: %s", __func__, e.what());
         return -100;
