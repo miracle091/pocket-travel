@@ -69,20 +69,12 @@ import com.pockettravel.core.ui.R as UiR
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
-    val useDynamicColor by viewModel.useDynamicColor.collectAsStateWithLifecycle()
-    val forceDark by viewModel.forceDark.collectAsStateWithLifecycle()
-    val usageModes by viewModel.usageModes.collectAsStateWithLifecycle()
-    val accessible by viewModel.accessible.collectAsStateWithLifecycle()
-    val wantsDirections by viewModel.wantsDirections.collectAsStateWithLifecycle()
-    val nationality by viewModel.nationality.collectAsStateWithLifecycle()
-    val stopGpsOnArrival by viewModel.stopGpsOnArrival.collectAsStateWithLifecycle()
-    val walkingHaptics by viewModel.walkingHaptics.collectAsStateWithLifecycle()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showUsageModes by rememberSaveable { mutableStateOf(false) }
     var showAppearance by rememberSaveable { mutableStateOf(false) }
     var showNationality by rememberSaveable { mutableStateOf(false) }
     var showLanguage by rememberSaveable { mutableStateOf(false) }
     var showCatalog by rememberSaveable { mutableStateOf(false) }
-    val catalogState by viewModel.catalogState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // Chiave sulla configurazione: la lingua cambia senza ricreare l'activity (configChanges nel manifest).
     val language = remember(LocalConfiguration.current) { AppLanguage.current(context) }
@@ -106,29 +98,29 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
             SettingsItem(
                 AppIcons.Passport,
                 stringResource(R.string.more_nationality),
-                nationality?.let { countryName(it) } ?: stringResource(R.string.more_nationality_none),
+                state.nationality?.let { countryName(it) } ?: stringResource(R.string.more_nationality_none),
             ) { showNationality = true }
-            SettingsItem(AppIcons.Palette, stringResource(R.string.more_appearance), appearanceSummary(forceDark, useDynamicColor)) { showAppearance = true }
+            SettingsItem(AppIcons.Palette, stringResource(R.string.more_appearance), appearanceSummary(state.forceDark, state.useDynamicColor)) { showAppearance = true }
             AlertNotificationsItem(viewModel.alertNotifications, snackbarHostState)
 
             SectionHeader(stringResource(R.string.settings_section_navigation))
             SettingsItem(
-                ImageVector.vectorResource((UsageMode.entries.firstOrNull { it in usageModes } ?: UsageMode.A_PIEDI).icon),
+                ImageVector.vectorResource((UsageMode.entries.firstOrNull { it in state.usageModes } ?: UsageMode.A_PIEDI).icon),
                 stringResource(R.string.more_usage_mode),
-                usageModeSummary(usageModes, accessible),
+                usageModeSummary(state.usageModes, state.accessible),
             ) { showUsageModes = true }
             SwitchItem(
                 icon = ImageVector.vectorResource(UiR.drawable.ms_my_location),
                 title = stringResource(R.string.settings_stop_gps_on_arrival),
                 subtitle = stringResource(R.string.settings_stop_gps_on_arrival_subtitle),
-                checked = stopGpsOnArrival,
+                checked = state.stopGpsOnArrival,
                 onCheckedChange = viewModel::setStopGpsOnArrival,
             )
             SwitchItem(
                 icon = ImageVector.vectorResource(UiR.drawable.ms_vibration),
                 title = stringResource(R.string.settings_walking_haptics),
                 subtitle = stringResource(R.string.settings_walking_haptics_subtitle),
-                checked = walkingHaptics,
+                checked = state.walkingHaptics,
                 onCheckedChange = viewModel::setWalkingHaptics,
             )
 
@@ -145,14 +137,14 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
         }
     }
 
-    if (catalogState == CatalogState.Restart) {
+    if (state.catalogState == CatalogState.Restart) {
         LaunchedEffect(Unit) { restartApp(context) }
     }
 
     if (showCatalog) {
         CatalogSheet(
             current = viewModel.customCatalog,
-            state = catalogState,
+            state = state.catalogState,
             onUse = viewModel::useCatalog,
             onUseOfficial = viewModel::useOfficialCatalog,
             onEdit = viewModel::clearCatalogError,
@@ -177,11 +169,11 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                     modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
                 )
                 UsageModeOptions(
-                    selected = usageModes,
+                    selected = state.usageModes,
                     onSelectedChange = viewModel::setUsageModes,
-                    accessible = accessible,
+                    accessible = state.accessible,
                     onAccessibleChange = viewModel::setAccessible,
-                    directions = wantsDirections,
+                    directions = state.wantsDirections,
                     onDirectionsChange = viewModel::setWantsDirections,
                     modifier = Modifier.padding(horizontal = Spacing.s),
                 )
@@ -205,7 +197,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     if (showNationality) {
         CountryPickerSheet(
             title = stringResource(R.string.onboarding_nationality_title),
-            selected = nationality,
+            selected = state.nationality,
             onSelect = { viewModel.setNationality(it); showNationality = false },
             onDismiss = { showNationality = false },
         )
@@ -223,7 +215,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                     icon = AppIcons.DarkMode,
                     title = stringResource(R.string.more_force_dark),
                     subtitle = stringResource(R.string.more_force_dark_subtitle),
-                    checked = forceDark,
+                    checked = state.forceDark,
                     onCheckedChange = viewModel::setForceDark,
                 )
                 // Il dynamic color esiste solo da Android 12: sotto, l'interruttore non avrebbe effetto.
@@ -232,7 +224,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                         icon = AppIcons.Palette,
                         title = stringResource(R.string.more_dynamic_color),
                         subtitle = stringResource(R.string.more_dynamic_color_subtitle),
-                        checked = useDynamicColor,
+                        checked = state.useDynamicColor,
                         onCheckedChange = viewModel::setUseDynamicColor,
                     )
                 }

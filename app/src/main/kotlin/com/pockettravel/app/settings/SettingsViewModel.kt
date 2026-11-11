@@ -14,11 +14,28 @@ import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+
+/** Tutto quello che le Impostazioni leggono dal ViewModel, in un solo stato. */
+data class SettingsUiState(
+    val useDynamicColor: Boolean = true,
+    val forceDark: Boolean = false,
+    val usageModes: Set<UsageMode> = emptySet(),
+    val accessible: Boolean = false,
+    val wantsDirections: Boolean = false,
+    val nationality: String? = null,
+    val stopGpsOnArrival: Boolean = true,
+    val walkingHaptics: Boolean = true,
+    val catalogState: CatalogState = CatalogState.Idle,
+)
+
+private data class UsageSettings(val modes: Set<UsageMode>, val accessible: Boolean, val wantsDirections: Boolean)
 
 /** Preferenze delle Impostazioni (anche la nazionalita', che usano le Fonti ufficiali). */
 @HiltViewModel
@@ -32,16 +49,11 @@ class SettingsViewModel @Inject constructor(
     val alertNotifications: AlertNotificationSwitch,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
-    val useDynamicColor: StateFlow<Boolean> = themePreferences.useDynamicColor
-    val forceDark: StateFlow<Boolean> = themePreferences.forceDark
-    val usageModes: StateFlow<Set<UsageMode>> = usageModePreferences.modes
-    val accessible: StateFlow<Boolean> = usageModePreferences.accessible
-    val wantsDirections: StateFlow<Boolean> = usageModePreferences.wantsDirections
-
     fun setUseDynamicColor(enabled: Boolean) = themePreferences.setUseDynamicColor(enabled)
 
     fun setForceDark(enabled: Boolean) = themePreferences.setForceDark(enabled)
 
+    /** Anche fuori dalle Impostazioni (Altro): la schermata la legge da [uiState]. */
     val nationality: StateFlow<String?> = nationalityPreferences.nationality
 
     fun setNationality(countryCode: String) = nationalityPreferences.setNationality(countryCode)
@@ -52,39 +64,70 @@ class SettingsViewModel @Inject constructor(
 
     fun setWantsDirections(wants: Boolean) = usageModePreferences.setWantsDirections(wants)
 
-    val stopGpsOnArrival: StateFlow<Boolean> = navigationPreferences.stopGpsOnArrival
-
     fun setStopGpsOnArrival(stop: Boolean) = navigationPreferences.setStopGpsOnArrival(stop)
-
-    val walkingHaptics: StateFlow<Boolean> = navigationPreferences.walkingHaptics
 
     fun setWalkingHaptics(enabled: Boolean) = navigationPreferences.setWalkingHaptics(enabled)
 
     /** Catalogo scelto al posto di quello ufficiale; null = ufficiale. */
     val customCatalog: CustomCatalog? = catalogPreferences.saved()
 
-    private val _catalogState = MutableStateFlow<CatalogState>(CatalogState.Idle)
-    val catalogState: StateFlow<CatalogState> = _catalogState.asStateFlow()
+    private val catalogState = MutableStateFlow<CatalogState>(CatalogState.Idle)
+
+    private val appearance = combine(themePreferences.useDynamicColor, themePreferences.forceDark, ::Pair)
+    private val usage = combine(
+        usageModePreferences.modes, usageModePreferences.accessible, usageModePreferences.wantsDirections, ::UsageSettings,
+    )
+    private val navigation = combine(navigationPreferences.stopGpsOnArrival, navigationPreferences.walkingHaptics, ::Pair)
+
+    /** Tutto quello che le Impostazioni leggono, in un solo stato. */
+    val uiState: StateFlow<SettingsUiState> = combine(
+        appearance, usage, nationalityPreferences.nationality, navigation, catalogState,
+    ) { (dynamicColor, dark), usageSettings, nationality, (stopGps, haptics), catalog ->
+        SettingsUiState(
+            useDynamicColor = dynamicColor,
+            forceDark = dark,
+            usageModes = usageSettings.modes,
+            accessible = usageSettings.accessible,
+            wantsDirections = usageSettings.wantsDirections,
+            nationality = nationality,
+            stopGpsOnArrival = stopGps,
+            walkingHaptics = haptics,
+            catalogState = catalog,
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        SettingsUiState(
+            useDynamicColor = themePreferences.useDynamicColor.value,
+            forceDark = themePreferences.forceDark.value,
+            usageModes = usageModePreferences.modes.value,
+            accessible = usageModePreferences.accessible.value,
+            wantsDirections = usageModePreferences.wantsDirections.value,
+            nationality = nationalityPreferences.nationality.value,
+            stopGpsOnArrival = navigationPreferences.stopGpsOnArrival.value,
+            walkingHaptics = navigationPreferences.walkingHaptics.value,
+        ),
+    )
 
     /** Prova il catalogo e, se e' valido, lo salva: la schermata riavvia allora l'app. */
     fun useCatalog(manifestUrl: String, publicKey: String) {
-        if (_catalogState.value == CatalogState.Checking) return
-        _catalogState.value = CatalogState.Checking
+        if (catalogState.value == CatalogState.Checking) return
+        catalogState.value = CatalogState.Checking
         viewModelScope.launch {
             val check = catalogPreferences.checkAndSave(manifestUrl, publicKey)
-            _catalogState.value = if (check == CatalogCheck.OK) CatalogState.Restart else CatalogState.Failed(check)
+            catalogState.value = if (check == CatalogCheck.OK) CatalogState.Restart else CatalogState.Failed(check)
         }
     }
 
     fun useOfficialCatalog() {
         viewModelScope.launch {
             withContext(ioDispatcher) { catalogPreferences.reset() }
-            _catalogState.value = CatalogState.Restart
+            catalogState.value = CatalogState.Restart
         }
     }
 
     fun clearCatalogError() {
-        if (_catalogState.value is CatalogState.Failed) _catalogState.value = CatalogState.Idle
+        if (catalogState.value is CatalogState.Failed) catalogState.value = CatalogState.Idle
     }
 }
 

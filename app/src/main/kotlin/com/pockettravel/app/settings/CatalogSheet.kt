@@ -41,6 +41,8 @@ import com.pockettravel.core.sync.CatalogCheck
 import com.pockettravel.core.sync.CustomCatalog
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.UiMessage
+import com.pockettravel.core.ui.asString
 
 /**
  * Catalogo da usare al posto di quello ufficiale: indirizzo di manifest.json e chiave pubblica delle sue firme,
@@ -103,7 +105,7 @@ internal fun CatalogSheet(
             )
             if (state is CatalogState.Failed) {
                 Text(
-                    text = stringResource(errorText(state.check)),
+                    text = UiMessage.Res(errorText(state.check)).asString(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                 )

@@ -17,6 +17,8 @@ import com.pockettravel.feature.map.UsageMode
 import com.pockettravel.feature.map.UsageModePreferences
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -53,6 +55,11 @@ class SettingsViewModelTest {
         )
     }
 
+    // uiState e' WhileSubscribed: serve un osservatore, e runCurrent per far girare combine.
+    private fun TestScope.observe(viewModel: SettingsViewModel) {
+        backgroundScope.launch(mainDispatcher.dispatcher) { viewModel.uiState.collect {} }
+    }
+
     @Test
     fun `le notifiche delle allerte sono spente di fabbrica e l'interruttore accende e spegne il controllo`() {
         val viewModel = viewModel()
@@ -66,59 +73,70 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `i valori iniziali sono quelli di fabbrica`() {
+    fun `i valori iniziali sono quelli di fabbrica`() = runTest {
         val viewModel = viewModel()
+        observe(viewModel)
+        runCurrent()
 
-        assertTrue(viewModel.useDynamicColor.value)
-        assertFalse(viewModel.forceDark.value)
-        assertEquals(emptySet<UsageMode>(), viewModel.usageModes.value)
-        assertFalse(viewModel.accessible.value)
-        assertFalse(viewModel.wantsDirections.value)
-        assertTrue(viewModel.stopGpsOnArrival.value)
-        assertTrue(viewModel.walkingHaptics.value)
-        assertEquals("IT", viewModel.nationality.value)
+        assertTrue(viewModel.uiState.value.useDynamicColor)
+        assertFalse(viewModel.uiState.value.forceDark)
+        assertEquals(emptySet<UsageMode>(), viewModel.uiState.value.usageModes)
+        assertFalse(viewModel.uiState.value.accessible)
+        assertFalse(viewModel.uiState.value.wantsDirections)
+        assertTrue(viewModel.uiState.value.stopGpsOnArrival)
+        assertTrue(viewModel.uiState.value.walkingHaptics)
+        assertEquals("IT", viewModel.uiState.value.nationality)
         assertNull(viewModel.customCatalog)
-        assertEquals(CatalogState.Idle, viewModel.catalogState.value)
+        assertEquals(CatalogState.Idle, viewModel.uiState.value.catalogState)
     }
 
     @Test
-    fun `i colori e il tema si cambiano e restano per la prossima apertura`() {
+    fun `i colori e il tema si cambiano e restano per la prossima apertura`() = runTest {
         val viewModel = viewModel()
+        observe(viewModel)
 
         viewModel.setUseDynamicColor(false)
         viewModel.setForceDark(true)
+        runCurrent()
 
-        assertFalse(viewModel.useDynamicColor.value)
-        assertTrue(viewModel.forceDark.value)
+        assertFalse(viewModel.uiState.value.useDynamicColor)
+        assertTrue(viewModel.uiState.value.forceDark)
         val reopened = viewModel()
-        assertFalse(reopened.useDynamicColor.value)
-        assertTrue(reopened.forceDark.value)
+        observe(reopened)
+        runCurrent()
+        assertFalse(reopened.uiState.value.useDynamicColor)
+        assertTrue(reopened.uiState.value.forceDark)
     }
 
     @Test
-    fun `la nazionalita' scelta sostituisce quella iniziale e resta`() {
+    fun `la nazionalita' scelta sostituisce quella iniziale e resta`() = runTest {
         val viewModel = viewModel(nationality = "IT")
+        observe(viewModel)
 
         viewModel.setNationality("FR")
+        runCurrent()
 
-        assertEquals("FR", viewModel.nationality.value)
+        assertEquals("FR", viewModel.uiState.value.nationality)
         assertEquals("FR", NationalityPreferences(files).nationality.value)
     }
 
     @Test
-    fun `i modi d'uso, la sedia a rotelle e i percorsi di navigazione si salvano a parte`() {
+    fun `i modi d'uso, la sedia a rotelle e i percorsi di navigazione si salvano a parte`() = runTest {
         val viewModel = viewModel()
+        observe(viewModel)
 
         viewModel.setUsageModes(setOf(UsageMode.A_PIEDI, UsageMode.AUTO))
         viewModel.setAccessible(true)
         viewModel.setWantsDirections(true)
+        runCurrent()
 
-        assertEquals(setOf(UsageMode.A_PIEDI, UsageMode.AUTO), viewModel.usageModes.value)
-        assertTrue(viewModel.accessible.value)
-        assertTrue(viewModel.wantsDirections.value)
+        assertEquals(setOf(UsageMode.A_PIEDI, UsageMode.AUTO), viewModel.uiState.value.usageModes)
+        assertTrue(viewModel.uiState.value.accessible)
+        assertTrue(viewModel.uiState.value.wantsDirections)
         viewModel.setAccessible(false)
-        assertFalse(viewModel.accessible.value)
-        assertTrue("gli altri valori non cambiano", viewModel.wantsDirections.value)
+        runCurrent()
+        assertFalse(viewModel.uiState.value.accessible)
+        assertTrue("gli altri valori non cambiano", viewModel.uiState.value.wantsDirections)
     }
 
     @Test
@@ -131,25 +149,29 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `svuotare i modi riporta la rete stradale a tutti i modi`() {
+    fun `svuotare i modi riporta la rete stradale a tutti i modi`() = runTest {
         val viewModel = viewModel()
+        observe(viewModel)
         viewModel.setUsageModes(setOf(UsageMode.AUTO))
 
         viewModel.setUsageModes(emptySet())
+        runCurrent()
 
-        assertEquals(emptySet<UsageMode>(), viewModel.usageModes.value)
+        assertEquals(emptySet<UsageMode>(), viewModel.uiState.value.usageModes)
         assertEquals(RoutingVariantChoice.ALL, RoutingVariantPreferences(files).choices.value.default)
     }
 
     @Test
-    fun `le preferenze del navigatore si cambiano`() {
+    fun `le preferenze del navigatore si cambiano`() = runTest {
         val viewModel = viewModel()
+        observe(viewModel)
 
         viewModel.setStopGpsOnArrival(false)
         viewModel.setWalkingHaptics(false)
+        runCurrent()
 
-        assertFalse(viewModel.stopGpsOnArrival.value)
-        assertFalse(viewModel.walkingHaptics.value)
+        assertFalse(viewModel.uiState.value.stopGpsOnArrival)
+        assertFalse(viewModel.uiState.value.walkingHaptics)
         assertFalse(NavigationPreferences(files).stopGpsOnArrival.value)
     }
 
@@ -163,33 +185,36 @@ class SettingsViewModelTest {
     @Test
     fun `un catalogo valido passa da Checking a Restart e viene provato con i dati inseriti`() = runTest {
         val viewModel = viewModel()
+        observe(viewModel)
         val check = CompletableDeferred<CatalogCheck>()
         catalog.result = { check.await() }
 
         viewModel.useCatalog("https://example.org/manifest.json", "chiave")
         runCurrent()
 
-        assertEquals(CatalogState.Checking, viewModel.catalogState.value)
+        assertEquals(CatalogState.Checking, viewModel.uiState.value.catalogState)
         check.complete(CatalogCheck.OK)
         advanceUntilIdle()
-        assertEquals(CatalogState.Restart, viewModel.catalogState.value)
+        assertEquals(CatalogState.Restart, viewModel.uiState.value.catalogState)
         assertEquals(listOf("https://example.org/manifest.json" to "chiave"), catalog.checked)
     }
 
     @Test
     fun `un catalogo non valido resta nelle Impostazioni con il motivo`() = runTest {
         val viewModel = viewModel()
+        observe(viewModel)
         catalog.result = { CatalogCheck.BAD_SIGNATURE }
 
         viewModel.useCatalog("https://example.org/manifest.json", "chiave")
         advanceUntilIdle()
 
-        assertEquals(CatalogState.Failed(CatalogCheck.BAD_SIGNATURE), viewModel.catalogState.value)
+        assertEquals(CatalogState.Failed(CatalogCheck.BAD_SIGNATURE), viewModel.uiState.value.catalogState)
     }
 
     @Test
     fun `con una prova in corso un secondo tocco non ne avvia un'altra`() = runTest {
         val viewModel = viewModel()
+        observe(viewModel)
         val check = CompletableDeferred<CatalogCheck>()
         catalog.result = { check.await() }
 
@@ -205,23 +230,27 @@ class SettingsViewModelTest {
     @Test
     fun `chiudere l'errore del catalogo torna a Idle ma non tocca gli altri stati`() = runTest {
         val viewModel = viewModel()
+        observe(viewModel)
         catalog.result = { CatalogCheck.UNREACHABLE }
         viewModel.useCatalog("https://example.org/manifest.json", "chiave")
         advanceUntilIdle()
 
         viewModel.clearCatalogError()
-        assertEquals(CatalogState.Idle, viewModel.catalogState.value)
+        runCurrent()
+        assertEquals(CatalogState.Idle, viewModel.uiState.value.catalogState)
 
         catalog.result = { CatalogCheck.OK }
         viewModel.useCatalog("https://example.org/manifest.json", "chiave")
         advanceUntilIdle()
         viewModel.clearCatalogError()
-        assertEquals(CatalogState.Restart, viewModel.catalogState.value)
+        runCurrent()
+        assertEquals(CatalogState.Restart, viewModel.uiState.value.catalogState)
     }
 
     @Test
     fun `dopo un errore si puo' riprovare`() = runTest {
         val viewModel = viewModel()
+        observe(viewModel)
         catalog.result = { CatalogCheck.INVALID_KEY }
         viewModel.useCatalog("https://example.org/manifest.json", "sbagliata")
         advanceUntilIdle()
@@ -230,18 +259,19 @@ class SettingsViewModelTest {
         viewModel.useCatalog("https://example.org/manifest.json", "giusta")
         advanceUntilIdle()
 
-        assertEquals(CatalogState.Restart, viewModel.catalogState.value)
+        assertEquals(CatalogState.Restart, viewModel.uiState.value.catalogState)
         assertEquals(2, catalog.checked.size)
     }
 
     @Test
     fun `tornare al catalogo ufficiale lo ripristina e chiede il riavvio`() = runTest {
         val viewModel = viewModel(saved = CustomCatalog("https://example.org/manifest.json", "chiave"))
+        observe(viewModel)
 
         viewModel.useOfficialCatalog()
         advanceUntilIdle()
 
         assertEquals(1, catalog.resets)
-        assertEquals(CatalogState.Restart, viewModel.catalogState.value)
+        assertEquals(CatalogState.Restart, viewModel.uiState.value.catalogState)
     }
 }
