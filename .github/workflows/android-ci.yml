@@ -87,6 +87,15 @@ jobs:
             cat "${patches[@]}" | git -C "third-party/$lib" apply --check \
               || { echo "::error::una patch di third-party/patches/$lib non si applica al submodule: rifarla o toglierla" >&2; exit 1; }
           done
+          # Una patch che si toglie al contrario dal submodule pulito e' gia' upstream: va solo tolta, il build non fallisce.
+          for lib in llama-cpp brouter; do
+            for patch in third-party/patches/"$lib"/*.patch; do
+              if git -C "third-party/$lib" apply --check --reverse < "$patch" 2>/dev/null; then
+                echo "::warning::$patch e' gia' nel submodule third-party/$lib: la patch non serve piu', toglierla"
+                echo "- \`$patch\` e' gia' nel submodule \`third-party/$lib\`: toglierla." >> "$GITHUB_STEP_SUMMARY"
+              fi
+            done
+          done
 
       # Anche la release (non firmata senza RELEASE_KEYSTORE_PATH): R8, lintVital e il codice solo di release si
       # compilano a ogni push, non per la prima volta in publish-apk.yml al rilascio.

@@ -3,6 +3,9 @@ quindi a ogni configurazione CMake common/CMakeLists.txt stampa un warning "Git 
 per ogni ABI. Commit e numero del build info li fissa feature/ai/src/main/cpp/CMakeLists.txt dal
 submodule (LLAMA_BUILD_COMMIT, LLAMA_BUILD_NUMBER): il messaggio passa da WARNING a STATUS. Applicata da feature/ai/src/main/cpp/CMakeLists.txt; percorsi dalla root del
 submodule third-party/llama-cpp.
+Upstream: nessuna PR o issue (dipende dal modo in cui il progetto compila una copia senza .git).
+Da togliere quando: common/CMakeLists.txt di llama.cpp non avvisa piu' senza cartella .git, oppure il
+build compila llama.cpp da una copia con .git.
 
 diff --git a/common/CMakeLists.txt b/common/CMakeLists.txt
 --- a/common/CMakeLists.txt

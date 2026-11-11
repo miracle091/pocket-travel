@@ -1,5 +1,8 @@
 RoutingEngine.getProgress(): stima dell'avanzamento del calcolo del percorso, da 0 a 1, che l'app
 legge da un altro thread per la barra di avanzamento. BRouter upstream non la espone.
+Upstream: nessuna PR o issue (funzione solo di questo progetto).
+Da togliere quando: BRouter upstream espone da solo l'avanzamento del calcolo, oppure l'app smette di
+mostrare la barra di avanzamento.
 Applicata dal build (task brouterSources di core/routing-engine/build.gradle.kts) alla copia dei
 sorgenti in build/generated/brouter; percorsi dalla root del submodule third-party/brouter.
 

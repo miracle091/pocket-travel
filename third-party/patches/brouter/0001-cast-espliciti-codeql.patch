@@ -1,6 +1,9 @@
 Cast espliciti negli assegnamenti composti (+=) con conversione implicita che restringe il tipo
 (double/float in int, double in float), segnalati da CodeQL: il comportamento resta quello di
 Java, che nei += fa gia' lo stesso cast in silenzio.
+Upstream: nessuna PR o issue (correzione nata dagli avvisi di CodeQL su questo progetto).
+Da togliere quando: BRouter upstream mette i cast espliciti in OsmPath, RoutingEngine e StdPath, oppure
+quando CodeQL non segnala piu' quegli assegnamenti.
 Applicata dal build (task brouterSources di core/routing-engine/build.gradle.kts) alla copia dei
 sorgenti in build/generated/brouter; percorsi dalla root del submodule third-party/brouter.
 

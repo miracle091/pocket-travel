@@ -1,8 +1,10 @@
 Correzione di BRouter upstream (abrensch/brouter, PR #958, commit 56173125), uscita dopo la v1.7.10
 e non ancora in una release. DirectWeaver controlla anche i link al contrario quando cerca la strada
 piu' vicina al punto di partenza o di arrivo: senza, il punto a volte si aggancia a una strada che non
-e' la piu' vicina e il percorso calcolato ha dei buchi (issue #952). Si toglie quando BRouter si
-aggiorna a una release che la contiene.
+e' la piu' vicina e il percorso calcolato ha dei buchi (issue #952).
+Upstream: PR #958 (commit 56173125), issue #952.
+Da togliere quando: il submodule third-party/brouter passa a una release di BRouter che contiene la PR
+#958; la CI avvisa da sola quando la patch risulta gia' applicata al submodule.
 Applicata dal build (task brouterSources di core/routing-engine/build.gradle.kts) alla copia dei
 sorgenti in build/generated/brouter; percorsi dalla root del submodule third-party/brouter.
 
