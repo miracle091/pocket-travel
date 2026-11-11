@@ -218,6 +218,45 @@ def print_context_use_report(rows, baseline=None):
             print(f"{lang} {series} {search}: " + " | ".join(str(c) for c in counts))
 
 
+def pair_consistency(rows, reference="direct"):
+    """Righe di eval_gguf.py --contexts con "refused" -> per (lingua, serie, ricerca) diversa da [reference]:
+    [coppie, stessa decisione di rifiuto, sezione attesa usata in entrambe, usata in una sola, coerenti]. Le coppie sono
+    le domande equivalenti (riformulate, nell'altra lingua) e quelle di [reference] con stessa ricerca, regione, tipo,
+    categoria e citta', nell'ordine dei file di eval_retrieval.py; coerenti = stessa decisione e stesso uso della sezione."""
+    groups = {}
+    for r in rows:
+        groups.setdefault((r["lang"], r["series"], r["search"], r.get("region"), r["kind"], r.get("category"), r.get("city")),
+                          []).append(r)
+
+    def uses_expected(r):
+        return not r["refused"] and any(p["expected"] and uses_part(r["got"], p["text"]) for p in r.get("parts", []))
+
+    out = {}
+    for (lang, series, search, *rest), rs in groups.items():
+        if series == reference:
+            continue
+        for a, b in zip(groups.get((lang, reference, search, *rest), []), rs):
+            ua, ub = uses_expected(a), uses_expected(b)
+            counts = out.setdefault((lang, series, search), [0, 0, 0, 0, 0])
+            for i, flag in enumerate((True, a["refused"] == b["refused"], ua and ub, ua != ub,
+                                      a["refused"] == b["refused"] and ua == ub)):
+                counts[i] += flag
+    return out
+
+
+def print_pair_consistency(rows, reference="direct"):
+    pairs = pair_consistency(rows, reference)
+    if not pairs:
+        print(f"coerenza: nessuna coppia con la serie {reference} (servono i suoi contesti insieme alle altre serie)")
+        return
+    print(f"lingua serie ricerca, rispetto a {reference}: coppie | stessa decisione di rifiuto | sezione attesa in entrambe | "
+          "in una sola | coerenti")
+    for (lang, series, search), (n, same, both, one, consistent) in sorted(pairs.items()):
+        print(f"{lang} {series} {search}: {n} | {same} ({100 * same / n:.1f}%) | {both} | {one} | {consistent} ({100 * consistent / n:.1f}%)")
+    n, consistent = sum(c[0] for c in pairs.values()), sum(c[4] for c in pairs.values())
+    print(f"coerenza: {consistent}/{n} coppie coerenti ({100 * consistent / n:.1f}%)")
+
+
 def read_jsonl_lenient(path):
     """Le righe JSON valide di un JSONL; una riga non valida (per esempio troncata in coda da un'interruzione) si ignora."""
     rows = []

@@ -15,6 +15,8 @@ Con --contexts il modello risponde con il contesto prodotto dalla ricerca vera (
 serie e variante della ricerca, rifiuti con la sezione attesa nel contesto (del modello) e senza (della ricerca); con le
 sezioni del contesto ("parts" di eval_retrieval.py --contexts) anche quante risposte usano la sezione attesa o la pagina
 della guida generale, e il confronto della prima ricerca dei file con le altre (context_use_report di eval_common.py).
+Con --pairs e i file delle serie direct, reworded e other-lang, la coerenza tra domande equivalenti: stessa decisione di
+rifiuto e sezione attesa usata nelle due risposte (pair_consistency di eval_common.py).
 Dopo le metriche dei rifiuti, i controlli sulle istruzioni (instruction_checks di eval_common.py), anche nei campi di
 --answers: fedelta' al contesto, risposte oltre 450 caratteri, lingua, <think> iniziale; eval_answers.py li rifa' su
 risposte gia' salvate. Con --system "<testo>" il prompt ha prima un turno system (l'app non lo manda): serve a misurare
@@ -43,7 +45,8 @@ import gpu_lock
 import vram
 from eval_common import (ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, print_context_use_report, instruction_checks, is_refusal,
                          knowledge_turns, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
-                         print_report, question_lang, question_of, refusal_prefix, refusal_summary, sample, score, text_lang, uses_empty_think)
+                         print_pair_consistency, print_report, question_lang, question_of, refusal_prefix, refusal_summary, sample, score,
+                         text_lang, uses_empty_think)
 from status import Progress, phase
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -67,6 +70,9 @@ ap.add_argument("--contexts", type=Path, nargs="+",
 ap.add_argument("--answer-position", choices=ANSWER_POSITIONS,
                 help="con --contexts: solo le righe con il paragrafo della risposta nel contesto, spostato all'inizio, a meta' "
                      "o in fondo (la colonna ricerca dice dove)")
+ap.add_argument("--pairs", action="store_true",
+                help="con --contexts dei file della serie direct e di reworded o other-lang: per ogni coppia di domande "
+                     "equivalenti, stessa decisione di rifiuto e sezione attesa usata in tutte e due (pair_consistency)")
 ap.add_argument("--app-sampling", action="store_true",
                 help="anche la probabilita' del rifiuto con il campionamento dell'app (temperatura 0,3, top-k 10, top-p 0,95, min-p 0,05)")
 ap.add_argument("--samples", type=int, default=0, help="con --app-sampling: anche N risposte campionate per riga, per controllo")
@@ -82,6 +88,8 @@ ap.add_argument("--bench", type=Path, nargs="?", const=Path("-"), metavar="FILE"
 a = ap.parse_args()
 if a.answer_position and not a.contexts:
     ap.error("--answer-position vale con --contexts")
+if a.pairs and not a.contexts:
+    ap.error("--pairs vale con --contexts")
 if a.contexts and (a.app_sampling or a.kinds):
     ap.error("--app-sampling e --kinds valgono per le righe di test, non con --contexts")
 if a.samples and not a.app_sampling:
@@ -232,6 +240,8 @@ def answer_contexts(url):
         print(f"{lang} {series} {search}: {n} | {with_section} | {refused_with}/{with_section} | "
               f"{refused_without}/{n - with_section}")
     print_context_use_report(test)
+    if a.pairs:
+        print_pair_consistency(test)
 
 
 stats = {}  # tipo di riga -> [(ha rifiutato, risposta ok)]

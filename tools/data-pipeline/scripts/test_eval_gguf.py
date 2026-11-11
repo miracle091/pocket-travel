@@ -267,6 +267,29 @@ class EvalGgufTest(unittest.TestCase):
         self.assertIn("CONTESTO: Ctx A", self.prompts[0]["prompt"])
         self.assertIn("CONTEXT: Ctx C", self.prompts[2]["prompt"])
 
+    def test_pairs_coerenza_tra_domande_equivalenti(self):
+        contexts = self.tmp / "contexts.jsonl"
+        parts = [{"expected": True, "general_guide": False, "text": "Il duomo romanico domina la piazza centrale."}]
+        base = {"lang": "it", "search": "word-lists", "region": "italia", "kind": "citta'", "category": "COSA_VEDERE",
+                "city": "Como", "section_in_context": True, "parts": parts}
+        items = [{**base, "series": "direct", "context": "Ctx A", "question": "Cosa vedere a Como?"},
+                 {**base, "series": "direct", "context": "Ctx A", "question": "Quali musei a Como?"},
+                 {**base, "series": "reworded", "context": "Ctx B", "question": "Cosa non perdere a Como?"},
+                 {**base, "series": "reworded", "context": "Ctx C", "question": "Che musei ci sono a Como?"}]
+        contexts.write_text("\n".join(json.dumps(r) for r in items) + "\n", encoding="utf-8")
+        answer = "Il duomo romanico domina la piazza."
+        out = self.run_script("--contexts", str(contexts), "--pairs",
+                              replies=[answer, answer, answer, REFUSAL + " sulle attrazioni."])
+        self.assertIn("it reworded word-lists: 2 | 1 (50.0%) | 1 | 1 | 1 (50.0%)", out)
+        self.assertIn("coerenza: 1/2 coppie coerenti (50.0%)", out)
+
+    def test_pairs_solo_con_contexts(self):
+        with mock.patch.object(sys, "argv", ["eval_gguf.py", str(self.tmp / "model.gguf"), "--llama-cpp", str(self.tmp), "--pairs"]), \
+                mock.patch.dict(sys.modules, {"gguf": fake_gguf(None)}), mock.patch.object(sys, "stderr", io.StringIO()):
+            with self.assertRaises(SystemExit) as ctx:
+                runpy.run_path(str(HERE / "eval_gguf.py"), run_name="__main__")
+        self.assertEqual(2, ctx.exception.code)
+
     def test_server_uscito_subito_e_un_errore(self):
         dead = mock.Mock(poll=lambda: 3, returncode=3)
         with mock.patch.dict(sys.modules, {"gguf": fake_gguf(None)}), \

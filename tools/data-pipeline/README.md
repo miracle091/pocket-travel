@@ -471,7 +471,13 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   generale, con il confronto tra la prima ricerca dei file e le altre. `eval_answers.py <risposte> [--baseline RICERCA]`
   rifà lo stesso conto sulle risposte salvate con `--answers`. Una risposta usa una sezione se almeno il 30% delle sue
   parole di 6 o più lettere sta nei paragrafi di quella sezione: è una misura lessicale, utile per confrontare due
-  ricerche sulle stesse domande, non come valore assoluto.
+  ricerche sulle stesse domande, non come valore assoluto. Con `--pairs` e i contesti delle serie direct, reworded e
+  other-lang, `eval_gguf.py` misura anche la coerenza tra domande equivalenti: stessa decisione di rifiuto e sezione
+  attesa usata in tutte e due le risposte.
+- **Numeri nelle risposte**: `scripts/check_answer_numbers.py <risposte.jsonl> [--test <test esteso>] [--out FILE]`
+  segnala i numeri delle risposte salvate da `eval_gguf.py --answers` (telefoni, prezzi, orari, date, distanze, anni)
+  che non stanno nel contesto né nella domanda, dopo aver normalizzato decimali, migliaia, orari e prefissi telefonici.
+  Non servono modello né GPU; i rifiuti e un numero tagliato in fondo a una risposta troncata non si contano.
 - **Controllo di un GGUF**: prima di misurare o caricare un GGUF, `scripts/check_gguf.py <file .gguf> --tokenizer
   <tokenizer.json del modello base> --llama-cpp <binari> [--lang en]` stampa i metadati del tokenizer e controlla che
   l'EOS o l'EOT sia `<|im_end|>`, che ci sia il template e che llama.cpp tokenizzi il prompt dell'app come il tokenizer
