@@ -8,7 +8,10 @@ Con --oracle, sui file del test: le risposte attese passano da score e instructi
 ogni riga che non prende il 100% (positivo letto come rifiuto, negativo senza la frase di rifiuto, risposta fuori dal
 contesto, troppo lunga, nella lingua sbagliata o con <think>) e' un errore della riga o del controllo, non di un modello.
 
-Uso: python eval_answers.py <risposte.jsonl> [...] --test <eval_extended.jsonl o dataset>
+Con --out <file> le risposte si riscrivono con i controlli ricalcolati: serve per confrontare file salvati con controlli
+piu' vecchi (compare_answers.py e check_regressions.py leggono i campi salvati).
+
+Uso: python eval_answers.py <risposte.jsonl> [...] --test <eval_extended.jsonl o dataset> [--out <file>]
      python eval_answers.py <risposte di eval_gguf.py --contexts> [...]
      python eval_answers.py --oracle <eval_extended.jsonl o dataset> [...]
 """
@@ -37,8 +40,7 @@ def checked_rows(answers, test):
         if not rows:
             raise SystemExit(f"riga del test non trovata per la risposta: {a['kind']} {a['region']} {a['question']}")
         row = rows.pop(0)
-        out.append({"kind": a["kind"], "question_lang": a.get("question_lang") or question_lang(row), "question": a["question"],
-                    "got": a["got"], **instruction_checks(row, a["got"])})
+        out.append({**a, "question_lang": a.get("question_lang") or question_lang(row), **instruction_checks(row, a["got"])})
     return out
 
 
@@ -84,12 +86,16 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("answers", type=Path, nargs="+")
     ap.add_argument("--test", type=Path, help="file del test con cui sono state generate le risposte")
+    ap.add_argument("--out", type=Path, help="con --test e un solo file di risposte: le risposte con i controlli "
+                                             "ricalcolati, da confrontare con compare_answers.py e check_regressions.py")
     ap.add_argument("--baseline", help="senza --test: la ricerca (campo \"search\") con cui confrontare le altre; "
                                        "di default la prima delle righe")
     ap.add_argument("--oracle", action="store_true", help="i file sono test estesi o dataset (di questi solo le regioni di "
                                                           "test, il set di validazione di train_lora.py): le risposte attese "
                                                           "passano dai controlli come se fossero del modello")
     a = ap.parse_args()
+    if a.out and (not a.test or len(a.answers) != 1):
+        ap.error("--out vale con --test e un solo file di risposte")
     if a.oracle:
         for path in a.answers:
             with open(path, encoding="utf-8") as f:
@@ -114,7 +120,10 @@ def main():
         with open(path, encoding="utf-8") as f:
             answers = [json.loads(line) for line in f]
         print(f"== {path.name}: {len(answers)} risposte")
-        print_instruction_report(checked_rows(answers, test))
+        rows = checked_rows(answers, test)
+        print_instruction_report(rows)
+        if a.out:
+            a.out.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
 
 
 if __name__ == "__main__":

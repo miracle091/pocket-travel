@@ -51,8 +51,11 @@ def holm(ps):
 
 
 def correct(row):
-    """La riga e' giusta: rifiuto per i negativi, risposta per i positivi."""
-    return row["refused"] if row["kind"].startswith("neg") else not row["refused"]
+    """La riga e' giusta: rifiuto sul tema giusto per i negativi (refusal_topic_ok, assente nei file salvati prima del
+    campo), risposta per i positivi."""
+    if row["kind"].startswith("neg"):
+        return row["refused"] and row.get("refusal_topic_ok") is not False
+    return not row["refused"]
 
 
 def keyed(rows):

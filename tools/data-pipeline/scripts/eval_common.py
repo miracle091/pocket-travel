@@ -451,17 +451,27 @@ def is_loose_refusal(answer):
     return bool(LOOSE_REFUSAL.search(_NOT_REFUSAL.sub("", answer[:300])))
 
 
+_THINK_BLOCK = re.compile(r"^\s*<think>.*?</think>\s*", re.S)
+
+
 def instruction_checks(row, got):
     """Controlli sulle istruzioni del prompt per la risposta got alla riga row: "refused" (la frase di rifiuto del
     training o un rifiuto con parole proprie, is_loose_refusal, ma non una risposta con tutte le frasi copiate dal
-    contesto, come "this does not cover foreigners" di una guida), "fidelity" (context_fidelity) e "context_share"
-    (context_word_share), None tutti e due per i rifiuti, "too_long" (oltre MAX_ANSWER_CHARS), "wrong_lang" (text_lang decide per l'altra lingua del dataset) e "think_start"
-    (la risposta comincia con un blocco <think>, che i modelli senza thinking non scrivono)."""
+    contesto, come "this does not cover foreigners" di una guida), "refusal_topic_ok" (per la frase di rifiuto del
+    training, lo stesso tema della risposta attesa, come in score; None per gli altri), "fidelity" (context_fidelity) e
+    "context_share" (context_word_share), None tutti e due per i rifiuti, "too_long" (oltre MAX_ANSWER_CHARS), "wrong_lang" (text_lang decide per l'altra lingua del dataset) e "think_start"
+    (la risposta comincia con un blocco <think>, che i modelli senza thinking non scrivono). Rifiuto e fedelta' si misurano
+    sul testo dopo il blocco <think>, che ha gia' il suo controllo."""
     answer_lang = text_lang(got)
     context = context_of(row)
-    refused = got.startswith(refusal_prefix(row)) or (is_loose_refusal(got) and context_fidelity(got, context, row["kind"]) != "literal")
-    return {"refused": refused, "fidelity": None if refused else context_fidelity(got, context, row["kind"]),
-            "context_share": None if refused else context_word_share(got, context),
+    body = _THINK_BLOCK.sub("", got, count=1)
+    trained_refusal = body.startswith(refusal_prefix(row))
+    refused = trained_refusal or (is_loose_refusal(body) and context_fidelity(body, context, row["kind"]) != "literal")
+    want = row["messages"][1]["content"]
+    return {"refused": refused,
+            "refusal_topic_ok": body.split(":")[0] == want.split(":")[0] if trained_refusal else None,
+            "fidelity": None if refused else context_fidelity(body, context, row["kind"]),
+            "context_share": None if refused else context_word_share(body, context),
             "too_long": len(got) > MAX_ANSWER_CHARS, "wrong_lang": answer_lang not in (None, dataset_lang(row)),
             "think_start": got.lstrip().startswith("<think>")}
 

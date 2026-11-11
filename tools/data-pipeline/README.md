@@ -492,7 +492,12 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   p < 0,05 dopo la correzione di Holm, se la quota di risposte oltre 450 caratteri o nella lingua sbagliata cresce di
   oltre `--points` punti, se i due file hanno meno dell'80% delle righe in comune o se tg cala di oltre `--tg-percent`
   (default 10). La quota di risposte fuori dal contesto compare solo come avviso: la misura è lessicale e i modelli
-  che parafrasano, come quelli online, darebbero falsi allarmi.
+  che parafrasano, come quelli online, darebbero falsi allarmi. Un negativo è giusto se la risposta rifiuta, e se usa
+  la frase di rifiuto del training anche sul tema della risposta attesa («…sugli hotel», non «…sui treni»); rifiuto e
+  fedeltà al contesto si misurano dopo un eventuale blocco `<think>` iniziale. I file di risposte salvati prima del
+  2026-11-11 hanno il giudizio di prima (senza il tema e con le frasi della guida come «does not cover» lette come
+  rifiuti): prima di confrontarli con file nuovi si riscrivono con `eval_answers.py <risposte> --test <test esteso>
+  --out <file>`, che ricalcola i controlli (`compare_answers.py` e `check_regressions.py` leggono i campi salvati).
 - **Controllo di un GGUF**: prima di misurare o caricare un GGUF, `scripts/check_gguf.py <file .gguf> --tokenizer
   <tokenizer.json del modello base> --llama-cpp <binari> [--lang en]` stampa i metadati del tokenizer e controlla che
   l'EOS o l'EOT sia `<|im_end|>`, che ci sia il template e che llama.cpp tokenizzi il prompt dell'app come il tokenizer

@@ -396,7 +396,7 @@ class InstructionChecksTest(unittest.TestCase):
 
     def test_controlli_della_risposta(self):
         r = context_row("pos_para", CONTEXT)
-        self.assertEqual({"refused": False, "fidelity": "literal", "context_share": 1.0, "too_long": False, "wrong_lang": False,
+        self.assertEqual({"refused": False, "refusal_topic_ok": None, "fidelity": "literal", "context_share": 1.0, "too_long": False, "wrong_lang": False,
                           "think_start": False}, eval_common.instruction_checks(r, "Il Museo Reale si trova in centro."))
         refusal = eval_common.instruction_checks(r, eval_common.REFUSAL + " sui musei: altrove")
         self.assertEqual((True, None, None), (refusal["refused"], refusal["fidelity"], refusal["context_share"]))
@@ -415,19 +415,36 @@ class InstructionChecksTest(unittest.TestCase):
         r = context_row("pos_para", context)
         good = "Il Museo Reale si trova in centro."
         base = eval_common.instruction_checks(r, good)
-        self.assertEqual({"refused": False, "fidelity": "literal", "too_long": False, "wrong_lang": False, "think_start": False},
+        self.assertEqual({"refused": False, "refusal_topic_ok": None, "fidelity": "literal", "too_long": False,
+                          "wrong_lang": False, "think_start": False},
                          {k: v for k, v in base.items() if k != "context_share"})
         for got, changed in (("Il Museo Reale, in centro, costa 12 euro di ingresso.", {"fidelity": "adherent"}),
                              ("Il Colosseo e il Pantheon sono bellissimi.", {"fidelity": "out"}),
                              ((good + " ") * 14, {"too_long": True}),
                              ("The Royal Museum is open every day.", {"wrong_lang": True}),
-                             (eval_common.REFUSAL + " sui musei: altrove", {"refused": True, "fidelity": None}),
-                             # il blocco <think> non e' nel contesto: la risposta risulta anche fuori dal contesto
-                             (eval_common.EMPTY_THINK + good, {"think_start": True, "fidelity": "out"})):
+                             (eval_common.REFUSAL + " sui musei: altrove", {"refused": True, "refusal_topic_ok": False,
+                                                                           "fidelity": None}),
+                             # la fedelta' si misura dopo il blocco <think>, che ha il suo controllo
+                             (eval_common.EMPTY_THINK + good, {"think_start": True})):
             with self.subTest(got[:30]):
                 checks = eval_common.instruction_checks(r, got)
                 self.assertEqual({k: v for k, v in {**base, **changed}.items() if k != "context_share"},
                                  {k: v for k, v in checks.items() if k != "context_share"})
+
+    def test_argomento_del_rifiuto(self):
+        r = context_row("neg_city", "Il Museo Reale si trova in centro.")
+        r["messages"][1]["content"] = eval_common.REFUSAL + " sugli hotel: cerca altrove."
+        checks = lambda got: eval_common.instruction_checks(r, got)["refusal_topic_ok"]
+        self.assertTrue(checks(eval_common.REFUSAL + " sugli hotel: prova un sito ufficiale."))
+        self.assertFalse(checks(eval_common.REFUSAL + " sui treni: cerca altrove."))
+        # rifiuto con parole proprie o risposta: nessun argomento da confrontare
+        self.assertIsNone(checks("Il contesto non dice nulla sugli alberghi."))
+        self.assertIsNone(checks("Il Museo Reale si trova in centro."))
+
+    def test_rifiuto_dopo_il_blocco_think(self):
+        r = context_row("neg_city", "Il Museo Reale si trova in centro.")
+        checks = eval_common.instruction_checks(r, eval_common.EMPTY_THINK + eval_common.REFUSAL + " sui musei: altrove")
+        self.assertEqual((True, True), (checks["refused"], checks["think_start"]))
 
     def test_frase_copiata_dal_contesto_non_e_un_rifiuto(self):
         # risposte attese del test esteso: frasi della guida con "does not cover" o "non sono riportati", non rifiuti

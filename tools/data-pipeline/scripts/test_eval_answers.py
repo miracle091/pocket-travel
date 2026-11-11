@@ -37,6 +37,20 @@ class CheckedRowsTest(unittest.TestCase):
         self.assertEqual(["literal", "out"], [r["fidelity"] for r in rows])  # la seconda risposta va con il contesto del parco
         self.assertEqual("it", rows[0]["question_lang"])
 
+    def test_out_riscrive_le_risposte_con_i_controlli_ricalcolati(self):
+        # un file salvato con il giudizio di prima: una frase copiata dalla guida letta come rifiuto
+        got = "Il museo non indica i prezzi."
+        old = {**answer("pos_para", "Quando apre?", got), "category": "COSA_VEDERE", "want": got, "refused": True}
+        with tempfile.TemporaryDirectory() as tmp:
+            answers, test, out = Path(tmp, "risposte.jsonl"), Path(tmp, "test.jsonl"), Path(tmp, "nuove.jsonl")
+            answers.write_text(json.dumps(old) + "\n", encoding="utf-8")
+            test.write_text(json.dumps(test_row("pos_para", got, "Quando apre?")) + "\n", encoding="utf-8")
+            argv = ["eval_answers.py", str(answers), "--test", str(test), "--out", str(out)]
+            with mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()):
+                main()
+            [row] = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(("COSA_VEDERE", got, False, "literal"), (row["category"], row["want"], row["refused"], row["fidelity"]))
+
     def test_risposta_senza_riga_del_test_ferma_lo_script(self):
         with self.assertRaises(SystemExit):
             checked_rows([answer("pos_para", "Altra domanda?", "x")], [test_row("pos_para", "Contesto.", "Quando apre?")])
@@ -63,7 +77,7 @@ class OracleTest(unittest.TestCase):
         self.assertEqual(bad, [row for row, _ in failures])
         self.assertEqual([["positivo con la frase di rifiuto"], ["positivo letto come rifiuto con parole proprie"],
                           ["negativo senza la frase di rifiuto"], ["fuori dal contesto"], ["oltre 450 caratteri"],
-                          ["lingua sbagliata"], ["fuori dal contesto", "<think> iniziale"]], [causes for _, causes in failures])
+                          ["lingua sbagliata"], ["<think> iniziale"]], [causes for _, causes in failures])
 
     def test_del_dataset_solo_le_regioni_di_test_del_test_esteso_tutte(self):
         rows = [oracle_row("pos", "Il museo apre alle 9.", "Altro.", region="canada"),

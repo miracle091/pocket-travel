@@ -51,6 +51,13 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(r["pos_para"]["paired"], 2)
         self.assertEqual(r["tutti i pos"]["better"], 1)
 
+    def test_rifiuto_sull_argomento_sbagliato_non_e_giusto(self):
+        self.assertTrue(ca.correct(row("neg_city", "q", True, refusal_topic_ok=True)))
+        self.assertFalse(ca.correct(row("neg_city", "q", True, refusal_topic_ok=False)))
+        # rifiuto con parole proprie (None) o file salvati prima del campo: conta il solo rifiuto
+        self.assertTrue(ca.correct(row("neg_city", "q", True, refusal_topic_ok=None)))
+        self.assertTrue(ca.correct(row("neg_city", "q", True)))
+
     def test_domande_ripetute_restano_distinte(self):
         a = [row("neg_off", "ciao", True), row("neg_off", "ciao", False)]
         b = [row("neg_off", "ciao", False), row("neg_off", "ciao", False)]

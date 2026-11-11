@@ -154,7 +154,7 @@ class EvalGgufTest(unittest.TestCase):
         self.assertEqual(2, len(lines))
         self.assertEqual({"kind": "pos", "region": "canada", "category": "SALUTE", "question": "Domanda 0?",
                           "want": "Risposta 0.", "got": "Risposta 0.", "truncated": False, "question_lang": "it",
-                          "answer_lang": None, "refused": False, "fidelity": "out", "context_share": 0.0, "too_long": False,
+                          "answer_lang": None, "refused": False, "refusal_topic_ok": None, "fidelity": "out", "context_share": 0.0, "too_long": False,
                           "wrong_lang": False, "think_start": False},
                          lines[0])  # "fuori": la riga di prova non ha il contesto con la risposta
         self.assertTrue(lines[1]["truncated"])  # llama-server fermo al limite di token
