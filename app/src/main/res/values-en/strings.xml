@@ -154,7 +154,9 @@
     <string name="updates_app_metered_message">The update is %1$s and will use your metered connection</string>
     <string name="updates_last_checked">Last checked: %1$s</string>
     <string name="updates_section_regions">Countries</string>
-    <string name="updates_region_details">%1$s · %2$s</string>
+    <string name="updates_package_line">%1$s · %2$s</string>
+    <string name="updates_size_about">about %1$s</string>
+    <string name="updates_package_update">Update %1$s (%2$s)</string>
     <string name="updates_all">Update all · %1$s</string>
     <string name="updates_metered_title">Download %1$s on mobile data?</string>
     <string name="updates_metered_message">The device is not on an unmetered network</string>

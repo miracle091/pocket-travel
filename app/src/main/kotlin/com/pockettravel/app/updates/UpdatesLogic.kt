@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import com.pockettravel.app.R
 import com.pockettravel.app.regions.RegionStatus
 import com.pockettravel.app.regions.RegionUiItem
+import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.sync.AppUpdateFailure
 import com.pockettravel.core.sync.AppUpdateState
 import com.pockettravel.core.sync.AppVersionEntry
@@ -20,11 +21,24 @@ internal fun pendingRegionUpdates(items: List<RegionUiItem>, downloading: Set<St
 internal fun updatesCount(appUpdate: Boolean, regionUpdates: Int, guidesUpdate: Boolean, modelUpdate: Boolean): Int =
     (if (appUpdate) 1 else 0) + regionUpdates + (if (guidesUpdate) 1 else 0) + (if (modelUpdate) 1 else 0)
 
-/** Peso di "Aggiorna tutto": [bytes] dei file e se tra i pacchetti c'è una mappa, il cui peso si conosce solo estraendola. */
-internal data class UpdateTotal(val bytes: Long, val includesMap: Boolean)
+/**
+ * La mappa si pesa solo estraendola: da aggiornare, la nuova pesa circa quanto quella installata. 0 se la nazione non
+ * aggiorna la mappa o il peso di quella installata non è noto.
+ */
+internal fun RegionUiItem.mapEstimateBytes(): Long =
+    packages.firstOrNull { it.kind == PackageKind.MAP && it.status == RegionStatus.UPDATE_AVAILABLE }?.installedBytes ?: 0L
 
-internal fun updateTotal(items: List<RegionUiItem>): UpdateTotal =
-    UpdateTotal(bytes = items.sumOf { it.sizeBytes }, includesMap = items.any { it.includesMap })
+/**
+ * Peso di "Aggiorna tutto" e di una nazione: [bytes] dei file più la stima delle mappe ([estimated]); [includesMap] se c'è
+ * una mappa di cui non si conosce nemmeno la stima.
+ */
+internal data class UpdateTotal(val bytes: Long, val includesMap: Boolean, val estimated: Boolean = false)
+
+internal fun updateTotal(items: List<RegionUiItem>): UpdateTotal = UpdateTotal(
+    bytes = items.sumOf { it.sizeBytes + it.mapEstimateBytes() },
+    includesMap = items.any { it.includesMap && it.mapEstimateBytes() == 0L },
+    estimated = items.any { it.mapEstimateBytes() > 0 },
+)
 
 /** Su una rete a consumo "Aggiorna tutto" chiede conferma; su una senza limiti parte subito. Niente da scaricare, niente conferma. */
 internal fun updateAllNeedsConfirmation(metered: Boolean, pending: List<RegionUiItem>): Boolean = metered && pending.isNotEmpty()

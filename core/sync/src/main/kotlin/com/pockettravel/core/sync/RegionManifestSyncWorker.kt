@@ -38,38 +38,36 @@ class RegionManifestSyncWorker @AssistedInject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : CoroutineWorker(context, params) {
 
-    override suspend fun doWork(): Result {
-        return try {
-            val manifest = manifestClient.fetchManifest()
-            val installedById = regionRepository.observeInstalled().first().associateBy { it.regionId }
+    override suspend fun doWork(): Result = try {
+        val manifest = manifestClient.fetchManifest()
+        val installedById = regionRepository.observeInstalled().first().associateBy { it.regionId }
 
-            // Gli indici di civici e mezzi pubblici si scaricano solo se c'e' una regione che ha quel pacchetto; un errore
-            // li lascia fuori dal confronto di questo giro, come nell'elenco delle nazioni.
-            val addressIndex = manifest.addressGrid?.takeIf { installedById.values.any { it.addressesVersion != null } }
-                ?.let { entry -> fetchOrNull { addressGridClient.fetchIndex(entry) } }
-            val transitIndex = manifest.transit?.takeIf { installedById.values.any { it.transitVersion != null } }
-                ?.let { entry -> fetchOrNull { transitClient.fetchIndex(entry) } }
-            val updates = withContext(ioDispatcher) {
-                regionUpdates(
-                    manifest.regions, installedById, addressIndex, transitIndex,
-                    regionZonePreferences::zone, regionRepository::installedTransitFeeds,
-                )
-            }
-            updates.forEach { notifier.notifyUpdateAvailable(it.remote, it.kinds, it.local.poiToRedownload()) }
-            // Le guide (tutte le nazioni) si installano e aggiornano da sole: sotto i 5 MB anche su rete a consumo.
-            val guides = manifest.guidesChoice()
-            if (regionRepository.installedGuidesVersion() != guides.installedVersion) {
-                scheduler.enqueueGuidesSync(onlyOnWifi = !guides.automaticOnMeteredNetwork, automatic = true)
-            }
-            Result.success()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: IOException) {
-            Result.retry()
-        } catch (error: Exception) {
-            Log.w(TAG, "Sync del catalogo fallita", error)
-            Result.failure()
+        // Gli indici di civici e mezzi pubblici si scaricano solo se c'e' una regione che ha quel pacchetto; un errore
+        // li lascia fuori dal confronto di questo giro, come nell'elenco delle nazioni.
+        val addressIndex = manifest.addressGrid?.takeIf { installedById.values.any { it.addressesVersion != null } }
+            ?.let { entry -> fetchOrNull { addressGridClient.fetchIndex(entry) } }
+        val transitIndex = manifest.transit?.takeIf { installedById.values.any { it.transitVersion != null } }
+            ?.let { entry -> fetchOrNull { transitClient.fetchIndex(entry) } }
+        val updates = withContext(ioDispatcher) {
+            regionUpdates(
+                manifest.regions, installedById, addressIndex, transitIndex,
+                regionZonePreferences::zone, regionRepository::installedTransitFeeds,
+            )
         }
+        notifier.setRegionUpdates(updates.map { RegionUpdateItem.of(it.remote, it.kinds, it.local.poiToRedownload()) })
+        // Le guide (tutte le nazioni) si installano e aggiornano da sole: sotto i 5 MB anche su rete a consumo.
+        val guides = manifest.guidesChoice()
+        if (regionRepository.installedGuidesVersion() != guides.installedVersion) {
+            scheduler.enqueueGuidesSync(onlyOnWifi = !guides.automaticOnMeteredNetwork, automatic = true)
+        }
+        Result.success()
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: IOException) {
+        Result.retry()
+    } catch (error: Exception) {
+        Log.w(TAG, "Sync del catalogo fallita", error)
+        Result.failure()
     }
 
     private suspend fun <T> fetchOrNull(block: suspend () -> T): T? = try {

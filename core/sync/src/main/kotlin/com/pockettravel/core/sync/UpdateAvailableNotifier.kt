@@ -9,93 +9,102 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import android.text.format.Formatter
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.pockettravel.core.data.PackageKind
+import com.pockettravel.core.data.PreferencesFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 /**
- * Notifica non intrusiva "aggiornamento disponibile" — mai un download automatico. Toccata apre sempre la schermata
- * Aggiornamenti dell'app ([OPEN_UPDATES]), dove si aggiornano nazioni, guide e modello IA e si apre la pagina
- * dell'ultima release per l'app.
+ * Una sola notifica non intrusiva per tutti gli aggiornamenti disponibili (nazioni, app, modello IA) — mai un download
+ * automatico. Ogni controllo sostituisce la sua parte dell'elenco salvato ([PendingUpdatesStore]) e la notifica si
+ * rifà con lo stesso ID. Toccata apre sempre la schermata Aggiornamenti dell'app ([OPEN_UPDATES]).
  */
-class UpdateAvailableNotifier @Inject constructor(
-    @ApplicationContext private val context: Context,
+class UpdateAvailableNotifier internal constructor(
+    private val context: Context,
+    private val store: PendingUpdatesStore,
 ) {
+    @Inject constructor(@ApplicationContext context: Context, preferences: PreferencesFactory) :
+        this(context, PendingUpdatesStore(preferences))
+
     init {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, context.getString(R.string.sync_updates_regions_channel), NotificationManager.IMPORTANCE_DEFAULT),
+            NotificationChannel(CHANNEL_ID, context.getString(R.string.sync_updates_channel), NotificationManager.IMPORTANCE_DEFAULT),
         )
-        manager.createNotificationChannel(
-            NotificationChannel(APP_CHANNEL_ID, context.getString(R.string.sync_updates_app_channel), NotificationManager.IMPORTANCE_DEFAULT),
-        )
-        manager.createNotificationChannel(
-            NotificationChannel(AI_MODEL_CHANNEL_ID, context.getString(R.string.sync_updates_ai_model_channel), NotificationManager.IMPORTANCE_DEFAULT),
-        )
+        // Fino alla 0.15.0 un canale per nazioni, app e modello IA: toglierli toglie anche le loro vecchie notifiche.
+        OLD_CHANNEL_IDS.forEach(manager::deleteNotificationChannel)
     }
 
-    /**
-     * [redownloadKinds]: i pacchetti che la migrazione del database ha tolto per mancanza di spazio (InstalledRegion.poiToRedownload).
-     * Se fra gli aggiornamenti [kinds] ce ne sono, il testo dice che vanno riscaricati e il peso e' il loro.
-     */
-    fun notifyUpdateAvailable(entry: RegionManifestEntry, kinds: Set<PackageKind>, redownloadKinds: Set<PackageKind> = emptySet()) {
-        val missing = redownloadKinds intersect kinds
-        if (missing.isNotEmpty()) {
-            notify(
-                CHANNEL_ID,
-                entry.regionId.hashCode(),
-                context.getString(R.string.sync_update_poi_redownload_title),
-                context.getString(R.string.sync_update_poi_redownload_text, entry.displayName, size(entry.downloadBytes(missing))),
-                openApp(OPEN_UPDATES),
-            )
-            return
-        }
-        notify(
-            CHANNEL_ID,
-            entry.regionId.hashCode(),
-            context.getString(R.string.sync_update_region_title),
-            context.getString(R.string.sync_update_region_text, entry.displayName, size(entry.downloadBytes(kinds))),
-            openApp(OPEN_UPDATES),
-        )
-    }
+    /** Le nazioni da aggiornare trovate dal controllo del catalogo, tutte insieme: quelle che non ci sono più escono dalla notifica. */
+    internal fun setRegionUpdates(regions: List<RegionUpdateItem>) = update { it.copy(regions = regions.sortedBy(RegionUpdateItem::name)) }
 
-    fun notifyAppUpdateAvailable(entry: AppVersionEntry) {
-        notify(
-            APP_CHANNEL_ID,
-            APP_NOTIFICATION_ID,
-            context.getString(R.string.sync_update_app_title),
-            context.getString(R.string.sync_update_app_text, entry.versionName),
-            openApp(OPEN_UPDATES),
-        )
+    /** [entry]: la nuova versione dell'app, o null se quella installata è l'ultima. */
+    fun setAppUpdate(entry: AppVersionEntry?) = update { it.copy(appVersion = entry?.versionName) }
+
+    /** [entry]: il nuovo file del modello IA scaricato, o null se non c'è niente da aggiornare. */
+    fun setAiModelUpdate(entry: AiModelManifestEntry?) = update { pending ->
+        pending.copy(aiModelVersion = entry?.modelVersion)
     }
 
     /** Dopo un aggiornamento installato dall'app: Android chiude l'app per sostituirla e non la riapre, la notifica la riapre. */
     fun notifyAppUpdated(versionName: String) {
-        notify(
-            APP_CHANNEL_ID,
-            APP_NOTIFICATION_ID,
+        update { it.copy(appVersion = null) }
+        post(
+            APP_UPDATED_NOTIFICATION_ID,
             context.getString(R.string.sync_app_updated_title, versionName),
             text = null,
+            style = null,
+            alert = true,
             openApp(screen = null),
         )
     }
 
-    fun notifyAiModelUpdateAvailable(entry: AiModelManifestEntry) {
-        notify(
-            AI_MODEL_CHANNEL_ID,
-            AI_MODEL_NOTIFICATION_ID,
-            context.getString(R.string.sync_update_ai_model_title),
-            context.getString(R.string.sync_update_ai_model_text, entry.modelVersion, size(entry.sizeBytes)),
-            openApp(OPEN_UPDATES),
-        )
+    // Una chiamata alla volta: i tre controlli sono worker diversi e possono finire insieme.
+    @Synchronized
+    private fun update(change: (PendingUpdates) -> PendingUpdates) {
+        val pending = change(store.load())
+        store.save(pending)
+        when (val action = updatesNotificationAction(pending, store.alertedKeys, isShowing(UPDATES_NOTIFICATION_ID))) {
+            UpdatesNotificationAction.Cancel -> {
+                NotificationManagerCompat.from(context).cancel(UPDATES_NOTIFICATION_ID)
+                store.alertedKeys = emptySet()
+            }
+            UpdatesNotificationAction.Skip -> Unit
+            is UpdatesNotificationAction.Post -> {
+                postUpdates(pending, action.alert)
+                store.alertedKeys = store.alertedKeys + pending.keys
+            }
+        }
     }
 
-    // Peso con l'unita' giusta (kB, MB, GB), come in Spazio di archiviazione: in MB interi una nazione piccola dava "0 MB".
-    private fun size(bytes: Long): String = Formatter.formatShortFileSize(context, bytes)
+    private fun postUpdates(pending: PendingUpdates, alert: Boolean) {
+        val lines = pending.regions.map(::regionLine) +
+            listOfNotNull(
+                pending.appVersion?.let { context.getString(R.string.sync_update_app_line, it) },
+                pending.aiModelVersion?.let { context.getString(R.string.sync_update_ai_model_line, it) },
+            )
+        val title = context.resources.getQuantityString(R.plurals.sync_updates_available_title, pending.count, pending.count)
+        val text = if (pending.count == 1) {
+            lines.single()
+        } else {
+            val names = pending.regions.map { it.name } +
+                listOfNotNull(
+                    pending.appVersion?.let { context.getString(R.string.sync_update_app_name) },
+                    pending.aiModelVersion?.let { context.getString(R.string.sync_update_ai_model_name) },
+                )
+            names.joinToString(", ")
+        }
+        val style = NotificationCompat.InboxStyle().also { inbox -> lines.forEach(inbox::addLine) }
+        post(UPDATES_NOTIFICATION_ID, title, text, style.takeIf { pending.count > 1 }, alert, openApp(OPEN_UPDATES))
+    }
+
+    private fun regionLine(item: RegionUpdateItem): String =
+        if (item.redownload) context.getString(R.string.sync_update_poi_redownload_text, item.name) else item.name
+
+    private fun isShowing(notificationId: Int): Boolean =
+        context.getSystemService(NotificationManager::class.java).activeNotifications.any { it.id == notificationId }
 
     // L'activity di avvio dell'app (intent esplicito) con la schermata da aprire, se c'è: la legge MainActivity.
     private fun openApp(screen: String?): PendingIntent? {
@@ -106,7 +115,14 @@ class UpdateAvailableNotifier @Inject constructor(
     }
 
     @SuppressLint("MissingPermission")
-    private fun notify(channelId: String, notificationId: Int, title: String, text: String?, contentIntent: PendingIntent?) {
+    private fun post(
+        notificationId: Int,
+        title: String,
+        text: String?,
+        style: NotificationCompat.Style?,
+        alert: Boolean,
+        contentIntent: PendingIntent?,
+    ) {
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -114,10 +130,13 @@ class UpdateAvailableNotifier @Inject constructor(
         ) {
             return
         }
-        val notification = NotificationCompat.Builder(context, channelId)
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_download_notification)
             .setContentTitle(title)
             .setContentText(text)
+            .setStyle(style)
+            // Senza novità (un aggiornamento in meno, lo stesso elenco) la notifica cambia senza suonare.
+            .setOnlyAlertOnce(!alert)
             .setAutoCancel(true)
             .setContentIntent(contentIntent)
             .build()
@@ -133,13 +152,11 @@ class UpdateAvailableNotifier @Inject constructor(
         const val EXTRA_OPEN_SCREEN = "com.pockettravel.OPEN_SCREEN"
         const val OPEN_UPDATES = "updates"
 
-        private const val CHANNEL_ID = "region-updates"
-        private const val APP_CHANNEL_ID = "app-updates"
-        private const val AI_MODEL_CHANNEL_ID = "ai-model-updates"
+        private const val CHANNEL_ID = "updates"
+        private val OLD_CHANNEL_IDS = listOf("region-updates", "app-updates", "ai-model-updates")
 
-        // ID fissi: a differenza delle regioni (tante, serve un ID per regionId), c'e' un solo
-        // aggiornamento app e un solo modello IA possibili alla volta.
-        private const val APP_NOTIFICATION_ID = 1
-        private const val AI_MODEL_NOTIFICATION_ID = 2
+        // ID fissi: una sola notifica per tutti gli aggiornamenti, e una per "app aggiornata".
+        private const val UPDATES_NOTIFICATION_ID = 1
+        private const val APP_UPDATED_NOTIFICATION_ID = 2
     }
 }

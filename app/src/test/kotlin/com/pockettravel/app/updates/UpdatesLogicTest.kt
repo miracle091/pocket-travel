@@ -1,8 +1,10 @@
 package com.pockettravel.app.updates
 
+import com.pockettravel.app.R
+import com.pockettravel.app.regions.PackageUiState
 import com.pockettravel.app.regions.RegionStatus
 import com.pockettravel.app.regions.RegionUiItem
-import com.pockettravel.app.R
+import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.sync.AppUpdateFailure
 import com.pockettravel.core.sync.AppUpdateState
 import com.pockettravel.core.sync.AppVersionEntry
@@ -77,6 +79,18 @@ class UpdatesLogicTest {
         val total = updateTotal(listOf(item("lettonia", RegionStatus.UPDATE_AVAILABLE, bytes = 0, includesMap = true)))
 
         assertEquals(UpdateTotal(bytes = 0, includesMap = true), total)
+    }
+
+    @Test
+    fun `una mappa da aggiornare pesa circa quanto quella installata`() {
+        val map = PackageUiState(PackageKind.MAP, RegionStatus.UPDATE_AVAILABLE, downloadBytes = 0, installedBytes = 30L shl 20)
+        val withMap = RegionUiItem("lettonia", "Lettonia", 5L shl 20, RegionStatus.UPDATE_AVAILABLE, packages = listOf(map), includesMap = true)
+
+        assertEquals(30L shl 20, withMap.mapEstimateBytes())
+        assertEquals(UpdateTotal(bytes = 35L shl 20, includesMap = false, estimated = true), updateTotal(listOf(withMap)))
+        // Senza il peso della mappa installata resta "+ mappa".
+        val unknown = withMap.copy(packages = listOf(map.copy(installedBytes = null)))
+        assertEquals(UpdateTotal(bytes = 5L shl 20, includesMap = true), updateTotal(listOf(unknown)))
     }
 
     @Test

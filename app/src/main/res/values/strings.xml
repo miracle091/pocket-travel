@@ -157,7 +157,9 @@
     <string name="updates_app_metered_message">L\'aggiornamento pesa %1$s e userà la rete a consumo</string>
     <string name="updates_last_checked">Ultimo controllo: %1$s</string>
     <string name="updates_section_regions">Nazioni</string>
-    <string name="updates_region_details">%1$s · %2$s</string>
+    <string name="updates_package_line">%1$s · %2$s</string>
+    <string name="updates_size_about">circa %1$s</string>
+    <string name="updates_package_update">Aggiorna %1$s (%2$s)</string>
     <string name="updates_all">Aggiorna tutto · %1$s</string>
     <string name="updates_metered_title">Scaricare %1$s con la rete mobile?</string>
     <string name="updates_metered_message">Il dispositivo non è collegato a una rete senza limiti di traffico</string>

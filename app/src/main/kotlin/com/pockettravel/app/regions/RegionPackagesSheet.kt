@@ -179,17 +179,8 @@ internal fun RegionPackagesSheet(
             SideEffect { pendingLargeDownload = null }
             return@let
         }
-        val size = Formatter.formatShortFileSize(context, pkg.downloadBytes)
-        ConfirmationDialog(
-            title = stringResource(R.string.regions_large_download_title),
-            // Il peso della mappa si conosce solo estraendola: senza dimensione un messaggio apposta.
-            message = if (kind == PackageKind.MAP) {
-                stringResource(R.string.regions_large_download_map_message)
-            } else {
-                stringResource(R.string.regions_large_download_message, stringResource(kind.label()), size)
-            },
-            confirmLabel = stringResource(R.string.regions_large_download_confirm),
-            destructive = false,
+        LargePackageDownloadDialog(
+            pkg = pkg,
             onConfirm = { pendingLargeDownload = null; actions.onDownloadPackage(item.regionId, kind) },
             onDismiss = { pendingLargeDownload = null },
         )
@@ -202,6 +193,28 @@ internal fun RegionPackagesSheet(
             onDismiss = { showDeleteAll = false },
         )
     }
+}
+
+/** La conferma di un pacchetto grande sulla rete mobile: foglio Contenuti e schermata Aggiornamenti. */
+@Composable
+internal fun LargePackageDownloadDialog(pkg: PackageUiState, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    ConfirmationDialog(
+        title = stringResource(R.string.regions_large_download_title),
+        // Il peso della mappa si conosce solo estraendola: senza dimensione un messaggio apposta.
+        message = if (pkg.kind == PackageKind.MAP) {
+            stringResource(R.string.regions_large_download_map_message)
+        } else {
+            stringResource(
+                R.string.regions_large_download_message,
+                stringResource(pkg.kind.label()),
+                Formatter.formatShortFileSize(LocalContext.current, pkg.downloadBytes),
+            )
+        },
+        confirmLabel = stringResource(R.string.regions_large_download_confirm),
+        destructive = false,
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
+    )
 }
 
 // La mappa si estrae sul dispositivo e il suo peso (downloadBytes = 0) non si conosce prima: avvisa sempre, come

@@ -24,21 +24,17 @@ class AppUpdateCheckWorker @AssistedInject constructor(
     private val notifier: UpdateAvailableNotifier,
 ) : CoroutineWorker(context, params) {
 
-    override suspend fun doWork(): Result {
-        return try {
-            val appVersion = appStatusClient.fetchAppStatus().appVersion
-            if (appVersion != null && isAppUpdateAvailable(installedAppVersionCode(applicationContext), appVersion)) {
-                notifier.notifyAppUpdateAvailable(appVersion)
-            }
-            Result.success()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: IOException) {
-            Result.retry()
-        } catch (error: Exception) {
-            Log.w(TAG, "Controllo aggiornamento app fallito", error)
-            Result.failure()
-        }
+    override suspend fun doWork(): Result = try {
+        val appVersion = appStatusClient.fetchAppStatus().appVersion
+        notifier.setAppUpdate(appVersion?.takeIf { isAppUpdateAvailable(installedAppVersionCode(applicationContext), it) })
+        Result.success()
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: IOException) {
+        Result.retry()
+    } catch (error: Exception) {
+        Log.w(TAG, "Controllo aggiornamento app fallito", error)
+        Result.failure()
     }
 
     private companion object {

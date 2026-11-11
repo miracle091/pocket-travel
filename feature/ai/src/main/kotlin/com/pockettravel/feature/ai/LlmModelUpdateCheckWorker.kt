@@ -32,27 +32,25 @@ class LlmModelUpdateCheckWorker @AssistedInject constructor(
     private val notifier: UpdateAvailableNotifier,
 ) : CoroutineWorker(context, params) {
 
-    override suspend fun doWork(): Result {
-        return try {
-            val definition = aiSettingsStore.selectedModelDefinition()
-            if (modelManager.isDownloaded(definition)) {
-                val remote = appStatusClient.fetchAppStatus().aiModels.firstOrNull { it.modelId == definition.id }
-                // Lo sha del file su disco, non quello del catalogo dei modelli dell'APK: chi ha scaricato la versione
-                // precedente con lo stesso id (cambia solo lo sha256) altrimenti non verrebbe mai avvisato.
-                // Calcolato (una volta sola) solo se serve, cioe' se c'e' una entry remota da confrontare.
-                val installedSha256 = remote?.let { modelManager.installedSha256(definition) }
-                if (remote != null && installedSha256 != null && isAiModelUpdateAvailable(installedSha256, remote)) {
-                    notifier.notifyAiModelUpdateAvailable(remote)
-                }
-            }
-            Result.success()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: IOException) {
-            Result.retry()
-        } catch (_: Exception) {
-            Result.failure()
+    override suspend fun doWork(): Result = try {
+        val definition = aiSettingsStore.selectedModelDefinition()
+        if (!modelManager.isDownloaded(definition)) {
+            notifier.setAiModelUpdate(null)
+        } else {
+            val remote = appStatusClient.fetchAppStatus().aiModels.firstOrNull { it.modelId == definition.id }
+            // Lo sha del file su disco, non quello del catalogo dei modelli dell'APK: chi ha scaricato la versione
+            // precedente con lo stesso id (cambia solo lo sha256) altrimenti non verrebbe mai avvisato.
+            // Calcolato (una volta sola) solo se serve, cioe' se c'e' una entry remota da confrontare.
+            val installedSha256 = remote?.let { modelManager.installedSha256(definition) }
+            notifier.setAiModelUpdate(remote?.takeIf { installedSha256 != null && isAiModelUpdateAvailable(installedSha256, it) })
         }
+        Result.success()
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: IOException) {
+        Result.retry()
+    } catch (_: Exception) {
+        Result.failure()
     }
 }
 

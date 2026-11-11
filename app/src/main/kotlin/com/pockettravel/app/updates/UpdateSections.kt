@@ -1,11 +1,9 @@
 package com.pockettravel.app.updates
 
-import android.text.format.Formatter
-import com.pockettravel.core.sync.SyncConfig
-import androidx.core.net.toUri
-import android.content.Intent
-import android.content.Context
 import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -26,9 +24,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
 import com.pockettravel.app.regions.RegionDownloadFlow
@@ -46,11 +45,11 @@ import com.pockettravel.app.regions.RegionUiItem
 import com.pockettravel.app.regions.downloadUi
 import com.pockettravel.app.regions.label
 import com.pockettravel.app.regions.rowActions
-import com.pockettravel.app.regions.sizeText
 import com.pockettravel.core.sync.AiModelManifestEntry
 import com.pockettravel.core.sync.AppUpdateState
 import com.pockettravel.core.sync.AppUpdateWait
 import com.pockettravel.core.sync.AppVersionEntry
+import com.pockettravel.core.sync.SyncConfig
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CountryFlag
 import com.pockettravel.core.ui.DownloadProgressIndicator
@@ -230,7 +229,6 @@ private fun UpdateRegionRow(item: RegionUiItem, actions: RegionRowActions) {
     val workInfo by remember(item.regionId) { actions.observeProgress(item.regionId) }
         .collectAsStateWithLifecycle(initialValue = null)
     val download = workInfo.downloadUi()
-    val packages = item.packages.filter { it.status == RegionStatus.UPDATE_AVAILABLE }.map { stringResource(it.kind.label()) }.joinToString()
     Column {
         ListItem(
             supportingContent = {
@@ -241,7 +239,7 @@ private fun UpdateRegionRow(item: RegionUiItem, actions: RegionRowActions) {
                             if (download.extractingMap) R.string.regions_status_extracting_map else R.string.regions_status_downloading,
                             (download.progress * PERCENT).toInt(),
                         )
-                        else -> stringResource(R.string.updates_region_details, packages, item.sizeText())
+                        else -> updateTotal(listOf(item)).text(LocalContext.current)
                     },
                 )
             },
@@ -257,6 +255,7 @@ private fun UpdateRegionRow(item: RegionUiItem, actions: RegionRowActions) {
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             content = { Text(item.displayName) },
         )
+        if (!download.isDownloading) UpdatePackageList(item, actions)
         if (download.isDownloading && download.installing) {
             IndeterminateDownloadProgressIndicator(modifier = Modifier.fillMaxWidth().padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m))
         } else if (download.isDownloading) {
@@ -283,9 +282,10 @@ private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-// Il peso delle nazioni da aggiornare, con "+ mappa" se tra i pacchetti c'è una mappa, che si pesa solo estraendola.
+// Il peso delle nazioni da aggiornare: "circa" con la stima delle mappe, "+ mappa" per una mappa senza nemmeno la stima.
 internal fun UpdateTotal.text(context: Context): String {
-    val size = Formatter.formatShortFileSize(context, bytes)
+    val bytesText = Formatter.formatShortFileSize(context, bytes)
+    val size = if (estimated) context.getString(R.string.updates_size_about, bytesText) else bytesText
     return when {
         !includesMap -> size
         bytes > 0 -> context.getString(R.string.regions_size_plus_map, size)

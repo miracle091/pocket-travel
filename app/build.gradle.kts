@@ -176,6 +176,8 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.aboutlibraries.core)
+    // Oggetti e activity trattenuti in memoria, con una notifica sua: solo nell'APK di debug.
+    debugImplementation(libs.leakcanary.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
