@@ -5,8 +5,6 @@ import kotlinx.serialization.Serializable
 import java.net.URI
 import java.security.MessageDigest
 import java.time.LocalDate
-import kotlin.math.cos
-import kotlin.math.sqrt
 
 /**
  * Voce "transit" in cima a `manifest.json`: riferimento a transit.json, scaricato e verificato (sha256)
@@ -53,6 +51,9 @@ data class TransitFeed(
     // download misurato dalla pipeline; null se la rete non ha il tempo reale o la misura e' fallita.
     val realtimeUrl: String? = null,
     val realtimeSizeBytes: Long? = null,
+    // Feed GTFS-RT con gli avvisi di servizio (puo' essere lo stesso indirizzo di realtimeUrl) e il suo peso.
+    val alertsUrl: String? = null,
+    val alertsSizeBytes: Long? = null,
 ) {
     val downloadFile: RegionManifestFile get() = fileXz ?: file
 }
@@ -77,7 +78,16 @@ internal val TransitFeed.stagedFile: RegionManifestFile get() = file.copy(name =
 internal val TransitFeed.stagedFileXz: RegionManifestFile? get() = fileXz?.copy(name = "$id.db.xz")
 internal val TransitFeed.stagedDownloadFile: RegionManifestFile get() = stagedFileXz ?: stagedFile
 
-internal fun TransitFeed.info() = TransitFeedInfo(id, name, attribution, licenseUrl, realtimeUrl = realtimeUrl, realtimeSizeBytes = realtimeSizeBytes)
+internal fun TransitFeed.info() = TransitFeedInfo(
+    id,
+    name,
+    attribution,
+    licenseUrl,
+    realtimeUrl = realtimeUrl,
+    realtimeSizeBytes = realtimeSizeBytes,
+    alertsUrl = alertsUrl,
+    alertsSizeBytes = alertsSizeBytes,
+)
 
 fun TransitManifestEntry.validate() {
     require(isSafeVersion(version)) { "version dell'indice dei mezzi pubblici non valida" }
@@ -105,13 +115,16 @@ internal fun TransitFeed.validate() {
         "licenseUrl non valido per la rete $id"
     }
     // Un indirizzo che l'app scarica: https, con host e senza credenziali.
-    require(realtimeUrl == null || runCatching { URI(realtimeUrl) }.getOrNull()?.let { it.scheme == "https" && it.host != null && it.userInfo == null } == true) {
-        "realtimeUrl non valido per la rete $id"
-    }
+    require(realtimeUrl == null || isHttpsFeedUrl(realtimeUrl)) { "realtimeUrl non valido per la rete $id" }
     require(realtimeSizeBytes == null || realtimeSizeBytes >= 0) { "realtimeSizeBytes non valido per la rete $id" }
+    require(alertsUrl == null || isHttpsFeedUrl(alertsUrl)) { "alertsUrl non valido per la rete $id" }
+    require(alertsSizeBytes == null || alertsSizeBytes >= 0) { "alertsSizeBytes non valido per la rete $id" }
     file.validate("transit/$id")
     fileXz?.validate("transit/$id")
 }
+
+private fun isHttpsFeedUrl(url: String): Boolean =
+    runCatching { URI(url) }.getOrNull()?.let { it.scheme == "https" && it.host != null && it.userInfo == null } == true
 
 /** Le reti di [index] che servono la regione [regionId]. */
 fun regionTransitFeeds(index: TransitIndex, regionId: String): List<TransitFeed> = index.feeds.filter { regionId in it.regions }
@@ -181,56 +194,6 @@ fun attachTransitFeeds(
     }
 }
 
-/** Oltre questo numero di reti in una regione si propongono solo quelle vicine (Regno Unito: 12 aree). */
-private const val MANY_TRANSIT_FEEDS = 3
-
-/** Entro questa distanza dal rettangolo delle fermate una rete conta come vicina. */
-private const val NEAR_TRANSIT_KM = 50.0
-
 // minLon, minLat, maxLon, maxLat.
 private const val BBOX_VALUES = 4
 private const val VERSION_HASH_CHARS = 16
-
-// Chilometri per grado di latitudine.
-private const val KM_PER_DEGREE = 111.32
-
-/** Come sono state scelte le reti di default di una regione con molte reti (mostrato nei Contenuti). */
-@Serializable
-enum class TransitDefaultReason {
-    /** Quelle entro [NEAR_TRANSIT_KM] dalla posizione. */
-    NEAR,
-
-    /** Nessuna entro [NEAR_TRANSIT_KM]: la piu' vicina. */
-    NEAREST,
-
-    /** Posizione non nota o in un'altra nazione: tutte. */
-    ALL,
-}
-
-/** Le reti tolte di default e il perche' ([reason] null con poche reti: si scaricano tutte, niente da spiegare). */
-data class TransitDefault(val excluded: Set<String>, val reason: TransitDefaultReason?)
-
-/**
- * La scelta di default quando l'utente non ha ancora scelto: con piu' di [MANY_TRANSIT_FEEDS] reti restano
- * quelle entro [NEAR_TRANSIT_KM] dalla posizione, o la piu' vicina se nessuna lo e'. La posizione va passata
- * solo se e' nella nazione della regione: senza (o in un'altra nazione) restano tutte.
- */
-fun defaultTransitChoice(available: List<TransitFeed>, latitude: Double?, longitude: Double?): TransitDefault {
-    if (available.size <= MANY_TRANSIT_FEEDS) return TransitDefault(emptySet(), null)
-    if (latitude == null || longitude == null) return TransitDefault(emptySet(), TransitDefaultReason.ALL)
-    val distances = available.mapNotNull { feed -> feed.bbox?.let { feed.id to distanceToBoxKm(it, latitude, longitude) } }
-    if (distances.isEmpty()) return TransitDefault(emptySet(), TransitDefaultReason.ALL)
-    val near = distances.filter { it.second <= NEAR_TRANSIT_KM }.map { it.first }
-    val kept = near.ifEmpty { listOf(distances.minBy { it.second }.first) }
-    return TransitDefault(
-        available.map { it.id }.toSet() - kept.toSet(),
-        if (near.isEmpty()) TransitDefaultReason.NEAREST else TransitDefaultReason.NEAR,
-    )
-}
-
-// Distanza approssimata (equirettangolare) dal punto al rettangolo, 0 se ci sta dentro.
-private fun distanceToBoxKm(box: List<Double>, latitude: Double, longitude: Double): Double {
-    val dLat = latitude - latitude.coerceIn(box[1], box[3])
-    val dLon = (longitude - longitude.coerceIn(box[0], box[2])) * cos(Math.toRadians(latitude))
-    return sqrt(dLat * dLat + dLon * dLon) * KM_PER_DEGREE
-}

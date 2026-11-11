@@ -41,6 +41,7 @@ class TransitManifestTest {
               "id": "mdb-100", "name": "Milano", "regions": ["italia"], "license": "CC-BY-4.0", "attribution": "ATM",
               "version": "2026.09.29.5.1", "gtfsIds": true,
               "realtimeUrl": "https://example.org/gtfs-rt/trip-updates", "realtimeSizeBytes": 94000,
+              "alertsUrl": "https://example.org/gtfs-rt/alerts", "alertsSizeBytes": 5000,
               "file": { "name": "transit.db", "url": "https://github.com/o/r/releases/download/transit-feeds/mdb-100--v--transit.db", "sizeBytes": 9000000, "sha256": "$sha" },
               "fileXz": { "name": "transit.db.xz", "url": "https://github.com/o/r/releases/download/transit-feeds/mdb-100--v--transit.db.xz", "sizeBytes": 2000000, "sha256": "$sha" }
             }
@@ -72,6 +73,10 @@ class TransitManifestTest {
         val milano = index.feeds[2].info()
         assertEquals("https://example.org/gtfs-rt/trip-updates", milano.realtimeUrl)
         assertEquals(94_000L, milano.realtimeSizeBytes)
+        assertEquals("https://example.org/gtfs-rt/alerts", milano.alertsUrl)
+        assertEquals(5_000L, milano.alertsSizeBytes)
+        assertNull(index.feeds[0].info().alertsUrl)
+        assertNull(index.feeds[0].info().alertsSizeBytes)
         assertEquals(milano, TransitFeedInfo.decode(TransitFeedInfo.encode(listOf(milano))).single())
     }
 
@@ -84,6 +89,12 @@ class TransitManifestTest {
         invalid(feed.copy(realtimeUrl = "file:///sdcard/rt.pb"))
         invalid(feed.copy(realtimeSizeBytes = -1))
         TransitIndex("v1", listOf(feed.copy(realtimeSizeBytes = null))).validate()
+        // Gli avvisi seguono le stesse regole.
+        invalid(feed.copy(alertsUrl = "http://api.example.org/alerts"))
+        invalid(feed.copy(alertsUrl = "https://user:pw@example.org/alerts"))
+        invalid(feed.copy(alertsSizeBytes = -1))
+        TransitIndex("v1", listOf(feed.copy(alertsUrl = feed.realtimeUrl, alertsSizeBytes = null))).validate()
+        TransitIndex("v1", listOf(feed.copy(alertsUrl = null, alertsSizeBytes = null))).validate()
     }
 
     @Test

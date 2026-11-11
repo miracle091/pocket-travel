@@ -94,6 +94,8 @@ data class TransitDeparture(
     val realtime: DepartureRealtime? = null,
     // Id della rete (TransitFeedInfo.id) della partenza: decide quali feed del tempo reale servono.
     val network: String? = null,
+    // Identita' della corsa per la vista della corsa; null se la rete non ha le fermate delle corse (meta trip_stops).
+    val trip: TripRef? = null,
 )
 
 /**
@@ -111,6 +113,9 @@ data class TransitFeedInfo(
     // Feed GTFS-RT della rete e peso di un download (TransitFeed nel catalogo); null senza tempo reale.
     val realtimeUrl: String? = null,
     val realtimeSizeBytes: Long? = null,
+    // Feed GTFS-RT degli avvisi di servizio e peso di un download; null senza avvisi, uguale a realtimeUrl se lo stesso feed li ha.
+    val alertsUrl: String? = null,
+    val alertsSizeBytes: Long? = null,
 ) {
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
@@ -142,6 +147,8 @@ sealed interface TransitBoard {
         // Reti con fermate vicine ma orari scaduti: le loro partenze non sono in [items] (o ci sono stimate, se
         // Expired.estimated), il tabellone lo dice.
         val expired: List<Expired> = emptyList(),
+        // Avvisi di servizio attivi che riguardano le fermate o le linee del riquadro; vedi [boardAlerts].
+        val alerts: List<BoardAlert> = emptyList(),
     ) : TransitBoard {
         /** Gli orari scadono entro una settimana: il tabellone propone di aggiornarli. */
         val expiresSoon: Boolean get() = daysLeft in 0..EXPIRES_SOON_DAYS
@@ -215,6 +222,7 @@ internal fun readFeedBoard(
     return TransitBoard.Departures(
         found.map { it.departure }, meta.validUntil, ChronoUnit.DAYS.between(today, meta.validUntil).toInt(), feeds, if (meta.hasWheelchair) stopWheelchair(db, stops.joinToString(",")) else null,
         expired = if (today > meta.validUntil) listOf(TransitBoard.Expired(meta.validUntil, feeds, estimated = true)) else emptyList(),
+        alerts = realtime?.takeIf { meta.gtfsIds && it.alerts.isNotEmpty() }?.let { boardAlerts(db, meta, feed, stops, found, it, now) }.orEmpty(),
     )
 }
 
@@ -227,6 +235,11 @@ internal class FeedMeta(
     // Colonne wheelchair di stop e trip: solo nei transit.db costruiti dopo che la pipeline le ha aggiunte.
     val hasWheelchair: Boolean,
     val gtfsIds: Boolean,
+    // Tabelle aggiunte dalla pipeline senza cambiare il formato: fermate di ogni corsa (trip_stops), id GTFS delle
+    // linee (gtfs_routes), chiavi delle corse per le reti senza trip_id nel tempo reale (trip_keys, Helsinki).
+    val tripStops: Boolean = false,
+    val gtfsRoutes: Boolean = false,
+    val tripKeys: Boolean = false,
 )
 
 /** Null se il formato e' diverso da quello che l'app sa leggere: la rete si ignora finche' non si aggiorna. */
@@ -240,11 +253,14 @@ internal fun readFeedMeta(db: TransitQuery): FeedMeta? {
         windowDays = meta["window_days"]?.toIntOrNull(),
         hasWheelchair = meta["wheelchair"] == "1",
         gtfsIds = meta["gtfs_ids"] == "1",
+        tripStops = meta["trip_stops"] == "1",
+        gtfsRoutes = meta["gtfs_routes"] == "1",
+        tripKeys = meta["trip_keys"] == "1",
     )
 }
 
 /** Una partenza e la fermata (id di transit.db) da cui parte. */
-internal class StopDeparture(val departure: TransitDeparture, val stop: Long)
+internal class StopDeparture(val departure: TransitDeparture, val stop: Long, val trip: Int = 0)
 
 /**
  * Le partenze nella finestra dalle fermate [stops], in ordine di ora, con il tempo reale di [realtime] se la rete ha gli id GTFS.
@@ -289,7 +305,7 @@ internal fun readStopDepartures(
         // Formato 2 (GenerateTransit): i pattern della fermata, poi le loro corse per minuto di partenza
         // (chiave della tabella trip); il passaggio alla fermata e' partenza + offset.
         val rows = db.query(
-            "SELECT t.start + ps.offset AS minute, t.id, r.short_name, r.long_name, r.type, r.color, r.text_color, h.text, sv.days, ${if (meta.hasWheelchair) "t.wheelchair" else "NULL"}, ps.stop " +
+            "SELECT t.start + ps.offset AS minute, t.id, r.short_name, r.long_name, r.type, r.color, r.text_color, h.text, sv.days, ${if (meta.hasWheelchair) "t.wheelchair" else "NULL"}, ps.stop, t.pattern, t.start, t.route " +
                 "FROM pattern_stop ps JOIN trip t ON t.pattern = ps.pattern AND t.start BETWEEN $from - ps.offset AND $to - ps.offset " +
                 "JOIN route r ON r.id = t.route JOIN service sv ON sv.id = t.service LEFT JOIN headsign h ON h.id = t.headsign " +
                 "WHERE ps.stop IN ($ids) ORDER BY minute",
@@ -301,6 +317,10 @@ internal fun readStopDepartures(
             if (!seen.add(key)) return@query null
             val absolute = offset * MINUTES_PER_DAY + minute
             val color = parseGtfsColor(row.string(DEP_COL_COLOR))
+            val serviceDate = today.plusDays(offset.toLong())
+            val tripRef = feed?.takeIf { meta.tripStops }?.let {
+                TripRef(it.id, row.int(DEP_COL_TRIP), serviceDate, row.int(DEP_COL_STOP).toLong(), minute, row.int(DEP_COL_PATTERN), row.int(DEP_COL_START))
+            }
             val departure = TransitDeparture(
                 line = row.string(DEP_COL_SHORT_NAME)?.takeIf { it.isNotBlank() } ?: row.string(DEP_COL_LONG_NAME)?.takeIf { it.isNotBlank() } ?: "?",
                 mode = transitModeOf(row.int(DEP_COL_TYPE)),
@@ -312,13 +332,16 @@ internal fun readStopDepartures(
                 wheelchair = wheelchairOf(row.string(DEP_COL_WHEELCHAIR)),
                 estimated = estimated,
                 network = feed?.id,
+                trip = tripRef,
             )
-            StopDeparture(departure, row.int(DEP_COL_STOP).toLong()) to RealtimeCall(row.int(DEP_COL_TRIP), row.int(DEP_COL_STOP), today.plusDays(offset.toLong()), minute)
+            StopDeparture(departure, row.int(DEP_COL_STOP).toLong(), row.int(DEP_COL_TRIP)) to
+                RealtimeCall(row.int(DEP_COL_TRIP), row.int(DEP_COL_STOP), serviceDate, minute, row.int(DEP_COL_ROUTE))
         }.filterNotNull()
         rows.forEach { (departure, call) -> found += departure; calls += call }
     }
     val withRealtime = realtimeFeed?.let { rt ->
-        applyRealtimeIndexed(db, found.map { it.departure }, calls, rt, meta.zone).map { (i, departure) -> StopDeparture(departure, found[i].stop) }
+        applyRealtimeIndexed(db, found.map { it.departure }, calls, rt, meta.zone, meta.tripKeys && meta.gtfsRoutes)
+            .map { (i, departure) -> StopDeparture(departure, found[i].stop, found[i].trip) }
     } ?: found
     return withRealtime.filter { it.departure.inMinutes >= 0 }.sortedBy { it.departure.inMinutes }
 }
@@ -380,6 +403,9 @@ private const val DEP_COL_HEADSIGN = 7
 private const val DEP_COL_DAYS = 8
 private const val DEP_COL_WHEELCHAIR = 9
 private const val DEP_COL_STOP = 10
+private const val DEP_COL_PATTERN = 11
+private const val DEP_COL_START = 12
+private const val DEP_COL_ROUTE = 13
 
 /** Con il tempo reale, quanto indietro si leggono le partenze programmate: in ritardo possono essere ancora da venire. */
 internal const val REALTIME_LOOKBACK_MINUTES = 60
@@ -417,6 +443,7 @@ internal fun combineBoards(boards: List<TransitBoard>): TransitBoard {
         feeds = active.flatMap { it.feeds },
         stopWheelchair = active.map { it.stopWheelchair }.let { if (true in it) true else if (false in it) false else null },
         expired = active.flatMap { it.expired } + expired,
+        alerts = orderBoardAlerts(active.flatMap { it.alerts }),
     )
 }
 

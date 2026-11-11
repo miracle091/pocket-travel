@@ -5,6 +5,8 @@ import com.pockettravel.core.data.RealtimeFeed
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitMode
 import com.pockettravel.core.data.TransitRepository
+import com.pockettravel.core.data.TripRef
+import com.pockettravel.core.data.TripView
 import java.time.Instant
 
 /** [TransitRepository] in memoria: risponde con [boards] (per regione, altrimenti [defaultBoard]) e registra le richieste in [requests]. */
@@ -54,5 +56,18 @@ class FakeTransitRepository : TransitRepository {
         nearbyRequests += Request(regionId, latitude, longitude, emptySet(), now, realtime)
         failure?.let { throw it }
         return nearbyStops
+    }
+
+    /** Una richiesta di [TransitRepository.tripStops]. */
+    data class TripRequest(val regionId: String, val ref: TripRef, val now: Instant, val realtime: Map<String, RealtimeFeed>)
+
+    /** Le risposte di [tripStops] per corsa; null per le altre. */
+    val tripViews = mutableMapOf<TripRef, TripView>()
+    val tripRequests = mutableListOf<TripRequest>()
+
+    override suspend fun tripStops(regionId: String, ref: TripRef, now: Instant, realtime: Map<String, RealtimeFeed>): TripView? {
+        tripRequests += TripRequest(regionId, ref, now, realtime)
+        failure?.let { throw it }
+        return tripViews[ref]
     }
 }

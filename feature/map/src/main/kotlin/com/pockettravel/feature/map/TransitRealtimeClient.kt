@@ -16,6 +16,7 @@ import java.io.ByteArrayOutputStream
 import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
+import java.util.Base64
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
 import javax.inject.Inject
@@ -23,7 +24,7 @@ import javax.inject.Inject
 /** Un feed letto e i byte scaricati per averlo (compressi, se l'ente usa gzip): il peso vero di un aggiornamento. */
 data class RealtimeDownload(val feed: RealtimeFeed, val bytes: Long)
 
-/** Scarica e legge il feed GTFS-RT TripUpdates di una rete, dall'ente (TransitFeedInfo.realtimeUrl). */
+/** Scarica e legge un feed GTFS-RT (TripUpdates o avvisi) di una rete, dall'ente (TransitFeedInfo.realtimeUrl, alertsUrl). */
 interface TransitRealtimeClient {
     /** Lancia un'eccezione se il feed non arriva, supera [MAX_REALTIME_BYTES] decompresso o non si legge. */
     suspend fun fetch(url: String): RealtimeDownload
@@ -58,7 +59,7 @@ class HttpTransitRealtimeClient @Inject constructor(
                 val counted = CountingInputStream(response.body.byteStream())
                 val gzip = response.header("Content-Encoding").equals("gzip", ignoreCase = true)
                 val bytes = (if (gzip) GZIPInputStream(counted) else counted).use { readAtMost(this, it, MAX_REALTIME_BYTES) }
-                RealtimeDownload(decodeTripUpdates(bytes), counted.count)
+                RealtimeDownload(decodeTripUpdates(unwrapBase64Body(bytes)), counted.count)
             }
         } finally {
             canceller.cancel()
@@ -96,3 +97,51 @@ private const val BUFFER_BYTES = 64 * 1024
 private const val REALTIME_ACCEPT = "application/x-protobuf, application/octet-stream, */*"
 private const val REALTIME_USER_AGENT = "PocketTravel (https://github.com/miracle091/pocket-travel)"
 private const val CALL_TIMEOUT_SECONDS = 30L
+
+/**
+ * Adelaide serve il protobuf come testo base64 (Content-Type JSON, a volte tra virgolette o a capo): se il corpo e' solo
+ * base64 lo decodifica, se no lo lascia com'e'. Non guarda il Content-Type (Eurostar manda `application/java`): un
+ * FeedMessage vero comincia con 0x0A (campo 1, header), e basta a non scambiarlo per testo.
+ */
+internal fun unwrapBase64Body(bytes: ByteArray): ByteArray {
+    val payload = bytes.takeUnless { it.isEmpty() || it[0] == PROTOBUF_FIRST_BYTE }?.let(::base64Payload) ?: return bytes
+    return try {
+        Base64.getDecoder().decode(payload)
+    } catch (_: IllegalArgumentException) {
+        bytes
+    }
+}
+
+// Il corpo senza spazi ne' virgolette attorno; null se non e' solo base64 (o e' vuoto).
+private fun base64Payload(bytes: ByteArray): ByteArray? {
+    val clean = ByteArrayOutputStream(bytes.size)
+    for (i in unquotedRange(bytes)) {
+        val b = bytes[i]
+        if (isSpace(b)) continue
+        if (!isBase64Char(b.toInt())) return null
+        clean.write(b.toInt())
+    }
+    return clean.toByteArray().takeIf { it.isNotEmpty() }
+}
+
+// Gli indici del corpo senza spazi ai bordi e, se ci sono, senza la coppia di virgolette.
+private fun unquotedRange(bytes: ByteArray): IntRange {
+    var start = 0
+    var end = bytes.size
+    while (start < end && isSpace(bytes[start])) start++
+    while (end > start && isSpace(bytes[end - 1])) end--
+    if (end - start >= 2 && bytes[start] == QUOTE && bytes[end - 1] == QUOTE) {
+        start++
+        end--
+    }
+    return start until end
+}
+
+private fun isSpace(b: Byte) = b in 0..SPACE.toInt()
+
+private fun isBase64Char(c: Int) = c in 'A'.code..'Z'.code || c in 'a'.code..'z'.code || c in '0'.code..'9'.code ||
+    c == '+'.code || c == '/'.code || c == '='.code
+
+private const val PROTOBUF_FIRST_BYTE: Byte = 0x0A
+private const val SPACE: Byte = 0x20
+private const val QUOTE: Byte = '"'.code.toByte()

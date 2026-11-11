@@ -63,6 +63,7 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.MapBounds
 import com.pockettravel.core.data.TransitBoard
+import com.pockettravel.core.data.TripRef
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PoiColors
@@ -134,6 +135,10 @@ fun MapScreen(
     // Tempo reale del tabellone aperto (null senza) e "Aggiorna i ritardi".
     transitRealtime: TransitRealtimeUi? = null,
     onRefreshRealtime: () -> Unit = {},
+    // Vista della corsa aperta da una partenza (null chiusa), apertura e chiusura.
+    trip: TripUi? = null,
+    onOpenTrip: (TripRef) -> Unit = {},
+    onCloseTrip: () -> Unit = {},
     transitUpdateResult: TransitUpdateResult? = null,
     staleTransit: List<String> = emptyList(),
     onDownloadTransit: () -> Unit = {},
@@ -454,9 +459,12 @@ fun MapScreen(
                 }
                 pin.address?.let { PoiDetailRow(AppIcons.Place, it) }
                 pin.openingHours?.let { OpeningHoursDetail(it) }
-                if (pin.category in TRANSIT_CATEGORIES) TransitDeparturesSection(
-                    transitPackage, transitBoard, hideInaccessible, transitUpdateResult, staleTransit, onDownloadTransit, transitRealtime, onRefreshRealtime,
-                )
+                if (pin.category in TRANSIT_CATEGORIES) {
+                    TransitDeparturesSection(
+                        transitPackage, transitBoard, hideInaccessible, transitUpdateResult, staleTransit, onDownloadTransit, transitRealtime,
+                        onRefreshRealtime, trip, onOpenTrip, onCloseTrip,
+                    )
+                }
                 onNavigate?.let { navigate ->
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
                     Button(

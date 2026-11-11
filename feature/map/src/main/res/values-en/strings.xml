@@ -253,6 +253,20 @@
     <string name="transit_realtime_paused">Automatic delay updates paused</string>
     <string name="transit_realtime_refresh">Refresh delays</string>
     <string name="transit_realtime_refresh_size">Refresh delays (%1$s)</string>
+    <plurals name="transit_alerts_count">
+        <item quantity="one">%1$d service alert</item>
+        <item quantity="other">%1$d service alerts</item>
+    </plurals>
+    <string name="transit_alerts_expand">show the alerts</string>
+    <string name="transit_alerts_collapse">hide the alerts</string>
+    <string name="transit_open_trip">show the trip</string>
+    <string name="transit_open_trip_at">Show the %1$s trip</string>
+    <string name="transit_later_trips">Later departures:</string>
+    <string name="trip_loading">Loading the trip…</string>
+    <string name="trip_not_found">Trip not found: the timetable has changed</string>
+    <string name="trip_board_stop">This stop</string>
+    <string name="trip_drop_off_only">Drop-off only</string>
+    <string name="trip_pickup_only">Pickup only</string>
     <plurals name="transit_in_minutes_spoken">
         <item quantity="one">in %1$d minute</item>
         <item quantity="other">in %1$d minutes</item>

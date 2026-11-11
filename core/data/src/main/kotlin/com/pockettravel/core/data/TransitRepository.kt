@@ -27,4 +27,15 @@ interface TransitRepository {
         now: Instant = Instant.now(),
         realtime: Map<String, RealtimeFeed> = emptyMap(),
     ): List<NearbyStop>
+
+    /**
+     * Le fermate della corsa [ref] di una partenza, con orari e tempo reale ([realtime] come in [board]); null se la rete
+     * non e' installata o non ha le fermate delle corse (costruita prima), o la corsa non si trova.
+     */
+    suspend fun tripStops(
+        regionId: String,
+        ref: TripRef,
+        now: Instant = Instant.now(),
+        realtime: Map<String, RealtimeFeed> = emptyMap(),
+    ): TripView?
 }

@@ -48,11 +48,21 @@ class SqliteTransitRepository @Inject constructor(
             )
         }
 
-    // Apre ogni rete installata della regione; una illeggibile o senza esito (null) si salta.
-    private fun <T> readFeeds(regionId: String, read: (TransitQuery, TransitFeedInfo?, String) -> T?): List<T> {
+    override suspend fun tripStops(
+        regionId: String,
+        ref: TripRef,
+        now: Instant,
+        realtime: Map<String, RealtimeFeed>,
+    ): TripView? =
+        withContext(ioDispatcher) {
+            readFeeds(regionId, onlyNetwork = ref.network) { query, _, id -> readTripView(query, ref, now, realtime[id]) }.firstOrNull()
+        }
+
+    // Apre ogni rete installata della regione (o la sola [onlyNetwork]); una illeggibile o senza esito (null) si salta.
+    private fun <T> readFeeds(regionId: String, onlyNetwork: String? = null, read: (TransitQuery, TransitFeedInfo?, String) -> T?): List<T> {
         val dir = File(regionStorage.directoryFor(regionId), RegionStorage.TRANSIT_DIR)
         val infos = runCatching { TransitFeedInfo.decode(File(dir, RegionStorage.TRANSIT_FEEDS_FILE).readText()) }.getOrDefault(emptyList())
-        return dir.listFiles { file -> file.isFile && file.extension == "db" }.orEmpty().mapNotNull { file ->
+        return dir.listFiles { file -> file.isFile && file.extension == "db" && (onlyNetwork == null || file.nameWithoutExtension == onlyNetwork) }.orEmpty().mapNotNull { file ->
             runCatching {
                 SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
                     read(SqliteTransitQuery(db), infos.firstOrNull { it.id == file.nameWithoutExtension }, file.nameWithoutExtension)

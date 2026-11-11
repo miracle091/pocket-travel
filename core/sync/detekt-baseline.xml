@@ -58,7 +58,6 @@
     <ID>ReturnCount:RegionPackageDownloadWorker.kt:RegionPackageDownloadWorker$override suspend fun doWork: Result</ID>
     <ID>ReturnCount:RegionPackageDownloader.kt:RegionPackageDownloader$private fun reuseLocalCopy: Boolean</ID>
     <ID>ReturnCount:RegionZoneRestriction.kt:fun RegionManifestEntry.restrictedTo: RegionManifestEntry</ID>
-    <ID>ReturnCount:TransitManifest.kt:fun defaultTransitChoice: TransitDefault</ID>
     <ID>SpacingAroundOperators:PmtilesWriterTest.kt:PmtilesWriterTest$=</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:HttpManifestClient.kt:RecentFetch$@Volatile private var value: T? = null</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:LanguageChangeReload.kt:LanguageChangeReload$@Suppress("TooGenericExceptionCaught") val saved = try { manifestClient.savedManifest()?.citiesToReload(installed, language).orEmpty() } catch (error: CancellationException) { throw error } catch (error: Exception) { Log.w(TAG, "Catalogo salvato non letto", error) return }</ID>

@@ -24,14 +24,17 @@ import com.pockettravel.core.ui.Spacing
 
 // Il colore della linea e' solo decorazione: sigla, mezzo e destinazione stanno in chiaro.
 @Composable
-internal fun LineBadge(departure: TransitDeparture) {
+internal fun LineBadge(departure: TransitDeparture) = LineBadge(departure.line, departure.color, departure.textColor)
+
+@Composable
+internal fun LineBadge(line: String, color: Int?, textColor: Int?) {
     Surface(
         shape = MaterialTheme.shapes.small,
-        color = departure.color?.let(::Color) ?: MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = departure.textColor?.let(::Color) ?: MaterialTheme.colorScheme.onSecondaryContainer,
+        color = color?.let(::Color) ?: MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = textColor?.let(::Color) ?: MaterialTheme.colorScheme.onSecondaryContainer,
     ) {
         Text(
-            text = departure.line,
+            text = line,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,

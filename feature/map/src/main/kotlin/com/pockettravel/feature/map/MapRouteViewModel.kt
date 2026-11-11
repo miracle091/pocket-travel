@@ -9,21 +9,23 @@ import com.pockettravel.core.data.MapAccessibility
 import com.pockettravel.core.data.MapBounds
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RealtimeFeed
-import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.data.RegionZonePreferences
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitRepository
+import com.pockettravel.core.data.TripRef
+import com.pockettravel.core.data.TripView
+import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.hasName
 import com.pockettravel.core.data.isHiddenOnMap
 import com.pockettravel.core.data.poiCategory
 import com.pockettravel.core.poi.PoiCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -107,6 +109,28 @@ class MapRouteViewModel @Inject constructor(
         viewModelScope.launch { connectivityObserver.changes().drop(1).collect { realtimeRequests.trySend(false) } }
     }
 
+    // Vista della corsa aperta dal tabellone: null chiusa.
+    private val openTrip = MutableStateFlow<TripUi?>(null)
+    private var tripJob: Job? = null
+
+    /**
+     * Apre la vista della corsa [ref], con il tempo reale gia' scaricato della sua rete (nessun download in piu'); null la
+     * chiude.
+     */
+    fun showTrip(ref: TripRef?) {
+        tripJob?.cancel()
+        val regionId = regionIdFlow.value
+        if (ref == null || regionId == null) {
+            openTrip.value = null
+            return
+        }
+        openTrip.value = TripUi(loading = true)
+        val networks = realtimeNetworks(_transitBoard.value).filter { it.id == ref.network }
+        tripJob = viewModelScope.launch {
+            openTrip.value = TripUi(loading = false, view = transitRepository.tripStops(regionId, ref, realtime = transitRealtime.usable(networks)))
+        }
+    }
+
     /**
      * Legge le prossime partenze vicino a [pin] e le rilegge ogni minuto finche' il riquadro e' aperto (le partenze
      * passano); null (riquadro chiuso o orari non installati) le azzera. Con la rete, a ogni lettura scarica anche i
@@ -116,6 +140,7 @@ class MapRouteViewModel @Inject constructor(
         transitJob?.cancel()
         // Un tocco su "Aggiorna i ritardi" rimasto in coda vale per la fermata di prima, non per questa.
         realtimeRequests.tryReceive()
+        showTrip(null)
         _transitBoard.value = null
         _transitRealtime.value = null
         val regionId = regionIdFlow.value
@@ -135,7 +160,7 @@ class MapRouteViewModel @Inject constructor(
                 if (_transitRealtime.value != null) {
                     // Da solo scarica solo le reti con una partenza nell'ora successiva; un tocco le scarica tutte. L'indicatore
                     // di caricamento compare solo se c'e' un download vero.
-                    transitRealtime.refresh(if (tapped) networks else realtimeNetworksDue(board), tapped) {
+                    transitRealtime.refresh(if (tapped) networks else realtimeNetworksDue(board), tapped, alertNetworks = networks) {
                         _transitRealtime.value = transitRealtime.ui(networks, loading = true)
                     }
                     _transitBoard.value = read(transitRealtime.usable(networks))
@@ -177,9 +202,9 @@ class MapRouteViewModel @Inject constructor(
         combine(accessible, filterPreferences.hiddenCategories, onlyAccessible) { accessible, hidden, only ->
             MapUiState(accessible = accessible, hiddenCategories = hidden, onlyAccessible = only)
         },
-        _pins, _presentCategories, combine(_transitBoard, _transitRealtime) { board, realtime -> board to realtime }, mapSource,
-    ) { filters, pins, present, (board, realtime), source ->
-        filters.copy(pins = pins, presentCategories = present, transitBoard = board, transitRealtime = realtime, mapSource = source)
+        _pins, _presentCategories, combine(_transitBoard, _transitRealtime, openTrip, ::Triple), mapSource,
+    ) { filters, pins, present, (board, realtime, trip), source ->
+        filters.copy(pins = pins, presentCategories = present, transitBoard = board, transitRealtime = realtime, trip = trip, mapSource = source)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
@@ -236,16 +261,6 @@ class MapRouteViewModel @Inject constructor(
         _pins.value = withContext(defaultDispatcher) { toPins(inArea) }
     }
 
-    private fun toPins(inArea: AreaPois?): List<MapPin> =
-        inArea?.pois.orEmpty().filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
-            MapPin(
-                poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.osmTag, poi.phone, poi.wheelchair,
-                openingHours = poi.openingHours, address = poi.address, website = poi.website, email = poi.email,
-                nameEn = poi.nameEn, nameIt = poi.nameIt,
-                toiletsWheelchair = poi.toiletsWheelchair, capacityDisabled = poi.capacityDisabled,
-            )
-        }
-
     // Il filtro "In sedia a rotelle" della mappa, come lo applica MapScreen ("solo accessibili" vale solo con quello acceso).
     private fun accessibility(): MapAccessibility = when {
         !accessible.value -> MapAccessibility.ALL
@@ -253,6 +268,16 @@ class MapRouteViewModel @Inject constructor(
         else -> MapAccessibility.NO_INACCESSIBLE
     }
 }
+
+private fun toPins(inArea: AreaPois?): List<MapPin> =
+    inArea?.pois.orEmpty().filter { it.extra || !it.isHiddenOnMap() }.map { poi ->
+        MapPin(
+            poi.id.toString(), poi.name.takeIf { poi.hasName() }, poi.latitude, poi.longitude, poi.poiCategory(), poi.osmTag, poi.phone, poi.wheelchair,
+            openingHours = poi.openingHours, address = poi.address, website = poi.website, email = poi.email,
+            nameEn = poi.nameEn, nameIt = poi.nameIt,
+            toiletsWheelchair = poi.toiletsWheelchair, capacityDisabled = poi.capacityDisabled,
+        )
+    }
 
 /**
  * L'area dei segnalini: [inView] dentro la zona scaricata, null se non si sovrappongono. Una vista a cavallo dei 180 gradi
@@ -295,5 +320,9 @@ data class MapUiState(
     val onlyAccessible: Boolean = false,
     val transitBoard: TransitBoard? = null,
     val transitRealtime: TransitRealtimeUi? = null,
+    val trip: TripUi? = null,
     val mapSource: MapSourceState? = null,
 )
+
+/** La vista della corsa aperta: [view] null a lettura finita vuol dire corsa non trovata (rete aggiornata nel frattempo). */
+data class TripUi(val loading: Boolean, val view: TripView? = null)

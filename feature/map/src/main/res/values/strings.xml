@@ -257,6 +257,21 @@
     <string name="transit_realtime_paused">Aggiornamento automatico dei ritardi in pausa</string>
     <string name="transit_realtime_refresh">Aggiorna i ritardi</string>
     <string name="transit_realtime_refresh_size">Aggiorna i ritardi (%1$s)</string>
+    <plurals name="transit_alerts_count">
+        <item quantity="one">%1$d avviso di servizio</item>
+        <item quantity="many">%1$d avvisi di servizio</item>
+        <item quantity="other">%1$d avvisi di servizio</item>
+    </plurals>
+    <string name="transit_alerts_expand">mostra gli avvisi</string>
+    <string name="transit_alerts_collapse">nascondi gli avvisi</string>
+    <string name="transit_open_trip">mostra la corsa</string>
+    <string name="transit_open_trip_at">Mostra la corsa delle %1$s</string>
+    <string name="transit_later_trips">Partenze successive:</string>
+    <string name="trip_loading">Lettura della corsa…</string>
+    <string name="trip_not_found">Corsa non trovata: gli orari sono cambiati</string>
+    <string name="trip_board_stop">Questa fermata</string>
+    <string name="trip_drop_off_only">Solo discesa</string>
+    <string name="trip_pickup_only">Solo salita</string>
     <plurals name="transit_in_minutes_spoken">
         <item quantity="one">tra %1$d minuto</item>
         <item quantity="many">tra %1$d minuti</item>

@@ -1,7 +1,7 @@
 package com.pockettravel.feature.map
 
-import android.text.format.DateFormat
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
@@ -42,6 +41,7 @@ import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitDeparture
 import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.TransitMode
+import com.pockettravel.core.data.TripRef
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
@@ -49,8 +49,6 @@ import com.pockettravel.core.ui.Spacing
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.util.Date
-import java.util.TimeZone
 import com.pockettravel.core.ui.R as UiR
 
 /**
@@ -82,6 +80,7 @@ fun transitStationModes(osmTag: String): Set<TransitMode> = when (osmTag) {
  * finche' si legge. [onDownload] scarica o aggiorna il pacchetto orari della regione; [updateResult] e' l'esito
  * dell'ultimo tocco, se non ha avviato un download. [staleNetworks]: nomi delle reti installate non piu' pubblicate.
  * [realtime]: il tempo reale delle reti della fermata (null senza, o senza rete), [onRefreshRealtime] "Aggiorna i ritardi".
+ * [trip]: la vista della corsa aperta (null chiusa), [onOpenTrip] e [onCloseTrip] la aprono e la chiudono.
  */
 @Composable
 internal fun TransitDeparturesSection(
@@ -93,9 +92,13 @@ internal fun TransitDeparturesSection(
     onDownload: () -> Unit,
     realtime: TransitRealtimeUi? = null,
     onRefreshRealtime: () -> Unit = {},
+    trip: TripUi? = null,
+    onOpenTrip: (TripRef) -> Unit = {},
+    onCloseTrip: () -> Unit = {},
 ) {
     var selectedLine by rememberSaveable { mutableStateOf<String?>(null) }
     if (state == TransitPackageState.UNKNOWN) return
+    trip?.let { TripSheet(it, onCloseTrip) }
     Column(modifier = Modifier.fillMaxWidth().padding(top = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         Text(
             text = stringResource(R.string.transit_title),
@@ -152,13 +155,14 @@ internal fun TransitDeparturesSection(
                         board.expired.forEach { ExpiredFeedNote(it) }
                         if (updateNearExpired) TextButton(onClick = onDownload) { Text(stringResource(R.string.transit_update)) }
                     }
+                    TransitAlertsBand(board.alerts)
                     if (board.items.isEmpty()) Note(stringResource(R.string.transit_none_soon))
                     // Filtro per linea: solo se le partenze mostrate sono di piu' linee; una linea scelta che sparisce
                     // dopo un aggiornamento vale "Tutte".
                     val lines = board.items.map { it.line }.distinct()
                     val shown = selectedLine?.takeIf { it in lines }
                     if (lines.size > 1) LineFilter(lines, shown) { selectedLine = it }
-                    board.items.filter { shown == null || it.line == shown }.forEach { DepartureRow(it, showAccessibility) }
+                    board.items.filter { shown == null || it.line == shown }.forEach { DepartureRow(it, showAccessibility, onOpenTrip) }
                     // Con le sole reti scadute da poco la scadenza e' gia' nella nota sopra.
                     if (board.daysLeft >= 0) Note(stringResource(R.string.transit_valid_until, formatDate(board.validUntil)))
                     if (board.expiresSoon) {
@@ -193,33 +197,28 @@ internal fun TransitDeparturesSection(
     }
 }
 
-private const val MINUTES_PER_DAY = 24 * 60
-private const val MILLIS_PER_MINUTE = 60_000L
-
 @Composable
-private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean) {
-    // Ora della rete nel formato del dispositivo (24 h o AM/PM, anche per TalkBack). Il formatter va in UTC: minuteOfDay e'
-    // gia' un orario locale della rete e non va spostato col fuso del dispositivo; GTFS supera le 24 h dopo mezzanotte.
-    val context = LocalContext.current
+private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean, onOpenTrip: (TripRef) -> Unit) {
+    // Ora della rete nel formato del dispositivo (24 h o AM/PM, anche per TalkBack), vedi networkClock.
     val res = LocalResources.current
-    val (clock, laterTexts) = remember(departure.minuteOfDay, departure.later, context, res) {
-        val format = DateFormat.getTimeFormat(context).apply { timeZone = TimeZone.getTimeZone("UTC") }
-        fun clockOf(minute: Int) = format.format(Date(Math.floorMod(minute, MINUTES_PER_DAY) * MILLIS_PER_MINUTE))
-        clockOf(departure.minuteOfDay) to laterTexts(
-            departure.later,
-            ::clockOf,
-            LaterLabels(
-                delay = { res.getString(R.string.transit_later_delay, it) },
-                early = { res.getString(R.string.transit_later_early, it) },
-                cancelled = res.getString(R.string.transit_later_cancelled),
-                delaySpoken = { res.getQuantityString(R.plurals.transit_delay_spoken, it, it) },
-                earlySpoken = { res.getQuantityString(R.plurals.transit_early_spoken, it, it) },
-            ),
+    val clockOf = networkClock()
+    val labels = remember(res) {
+        LaterLabels(
+            delay = { res.getString(R.string.transit_later_delay, it) },
+            early = { res.getString(R.string.transit_later_early, it) },
+            cancelled = res.getString(R.string.transit_later_cancelled),
+            delaySpoken = { res.getQuantityString(R.plurals.transit_delay_spoken, it, it) },
+            earlySpoken = { res.getQuantityString(R.plurals.transit_early_spoken, it, it) },
         )
     }
+    val (clock, laterTexts) = remember(departure.minuteOfDay, departure.later, clockOf, labels) {
+        clockOf(departure.minuteOfDay) to laterTexts(departure.later, clockOf, labels)
+    }
     // Le partenze successive della stessa linea e direzione, all'ora programmata con il ritardo accanto: una riga per
-    // linea, anche nelle fermate affollate.
-    val laterText = laterTexts?.let { stringResource(R.string.transit_later, it.visible) }
+    // linea, anche nelle fermate affollate. Con le fermate delle corse ogni orario e' un pulsante che apre la sua corsa,
+    // sotto la riga (fuori dalla voce unica per TalkBack).
+    val laterTrips = departure.later.takeIf { later -> later.isNotEmpty() && later.all { it.trip != null } }
+    val laterText = laterTexts?.takeIf { laterTrips == null }?.let { stringResource(R.string.transit_later, it.visible) }
     val laterSpoken = laterTexts?.let { stringResource(R.string.transit_later, it.spoken) }
     val relative = if (departure.inMinutes <= 0) stringResource(R.string.transit_now) else stringResource(R.string.transit_in_min, departure.inMinutes)
     val relativeSpoken = if (departure.inMinutes <= 0) {
@@ -251,12 +250,16 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
         else -> null
     }
     val cancelled = realtime == DepartureRealtime.Cancelled
+    val openLabel = stringResource(R.string.transit_open_trip)
+    val trip = departure.trip
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Spacing.m),
-        modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
-            contentDescription = listOfNotNull(description, realtimeSpoken, laterSpoken, accessibleText).joinToString(", ")
-        },
+        modifier = Modifier.fillMaxWidth()
+            .then(if (trip != null) Modifier.clickable(onClickLabel = openLabel) { onOpenTrip(trip) } else Modifier)
+            .semantics(mergeDescendants = true) {
+                contentDescription = listOfNotNull(description, realtimeSpoken, laterSpoken, accessibleText).joinToString(", ")
+            },
     ) {
         LineBadge(departure)
         Column(modifier = Modifier.weight(1f)) {
@@ -287,6 +290,7 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
             if (!cancelled) Text(text = relative, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+    if (laterTrips != null) LaterTripButtons(laterTrips, clockOf, labels, onOpenTrip)
 }
 
 // Carrozzina: nel colore del testo se accessibile, barrata e in quello di errore se no (la barra la distingue

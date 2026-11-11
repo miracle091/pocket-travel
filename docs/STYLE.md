@@ -187,6 +187,8 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Minuti dopo l'orario programmato ("+3 min"; nelle partenze successive "10:50 +3") | ritardo (in ritardo di 3 minuti) | delay (3 minutes late) |
 | Minuti prima dell'orario programmato (nelle partenze successive "11:20 −2") | in anticipo | early |
 | Corsa che non parte (nelle partenze successive "11:50 soppressa", minuscolo) | soppressa | canceled |
+| Avviso dell'ente su linee, fermate o corse (deviazioni, lavori, scioperi), distinto dall'allerta meteo | avviso di servizio, avvisi di servizio | service alert, service alerts |
+| Le fermate di una corsa in ordine, aperte dal tocco su una partenza | corsa (Mostra la corsa) | trip (Show the trip) |
 | Ora dell'ultimo download del tempo reale | Aggiornato alle 14:05 | Updated at 14:05 |
 | Pulsante che scarica di nuovo il tempo reale | Aggiorna i ritardi | Refresh delays |
 | Pulsante sotto una risposta dell'assistente con le previsioni più vecchie di 10 minuti | Aggiorna le previsioni | Refresh the forecast |

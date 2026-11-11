@@ -1,10 +1,14 @@
 package com.pockettravel.feature.map
 
 import com.pockettravel.core.data.RealtimeFeed
+import com.pockettravel.core.data.RealtimeTrip
+import com.pockettravel.core.data.TransitAlert
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitDeparture
 import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.TransitMode
+import com.pockettravel.core.data.TransitText
+import com.pockettravel.core.data.TransitTranslation
 import com.pockettravel.feature.map.testing.FakeConnectivityChecker
 import com.pockettravel.feature.map.testing.FakeTransitRealtimeClient
 import com.pockettravel.feature.map.testing.MutableClock
@@ -263,5 +267,115 @@ class TransitRealtimeLoaderTest {
         assertEquals(listOf(small), realtimeNetworksDue(withLater))
         assertEquals(emptyList<TransitFeedInfo>(), realtimeNetworks(TransitBoard.NoStops))
         assertEquals(emptyList<TransitFeedInfo>(), realtimeNetworksDue(null))
+    }
+
+    // Avvisi: un avviso solo con l'intestazione basta a riconoscerlo nei test.
+    private fun alert(title: String) = TransitAlert(
+        emptyList(), emptyList(), null, null, null, null, TransitText(listOf(TransitTranslation(title, "en"))), null,
+    )
+
+    private val alertsOnly = TransitFeedInfo("adl", "Adelaide", "Adelaide", alertsUrl = "https://rt.example/adl-alerts.pb", alertsSizeBytes = 5_000)
+    private val shared = TransitFeedInfo(
+        "tls", "Tolosa", "Tisseo", realtimeUrl = "https://rt.example/tls.pb", realtimeSizeBytes = 30_000,
+        alertsUrl = "https://rt.example/tls.pb", alertsSizeBytes = 30_000,
+    )
+    private val separate = TransitFeedInfo(
+        "mbta", "MBTA", "MBTA", realtimeUrl = "https://rt.example/mbta.pb", realtimeSizeBytes = 30_000,
+        alertsUrl = "https://rt.example/mbta-alerts.pb", alertsSizeBytes = 5_000,
+    )
+
+    @Test
+    fun `una rete con soli avvisi li scarica e li consegna`() = runTest {
+        client.feeds[alertsOnly.alertsUrl!!] = RealtimeFeed(null, emptyMap(), alerts = listOf(alert("Stop chiusa")))
+        loader.refresh(listOf(alertsOnly), tapped = false)
+        assertEquals(listOf(alertsOnly.alertsUrl), client.requests)
+        assertEquals(listOf(alert("Stop chiusa")), loader.usable(listOf(alertsOnly)).getValue("adl").alerts)
+        assertTrue(loader.usable(listOf(alertsOnly)).getValue("adl").trips.isEmpty())
+        assertEquals(clock.now, checkNotNull(loader.ui(listOf(alertsOnly), loading = false)).updatedAt)
+    }
+
+    @Test
+    fun `con lo stesso indirizzo corse e avvisi vengono da un solo download`() = runTest {
+        client.feeds[shared.realtimeUrl!!] = RealtimeFeed(null, emptyMap(), alerts = listOf(alert("Sciopero")))
+        loader.refresh(listOf(shared), tapped = false)
+        assertEquals(listOf(shared.realtimeUrl), client.requests)
+        assertEquals(listOf(alert("Sciopero")), loader.usable(listOf(shared)).getValue("tls").alerts)
+    }
+
+    @Test
+    fun `con indirizzi diversi si scaricano due feed e si uniscono`() = runTest {
+        client.feeds[separate.realtimeUrl!!] = RealtimeFeed(null, emptyMap(), alerts = listOf(alert("Dal feed delle corse")))
+        client.feeds[separate.alertsUrl!!] = RealtimeFeed(null, emptyMap(), alerts = listOf(alert("Dal feed degli avvisi")))
+        loader.refresh(listOf(separate), tapped = false)
+        assertEquals(setOf(separate.realtimeUrl, separate.alertsUrl), client.requests.toSet())
+        assertEquals(2, client.requests.size)
+        assertEquals(listOf(alert("Dal feed degli avvisi")), loader.usable(listOf(separate)).getValue("mbta").alerts)
+    }
+
+    @Test
+    fun `un feed degli avvisi scaduto non porta avvisi, uno delle corse scaduto non porta corse`() = runTest {
+        val trip = RealtimeTrip("t1", null, false, 120, emptyList())
+        client.feeds[separate.realtimeUrl!!] = RealtimeFeed(null, mapOf("t1" to listOf(trip)))
+        client.feeds[separate.alertsUrl!!] = RealtimeFeed(null, emptyMap(), alerts = listOf(alert("Avviso")))
+        loader.refresh(listOf(separate), tapped = false)
+        // Solo gli avvisi si riscaricano: dopo 11 minuti le corse sono scadute, gli avvisi nuovi no.
+        later(Duration.ofMinutes(11))
+        client.feeds.remove(separate.realtimeUrl!!)
+        loader.touch()
+        loader.refresh(listOf(separate), tapped = false)
+        val merged = loader.usable(listOf(separate)).getValue("mbta")
+        assertTrue(merged.trips.isEmpty())
+        assertEquals(listOf(alert("Avviso")), merged.alerts)
+        // Al contrario: gli avvisi non si riscaricano e scadono, le corse arrivano.
+        client.feeds[separate.realtimeUrl!!] = RealtimeFeed(null, mapOf("t1" to listOf(trip)))
+        client.feeds.remove(separate.alertsUrl!!)
+        later(Duration.ofMinutes(11))
+        loader.touch()
+        loader.refresh(listOf(separate), tapped = false)
+        val tripsOnly = loader.usable(listOf(separate)).getValue("mbta")
+        assertEquals(setOf("t1"), tripsOnly.trips.keys)
+        assertTrue(tripsOnly.alerts.isEmpty())
+    }
+
+    @Test
+    fun `su rete a consumo un feed di avvisi grande aspetta un tocco, uno piccolo no`() = runTest {
+        val bigAlerts = separate.copy(alertsSizeBytes = 2_000_000)
+        client.feeds[bigAlerts.alertsUrl!!] = RealtimeFeed(null, emptyMap(), alerts = listOf(alert("Grande")))
+        connectivity.metered = true
+        loader.refresh(listOf(bigAlerts), tapped = false)
+        assertEquals(listOf(bigAlerts.realtimeUrl), client.requests)
+        assertEquals(2_000_000L, loader.ui(listOf(bigAlerts), loading = false)?.tapSizeBytes)
+        later(Duration.ofSeconds(30))
+        loader.refresh(listOf(bigAlerts), tapped = true)
+        assertEquals(listOf(alert("Grande")), loader.usable(listOf(bigAlerts)).getValue("mbta").alerts)
+        assertNull(loader.ui(listOf(bigAlerts), loading = false)?.tapSizeBytes)
+    }
+
+    @Test
+    fun `gli avvisi si riscaricano da soli al piu' ogni cinque minuti, anche senza partenze vicine`() = runTest {
+        client.feeds[alertsOnly.alertsUrl!!] = RealtimeFeed(null, emptyMap())
+        loader.refresh(emptyList(), tapped = false, alertNetworks = listOf(alertsOnly))
+        later(Duration.ofMinutes(2))
+        loader.refresh(emptyList(), tapped = false, alertNetworks = listOf(alertsOnly))
+        assertEquals(1, client.requests.size)
+        later(Duration.ofMinutes(3))
+        loader.refresh(emptyList(), tapped = false, alertNetworks = listOf(alertsOnly))
+        assertEquals(2, client.requests.size)
+        // Le corse di una rete lontana nel tempo non si scaricano: solo gli avvisi, e con lo stesso indirizzo il suo feed.
+        client.feeds[shared.realtimeUrl!!] = RealtimeFeed(null, emptyMap())
+        loader.refresh(emptyList(), tapped = false, alertNetworks = listOf(shared))
+        assertEquals(listOf(shared.realtimeUrl), client.requests.drop(2))
+        later(Duration.ofMinutes(2))
+        loader.refresh(emptyList(), tapped = false, alertNetworks = listOf(shared))
+        assertEquals(3, client.requests.size)
+    }
+
+    @Test
+    fun `realtimeNetworks comprende le reti con i soli avvisi, realtimeNetworksDue no`() {
+        val board = TransitBoard.Departures(
+            listOf(departure("adl", 5), departure("renfe", 5)), LocalDate.parse("2026-11-01"), 10, listOf(alertsOnly, small),
+        )
+        assertEquals(listOf(alertsOnly, small), realtimeNetworks(board))
+        assertEquals(listOf(small), realtimeNetworksDue(board))
     }
 }
