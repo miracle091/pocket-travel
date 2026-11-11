@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.data:exchange-rates",
+  "name": "Frankfurter",
+  "website": "https://frankfurter.dev",
+  "licenses": [
+    "frankfurter-terms"
+  ],
+  "tag": "data"
+}

@@ -8,8 +8,8 @@ import java.util.Locale
 // Wikivoyage, GenerateGuideContent.quickFactsSection) resta com'e' per l'assistente IA, qui si
 // aggiungono i dati che i Fatti rapidi pubblicati non hanno e si tolgono quelli che la guida mostra gia' altrove.
 
-/** Dati aggiunti ai fatti rapidi quando la guida non li ha. */
-internal data class QuickFactsExtra(val language: String?, val currency: String?, val transport: String?)
+/** Dati aggiunti ai fatti rapidi quando la guida non li ha; [currencyRate], il tasso di cambio, va sotto la valuta. */
+internal data class QuickFactsExtra(val language: String?, val currency: String?, val transport: String?, val currencyRate: String? = null)
 
 /**
  * Nomi dei campi nella lingua delle guide installate (italiane o inglesi, vedi englishQuickFactsSection
@@ -65,6 +65,8 @@ internal fun quickFactsBody(body: String, extra: QuickFactsExtra, labels: QuickF
     fields[labels.timeZone]?.let { fields[labels.timeZone] = it.replace(Regex("""\bUTC\b"""), "GMT") }
     if (labels.language !in fields) extra.language?.let { fields[labels.language] = it }
     if (labels.currency !in fields) extra.currency?.let { fields[labels.currency] = it }
+    // Solo sotto una valuta: senza valuta il tasso non direbbe di quale si parla.
+    extra.currencyRate?.let { rate -> fields[labels.currency]?.let { fields[labels.currency] = "$it\n$rate" } }
     extra.transport?.let { fields[labels.transport] = it }
     // un valore su piu' righe (l'elenco dei trasporti) va a capo dopo l'etichetta
     val line = { key: String, value: String -> if ('\n' in value) "$key:\n$value" else "$key: $value" }

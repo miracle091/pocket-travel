@@ -233,6 +233,11 @@ servizio con prezzi e temperatura, scritti da `scripts/online_models.py` unendo 
 compaiono in `/models` dell'account. Senza le fonti, o con più di 60 modelli per servizio o un prezzo oltre 1000
 dollari per milione di token, il file si pubblica senza `otherModels`, con un avviso.
 
+`exchange-rates.json` dà i tassi di cambio indicativi dei fatti rapidi delle guide. `publish-exchange-rates.yml` lo
+prepara ogni giorno da Frankfurter v2 (`/v2/rates?base=EUR`, solo le valute di `/v2/currencies`, il peso cubano da
+`providers=BCC`) con `scripts/exchange_rates.py`, aggiunge `publishedAt`, lo firma e lo pubblica sulla release
+`app-status`. Se Frankfurter non risponde o dà meno di 100 valute, il job fallisce e resta il file precedente.
+
 Impostazione della chiave (una volta sola; la chiave privata non va mai committata):
 
 ```bash
@@ -326,6 +331,28 @@ Indice, firmato come gli altri JSON e puntato dalla voce `"addressGrid": { "vers
   `addresses.pmtiles` locale e usa come versione dei numeri civici `grid-` + i primi 16 esadecimali dello sha256
   degli `id@version` delle celle ordinati (`+search` per le celle con l'indice di ricerca;
   `AddressGridSelection.kt`).
+
+## Completamento dei biglietti (asset di `feature/vault`)
+
+`scripts/vault_travel_data.py` scrive `airports.tsv.gz` e `airlines.tsv.gz` in `feature/vault/src/main/assets`; si
+lancia a mano e i due file si committano. Fonti:
+
+- aeroporti da OurAirports (pubblico dominio), compagnie da Wikidata (CC0);
+- nomi italiani delle città da Wikidata (CC0), senza i luoghi che sono regioni o contee (ABC dava "Castiglia-La
+  Mancia");
+- da OpenTravelData (CC BY 4.0, nomi da GeoNames, CC BY 4.0):
+  - il nome italiano della città per gli aeroporti senza un nome da Wikidata;
+  - le città con più aeroporti (`ROM · Roma · CIA, FCO`);
+  - stazioni e autostazioni d'Europa con codice IATA (Milano Centrale `XIK`);
+  - le compagnie con un codice IATA che Wikidata non ha (Korean Air `KE`, Azul `AD`), tolte quelle che Wikidata
+    dà per chiuse con lo stesso nome e codice (OPTD non segna tutte le chiusure: Jet Airways `9W`).
+
+OpenTravelData si scarica a un commit fisso, con controllo SHA-256. Si legge solo la cartella `opentraveldata/`, mai
+`data/`, che contiene dati di IATA, OAG e altri. Si tengono solo le righe ancora valide e mai le colonne `page_rank`,
+`wac`, `unlc_list` e `uic_list`. Per aggiornarlo si cambiano commit e impronte in `OPTD_URL`, `OPTD_POR` e
+`OPTD_AIRLINES`. Questi dati stanno solo negli asset dell'APK: non si uniscono alle tabelle ODbL dei pacchetti delle
+regioni (CC BY 4.0 e ODbL non sono compatibili senza deroga). L'attribuzione è in `app/aboutlibraries/libraries/data-airports.json`
+e nelle stringhe `licenses_*_airports`.
 
 ## Vaccinazioni (tabelle `vacc_*` di `guides.db`)
 

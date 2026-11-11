@@ -60,7 +60,7 @@ internal fun SuggestionField(
                                 .padding(horizontal = Spacing.m, vertical = Spacing.s),
                         ) {
                             Text(
-                                text = "${entry.code} · ${entry.name}",
+                                text = entry.title(italian),
                                 style = MaterialTheme.typography.bodyMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,

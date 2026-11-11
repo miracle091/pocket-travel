@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.pockettravel.core.data.ExchangeRates
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RegionZonePreferences
@@ -22,7 +23,7 @@ import java.io.IOException
  * [RegionSyncScheduler] — manifest.json e' pochi KB): confronta il `manifest.json` remoto con le
  * regioni già installate e, se la versione di un pacchetto installato è cambiata, notifica — i
  * pacchetti delle regioni non si scaricano mai in automatico; solo le guide, su Wi-Fi. Controlla anche civici e orari
- * dei mezzi pubblici ([regionUpdates]).
+ * dei mezzi pubblici ([regionUpdates]) e scarica i tassi di cambio ([ExchangeRates]).
  */
 @HiltWorker
 class RegionManifestSyncWorker @AssistedInject constructor(
@@ -35,6 +36,7 @@ class RegionManifestSyncWorker @AssistedInject constructor(
     private val addressGridClient: AddressGridClient,
     private val transitClient: TransitClient,
     private val regionZonePreferences: RegionZonePreferences,
+    private val exchangeRates: ExchangeRates,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : CoroutineWorker(context, params) {
 
@@ -60,6 +62,8 @@ class RegionManifestSyncWorker @AssistedInject constructor(
         if (regionRepository.installedGuidesVersion() != guides.installedVersion) {
             scheduler.enqueueGuidesSync(onlyOnWifi = !guides.automaticOnMeteredNetwork, automatic = true)
         }
+        // I tassi di cambio del fatto rapido "Valuta": scaricati qui restano per le guide aperte senza rete.
+        exchangeRates.latest()
         Result.success()
     } catch (error: CancellationException) {
         throw error

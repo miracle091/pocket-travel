@@ -5,6 +5,8 @@ import android.net.ConnectivityManager
 import androidx.activity.ComponentActivity
 import com.pockettravel.core.data.AddressSearchRepository
 import com.pockettravel.core.data.CarRouteCalculator
+import com.pockettravel.core.data.ExchangeRateTable
+import com.pockettravel.core.data.ExchangeRates
 import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.TransitRepository
@@ -95,7 +97,7 @@ object NetworkGuard {
     val attempted = CopyOnWriteArrayList<String>()
 }
 
-// Catalogo, mezzi pubblici, civici, stato dell'app e modelli online: fake in memoria. Il client HTTP condiviso rifiuta ogni
+// Catalogo, mezzi pubblici, civici, stato dell'app, modelli online e tassi di cambio: fake in memoria. Il client HTTP condiviso rifiuta ogni
 // richiesta e la annota in NetworkGuard, cosi' un percorso non previsto fa fallire il test invece di uscire in rete.
 @Module
 @TestInstallIn(components = [SingletonComponent::class], replaces = [SyncModule::class, SyncBindingsModule::class])
@@ -139,6 +141,11 @@ object TestSyncModule {
     @Provides
     fun onlineModelsClient(): OnlineModelsClient = object : OnlineModelsClient {
         override suspend fun fetchOnlineModels(): ByteArray = throw IOException("offline")
+    }
+
+    @Provides
+    fun exchangeRates(): ExchangeRates = object : ExchangeRates {
+        override suspend fun latest(): ExchangeRateTable? = null
     }
 
     @Provides

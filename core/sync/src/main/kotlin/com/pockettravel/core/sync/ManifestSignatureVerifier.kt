@@ -101,7 +101,7 @@ class ManifestSignatureVerifier @Inject constructor(
     // Nome del file nell'url (manifest.json, ...): chiave dell'ultimo publishedAt accettato.
     // app-status.json del progetto ha un posto solo suo: un file di un altro catalogo con lo stesso nome non lo
     // tocca, altrimenti una data molto avanti bloccherebbe per sempre gli avvisi di aggiornamento.
-    // Lo stesso vale per online-models.json.
+    // Lo stesso vale per online-models.json ed exchange-rates.json.
     private fun fileKind(url: String): String {
         val name = URI(url).path.substringAfterLast('/')
         return if (name in PROJECT_KINDS && url !in PROJECT_URLS) "catalog:$name" else name
@@ -109,7 +109,7 @@ class ManifestSignatureVerifier @Inject constructor(
 
     private fun enabled(): Boolean = BuildConfig.MANIFEST_URL_OVERRIDE.isEmpty()
 
-    // app-status.json (versioni dell'app e dei modelli) e online-models.json vengono sempre dal progetto,
+    // app-status.json (versioni dell'app e dei modelli), online-models.json ed exchange-rates.json vengono sempre dal progetto,
     // anche con un altro catalogo.
     private fun publicKeyFor(url: String): String =
         if (url in PROJECT_URLS) SyncConfig.OFFICIAL_PUBLIC_KEY else SyncConfig.MANIFEST_PUBLIC_KEY
@@ -133,9 +133,10 @@ class ManifestSignatureVerifier @Inject constructor(
         /** Chiave di app-status.json nel PublishedAtStore: resta anche al cambio di catalogo. */
         const val APP_STATUS_KIND = "app-status.json"
         const val ONLINE_MODELS_KIND = "online-models.json"
+        const val EXCHANGE_RATES_KIND = "exchange-rates.json"
 
         /** File che vengono sempre dal progetto, firmati con la sua chiave, qualunque sia il catalogo. */
-        val PROJECT_KINDS = setOf(APP_STATUS_KIND, ONLINE_MODELS_KIND)
-        private val PROJECT_URLS = setOf(SyncConfig.appStatusUrl, SyncConfig.ONLINE_MODELS_URL)
+        val PROJECT_KINDS = setOf(APP_STATUS_KIND, ONLINE_MODELS_KIND, EXCHANGE_RATES_KIND)
+        private val PROJECT_URLS = setOf(SyncConfig.appStatusUrl, SyncConfig.ONLINE_MODELS_URL, SyncConfig.EXCHANGE_RATES_URL)
     }
 }

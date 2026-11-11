@@ -1,0 +1,6 @@
+{
+  "name": "Frankfurter terms",
+  "url": "https://frankfurter.dev/license/",
+  "hash": "frankfurter-terms",
+  "content": "Blended rates are Frankfurter's own calculation and free to use. Direct queries to individual provider endpoints remain subject to each provider's terms. Blended rates are not an official rate from any institution. Rates and the API come as is, with no warranty; rates can be late, missing, or revised. The Banco Central de Cuba publishes no terms of use. Frankfurter code: MIT License. Full terms: https://frankfurter.dev/license/"
+}

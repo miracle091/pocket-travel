@@ -10,7 +10,7 @@ import kotlinx.coroutines.withContext
 internal class TravelData(val airports: SuggestionIndex, val airlines: SuggestionIndex)
 
 // Carica gli asset solo alla prima apertura del form di un biglietto, fuori dal thread principale, e
-// li tiene in memoria per il resto del processo (circa 11 mila voci).
+// li tiene in memoria per il resto del processo (circa 12 mila voci).
 internal object TravelDataLoader {
     @Volatile
     private var cached: TravelData? = null

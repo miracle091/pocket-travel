@@ -26,7 +26,7 @@ class TravelEntryTest {
         val entry = parseAirports(listOf("ZRH\tLSZH\tZürich Airport\tZürich\tCH")).single()
 
         assertEquals(listOf("zrh", "lszh"), entry.codes)
-        assertEquals("zurich airport", entry.nameKey)
+        assertEquals(listOf("zurich airport"), entry.nameKeys)
         assertTrue(entry.words.containsAll(listOf("zurich", "airport", "ch")))
     }
 

@@ -1,16 +1,18 @@
 package com.pockettravel.core.sync.di
 
+import com.pockettravel.core.data.ExchangeRates
 import com.pockettravel.core.sync.AddressGridClient
 import com.pockettravel.core.sync.ApkInspector
 import com.pockettravel.core.sync.AppStatusClient
 import com.pockettravel.core.sync.AppUpdateDownloads
 import com.pockettravel.core.sync.CatalogPreferences
 import com.pockettravel.core.sync.DefaultCatalogPreferences
-import com.pockettravel.core.sync.HttpAppStatusClient
 import com.pockettravel.core.sync.HttpAddressGridClient
+import com.pockettravel.core.sync.HttpAppStatusClient
+import com.pockettravel.core.sync.HttpExchangeRates
 import com.pockettravel.core.sync.HttpManifestClient
-import com.pockettravel.core.sync.HttpTransitClient
 import com.pockettravel.core.sync.HttpOnlineModelsClient
+import com.pockettravel.core.sync.HttpTransitClient
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.OnlineModelsClient
 import com.pockettravel.core.sync.PackageManagerApkInspector
@@ -45,6 +47,9 @@ abstract class SyncBindingsModule {
 
     @Binds
     abstract fun bindOnlineModelsClient(impl: HttpOnlineModelsClient): OnlineModelsClient
+
+    @Binds
+    abstract fun bindExchangeRates(impl: HttpExchangeRates): ExchangeRates
 
     @Binds
     abstract fun bindCatalogPreferences(impl: DefaultCatalogPreferences): CatalogPreferences

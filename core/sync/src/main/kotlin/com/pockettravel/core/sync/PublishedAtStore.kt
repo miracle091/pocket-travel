@@ -7,7 +7,7 @@ import kotlinx.serialization.json.longOrNull
 
 /**
  * Ultimo `publishedAt` (secondi Unix, scritto dalla pipeline prima della firma) accettato per ogni file firmato,
- * chiave = nome del file (manifest.json, transit.json, address-grid.json, app-status.json, online-models.json). La firma copre solo
+ * chiave = nome del file (manifest.json, transit.json, address-grid.json, app-status.json, online-models.json, exchange-rates.json). La firma copre solo
  * i byte del file: senza questo, una vecchia coppia file + .sig ripubblicata verrebbe accettata.
  */
 interface PublishedAtStore {

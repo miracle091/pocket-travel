@@ -269,9 +269,9 @@
     <string name="licenses_component_natural_earth">Natural Earth (confini dei paesi, mappa delle nazioni)</string>
     <string name="licenses_name_public_domain">Pubblico dominio</string>
     <string name="licenses_note_natural_earth">Dati in scala 1:50m, ridotti a confini, codice ISO e nome del paese</string>
-    <string name="licenses_component_airports">OurAirports (aeroporti) e Wikidata (compagnie aeree, nomi delle città)</string>
-    <string name="licenses_name_airports">Pubblico dominio (OurAirports), CC0 (Wikidata)</string>
-    <string name="licenses_note_airports">Completamento di aeroporti e compagnie aeree nei biglietti dei documenti. I dati di OurAirports sono forniti senza garanzie</string>
+    <string name="licenses_component_airports">OurAirports (aeroporti), Wikidata (compagnie aeree, nomi delle città), OpenTravelData e GeoNames (città con più aeroporti, stazioni d\'Europa, altre compagnie aeree e nomi delle città)</string>
+    <string name="licenses_name_airports">Pubblico dominio (OurAirports), CC0 (Wikidata), CC BY 4.0 (OpenTravelData, GeoNames)</string>
+    <string name="licenses_note_airports">Completamento di aeroporti, città, stazioni e compagnie aeree nei biglietti dei documenti. Dati di OpenTravelData, con nomi da GeoNames, modificati: solo i codici ancora validi, uniti ai dati di OurAirports e Wikidata. I dati di OurAirports, OpenTravelData e GeoNames sono forniti senza garanzie</string>
     <string name="licenses_component_flags">Bandiere nazionali (westnordost/flags-vector-drawables-android)</string>
     <string name="licenses_name_flags">Licenza di ciascuna bandiera su Wikipedia/Wikimedia Commons, in gran parte pubblico dominio</string>
     <string name="licenses_note_flags">Vettoriali esportati dalle bandiere di Wikipedia (Timeline of national flags)</string>
@@ -288,6 +288,8 @@
     <string name="licenses_note_wikidata">Dati dedicati al pubblico dominio</string>
     <string name="licenses_component_weather">Meteo: Open-Meteo.com (previsioni) e GeoNames (posizione delle città)</string>
     <string name="licenses_note_weather">Weather data by Open-Meteo.com, uso non commerciale. Coordinate delle città dal geocoding di Open-Meteo, basato su GeoNames</string>
+    <string name="licenses_component_exchange_rates">Tassi di cambio: Frankfurter (frankfurter.dev)</string>
+    <string name="licenses_note_exchange_rates">Tassi di cambio indicativi da Frankfurter (frankfurter.dev): media dei tassi delle banche centrali calcolata da Frankfurter, libera da usare. Il peso cubano usa il tasso della Banca Centrale di Cuba. Solo informativi, non valgono per un cambio reale</string>
     <string name="licenses_component_wordnet">Assistente IA: Open English WordNet e MultiWordNet (argomento delle domande)</string>
     <string name="licenses_note_wordnet">Parole per riconoscere l\'argomento delle domande, scelte tra i sinonimi di Open English WordNet 2025 (Open English WordNet team, derivato da Princeton WordNet) e di MultiWordNet (E. Pianta, L. Bentivogli, C. Girardi, MultiWordNet: Developing an Aligned Multilingual Database, 2002)</string>
     <string name="licenses_component_alerts_gdacs">Allerte in corso: catastrofi da GDACS</string>

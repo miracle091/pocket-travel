@@ -262,9 +262,9 @@
     <string name="licenses_component_natural_earth">Natural Earth (country borders, country map)</string>
     <string name="licenses_name_public_domain">Public domain</string>
     <string name="licenses_note_natural_earth">1:50m data, reduced to borders, ISO code and country name</string>
-    <string name="licenses_component_airports">OurAirports (airports) and Wikidata (airlines, city names)</string>
-    <string name="licenses_name_airports">Public domain (OurAirports), CC0 (Wikidata)</string>
-    <string name="licenses_note_airports">Airport and airline autocomplete in document tickets. OurAirports data is provided without warranty</string>
+    <string name="licenses_component_airports">OurAirports (airports), Wikidata (airlines, city names), OpenTravelData and GeoNames (cities with several airports, European stations, more airlines and city names)</string>
+    <string name="licenses_name_airports">Public domain (OurAirports), CC0 (Wikidata), CC BY 4.0 (OpenTravelData, GeoNames)</string>
+    <string name="licenses_note_airports">Airport, city, station and airline autocomplete in document tickets. OpenTravelData data, with names from GeoNames, modified: only the codes still valid, merged with OurAirports and Wikidata data. OurAirports, OpenTravelData and GeoNames data is provided without warranty</string>
     <string name="licenses_component_flags">National flags (westnordost/flags-vector-drawables-android)</string>
     <string name="licenses_name_flags">License of each flag on Wikipedia/Wikimedia Commons, mostly public domain</string>
     <string name="licenses_note_flags">Vectors exported from the Wikipedia flags (Timeline of national flags)</string>
@@ -281,6 +281,8 @@
     <string name="licenses_note_wikidata">Data dedicated to the public domain</string>
     <string name="licenses_component_weather">Weather: Open-Meteo.com (forecasts) and GeoNames (city locations)</string>
     <string name="licenses_note_weather">Weather data by Open-Meteo.com, non-commercial use. City coordinates from the Open-Meteo geocoding, based on GeoNames</string>
+    <string name="licenses_component_exchange_rates">Exchange rates: Frankfurter (frankfurter.dev)</string>
+    <string name="licenses_note_exchange_rates">Indicative exchange rates from Frankfurter (frankfurter.dev): a blend of central bank rates calculated by Frankfurter, free to use. The Cuban peso uses the rate of the Banco Central de Cuba. For information only, not valid for an actual exchange</string>
     <string name="licenses_component_wordnet">AI assistant: Open English WordNet and MultiWordNet (topic of questions)</string>
     <string name="licenses_note_wordnet">Words for recognizing the topic of questions, chosen among the synonyms of Open English WordNet 2025 (Open English WordNet team, derived from Princeton WordNet) and MultiWordNet (E. Pianta, L. Bentivogli, C. Girardi, MultiWordNet: Developing an Aligned Multilingual Database, 2002)</string>
     <string name="licenses_component_alerts_gdacs">Active alerts: disasters from GDACS</string>

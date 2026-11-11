@@ -95,6 +95,10 @@ object SyncConfig {
     // feature/ai/src/main/assets/online-models.json (publish-online-models.yml), non con l'app.
     const val ONLINE_MODELS_URL = "https://github.com/miracle091/pocket-travel/releases/download/app-status/online-models.json"
 
+    // Tassi di cambio indicativi del fatto rapido "Valuta" (ExchangeRates), sulla stessa release: ogni giorno
+    // (publish-exchange-rates.yml).
+    const val EXCHANGE_RATES_URL = "https://github.com/miracle091/pocket-travel/releases/download/app-status/exchange-rates.json"
+
     // Pagina dell'ultima release dell'app (l'APK), aperta dalla notifica di aggiornamento: le release dei dati non sono
     // mai segnate come "Latest".
     const val APP_RELEASES_URL = "https://github.com/miracle091/pocket-travel/releases/latest"

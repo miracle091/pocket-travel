@@ -33,6 +33,7 @@ import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.data.GuideSourceTarget
+import com.pockettravel.core.data.IndicativeRate
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AlertsCard
 import com.pockettravel.core.ui.AppIcons
@@ -40,9 +41,9 @@ import com.pockettravel.core.ui.CardDescription
 import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
-import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.WeatherCard
+import com.pockettravel.core.ui.R as UiR
 
 @Composable
 fun GuideScreen(
@@ -57,6 +58,7 @@ fun GuideScreen(
     onTargetConsumed: () -> Unit = {},
     viewModel: GuideViewModel = hiltViewModel(),
     vaccinationViewModel: VaccinationViewModel = hiltViewModel(),
+    exchangeRateViewModel: ExchangeRateViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(regionId, catalogCountry) { viewModel.load(regionId, catalogCountry) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -77,6 +79,7 @@ fun GuideScreen(
     LaunchedEffect(regionId) { vaccinationViewModel.load(regionId) }
     val vaccinationState by vaccinationViewModel.uiState.collectAsStateWithLifecycle()
     var showVaccinations by rememberSaveable(regionId) { mutableStateOf(false) }
+    val exchangeRates by exchangeRateViewModel.state.collectAsStateWithLifecycle()
 
     GuideContent(
         uiState = uiState,
@@ -92,6 +95,7 @@ fun GuideScreen(
         onRefreshWeather = viewModel::refreshWeather,
         focus = focus?.takeIf { it.target.city == null },
         onRetry = { viewModel.load(regionId, catalogCountry, reload = true) },
+        exchangeRate = exchangeRates?.rateTo(uiState.countryCode),
     )
 
     if (showVaccinations && vaccinationState.available) {
@@ -126,6 +130,7 @@ internal fun GuideContent(
     onRefreshWeather: () -> Unit = {},
     focus: FocusRequest? = null,
     onRetry: () -> Unit = {},
+    exchangeRate: IndicativeRate? = null,
 ) {
     when {
         uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -152,7 +157,7 @@ internal fun GuideContent(
             )
         }
 
-        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities, vaccination, onOpenVaccination, excludedTransit, onBack, onRefreshWeather, focus)
+        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities, vaccination, onOpenVaccination, excludedTransit, onBack, onRefreshWeather, focus, exchangeRate)
     }
 }
 
@@ -163,7 +168,7 @@ internal fun GuideBackButton(onBack: () -> Unit) {
     }
 }
 
-// FATTI_RAPIDI (lingua, elettricita', fuso orario, valuta, numeri di emergenza) in cima alla
+// FATTI_RAPIDI (lingua, elettricita', fuso orario, valuta con il tasso di cambio, numeri di emergenza) in cima alla
 // guida non filtrata: sortedBy e' stabile, le altre sezioni restano nel loro ordine.
 @Composable
 private fun GuideSectionsList(
@@ -176,11 +181,12 @@ private fun GuideSectionsList(
     onBack: (() -> Unit)?,
     onRefreshWeather: () -> Unit,
     focus: FocusRequest?,
+    exchangeRate: IndicativeRate?,
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
     val transport = transportSummary(uiState.transportCounts)
     val uiLanguage = LocalLocale.current.platformLocale.language
-    val orderedSections = remember(uiState.sections, uiState.countryCode, transport, uiLanguage) {
+    val orderedSections = remember(uiState.sections, uiState.countryCode, transport, uiLanguage, exchangeRate) {
         uiState.sections
             .sortedBy { if (it.category == GuideCategory.FATTI_RAPIDI) 0 else 1 }
             .map { section ->
@@ -191,6 +197,7 @@ private fun GuideSectionsList(
                     language = uiState.countryCode?.let { languageOf(it, labels.locale) },
                     currency = uiState.countryCode?.let { currencyOf(it, labels.locale) },
                     transport = transport,
+                    currencyRate = exchangeRateText(exchangeRate, labels.locale),
                 )
                 section.copy(body = quickFactsBody(section.body, extra, labels))
             }

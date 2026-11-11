@@ -1,0 +1,83 @@
+name: Publish exchange rates
+
+# Pubblica exchange-rates.json, i tassi di cambio indicativi del fatto rapido "Valuta" delle guide
+# (core:data/ExchangeRates), sulla release fissa "app-status", accanto ad app-status.json e online-models.json: l'app
+# lo scarica con il controllo del catalogo e all'apertura della guida, e nasconde il tasso di una valuta dopo 14 giorni
+# senza aggiornamento. I tassi vengono da Frankfurter v2 (https://frankfurter.dev), media dei tassi di riferimento
+# delle banche centrali; il peso cubano dalla Banca Centrale di Cuba (tools/data-pipeline/scripts/exchange_rates.py).
+# Se Frankfurter non risponde o da' troppe poche valute il job fallisce e resta il file pubblicato prima.
+# Prima della firma aggiunge publishedAt (secondi Unix): l'app rifiuta un file piu' vecchio dell'ultimo accettato
+# (core:sync/PublishedAtStore).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/data-pipeline/scripts/exchange_rates.py
+  schedule:
+    # Ogni giorno 17:47 UTC: dopo i tassi europei del pomeriggio (BCE alle 16:00 CET); quelli asiatici e americani
+    # del giorno prima ci sono gia'.
+    - cron: "47 17 * * *"
+  workflow_dispatch:
+
+# Minimo a livello di workflow: contents: write solo al job che pubblica.
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    # Gruppo proprio, come publish-online-models.yml: due run ravvicinate pubblicano in ordine.
+    concurrency:
+      group: publish-exchange-rates
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Senza segreti: elabora JSON di terzi (Frankfurter), quindi non vede la chiave di firma.
+      - name: Scarica e prepara exchange-rates.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          source .github/scripts/retry.sh
+          API="https://api.frankfurter.dev/v2"
+          UA="pocket-travel-publish-exchange-rates/1 (https://github.com/miracle091/pocket-travel)"
+          OUT="$RUNNER_TEMP/exchange-rates.json"
+          if ! retry curl -fsSL -A "$UA" -o "$RUNNER_TEMP/rates.json" "$API/rates?base=EUR" \
+            || ! retry curl -fsSL -A "$UA" -o "$RUNNER_TEMP/currencies.json" "$API/currencies"; then
+            echo "::error::Frankfurter non risponde: non pubblico, resta il file precedente"
+            echo "Frankfurter non risponde: exchange-rates.json non pubblicato, resta il file precedente." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          # Senza il tasso della Banca Centrale di Cuba il peso cubano resta fuori (exchange_rates.py), il resto si pubblica.
+          retry curl -fsSL -A "$UA" -o "$RUNNER_TEMP/bcc.json" "$API/rates?providers=BCC&base=EUR&quotes=CUP" \
+            || echo "::warning::tasso della Banca Centrale di Cuba non disponibile: CUP resta fuori"
+          if ! python3 tools/data-pipeline/scripts/exchange_rates.py "$RUNNER_TEMP/rates.json" "$RUNNER_TEMP/bcc.json" \
+            "$RUNNER_TEMP/currencies.json" "$RUNNER_TEMP/prepared.json"; then
+            echo "::error::risposta di Frankfurter non valida: non pubblico, resta il file precedente"
+            echo "Risposta di Frankfurter non valida (log del passo): exchange-rates.json non pubblicato." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          jq -c --argjson publishedAt "$(date +%s)" '{publishedAt: $publishedAt} + .' "$RUNNER_TEMP/prepared.json" > "$OUT"
+
+      # Solo firma e caricamento, con la chiave: il file da firmare e' quello del passo precedente.
+      - name: Firma e pubblica exchange-rates.json
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANIFEST_SIGNING_KEY: ${{ secrets.MANIFEST_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/retry.sh
+          OUT="$RUNNER_TEMP/exchange-rates.json"
+          bash .github/scripts/sign-files.sh "$OUT"
+          ensure_release app-status \
+            "Stato app" \
+            "app-status.json: versione corrente dell'app e dei modelli IA sul dispositivo, letti da core:sync/AppUpdateCheckWorker e feature:ai/LlmModelUpdateCheckWorker. Non e' una release software."
+          retry gh release upload app-status "$OUT" "$OUT.sig" --repo "${{ github.repository }}" --clobber

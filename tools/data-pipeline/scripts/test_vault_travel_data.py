@@ -5,6 +5,7 @@ nessuna rete, le righe di esempio sono nel test.
 Uso: python test_vault_travel_data.py
 """
 import gzip
+import hashlib
 import io
 import sys
 import tempfile
@@ -174,6 +175,125 @@ class ParseAirlinesEdgeTest(unittest.TestCase):
         self.assertEqual([], v.parse_airlines([]))
 
 
+COLONNE_POR = ("iata_code^icao_code^faa_code^is_geonames^geoname_id^envelope_id^name^asciiname^latitude^longitude^"
+               "fclass^fcode^page_rank^date_from^date_until^comment^country_code^cc2^country_name^continent_name^"
+               "adm1_code^adm1_name_utf^adm1_name_ascii^adm2_code^adm2_name_utf^adm2_name_ascii^adm3_code^adm4_code^"
+               "population^elevation^gtopo30^timezone^gmt_offset^dst_offset^raw_offset^moddate^city_code_list^"
+               "city_name_list^city_detail_list^tvl_por_list^iso31662^location_type^wiki_link^alt_name_section^wac^"
+               "wac_name^ccy_code^unlc_list^uic_list^geoname_lat^geoname_lon").split("^")
+
+
+def por(*righe):
+    """optd_por_public.csv con le righe date come dizionari (le colonne mancanti restano vuote)."""
+    base = {"page_rank": "0.5", "wac": "123", "unlc_list": "ITROM|", "uic_list": "8300263|", "continent_name": "Europe"}
+    return "^".join(COLONNE_POR) + "\n" + "".join(
+        "^".join({**base, **r}.get(c, "") for c in COLONNE_POR) + "\n" for r in righe)
+
+
+POR = por(
+    {"iata_code": "ROM", "name": "Rome", "location_type": "C", "country_code": "IT", "city_code_list": "ROM",
+     "alt_name_section": "en|Rome|p=it|Roma|="},
+    {"iata_code": "FCO", "icao_code": "LIRF", "name": "Fiumicino", "location_type": "A", "country_code": "IT",
+     "city_code_list": "ROM"},
+    {"iata_code": "CIA", "icao_code": "LIRA", "name": "Ciampino", "location_type": "A", "country_code": "IT",
+     "city_code_list": "ROM"},
+    {"iata_code": "XRJ", "name": "Roma Termini", "location_type": "R", "country_code": "IT", "city_code_list": "ROM"},
+    {"iata_code": "ZRH", "icao_code": "LSZH", "name": "Zurich", "location_type": "A", "country_code": "CH",
+     "city_code_list": "ZRH"},
+    {"iata_code": "ZRH", "name": "Zurich", "location_type": "C", "country_code": "CH", "city_code_list": "ZRH",
+     "alt_name_section": "it|Zurigo|=it|Zurigo città|p="},
+    # Codice storico riassegnato: AAW era un aeroporto, oggi e' una stazione.
+    {"iata_code": "AAW", "icao_code": "OPAW", "name": "Abbottabad", "location_type": "A", "country_code": "PK",
+     "date_until": "2010-01-01", "continent_name": "Asia"},
+    {"iata_code": "AAW", "name": "Aachen West", "location_type": "R", "country_code": "DE", "city_code_list": "AAH"},
+    {"iata_code": "OLD", "name": "Vecchio", "location_type": "A", "envelope_id": "1", "city_code_list": "ROM"},
+    {"iata_code": "QLS", "icao_code": "LSGL", "name": "Lausanne", "location_type": "R", "country_code": "CH"},
+    {"iata_code": "XBU", "name": "Autostazione", "location_type": "B", "country_code": "IT", "city_code_list": "XXX"},
+    {"iata_code": "NYP", "name": "Penn Station", "location_type": "R", "country_code": "US",
+     "continent_name": "North America"},
+)
+
+
+AIRLINES_OPTD = "pk^env_id^validity_from^validity_to^3char_code^2char_code^name\na^^2015-01-01^^NKS^NK^Spirit Airlines\n"
+
+
+class OptdTest(unittest.TestCase):
+    def test_nome_italiano_preferito_altrimenti_il_primo(self):
+        self.assertEqual("Roma", v.nome_italiano("en|Rome|p=it|Roma|=it|Urbe|="))
+        self.assertEqual("Zurigo città", v.nome_italiano("it|Zurigo|=it|Zurigo città|p="))
+        self.assertEqual("Zurigo città", v.nome_italiano("it|Zurigo|=it|Zurigo città|ps="))
+        self.assertEqual("", v.nome_italiano("en|Rome|p=|Roma|="))
+        self.assertEqual("", v.nome_italiano(""))
+
+    def test_solo_righe_valide_e_codici_riassegnati_scartati(self):
+        righe = v.parse_optd_por(POR)
+        codici = [(r["iata_code"], r["location_type"]) for r in righe]
+        self.assertNotIn(("OLD", "A"), codici)
+        self.assertEqual([("AAW", "R")], [c for c in codici if c[0] == "AAW"])
+        self.assertEqual("Aachen West", next(r for r in righe if r["iata_code"] == "AAW")["name"])
+
+    def test_nessuna_colonna_esclusa(self):
+        chiavi = set(v.parse_optd_por(POR)[0])
+        self.assertEqual(set(v.COLONNE_OPTD) - {"alt_name_section"} | {"it"}, chiavi)
+        self.assertFalse(chiavi & {"page_rank", "wac", "unlc_list", "uic_list"})
+        self.assertEqual("Roma", v.parse_optd_por(POR)[0]["it"])
+
+    def test_citta_italiana_dell_aeroporto_da_optd(self):
+        self.assertEqual({"FCO": ["Roma"], "CIA": ["Roma"], "ZRH": ["Zurigo città"]},
+                         v.optd_cities_it(v.parse_optd_por(POR)))
+
+    def test_citta_con_piu_aeroporti_fra_quelli_tenuti(self):
+        aeroporti = [("FCO", "LIRF", "Fiumicino", "Rome", "IT", "Roma"), ("CIA", "LIRA", "Ciampino", "Rome", "IT", "Roma"),
+                     ("ZRH", "LSZH", "Zurich", "Zurich", "CH", "")]
+        self.assertEqual([("ROM", "", "Rome", "Rome", "IT", "Roma", "CIA,FCO")],
+                         v.optd_city_rows(v.parse_optd_por(POR), aeroporti))
+        self.assertEqual([], v.optd_city_rows(v.parse_optd_por(POR), aeroporti[:1]))
+
+    def test_stazioni_d_europa_senza_icao_ne_codici_gia_usati(self):
+        righe = v.optd_station_rows(v.parse_optd_por(POR), {"AAW"})
+        self.assertEqual([("XBU", "", "Autostazione", "", "IT", ""), ("XRJ", "", "Roma Termini", "Rome", "IT", "Roma")],
+                         righe)
+
+    def test_compagnie_valide_solo_con_iata_nuovo(self):
+        testo = "\n".join([
+            "pk^env_id^validity_from^validity_to^3char_code^2char_code^num_code^name^flt_freq",
+            "a^^2015-01-01^^NKS^NK^487^Spirit Airlines^999",
+            "b^^2015-01-01^^AZA^AZ^055^Alitalia^1",
+            "c^^2001-01-01^2020-01-01^OLD^ZZ^^Chiusa^",
+            "d^1^2001-01-01^^ENV^ZY^^Storica^",
+            "e^^2015-01-01^^^*O^^Alleanza^",
+            "f^^2015-01-01^^TOOLONG^KE^^Korean Air^",
+        ]) + "\n"
+        self.assertEqual({("NK", "NKS", "Spirit Airlines"), ("KE", "", "Korean Air")}, v.parse_optd_airlines(testo, {"AZ"}))
+
+    def test_compagnie_chiuse_tolte_con_nome_e_codice(self):
+        testo = "\n".join([
+            "pk^env_id^validity_from^validity_to^3char_code^2char_code^num_code^name^flt_freq",
+            "a^^2015-01-01^^JAI^9W^^Jet Airways^",
+            "b^^2015-01-01^^NMB^XX^^Air Namibia^",
+            "c^^2015-01-01^^AZU^AD^^Azul Brazilian Airlines^",
+            "d^^2015-01-01^^SEH^GQ^^Sky Express^",
+        ]) + "\n"
+        chiuse = v.parse_dissolved_airlines([
+            {"iata": {"value": "9W"}, "icao": {"value": "JAI"}, "name": {"value": "Jet Airways"}},
+            {"icao": {"value": "NMB"}, "name": {"value": "Air Namibia"}},
+            {"iata": {"value": "AD"}, "name": {"value": "Air Paradise"}},
+            {"iata": {"value": "G3"}, "name": {"value": "Sky Express"}},
+        ])
+        # Jet Airways per IATA, Air Namibia per ICAO; restano AD riassegnato e Sky Express omonima con un altro codice.
+        self.assertEqual({("AD", "AZU", "Azul Brazilian Airlines"), ("GQ", "SEH", "Sky Express")},
+                         v.parse_optd_airlines(testo, set(), chiuse))
+
+    def test_impronta_controllata_e_url_al_commit_fisso(self):
+        with mock.patch.object(v, "scarica", return_value="dati") as scarica, \
+                mock.patch.object(sys, "stderr", io.StringIO()):
+            self.assertEqual("dati", v.scarica_optd(("x.csv", hashlib.sha256(b"dati").hexdigest()), "ua"))
+            with self.assertRaises(SystemExit) as ctx:
+                v.scarica_optd(("x.csv", "0" * 64), "ua")
+        self.assertEqual(1, ctx.exception.code)
+        self.assertRegex(scarica.call_args.args[0], r"/[0-9a-f]{40}/opentraveldata/x\.csv$")
+
+
 class FakeResponse:
     def __init__(self, body):
         self.body = body
@@ -203,6 +323,14 @@ class ScaricaTest(unittest.TestCase):
             self.assertEqual("ciao è", v.scarica("https://example.org/x", "ua"))
         self.assertEqual([mock.call(10), mock.call(20)], self.sleep.call_args_list)
 
+    def test_sparql_riprova_il_json_troncato(self):
+        risposte = ['{"results": {"bindings": [{"a"', '{"results": {"bindings": [{"a": 1}]}}']
+        with mock.patch.object(v, "scarica", side_effect=risposte):
+            self.assertEqual([{"a": 1}], v.sparql("SELECT", "ua"))
+        self.assertEqual([mock.call(30)], self.sleep.call_args_list)
+        with mock.patch.object(v, "scarica", return_value='{"results"'), self.assertRaises(SystemExit):
+            v.sparql("SELECT", "ua", tentativi=2)
+
     def test_dopo_tutti_i_tentativi_esce_con_1(self):
         with mock.patch("urllib.request.urlopen", side_effect=urllib.error.URLError("giu")) as urlopen:
             with self.assertRaises(SystemExit) as ctx:
@@ -230,6 +358,7 @@ class MainTest(unittest.TestCase):
                 mock.patch.object(sys, "stderr", io.StringIO()), \
                 mock.patch.object(v, "MIN_AIRPORTS", 1), mock.patch.object(v, "MIN_AIRLINES", 1), \
                 mock.patch.object(v, "scarica", return_value=airports), \
+                mock.patch.object(v, "scarica_optd", side_effect=lambda f, ua: POR if f == v.OPTD_POR else AIRLINES_OPTD), \
                 mock.patch.object(v, "sparql", return_value=airlines):
             code = v.main()
         return code, out.getvalue()
@@ -239,17 +368,21 @@ class MainTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             code, text = self.run_main(Path(d) / "assets", CSV, airlines)
             self.assertEqual(0, code)
-            self.assertTrue((Path(d) / "assets" / "airports.tsv.gz").exists())
+            aeroporti = gzip.open(Path(d) / "assets" / "airports.tsv.gz", "rt", encoding="utf-8").read().splitlines()
             righe = gzip.open(Path(d) / "assets" / "airlines.tsv.gz", "rt", encoding="utf-8").read()
-        self.assertEqual("AZ\tITY\tITA Airways\n", righe)
+        self.assertEqual("AZ\tITY\tITA Airways\nNK\tNKS\tSpirit Airlines\n", righe)
+        # Prima le citta', poi gli aeroporti, poi le stazioni.
+        self.assertEqual("ROM\t\tRome\tRome\tIT\tRoma\tCIA,FCO", aeroporti[0])
+        self.assertEqual(["ROM", "FCO", "JFK", "MXP", "CIA", "YHC", "AAW", "XBU", "XRJ"], [r.split("\t")[0] for r in aeroporti])
         self.assertIn("5 aeroporti", text)
-        self.assertIn("1 compagnie", text)
+        self.assertIn("1 citta', 3 stazioni, 2 compagnie", text)
 
     def test_risultato_troppo_piccolo_non_scrive_nulla(self):
         with tempfile.TemporaryDirectory() as d:
             with mock.patch.object(sys, "argv", ["vault_travel_data.py", "--out-dir", str(Path(d) / "assets")]), \
                     mock.patch.object(sys, "stderr", io.StringIO()), \
-                    mock.patch.object(v, "scarica", return_value=CSV), mock.patch.object(v, "sparql", return_value=[]):
+                    mock.patch.object(v, "scarica", return_value=CSV), mock.patch.object(v, "sparql", return_value=[]), \
+                    mock.patch.object(v, "scarica_optd", return_value=POR):
                 self.assertEqual(1, v.main())
             self.assertFalse((Path(d) / "assets").exists())
 

@@ -3,7 +3,7 @@ package com.pockettravel.core.sync
 import okhttp3.ResponseBody
 import java.io.IOException
 
-/** Tetto dei file JSON firmati (manifest.json, app-status.json, online-models.json). */
+/** Tetto dei file JSON firmati (manifest.json, app-status.json, online-models.json, exchange-rates.json). */
 internal const val MAX_SIGNED_JSON_BYTES = 16L * 1024 * 1024
 
 /** Tetto di un file .sig. */
