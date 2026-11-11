@@ -18,7 +18,8 @@ from pathlib import Path
 import shell_fixtures as fx
 
 SCRIPT = "tools/data-pipeline/scripts/build-transit.sh"
-HEADER = "# id\tregioni\tnome\tlicenza\tattribuzione\turl_licenza\turl_feed\tcerca_ultimo\turl_rt\n"
+HEADER = "# id\tregioni\tnome\tlicenza\tattribuzione\turl_licenza\turl_feed\tcerca_ultimo\turl_rt\turl_sa\taggancio_rt\n"
+GENERATOR = 2  # GENERATOR_VERSION di build-transit.sh
 FAILING_GRADLE = "#!/usr/bin/env bash\nexit 7\n"
 
 
@@ -29,14 +30,19 @@ def feed_zip(content=b"stop_id\n1\n"):
     return buffer.getvalue()
 
 
-def feeds_row(feed_id="rete-a", url="http://127.0.0.1:9/feed.zip", realtime=""):
-    return f"{feed_id}\tit,fr\tRete A\tCC-BY-4.0\tAttribuzione A\thttps://licenza\t{url}\t\t{realtime}\n"
+def feeds_row(feed_id="rete-a", url="http://127.0.0.1:9/feed.zip", realtime="", alerts=None, match=None):
+    """Riga della lista; [alerts] e [match] None = riga senza le colonne url_sa e aggancio_rt (facoltative)."""
+    tail = "" if alerts is None and match is None else f"\t{alerts or ''}"
+    if match is not None:
+        tail += f"\t{match}"
+    return f"{feed_id}\tit,fr\tRete A\tCC-BY-4.0\tAttribuzione A\thttps://licenza\t{url}\t\t{realtime}{tail}\n"
 
 
 def published_entry(zip_bytes, days_old=1, valid_until="2999-01-01", **extra):
     version = (date.today() - timedelta(days=days_old)).strftime("%Y.%m.%d.1.1")
     return {"id": "rete-a", "name": "Vecchio nome", "regions": ["it"], "license": "x", "attribution": "x", "licenseUrl": "x",
-            "version": version, "sourceSha256": hashlib.sha256(zip_bytes).hexdigest(), "validUntil": valid_until, **extra}
+            "version": version, "sourceSha256": hashlib.sha256(zip_bytes).hexdigest(), "validUntil": valid_until,
+            "generator": GENERATOR, **extra}
 
 
 @unittest.skipUnless(fx.BASH and shutil.which("jq") and shutil.which("unzip"), "servono bash, jq e unzip")
@@ -85,6 +91,16 @@ class BuildTransitTest(unittest.TestCase):
         proc = self.run_script(["rete-a", "v", "https://h", self.out], rows=feeds_row(realtime="http://rt/feed.pb"))
         self.assertEqual(1, proc.returncode)
         self.assertIn("url_rt non https", proc.stderr)
+
+    def test_url_avvisi_non_https(self):
+        proc = self.run_script(["rete-a", "v", "https://h", self.out], rows=feeds_row(alerts="http://rt/alerts.pb"))
+        self.assertEqual(1, proc.returncode)
+        self.assertIn("url_sa non https", proc.stderr)
+
+    def test_aggancio_non_valido(self):
+        proc = self.run_script(["rete-a", "v", "https://h", self.out], rows=feeds_row(match="per_trip_id"))
+        self.assertEqual(1, proc.returncode)
+        self.assertIn("aggancio_rt non valido", proc.stderr)
 
     def test_download_only_scrive_lo_zip(self):
         data = feed_zip()
@@ -148,6 +164,153 @@ class BuildTransitTest(unittest.TestCase):
         (entry,) = self.lines("transit-entries.jsonl")
         self.assertEqual("https://127.0.0.1:9/rt.pb", entry["realtimeUrl"])
         self.assertNotIn("realtimeSizeBytes", entry)
+
+    def with_rows(self, rows):
+        """Le prossime run_script usano la riga [rows] della lista."""
+        self.run_script = lambda args, rows=rows, **env: BuildTransitTest.run_script(self, args, rows, **env)
+
+    def curl_sizes(self):
+        """curl finto: il peso dei due feed del tempo reale, senza rete (gli indirizzi sono https)."""
+        fx.shim(self.tree, "curl", 'case "${@: -1}" in *rt.pb) echo -n 1234;; *alerts.pb) echo -n 567;; *) exit 22;; esac\n')
+
+    def test_avvisi_nella_voce_con_il_peso_misurato(self):
+        data = feed_zip()
+        self.curl_sizes()
+        self.with_rows(feeds_row(realtime="https://h/rt.pb", alerts="https://h/alerts.pb"))
+        proc = self.build(data, {"feeds": [published_entry(data, gtfsIds=True, alertsUrl="https://h/alerts.pb")]})
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        (entry,) = self.lines("transit-entries.jsonl")
+        self.assertEqual(("https://h/rt.pb", 1234, "https://h/alerts.pb", 567),
+                         (entry["realtimeUrl"], entry["realtimeSizeBytes"], entry["alertsUrl"], entry["alertsSizeBytes"]))
+
+    def test_avvisi_nello_stesso_file_dei_ritardi_hanno_lo_stesso_peso(self):
+        data = feed_zip()
+        self.curl_sizes()
+        self.with_rows(feeds_row(realtime="https://h/rt.pb", alerts="https://h/rt.pb"))
+        proc = self.build(data, {"feeds": [published_entry(data, gtfsIds=True, alertsUrl="https://h/rt.pb")]})
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        (entry,) = self.lines("transit-entries.jsonl")
+        self.assertEqual((1234, 1234), (entry["realtimeSizeBytes"], entry["alertsSizeBytes"]))
+
+    def test_solo_avvisi_senza_peso_se_il_feed_non_arriva(self):
+        data = feed_zip()
+        self.with_rows(feeds_row(alerts="https://127.0.0.1:9/alerts.pb"))
+        proc = self.build(data, {"feeds": [published_entry(data, gtfsIds=True, alertsUrl="https://127.0.0.1:9/alerts.pb")]})
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        self.assertIn("feed degli avvisi non scaricato", proc.stderr)
+        (entry,) = self.lines("transit-entries.jsonl")
+        self.assertEqual("https://127.0.0.1:9/alerts.pb", entry["alertsUrl"])
+        self.assertNotIn("alertsSizeBytes", entry)
+        self.assertNotIn("realtimeUrl", entry)
+
+    def test_avvisi_tolti_dalla_lista_la_rete_si_ricostruisce(self):
+        data = feed_zip()
+        fx.write(self.tree / "gradlew", FAILING_GRADLE, executable=True)
+        proc = self.build(data, {"feeds": [published_entry(data, gtfsIds=True, alertsUrl="https://h/alerts.pb")]})
+        self.assertIn("converto", proc.stdout)
+        self.assertNotIn("la tengo", proc.stdout)
+
+    def test_voce_senza_avvisi_per_una_rete_che_ora_li_ha_si_ricostruisce(self):
+        data = feed_zip()
+        fx.write(self.tree / "gradlew", FAILING_GRADLE, executable=True)
+        self.curl_sizes()
+        self.with_rows(feeds_row(alerts="https://h/alerts.pb"))
+        proc = self.build(data, {"feeds": [published_entry(data)]})
+        self.assertIn("converto", proc.stdout)
+
+    def test_solo_avvisi_voce_senza_gtfs_ids_si_ricostruisce(self):
+        data = feed_zip()
+        fx.write(self.tree / "gradlew", FAILING_GRADLE, executable=True)
+        self.curl_sizes()
+        self.with_rows(feeds_row(alerts="https://h/alerts.pb"))
+        proc = self.build(data, {"feeds": [published_entry(data, alertsUrl="https://h/alerts.pb")]})
+        self.assertIn("converto", proc.stdout)
+
+    def test_voce_di_un_altro_generatore_si_ricostruisce(self):
+        data = feed_zip()
+        fx.write(self.tree / "gradlew", FAILING_GRADLE, executable=True)
+        for generator in (GENERATOR - 1, None):
+            with self.subTest(generator=generator):
+                entry = published_entry(data)
+                if generator is None:
+                    del entry["generator"]
+                else:
+                    entry["generator"] = generator
+                proc = self.build(data, {"feeds": [entry]})
+                self.assertIn("converto", proc.stdout)
+                self.assertNotIn("la tengo", proc.stdout)
+
+    def gradle_args(self, rows):
+        """Argomenti dati a gradle dalla conversione di una rete con la riga [rows] (gradlew finto che li scrive)."""
+        record = self.tree / "gradle-args.txt"
+        fx.write(self.tree / "gradlew", f'#!/usr/bin/env bash\necho "$@" > "{record.as_posix()}"\nexit 7\n', executable=True)
+        self.curl_sizes()
+        self.with_rows(rows)
+        self.build(feed_zip())
+        return record.read_text(encoding="utf-8")
+
+    def test_id_gtfs_con_url_rt_o_url_sa_o_tutti_e_due_ma_non_senza(self):
+        cases = (
+            (feeds_row(), False),
+            (feeds_row(realtime="https://h/rt.pb"), True),
+            (feeds_row(alerts="https://h/alerts.pb"), True),
+            (feeds_row(realtime="https://h/rt.pb", alerts="https://h/alerts.pb"), True),
+            (feeds_row(match="linea_ora"), True),
+            (feeds_row(match=""), False),
+        )
+        for rows, expected in cases:
+            with self.subTest(rows=rows):
+                self.assertEqual(expected, "--gtfs-ids" in self.gradle_args(rows))
+
+    def test_trip_keys_solo_con_linea_ora(self):
+        for match, expected in (("linea_ora", True), ("", False)):
+            with self.subTest(match=match):
+                self.assertEqual(expected, "--trip-keys" in self.gradle_args(feeds_row(realtime="https://h/rt.pb", match=match)))
+
+    def test_aggancio_nel_riuso_della_voce(self):
+        data = feed_zip()
+        fx.write(self.tree / "gradlew", FAILING_GRADLE, executable=True)
+        self.curl_sizes()
+        cases = (
+            # (riga della lista, voce pubblicata, la tengo?)
+            (feeds_row(realtime="https://h/rt.pb", match="linea_ora"), dict(gtfsIds=True, tripKeys=True), True),
+            (feeds_row(realtime="https://h/rt.pb", match="linea_ora"), dict(gtfsIds=True), False),
+            (feeds_row(realtime="https://h/rt.pb"), dict(gtfsIds=True, tripKeys=True), False),
+            (feeds_row(match="linea_ora"), dict(), False),
+        )
+        for rows, extra, kept in cases:
+            with self.subTest(rows=rows, extra=extra):
+                self.with_rows(rows)
+                proc = self.build(data, {"feeds": [published_entry(data, **extra)]})
+                self.assertEqual(kept, "la tengo" in proc.stdout, proc.stdout)
+
+    def test_conversione_scrive_generator_e_avvisi_nella_voce(self):
+        # gradlew finto: scrive la transit.db (secondo argomento di --args) e la riga delle statistiche.
+        fx.write(self.tree / "gradlew", """#!/usr/bin/env bash
+eval "set -- ${3#--args=}"
+echo db > "$2"
+printf '2\t1\t3\t4\t2999-01-01\t1.0,2.0,3.0,4.0\n'
+""", executable=True)
+        self.curl_sizes()
+        self.with_rows(feeds_row(alerts="https://h/alerts.pb"))
+        proc = self.build(feed_zip())
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        (entry,) = self.lines("transit-entries.jsonl")
+        self.assertEqual((GENERATOR, True, "https://h/alerts.pb", 567), (entry["generator"], entry["gtfsIds"], entry["alertsUrl"], entry["alertsSizeBytes"]))
+        self.assertNotIn("realtimeUrl", entry)
+        self.assertNotIn("tripKeys", entry)
+
+    def test_conversione_con_aggancio_scrive_trip_keys_e_gtfs_ids(self):
+        fx.write(self.tree / "gradlew", """#!/usr/bin/env bash
+eval "set -- ${3#--args=}"
+echo db > "$2"
+printf '2\t1\t3\t4\t2999-01-01\t1.0,2.0,3.0,4.0\n'
+""", executable=True)
+        self.with_rows(feeds_row(match="linea_ora"))
+        proc = self.build(feed_zip())
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        (entry,) = self.lines("transit-entries.jsonl")
+        self.assertEqual((True, True), (entry["gtfsIds"], entry["tripKeys"]))
 
     def test_feed_invariato_ma_voce_vecchia_si_ricostruisce(self):
         data = feed_zip()

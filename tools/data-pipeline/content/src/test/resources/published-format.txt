@@ -135,6 +135,8 @@ addresses-search.db street.name #1 TEXT notnull=1 default=null pk=0
 addresses-search.db street.key #2 TEXT notnull=1 default=null pk=0
 addresses-search.db street.city #3 TEXT notnull=0 default=null pk=0
 transit.db user_version 0
+transit.db gtfs_route.id #0 INTEGER notnull=0 default=null pk=1
+transit.db gtfs_route.route_id #1 TEXT notnull=1 default=null pk=0
 transit.db gtfs_stop.id #0 INTEGER notnull=0 default=null pk=1
 transit.db gtfs_stop.stop_id #1 TEXT notnull=1 default=null pk=0
 transit.db gtfs_trip.id #0 INTEGER notnull=0 default=null pk=1
@@ -170,7 +172,10 @@ transit.db trip.route #3 INTEGER notnull=1 default=null pk=0
 transit.db trip.service #4 INTEGER notnull=1 default=null pk=0
 transit.db trip.headsign #5 INTEGER notnull=0 default=null pk=0
 transit.db trip.wheelchair #6 INTEGER notnull=0 default=null pk=0
+transit.db trip.full_pattern #7 INTEGER notnull=0 default=null pk=0
 transit.db trip WITHOUT ROWID
+transit.db trip_stop.pattern #0 INTEGER notnull=0 default=null pk=1
+transit.db trip_stop.stops #1 BLOB notnull=1 default=null pk=0
 addresses.pmtiles version 3
 addresses.pmtiles internal_compression 2
 addresses.pmtiles tile_compression 1

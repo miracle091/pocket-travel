@@ -28,14 +28,32 @@ import kotlin.math.roundToInt
  * - headsign(id, text): destinazioni, condivise tra le corse;
  * - service(id, days): days = bit i (byte i/8, bit i%8) acceso se il servizio c'e' il giorno
  *   window_start + i;
- * - trip(id, route, service, headsign, wheelchair): solo le corse con almeno un giorno nella finestra;
- *   wheelchair = wheelchair_accessible (1 accessibile, 2 no, NULL non indicato);
- * - stop_time(stop, minute, trip), chiave (stop, minute, trip) senza rowid: minuti dalla mezzanotte
- *   del giorno di servizio (oltre 1440 dopo mezzanotte, come in GTFS). Solo le partenze: niente
- *   capolinea d'arrivo (ultima fermata della corsa) ne' fermate con pickup_type = 1.
- * - solo con [gtfsIds] (reti con un feed GTFS-RT): gtfs_trip(id, trip_id) e gtfs_stop(id, stop_id), gli id originali
- *   del feed per agganciare i TripUpdates a corse e fermate, e meta gtfs_ids = 1. Le altre reti non li hanno, per non
- *   crescere di peso.
+ * - trip(pattern, start, id, route, service, headsign, wheelchair, full_pattern), chiave (pattern, start, id) senza
+ *   rowid: solo le corse con almeno un giorno nella finestra; start = minuto (dalla mezzanotte del giorno di servizio,
+ *   oltre 1440 dopo mezzanotte, come in GTFS) della prima fermata dove si sale; wheelchair = wheelchair_accessible
+ *   (1 accessibile, 2 no, NULL non indicato); full_pattern = il pattern di trip_stop (colonna aggiunta in fondo: le app
+ *   che non la conoscono selezionano le colonne per nome);
+ * - pattern_stop(stop, pattern, offset), chiave (stop, pattern, offset) senza rowid: le fermate dove si sale (niente
+ *   capolinea d'arrivo ne' fermate con pickup_type = 1) con i minuti dalla partenza della corsa; l'orario di una
+ *   partenza e' trip.start + offset. Le corse con le stesse fermate agli stessi intervalli condividono il pattern;
+ * - trip_stop(pattern, stops), pattern = chiave, per la vista della corsa: una riga per pattern completo, con TUTTE le
+ *   fermate della corsa in ordine di stop_sequence, capolinea d'arrivo e fermate senza salita comprese. Id di pattern
+ *   a se', condivisi tra le corse con la stessa sequenza di (seq, fermata, offset, flags); meta trip_stops = 1.
+ *   stops e' un BLOB, per ogni fermata quattro campi di fila ([encodeTripStops]):
+ *   1. varint(seq - seq precedente), seq = stop_sequence GTFS (la prima fermata parte da 0);
+ *   2. varint(zigzag(stop - stop precedente)), stop = id della tabella stop (la prima parte da 0);
+ *   3. varint(zigzag(offset - offset precedente)), offset = minuti rispetto allo stesso trip.start del tabellone, quindi
+ *      negativo prima della prima fermata dove si sale (il capolinea ha l'orario d'arrivo; la prima parte da 0);
+ *   4. un byte flags: bit 0 senza salita (pickup_type 1), bit 1 senza discesa (drop_off_type 1).
+ *   varint = intero senza segno a 32 bit in base 128, 7 bit per byte dal meno significativo, bit alto = ne segue
+ *   un altro (LEB128, come il varint di protobuf); zigzag(n) = (n shl 1) xor (n shr 31) in Int a 32 bit. Si legge fino
+ *   alla fine del BLOB;
+ * - solo con [gtfsIds] (reti con un feed GTFS-RT o degli avvisi): gtfs_trip(id, trip_id), gtfs_stop(id, stop_id) e
+ *   gtfs_route(id, route_id), gli id originali del feed per agganciare TripUpdates e avvisi a corse, fermate e linee;
+ *   meta gtfs_ids = 1 e gtfs_routes = 1. Le altre reti non li hanno, per non crescere di peso;
+ * - solo con [tripKeys] (implica gtfsIds; reti il cui tempo reale non ha trip_id, HSL): gtfs_trip ha in piu'
+ *   direction_id (NULL se assente) e start_time (secondi GTFS della prima partenza della corsa, dalla mezzanotte del
+ *   giorno di servizio; NULL se illeggibile); meta trip_keys = 1.
  *
  * Non gestiti (assenti nei feed misurati): frequencies.txt, shapes.txt, tariffe.
  */
@@ -47,7 +65,8 @@ private val GTFS_DATE: DateTimeFormatter = DateTimeFormatter.BASIC_ISO_DATE
 private fun parseGtfsDate(text: String?): LocalDate? =
     text?.trim()?.takeIf { it.isNotEmpty() }?.let { runCatching { LocalDate.parse(it, GTFS_DATE) }.getOrNull() }
 
-fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: LocalDate, windowDays: Int, gtfsIds: Boolean = false): TransitStats {
+fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: LocalDate, windowDays: Int, gtfsIds: Boolean = false, tripKeys: Boolean = false): TransitStats {
+    val withIds = gtfsIds || tripKeys
     require(windowDays in 1..366) { "windowDays fuori intervallo: $windowDays" }
     outputDb.delete()
     ZipFile(gtfsZip).use { zip ->
@@ -122,14 +141,14 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
             )
         }
 
-        data class Trip(val id: Int, val gtfsId: String, val route: Int, val service: Int, var headsign: String?, val wheelchair: Int?)
+        data class Trip(val id: Int, val gtfsId: String, val route: Int, val service: Int, var headsign: String?, val wheelchair: Int?, val direction: Int?)
         val trips = HashMap<String, Trip>()
         rows("trips.txt") { r ->
             val service = serviceIds[r.getValue("service_id")] ?: return@rows
             val route = routes[r.getValue("route_id")]?.id ?: return@rows
             val tripId = r.getValue("trip_id")
             if (tripId in trips) return@rows
-            trips[tripId] = Trip(trips.size, tripId, route, service, r["trip_headsign"]?.ifEmpty { null }, gtfsWheelchair(r["wheelchair_accessible"]))
+            trips[tripId] = Trip(trips.size, tripId, route, service, r["trip_headsign"]?.ifEmpty { null }, gtfsWheelchair(r["wheelchair_accessible"]), r["direction_id"]?.trim()?.toIntOrNull()?.takeIf { it == 0 || it == 1 })
         }
 
         DriverManager.getConnection("jdbc:sqlite:${outputDb.path}").use { conn ->
@@ -151,16 +170,24 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                 // minuto di partenza. Svizzera: 15,3 milioni di righe stop_time del formato 1 contro 1,2
                 // milioni di pattern_stop, 248 MB contro 45 (27 MB contro 6,8 compressi), stesse partenze.
                 // Ordinata per (pattern, partenza): la tabella stessa fa da indice per le partenze di una fermata.
-                s.execute("CREATE TABLE trip (pattern INTEGER NOT NULL, start INTEGER NOT NULL, id INTEGER NOT NULL, route INTEGER NOT NULL, service INTEGER NOT NULL, headsign INTEGER, wheelchair INTEGER, PRIMARY KEY (pattern, start, id)) WITHOUT ROWID")
+                s.execute("CREATE TABLE trip (pattern INTEGER NOT NULL, start INTEGER NOT NULL, id INTEGER NOT NULL, route INTEGER NOT NULL, service INTEGER NOT NULL, headsign INTEGER, wheelchair INTEGER, full_pattern INTEGER, PRIMARY KEY (pattern, start, id)) WITHOUT ROWID")
                 // Temporanea: con la sequenza, per togliere l'ultima fermata di ogni corsa e ricavare la destinazione.
-                s.execute("CREATE TEMP TABLE raw_time (trip INTEGER NOT NULL, seq INTEGER NOT NULL, stop INTEGER NOT NULL, minute INTEGER NOT NULL, pickup INTEGER NOT NULL)")
+                s.execute("CREATE TEMP TABLE raw_time (trip INTEGER NOT NULL, seq INTEGER NOT NULL, stop INTEGER NOT NULL, minute INTEGER NOT NULL, pickup INTEGER NOT NULL, arrival INTEGER, flags INTEGER NOT NULL)")
             }
 
             // stop_times.txt e' il file grande (milioni di righe): in streaming, a lotti.
             var pending = 0
-            conn.prepareStatement("INSERT INTO raw_time (trip, seq, stop, minute, pickup) VALUES (?, ?, ?, ?, ?)").use { insert ->
+            // Con tripKeys: secondi della prima partenza di ogni corsa (la sequenza piu' bassa), per start_time.
+            val firstSeconds = HashMap<Int, IntArray>()
+            conn.prepareStatement("INSERT INTO raw_time (trip, seq, stop, minute, pickup, arrival, flags) VALUES (?, ?, ?, ?, ?, ?, ?)").use { insert ->
                 rows("stop_times.txt") { r ->
                     val trip = trips[r.getValue("trip_id")] ?: return@rows
+                    if (tripKeys) {
+                        val seconds = gtfsSeconds(r["departure_time"].orEmpty().ifEmpty { r["arrival_time"].orEmpty() })
+                        val sequence = r["stop_sequence"]?.toIntOrNull() ?: 0
+                        val first = firstSeconds[trip.id]
+                        if (first == null || sequence < first[0]) firstSeconds[trip.id] = intArrayOf(sequence, seconds ?: NO_TIME)
+                    }
                     val stop = stops[r.getValue("stop_id")] ?: return@rows
                     val minute = gtfsMinutes(r["departure_time"].orEmpty().ifEmpty { r["arrival_time"].orEmpty() }) ?: return@rows
                     insert.setInt(1, trip.id)
@@ -168,6 +195,9 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                     insert.setInt(3, stop.id)
                     insert.setInt(4, minute)
                     insert.setInt(5, if (r["pickup_type"] == "1") 0 else 1)
+                    val arrival = gtfsMinutes(r["arrival_time"].orEmpty())
+                    if (arrival != null) insert.setInt(6, arrival) else insert.setNull(6, java.sql.Types.INTEGER)
+                    insert.setInt(7, (if (r["pickup_type"] == "1") 1 else 0) or (if (r["drop_off_type"] == "1") 2 else 0))
                     insert.addBatch()
                     if (++pending % 20_000 == 0) insert.executeBatch()
                 }
@@ -211,6 +241,8 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
             // con i minuti dalla prima; le corse senza fermate utili non danno partenze e non si scrivono.
             val patterns = HashMap<List<Int>, Int>()
             val tripPattern = HashMap<Int, IntArray>()
+            val fullPatterns = HashMap<IntArrayKey, Int>()
+            val tripFullPattern = HashMap<Int, Int>()
             var departures = 0
             conn.createStatement().use { s ->
                 s.executeQuery(
@@ -235,6 +267,49 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                     }
                     flush()
                 }
+                // Vista della corsa: tutte le fermate di ogni corsa scritta, con l'orario rispetto allo stesso start del
+                // tabellone. Una fermata per stop_sequence (la prima, se il feed la ripete); l'ultima mostra l'arrivo.
+                s.execute("CREATE TABLE trip_stop (pattern INTEGER PRIMARY KEY, stops BLOB NOT NULL)")
+                conn.prepareStatement("INSERT INTO trip_stop VALUES (?, ?)").use { st ->
+                    var batch = 0
+                    var currentTrip = -1
+                    var lastSeq = 0
+                    val calls = ArrayList<IntArray>()
+                    fun flush() {
+                        if (currentTrip < 0 || calls.isEmpty()) return
+                        val start = tripPattern[currentTrip]?.get(1) ?: return
+                        val last = calls.size - 1
+                        val key = IntArray(calls.size * 4)
+                        calls.forEachIndexed { i, c ->
+                            val minute = if (i == last && c[4] != NO_TIME) c[4] else c[2]
+                            key[i * 4] = c[0]; key[i * 4 + 1] = c[1]; key[i * 4 + 2] = minute - start; key[i * 4 + 3] = c[3]
+                        }
+                        tripFullPattern[currentTrip] = fullPatterns.getOrPut(IntArrayKey(key)) {
+                            val id = fullPatterns.size
+                            st.setInt(1, id); st.setBytes(2, encodeTripStops(key)); st.addBatch()
+                            if (++batch % 20_000 == 0) st.executeBatch()
+                            id
+                        }
+                    }
+                    s.executeQuery("SELECT trip, seq, stop, minute, flags, arrival FROM raw_time ORDER BY trip, seq, rowid").use { rs ->
+                        while (rs.next()) {
+                            val trip = rs.getInt(1)
+                            val seq = rs.getInt(2)
+                            if (trip != currentTrip) {
+                                flush()
+                                currentTrip = trip
+                                calls.clear()
+                            } else if (seq == lastSeq) {
+                                continue
+                            }
+                            lastSeq = seq
+                            val arrival = rs.getInt(6).takeUnless { rs.wasNull() } ?: NO_TIME
+                            calls += intArrayOf(seq, rs.getInt(3), rs.getInt(4), rs.getInt(5), arrival)
+                        }
+                        flush()
+                    }
+                    st.executeBatch()
+                }
                 s.execute("DROP TABLE raw_time")
                 s.execute("CREATE TABLE pattern_stop (stop INTEGER NOT NULL, pattern INTEGER NOT NULL, offset INTEGER NOT NULL, PRIMARY KEY (stop, pattern, offset)) WITHOUT ROWID")
             }
@@ -248,19 +323,30 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                 }
                 st.executeBatch()
             }
-            insertAll("INSERT INTO trip VALUES (?, ?, ?, ?, ?, ?, ?)", trips.values.filter { it.id in tripPattern }) { trip ->
+            insertAll("INSERT INTO trip VALUES (?, ?, ?, ?, ?, ?, ?, ?)", trips.values.filter { it.id in tripPattern }) { trip ->
                 val (pattern, start) = tripPattern.getValue(trip.id)
                 setInt(1, pattern); setInt(2, start); setInt(3, trip.id); setInt(4, trip.route); setInt(5, trip.service)
                 val h = trip.headsign?.let { headsigns[it] }
                 if (h != null) setInt(6, h) else setNull(6, java.sql.Types.INTEGER)
                 if (trip.wheelchair != null) setInt(7, trip.wheelchair) else setNull(7, java.sql.Types.INTEGER)
+                val full = tripFullPattern[trip.id]
+                if (full != null) setInt(8, full) else setNull(8, java.sql.Types.INTEGER)
             }
-            if (gtfsIds) {
+            if (withIds) {
                 conn.createStatement().use { s ->
-                    s.execute("CREATE TABLE gtfs_trip (id INTEGER PRIMARY KEY, trip_id TEXT NOT NULL)")
+                    s.execute("CREATE TABLE gtfs_trip (id INTEGER PRIMARY KEY, trip_id TEXT NOT NULL" + (if (tripKeys) ", direction_id INTEGER, start_time INTEGER" else "") + ")")
                     s.execute("CREATE TABLE gtfs_stop (id INTEGER PRIMARY KEY, stop_id TEXT NOT NULL)")
+                    s.execute("CREATE TABLE gtfs_route (id INTEGER PRIMARY KEY, route_id TEXT NOT NULL)")
                 }
-                insertAll("INSERT INTO gtfs_trip VALUES (?, ?)", trips.values.filter { it.id in tripPattern }) { trip -> setInt(1, trip.id); setString(2, trip.gtfsId) }
+                insertAll("INSERT INTO gtfs_trip VALUES (?, ?" + (if (tripKeys) ", ?, ?" else "") + ")", trips.values.filter { it.id in tripPattern }) { trip ->
+                    setInt(1, trip.id); setString(2, trip.gtfsId)
+                    if (tripKeys) {
+                        if (trip.direction != null) setInt(3, trip.direction) else setNull(3, java.sql.Types.INTEGER)
+                        val seconds = firstSeconds[trip.id]?.get(1)?.takeIf { it != NO_TIME }
+                        if (seconds != null) setInt(4, seconds) else setNull(4, java.sql.Types.INTEGER)
+                    }
+                }
+                insertAll("INSERT INTO gtfs_route VALUES (?, ?)", routes.entries) { (routeId, route) -> setInt(1, route.id); setString(2, routeId) }
                 insertAll("INSERT INTO gtfs_stop VALUES (?, ?)", stops.entries) { (stopId, stop) -> setInt(1, stop.id); setString(2, stopId) }
             }
             // Fine degli orari: l'ultimo giorno dei servizi con almeno una corsa scritta. Un servizio del calendario
@@ -275,7 +361,10 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                     "feed_id" to feedId, "format" to TRANSIT_DB_FORMAT.toString(), "timezone" to timezone,
                     "window_start" to windowStart.format(GTFS_DATE), "window_days" to windowDays.toString(),
                     "wheelchair" to "1",
-                    ("gtfs_ids" to "1").takeIf { gtfsIds },
+                    "trip_stops" to "1",
+                    ("gtfs_ids" to "1").takeIf { withIds },
+                    ("gtfs_routes" to "1").takeIf { withIds },
+                    ("trip_keys" to "1").takeIf { tripKeys },
                     validUntil?.let { "valid_until" to it.format(GTFS_DATE) },
                 ),
             ) { (k, v) -> setString(1, k); setString(2, v) }
@@ -289,6 +378,46 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
         }
     }
 }
+
+/** Chiave di un pattern completo: le quaterne (seq, fermata, offset, flags) di una corsa, confrontate per contenuto. */
+private class IntArrayKey(val values: IntArray) {
+    override fun equals(other: Any?) = other is IntArrayKey && values.contentEquals(other.values)
+    override fun hashCode() = values.contentHashCode()
+}
+
+/**
+ * BLOB `stops` di trip_stop (formato nel KDoc di questo file) da [quads]: per ogni fermata (seq, stop, offset, flags).
+ */
+internal fun encodeTripStops(quads: IntArray): ByteArray {
+    val out = java.io.ByteArrayOutputStream(quads.size * 2)
+    fun varint(value: Int) {
+        var v = value
+        while (v and VARINT_PAYLOAD_MASK.inv() != 0) { out.write((v and VARINT_PAYLOAD_MASK) or VARINT_CONTINUATION); v = v ushr VARINT_PAYLOAD_BITS }
+        out.write(v)
+    }
+    fun zigzag(n: Int) = (n shl 1) xor (n shr INT_SIGN_SHIFT)
+    var seq = 0
+    var stop = 0
+    var offset = 0
+    for (i in quads.indices step 4) {
+        varint(quads[i] - seq); varint(zigzag(quads[i + 1] - stop)); varint(zigzag(quads[i + 2] - offset)); out.write(quads[i + 3])
+        seq = quads[i]; stop = quads[i + 1]; offset = quads[i + 2]
+    }
+    return out.toByteArray()
+}
+
+/** Varint del BLOB `stops`: 7 bit di dato per byte, il bit alto dice che ne segue un altro. */
+private const val VARINT_PAYLOAD_BITS = 7
+private const val VARINT_PAYLOAD_MASK = 0x7F
+private const val VARINT_CONTINUATION = 0x80
+
+/** Spostamento che isola il segno di un Int (zigzag). */
+private const val INT_SIGN_SHIFT = 31
+
+private const val SECONDS_PER_HOUR = 3600
+
+/** Orario assente (arrivo o secondi illeggibili). */
+private const val NO_TIME = Int.MIN_VALUE
 
 /** Versione dello schema di transit.db: l'app rifiuta un formato piu' nuovo di quello che conosce. */
 const val TRANSIT_DB_FORMAT = 2
@@ -310,6 +439,15 @@ internal fun gtfsMinutes(time: String): Int? {
     val h = parts[0].toIntOrNull() ?: return null
     val m = parts[1].toIntOrNull() ?: return null
     return h * 60 + m
+}
+
+/** "HH:MM:SS" GTFS in secondi dalla mezzanotte del giorno di servizio (ore oltre 24 dopo mezzanotte); null se vuoto o non valido. */
+internal fun gtfsSeconds(time: String): Int? {
+    val parts = time.trim().split(':')
+    val h = parts.getOrNull(0)?.toIntOrNull()
+    val m = parts.getOrNull(1)?.toIntOrNull()
+    val s = if (parts.size > 2) parts[2].toIntOrNull() else 0
+    return if (h == null || m == null || s == null) null else h * SECONDS_PER_HOUR + m * 60 + s
 }
 
 /** CSV RFC 4180 (virgolette, virgole e a capo nei campi, BOM iniziale): una mappa per riga, chiavi dall'intestazione. */
@@ -351,11 +489,16 @@ internal fun readCsv(reader: BufferedReader, onRow: (Map<String, String>) -> Uni
 }
 
 fun main(args: Array<String>) {
-    // --gtfs-ids: la rete ha un feed GTFS-RT, vedi gtfs_trip e gtfs_stop.
-    require(args.size == 5 || (args.size == 6 && args[5] == "--gtfs-ids")) {
-        "Uso: generateTransit <gtfs.zip> <transit.db> <feedId> <inizio finestra AAAA-MM-GG> <giorni> [--gtfs-ids]"
+    // --gtfs-ids: la rete ha un feed GTFS-RT o degli avvisi, vedi gtfs_trip, gtfs_stop e gtfs_route.
+    // --trip-keys: il tempo reale non ha trip_id, vedi direction_id e start_time di gtfs_trip (implica --gtfs-ids).
+    val options = args.drop(5)
+    require(args.size >= 5 && options.all { it == "--gtfs-ids" || it == "--trip-keys" }) {
+        "Uso: generateTransit <gtfs.zip> <transit.db> <feedId> <inizio finestra AAAA-MM-GG> <giorni> [--gtfs-ids] [--trip-keys]"
     }
-    val stats = generateTransit(File(args[0]), File(args[1]), args[2], LocalDate.parse(args[3]), args[4].toInt(), gtfsIds = args.size == 6)
+    val stats = generateTransit(
+        File(args[0]), File(args[1]), args[2], LocalDate.parse(args[3]), args[4].toInt(),
+        gtfsIds = "--gtfs-ids" in options, tripKeys = "--trip-keys" in options,
+    )
     // Riga TSV per build-transit.sh: fermate, linee, corse, orari, valido fino a (AAAA-MM-GG o vuoto), rettangolo.
     println(
         listOf(

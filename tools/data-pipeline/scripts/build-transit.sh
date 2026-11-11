@@ -6,8 +6,11 @@
 # oggi) e la comprime con xz. Se il feed scaricato ha lo stesso sha256 di quello della voce gia'
 # pubblicata e la voce ha meno di TRANSIT_MAX_AGE_DAYS giorni, tiene la voce pubblicata (nessun
 # upload): la finestra di 90 giorni resta valida, e l'app non riscarica nulla.
-# Con la colonna url_rt la transit.db tiene gli id GTFS (gtfsIds nella voce) e la voce ha realtimeUrl e
-# realtimeSizeBytes (vedi realtime_fields).
+# Con la colonna url_rt, url_sa o aggancio_rt la transit.db tiene gli id GTFS (gtfsIds nella voce); con url_rt la voce ha
+# realtimeUrl e realtimeSizeBytes, con url_sa alertsUrl e alertsSizeBytes (vedi realtime_fields); con aggancio_rt =
+# linea_ora la transit.db ha anche direction_id e start_time delle corse (generateTransit --trip-keys, tripKeys nella
+# voce). La voce porta anche generator, la versione di GENERATOR_VERSION: una voce pubblicata con un'altra versione non
+# si riusa mai.
 #
 # Uso:
 #   build-transit.sh <feedId> <version> <assetBaseUrl> <outputDir> [publishedIndexFile]
@@ -65,6 +68,9 @@ else
 fi
 TRANSIT_WINDOW_DAYS="${TRANSIT_WINDOW_DAYS:-90}"
 TRANSIT_MAX_AGE_DAYS="${TRANSIT_MAX_AGE_DAYS:-7}"
+# Versione del contenuto di transit.db: alzarla fa ricostruire tutte le reti anche con il feed invariato.
+# 2: trip_stop, trip.full_pattern, gtfs_route, direction_id e start_time (vista della corsa, avvisi, Helsinki).
+GENERATOR_VERSION=2
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
@@ -76,8 +82,13 @@ source "$SCRIPT_DIR/lib.sh"
 LINE="$(awk -F'\t' -v id="$FEED_ID" '$0 !~ /^#/ && $1 == id' "$TRANSIT_FEEDS")"
 [ -n "$LINE" ] || { echo "$FEED_ID non e' nella lista $TRANSIT_FEEDS" >&2; exit 1; }
 # Tab -> \x1f come per STATS sotto: con IFS=tab le colonne vuote prima di url_rt si fonderebbero.
-IFS=$'\x1f' read -r _ REGIONS NAME LICENSE ATTRIBUTION LICENSE_URL FEED_URL FIND_LATEST REALTIME_URL <<< "${LINE//$'\t'/$'\x1f'}"
+# Le colonne in fondo (url_rt, url_sa, aggancio_rt) sono facoltative: se mancano le variabili restano vuote.
+IFS=$'\x1f' read -r _ REGIONS NAME LICENSE ATTRIBUTION LICENSE_URL FEED_URL FIND_LATEST REALTIME_URL ALERTS_URL RT_MATCH <<< "${LINE//$'\t'/$'\x1f'}"
 [ -z "$REALTIME_URL" ] || [[ "$REALTIME_URL" == https://* ]] || { echo "-- $FEED_ID: url_rt non https: $REALTIME_URL" >&2; exit 1; }
+[ -z "$ALERTS_URL" ] || [[ "$ALERTS_URL" == https://* ]] || { echo "-- $FEED_ID: url_sa non https: $ALERTS_URL" >&2; exit 1; }
+[ -z "$RT_MATCH" ] || [ "$RT_MATCH" = linea_ora ] || { echo "-- $FEED_ID: aggancio_rt non valido (vuoto o linea_ora): $RT_MATCH" >&2; exit 1; }
+TRIP_KEYS=false
+[ "$RT_MATCH" != linea_ora ] || TRIP_KEYS=true
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 FEED_ZIP="$WORKDIR/feed.zip"
@@ -186,20 +197,30 @@ download_feed() {
   fi
 }
 
-# Campi del tempo reale della voce (jq, su stdin): realtimeUrl e realtimeSizeBytes, il peso di un download del feed
-# (compresso, come lo scarica l'app) misurato adesso; l'app lo usa per non scaricare da sola i feed grandi su rete a
-# consumo. Senza url_rt i due campi si tolgono; se la misura fallisce resta solo l'indirizzo.
+# Peso di un download di <url> (compresso, come lo scarica l'app), in byte; vuoto se non arriva o e' vuoto.
+# Stesso Accept dell'app (HttpTransitRealtimeClient): Open Data Hub senza x-protobuf risponde in JSON.
+download_size() {
+  local size
+  size="$(curl -sSfL --compressed --max-time 120 -A "$PIPELINE_USER_AGENT" -H 'Accept: application/x-protobuf, application/octet-stream, */*' \
+    -o /dev/null -w '%{size_download}' "$1")" || size=""
+  [ "${size:-0}" -gt 0 ] || { echo "::warning::$FEED_ID: feed $2 non scaricato o vuoto ($1)" >&2; size=""; }
+  echo "$size"
+}
+
+# Campi del tempo reale e degli avvisi della voce (jq, su stdin): realtimeUrl e realtimeSizeBytes, alertsUrl e
+# alertsSizeBytes, il peso di un download del feed misurato adesso; l'app lo usa per non scaricare da sola i feed grandi
+# su rete a consumo. Senza url_rt (url_sa) i campi del tempo reale (degli avvisi) si tolgono; se la misura fallisce
+# resta solo l'indirizzo. Con url_sa uguale a url_rt (un solo file con ritardi e avvisi) la misura e' la stessa.
 realtime_fields() {
-  local size=""
-  if [ -n "$REALTIME_URL" ]; then
-    # Stesso Accept dell'app (HttpTransitRealtimeClient): Open Data Hub senza x-protobuf risponde in JSON.
-    size="$(curl -sSfL --compressed --max-time 120 -A "$PIPELINE_USER_AGENT" -H 'Accept: application/x-protobuf, application/octet-stream, */*' \
-      -o /dev/null -w '%{size_download}' "$REALTIME_URL")" || size=""
-    [ "${size:-0}" -gt 0 ] || { echo "::warning::$FEED_ID: feed del tempo reale non scaricato o vuoto ($REALTIME_URL)" >&2; size=""; }
+  local size="" alerts_size=""
+  [ -z "$REALTIME_URL" ] || size="$(download_size "$REALTIME_URL" "del tempo reale")"
+  if [ -n "$ALERTS_URL" ]; then
+    if [ "$ALERTS_URL" = "$REALTIME_URL" ]; then alerts_size="$size"; else alerts_size="$(download_size "$ALERTS_URL" "degli avvisi")"; fi
   fi
-  jq -c --arg url "$REALTIME_URL" --arg size "$size" \
-    'del(.realtimeUrl, .realtimeSizeBytes)
-     | if $url == "" then . else .realtimeUrl = $url | (if $size == "" then . else .realtimeSizeBytes = ($size | tonumber) end) end'
+  jq -c --arg url "$REALTIME_URL" --arg size "$size" --arg alertsUrl "$ALERTS_URL" --arg alertsSize "$alerts_size" \
+    'del(.realtimeUrl, .realtimeSizeBytes, .alertsUrl, .alertsSizeBytes)
+     | if $url == "" then . else .realtimeUrl = $url | (if $size == "" then . else .realtimeSizeBytes = ($size | tonumber) end) end
+     | if $alertsUrl == "" then . else .alertsUrl = $alertsUrl | (if $alertsSize == "" then . else .alertsSizeBytes = ($alertsSize | tonumber) end) end'
 }
 
 PREFETCHED="${PREFETCH_DIR:+$PREFETCH_DIR/$FEED_ID.zip}"
@@ -224,10 +245,15 @@ SOURCE_SHA="$(sha256sum "$FEED_ZIP" | cut -d' ' -f1)"
 if [ -n "$PUBLISHED_INDEX" ] && [ -s "$PUBLISHED_INDEX" ]; then
   PUBLISHED_ENTRY="$(jq -c --arg id "$FEED_ID" '.feeds[]? | select(.id == $id)' "$PUBLISHED_INDEX")"
   # Non si tiene una voce con gli orari gia' finiti: la conversione decide se la rete e' scaduta. Nemmeno una voce senza
-  # gtfsIds per una rete che ora ha url_rt: la sua transit.db non ha gli id GTFS.
+  # gtfsIds per una rete che ora ha url_rt, url_sa o aggancio_rt: la sua transit.db non ha gli id GTFS. Nemmeno una voce
+  # di un'altra versione del generatore (tabelle di transit.db diverse), con altri avvisi nella lista (alertsUrl) o con
+  # un altro aggancio (tripKeys).
   if [ -n "$PUBLISHED_ENTRY" ] && [ "$(jq -r '.sourceSha256' <<< "$PUBLISHED_ENTRY")" = "$SOURCE_SHA" ] \
     && [[ ! "$(jq -r '.validUntil // ""' <<< "$PUBLISHED_ENTRY")" < "$(date -u +%Y-%m-%d)" ]] \
-    && { [ -z "$REALTIME_URL" ] || [ "$(jq -r '.gtfsIds // false' <<< "$PUBLISHED_ENTRY")" = true ]; }; then
+    && [ "$(jq -r '.generator // 0' <<< "$PUBLISHED_ENTRY")" = "$GENERATOR_VERSION" ] \
+    && [ "$(jq -r '.alertsUrl // ""' <<< "$PUBLISHED_ENTRY")" = "$ALERTS_URL" ] \
+    && [ "$(jq -r '.tripKeys // false' <<< "$PUBLISHED_ENTRY")" = "$TRIP_KEYS" ] \
+    && { [ -z "$REALTIME_URL$ALERTS_URL$RT_MATCH" ] || [ "$(jq -r '.gtfsIds // false' <<< "$PUBLISHED_ENTRY")" = true ]; }; then
     PUBLISHED_DATE="$(jq -r '.version' <<< "$PUBLISHED_ENTRY" | cut -d. -f1-3 | tr . -)"
     # Una versione pubblicata con la data illeggibile non si tiene: la rete si converte.
     AGE_DAYS=""
@@ -263,7 +289,8 @@ DB="$WORKDIR/transit.db"
 WINDOW_START="$(date -u +%Y-%m-%d)"
 echo "-- $FEED_ID: converto (finestra di $TRANSIT_WINDOW_DAYS giorni da $WINDOW_START)..."
 GTFS_IDS_ARG=""
-[ -z "$REALTIME_URL" ] || GTFS_IDS_ARG=" --gtfs-ids"
+[ -z "$REALTIME_URL$ALERTS_URL$RT_MATCH" ] || GTFS_IDS_ARG=" --gtfs-ids"
+[ "$TRIP_KEYS" = false ] || GTFS_IDS_ARG="$GTFS_IDS_ARG --trip-keys"
 STATS="$(cd "$REPO_ROOT" && ./gradlew -q :tools:data-pipeline:content:generateTransit \
   --args="\"$(winpath "$FEED_ZIP")\" \"$(winpath "$DB")\" $FEED_ID $WINDOW_START $TRANSIT_WINDOW_DAYS$GTFS_IDS_ARG" | tail -1)"
 # Tab -> \x1f prima di leggere: il tab e' uno spazio per IFS, due tab di fila (validUntil vuoto) ne valgono
@@ -301,11 +328,13 @@ jq -c -n \
   --arg id "$FEED_ID" --arg name "$NAME" --arg regions "$REGIONS" --arg license "$LICENSE" \
   --arg attribution "$ATTRIBUTION" --arg licenseUrl "$LICENSE_URL" --arg version "$VERSION" \
   --arg sourceSha "$SOURCE_SHA" --arg validUntil "$VALID_UNTIL" --arg bbox "$BBOX" \
-  --argjson stops "$STOPS" --argjson routes "$ROUTES" --argjson gtfsIds "$([ -n "$REALTIME_URL" ] && echo true || echo false)" \
+  --argjson stops "$STOPS" --argjson routes "$ROUTES" --argjson gtfsIds "$([ -n "$REALTIME_URL$ALERTS_URL$RT_MATCH" ] && echo true || echo false)" --argjson tripKeys "$TRIP_KEYS" \
+  --argjson generator "$GENERATOR_VERSION" \
   --argjson file "$(file_json "$ASSET" transit.db)" --argjson fileXz "$(file_json "$ASSET.xz" transit.db.xz)" \
   '{id: $id, name: $name, regions: ($regions | split(",")), license: $license, attribution: $attribution,
     licenseUrl: $licenseUrl, version: $version, sourceSha256: $sourceSha, validUntil: $validUntil,
-    bbox: ($bbox | split(",") | map(tonumber)), stops: $stops, routes: $routes, file: $file, fileXz: $fileXz}
-   | if $gtfsIds then .gtfsIds = true else . end' \
+    bbox: ($bbox | split(",") | map(tonumber)), stops: $stops, routes: $routes, generator: $generator,
+    file: $file, fileXz: $fileXz}
+   | if $gtfsIds then .gtfsIds = true else . end | if $tripKeys then .tripKeys = true else . end' \
   | realtime_fields >> "$ENTRIES"
 echo "-- $FEED_ID: $(stat -c %s "$OUTPUT_DIR/$ASSET.xz") byte xz"
