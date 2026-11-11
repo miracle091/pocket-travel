@@ -479,6 +479,19 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   segnala i numeri delle risposte salvate da `eval_gguf.py --answers` (telefoni, prezzi, orari, date, distanze, anni)
   che non stanno nel contesto né nella domanda, dopo aver normalizzato decimali, migliaia, orari e prefissi telefonici.
   Non servono modello né GPU; i rifiuti e un numero tagliato in fondo a una risposta troncata non si contano.
+- **Oracolo del test**: `scripts/eval_answers.py --oracle <test esteso o dataset> [...]` passa le risposte attese
+  dagli stessi controlli delle risposte dei modelli (`score` e `instruction_checks` di `eval_common.py`); di un dataset
+  prende solo le regioni di test, il set di validazione di `train_lora.py`. Ogni riga che non passa (positivo letto come
+  rifiuto, negativo senza la frase di rifiuto, risposta fuori dal contesto, oltre 450 caratteri, nella lingua sbagliata)
+  è un errore della riga o del controllo, non di un modello: va corretta prima di confrontare i modelli.
+- **Confronto tra due modelli**: `scripts/compare_answers.py <risposte A> <risposte B> [--names A B]` dà per tipo di
+  riga le risposte giuste con l'intervallo di Wilson e il test di McNemar esatto sulle righe appaiate; il p di ogni tipo
+  è corretto anche con Holm-Bonferroni su tutti i tipi, perché su una dozzina di confronti qualche p < 0,05 esce per
+  caso. `scripts/check_regressions.py <riferimento> <nuovo> [--bench BASE NUOVO]` esce con 1 se le risposte giuste di
+  tutti i negativi o di tutti i positivi calano di oltre `--points` punti (default 3), se un tipo di riga peggiora con
+  p < 0,05 dopo la correzione di Holm, se la quota di risposte fuori dal contesto, oltre 450 caratteri o nella lingua
+  sbagliata cresce di oltre `--points` punti, se i due file hanno meno dell'80% delle righe in comune o se tg cala di
+  oltre `--tg-percent` (default 10).
 - **Controllo di un GGUF**: prima di misurare o caricare un GGUF, `scripts/check_gguf.py <file .gguf> --tokenizer
   <tokenizer.json del modello base> --llama-cpp <binari> [--lang en]` stampa i metadati del tokenizer e controlla che
   l'EOS o l'EOT sia `<|im_end|>`, che ci sia il template e che llama.cpp tokenizzi il prompt dell'app come il tokenizer

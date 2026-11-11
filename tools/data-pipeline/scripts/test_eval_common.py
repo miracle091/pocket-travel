@@ -409,6 +409,38 @@ class InstructionChecksTest(unittest.TestCase):
         self.assertTrue(eval_common.instruction_checks(r, "The museum is in the centre and it is open.")["wrong_lang"])
         self.assertTrue(eval_common.instruction_checks(r, "  <think>\n\n</think>\n\nIl Museo Reale")["think_start"])
 
+    def test_ogni_controllo_fallisce_da_solo(self):
+        # prova di mutazione: da una risposta che passa tutto, una modifica per volta deve far scattare solo il suo controllo
+        context = "Il Museo Reale si trova in centro. L'ingresso costa 12 euro. The Royal Museum is open every day."
+        r = context_row("pos_para", context)
+        good = "Il Museo Reale si trova in centro."
+        base = eval_common.instruction_checks(r, good)
+        self.assertEqual({"refused": False, "fidelity": "literal", "too_long": False, "wrong_lang": False, "think_start": False},
+                         {k: v for k, v in base.items() if k != "context_share"})
+        for got, changed in (("Il Museo Reale, in centro, costa 12 euro di ingresso.", {"fidelity": "adherent"}),
+                             ("Il Colosseo e il Pantheon sono bellissimi.", {"fidelity": "out"}),
+                             ((good + " ") * 14, {"too_long": True}),
+                             ("The Royal Museum is open every day.", {"wrong_lang": True}),
+                             (eval_common.REFUSAL + " sui musei: altrove", {"refused": True, "fidelity": None}),
+                             # il blocco <think> non e' nel contesto: la risposta risulta anche fuori dal contesto
+                             (eval_common.EMPTY_THINK + good, {"think_start": True, "fidelity": "out"})):
+            with self.subTest(got[:30]):
+                checks = eval_common.instruction_checks(r, got)
+                self.assertEqual({k: v for k, v in {**base, **changed}.items() if k != "context_share"},
+                                 {k: v for k, v in checks.items() if k != "context_share"})
+
+    def test_frase_copiata_dal_contesto_non_e_un_rifiuto(self):
+        # risposte attese del test esteso: frasi della guida con "does not cover" o "non sono riportati", non rifiuti
+        context = ("Emirati citizens are provided with free healthcare, but this does not cover foreigners.\n"
+                   "Se nel documento del minore non sono riportati i nomi dei genitori, serve l'atto di nascita.")
+        for kind, got in (("pos_para", "Emirati citizens are provided with free healthcare, but this does not cover foreigners."),
+                          ("neg_city", "Se nel documento del minore non sono riportati i nomi dei genitori, serve l'atto di nascita.")):
+            self.assertTrue(eval_common.is_loose_refusal(got))
+            checks = eval_common.instruction_checks(context_row(kind, context), got)
+            self.assertEqual((False, "literal"), (checks["refused"], checks["fidelity"]), got)
+        own_words = eval_common.instruction_checks(context_row("pos_para", context), "The context does not cover hospitals.")
+        self.assertTrue(own_words["refused"])
+
     def test_rifiuti_con_parole_proprie(self):
         for answer in ("Il contesto fornito non contiene informazioni sugli orari.", "Non posso rispondere con queste informazioni.",
                        "Non ci sono informazioni sui musei.", "The context does not mention any hospital.",

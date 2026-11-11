@@ -453,12 +453,13 @@ def is_loose_refusal(answer):
 
 def instruction_checks(row, got):
     """Controlli sulle istruzioni del prompt per la risposta got alla riga row: "refused" (la frase di rifiuto del
-    training o un rifiuto con parole proprie, is_loose_refusal), "fidelity" (context_fidelity) e "context_share"
+    training o un rifiuto con parole proprie, is_loose_refusal, ma non una risposta con tutte le frasi copiate dal
+    contesto, come "this does not cover foreigners" di una guida), "fidelity" (context_fidelity) e "context_share"
     (context_word_share), None tutti e due per i rifiuti, "too_long" (oltre MAX_ANSWER_CHARS), "wrong_lang" (text_lang decide per l'altra lingua del dataset) e "think_start"
     (la risposta comincia con un blocco <think>, che i modelli senza thinking non scrivono)."""
     answer_lang = text_lang(got)
-    refused = got.startswith(refusal_prefix(row)) or is_loose_refusal(got)
     context = context_of(row)
+    refused = got.startswith(refusal_prefix(row)) or (is_loose_refusal(got) and context_fidelity(got, context, row["kind"]) != "literal")
     return {"refused": refused, "fidelity": None if refused else context_fidelity(got, context, row["kind"]),
             "context_share": None if refused else context_word_share(got, context),
             "too_long": len(got) > MAX_ANSWER_CHARS, "wrong_lang": answer_lang not in (None, dataset_lang(row)),

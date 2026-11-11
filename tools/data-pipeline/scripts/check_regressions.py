@@ -10,7 +10,9 @@ le risposte al test esteso (eval_gguf.py --extended --answers, o eval_online.py 
     python check_regressions.py base.jsonl nuovo.jsonl --bench base-bench.json nuovo-bench.json
 
 Regressione: le risposte giuste di tutti i negativi (rifiuti) o di tutti i positivi calano di oltre --points punti
-percentuali, un singolo tipo di riga peggiora in modo significativo (McNemar esatto, p < 0,05), i due file hanno
+percentuali, un singolo tipo di riga peggiora in modo significativo (McNemar esatto, p < 0,05 dopo la correzione di
+Holm-Bonferroni sulla famiglia dei tipi di riga con righe appaiate, come in compare_answers.py), la quota di righe
+fuori dal contesto, oltre 450 caratteri o nella lingua sbagliata cresce di oltre --points punti, i due file hanno
 troppe poche righe in comune (appaiate meno dell'80% di quelle del file piu' corto: il confronto non regge), o la mediana di tg (token/s di risposta) cala di oltre --tg-percent. I benchmark si confrontano solo con
 stesso dispositivo, thread e token (la chiave di confronto senza impronta del modello e versione di llama.cpp). Esce con
 1 se c'e' una regressione, cosi' un comando o uno script che lo lancia se ne accorge; il rapporto di compare_answers.py
@@ -22,7 +24,7 @@ import json
 import sys
 from pathlib import Path
 
-from compare_answers import compare, load
+from compare_answers import compare, instruction_counts, load
 
 DEFAULT_POINTS = 3.0
 DEFAULT_TG_PERCENT = 10.0
@@ -57,9 +59,27 @@ def answer_regressions(base_rows, new_rows, points):
             regressions.append(few)
     for group in sorted(g for g in results if not g.startswith("tutti")):
         r = results[group]
-        if r["worse"] > r["better"] and r["p"] < SIGNIFICANT_P:
-            line = f"{group}: peggio in {r['worse']} righe, meglio in {r['better']} (p {r['p']:.3f})"
+        if r["worse"] > r["better"] and r["p_holm"] is not None and r["p_holm"] < SIGNIFICANT_P:
+            line = f"{group}: peggio in {r['worse']} righe, meglio in {r['better']} (p {r['p']:.3f}, con Holm {r['p_holm']:.3f})"
             lines.append(line)
+            regressions.append(line)
+    return lines, regressions
+
+
+def instruction_regressions(base_rows, new_rows, points):
+    """Righe del rapporto e regressioni dei controlli sulle istruzioni (instruction_counts di compare_answers.py): la
+    quota di righe fuori dal contesto, oltre 450 caratteri o nella lingua sbagliata cresce di oltre points punti. Le
+    risposte giuste contano solo il rifiuto: senza questo controllo passerebbero risposte tutte in inglese o troncate al
+    limite di token."""
+    if not base_rows or not new_rows:
+        return [], []
+    before, after = instruction_counts(base_rows), instruction_counts(new_rows)
+    lines, regressions = [], []
+    for check in before:
+        share_before, share_after = 100 * before[check] / len(base_rows), 100 * after[check] / len(new_rows)
+        line = f"{check}: {share_before:.1f}% -> {share_after:.1f}% delle righe"
+        lines.append(line)
+        if share_after - share_before > points:
             regressions.append(line)
     return lines, regressions
 
@@ -90,7 +110,11 @@ def main():
     ap.add_argument("--points", type=float, default=DEFAULT_POINTS, help="calo massimo delle risposte giuste, in punti")
     ap.add_argument("--tg-percent", type=float, default=DEFAULT_TG_PERCENT, help="calo massimo di tg, in percentuale")
     a = ap.parse_args()
-    lines, regressions = answer_regressions(only_variant(load(a.base), a.variant), only_variant(load(a.new), a.variant), a.points)
+    base_rows, new_rows = only_variant(load(a.base), a.variant), only_variant(load(a.new), a.variant)
+    lines, regressions = answer_regressions(base_rows, new_rows, a.points)
+    more_lines, more_regressions = instruction_regressions(base_rows, new_rows, a.points)
+    lines += more_lines
+    regressions += more_regressions
     if a.bench:
         base, new = (json.loads(p.read_text(encoding="utf-8")) for p in a.bench)
         more_lines, more_regressions = bench_regressions(base, new, a.tg_percent)

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test di eval_answers.py: risposte salvate unite alle righe del test per tipo, regione e domanda; senza --test,
-uso delle sezioni del contesto nelle risposte di eval_gguf.py --contexts.
+uso delle sezioni del contesto nelle risposte di eval_gguf.py --contexts; con --oracle, le risposte attese del test
+passate dai controlli.
 
 Uso: python test_eval_answers.py
 """
@@ -13,8 +14,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from eval_answers import checked_rows, main
-from eval_common import on_device_prompt
+from eval_answers import checked_rows, main, oracle_failures
+from eval_common import REFUSAL, on_device_prompt
 
 
 def test_row(kind, context, question, region="canada"):
@@ -39,6 +40,46 @@ class CheckedRowsTest(unittest.TestCase):
     def test_risposta_senza_riga_del_test_ferma_lo_script(self):
         with self.assertRaises(SystemExit):
             checked_rows([answer("pos_para", "Altra domanda?", "x")], [test_row("pos_para", "Contesto.", "Quando apre?")])
+
+
+def oracle_row(kind, context, want, region="canada"):
+    return {"kind": kind, "region": region, "messages": [{"role": "user", "content": on_device_prompt(context, "Quando apre?", "it")},
+                                                         {"role": "assistant", "content": want}]}
+
+
+class OracleTest(unittest.TestCase):
+    def test_risposte_attese_giuste_passano_e_le_altre_con_la_causa(self):
+        context = "Il museo apre alle 9. Ingresso gratuito."
+        good = [oracle_row("pos_para", context, "Il museo apre alle 9."),
+                oracle_row("neg_city", context, REFUSAL + " sugli alberghi: consulta una fonte ufficiale.")]
+        bad = [oracle_row("pos_para", context, REFUSAL + " sul museo: altrove."),
+               oracle_row("pos_para", context, "Il contesto non menziona l'orario del museo."),
+               oracle_row("neg_city", context, "Il museo apre alle 9."),
+               oracle_row("pos_para", context, "Il Colosseo e il Pantheon sono bellissimi."),
+               oracle_row("pos_para", context, "Il museo apre alle 9. " * 21),
+               oracle_row("pos_para", "The museum opens at 9.", "The museum opens at 9."),
+               oracle_row("pos_para", context, "<think>\n\n</think>\n\nIl museo apre alle 9.")]
+        failures = oracle_failures(good + bad)
+        self.assertEqual(bad, [row for row, _ in failures])
+        self.assertEqual([["positivo con la frase di rifiuto"], ["positivo letto come rifiuto con parole proprie"],
+                          ["negativo senza la frase di rifiuto"], ["fuori dal contesto"], ["oltre 450 caratteri"],
+                          ["lingua sbagliata"], ["fuori dal contesto", "<think> iniziale"]], [causes for _, causes in failures])
+
+    def test_del_dataset_solo_le_regioni_di_test_del_test_esteso_tutte(self):
+        rows = [oracle_row("pos", "Il museo apre alle 9.", "Altro.", region="canada"),
+                oracle_row("pos", "Il museo apre alle 9.", "Altro.", region="italia")]
+        with tempfile.TemporaryDirectory() as tmp:
+            out = {}
+            for name in ("pocket_travel_sft.v11.it.jsonl", "eval_extended.jsonl"):
+                path = Path(tmp) / name
+                path.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+                buf = io.StringIO()
+                with mock.patch.object(sys, "argv", ["eval_answers.py", "--oracle", str(path)]), contextlib.redirect_stdout(buf):
+                    main()
+                out[name] = buf.getvalue()
+        self.assertIn("oracolo: 1 righe su 1 ", out["pocket_travel_sft.v11.it.jsonl"])
+        self.assertIn("oracolo: 2 righe su 2 ", out["eval_extended.jsonl"])
+        self.assertIn("fuori dal contesto: 2 (pos 2)\n  pos canada | Quando apre? | Altro.\n", out["eval_extended.jsonl"])
 
 
 class ContextUseModeTest(unittest.TestCase):

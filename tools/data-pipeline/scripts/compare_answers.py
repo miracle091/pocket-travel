@@ -4,8 +4,10 @@
 Per ogni tipo di riga: risposte giuste di A e di B (rifiuto per le righe neg_*, risposta per le pos_*) con l'intervallo
 di Wilson al 95%, e il test di McNemar esatto sulle righe presenti in tutti e due i file (stessa domanda, regione e
 categoria): b = giuste in A e sbagliate in B, c = sbagliate in A e giuste in B, p bilaterale con la binomiale. Servono
-almeno 6 righe cambiate tutte nello stesso verso per p < 0,05. In fondo gli stessi numeri per tutti i negativi e tutti i
-positivi insieme, e i controlli sulle istruzioni (risposte fuori dal contesto, oltre 450 caratteri, lingua sbagliata).
+almeno 6 righe cambiate tutte nello stesso verso per p < 0,05. Con una dozzina di tipi di riga qualche p < 0,05 esce
+per caso: accanto al p di ogni tipo c'e' quello corretto con Holm-Bonferroni sulla famiglia dei tipi con righe appaiate,
+ed e' quello che decide l'asterisco. In fondo gli stessi numeri per tutti i negativi e tutti i positivi insieme (p senza
+correzione), e i controlli sulle istruzioni (risposte fuori dal contesto, oltre 450 caratteri, lingua sbagliata).
 
 Uso: python compare_answers.py <risposte A.jsonl> <risposte B.jsonl> [--names v10 v11]
 """
@@ -35,6 +37,17 @@ def mcnemar(b, c):
         return 1.0
     tail = sum(math.comb(n, i) for i in range(min(b, c) + 1)) / 2 ** n
     return min(1.0, 2 * tail)
+
+
+def holm(ps):
+    """{nome: p} -> {nome: p corretto con Holm-Bonferroni}: col p piu' piccolo moltiplicato per m, il secondo per m - 1 e
+    cosi' via, ognuno almeno quanto il precedente e al massimo 1. Tiene sotto 0,05 la probabilita' di un falso allarme
+    su tutta la famiglia di confronti, non su ciascuno."""
+    out, worst = {}, 0.0
+    for i, name in enumerate(sorted(ps, key=ps.get)):
+        worst = max(worst, min(1.0, (len(ps) - i) * ps[name]))
+        out[name] = worst
+    return out
 
 
 def correct(row):
@@ -69,6 +82,11 @@ def compare(a_rows, b_rows):
         better = sum(1 for x, y in d["pairs"] if not x and y)
         out[g] = {"a": (sum(d["a"]), len(d["a"])), "b": (sum(d["b"]), len(d["b"])), "paired": len(d["pairs"]),
                   "worse": worse, "better": better, "p": mcnemar(worse, better)}
+    # famiglia della correzione: i tipi di riga con almeno una riga appaiata (None per gli altri e per i totali, che
+    # sono un confronto a se')
+    adjusted = holm({g: r["p"] for g, r in out.items() if not g.startswith("tutti") and r["paired"]})
+    for g, r in out.items():
+        r["p_holm"] = adjusted.get(g)
     return out
 
 
@@ -85,8 +103,8 @@ def pct(k, n):
 
 
 def report(a_rows, b_rows, names):
-    lines = [f"| gruppo | {names[0]} (IC 95%) | {names[1]} (IC 95%) | appaiate | {names[1]} peggio / meglio | p |",
-             "|---|---|---|---|---|---|"]
+    lines = [f"| gruppo | {names[0]} (IC 95%) | {names[1]} (IC 95%) | appaiate | {names[1]} peggio / meglio | p | p Holm |",
+             "|---|---|---|---|---|---|---|"]
     results = compare(a_rows, b_rows)
     order = sorted(g for g in results if not g.startswith("tutti")) + ["tutti i neg", "tutti i pos"]
     for g in order:
@@ -98,12 +116,17 @@ def report(a_rows, b_rows, names):
             k, n = r[side]
             lo, hi = wilson(k, n)
             cells.append(f"{pct(k, n)} ({100 * lo:.0f}-{100 * hi:.0f})")
-        flag = " *" if r["p"] < 0.05 else ""
-        lines.append(f"| {g} | {cells[0]} | {cells[1]} | {r['paired']} | {r['worse']} / {r['better']} | {r['p']:.3f}{flag} |")
+        if g.startswith("tutti"):
+            p, holm_cell = f"{r['p']:.3f}" + (" *" if r["p"] < 0.05 else ""), "-"
+        else:
+            holm_cell = "-" if r["p_holm"] is None else f"{r['p_holm']:.3f}" + (" *" if r["p_holm"] < 0.05 else "")
+            p = f"{r['p']:.3f}"
+        lines.append(f"| {g} | {cells[0]} | {cells[1]} | {r['paired']} | {r['worse']} / {r['better']} | {p} | {holm_cell} |")
     ca, cb = instruction_counts(a_rows), instruction_counts(b_rows)
     lines.append("")
     lines.append("controlli sulle istruzioni: " + "; ".join(f"{k} {ca[k]} -> {cb[k]}" for k in ca))
-    lines.append("(* = p < 0,05 col test di McNemar esatto sulle righe appaiate)")
+    lines.append("(* = p < 0,05 col test di McNemar esatto sulle righe appaiate: per i tipi di riga il p corretto con "
+                 "Holm-Bonferroni su tutti i tipi, per i totali il p senza correzione)")
     return "\n".join(lines)
 
 
