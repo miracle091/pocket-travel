@@ -179,6 +179,40 @@ jobs:
           path: /home/runner/.cache/ccache
           key: ${{ steps.ccache.outputs.key }}
 
+  # Controlla la sintassi dei workflow e, con shellcheck (preinstallato sul runner, actionlint lo trova da solo nel
+  # PATH), gli script dei passi `run:`. Parte con ogni modifica a .github/ perche' il filtro `paths` sopra la include.
+  # Rilascio ufficiale con versione e sha256 fissi (dal file checksums del rilascio): per aggiornare, cambiare
+  # entrambi.
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      ACTIONLINT_VERSION: 1.7.12
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Installa actionlint
+        run: |
+          set -euo pipefail
+          tarball="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$tarball"
+          echo "$ACTIONLINT_SHA256  $RUNNER_TEMP/$tarball" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/actionlint"
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP/actionlint" actionlint
+
+      - name: Controlla i workflow
+        run: |
+          set -euo pipefail
+          command -v shellcheck
+          "$RUNNER_TEMP/actionlint/actionlint" -color .github/workflows/*.yml
+
   # Gli script della pipeline e dei workflow girano anche su un PC Windows con Git Bash (prove in locale, README della
   # pipeline): qui i loro test Python e una prova degli script in modalita' locale, cosi' una modifica che funziona
   # solo su Linux si vede subito. Il GITHUB_TOKEN legge soltanto, e in modalita' locale gh non scrive comunque.
