@@ -103,7 +103,8 @@ jobs:
 
       # Tutti i test Python della pipeline e degli script dei workflow: un test nuovo (test_*.py) viene eseguito senza
       # toccare il workflow. Un file o una connessione lasciati aperti (ResourceWarning) fanno fallire il passo: Python li
-      # segnala solo come avviso, anche con -W error.
+      # segnala solo come avviso, anche con -W error. Lo stesso per un'eccezione in un thread: unittest non la vede e
+      # scrive OK.
       - name: Test Python della pipeline
         shell: bash
         run: |
@@ -113,6 +114,10 @@ jobs:
             python3 -W always::ResourceWarning "$t" 2>&1 | tee "$RUNNER_TEMP/python-test.log"
             if grep -q ResourceWarning "$RUNNER_TEMP/python-test.log"; then
               echo "::error::$t lascia file o connessioni aperti (ResourceWarning)"
+              exit 1
+            fi
+            if grep -q "Exception in thread" "$RUNNER_TEMP/python-test.log"; then
+              echo "::error::$t lascia un'eccezione non gestita in un thread"
               exit 1
             fi
           done
@@ -171,12 +176,24 @@ jobs:
           echo "DEBUG_APK_NAME=$NAME" >> "$GITHUB_ENV"
           echo "DEBUG_APK_PATH=$RUNNER_TEMP/$NAME" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      # Nessun job usa questo APK: se il servizio degli artifact di GitHub non risponde (pagina HTML al posto del JSON
+      # per tutti i 5 tentativi) build e test restano validi e il passo dopo lo segnala come avviso.
+      - id: debug-apk
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name == 'push'
+        continue-on-error: true
         with:
           name: ${{ env.DEBUG_APK_NAME }}
           path: ${{ env.DEBUG_APK_PATH }}
           retention-days: 7
+
+      - name: Segnala l'APK di debug non caricato
+        if: steps.debug-apk.outcome == 'failure'
+        shell: bash
+        run: |
+          msg="APK di debug non caricato come artifact (servizio degli artifact di GitHub): build e test sono passati, rilanciare il job per averlo"
+          echo "::warning::$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
 
       # Salvata anche se il job fallisce (actions/cache salva solo a job riuscito): gli oggetti compilati prima
       # dell'errore servono al run dopo. Non si salva su corrispondenza esatta, la chiave e' immutabile.
@@ -257,6 +274,10 @@ jobs:
             python -W always::ResourceWarning "$t" 2>&1 | tee "$RUNNER_TEMP/python-test.log"
             if grep -q ResourceWarning "$RUNNER_TEMP/python-test.log"; then
               echo "::error::$t lascia file o connessioni aperti (ResourceWarning)"
+              exit 1
+            fi
+            if grep -q "Exception in thread" "$RUNNER_TEMP/python-test.log"; then
+              echo "::error::$t lascia un'eccezione non gestita in un thread"
               exit 1
             fi
           done

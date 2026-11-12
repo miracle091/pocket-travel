@@ -220,7 +220,8 @@ class MainTest(unittest.TestCase):
         self.assertEqual(75, self.main_con_errore(OSError(110, "Connection timed out")))
 
     def test_errore_http_esce_con_1(self):
-        self.assertEqual(1, self.main_con_errore(urllib.error.HTTPError("https://h", 404, "Not Found", {}, None)))
+        with urllib.error.HTTPError("https://h", 404, "Not Found", {}, None) as error:
+            self.assertEqual(1, self.main_con_errore(error))
 
 
 if __name__ == "__main__":

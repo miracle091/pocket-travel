@@ -7,6 +7,7 @@ Uso: python test_train_auto.py
 import io
 import os
 import sys
+import threading
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -332,6 +333,21 @@ class RunWatchedTest(unittest.TestCase):
 
         self.run_watched(Slow, max_restarts=1)
         self.assertEqual([None, 4.0], bests)
+
+    def test_il_riavvio_non_chiude_la_pipe_mentre_il_thread_la_legge(self):
+        # Il figlio continua a scrivere dopo il primo passo: al riavvio il thread che legge e' dentro readline.
+        self.CHILD = ("print('[fase] training', flush=True)\nprint('[training] 1/3', flush=True)\n"
+                      "for i in range(200000): print(i, flush=True)\n")
+        errors = []
+
+        class StopAtFirstStep(train_auto.SpeedWatchdog):
+            def check(self, now):
+                return "lento" if self.samples else None
+
+        with mock.patch.object(threading, "excepthook", errors.append):
+            for _ in range(5):
+                self.run_watched(StopAtFirstStep, max_restarts=1)
+        self.assertEqual([], [e.exc_value for e in errors])
 
 
 if __name__ == "__main__":

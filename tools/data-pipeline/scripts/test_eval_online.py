@@ -114,8 +114,8 @@ class ChatRetryTest(unittest.TestCase):
         self.assertEqual(MAX_ATTEMPTS, calls)
 
     def test_corpo_dell_errore_corto(self):
-        error = urllib.error.HTTPError("u", 400, "Bad", {}, io.BytesIO(b"x" * 5000))
-        result, calls, _ = self.run_chat([error])
+        with urllib.error.HTTPError("u", 400, "Bad", {}, io.BytesIO(b"x" * 5000)) as error:
+            result, calls, _ = self.run_chat([error])
         self.assertEqual(1, calls)
         self.assertLess(len(str(result.code)), 400)
 

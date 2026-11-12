@@ -176,8 +176,9 @@ def run_watched(cmd, env, max_restarts=6, watchdog=SpeedWatchdog, clock=time.mon
     for attempt in range(max_restarts + 1):
         with subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as proc:
             lines = queue.Queue()
-            threading.Thread(target=lambda: [lines.put(l) for l in iter(proc.stdout.readline, b"")] + [lines.put(None)],
-                             daemon=True).start()
+            reader = threading.Thread(target=lambda: [lines.put(l) for l in iter(proc.stdout.readline, b"")]
+                                      + [lines.put(None)], daemon=True)
+            reader.start()
             dog, reason = watchdog(), None
             dog.best = best  # la migliore velocita' vista passa ai riavvii: un processo lento fin dal primo passo si ferma
             while True:
@@ -201,6 +202,7 @@ def run_watched(cmd, env, max_restarts=6, watchdog=SpeedWatchdog, clock=time.mon
             print(f"-- watchdog: {reason}; fermo train_lora.py e lo rilancio dall'ultimo checkpoint "
                   f"(riavvio {attempt + 1} di {max_restarts})", flush=True)
             proc.kill()
+            reader.join(timeout=60)  # chiudere la pipe mentre il thread e' dentro readline lo fa morire con un ValueError
         time.sleep(20)  # con ROCm la VRAM del processo fermato si libera dopo qualche secondo
 
 
