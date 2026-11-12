@@ -289,4 +289,16 @@
         <item quantity="one">History: %d conversation</item>
         <item quantity="other">History: %d conversations</item>
     </plurals>
+    <string name="ai_selected_text_title">Ask the assistant</string>
+    <string name="ai_selected_text_label">Selected text</string>
+    <string name="ai_selected_text_truncated">Text cut to %1$d characters</string>
+    <string name="ai_selected_text_online_notice">The question and the selected text are sent to %1$s</string>
+    <string name="ai_selected_text_meaning">What does it mean?</string>
+    <string name="ai_selected_text_translate">Translate</string>
+    <string name="ai_selected_text_explain">Explain</string>
+    <string name="ai_selected_text_meaning_question">What does the selected text mean?</string>
+    <string name="ai_selected_text_translate_question">Translate the selected text into English</string>
+    <string name="ai_selected_text_explain_question">Explain the selected text and what I should do</string>
+    <string name="ai_selected_text_no_engine">No engine is available to answer: download a model or save an API key in Settings</string>
+    <string name="ai_selected_text_open_settings">Open Settings</string>
 </resources>

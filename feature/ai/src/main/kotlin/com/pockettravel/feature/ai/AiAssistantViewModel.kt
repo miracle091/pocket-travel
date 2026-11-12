@@ -75,6 +75,9 @@ data class AiUiState(
     val allBenchmarkResults: List<BenchmarkResult> = emptyList(),
     val showBenchmarkComparison: Boolean = false,
     val question: String = "",
+    // Testo selezionato in un'altra app (foglio "Chiedi all'assistente"): va al modello con la domanda, non nella ricerca,
+    // e con lui le domande di questo ViewModel non si salvano nella cronologia.
+    val selectedText: SelectedText? = null,
     val isThinking: Boolean = false,
     // Il modello sul dispositivo si sta caricando in memoria (prima domanda dopo l'avvio o un cambio di modello).
     val isModelLoading: Boolean = false,
@@ -331,6 +334,12 @@ class AiAssistantViewModel @Inject constructor(
         _uiState.update { it.copy(question = limitedQuestion(value)) }
     }
 
+    /**
+     * Il testo selezionato in un'altra app ("Chiedi all'assistente"), ricevuto o modificato nel foglio. Da qui le domande
+     * di questo ViewModel non si salvano nella cronologia.
+     */
+    fun onSelectedTextChanged(value: SelectedText) = _uiState.update { it.copy(selectedText = value) }
+
     fun onApiKeyInputChanged(value: String) {
         _uiState.update { it.copy(apiKeyInput = value) }
     }
@@ -557,7 +566,8 @@ class AiAssistantViewModel @Inject constructor(
 
         resumeJob?.cancel()
         forecastJob?.cancel()
-        val previous = conversation.previousQuestion(state.mode)
+        // Con un testo selezionato ogni domanda sta da sola: un seguito si unirebbe a quella prima, senza il suo testo.
+        val previous = if (state.selectedText != null) null else conversation.previousQuestion(state.mode)
         // Una conversazione ripresa resta nella sua regione, anche aperta dalla scheda IA di un'altra.
         val region = conversation.regionId ?: regionId
         // Subito, prima di ogni attesa: un secondo tocco su Invia trova la domanda gia' in corso.
@@ -574,7 +584,8 @@ class AiAssistantViewModel @Inject constructor(
             // piu' fonti in rete, e il numero da chiamare non aspetta la risposta.
             launch { _uiState.showEmergencyCard(emergencyCards, region, question) }
             collectAnswer(region, question, state.mode, previous) { answer ->
-                conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer)
+                // Dal foglio "Chiedi all'assistente" niente cronologia: domanda e risposta restano nel foglio.
+                conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer, save = state.selectedText == null)
             }
         }
     }
@@ -600,16 +611,10 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     // La risposta in arrivo nella schermata; [onDone] la registra nella conversazione.
-    private suspend fun collectAnswer(
-        region: String,
-        question: String,
-        mode: AiEngineMode,
-        previous: String?,
-        onDone: (AssistantAnswer) -> Unit,
-    ) {
+    private suspend fun collectAnswer(region: String, question: String, mode: AiEngineMode, previous: String?, onDone: (AssistantAnswer) -> Unit) {
         try {
             answerKeepAlive.during {
-                travelAssistant.ask(region, question, mode, previous).collect { progress ->
+                travelAssistant.ask(region, question, mode, previous, _uiState.value.selectedText?.text).collect { progress ->
                     when (progress) {
                         is AssistantProgress.Partial -> _uiState.update { it.copy(streamingText = progress.text) }
                         is AssistantProgress.ModelSwitched -> _uiState.update { it.switchedModel(progress) }
@@ -640,7 +645,8 @@ class AiAssistantViewModel @Inject constructor(
      */
     private fun handledOnDevice(question: String, regionId: String): Boolean {
         val command = parseModelCommand(question)
-        val navigation = if (command == null) parseNavigationRequest(question) else null
+        // Nel foglio del testo selezionato nessuno apre il Navigatore: "portami a ..." resta una domanda.
+        val navigation = if (command == null && _uiState.value.selectedText == null) parseNavigationRequest(question) else null
         when {
             command != null -> {
                 // Con un nome vale come il pulsante: dopo la quota finita rifa' la domanda.
@@ -966,8 +972,11 @@ internal const val MAX_QUESTION_CHARS = 300
 internal const val QUESTION_COUNTER_FROM = 250
 
 /** [value] entro [MAX_QUESTION_CHARS], senza spezzare un carattere fatto di due unita' (un'emoji). */
-internal fun limitedQuestion(value: String): String {
-    if (value.length <= MAX_QUESTION_CHARS) return value
-    val end = if (Character.isHighSurrogate(value[MAX_QUESTION_CHARS - 1])) MAX_QUESTION_CHARS - 1 else MAX_QUESTION_CHARS
+internal fun limitedQuestion(value: String): String = cutWithoutSplitting(value, MAX_QUESTION_CHARS)
+
+/** [value] entro [max] unita', senza spezzare un carattere fatto di due. */
+internal fun cutWithoutSplitting(value: String, max: Int): String {
+    if (value.length <= max) return value
+    val end = if (Character.isHighSurrogate(value[max - 1])) max - 1 else max
     return value.take(end)
 }

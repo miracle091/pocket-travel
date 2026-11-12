@@ -33,6 +33,11 @@ class OpenScreenTargetTest {
     }
 
     @Test
+    fun `Chiedi all'assistente senza motore apre le Impostazioni`() {
+        assertEquals(OpenScreenTarget(SettingsRoute), openScreenTarget("settings"))
+    }
+
+    @Test
     fun `un valore sconosciuto o malformato non apre nulla`() {
         listOf("", "impostazioni", "region:", "region:../etc", "region:Toscana", "region:toscana:segreto", "region:toscana:ai:x", "region:" + "a".repeat(81))
             .forEach { assertNull(it, openScreenTarget(it)) }

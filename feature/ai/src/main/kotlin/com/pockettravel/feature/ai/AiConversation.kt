@@ -112,7 +112,7 @@ internal fun Conversation(
 }
 
 // Niente da mostrare: ne' domanda, ne' attesa, ne' errore, ne' messaggio dell'app.
-private fun AiUiState.isEmptyConversation(): Boolean =
+internal fun AiUiState.isEmptyConversation(): Boolean =
     askedQuestion == null && !isThinking && errorMessage == null && notice == null
 
 // Riga sopra la risposta, in Automatico: un altro modello risponde al posto di quello con la quota finita.

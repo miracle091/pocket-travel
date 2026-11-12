@@ -11,4 +11,7 @@ internal object OpenScreenRequests {
 
     /** Scheda chiesta per la pagina della regione gia' aperta (RegionTab.key): RegionHubScreen la seleziona e la azzera. */
     val regionTab = MutableStateFlow<String?>(null)
+
+    /** Valore di `EXTRA_OPEN_SCREEN` che apre le Impostazioni ("Chiedi all'assistente" senza motore disponibile). */
+    const val OPEN_SETTINGS = "settings"
 }

@@ -102,6 +102,19 @@ class AssistantConversationTest {
     }
 
     @Test
+    fun `con save falso sul dispositivo non si salva niente ma il seguito resta in memoria`() = runTest {
+        val repository = repository()
+        val conversation = conversation(repository)
+        conversation.onAnswered(AiEngineMode.ON_DEVICE, "portogallo", "qwen", "Traduci", answer("Traduci"), save = false)
+        conversation.end()
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(dao.conversations.isEmpty())
+        assertTrue(dao.turns.isEmpty())
+        assertEquals(HistoryKeys.Unlock.Empty, repository.prepareUnlock())
+    }
+
+    @Test
     fun `sul dispositivo i turni vanno nella stessa conversazione fino alla fine`() = runTest {
         val repository = repository()
         val conversation = conversation(repository)

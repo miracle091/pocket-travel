@@ -116,12 +116,12 @@ class AssistantConversation @Inject constructor(
     var readOnlyRegionName: String? = null
         private set
 
-    /** Un turno con risposta: aggiorna lo stato e, sul dispositivo, si salva. */
-    fun onAnswered(mode: AiEngineMode, regionId: String, modelId: String, askedQuestion: String, answer: AssistantAnswer) {
+    /** Un turno con risposta: aggiorna lo stato e, sul dispositivo, si salva; con [save] falso non si salva mai. */
+    fun onAnswered(mode: AiEngineMode, regionId: String, modelId: String, askedQuestion: String, answer: AssistantAnswer, save: Boolean = true) {
         val now = System.currentTimeMillis()
         val turn = turn(modelId, askedQuestion, answer, now)
         state = (state ?: ConversationState(regionId)).after(turn)
-        val saves = when (mode) {
+        val saves = save && when (mode) {
             AiEngineMode.ONLINE -> false
             AiEngineMode.ON_DEVICE -> historyAvailability.isAvailable()
         }
@@ -140,6 +140,8 @@ class AssistantConversation @Inject constructor(
                 )
             }
         }
+        // Il foglio "Chiedi all'assistente" (save false) non prende il posto della conversazione della scheda IA nel task manager.
+        if (!save) return
         publish(
             (debug ?: ConversationDebugInfo(mode, saves, now, now, 0, 0, 0, null, checkNotNull(state))).let {
                 it.copy(mode = mode, saved = saves && handle != null, lastTurnAtMs = now, turns = it.turns + 1, state = checkNotNull(state))

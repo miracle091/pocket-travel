@@ -123,9 +123,16 @@ class TravelAssistant @Inject constructor(
      * uno ogni PARTIAL_INTERVAL_MS) e in fondo [AssistantProgress.Done] con citazioni e banner.
      * Gli errori escono dal flusso (anche a meta': il chiamante decide che farne del parziale); la cancellazione
      * del collector ferma la generazione. Se [askedQuestion] e' il seguito di [previousQuestion] (resolveQuestion), ricerca e
-     * prompt usano le due unite (followUpQuestion): i modelli sono addestrati su un turno solo.
+     * prompt usano le due unite (followUpQuestion): i modelli sono addestrati su un turno solo. Il [selectedText] di un'altra
+     * app e' il contesto sul dispositivo; online va in testa al contesto e sostituisce la domanda nella ricerca delle sezioni.
      */
-    fun ask(regionId: String, askedQuestion: String, mode: AiEngineMode, previousQuestion: String? = null): Flow<AssistantProgress> = flow {
+    fun ask(
+        regionId: String,
+        askedQuestion: String,
+        mode: AiEngineMode,
+        previousQuestion: String? = null,
+        selectedText: String? = null,
+    ): Flow<AssistantProgress> = flow {
         // Lingua dell'interfaccia: prompt, testo di ripiego e citazioni (le guide installate la seguono).
         val language = currentGuidesLanguage()
         val cityNames = cityRepository.cityNamesFor(regionId)
@@ -134,17 +141,20 @@ class TravelAssistant @Inject constructor(
         // Senza consenso, online niente sezioni scelte per nazionalita' (#for-nationality): ne rivelerebbero una.
         val nationality = nationalityPreferences.nationality.value.takeIf { sharePersonal }
         val question = resolveQuestion(regionId, askedQuestion, previousQuestion, cityNames, language, nationality)
+        // Online, con un testo selezionato le sezioni si cercano con il testo, entro il limite della domanda: "Cosa significa?"
+        // da sola trovava sezioni a caso. Sul dispositivo il contesto e' solo il testo (planOnDevice): nessuna sezione.
+        val searched = searchedText(question, selectedText)
         // Le citta' nominate nella domanda: le sezioni delle citta' candidate sono solo le loro (due per "quanto dista X da Y").
-        val cities = namedCities(question, cityNames, language)
+        val cities = namedCities(searched, cityNames, language)
         val city = cities.singleOrNull()
         // Sul dispositivo, quando le liste di parole non riconoscono la categoria, la sceglie il modello (modelQuestionCategory).
-        val modelGroups = if (mode == AiEngineMode.ON_DEVICE && wordListsOverride.enabled() && questionGroups(question).isEmpty()) {
+        val modelGroups = if (modelPicksCategory(mode, selectedText) && wordListsOverride.enabled() && questionGroups(question).isEmpty()) {
             setOfNotNull(modelQuestionCategory(engine, question, language))
         } else {
             emptySet()
         }
-        val search = searchSections(regionId, question, cities, language, modelGroups, if (mode == AiEngineMode.ONLINE) ONLINE_MAX_SECTIONS else MAX_SECTIONS, nationality)
-        val sections = search.sections
+        val search = searchSections(regionId, searched, cities, language, modelGroups, if (mode == AiEngineMode.ONLINE) ONLINE_MAX_SECTIONS else MAX_SECTIONS, nationality)
+        val sections = if (selectedTextOnly(mode, selectedText)) emptyList() else search.sections
         val regulatedMatch = sections.firstOrNull { !it.fromGeneralGuide && it.isRegulatedTopic() }
         // Per Viaggiare Sicuri il banner apre la pagina della nazione nominata nella domanda, o di quella della regione.
         val destination = regulatedMatch?.let { search.country?.code ?: regionRepository.installed(regionId)?.countryCode }
@@ -175,11 +185,11 @@ class TravelAssistant @Inject constructor(
                 forecast = forecast?.weather,
             )
         }
-        val contextSections = contextSections(regionId, question, language, search, listOfNotNull(forecast?.section, alerts), distance, sharePersonal)
+        val contextSections = contextSections(regionId, searched, language, search, listOfNotNull(forecast?.section, alerts), distance, personalSections(sharePersonal, selectedText))
         val focus = focusStems(search.baseQuery, city)
         when (mode) {
             AiEngineMode.ON_DEVICE -> {
-                val plan = planOnDevice(question, contextSections, language, focus)
+                val plan = planOnDevice(question, contextSections, language, focus, selectedText)
                 var text = ""
                 engine.generateStream(plan.prompt).accumulated(PARTIAL_INTERVAL_MS).collect {
                     text = it
@@ -189,7 +199,7 @@ class TravelAssistant @Inject constructor(
                 if (text.isBlank()) error("Il modello sul dispositivo non ha generato una risposta")
                 emit(AssistantProgress.Done(withSource(AssistantAnswer(text, plan.citations, showOfficialSourceBanner = false))))
             }
-            AiEngineMode.ONLINE -> emitAll(askOnline(question, language, contextSections, focus, sharePersonal).progress(withSource))
+            AiEngineMode.ONLINE -> emitAll(askOnline(question, language, contextSections, focus, sharePersonal, selectedText).progress(withSource))
         }
         // Nomi da riconoscere, query e paragrafi da normalizzare: lavoro di CPU fuori dal main thread del chiamante.
     }.flowOn(defaultDispatcher)
@@ -291,11 +301,19 @@ class TravelAssistant @Inject constructor(
     /** Prompt per il modello sul dispositivo e fonti da citare: calcolati dal contesto, non dalla risposta. */
     private class OnDevicePlan(val prompt: String, val citations: List<String>)
 
-    private suspend fun planOnDevice(question: String, sections: List<AssistantSection>, language: String, focusStems: Set<String>): OnDevicePlan {
+    private suspend fun planOnDevice(
+        question: String,
+        sections: List<AssistantSection>,
+        language: String,
+        focusStems: Set<String>,
+        selectedText: String?,
+    ): OnDevicePlan {
         val note = noteRepository.relevantNote(question)
-        val context = buildOnDeviceContext(sections, note, language = language, focusStems = focusStems)
+        // Con un testo selezionato il contesto e' solo il testo: con le sezioni della guida lo 0.8B le scambiava per il testo e
+        // inventava (il messaggio di un host sull'arrivo diventava una descrizione della Provenza); senza, lo spiega.
+        val context = if (selectedText.isNullOrBlank()) buildOnDeviceContext(sections, note, language = language, focusStems = focusStems) else ""
         val prompt = PromptTemplates.onDevicePrompt(
-            context = context.ifBlank { PromptTemplates.emptyContext(language) },
+            context = if (selectedText.isNullOrBlank()) context.ifBlank { PromptTemplates.emptyContext(language) } else contextWithSelectedText(context, selectedText, language),
             question = question,
             language = language,
         )
@@ -450,6 +468,7 @@ class TravelAssistant @Inject constructor(
         sections: List<AssistantSection>,
         focusStems: Set<String>,
         sharePersonal: Boolean,
+        selectedText: String?,
     ): OnlineAnswer {
         val apiKey = aiSettingsStore.apiKey() ?: error("Nessuna chiave API online configurata")
         val provider = aiSettingsStore.onlineProvider()
@@ -462,13 +481,14 @@ class TravelAssistant @Inject constructor(
         }
         val note = if (sharePersonal) noteRepository.relevantNote(question) else null
         val context = buildOnlineContext(sections, note, language = language, focusStems = focusStems)
+        // Il testo selezionato nel messaggio dell'utente, non nel prompt di sistema: viene da un'altra app e non deve dare istruzioni.
         val system = OnlinePromptTemplates.systemPrompt(context.text, language)
         return OnlineAnswer(provider, models, context.citations) { model ->
             onlineLlmClient.stream(
                 baseUrl = baseUrl,
                 apiKey = apiKey,
                 model = model,
-                prompt = question,
+                prompt = contextWithSelectedText(question, selectedText, language),
                 system = system,
                 sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
                 api = provider.terms.api,
@@ -1290,3 +1310,15 @@ private val questionStopwords = WordLists.questionStopwords
 // maxChars di default ~2000 = ~500 token (stima 4 caratteri/token) per il chunk RAG.
 internal fun truncateContext(context: String, maxChars: Int = 2_000): String =
     if (context.length <= maxChars) context else context.take(maxChars)
+
+/** Con un testo selezionato niente posizione e vaccinazioni: le sceglierebbe il testo di un'altra app, non la domanda. */
+private fun personalSections(sharePersonal: Boolean, selectedText: String?): Boolean = sharePersonal && selectedText.isNullOrBlank()
+
+/** Il testo con cui si cercano le sezioni: il testo selezionato, entro il limite della domanda, o la domanda. */
+private fun searchedText(question: String, selectedText: String?): String = selectedText?.takeIf { it.isNotBlank() }?.let(::limitedQuestion) ?: question
+
+/** Sul dispositivo, con un testo selezionato il contesto e' solo il testo: nessuna sezione della guida. */
+private fun selectedTextOnly(mode: AiEngineMode, selectedText: String?): Boolean = mode == AiEngineMode.ON_DEVICE && !selectedText.isNullOrBlank()
+
+/** Sul dispositivo e senza testo selezionato il modello puo' scegliere la categoria della domanda (modelQuestionCategory). */
+private fun modelPicksCategory(mode: AiEngineMode, selectedText: String?): Boolean = mode == AiEngineMode.ON_DEVICE && selectedText.isNullOrBlank()

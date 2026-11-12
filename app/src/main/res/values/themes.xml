@@ -5,6 +5,13 @@
          per agganciare androidx.core.splashscreen. -->
     <style name="Theme.PocketTravel" parent="android:Theme.Material.Light.NoActionBar" />
 
+    <!-- Foglio "Chiedi all'assistente" (ProcessTextActivity): finestra trasparente sopra l'app che ha mandato il testo. -->
+    <style name="Theme.PocketTravel.Transparent" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+
     <!-- Splash: l'icona dell'app su un cerchio blu, sopra un blu piu' scuro. -->
     <style name="Theme.PocketTravel.Splash" parent="Theme.SplashScreen.IconBackground">
         <item name="windowSplashScreenBackground">@color/splash_background</item>

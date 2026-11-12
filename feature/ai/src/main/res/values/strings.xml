@@ -297,4 +297,16 @@
         <item quantity="many">Cronologia: %d conversazioni</item>
         <item quantity="other">Cronologia: %d conversazioni</item>
     </plurals>
+    <string name="ai_selected_text_title">Chiedi all\'assistente</string>
+    <string name="ai_selected_text_label">Testo selezionato</string>
+    <string name="ai_selected_text_truncated">Testo tagliato a %1$d caratteri</string>
+    <string name="ai_selected_text_online_notice">La domanda e il testo selezionato vengono inviati a %1$s</string>
+    <string name="ai_selected_text_meaning">Cosa significa?</string>
+    <string name="ai_selected_text_translate">Traduci</string>
+    <string name="ai_selected_text_explain">Spiegami</string>
+    <string name="ai_selected_text_meaning_question">Cosa significa il testo selezionato?</string>
+    <string name="ai_selected_text_translate_question">Traduci in italiano il testo selezionato</string>
+    <string name="ai_selected_text_explain_question">Spiegami il testo selezionato e cosa devo fare</string>
+    <string name="ai_selected_text_no_engine">Manca un motore per rispondere: scarica un modello o salva una chiave API nelle Impostazioni</string>
+    <string name="ai_selected_text_open_settings">Apri le Impostazioni</string>
 </resources>

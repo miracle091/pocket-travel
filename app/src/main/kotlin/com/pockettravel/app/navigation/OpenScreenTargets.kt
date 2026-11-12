@@ -20,10 +20,11 @@ internal object WidgetScreens {
 
 /**
  * La destinazione di un valore di `EXTRA_OPEN_SCREEN`, o null se non e' uno dei valori noti: l'activity e' esportata e un'altra
- * app puo' passare un extra qualsiasi. Valori: "updates", "region:<id>" (Guida), "region:<id>:<scheda>", "navigator", "documents".
+ * app puo' passare un extra qualsiasi. Valori: "updates", "settings", "region:<id>" (Guida), "region:<id>:<scheda>", "navigator", "documents".
  */
 internal fun openScreenTarget(screen: String): OpenScreenTarget? = when {
     screen == UpdateAvailableNotifier.OPEN_UPDATES -> OpenScreenTarget(UpdatesRoute)
+    screen == OpenScreenRequests.OPEN_SETTINGS -> OpenScreenTarget(SettingsRoute)
     screen == WidgetScreens.NAVIGATOR -> OpenScreenTarget(NavigatorRoute, topLevel = true)
     screen == WidgetScreens.DOCUMENTS -> OpenScreenTarget(VaultRoute, topLevel = true)
     screen.startsWith(AlertNotifier.OPEN_REGION_PREFIX) -> {

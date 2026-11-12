@@ -43,6 +43,28 @@
             </intent-filter>
         </activity>
 
+        <!-- "Chiedi all'assistente": testo selezionato in un'altra app (menu di selezione) o condiviso. Tema trasparente,
+             fuori dai recenti: il foglio si chiude e l'app sotto resta com'era. -->
+        <activity
+            android:name=".assistant.ProcessTextActivity"
+            android:label="@string/ai_selected_text_title"
+            android:theme="@style/Theme.PocketTravel.Transparent"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <!-- Esito della sessione di installazione (AppInstallReceiver): lo riceve solo l'app. -->
         <receiver
             android:name=".updates.AppInstallReceiver"
