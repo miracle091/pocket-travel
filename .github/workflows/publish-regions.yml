@@ -1146,7 +1146,7 @@ jobs:
               404) LIVE=none ;;
               *) LIVE="HTTP ${code:-000}" ;;
             esac
-            [ -n "$BASE_SHA256" ] && [ "$LIVE" != "$BASE_SHA256" ] || break
+            if [ -z "$BASE_SHA256" ] || [ "$LIVE" = "$BASE_SHA256" ]; then break; fi
             [ "$attempt" -lt 3 ] && sleep 20
           done
           if [ -z "$BASE_SHA256" ] || [ "$LIVE" != "$BASE_SHA256" ]; then
