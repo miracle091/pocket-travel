@@ -100,11 +100,12 @@ download_feed() {
   # {ultimo} nell'url_feed: il file piu' recente di un ente che cambia indirizzo a ogni versione (url con
   # la data). cerca_ultimo e' "<url dell'indice> <regex PCRE>": fra i testi che la regex trova nell'indice
   # (API CKAN o udata, o pagina HTML) vince quello con l'ultimo numero di 8 cifre (la data: prima ci
-  # possono essere UUID) piu' alto; a pari data il primo nell'indice.
+  # possono essere UUID) piu' alto; a pari data il primo nell'indice. La regex vede l'indice intero (perl -0777), non
+  # riga per riga: nella pagina MDV il link e il nome del file stanno su righe diverse.
   if [[ "$FEED_URL" == *"{ultimo}"* ]]; then
     [ -n "${FIND_LATEST:-}" ] || { echo "-- $FEED_ID: {ultimo} senza la colonna cerca_ultimo" >&2; exit 1; }
     LATEST="$(curl -sSfL --compressed --retry 3 --max-time 120 -A "$PIPELINE_USER_AGENT" "${FIND_LATEST%% *}" \
-      | sed 's/&amp;/\&/g' | PATTERN="${FIND_LATEST#* }" perl -ne 'print "$&\n" while /$ENV{PATTERN}/g' \
+      | sed 's/&amp;/\&/g' | PATTERN="${FIND_LATEST#* }" perl -0777 -ne 'print "$&\n" while /$ENV{PATTERN}/g' \
       | awk '{ key = "0"; s = $0
           while (match(s, /[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/)) { key = substr(s, RSTART, 8); s = substr(s, RSTART + 8) }
           print key "\t" NR "\t" $0 }' \

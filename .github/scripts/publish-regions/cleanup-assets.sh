@@ -38,8 +38,8 @@ cat "${SCAN_FILES[@]}" \
   | { grep -oE 'https://github\.com/[^"]+/releases/download/[^"/]+/[^"]+' || true; } \
   | sed -E 's#.*/releases/download/##' | sort -u > "$REFERENCED"
 if [ ! -s "$REFERENCED" ]; then
-  echo "Il catalogo non referenzia alcun asset di release: non cancello nulla" >&2
-  exit 1
+  echo "::warning::Il catalogo non referenzia alcun asset di release: non cancello nulla" >&2
+  exit 0
 fi
 CUTOFF="$(date -u -d '-24 hours' +%Y-%m-%dT%H:%M:%SZ)"
 for tag in $(retry gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName --jq '.[].tagName' | grep -E '^(region-data|world-map|address-cells-|transit-feeds$)'); do

@@ -65,7 +65,10 @@ nel gruppo `pages` e solo `cleanup` nel gruppo `asset-cleanup` (una pulizia annu
 successiva toglie gli stessi asset). Il gruppo `pages` tiene una sola run in attesa e una nuova annulla quella in
 attesa: con tre run vicine la pubblicazione di quella di mezzo si perde. Le regioni si recuperano dai frammenti in
 sospeso di `region-fragments`; guide, mappa del mondo e indici di civici e mezzi pubblici di quella run no. Una run
-manuale non si lancia mentre un'altra aspetta la pubblicazione. Gli asset di run diverse non si scontrano (versione
+manuale non si lancia mentre un'altra aspetta la pubblicazione. Il gruppo non tiene insieme `publish` e `deploy` di
+una stessa run: un'altra `publish` può entrare tra i due e fare il merge su un catalogo senza le voci della prima.
+Per questo `deploy` firma solo se il `manifest.json` online è ancora quello su cui la sua `publish` ha fatto il
+merge; altrimenti si ferma con un errore e la run va rilanciata. Gli asset di run diverse non si scontrano (versione
 unica per run e tentativo) e la pulizia non tocca gli asset caricati da meno di 24 ore.
 
 **Permessi.** A livello di workflow solo `contents: read`; `contents: write` ai job che creano release o caricano
@@ -300,9 +303,9 @@ I numeri civici (OSM + Overture) non si pubblicano per regione ma in celle di un
   con lo stesso sha256 tiene versione e asset pubblicati. Input manuali: `address_cells` (id della
   partizione separati da virgola, al posto della quota del giorno) e `address_cell_max_age_days` (-1 =
   rigenera anche le celle recenti).
-- **Release**: `address-cells-<n>` con `n = cksum(id) % ADDRESS_CELL_RELEASES` (12), calcolato sulla cella
-  scelta per la run (i figli di una divisione finiscono nella stessa release). Erano 6: 12 è multiplo di
-  6, quindi le celle con `n < 6` restano dove sono e le altre passano alle release 6–11 solo quando si
+- **Release**: `address-cells-<n>` con `n = cksum(id) % ADDRESS_CELL_RELEASES` (24), calcolato sulla cella
+  scelta per la run (i figli di una divisione finiscono nella stessa release). Erano 6, poi 12: 24 è multiplo di
+  12, quindi le celle con `n < 12` restano dove sono e le altre passano alle release 12–23 solo quando si
   rigenerano. La pulizia finale guarda tutte le `address-cells-*`. Asset caricati:
   `cell-<z>-<x>-<y>--<version>--addresses.pmtiles.xz` e `...--addresses-search.db.xz`.
 

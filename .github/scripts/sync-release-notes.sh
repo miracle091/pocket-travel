@@ -21,7 +21,7 @@ while IFS= read -r tag; do
     $0 == ver || index($0, ver " - ") == 1 { found=1; next }
     found && /^## \[/ { exit }
     found { print }
-  ' CHANGELOG.md)"
+  ' <(tr -d '\r' < CHANGELOG.md))"
   if [ -z "$(printf '%s' "$section" | tr -d '[:space:]')" ]; then
     echo "-- $tag: nessuna sezione in CHANGELOG.md, note invariate"
     continue

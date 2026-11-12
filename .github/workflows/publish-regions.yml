@@ -297,7 +297,7 @@ jobs:
       contents: write
     env:
       PYTHON_BIN: python3
-      ADDRESS_CELL_RELEASES: 12
+      ADDRESS_CELL_RELEASES: 24
       # Nessuna cella piu' grande di una z7: una regione piccola non scarica una cella che copre mezzo continente.
       ADDRESS_CELL_MIN_ZOOM: 7
       ADDRESS_CELL_MAX_AGE_DAYS: ${{ github.event.inputs.address_cell_max_age_days || (github.event.inputs.address_cells && '-1') || '30' }}
@@ -884,6 +884,7 @@ jobs:
       pending_ok: ${{ steps.pending.outputs.ok }}
       nothing: ${{ steps.assemble.outputs.nothing }}
       site_sha256: ${{ steps.site-hash.outputs.sha256 }}
+      base_manifest_sha256: ${{ steps.site-hash.outputs.base_manifest_sha256 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1037,6 +1038,13 @@ jobs:
           SITE_SHA256="$(cd "$SITE_DIR" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
           echo "-- impronta del sito: $SITE_SHA256"
           echo "sha256=$SITE_SHA256" >> "$GITHUB_OUTPUT"
+          # Catalogo su cui si e' fatto il merge ("none" alla prima pubblicazione): "deploy" controlla che sia ancora online.
+          BASE_SHA256=none
+          if [ -s "$RUNNER_TEMP/previous-manifest.json" ]; then
+            BASE_SHA256="$(sha256sum "$RUNNER_TEMP/previous-manifest.json" | cut -d' ' -f1)"
+          fi
+          echo "-- catalogo di partenza: $BASE_SHA256"
+          echo "base_manifest_sha256=$BASE_SHA256" >> "$GITHUB_OUTPUT"
 
       # Il sito assemblato (senza firma) va al job "deploy"; gli elenchi di cui hanno bisogno i passi dopo il deploy
       # (frammenti in sospeso scaricati sopra e cataloghi precedenti) vanno al job "after-deploy". Nome fisso con
@@ -1118,6 +1126,36 @@ jobs:
             exit 1
           fi
           echo "-- impronta del sito: $ACTUAL_SHA256, uguale a quella di \"publish\""
+
+      # Il gruppo "pages" non basta: il "publish" di un'altra run puo' entrare nel gruppo tra "publish" e "deploy" di
+      # questa e fare il merge su un catalogo che non ha ancora le sue voci. Se il manifest.json online non e' piu'
+      # quello su cui "publish" ha fatto il merge, firmare toglierebbe le voci dell'altra run: ci si ferma e la run si
+      # rilancia. Tre tentativi a 20 s: subito dopo un deploy la CDN di Pages puo' servire per qualche minuto la
+      # versione vecchia.
+      - name: Controlla che il catalogo online sia quello del merge
+        env:
+          BASE_SHA256: ${{ needs.publish.outputs.base_manifest_sha256 }}
+        run: |
+          set -euo pipefail
+          LIVE=""
+          for attempt in 1 2 3; do
+            code="$(curl -sS -o "$RUNNER_TEMP/live-manifest.json" -w '%{http_code}' --max-time 60 \
+              "$PAGES_BASE_URL/manifest.json?cb=$(date +%s)" || true)"
+            case "$code" in
+              200) LIVE="$(sha256sum "$RUNNER_TEMP/live-manifest.json" | cut -d' ' -f1)" ;;
+              404) LIVE=none ;;
+              *) LIVE="HTTP ${code:-000}" ;;
+            esac
+            [ -n "$BASE_SHA256" ] && [ "$LIVE" != "$BASE_SHA256" ] || break
+            [ "$attempt" -lt 3 ] && sleep 20
+          done
+          if [ -z "$BASE_SHA256" ] || [ "$LIVE" != "$BASE_SHA256" ]; then
+            MSG="manifest.json online ($LIVE) non e' quello su cui \"publish\" ha fatto il merge (${BASE_SHA256:-impronta mancante}): un'altra run ha pubblicato nel frattempo, non firmo. Rilanciare la run"
+            echo "::error::$MSG"
+            echo "$MSG" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "-- catalogo online uguale a quello del merge: $LIVE"
 
       # Indice e voce di `manifest.json` vengono da download diversi (artifact, in continue-on-error, o indice
       # gia' pubblicato) e potrebbero non corrispondere: l'app scarterebbe l'indice per lo sha256 diverso.
