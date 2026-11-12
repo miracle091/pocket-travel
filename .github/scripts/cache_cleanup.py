@@ -87,8 +87,18 @@ def main():
         args.dry_run = True
     repo = os.environ["GITHUB_REPOSITORY"]
 
-    entries = json.loads(gh("cache", "list", "--repo", repo, "--limit", "1000",
-                            "--json", "id,key,ref,sizeInBytes,createdAt,lastAccessedAt"))
+    try:
+        entries = json.loads(gh("cache", "list", "--repo", repo, "--limit", "1000",
+                                "--json", "id,key,ref,sizeInBytes,createdAt,lastAccessedAt"))
+    except (subprocess.CalledProcessError, OSError, ValueError) as err:
+        cause = (getattr(err, "stderr", None) or str(err)).strip()
+        msg = f"elenco delle cache non leggibile (gh cache list): {cause}"
+        print(f"::error::{msg}")
+        summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary:
+            with open(summary, "a", encoding="utf-8") as f:
+                f.write(msg + "\n")
+        return 1
     # Dall'elenco e non da actions/cache/usage, che si aggiorna con minuti di ritardo dopo le cancellazioni.
     count_before, size_before = len(entries), sum(e["sizeInBytes"] for e in entries)
     to_delete = plan(entries, datetime.now(timezone.utc))

@@ -96,7 +96,7 @@ def parse_report(text):
 # ---------------------------------------------------------------------------
 
 
-def query_osv(coords, http):
+def query_osv(coords, http, out=print):
     """Restituisce {(g, a, v): [id, ...]} per le coordinate con vulnerabilita' note."""
     ordered = sorted(coords)
     hits = {}
@@ -106,6 +106,10 @@ def query_osv(coords, http):
             {"package": {"ecosystem": "Maven", "name": f"{g}:{a}"}, "version": v} for g, a, v in chunk
         ]}
         results = json.loads(http(OSV_BATCH_URL, json.dumps(body).encode("utf-8"))).get("results", [])
+        if len(results) != len(chunk):
+            # zip si fermerebbe al piu' corto: le dipendenze senza risposta non sarebbero controllate.
+            out(f"::warning::OSV ha risposto con {len(results)} risultati per {len(chunk)} dipendenze: "
+                "le ultime non sono controllate")
         for coord, res in zip(chunk, results):
             ids = [v["id"] for v in res.get("vulns", [])]
             if ids:
@@ -140,7 +144,7 @@ def check_vulnerabilities(reports, http, out):
     if not where:
         return 0
     try:
-        hits = query_osv(where.keys(), http)
+        hits = query_osv(where.keys(), http, out)
     except Exception as e:  # noqa: BLE001
         out(f"::warning::OSV non raggiungibile ({e}): controllo delle vulnerabilita' saltato")
         return 0

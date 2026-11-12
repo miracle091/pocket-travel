@@ -123,6 +123,15 @@ record_failed() {
   FAILED_REASONS+=("$2")
   printf '%s\t%s\n' "$1" "$2" >> "$RUNNER_TEMP/fragments/failed-$SHARD.txt"
 }
+# Regione fallita dopo la build (file mancanti o copie non riuscite): la segna e libera il disco; chi chiama prosegue con
+# `continue`. Senza, un errore non protetto sotto "set -e" fermerebbe lo script e le regioni successive non finirebbero
+# ne' in failed- ne' in deferred-, quindi la continuazione non le rilancerebbe. Uso: fail_region <regionId> <motivo>.
+fail_region() {
+  echo "::warning::$1: $2, salto e continuo con le prossime"
+  record_failed "$1" "$2"
+  rm -rf "${OUTPUT_ROOT:?}/$1"
+  echo "::endgroup::"
+}
 IFS=',' read -ra SHARD_REGIONS <<< "$SELECTED"
 # Coda della quota adattiva ("id:secondi stimati", vedi il job plan): dopo le regioni del giorno,
 # ognuna solo se la sua stima ci sta ancora nel budget; quelle che non ci stanno non si rimandano.
@@ -253,6 +262,10 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
       env -u GH_TOKEN tools/data-pipeline/scripts/build-cities.sh "$regionId" "$VERSION" \
       "$RELEASE_BASE_URL" "$regionOut" "$CITIES_JSONL_DIR" \
       "$PUBLISHED_MANIFEST_URL" en || { echo "::warning::citta' EN di $regionId non generate"; restore_published_entry "$regionId" "$regionOut" citiesEn; }
+    if [ ! -f "$regionOut/manifest-fragment.json" ]; then
+      fail_region "$regionId" "frammento di catalogo non prodotto"
+      continue
+    fi
     if [ -f "$regionOut/.skipped" ]; then
       # Controllo di necessita' in build-region.sh: tile .rd5 attese invariate rispetto
       # al `manifest.json` gia' pubblicato, il frammento e' quello di sempre, niente da
@@ -269,18 +282,19 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
       # caricano solo le tile cambiate, piu' poi.db.xz/poi-extra.db.xz se erano scaduti e sono cambiati,
       # e cities.db.xz se build-cities.sh ne ha prodotto uno nuovo.
       uploads=()
+      copyFailed=false
       # I POI, la mappa d'insieme e le citta' si caricano solo compressi (vedi xz_entry
       # in lib.sh, build_preview in build-region.sh).
       for xz in poi.db.xz poi-extra.db.xz preview.pmtiles.xz cities.db.xz cities-en.db.xz; do
         [ -f "$regionOut/$xz" ] || continue
         xzAsset="$regionOut/${regionId}--${VERSION}--$xz"
-        cp "$regionOut/$xz" "$xzAsset"
+        cp "$regionOut/$xz" "$xzAsset" || copyFailed=true
         uploads+=("$xzAsset")
       done
       for rd5 in "$regionOut"/*.rd5; do
         [ -e "$rd5" ] || continue
         rd5Asset="$regionOut/${regionId}--${VERSION}--$(basename "$rd5")"
-        cp "$rd5" "$rd5Asset"
+        cp "$rd5" "$rd5Asset" || copyFailed=true
         uploads+=("$rd5Asset")
       done
       # Variante "solo auto" (build-region.sh, cartella car/): sulla release region-data-car-rNN.
@@ -288,9 +302,13 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
       for rd5 in "$regionOut"/car/*.rd5; do
         [ -e "$rd5" ] || continue
         carAsset="$regionOut/car/${regionId}--${VERSION}--car-$(basename "$rd5")"
-        cp "$rd5" "$carAsset"
+        cp "$rd5" "$carAsset" || copyFailed=true
         carUploads+=("$carAsset")
       done
+      if [ "$copyFailed" = true ]; then
+        fail_region "$regionId" "copia degli asset fallita"
+        continue
+      fi
       # Fino a 3 tentativi: l'API a volte risponde "release not found" su una release che
       # esiste (tanzania, run del 2026-09-24). --clobber rende sicuro il ricaricamento.
       # Nessun file (es. la regione ha perso solo i POI extra): cambia solo il manifest.
@@ -330,11 +348,15 @@ for regionId in "${ORDERED_REGIONS[@]}"; do
     fi
     # Nome unico per regione: piu' regioni condividerebbero altrimenti lo stesso nome di
     # file "manifest-fragment.json" una volta appiattite nella stessa cartella artifact.
-    cp "$regionOut/manifest-fragment.json" "$RUNNER_TEMP/fragments/${regionId}.json"
     # Copia durevole subito, oltre all'artifact di fine passo: se il job muore dopo (annullato,
     # runner perso) il job "publish" di una run successiva la recupera (selectFragments).
-    # Non fatale: senza, resta il percorso normale dell'artifact.
-    cp "$regionOut/manifest-fragment.json" "$regionOut/${VERSION}--${regionId}.json"
+    # Il caricamento non e' fatale: senza, resta il percorso normale dell'artifact.
+    if ! cp "$regionOut/manifest-fragment.json" "$regionOut/${VERSION}--${regionId}.json" \
+      || ! cp "$regionOut/manifest-fragment.json" "$RUNNER_TEMP/fragments/${regionId}.json"; then
+      rm -f "$RUNNER_TEMP/fragments/${regionId}.json"
+      fail_region "$regionId" "copia del frammento fallita"
+      continue
+    fi
     gh release upload region-fragments "$regionOut/${VERSION}--${regionId}.json" --repo "$GITHUB_REPOSITORY" --clobber \
       || echo "::warning::frammento di $regionId non salvato su region-fragments (resta l'artifact di fine passo)"
     # Durata della regione, per bilanciare gli shard delle prossime run (region-timings.tsv).
@@ -381,7 +403,8 @@ fi
 {
   echo "### Shard $SHARD"
   if [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then
-    echo "Regioni fallite (non pubblicate, riprovate una volta dalla continuazione): ${FAILED_REGIONS[*]}"
+    echo "Regioni fallite (non pubblicate, riprovate una volta dalla continuazione):"
+    for i in "${!FAILED_REGIONS[@]}"; do echo "- ${FAILED_REGIONS[$i]}: ${FAILED_REASONS[$i]}"; done
     echo
   elif [ "${#DEFERRED_REGIONS[@]}" -eq 0 ]; then
     echo "Nessun problema."
@@ -399,7 +422,8 @@ if [ "$fragmentCount" -eq 0 ]; then
     echo "Nessuna regione da costruire in questo shard: $SELECTED"
     exit 0
   fi
-  echo "Nessuna regione completata con successo in questo shard: $SELECTED" >&2
+  echo "::error::nessuna regione completata con successo nello shard $SHARD: $SELECTED"
+  echo "Nessuna regione completata con successo (vedi le regioni fallite o rimandate sopra)." >> "$GITHUB_STEP_SUMMARY"
   exit 1
 fi
 if [ "${#FAILED_REGIONS[@]}" -gt 0 ]; then

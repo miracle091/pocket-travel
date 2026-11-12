@@ -171,9 +171,14 @@ jobs:
           set -euo pipefail
           source .github/scripts/retry.sh
           VERSION_CODE="$(grep -oP 'versionCode = \K[0-9]+' app/build.gradle.kts)"
-          PUBLISHED="$(retry gh release download app-status -p app-status.json -O - --repo "$GITHUB_REPOSITORY" | jq -r '.appVersion.versionCode // 0')"
+          PUBLISHED="$(retry gh release download app-status -p app-status.json -O - --repo "$GITHUB_REPOSITORY" | jq -r '.appVersion.versionCode // 0')" || {
+            echo "::error::app-status.json pubblicato non scaricabile o non valido: non posso confrontare il versionCode"
+            echo "app-status.json pubblicato non scaricabile o non valido: versionCode non confrontabile, nulla pubblicato." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
           if [ "$VERSION_CODE" -lt "$PUBLISHED" ]; then
             echo "::error::versionCode $VERSION_CODE e' minore di quello pubblicato ($PUBLISHED): serve un bump di versione" >&2
+            echo "versionCode $VERSION_CODE e' minore di quello pubblicato ($PUBLISHED): serve un bump di versione." >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
 
@@ -237,7 +242,9 @@ jobs:
           ' CHANGELOG.md)"
           # Sezione assente o vuota: una release senza note si scopre solo dopo, meglio fermarsi.
           if [ -z "$(printf '%s' "$SECTION" | tr -d '[:space:]')" ]; then
-            echo "Nessuna voce \"## [$VERSION]\" (o voce vuota) in CHANGELOG.md: aggiungerla prima di pubblicare" >&2
+            msg="Nessuna voce \"## [$VERSION]\" (o voce vuota) in CHANGELOG.md: aggiungerla prima di pubblicare"
+            echo "::error::$msg"
+            echo "$msg" >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
           {
@@ -266,7 +273,9 @@ jobs:
                 grep -qiE 'not found|HTTP 404|No commit found' "$RUNNER_TEMP/tag-sha.err" || { cat "$RUNNER_TEMP/tag-sha.err" >&2; return 1; }
               fi
               if [ -n "$TAG_SHA" ] && [ "$TAG_SHA" != "$GITHUB_SHA" ]; then
-                echo "::error::$TAG punta a $TAG_SHA, non a $GITHUB_SHA: per un APK diverso serve un bump di versione" >&2
+                msg="$TAG punta a $TAG_SHA, non a $GITHUB_SHA: per un APK diverso serve un bump di versione"
+                echo "::error::$msg"
+                echo "$msg" >> "$GITHUB_STEP_SUMMARY"
                 exit 1
               fi
               # && e non due righe: dentro retry set -e non vale, un edit fallito non deve proseguire.
@@ -281,7 +290,11 @@ jobs:
                 --latest
             fi
           }
-          retry publish_release
+          retry publish_release || {
+            echo "::error::pubblicazione della release $TAG non riuscita (log del passo)"
+            echo "Pubblicazione della release $TAG non riuscita (log del passo): rilanciare il job." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
 
       # Le impronte dei modelli (calcolate prima della compilazione) e quella dell'APK vanno al job publish-app-status,
       # che compone e firma app-status.json senza eseguire codice di build.

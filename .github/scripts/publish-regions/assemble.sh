@@ -148,7 +148,8 @@ done < <(awk -F'\t' '$3 == "scartata" { printf "%s\037%s\n", $2, $4 }' "$SELECTI
 if [ "${#FRAGMENT_FILES[@]}" -eq 0 ]; then
   case "${ONLY_INPUT:-all}" in
     all | regions)
-      echo "Nessun frammento di catalogo da unire (ne' di questa run ne' in sospeso), niente da pubblicare" >&2
+      echo "::error::nessun frammento di catalogo da unire (ne' di questa run ne' in sospeso), niente da pubblicare: controlla gli id in regions e gli shard"
+      echo "Nessun frammento di catalogo da unire: niente da pubblicare." >> "$GITHUB_STEP_SUMMARY"
       exit 1
       ;;
     *)

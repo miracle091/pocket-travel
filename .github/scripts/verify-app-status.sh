@@ -17,4 +17,7 @@ fi
 pub="$(mktemp)"
 trap 'rm -f "$pub"' EXIT
 { echo "-----BEGIN PUBLIC KEY-----"; printf '%s\n' "$key" | fold -w 64; echo "-----END PUBLIC KEY-----"; } > "$pub"
-openssl dgst -sha256 -verify "$pub" -signature "$file.sig" "$file"
+openssl dgst -sha256 -verify "$pub" -signature "$file.sig" "$file" || {
+  echo "::error::firma di $file mancante o non valida per OFFICIAL_PUBLIC_KEY" >&2
+  exit 1
+}

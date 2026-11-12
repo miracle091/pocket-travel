@@ -211,6 +211,15 @@ class VulnerabilityTest(unittest.TestCase):
         self.assertEqual(len(out), 1)
         self.assertTrue(out[0].startswith("::warning::"))
 
+    def test_meno_risultati_delle_richieste_e_un_warning(self):
+        coords = {("g", f"a{i}", "1.0") for i in range(3)}
+        http = FakeHttp({cd.OSV_BATCH_URL: json.dumps({"results": [{}]}).encode()})
+        out = []
+        self.assertEqual(cd.check_vulnerabilities({"app": coords}, http, out.append), 0)
+        self.assertEqual(len(out), 1)
+        self.assertTrue(out[0].startswith("::warning::"))
+        self.assertIn("1 risultati per 3", out[0])
+
     def test_dettaglio_non_raggiungibile_resta_errore(self):
         http = self.osv(True)
         del http.routes[cd.OSV_VULN_URL + "GHSA-xxxx"]

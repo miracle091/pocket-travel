@@ -38,7 +38,7 @@ ensure_release world-map \
 
 # go-pmtiles serve solo qui, quando la mappa si rigenera (circa ogni 30 giorni). La cartella va nel PATH di questo
 # script: $GITHUB_PATH vale solo per i passi successivi.
-bash .github/scripts/install-go-pmtiles.sh
+env -u GH_TOKEN bash .github/scripts/install-go-pmtiles.sh
 export PATH="$RUNNER_TEMP/bin:$PATH"
 
 # Estratta direttamente col nome dell'asset: niente copia di un file da ~555 MB
@@ -48,7 +48,7 @@ ASSET="$RUNNER_TEMP/$ASSET_NAME"
 # (stesso problema dei civici, vedi with_retries in build-address-cell.sh).
 for attempt in 1 2 3; do
   rm -f "$ASSET"
-  pmtiles extract "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" "$ASSET" --maxzoom=8 && break
+  env -u GH_TOKEN pmtiles extract "https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles" "$ASSET" --maxzoom=8 && break
   [ "$attempt" -lt 3 ] || { echo "Estrazione della mappa del mondo fallita dopo 3 tentativi" >&2; exit 1; }
   echo "-- estrazione della mappa del mondo fallita (tentativo $attempt/3), riprovo tra $((attempt * 60))s"
   sleep $((attempt * 60))

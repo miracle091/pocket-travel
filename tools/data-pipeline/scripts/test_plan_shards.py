@@ -101,6 +101,14 @@ class PlanShardsTest(unittest.TestCase):
         self.assertEqual(1, proc.returncode)
         self.assertIn("regions non valido", proc.stderr)
 
+    def test_regione_sconosciuta(self):
+        summary = self.tree / "summary.md"
+        proc, out = self.plan(REGIONS_INPUT="aaa,itali", GITHUB_STEP_SUMMARY=summary.as_posix())
+        self.assertEqual(1, proc.returncode)
+        self.assertIn("::error::regione sconosciuta in regions: itali", proc.stdout)
+        self.assertIn("itali", summary.read_text(encoding="utf-8"))
+        self.assertEqual({}, out)
+
     def test_spartizione_per_peso(self):
         # Pesi misurati 300, 200, 100, 50 s: le tre piu' pesanti in shard diversi, l'ultima con la piu' leggera.
         timings = b"aaa\t300\nbbb\t200\nccc\t100\nddd\t50\nrumore senza numeri\tx\n"

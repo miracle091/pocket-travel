@@ -65,6 +65,16 @@ fi
 echo "-- tempi misurati per ${#TIMINGS[@]} regioni"
 REGION_ARR=()
 [ -z "$SELECTED" ] || IFS=',' read -ra REGION_ARR <<< "$SELECTED"
+# Un id sbagliato (es. "itali") darebbe uno shard verde senza regioni e un errore solo in fondo, nell'assemblaggio.
+declare -A KNOWN_REGIONS=()
+for spec in "${ALL_REGIONS[@]}"; do KNOWN_REGIONS[${spec%%|*}]=1; done
+for r in "${REGION_ARR[@]}"; do
+  if [ -z "${KNOWN_REGIONS[$r]:-}" ]; then
+    echo "::error::regione sconosciuta in regions: $r"
+    echo "Regione sconosciuta in regions: $r" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+    exit 1
+  fi
+done
 SORTED_FILE="$RUNNER_TEMP/sorted-regions.tsv"
 for r in "${REGION_ARR[@]}"; do
   printf '%d\t%s\n' "${TIMINGS[$r]:-$(( ${WEEKLY_SCHEDULE_TILES[$r]:-1} * 50 ))}" "$r"

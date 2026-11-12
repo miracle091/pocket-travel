@@ -35,12 +35,12 @@ if [ "$PUBLISHED_INDEX_HTTP" = "200" ]; then
   jq -r '.cells[].id' "$PUBLISHED_INDEX_FILE" > "$IDS_FILE"
   # Le righe del seme non coperte (ne' pubblicate, ne' antenate o discendenti di una pubblicata)
   # si aggiungono alla partizione.
-  python3 tools/data-pipeline/scripts/address_seed_uncovered.py ids "$SEED_FILE" "$IDS_FILE" \
+  env -u GH_TOKEN python3 tools/data-pipeline/scripts/address_seed_uncovered.py ids"$SEED_FILE" "$IDS_FILE" \
     > "$RUNNER_TEMP/uncovered-seed-ids.txt"
   # Il seme appena rigenerato puo' avere celle nuove (civici apparsi in un rilascio Overture): un warning per ciascuna,
   # solo nella run che lo rigenera.
   if [ "$SEED_FILE" != "$REPO_SEED_FILE" ] && [ "${ADDRESS_GRID_SEED_FRESH:-}" = true ]; then
-    python3 tools/data-pipeline/scripts/address_seed_uncovered.py warn "$SEED_FILE" "$IDS_FILE" "$REPO_SEED_FILE" \
+    env -u GH_TOKEN python3 tools/data-pipeline/scripts/address_seed_uncovered.py warn"$SEED_FILE" "$IDS_FILE" "$REPO_SEED_FILE" \
       --min-zoom "${ADDRESS_CELL_MIN_ZOOM:-7}" || true
   fi
   cat "$RUNNER_TEMP/uncovered-seed-ids.txt" >> "$IDS_FILE"
@@ -89,7 +89,7 @@ PROTOMAPS_DATE="$(resolve_protomaps_date)"
 SOURCE_URL="https://build.protomaps.com/${PROTOMAPS_DATE}.pmtiles"
 echo "-- build Protomaps: ${PROTOMAPS_DATE}.pmtiles"
 # Stesso rilascio Overture per tutte le celle della run (il piu' recente, risolto una volta).
-OVERTURE_RELEASE="$(python3 tools/data-pipeline/scripts/overture_addresses.py --print-release)"
+OVERTURE_RELEASE="$(env -u GH_TOKEN python3tools/data-pipeline/scripts/overture_addresses.py --print-release)"
 export OVERTURE_RELEASE
 echo "-- rilascio Overture: $OVERTURE_RELEASE"
 VERSION="$(date -u +%Y.%m.%d).$GITHUB_RUN_NUMBER.$GITHUB_RUN_ATTEMPT"
@@ -105,7 +105,7 @@ while IFS= read -r id; do
   rm -rf "$CELL_OUT"
   mkdir -p "$CELL_OUT"
   echo "::group::$id"
-  if ! tools/data-pipeline/scripts/build-address-cell.sh "$id" "$VERSION" "$SOURCE_URL" \
+  if ! env -u GH_TOKEN tools/data-pipeline/scripts/build-address-cell.sh"$id" "$VERSION" "$SOURCE_URL" \
     "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag" "$CELL_OUT" \
     "$PUBLISHED_INDEX_ARG"; then
     echo "::warning::cella $id fallita, salto e continuo"
@@ -165,4 +165,4 @@ FRAGMENT_OUT="$RUNNER_TEMP/fragments/address-grid.json"
 ARGS_STR="\"$VERSION\" \"$INDEX_URL\" \"$(winpath "$INDEX_OUT")\" \"$(winpath "$FRAGMENT_OUT")\" \"$(winpath "$ATTRIBUTIONS_TSV")\""
 [ ! -s "$PUBLISHED_INDEX_FILE" ] || ARGS_STR="$ARGS_STR --published \"$(winpath "$PUBLISHED_INDEX_FILE")\""
 [ ! -s "$ALL_ENTRIES" ] || ARGS_STR="$ARGS_STR --entries \"$(winpath "$ALL_ENTRIES")\""
-./gradlew -q :tools:data-pipeline:content:generateAddressGrid --args="$ARGS_STR"
+env -u GH_TOKEN ./gradlew -q :tools:data-pipeline:content:generateAddressGrid --args="$ARGS_STR"

@@ -108,4 +108,8 @@ jobs:
           ensure_release app-status \
             "Stato app" \
             "app-status.json: versione corrente dell'app e dei modelli IA sul dispositivo, letti da core:sync/AppUpdateCheckWorker e feature:ai/LlmModelUpdateCheckWorker. Non e' una release software."
-          retry gh release upload app-status "$OUT" "$OUT.sig" --repo "${{ github.repository }}" --clobber
+          if ! retry gh release upload app-status "$OUT" "$OUT.sig" --repo "${{ github.repository }}" --clobber; then
+            echo "::error::caricamento di online-models.json sulla release app-status non riuscito: resta il file precedente"
+            echo "Caricamento di online-models.json non riuscito (log del passo): resta il file precedente." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi

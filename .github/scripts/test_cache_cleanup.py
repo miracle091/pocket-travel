@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -103,6 +104,21 @@ class MainTest(unittest.TestCase):
         self.assertIn("| refs/pull/13/merge |", text)
         self.assertNotIn("| refs/pull/12/merge |", text)
         self.assertIn(f"`{key}` (refs/pull/12/merge)", text)
+
+    def test_elenco_non_leggibile_scrive_l_errore_ed_esce_con_1(self):
+        def fake_gh(*args):
+            raise subprocess.CalledProcessError(1, args, stderr="HTTP 403: Resource not accessible\n")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            summary = Path(tmp, "summary.md")
+            out = io.StringIO()
+            env = {"GITHUB_ACTIONS": "true", "GITHUB_REPOSITORY": "o/r", "GITHUB_STEP_SUMMARY": str(summary)}
+            with mock.patch.dict(os.environ, env), mock.patch.object(sys, "argv", ["cache_cleanup.py"]), \
+                    mock.patch.object(cache_cleanup, "gh", fake_gh), contextlib.redirect_stdout(out):
+                self.assertEqual(cache_cleanup.main(), 1)
+            self.assertIn("::error::elenco delle cache non leggibile", out.getvalue())
+            self.assertIn("HTTP 403", out.getvalue())
+            self.assertIn("HTTP 403", summary.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

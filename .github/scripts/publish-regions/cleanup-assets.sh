@@ -35,7 +35,7 @@ for f in "$SITE_DIR/address-grid.json" "$PREVIOUS_DIR/previous-address-grid.json
   if [ -s "$f" ]; then SCAN_FILES+=("$f"); fi
 done
 cat "${SCAN_FILES[@]}" \
-  | grep -oE 'https://github\.com/[^"]+/releases/download/[^"/]+/[^"]+' \
+  | { grep -oE 'https://github\.com/[^"]+/releases/download/[^"/]+/[^"]+' || true; } \
   | sed -E 's#.*/releases/download/##' | sort -u > "$REFERENCED"
 if [ ! -s "$REFERENCED" ]; then
   echo "Il catalogo non referenzia alcun asset di release: non cancello nulla" >&2

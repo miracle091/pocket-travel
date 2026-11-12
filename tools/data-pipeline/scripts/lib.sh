@@ -213,7 +213,8 @@ verify_published_signature() {
   root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
   case "$file" in /* | [A-Za-z]:*) ;; *) file="$PWD/$file" ;; esac
   # La firma con lo stesso parametro anti-cache di <url>, se ne ha uno: stessa versione del sito per i due file.
-  local query="cb=$(date +%s)"
+  local query
+  query="cb=$(date +%s)"
   case "$2" in *\?*) query="${2#*\?}" ;; esac
   rm -f "$file.sig"
   # Il passo che fallisce va su stderr (codice HTTP del .sig o esito di openssl), mai il contenuto dei file.

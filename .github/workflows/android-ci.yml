@@ -103,8 +103,9 @@ jobs:
 
       # Tutti i test Python della pipeline e degli script dei workflow: un test nuovo (test_*.py) viene eseguito senza
       # toccare il workflow. Un file o una connessione lasciati aperti (ResourceWarning) fanno fallire il passo: Python li
-      # segnala solo come avviso, anche con -W error. Lo stesso per un'eccezione in un thread: unittest non la vede e
-      # scrive OK.
+      # segnala solo come avviso, anche con -W error. Lo stesso per un'eccezione in un thread, in un distruttore o nel
+      # ripulimento all'uscita ("Exception in thread", "Exception ignored in", "Fatal Python error"): unittest non le
+      # vede e scrive OK.
       - name: Test Python della pipeline
         shell: bash
         run: |
@@ -116,11 +117,24 @@ jobs:
               echo "::error::$t lascia file o connessioni aperti (ResourceWarning)"
               exit 1
             fi
-            if grep -q "Exception in thread" "$RUNNER_TEMP/python-test.log"; then
-              echo "::error::$t lascia un'eccezione non gestita in un thread"
+            if grep -qE "Exception in thread|Exception ignored in|Fatal Python error" "$RUNNER_TEMP/python-test.log"; then
+              echo "::error::$t lascia un'eccezione non gestita (in un thread, ignorata o fatale)"
               exit 1
             fi
           done
+
+      # Gli script di shell della pipeline e dei workflow (shellcheck e' preinstallato sul runner, lo verifica anche il
+      # job actionlint): gli avvisi di tipo warning e piu' gravi fanno fallire il passo. L'elenco viene da git per
+      # includere le sottocartelle senza globstar.
+      - name: shellcheck sugli script
+        shell: bash
+        run: |
+          set -euo pipefail
+          git ls-files '.github/scripts/*.sh' 'tools/data-pipeline/scripts/*.sh' | xargs shellcheck -S warning || {
+            echo "::error::shellcheck ha trovato avvisi negli script di shell (dettaglio nel log del passo)"
+            echo "shellcheck ha trovato avvisi negli script di shell (dettaglio nel log del passo)." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
 
       # Vulnerabilita' note (OSV) nelle dipendenze risolte di app e pipeline: un errore fa fallire il job. Le
       # versioni piu' nuove sono solo note (::notice::); se OSV o i repository non rispondono e' un avviso.
@@ -157,7 +171,9 @@ jobs:
           source tools/data-pipeline/scripts/weekly-schedule.sh
           if ! diff <(for spec in "${ALL_REGIONS[@]}"; do echo "${spec%%|*}"; done | sort) \
             <(for d in 1 2 3 4 5 6 7; do v="WEEKLY_SCHEDULE_DAY_$d"; tr ',' '\n' <<< "${!v}"; done | sort); then
-            echo "weekly-schedule.sh non corrisponde a regions.sh (< solo nell'elenco, > solo nel calendario o ripetute): rilanciare generate-weekly-schedule.sh" >&2
+            msg="weekly-schedule.sh non corrisponde a regions.sh (diff nel log: < solo nell'elenco, > solo nel calendario o ripetute): rilanciare generate-weekly-schedule.sh"
+            echo "::error::$msg"
+            echo "$msg" >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
 
@@ -276,8 +292,8 @@ jobs:
               echo "::error::$t lascia file o connessioni aperti (ResourceWarning)"
               exit 1
             fi
-            if grep -q "Exception in thread" "$RUNNER_TEMP/python-test.log"; then
-              echo "::error::$t lascia un'eccezione non gestita in un thread"
+            if grep -qE "Exception in thread|Exception ignored in|Fatal Python error" "$RUNNER_TEMP/python-test.log"; then
+              echo "::error::$t lascia un'eccezione non gestita (in un thread, ignorata o fatale)"
               exit 1
             fi
           done
@@ -291,7 +307,11 @@ jobs:
           env -u GITHUB_ACTIONS bash .github/scripts/install-go-pmtiles.sh
           env -u GITHUB_ACTIONS REGIONS_INPUT=andorra,italia GITHUB_OUTPUT="$RUNNER_TEMP/plan-output.txt" \
             bash .github/scripts/publish-regions/plan-shards.sh
-          grep -q '^shard0=.' "$RUNNER_TEMP/plan-output.txt"
+          grep -q '^shard0=.' "$RUNNER_TEMP/plan-output.txt" || {
+            echo "::error::plan-shards.sh in modalita' locale non ha scritto shard0 in GITHUB_OUTPUT"
+            echo "plan-shards.sh in modalita' locale non ha scritto shard0 in GITHUB_OUTPUT." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
 
   # Prova con un modello vero: llama-server per la CPU dal llama.cpp con le patch di third-party/patches/llama-cpp, e
   # poche risposte fisse del modello piu' piccolo del catalogo dei modelli (llm-smoke.sh, llm_smoke.py). Formato del

@@ -59,7 +59,7 @@ awk -F'\t' '$0 !~ /^#/ && NF >= 5 {
   | sort -t$'\t' -k1,1nr | cut -f2 > "$LOG_DIR/groups.txt"
 # shellcheck disable=SC2016 # lo script di bash -c riceve i suoi argomenti da xargs
 xargs -P 4 -L 1 bash -c 'for id in "${@:3}"; do
-    tools/data-pipeline/scripts/build-transit.sh --download-only "$id" "$1" > "$2/$id.log" 2>&1 || true
+    env -u GH_TOKEN tools/data-pipeline/scripts/build-transit.sh --download-only "$id" "$1" > "$2/$id.log" 2>&1 || true
     echo "$id" >> "$2/done.txt"
   done' _ "$PREFETCH_DIR" "$LOG_DIR" < "$LOG_DIR/groups.txt" &
 DOWNLOADS_PID=$!
@@ -71,7 +71,7 @@ build_feed() {
   echo "::group::$id"
   [ ! -s "$LOG_DIR/$id.log" ] || cat "$LOG_DIR/$id.log"
   local rc=0
-  tools/data-pipeline/scripts/build-transit.sh "$id" "$VERSION" \
+  env -u GH_TOKEN tools/data-pipeline/scripts/build-transit.sh "$id" "$VERSION" \
     "https://github.com/$GITHUB_REPOSITORY/releases/download/transit-feeds" "$OUT" "$PUBLISHED_ARG" || rc=$?
   echo "::endgroup::"
   case $rc in
