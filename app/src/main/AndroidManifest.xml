@@ -57,6 +57,30 @@
             </intent-filter>
         </receiver>
 
+        <!-- Widget della schermata Home (Glance): "Emergenza" e "Scorciatoie". Li chiama solo il sistema (APPWIDGET_UPDATE). -->
+        <receiver
+            android:name=".widget.EmergencyWidgetReceiver"
+            android:label="@string/widget_emergency_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/emergency_widget_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.ShortcutsWidgetReceiver"
+            android:label="@string/widget_shortcuts_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/shortcuts_widget_info" />
+        </receiver>
+
         <!-- Disabilita l'auto-init di default di WorkManager (via androidx.startup): senza
              questo, WorkManager si inizializza da solo prima che PocketTravelApp (Configuration.
              Provider) possa fornire HiltWorkerFactory, e ogni @HiltWorker fallisce con

@@ -1,0 +1,6 @@
+{
+  "uniqueId": "androidx.glance:glance-appwidget-external-protobuf",
+  "licenses": [
+    "BSD-3-Clause-protobuf"
+  ]
+}

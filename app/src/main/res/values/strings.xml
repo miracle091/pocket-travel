@@ -416,4 +416,23 @@
     <string name="model_language_text">%1$s risponde solo in %2$s. Per le risposte in %3$s serve il modello in %3$s: %4$s, %5$s</string>
     <string name="model_language_download">Scarica</string>
     <string name="model_language_not_now">Non ora</string>
+
+    <!-- Widget della schermata Home -->
+    <string name="widget_emergency_name">Emergenza</string>
+    <string name="widget_emergency_description">Numeri di emergenza e ambasciata dell\'ultima regione aperta</string>
+    <string name="widget_shortcuts_name">Scorciatoie</string>
+    <string name="widget_shortcuts_description">Assistente, Navigatore e Documenti</string>
+    <string name="widget_open_app">Apri Pocket Travel per scegliere una regione</string>
+    <string name="widget_no_central_number">Questa regione non ha un numero di emergenza unico</string>
+    <string name="widget_numbers_missing">Numeri non ancora disponibili: apri la Guida</string>
+    <string name="widget_service_single">Emergenza</string>
+    <string name="widget_service_general">Generale</string>
+    <string name="widget_service_police">Polizia</string>
+    <string name="widget_service_ambulance">Ambulanza</string>
+    <string name="widget_service_fire">Vigili del fuoco</string>
+    <string name="widget_call">Chiama %1$s</string>
+    <string name="widget_open_guide">Apri la guida di %1$s</string>
+    <string name="widget_shortcut_assistant">Assistente</string>
+    <string name="widget_shortcut_navigator">Navigatore</string>
+    <string name="widget_shortcut_documents">Documenti</string>
 </resources>

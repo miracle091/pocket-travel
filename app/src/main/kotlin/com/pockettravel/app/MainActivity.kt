@@ -23,18 +23,18 @@ import com.pockettravel.app.assistant.ModelLanguageNoticeHost
 import com.pockettravel.app.crash.CrashNoticeHost
 import com.pockettravel.app.navigation.OpenScreenRequests
 import com.pockettravel.app.navigation.PocketTravelNavHost
+import com.pockettravel.app.navigation.openScreenTarget
 import com.pockettravel.app.settings.AppLanguage
 import com.pockettravel.app.settings.ThemePreferences
 import com.pockettravel.core.data.currentGuidesLanguage
-import com.pockettravel.core.sync.AlertNotifier
 import com.pockettravel.core.sync.LanguageChangeReload
 import com.pockettravel.core.sync.UpdateAvailableNotifier
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.feature.map.NavigationService
 import com.pockettravel.feature.map.NavigationSession
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 // FragmentActivity (sottoclasse di ComponentActivity) invece di ComponentActivity: richiesta da
 // BiometricPrompt (feature:vault, cassaforte documenti).
@@ -117,16 +117,12 @@ private const val DARK_SCRIM_ALPHA = 0x80
 private const val DARK_SCRIM_CHANNEL = 0x1b
 private const val CHANNEL_MAX = 0xff
 
-private val REGION_ID = Regex("[a-z0-9-]{1,80}")
-
-// Notifica di aggiornamento o di allerta toccata: la schermata da aprire passa al NavHost. Solo i valori noti, poi l'extra si toglie
+// Notifica di aggiornamento o di allerta, o widget, toccati: la schermata da aprire passa al NavHost. Solo i valori noti, poi l'extra si toglie
 // (una ricreazione dell'activity non la riaprirebbe).
 private fun Intent.requestOpenScreen() {
     val screen = getStringExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN) ?: return
     removeExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN)
-    val regionId = screen.removePrefix(AlertNotifier.OPEN_REGION_PREFIX).takeIf { screen.startsWith(AlertNotifier.OPEN_REGION_PREFIX) }
-    // Solo valori noti: l'activity e' esportata, un'altra app puo' passare un extra qualsiasi.
-    if (screen == UpdateAvailableNotifier.OPEN_UPDATES || regionId?.matches(REGION_ID) == true) OpenScreenRequests.screen.value = screen
+    if (openScreenTarget(screen) != null) OpenScreenRequests.screen.value = screen
 }
 
 // Navigation Compose legge dall'intent degli extra "android-support-nav:*" come deep link impliciti: l'app non ha

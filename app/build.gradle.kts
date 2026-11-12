@@ -175,6 +175,8 @@ dependencies {
     implementation(libs.hilt.work)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.fragment.ktx)
+    // Widget della schermata Home (Emergenza, Scorciatoie).
+    implementation(libs.androidx.glance.appwidget)
     implementation(libs.aboutlibraries.core)
     // Oggetti e activity trattenuti in memoria, con una notifica sua: solo nell'APK di debug.
     debugImplementation(libs.leakcanary.android)

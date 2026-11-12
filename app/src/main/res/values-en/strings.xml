@@ -406,4 +406,23 @@
     <string name="model_language_text">%1$s only answers in %2$s. Answers in %3$s need the %3$s model: %4$s, %5$s</string>
     <string name="model_language_download">Download</string>
     <string name="model_language_not_now">Not now</string>
+
+    <!-- Home screen widgets -->
+    <string name="widget_emergency_name">Emergency</string>
+    <string name="widget_emergency_description">Emergency numbers and embassy of the last region opened</string>
+    <string name="widget_shortcuts_name">Shortcuts</string>
+    <string name="widget_shortcuts_description">Assistant, Navigator and Documents</string>
+    <string name="widget_open_app">Open Pocket Travel to choose a region</string>
+    <string name="widget_no_central_number">This region has no single emergency number</string>
+    <string name="widget_numbers_missing">Numbers not available yet: open the Guide</string>
+    <string name="widget_service_single">Emergency</string>
+    <string name="widget_service_general">General</string>
+    <string name="widget_service_police">Police</string>
+    <string name="widget_service_ambulance">Ambulance</string>
+    <string name="widget_service_fire">Fire department</string>
+    <string name="widget_call">Call %1$s</string>
+    <string name="widget_open_guide">Open the guide of %1$s</string>
+    <string name="widget_shortcut_assistant">Assistant</string>
+    <string name="widget_shortcut_navigator">Navigator</string>
+    <string name="widget_shortcut_documents">Documents</string>
 </resources>

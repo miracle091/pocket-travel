@@ -37,13 +37,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.platform.LocalLocale
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.dropUnlessResumed
 import com.pockettravel.app.R
+import com.pockettravel.app.navigation.OpenScreenRequests
 import com.pockettravel.app.navigation.regionContainer
 import com.pockettravel.core.data.GuideSourceTarget
 import com.pockettravel.core.ui.AppIcons
@@ -80,6 +81,11 @@ fun RegionHubScreen(
     viewModel: RegionHubViewModel = hiltViewModel(),
 ) {
     var selectedTab by rememberSaveable(regionId) { mutableStateOf(RegionTab.fromKey(initialTab)) }
+    val requestedTab by OpenScreenRequests.regionTab.collectAsStateWithLifecycle()
+    LaunchedEffect(requestedTab) {
+        requestedTab?.let { selectedTab = RegionTab.fromKey(it) }
+        OpenScreenRequests.regionTab.value = null
+    }
     // Sezione della guida richiesta da una fonte dell'assistente, finche' la Guida non la prende.
     var guideTarget by remember { mutableStateOf<GuideSourceTarget?>(null) }
     val hubState by viewModel.uiState.collectAsStateWithLifecycle()

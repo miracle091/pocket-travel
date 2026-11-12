@@ -2,6 +2,9 @@ package com.pockettravel.app.regions
 
 import androidx.core.content.edit
 import com.pockettravel.core.data.PreferencesFactory
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -10,14 +13,24 @@ import javax.inject.Singleton
 class RecentRegionStore @Inject constructor(preferences: PreferencesFactory) {
 
     private val prefs = preferences.open("recent_region")
+    private val _lastRegion = MutableStateFlow(prefs.getString(KEY_REGION_ID, null))
+
+    /** L'ultima regione aperta, che cambia: i widget si aggiornano quando cambia. */
+    val lastRegion: StateFlow<String?> = _lastRegion.asStateFlow()
 
     fun lastRegionId(): String? = prefs.getString(KEY_REGION_ID, null)
 
-    fun setLastRegionId(regionId: String) = prefs.edit { putString(KEY_REGION_ID, regionId) }
+    fun setLastRegionId(regionId: String) {
+        prefs.edit { putString(KEY_REGION_ID, regionId) }
+        _lastRegion.value = regionId
+    }
 
     /** Azzera l'ultima regione se e' [regionId] (eliminata): all'avvio successivo non si riapre una regione che non c'e' piu'. */
     fun clearIfLast(regionId: String) {
-        if (lastRegionId() == regionId) prefs.edit { remove(KEY_REGION_ID) }
+        if (lastRegionId() == regionId) {
+            prefs.edit { remove(KEY_REGION_ID) }
+            _lastRegion.value = null
+        }
     }
 
     private companion object {

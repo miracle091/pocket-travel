@@ -8,4 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
  */
 internal object OpenScreenRequests {
     val screen = MutableStateFlow<String?>(null)
+
+    /** Scheda chiesta per la pagina della regione gia' aperta (RegionTab.key): RegionHubScreen la seleziona e la azzera. */
+    val regionTab = MutableStateFlow<String?>(null)
 }

@@ -41,6 +41,16 @@ class RecentRegionStoreTest {
     }
 
     @Test
+    fun `il flusso dell'ultima regione segue apertura ed eliminazione`() {
+        val store = RecentRegionStore(InMemoryPreferencesFactory())
+        assertNull(store.lastRegion.value)
+        store.setLastRegionId("toscana")
+        assertEquals("toscana", store.lastRegion.value)
+        store.clearIfLast("toscana")
+        assertNull(store.lastRegion.value)
+    }
+
+    @Test
     fun `l'id sta nel file recent_region con la chiave region_id`() {
         val files = InMemoryPreferencesFactory()
         RecentRegionStore(files).setLastRegionId("toscana")

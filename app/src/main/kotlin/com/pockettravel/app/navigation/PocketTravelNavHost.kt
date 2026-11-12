@@ -39,6 +39,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import androidx.window.core.layout.WindowSizeClass
 import com.pockettravel.app.R
 import com.pockettravel.app.crash.CrashContext
@@ -62,8 +63,6 @@ import com.pockettravel.app.regions.LocalNavigatorViewModels
 import com.pockettravel.app.regions.NavigatorViewModels
 import com.pockettravel.app.updates.UpdateRequiredMessages
 import com.pockettravel.core.data.officialSourcesRegistry
-import com.pockettravel.core.sync.AlertNotifier
-import com.pockettravel.core.sync.UpdateAvailableNotifier
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.R as UiR
 
@@ -241,7 +240,8 @@ private fun fadeThroughExit(): ExitTransition = fadeOut(tween(MOTION_MS / THIRD)
 
 // Destinazioni principali: "fade through" tra loro (cambio di sezione dalla barra), "shared axis"
 // verso e dalle schermate di dettaglio.
-// Notifica di aggiornamento o di allerta toccata (OpenScreenRequests): dopo la regione iniziale, sopra cui si apre. Durante
+// Notifica di aggiornamento o di allerta, o widget, toccati (OpenScreenRequests): dopo la regione iniziale; le pagine delle regioni
+// sostituiscono quello che c'e' sopra Nazioni. Durante
 // l'onboarding no: la richiesta resta per quando l'elenco delle nazioni c'e'.
 @Composable
 private fun OpenScreenRequestsEffect(navController: NavHostController, currentDestination: NavDestination?) {
@@ -250,11 +250,20 @@ private fun OpenScreenRequestsEffect(navController: NavHostController, currentDe
         val screen = openScreen ?: return@LaunchedEffect
         if (currentDestination == null || currentDestination.hasRoute<OnboardingRoute>()) return@LaunchedEffect
         OpenScreenRequests.screen.value = null
-        when (screen) {
-            // Una sola copia: toccare una seconda notifica con la schermata gia' aperta non la impila di nuovo.
-            UpdateAvailableNotifier.OPEN_UPDATES -> navController.navigate(UpdatesRoute) { launchSingleTop = true }
-            // Notifica di un'allerta: la guida della regione, una sola copia.
-            else -> navController.navigate(RegionHubRoute(screen.removePrefix(AlertNotifier.OPEN_REGION_PREFIX))) { launchSingleTop = true }
+        // Una sola copia: toccare una seconda notifica con la schermata gia' aperta non la impila di nuovo.
+        val target = openScreenTarget(screen) ?: return@LaunchedEffect
+        when {
+            target.topLevel -> navController.navigateTopLevel(target.route)
+            // La stessa regione gia' aperta: solo la scheda, senza ricreare la pagina (una risposta in corso si perderebbe).
+            target.route is RegionHubRoute && navController.openRegionId() == target.route.regionId ->
+                OpenScreenRequests.regionTab.value = target.route.tab
+            // La pagina di una regione sopra Nazioni, come dall'elenco: sopra Documenti, il tocco dopo su Documenti la
+            // salvava con la sua pila e la riapriva sopra la cassaforte.
+            target.route is RegionHubRoute -> navController.navigate(target.route) {
+                popUpTo(RegionsRoute)
+                launchSingleTop = true
+            }
+            else -> navController.navigate(target.route) { launchSingleTop = true }
         }
     }
 }
@@ -262,6 +271,8 @@ private fun OpenScreenRequestsEffect(navController: NavHostController, currentDe
 private fun NavBackStackEntry.isTopLevel() = TopLevelDestination.entries.any { destination.hasRoute(it.route::class) }
 
 private fun NavBackStackEntry.isRegionHub() = destination.hasRoute<RegionHubRoute>()
+
+private fun NavHostController.openRegionId(): String? = currentBackStackEntry?.takeIf { it.isRegionHub() }?.toRoute<RegionHubRoute>()?.regionId
 
 internal val topLevelEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
     if (initialState.isTopLevel()) fadeThroughEnter() else sharedAxisEnter(forward = true)
