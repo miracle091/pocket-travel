@@ -2,6 +2,13 @@ package com.pockettravel.feature.ai
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
+import java.util.Base64
 
 /** Schema minimo del Chat Completions API, compatibile con OpenAI e provider equivalenti. */
 @Serializable
@@ -20,11 +27,52 @@ data class OpenAiChatRequest(
 @Serializable
 data class OpenRouterRouting(val zdr: Boolean)
 
+/** [content]: una stringa, o con una foto la lista delle parti (chatCompletionsContent, anthropicContent). */
 @Serializable
 data class OpenAiChatMessage(
     val role: String,
-    val content: String,
-)
+    val content: JsonElement,
+) {
+    constructor(role: String, content: String) : this(role, JsonPrimitive(content))
+}
+
+/** Il messaggio user del Chat Completions API: solo testo, o il testo e la foto JPEG come data URI (`image_url`). */
+internal fun chatCompletionsContent(text: String, photo: ByteArray?): JsonElement =
+    if (photo == null) {
+        JsonPrimitive(text)
+    } else {
+        buildJsonArray {
+            addJsonObject {
+                put("type", "text")
+                put("text", text)
+            }
+            addJsonObject {
+                put("type", "image_url")
+                putJsonObject("image_url") { put("url", "data:image/jpeg;base64," + Base64.getEncoder().encodeToString(photo)) }
+            }
+        }
+    }
+
+/** Il messaggio user della Messages API: solo testo, o la foto JPEG in base64 prima del testo (ordine consigliato da Anthropic). */
+internal fun anthropicContent(text: String, photo: ByteArray?): JsonElement =
+    if (photo == null) {
+        JsonPrimitive(text)
+    } else {
+        buildJsonArray {
+            addJsonObject {
+                put("type", "image")
+                putJsonObject("source") {
+                    put("type", "base64")
+                    put("media_type", "image/jpeg")
+                    put("data", Base64.getEncoder().encodeToString(photo))
+                }
+            }
+            addJsonObject {
+                put("type", "text")
+                put("text", text)
+            }
+        }
+    }
 
 /**
  * Schema minimo della Messages API nativa di Anthropic (`POST /v1/messages`): `system` al primo livello, `max_tokens`

@@ -35,6 +35,7 @@ data class OnlineModelList(
  * [role]: "auto" per il modello dell'opzione Automatico (uno per servizio), "capable" per gli altri proposti.
  * [temperature]: false se il modello rifiuta una temperatura impostata (GPT-5 e successivi, Claude 4.7 e
  * successivi) o non la usa piu' (Gemini 3.6 e successivi): l'assistente allora non la manda. Prezzi in dollari per milione di token.
+ * [vision]: il modello accetta anche immagini in ingresso (foto dalla chat dell'assistente); assente nei file fino alla 0.14.0.
  */
 @Serializable
 data class OnlineModelEntry(
@@ -43,6 +44,7 @@ data class OnlineModelEntry(
     val temperature: Boolean,
     val inputUsdPerMTok: Double,
     val outputUsdPerMTok: Double,
+    val vision: Boolean = false,
 )
 
 /** Un modello di [OnlineModelList.otherModels]: come [OnlineModelEntry], senza ruolo. */
@@ -52,8 +54,9 @@ data class OnlineOtherModel(
     val temperature: Boolean,
     val inputUsdPerMTok: Double,
     val outputUsdPerMTok: Double,
+    val vision: Boolean = false,
 ) {
-    fun toEntry(): OnlineModelEntry = OnlineModelEntry(id, ONLINE_MODEL_ROLE_CAPABLE, temperature, inputUsdPerMTok, outputUsdPerMTok)
+    fun toEntry(): OnlineModelEntry = OnlineModelEntry(id, ONLINE_MODEL_ROLE_CAPABLE, temperature, inputUsdPerMTok, outputUsdPerMTok, vision)
 }
 
 const val ONLINE_MODEL_ROLE_AUTO = "auto"

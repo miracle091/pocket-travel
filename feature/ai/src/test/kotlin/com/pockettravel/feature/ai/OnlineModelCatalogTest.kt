@@ -100,4 +100,16 @@ class OnlineModelCatalogTest {
         assertFalse(catalog.sendsTemperature(OnlineProvider.CLAUDE, "claude-haiku-5-5"))
         assertTrue(catalog.sendsTemperature(OnlineProvider.CLAUDE, "claude-sonnet-4-6"))
     }
+
+    @Test
+    fun `le foto solo ai modelli con vision, mai a un modello sconosciuto o di un elenco senza il campo`() = runTest {
+        val catalog = catalog(FakeClient { published }, dispatcher = StandardTestDispatcher(testScheduler))
+        assertTrue(catalog.supportsVision(OnlineProvider.GEMINI, "gemini-3.6-flash"))
+        assertFalse(catalog.supportsVision(OnlineProvider.GROQ, "openai/gpt-oss-120b"))
+        assertFalse(catalog.supportsVision(OnlineProvider.GEMINI, "gemini-sconosciuto"))
+        catalog.refresh()
+        // Prima l'elenco pubblicato e' in uso, poi il modello senza il campo non legge foto.
+        assertEquals("gpt-7-nuovo", catalog.autoModel(OnlineProvider.CHATGPT))
+        assertFalse(catalog.supportsVision(OnlineProvider.CHATGPT, "gpt-7-nuovo"))
+    }
 }

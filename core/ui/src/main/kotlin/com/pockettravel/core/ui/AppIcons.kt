@@ -52,6 +52,7 @@ object AppIcons {
     val Settings: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_settings)
     val Tutorial: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_school)
     val Camera: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_photo_camera)
+    val Image: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_image)
     val Checklist: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_checklist)
     val Flights: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_flight)
     val HealthGuidance: ImageVector @Composable get() = ImageVector.vectorResource(R.drawable.ms_health_and_safety)

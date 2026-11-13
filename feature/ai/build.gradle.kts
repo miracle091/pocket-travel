@@ -78,6 +78,8 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.core.ktx)
+    // Rotazione delle foto per i servizi online (OnlinePhoto.kt): la nuova codifica toglie l'EXIF, ma non deve girarle.
+    implementation(libs.androidx.exifinterface)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.hilt.lifecycle.viewmodel.compose)

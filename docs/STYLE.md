@@ -121,6 +121,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Chiave personale per il motore Online | chiave API | API key |
 | Fornitore del motore Online (ChatGPT, Mistral...) | servizio | service |
 | Interruttore che lascia mandare le foto al motore Online | Invia le foto al servizio | Send photos to the service |
+| Pulsante e voci per aggiungere o togliere la foto della domanda al motore Online | Allega una foto; Scegli dalla galleria; Scatta una foto; Togli la foto | Attach a photo; Choose from gallery; Take a photo; Remove the photo |
 | Interruttore che lascia mandare al motore Online nota, posizione, partenza e nazionalità | Invia dati personali al servizio | Send personal data to the service |
 | Richieste gratuite al giorno per ogni modello di un servizio (Gemini: 20) | quota giornaliera (mai "quota" da sola per il credito) | daily quota |
 | Modello proposto più economico di quello di Automatico | Più leggero | Lighter |

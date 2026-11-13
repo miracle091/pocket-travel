@@ -110,6 +110,7 @@ fun AiAssistantScreen(
         voice = voiceState,
         readAloud = readAloudState,
     )
+    if (uiState.confirmsPhoto) PhotoConsentDialog(uiState.onlineProvider, actions.onPhotoConsent)
     uiState.history?.let { history ->
         ConversationHistoryDialog(
             history = history,
@@ -159,6 +160,12 @@ data class AiActions(
     val onProviderSelected: (OnlineProvider) -> Unit = {},
     val onOnlineModelChanged: (String) -> Unit = {},
     val onSharesPersonalDataChanged: (Boolean) -> Unit = {},
+    val onSendsPhotosChanged: (Boolean) -> Unit = {},
+    // Foto dalla galleria o dalla fotocamera: come la apre, e come cancellare la copia dell'app dopo la lettura.
+    val onPhotoChosen: (open: () -> InputStream?, discard: () -> Unit) -> Unit = { _, _ -> },
+    val onPhotoRemoved: () -> Unit = {},
+    // Avviso alla prima foto: true = Invia, false = Annulla.
+    val onPhotoConsent: (Boolean) -> Unit = {},
     val onVoiceStart: () -> Unit = {},
     val onVoiceStop: () -> Unit = {},
     val onVoicePermissionDenied: () -> Unit = {},
@@ -199,6 +206,10 @@ internal fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
     onProviderSelected = ::onProviderSelected,
     onOnlineModelChanged = ::onOnlineModelChanged,
     onSharesPersonalDataChanged = ::onSharesPersonalDataChanged,
+    onSendsPhotosChanged = ::onSendsPhotosChanged,
+    onPhotoChosen = ::onPhotoChosen,
+    onPhotoRemoved = ::onPhotoRemoved,
+    onPhotoConsent = { onPhotoConsent(it, regionId) },
     onQuestionChanged = ::onQuestionChanged,
     onAsk = { ask(regionId) },
     onDeleteModel = ::deleteModel,

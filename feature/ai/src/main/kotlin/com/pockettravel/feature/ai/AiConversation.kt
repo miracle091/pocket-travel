@@ -90,7 +90,10 @@ internal fun Conversation(
                 }
             }
         }
-        if (asked != null) QuestionBubble(asked)
+        if (asked != null) {
+            AskedPhoto(uiState.lastQuestionPhoto)
+            QuestionBubble(asked)
+        }
         uiState.emergencyCard?.let { EmergencyCard(it, onOpenOfficialSource) }
         // Risposta: bolla a sinistra su superficie tonale; liveRegion perche' TalkBack annunci la
         // risposta (o l'errore) quando arriva, senza dover cercare dove e' comparsa. Non durante lo

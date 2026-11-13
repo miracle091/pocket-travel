@@ -24,3 +24,10 @@ internal class DownloadFailureGate {
         WorkInfo.State.BLOCKED -> false
     }
 }
+
+/** Il messaggio di un download del modello non riuscito, dal motivo scritto da [LlmModelDownloadWorker]. */
+internal fun downloadFailureMessage(reason: String?): Int = when (reason) {
+    LlmModelDownloadWorker.FAILURE_REASON_INTEGRITY -> R.string.ai_error_integrity
+    LlmModelDownloadWorker.FAILURE_REASON_SPACE -> R.string.ai_error_space
+    else -> R.string.ai_error_download
+}

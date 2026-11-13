@@ -106,6 +106,7 @@ internal fun AiSettingsContent(
                     }
                 }
                 SharePersonalDataSwitch(uiState.sharesPersonalData, actions.onSharesPersonalDataChanged)
+                SettingSwitch(R.string.ai_online_photos_title, R.string.ai_online_photos_hint, uiState.sendsPhotos, actions.onSendsPhotosChanged)
             }
         }
         // "Ascolta" vale con entrambi i motori.

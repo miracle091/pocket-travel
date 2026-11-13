@@ -63,6 +63,7 @@ jobs:
                 (.id | type == "string" and test("\\A[A-Za-z0-9._:-]+\\z"))
                 and (.role == "auto" or .role == "capable")
                 and (.temperature | type == "boolean")
+                and (.vision // false | type == "boolean")
                 and (.inputUsdPerMTok | type == "number" and . >= 0)
                 and (.outputUsdPerMTok | type == "number" and . >= 0)))
           ' "$SOURCE" > /dev/null || { echo "::error::$SOURCE non valido" >&2; exit 1; }
@@ -81,6 +82,7 @@ jobs:
               and all(.otherModels[]; type == "array" and length <= 60 and all(.[];
                 (.id | type == "string" and test("\\A[A-Za-z0-9._:-]+\\z"))
                 and (.temperature | type == "boolean")
+                and (.vision // false | type == "boolean")
                 and (.inputUsdPerMTok | type == "number" and . >= 0 and . <= 1000)
                 and (.outputUsdPerMTok | type == "number" and . >= 0 and . <= 1000)))
             ' "$MERGED" > /dev/null || {

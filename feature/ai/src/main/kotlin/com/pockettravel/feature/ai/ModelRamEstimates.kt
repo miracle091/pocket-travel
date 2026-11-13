@@ -4,6 +4,8 @@ import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.PreferencesFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -59,5 +61,19 @@ class ModelRamEstimates @Inject constructor(
 
         // Da cambiare quando cambia la formula della stima: le stime salvate con quella vecchia non si leggono piu'.
         const val CACHE_VERSION = 1
+    }
+}
+
+// Le stime di RAM dei modelli visibili, una alla volta: ogni stima scaricata aggiorna subito la lista.
+internal suspend fun MutableStateFlow<AiUiState>.estimateModelRam(tier: RamTier, estimates: ModelRamEstimates) {
+    for (definition in value.availableModels) {
+        val estimate = estimates.estimate(definition) ?: continue
+        val needsMoreRam = minRamTierFor(estimate) > tier
+        update {
+            it.copy(
+                ramEstimates = it.ramEstimates + (definition.id to estimate),
+                modelsNeedingMoreRam = if (needsMoreRam) it.modelsNeedingMoreRam + definition.id else it.modelsNeedingMoreRam - definition.id,
+            )
+        }
     }
 }

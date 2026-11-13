@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.transformWhile
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -50,7 +51,8 @@ class OnlineLlmClient @Inject constructor(
      * Un errore temporaneo prima del primo pezzo si riprova una volta; dopo, il testo gia' mostrato non si puo' rifare.
      * La cancellazione del collector chiude la connessione. [api]: il formato del servizio ([OnlineProvider.api]); con
      * la Messages API di Anthropic [sendTemperature] non conta. [zeroDataRetention]: OpenRouter instrada la domanda
-     * solo ai fornitori che non la conservano ([OnlineTerms.zeroDataRetention]).
+     * solo ai fornitori che non la conservano ([OnlineTerms.zeroDataRetention]). [photo]: un JPEG gia' pulito
+     * (OnlinePhoto.preparePhoto) da mandare con [prompt], solo ai modelli con `vision` (OnlineModelCatalog.supportsVision).
      */
     fun stream(
         baseUrl: String,
@@ -61,10 +63,12 @@ class OnlineLlmClient @Inject constructor(
         system: String? = null,
         api: OnlineApi = OnlineApi.CHAT_COMPLETIONS,
         zeroDataRetention: Boolean = false,
+        photo: ByteArray? = null,
     ): Flow<String> = flow {
         val request = when (api) {
-            OnlineApi.CHAT_COMPLETIONS -> chatCompletionsRequest(baseUrl, apiKey, model, prompt, sendTemperature, system, zeroDataRetention)
-            OnlineApi.ANTHROPIC_MESSAGES -> anthropicMessagesRequest(baseUrl, apiKey, model, prompt, system)
+            OnlineApi.CHAT_COMPLETIONS ->
+                chatCompletionsRequest(baseUrl, apiKey, model, chatCompletionsContent(prompt, photo), sendTemperature, system, zeroDataRetention)
+            OnlineApi.ANTHROPIC_MESSAGES -> anthropicMessagesRequest(baseUrl, apiKey, model, anthropicContent(prompt, photo), system)
         }
         var emitted = false
         var retried = false
@@ -87,7 +91,7 @@ class OnlineLlmClient @Inject constructor(
         baseUrl: String,
         apiKey: String,
         model: String,
-        prompt: String,
+        prompt: JsonElement,
         sendTemperature: Boolean,
         system: String?,
         zeroDataRetention: Boolean,
@@ -107,7 +111,7 @@ class OnlineLlmClient @Inject constructor(
             .build()
     }
 
-    private fun anthropicMessagesRequest(baseUrl: String, apiKey: String, model: String, prompt: String, system: String?): Request {
+    private fun anthropicMessagesRequest(baseUrl: String, apiKey: String, model: String, prompt: JsonElement, system: String?): Request {
         val requestBody = AnthropicMessagesRequest(
             model = model,
             maxTokens = ANTHROPIC_MAX_TOKENS,
@@ -237,7 +241,7 @@ class OnlineLlmClient @Inject constructor(
 
     private fun httpError(code: Int, responseBody: String, retryAfter: String?, model: String): Exception = when {
         // Un 403 di Gemini puo' essere un saldo scoperto, non la chiave: lo decide onlineErrorKind.
-        code == HTTP_UNAUTHORIZED || (code == HTTP_FORBIDDEN && onlineErrorKind(code, responseBody) != OnlineErrorKind.CREDIT) ->
+        isApiKeyRejected(code, responseBody) || (code == HTTP_FORBIDDEN && onlineErrorKind(code, responseBody) != OnlineErrorKind.CREDIT) ->
             OnlineApiKeyRejectedException("Chiave API rifiutata (HTTP $code)")
         isModelNotFound(code, responseBody, json) -> OnlineModelNotFoundException("Modello \"$model\" non disponibile (HTTP $code)")
         isDailyQuota(code, responseBody) -> OnlineDailyQuotaException("Quota giornaliera finita (HTTP $code)", model, isNotInFreePlan(responseBody))
@@ -265,6 +269,11 @@ class OnlineLlmClient @Inject constructor(
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }
+
+// Chiave rifiutata: un 401, o il 400 con cui Gemini risponde a una chiave sbagliata ("Please pass a valid API key",
+// API_KEY_INVALID nell'API nativa). Senza, l'utente vedrebbe "Impossibile generare una risposta" e non la chiave da rifare.
+internal fun isApiKeyRejected(statusCode: Int, responseBody: String): Boolean = statusCode == HTTP_UNAUTHORIZED ||
+    (statusCode == HTTP_BAD_REQUEST && ("API_KEY_INVALID" in responseBody || "valid API key" in responseBody))
 
 // Un 400 e' "modello non disponibile" solo se il corpo dice model_not_found (error.code o error.type) o, per Mistral,
 // type invalid_model al primo livello: citare la parola "model" non basta, un 400 qualunque (richiesta malformata) la

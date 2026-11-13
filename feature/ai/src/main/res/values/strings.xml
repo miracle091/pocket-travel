@@ -309,4 +309,18 @@
     <string name="ai_selected_text_explain_question">Spiegami il testo selezionato e cosa devo fare</string>
     <string name="ai_selected_text_no_engine">Manca un motore per rispondere: scarica un modello o salva una chiave API nelle Impostazioni</string>
     <string name="ai_selected_text_open_settings">Apri le Impostazioni</string>
+    <string name="ai_online_photos_title">Invia le foto al servizio</string>
+    <string name="ai_online_photos_hint">Prima dell\'invio l\'app toglie sempre la posizione e i dati della foto</string>
+    <string name="ai_photo_attach">Allega una foto</string>
+    <string name="ai_photo_gallery">Scegli dalla galleria</string>
+    <string name="ai_photo_camera">Scatta una foto</string>
+    <string name="ai_photo_remove">Togli la foto</string>
+    <string name="ai_photo_attached">Foto allegata alla domanda</string>
+    <string name="ai_photo_unreadable">Impossibile leggere la foto. Scegline un\'altra</string>
+    <string name="ai_photo_no_camera">Nessuna app della fotocamera disponibile. Scegli una foto dalla galleria</string>
+    <string name="ai_photo_camera_denied">Senza il permesso della fotocamera puoi scegliere una foto dalla galleria. Il permesso si attiva nelle impostazioni dell\'app</string>
+    <string name="ai_photo_consent_title">Inviare la foto a %1$s?</string>
+    <string name="ai_photo_consent_text">La foto esce dal telefono e arriva a %1$s, che la tratta secondo i suoi termini. Prima l\'app toglie la posizione e i dati della foto. Puoi cambiare idea nelle Impostazioni</string>
+    <string name="ai_photo_consent_send">Invia</string>
+    <string name="ai_photo_consent_cancel">Annulla</string>
 </resources>

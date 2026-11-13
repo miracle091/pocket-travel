@@ -55,6 +55,7 @@ internal fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: B
         field = TextFieldValue(text, TextRange(text.length))
         actions.onQuestionChanged(text)
     }
+    AttachedPhotoPreview(uiState, actions.onPhotoRemoved, modifier = Modifier.padding(start = Spacing.l, top = Spacing.s))
     Row(
         modifier = Modifier.fillMaxWidth().padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
@@ -66,6 +67,7 @@ internal fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: B
                 actions.onQuestionChanged(it.text)
             },
             modifier = Modifier.weight(1f),
+            leadingIcon = photoAttachIcon(uiState, actions),
             placeholder = {
                 val hint = when {
                     voice.isListening -> R.string.ai_voice_listening

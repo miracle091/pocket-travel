@@ -6,12 +6,16 @@ package com.pockettravel.feature.ai
  */
 object OnlinePromptTemplates {
 
-    /** Il messaggio system: istruzioni e, se non e' vuoto, il [context] (blocchi di [contextBlock]). */
-    fun systemPrompt(context: String, language: String = "it"): String =
+    /**
+     * Il messaggio system: istruzioni e, se non e' vuoto, il [context] (blocchi di [contextBlock]). [withPhoto]: la domanda
+     * ha una foto, e la risposta parte da quella (un cartello non e' nelle guide, e non va detto).
+     */
+    fun systemPrompt(context: String, language: String = "it", withPhoto: Boolean = false): String =
         if (language == "en") {
             "You are a travel assistant.\n" +
                 "Answer only on a verifiable basis; if you are not sure about visas or vaccinations,\n" +
                 "tell the user to check the official source (WHO/embassy link) instead of answering." +
+                (if (withPhoto) "\n$PHOTO_EN" else "") +
                 if (context.isBlank()) {
                     ""
                 } else {
@@ -25,6 +29,7 @@ object OnlinePromptTemplates {
             "Sei un assistente di viaggio.\n" +
                 "Rispondi solo su base verificabile; se non sei certo su visti o vaccinazioni,\n" +
                 "indica di consultare la fonte ufficiale (link OMS/ambasciata) invece di rispondere." +
+                (if (withPhoto) "\n$PHOTO_IT" else "") +
                 if (context.isBlank()) {
                     ""
                 } else {
@@ -47,6 +52,11 @@ object OnlinePromptTemplates {
             "<contesto fonte=\"$safeSource\">\n$safeBody\n</contesto>"
         }
     }
+
+    private const val PHOTO_EN = "The user attached a photo: answer first from what the photo shows or what can be read in it " +
+        "(signs, menus, tickets, places), without saying that it is not in the guides; use the context blocks only to add information."
+    private const val PHOTO_IT = "L'utente ha allegato una foto: rispondi prima da quello che si vede o si legge nella foto " +
+        "(cartelli, menù, biglietti, luoghi), senza dire che non è nelle guide; usa i blocchi di contesto solo per aggiungere informazioni."
 
     private val CLOSING_TAG = Regex("</(?=\\s*conte(?:sto|xt))", RegexOption.IGNORE_CASE)
 

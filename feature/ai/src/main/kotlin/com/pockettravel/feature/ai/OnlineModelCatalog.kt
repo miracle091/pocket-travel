@@ -68,6 +68,10 @@ class OnlineModelCatalog(
     fun sendsTemperature(provider: OnlineProvider, model: String): Boolean =
         (models(provider) + otherModels(provider)).firstOrNull { it.id == model }?.temperature ?: supportsTemperature(model)
 
+    /** Se [model] accetta foto: dall'elenco; un modello che l'elenco non conosce si tratta come solo testo. */
+    fun supportsVision(provider: OnlineProvider, model: String): Boolean =
+        (models(provider) + otherModels(provider)).firstOrNull { it.id == model }?.vision == true
+
     /** Scarica e salva l'elenco pubblicato; un errore (rete, firma, contenuto) lascia l'elenco attuale. */
     suspend fun refresh() {
         val bytes = client.fetchOnlineModels()

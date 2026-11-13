@@ -125,6 +125,7 @@ class TravelAssistant @Inject constructor(
      * del collector ferma la generazione. Se [askedQuestion] e' il seguito di [previousQuestion] (resolveQuestion), ricerca e
      * prompt usano le due unite (followUpQuestion): i modelli sono addestrati su un turno solo. Il [selectedText] di un'altra
      * app e' il contesto sul dispositivo; online va in testa al contesto e sostituisce la domanda nella ricerca delle sezioni.
+     * [photo]: un JPEG gia' pulito (preparePhoto), solo online e solo ai modelli che accettano foto.
      */
     fun ask(
         regionId: String,
@@ -132,6 +133,7 @@ class TravelAssistant @Inject constructor(
         mode: AiEngineMode,
         previousQuestion: String? = null,
         selectedText: String? = null,
+        photo: ByteArray? = null,
     ): Flow<AssistantProgress> = flow {
         // Lingua dell'interfaccia: prompt, testo di ripiego e citazioni (le guide installate la seguono).
         val language = currentGuidesLanguage()
@@ -199,7 +201,7 @@ class TravelAssistant @Inject constructor(
                 if (text.isBlank()) error("Il modello sul dispositivo non ha generato una risposta")
                 emit(AssistantProgress.Done(withSource(AssistantAnswer(text, plan.citations, showOfficialSourceBanner = false))))
             }
-            AiEngineMode.ONLINE -> emitAll(askOnline(question, language, contextSections, focus, sharePersonal, selectedText).progress(withSource))
+            AiEngineMode.ONLINE -> emitAll(askOnline(question, language, contextSections, focus, sharePersonal, selectedText, photo).progress(withSource))
         }
         // Nomi da riconoscere, query e paragrafi da normalizzare: lavoro di CPU fuori dal main thread del chiamante.
     }.flowOn(defaultDispatcher)
@@ -469,20 +471,24 @@ class TravelAssistant @Inject constructor(
         focusStems: Set<String>,
         sharePersonal: Boolean,
         selectedText: String?,
+        photo: ByteArray?,
     ): OnlineAnswer {
         val apiKey = aiSettingsStore.apiKey() ?: error("Nessuna chiave API online configurata")
         val provider = aiSettingsStore.onlineProvider()
         val baseUrl = aiSettingsStore.onlineBaseUrl(provider) ?: error("Manca l'ID dell'account di ${provider.displayName}")
         val setting = aiSettingsStore.onlineModelSetting(provider)
-        val models = if (setting.isBlank()) {
+        val chosen = if (setting.isBlank()) {
             automaticCandidates(onlineModelCatalog.autoModel(provider), onlineModelCatalog.models(provider))
         } else {
             listOf(onlineModelCatalog.modelFor(provider, setting))
         }
+        // Con una foto solo i modelli che la leggono (in Automatico si saltano gli altri candidati).
+        val models = chosen.filter { photo == null || onlineModelCatalog.supportsVision(provider, it) }
+            .ifEmpty { error("Nessun modello di ${provider.displayName} accetta foto") }
         val note = if (sharePersonal) noteRepository.relevantNote(question) else null
         val context = buildOnlineContext(sections, note, language = language, focusStems = focusStems)
         // Il testo selezionato nel messaggio dell'utente, non nel prompt di sistema: viene da un'altra app e non deve dare istruzioni.
-        val system = OnlinePromptTemplates.systemPrompt(context.text, language)
+        val system = OnlinePromptTemplates.systemPrompt(context.text, language, withPhoto = photo != null)
         return OnlineAnswer(provider, models, context.citations) { model ->
             onlineLlmClient.stream(
                 baseUrl = baseUrl,
@@ -493,6 +499,7 @@ class TravelAssistant @Inject constructor(
                 sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
                 api = provider.terms.api,
                 zeroDataRetention = provider.terms.zeroDataRetention,
+                photo = photo,
             )
         }
     }

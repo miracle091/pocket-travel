@@ -1,66 +1,66 @@
 {
   "providers": {
     "CHATGPT": [
-      { "id": "gpt-6-luna", "role": "auto", "temperature": false, "inputUsdPerMTok": 0.10, "outputUsdPerMTok": 0.50 },
-      { "id": "gpt-5.6-terra", "role": "capable", "temperature": false, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 12.00 }
+      { "id": "gpt-6-luna", "role": "auto", "temperature": false, "vision": true, "inputUsdPerMTok": 0.10, "outputUsdPerMTok": 0.50 },
+      { "id": "gpt-5.6-terra", "role": "capable", "temperature": false, "vision": true, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 12.00 }
     ],
     "MISTRAL": [
-      { "id": "mistral-small-latest", "role": "auto", "temperature": true, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.60 },
-      { "id": "mistral-large-latest", "role": "capable", "temperature": true, "inputUsdPerMTok": 0.50, "outputUsdPerMTok": 1.50 }
+      { "id": "mistral-small-latest", "role": "auto", "temperature": true, "vision": true, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.60 },
+      { "id": "mistral-large-latest", "role": "capable", "temperature": true, "vision": true, "inputUsdPerMTok": 0.50, "outputUsdPerMTok": 1.50 }
     ],
     "GEMINI": [
-      { "id": "gemini-3.6-flash", "role": "auto", "temperature": false, "inputUsdPerMTok": 0.75, "outputUsdPerMTok": 3.75 },
-      { "id": "gemini-4-argon", "role": "capable", "temperature": false, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 10.00 },
-      { "id": "gemini-3.5-flash-lite", "role": "capable", "temperature": true, "inputUsdPerMTok": 0.30, "outputUsdPerMTok": 2.50 }
+      { "id": "gemini-3.6-flash", "role": "auto", "temperature": false, "vision": true, "inputUsdPerMTok": 0.75, "outputUsdPerMTok": 3.75 },
+      { "id": "gemini-4-argon", "role": "capable", "temperature": false, "vision": true, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 10.00 },
+      { "id": "gemini-3.5-flash-lite", "role": "capable", "temperature": true, "vision": true, "inputUsdPerMTok": 0.30, "outputUsdPerMTok": 2.50 }
     ],
     "CLAUDE": [
-      { "id": "claude-haiku-5-5", "role": "auto", "temperature": false, "inputUsdPerMTok": 0.10, "outputUsdPerMTok": 0.50 },
-      { "id": "claude-sonnet-5-5", "role": "capable", "temperature": false, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 10.00 }
+      { "id": "claude-haiku-5-5", "role": "auto", "temperature": false, "vision": true, "inputUsdPerMTok": 0.10, "outputUsdPerMTok": 0.50 },
+      { "id": "claude-sonnet-5-5", "role": "capable", "temperature": false, "vision": true, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 10.00 }
     ]
   },
   "extraProviders": {
     "REGOLO": [
-      { "id": "mistral-small-4-119b", "role": "auto", "temperature": true, "inputUsdPerMTok": 0.22, "outputUsdPerMTok": 0.79 },
-      { "id": "qwen3.8-27b", "role": "capable", "temperature": true, "inputUsdPerMTok": 0.56, "outputUsdPerMTok": 3.81 }
+      { "id": "mistral-small-4-119b", "role": "auto", "temperature": true, "vision": true, "inputUsdPerMTok": 0.22, "outputUsdPerMTok": 0.79 },
+      { "id": "qwen3.8-27b", "role": "capable", "temperature": true, "vision": true, "inputUsdPerMTok": 0.56, "outputUsdPerMTok": 3.81 }
     ],
     "SCALEWAY": [
-      { "id": "mistral-small-3.2-24b-instruct-2506", "role": "auto", "temperature": true, "inputUsdPerMTok": 0.168, "outputUsdPerMTok": 0.393 },
-      { "id": "mistral-medium-3.5-128b", "role": "capable", "temperature": true, "inputUsdPerMTok": 1.682, "outputUsdPerMTok": 8.411 }
+      { "id": "mistral-small-3.2-24b-instruct-2506", "role": "auto", "temperature": true, "vision": true, "inputUsdPerMTok": 0.168, "outputUsdPerMTok": 0.393 },
+      { "id": "mistral-medium-3.5-128b", "role": "capable", "temperature": true, "vision": true, "inputUsdPerMTok": 1.682, "outputUsdPerMTok": 8.411 }
     ],
     "INCEPTRON": [
-      { "id": "zai-org/GLM-5.3-Flash", "role": "auto", "temperature": true, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.45 },
-      { "id": "zai-org/GLM-5.3", "role": "capable", "temperature": true, "inputUsdPerMTok": 1.20, "outputUsdPerMTok": 3.08 }
+      { "id": "zai-org/GLM-5.3-Flash", "role": "auto", "temperature": true, "vision": false, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.45 },
+      { "id": "zai-org/GLM-5.3", "role": "capable", "temperature": true, "vision": false, "inputUsdPerMTok": 1.20, "outputUsdPerMTok": 3.08 }
     ],
     "FIREWORKS": [
-      { "id": "accounts/fireworks/models/glm-5p3-flash", "role": "auto", "temperature": true, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.50 },
-      { "id": "accounts/fireworks/models/glm-5p3", "role": "capable", "temperature": true, "inputUsdPerMTok": 1.40, "outputUsdPerMTok": 4.40 }
+      { "id": "accounts/fireworks/models/glm-5p3-flash", "role": "auto", "temperature": true, "vision": true, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.50 },
+      { "id": "accounts/fireworks/models/glm-5p3", "role": "capable", "temperature": true, "vision": false, "inputUsdPerMTok": 1.40, "outputUsdPerMTok": 4.40 }
     ],
     "DEEPINFRA": [
-      { "id": "mistralai/Mistral-Small-3.2-24B-Instruct-2506", "role": "auto", "temperature": true, "inputUsdPerMTok": 0.075, "outputUsdPerMTok": 0.20 },
-      { "id": "zai-org/GLM-5.3", "role": "capable", "temperature": true, "inputUsdPerMTok": 0.90, "outputUsdPerMTok": 4.00 }
+      { "id": "mistralai/Mistral-Small-3.2-24B-Instruct-2506", "role": "auto", "temperature": true, "vision": false, "inputUsdPerMTok": 0.075, "outputUsdPerMTok": 0.20 },
+      { "id": "zai-org/GLM-5.3", "role": "capable", "temperature": true, "vision": false, "inputUsdPerMTok": 0.90, "outputUsdPerMTok": 4.00 }
     ],
     "GROQ": [
-      { "id": "openai/gpt-oss-120b", "role": "auto", "temperature": true, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.60 }
+      { "id": "openai/gpt-oss-120b", "role": "auto", "temperature": true, "vision": false, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.60 }
     ],
     "OPENROUTER": [
-      { "id": "openai/gpt-6-luna", "role": "auto", "temperature": false, "inputUsdPerMTok": 0.10, "outputUsdPerMTok": 0.50 },
-      { "id": "anthropic/claude-sonnet-5.5", "role": "capable", "temperature": false, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 10.00 }
+      { "id": "openai/gpt-6-luna", "role": "auto", "temperature": false, "vision": true, "inputUsdPerMTok": 0.10, "outputUsdPerMTok": 0.50 },
+      { "id": "anthropic/claude-sonnet-5.5", "role": "capable", "temperature": false, "vision": true, "inputUsdPerMTok": 2.00, "outputUsdPerMTok": 10.00 }
     ],
     "ZAI": [
-      { "id": "glm-5.3-flash", "role": "auto", "temperature": true, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.50 },
-      { "id": "glm-5.3", "role": "capable", "temperature": true, "inputUsdPerMTok": 1.40, "outputUsdPerMTok": 4.40 }
+      { "id": "glm-5.3-flash", "role": "auto", "temperature": true, "vision": true, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.50 },
+      { "id": "glm-5.3", "role": "capable", "temperature": true, "vision": false, "inputUsdPerMTok": 1.40, "outputUsdPerMTok": 4.40 }
     ],
     "ALIBABA": [
-      { "id": "qwen3.8-flash", "role": "auto", "temperature": true, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.47 },
-      { "id": "qwen3.8-max", "role": "capable", "temperature": true, "inputUsdPerMTok": 1.65, "outputUsdPerMTok": 4.951 }
+      { "id": "qwen3.8-flash", "role": "auto", "temperature": true, "vision": true, "inputUsdPerMTok": 0.15, "outputUsdPerMTok": 0.47 },
+      { "id": "qwen3.8-max", "role": "capable", "temperature": true, "vision": true, "inputUsdPerMTok": 1.65, "outputUsdPerMTok": 4.951 }
     ],
     "CLOUDFLARE": [
-      { "id": "@cf/google/gemma-4-26b-a4b-it", "role": "auto", "temperature": true, "inputUsdPerMTok": 0.10, "outputUsdPerMTok": 0.30 },
-      { "id": "@cf/qwen/qwen3.8-27b", "role": "capable", "temperature": true, "inputUsdPerMTok": 0.45, "outputUsdPerMTok": 3.20 }
+      { "id": "@cf/google/gemma-4-26b-a4b-it", "role": "auto", "temperature": true, "vision": true, "inputUsdPerMTok": 0.10, "outputUsdPerMTok": 0.30 },
+      { "id": "@cf/qwen/qwen3.8-27b", "role": "capable", "temperature": true, "vision": true, "inputUsdPerMTok": 0.45, "outputUsdPerMTok": 3.20 }
     ],
     "INFOMANIAK": [
-      { "id": "mistralai/Mistral-Small-4-119B-2603", "role": "auto", "temperature": true, "inputUsdPerMTok": 0.25, "outputUsdPerMTok": 0.93 },
-      { "id": "Qwen/Qwen3.5-397B-A17B-FP8", "role": "capable", "temperature": true, "inputUsdPerMTok": 0.99, "outputUsdPerMTok": 4.46 }
+      { "id": "mistralai/Mistral-Small-4-119B-2603", "role": "auto", "temperature": true, "vision": true, "inputUsdPerMTok": 0.25, "outputUsdPerMTok": 0.93 },
+      { "id": "Qwen/Qwen3.5-397B-A17B-FP8", "role": "capable", "temperature": true, "vision": true, "inputUsdPerMTok": 0.99, "outputUsdPerMTok": 4.46 }
     ]
   }
 }

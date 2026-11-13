@@ -301,4 +301,18 @@
     <string name="ai_selected_text_explain_question">Explain the selected text and what I should do</string>
     <string name="ai_selected_text_no_engine">No engine is available to answer: download a model or save an API key in Settings</string>
     <string name="ai_selected_text_open_settings">Open Settings</string>
+    <string name="ai_online_photos_title">Send photos to the service</string>
+    <string name="ai_online_photos_hint">Location and photo details are always removed before sending</string>
+    <string name="ai_photo_attach">Attach a photo</string>
+    <string name="ai_photo_gallery">Choose from gallery</string>
+    <string name="ai_photo_camera">Take a photo</string>
+    <string name="ai_photo_remove">Remove the photo</string>
+    <string name="ai_photo_attached">Photo attached to the question</string>
+    <string name="ai_photo_unreadable">Unable to read the photo. Choose another one</string>
+    <string name="ai_photo_no_camera">No camera app available. Choose a photo from the gallery</string>
+    <string name="ai_photo_camera_denied">Without the camera permission you can choose a photo from the gallery. You can turn the permission on in the app settings</string>
+    <string name="ai_photo_consent_title">Send the photo to %1$s?</string>
+    <string name="ai_photo_consent_text">The photo leaves your phone and goes to %1$s, which handles it under its own terms. Location and photo details are removed first. You can change this in Settings</string>
+    <string name="ai_photo_consent_send">Send</string>
+    <string name="ai_photo_consent_cancel">Cancel</string>
 </resources>

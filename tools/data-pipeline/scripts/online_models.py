@@ -87,7 +87,10 @@ def litellm_prices(entry):
 
 
 def modelsdev_model(entry):
-    """(ingresso, uscita, temperatura) di un modello di models.dev che legge e scrive testo, o None."""
+    """(ingresso, uscita, temperatura, immagini) di un modello di models.dev che legge e scrive testo, o None.
+
+    Immagini: True se il modello accetta anche immagini in ingresso (foto dalla chat dell'assistente).
+    """
     modalities = entry.get("modalities") or {}
     if "text" not in modalities.get("input", []) or modalities.get("output") != ["text"]:
         return None
@@ -97,7 +100,7 @@ def modelsdev_model(entry):
     inp, out = cost.get("input"), cost.get("output")
     if not isinstance(inp, (int, float)) or not isinstance(out, (int, float)):
         return None
-    return inp, out, bool(entry.get("temperature", True))
+    return inp, out, bool(entry.get("temperature", True)), "image" in modalities.get("input", [])
 
 
 LEGACY_MODEL_ID = re.compile(r"\A[A-Za-z0-9._:-]+\Z")
@@ -144,7 +147,7 @@ def other_models(curated, litellm, modelsdev):
                 if (first[0], first[1]) != second and provider not in SAME_PRICE_NOT_EXPECTED:
                     warnings.append(f"{provider} {model_id}: models.dev {first[0]}/{first[1]}, LiteLLM {second[0]}/{second[1]}")
             released[model_id] = str(entry.get("release_date") or "")
-            models.append({"id": model_id, "temperature": first[2], "inputUsdPerMTok": first[0], "outputUsdPerMTok": first[1]})
+            models.append({"id": model_id, "temperature": first[2], "vision": first[3], "inputUsdPerMTok": first[0], "outputUsdPerMTok": first[1]})
         limit = MAX_OTHER.get(provider)
         if limit and len(models) > limit:
             newest = sorted(models, key=lambda m: (released[m["id"]], m["id"]), reverse=True)[:limit]

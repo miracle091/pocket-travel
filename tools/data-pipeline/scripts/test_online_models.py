@@ -20,8 +20,8 @@ CURATED = {"providers": {
 }}
 
 
-def dev(cost=(1, 2), output=("text",), temperature=True, **extra):
-    return {"modalities": {"input": ["text", "image"], "output": list(output)}, "temperature": temperature,
+def dev(cost=(1, 2), output=("text",), temperature=True, inputs=("text", "image"), **extra):
+    return {"modalities": {"input": list(inputs), "output": list(output)}, "temperature": temperature,
             "cost": {"input": cost[0], "output": cost[1]}, **extra}
 
 
@@ -43,8 +43,8 @@ class OtherModelsTest(unittest.TestCase):
         litellm = {f"mistral/{name}": lite("mistral") for name in
                    ["mistral-medium-latest", "mistral-small-latest", "mistral-embed", "pixtral-image", "vecchio"]}
         others, warnings = other_models(CURATED, litellm, modelsdev)
-        self.assertEqual({"MISTRAL": [{"id": "mistral-medium-latest", "temperature": True, "inputUsdPerMTok": 1,
-                                       "outputUsdPerMTok": 2}]}, others)
+        self.assertEqual({"MISTRAL": [{"id": "mistral-medium-latest", "temperature": True, "vision": True,
+                                       "inputUsdPerMTok": 1, "outputUsdPerMTok": 2}]}, others)
         self.assertEqual([], warnings)
 
     def test_modalita_diversa_da_chat_o_senza_l_endpoint_di_chat(self):
@@ -68,10 +68,17 @@ class OtherModelsTest(unittest.TestCase):
         modelsdev = {"google": {"models": {"gemini-x": dev(cost=(0.7, 2.1), temperature=False)}}}
         litellm = {"gemini/gemini-x": lite("gemini", cost=(1.36, 4.18)), "gemini-x": lite("vertex_ai-language-models")}
         others, warnings = other_models(CURATED, litellm, modelsdev)
-        self.assertEqual([{"id": "gemini-x", "temperature": False, "inputUsdPerMTok": 0.7, "outputUsdPerMTok": 2.1}],
+        self.assertEqual([{"id": "gemini-x", "temperature": False, "vision": True, "inputUsdPerMTok": 0.7,
+                           "outputUsdPerMTok": 2.1}],
                          others["GEMINI"])
         self.assertEqual(1, len(warnings))
         self.assertIn("LiteLLM 1.36/4.18", warnings[0])
+
+    def test_vision_solo_con_le_immagini_in_ingresso(self):
+        modelsdev = {"mistral": {"models": {"solo-testo": dev(inputs=("text",)), "con-foto": dev()}}}
+        litellm = {f"mistral/{name}": lite("mistral") for name in ["solo-testo", "con-foto"]}
+        others, _ = other_models(CURATED, litellm, modelsdev)
+        self.assertEqual({"con-foto": True, "solo-testo": False}, {m["id"]: m["vision"] for m in others["MISTRAL"]})
 
     def test_chiave_di_un_altro_servizio_in_litellm_non_conta(self):
         modelsdev = {"google": {"models": {"gemini-y": dev()}}}

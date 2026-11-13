@@ -70,6 +70,19 @@ data class AiUiState(
     val accountIdInput: String = "",
     // Consenso a mandare ai servizi online i dati personali (AiSettingsStore.sharesPersonalData).
     val sharesPersonalData: Boolean = false,
+    // Consenso a mandare le foto ai servizi online (AiSettingsStore.sendsPhotos).
+    val sendsPhotos: Boolean = false,
+    // Il modello online in uso accetta foto (OnlineModelCatalog.supportsVision): la barra mostra "Allega una foto".
+    val canAttachPhoto: Boolean = false,
+    // Foto allegata alla prossima domanda, gia' pronta per il servizio (preparePhoto); null senza.
+    val attachedPhoto: AttachedPhoto? = null,
+    // La foto mandata con una domanda (AttachedPhoto.question): conta solo finche' quella e' la domanda in fondo
+    // (lastQuestionPhoto), e non va nella cronologia.
+    val askedPhoto: AttachedPhoto? = null,
+    // La foto scelta si sta ancora riducendo (attachPhoto): Invia aspetta, o la domanda partirebbe senza.
+    val isPreparingPhoto: Boolean = false,
+    // Avviso alla prima foto, aperto finche' l'utente non sceglie Invia o Annulla (onPhotoConsent).
+    val confirmsPhoto: Boolean = false,
     val benchmarkResult: BenchmarkResult? = null,
     val isBenchmarking: Boolean = false,
     val allBenchmarkResults: List<BenchmarkResult> = emptyList(),
@@ -112,6 +125,14 @@ data class AiUiState(
     val isImportingModel: Boolean = false,
     @StringRes val importError: Int? = null,
 )
+
+/**
+ * Un JPEG senza metadati (preparePhoto) e la domanda con cui e' partito, null finche' e' solo allegato; classe e non
+ * ByteArray nello stato, per un confronto per riferimento esplicito.
+ */
+class AttachedPhoto(val jpeg: ByteArray, val question: String? = null) {
+    fun askedWith(question: String) = AttachedPhoto(jpeg, question)
+}
 
 /** Un turno gia' concluso della conversazione mostrata; [credit] e' il modello che ha scritto la risposta. */
 data class ShownTurn(val askedQuestion: String, val answer: AssistantAnswer, val credit: ModelCredit? = null)
@@ -203,6 +224,7 @@ class AiAssistantViewModel @Inject constructor(
             accountIdInput = aiSettingsStore.accountId(aiSettingsStore.onlineProvider()),
             onlineModelSetting = aiSettingsStore.onlineModelSetting(),
             sharesPersonalData = aiSettingsStore.sharesPersonalData(),
+            sendsPhotos = aiSettingsStore.sendsPhotos(),
             benchmarkResult = aiSettingsStore.benchmarkResult(aiSettingsStore.selectedModelId()),
             allBenchmarkResults = aiSettingsStore.allBenchmarkResults(),
         ),
@@ -261,26 +283,12 @@ class AiAssistantViewModel @Inject constructor(
                 _uiState.update { state -> state.copy(availableModels = state.availableModels.map { it.withPublishedFingerprint(published) }) }
             }
             // Dopo le impronte pubblicate: un modello ricaricato puo' avere metadati diversi da quelli dell'APK.
-            estimateModelRam()
+            _uiState.estimateModelRam(deviceAiCapability.ramTier(), modelRamEstimates)
         }
     }
 
     // La RAM stimata di ogni modello della lista; con la stima, l'avviso "richiede almeno N GB" lo decide lei e non la
     // fascia scritta nel catalogo.
-    private suspend fun estimateModelRam() {
-        val tier = deviceAiCapability.ramTier()
-        for (definition in _uiState.value.availableModels) {
-            val estimate = modelRamEstimates.estimate(definition) ?: continue
-            val needsMoreRam = minRamTierFor(estimate) > tier
-            _uiState.update {
-                it.copy(
-                    ramEstimates = it.ramEstimates + (definition.id to estimate),
-                    modelsNeedingMoreRam = if (needsMoreRam) it.modelsNeedingMoreRam + definition.id else it.modelsNeedingMoreRam - definition.id,
-                )
-            }
-        }
-    }
-
     // Osservato dall'init, non solo dopo aver premuto "Scarica": cosi' un download in corso
     // sopravvive a un kill di processo (WorkManager persiste il lavoro) e la UI ne mostra lo
     // stato reale alla riapertura dello schermo, invece di perdere il progresso perche' viveva
@@ -303,12 +311,7 @@ class AiAssistantViewModel @Inject constructor(
                         _uiState.update { it.afterModelDownload(aiSettingsStore, modelManager) }
                     }
                     WorkInfo.State.FAILED -> if (reportsFailure) {
-                        val message = when (workInfo.outputData.getString(LlmModelDownloadWorker.KEY_FAILURE_REASON)) {
-                            LlmModelDownloadWorker.FAILURE_REASON_INTEGRITY ->
-                                R.string.ai_error_integrity
-                            LlmModelDownloadWorker.FAILURE_REASON_SPACE -> R.string.ai_error_space
-                            else -> R.string.ai_error_download
-                        }
+                        val message = downloadFailureMessage(workInfo.outputData.getString(LlmModelDownloadWorker.KEY_FAILURE_REASON))
                         _uiState.update { it.copy(downloadProgress = null, errorMessage = message) }
                     }
                     WorkInfo.State.CANCELLED -> _uiState.update { it.copy(downloadProgress = null) }
@@ -388,6 +391,27 @@ class AiAssistantViewModel @Inject constructor(
         _uiState.update { it.copy(sharesPersonalData = enabled) }
     }
 
+    fun onSendsPhotosChanged(enabled: Boolean) {
+        aiSettingsStore.setSendsPhotos(enabled)
+        _uiState.update { it.copy(sendsPhotos = enabled) }
+    }
+
+    /**
+     * Una foto dalla galleria o dalla fotocamera, letta con [open] e ridotta per il servizio in uso; [discard] cancella
+     * subito dopo la copia dell'app (lo scatto della fotocamera). Una foto illeggibile mostra un errore.
+     */
+    fun onPhotoChosen(open: () -> InputStream?, discard: () -> Unit = {}) {
+        viewModelScope.launch { _uiState.attachPhoto(open, discard, ioDispatcher) }
+    }
+
+    fun onPhotoRemoved() = _uiState.update { it.copy(attachedPhoto = null) }
+
+    /** La scelta nell'avviso alla prima foto: Invia accende "Invia le foto al servizio" e manda la domanda, Annulla la lascia. */
+    fun onPhotoConsent(send: Boolean, regionId: String) {
+        _uiState.update { it.copy(confirmsPhoto = false) }
+        if (send) onSendsPhotosChanged(true).also { ask(regionId) }
+    }
+
     // Solo con il motore Online, l'unico che usa l'elenco: con il motore sul dispositivo la chiave non si manda, nemmeno
     // per sapere quali modelli il suo account vede.
     private fun loadOnlineModels(refreshList: Boolean = true) {
@@ -398,8 +422,10 @@ class AiAssistantViewModel @Inject constructor(
 
     private fun updateOnlineModels() {
         _uiState.update { state ->
+            val models = onlineModelOptions.modelPerProvider()
             state.copy(
-                onlineModels = onlineModelOptions.modelPerProvider(),
+                onlineModels = models,
+                canAttachPhoto = models[state.onlineProvider]?.let { onlineModelCatalog.supportsVision(state.onlineProvider, it) } == true,
                 onlineModelOptions = onlineModelOptions.options(state.onlineProvider),
                 onlineOtherModels = onlineModelOptions.others(state.onlineProvider),
             )
@@ -562,7 +588,11 @@ class AiAssistantViewModel @Inject constructor(
     fun ask(regionId: String) {
         val state = _uiState.value
         val question = state.question.trim()
-        if (state.startingTurn(question) == null || handledOnDevice(question, regionId)) return
+        if (state.isPreparingPhoto || state.startingTurn(question) == null || handledOnDevice(question, regionId)) return
+        // Il consenso letto dalle impostazioni, non dallo stato: le Impostazioni hanno un loro ViewModel, e "Invia le foto
+        // al servizio" spento li' vale anche qui.
+        if (_uiState.awaitsPhotoConsent(aiSettingsStore.sendsPhotos())) return
+        val photo = state.photoToSend(state.attachedPhoto)
 
         resumeJob?.cancel()
         forecastJob?.cancel()
@@ -571,7 +601,7 @@ class AiAssistantViewModel @Inject constructor(
         // Una conversazione ripresa resta nella sua regione, anche aperta dalla scheda IA di un'altra.
         val region = conversation.regionId ?: regionId
         // Subito, prima di ogni attesa: un secondo tocco su Invia trova la domanda gia' in corso.
-        _uiState.update { it.startingTurn(question) ?: it }
+        _uiState.update { it.startingTurn(question)?.copy(attachedPhoto = null, askedPhoto = photo?.askedWith(question)) ?: it }
         // Il riquadro della domanda precedente e' un figlio del suo lavoro: va fermato, o sovrascriverebbe quello nuovo.
         askJob?.cancel()
         askJob = viewModelScope.launch {
@@ -583,7 +613,7 @@ class AiAssistantViewModel @Inject constructor(
             // Accanto alla ricerca e al modello, non prima: le allerte di una domanda su una catastrofe arrivano da
             // piu' fonti in rete, e il numero da chiamare non aspetta la risposta.
             launch { _uiState.showEmergencyCard(emergencyCards, region, question) }
-            collectAnswer(region, question, state.mode, previous) { answer ->
+            collectAnswer(region, question, state.mode, previous, photo) { answer ->
                 // Dal foglio "Chiedi all'assistente" niente cronologia: domanda e risposta restano nel foglio.
                 conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer, save = state.selectedText == null)
             }
@@ -604,17 +634,17 @@ class AiAssistantViewModel @Inject constructor(
                 it.copy(isThinking = true, errorMessage = null, canRefreshForecast = false, answer = null, answerCredit = it.currentModelCredit(), streamingText = "")
             }
             // La domanda gia' unita a quella prima se era un seguito (followUpQuestion): non c'e' un seguito da risolvere.
-            collectAnswer(region, answer.question ?: asked, state.mode, previous = null) { refreshed ->
+            collectAnswer(region, answer.question ?: asked, state.mode, previous = null, photo = state.photoToSend(state.lastQuestionPhoto)?.takeIf { aiSettingsStore.sendsPhotos() }) { refreshed ->
                 conversation.onReplaced(region, state.selectedModelId, asked, refreshed)
             }
         }
     }
 
     // La risposta in arrivo nella schermata; [onDone] la registra nella conversazione.
-    private suspend fun collectAnswer(region: String, question: String, mode: AiEngineMode, previous: String?, onDone: (AssistantAnswer) -> Unit) {
+    private suspend fun collectAnswer(region: String, question: String, mode: AiEngineMode, previous: String?, photo: AttachedPhoto?, onDone: (AssistantAnswer) -> Unit) {
         try {
             answerKeepAlive.during {
-                travelAssistant.ask(region, question, mode, previous, _uiState.value.selectedText?.text).collect { progress ->
+                travelAssistant.ask(region, question, mode, previous, _uiState.value.selectedText?.text, photo?.jpeg).collect { progress ->
                     when (progress) {
                         is AssistantProgress.Partial -> _uiState.update { it.copy(streamingText = progress.text) }
                         is AssistantProgress.ModelSwitched -> _uiState.update { it.switchedModel(progress) }
@@ -669,7 +699,7 @@ class AiAssistantViewModel @Inject constructor(
     fun onModelChoice(choice: ModelChoice, regionId: String) {
         val retry = _uiState.value.takeUnless { it.isThinking }?.questionToRetry() ?: return
         applyChoice(choice)
-        _uiState.update { if (retry.isEmpty()) it.copy(notice = ChatNotice.ModelChosen(choice)) else it.copy(question = retry) }
+        _uiState.update { if (retry.isEmpty()) it.copy(notice = ChatNotice.ModelChosen(choice)) else it.copy(question = retry, attachedPhoto = it.lastQuestionPhoto) }
         if (retry.isNotEmpty()) ask(regionId)
     }
 
