@@ -94,6 +94,15 @@
 # Licence Ouverte 2.0 per TUNGT e Trans Sud (Guadalupa) e Agglobus (Caienna, solo le linee 7 e 8 nel feed); ODbL con
 # le condizioni particolari del PAN, come SNCF, per Tanéo (Nouméa), scaricato da data.gouv.fr perche' la copia del
 # Mobility Database risponde 403.
+# Aggregati regionali, reti urbane ed europee di transport.data.gouv.fr (2026-11-13, licenze lette sulle pagine dei
+# dataset): Oùra (Alvernia-Rodano-Alpi, ODbL; nessuna rete con la Licence Mobilités nell'elenco), Korrigo (Bretagna,
+# ODbL; senza i TER, gia' in SNCF), Fluo Grand Est (Licence Ouverte 2.0; senza TER, CTS e il car pooling di Reims),
+# Transmanche Ferries e navette di Bourg-Saint-Maurice (Licence Ouverte 2.0), FlixBus/FlixTrain e BlaBlaCar Bus (ODbL;
+# FlixBus senza il Regno Unito, dove le sue corriere sono gia' nelle aree BODS). Le reti urbane che stanno in un
+# aggregato (RLV, Mobilité en Velay, Maelis, Rubis, Ardèche dentro Oùra; Linéotim dentro Korrigo) non hanno una riga
+# propria. Fuori: Transp'Or e Mobigo (la copia del Mobility Database e' un file vecchio, non la risorsa in vigore),
+# Via Bastia, CA2BM e BAAG (linee scolastiche e a chiamata senza il route_type che le distingue), e Cartreize
+# (tdg-39602) da valutare.
 #
 # regioni: regionId di regions.sh separati da virgola (le regioni che propongono la rete). Per i feed con
 #   il rettangolo del catalogo inutilizzabile, scripts/transit_feeds_bbox.py propone la regione dalle fermate.
@@ -112,6 +121,10 @@
 # (Helsinki HSL): le corse si agganciano per route_id + direction_id + start_date + start_time, e la transit.db tiene
 # direction_id e start_time delle corse (generateTransit --trip-keys, che implica gli id GTFS). Per ogni altra rete resta
 # vuota. Una riga senza url_sa ma con aggancio_rt lascia url_sa vuota (tab).
+# agenzie_escluse (facoltativa, dopo aggancio_rt): agency_id del feed separati da virgola, le cui linee non entrano
+# perche' un'altra riga le pubblica gia' (i TER di SNCF negli aggregati regionali francesi; generateTransit
+# --exclude-agencies). Una rete gia' pubblicata la applica alla prima ricostruzione (feed cambiato o dopo 7 giorni).
+# Le linee di tipo 712, 715 e 1500-1599 (scuolabus, a chiamata, taxi) non entrano mai, in nessuna rete.
 # Verificate il 2026-10-22: Renfe Cercanias, dataset "Horarios de viaje"
 # (https://data.renfe.com/dataset/horarios-viaje-cercanias, CC BY 4.0); SNCF, risorsa GTFS-RT TU del dataset
 # "Horaires SNCF" (https://transport.data.gouv.fr/datasets/horaires-sncf, ODbL e condizioni particolari del PAN, come
@@ -142,7 +155,7 @@
 # ("Partner doesn't have the required Gtfs connector"); di nuovo in url_rt dal 2026-11-11, quando il feed scaricato con
 # gli header dell'app aveva 461 trip_id su 461 e 1662 stop_id su 1662 nell'orario.
 #
-# id	regioni	nome	licenza	attribuzione	pagina_licenza	url_feed	cerca_ultimo	url_rt	url_sa	aggancio_rt
+# id	regioni	nome	licenza	attribuzione	pagina_licenza	url_feed	cerca_ultimo	url_rt	url_sa	aggancio_rt	agenzie_escluse
 mdb-992	lettonia	Autobus nazionali (ATD)	CC0-1.0	Valsts SIA Autotransporta direkcija (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/eng/dataset/atd-gtfs
 mdb-3385	lettonia	Treni (Pasažieru vilciens)	CC0-1.0	AS Pasažieru vilciens (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/eng/dataset/iekszemes-dzelzcela-vilcienu-kustibas-saraksts-gtfs-formata
 mdb-3502	lettonia	Riga (Rīgas satiksme)	CC0-1.0	Rīgas satiksme (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/lv/dataset/marsrutu-saraksti-rigas-satiksme-sabiedriskajam-transportam
@@ -197,6 +210,13 @@ tdg-83020	guadalupa	Guadalupa, Nord Grande-Terre (TUNGT)	etalab-2.0	Communauté 
 tdg-83511	guadalupa	Guadalupa, Basse-Terre e sud (Trans Sud)	etalab-2.0	Communauté d'Agglomération Grand Sud Caraïbe, Trans Sud (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/donnee-statistiques-transport
 tdg-83304	guyana-francese	Caienna, linee 7 e 8 (Agglobus)	etalab-2.0	Communauté d'Agglomération du Centre Littoral de Guyane, Agglobus (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/agence-agglobus
 tdg-84147	nuova-caledonia	Nouméa, autobus (Tanéo)	ODbL-1.0	Syndicat Mixte des Transports Urbains du Grand Nouméa, Tanéo (transport.data.gouv.fr, ODbL 1.0); modificato	https://transport.data.gouv.fr/datasets/reseau-taneo-1	https://www.data.gouv.fr/api/1/datasets/r/c1cd3c14-f18e-471d-9184-85ab668b8910
+tdg-78904	francia,francia-alvernia-rodano-alpi	Alvernia-Rodano-Alpi, reti urbane e interurbane (Oùra)	ODbL-1.0	Oùra, Région Auvergne-Rhône-Alpes (transport.data.gouv.fr, ODbL 1.0); modificato	https://transport.data.gouv.fr/datasets/agregat-oura
+tdg-81559	francia,francia-bretagna	Bretagna, reti urbane e interurbane (Korrigo)	ODbL-1.0	Région Bretagne, Korrigo (transport.data.gouv.fr, ODbL 1.0); modificato	https://transport.data.gouv.fr/datasets/base-de-donnees-multimodale-transports-publics-en-bretagne-korrigo-gtfs						SNCF
+tdg-83634	francia,francia-grand-est	Grand Est, reti urbane e interurbane (Fluo)	etalab-2.0	Région Grand Est, Fluo Grand Est (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/agregat-des-reseaux-urbains-et-interurbains-en-region-grand-est						SNCF,CUS,ECOV
+tdg-83981	francia,francia-normandia,regno-unito	Traghetti Dieppe - Newhaven (Transmanche Ferries)	etalab-2.0	Syndicat mixte Atoumod, Transmanche Ferries (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/transmanche-ferries
+tdg-83626	francia,francia-alvernia-rodano-alpi	Bourg-Saint-Maurice, navette stagionali	etalab-2.0	Communauté de Communes Haute-Tarentaise (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/navettes-bourg-saint-maurice
+tdg-11681	francia,francia-grand-est,francia-alvernia-rodano-alpi,francia-provenza-alpi-costa-azzurra,francia-nuova-aquitania,francia-alta-francia,francia-occitania,francia-ile-de-france,francia-bretagna,francia-borgogna-franca-contea,francia-normandia,francia-paesi-della-loira,francia-centro-valle-della-loira,italia,germania,polonia,portogallo,repubblica-ceca,bosnia-erzegovina,croazia,slovacchia,svizzera,danimarca,austria,svezia,slovenia,paesi-bassi,romania,spagna,norvegia,finlandia,serbia,ungheria,belgio,bulgaria,ucraina,lituania,moldavia,lussemburgo,lettonia,estonia,liechtenstein,grecia	FlixBus e FlixTrain, rete europea	ODbL-1.0	Flixbus France (transport.data.gouv.fr, ODbL 1.0); modificato	https://transport.data.gouv.fr/datasets/flixbus-horaires-theoriques-du-reseau-europeen-1
+tdg-52605	francia,francia-provenza-alpi-costa-azzurra,francia-alvernia-rodano-alpi,francia-nuova-aquitania,francia-bretagna,francia-occitania,francia-paesi-della-loira,francia-alta-francia,francia-grand-est,francia-ile-de-france,francia-normandia,francia-borgogna-franca-contea,francia-centro-valle-della-loira,francia-corsica,portogallo,spagna,svizzera,italia,germania,belgio,paesi-bassi,austria,croazia,slovenia,ungheria,lussemburgo,repubblica-ceca,serbia,regno-unito,slovacchia,gibilterra,grecia,bulgaria	BlaBlaCar Bus, rete europea	ODbL-1.0	BlaBlaCar Bus (transport.data.gouv.fr, ODbL 1.0); modificato	https://transport.data.gouv.fr/datasets/blablacar-bus-horaires-theoriques-et-temps-reel-du-reseau-europeen
 tdg-83510	francia,francia-corsica,francia-provenza-alpi-costa-azzurra,francia-occitania,algeria,tunisia	Traghetti Corsica Linea	etalab-2.0	Corsica Linea (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/programme-des-rotations-corsica-linea
 mdb-2820	spagna	Madrid, autobus urbani (CRTM)	CRTM	Powered by CRTM, Consorcio Regional de Transportes de Madrid (licencia de datos abiertos del CRTM); modificato	https://www.crtm.es/
 mdb-2832	spagna	Barcellona e Catalogna (ATM, metro, treni e bus)	NAP-MITRAMS	Powered by MITRAMS: Autoritat del Transport Metropolità (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/

@@ -20,7 +20,7 @@ import kotlin.math.roundToInt
  *   della rete), window_start e valid_until (AAAAMMGG), window_days, wheelchair = 1 se stop e trip
  *   hanno la colonna wheelchair (aggiunta senza cambiare format: l'app che non la conosce non la
  *   seleziona, quella che la conosce controlla questa chiave sui transit.db piu' vecchi);
- * - stop(id, code, name, latE6, lonE6, parent, wheelchair): fermate e stazioni (location_type 0 e 1), parent =
+ * - stop(id, code, name, latE6, lonE6, parent, wheelchair): fermate e stazioni (location_type 0 e 1; non quelle servite solo da linee tolte), parent =
  *   la stazione di una banchina, per raggruppare le partenze della stessa stazione; wheelchair =
  *   wheelchair_boarding (1 accessibile, 2 no, NULL non indicato);
  * - route(id, short_name, long_name, type, color, text_color): route_type GTFS (0 tram, 1 metro,
@@ -68,7 +68,10 @@ internal val EXCLUDED_ROUTE_TYPES: Set<Int> = setOf(712, 715) + (1500..1599)
 private fun parseGtfsDate(text: String?): LocalDate? =
     text?.trim()?.takeIf { it.isNotEmpty() }?.let { runCatching { LocalDate.parse(it, GTFS_DATE) }.getOrNull() }
 
-fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: LocalDate, windowDays: Int, gtfsIds: Boolean = false, tripKeys: Boolean = false): TransitStats {
+fun generateTransit(
+    gtfsZip: File, outputDb: File, feedId: String, windowStart: LocalDate, windowDays: Int, gtfsIds: Boolean = false, tripKeys: Boolean = false,
+    excludedAgencies: Set<String> = emptySet(),
+): TransitStats {
     val withIds = gtfsIds || tripKeys
     require(windowDays in 1..366) { "windowDays fuori intervallo: $windowDays" }
     outputDb.delete()
@@ -137,13 +140,23 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
         data class Route(val id: Int, val shortName: String?, val longName: String?, val type: Int, val color: String?, val textColor: String?)
         val routes = LinkedHashMap<String, Route>()
         var excludedRoutes = 0
+        var agencyRoutes = 0
+        // Linee tolte: le loro corse cadono con la linea, e con loro le fermate che servivano da sole.
+        val droppedRoutes = HashSet<String>()
         rows("routes.txt") { r ->
             if (r.getValue("route_id") in routes) return@rows
             val type = r["route_type"]?.toIntOrNull() ?: 3
-            // Scuolabus, servizi a chiamata e taxi (tipi estesi di GTFS) non entrano nel tabellone (utente, 2026-11-13):
-            // le loro corse cadono con la linea. Non i nomi delle linee: "Cite Scolaire" a Tolosa e' una fermata.
+            // Scuolabus, servizi a chiamata e taxi (tipi estesi di GTFS) non entrano nel tabellone (utente, 2026-11-13).
+            // Non i nomi delle linee: "Cite Scolaire" a Tolosa e' una fermata.
             if (type in EXCLUDED_ROUTE_TYPES) {
                 excludedRoutes++
+                droppedRoutes += r.getValue("route_id")
+                return@rows
+            }
+            // Agenzie che un'altra rete della lista pubblica gia' (i TER di SNCF negli aggregati regionali francesi).
+            if (r["agency_id"].orEmpty() in excludedAgencies) {
+                agencyRoutes++
+                droppedRoutes += r.getValue("route_id")
                 return@rows
             }
             routes[r.getValue("route_id")] = Route(
@@ -152,10 +165,16 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
             )
         }
         if (excludedRoutes > 0) println("-- GTFS $feedId: $excludedRoutes linee scolastiche, a chiamata o taxi tolte (route_type 712, 715, 1500-1599)")
+        if (excludedAgencies.isNotEmpty()) println("-- GTFS $feedId: $agencyRoutes linee delle agenzie escluse (${excludedAgencies.sorted().joinToString()}) tolte")
 
         data class Trip(val id: Int, val gtfsId: String, val route: Int, val service: Int, var headsign: String?, val wheelchair: Int?, val direction: Int?)
         val trips = HashMap<String, Trip>()
+        val droppedTrips = HashSet<String>()
         rows("trips.txt") { r ->
+            if (r.getValue("route_id") in droppedRoutes) {
+                droppedTrips += r.getValue("trip_id")
+                return@rows
+            }
             val service = serviceIds[r.getValue("service_id")] ?: return@rows
             val route = routes[r.getValue("route_id")]?.id ?: return@rows
             val tripId = r.getValue("trip_id")
@@ -189,11 +208,18 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
 
             // stop_times.txt e' il file grande (milioni di righe): in streaming, a lotti.
             var pending = 0
+            // Fermate delle corse tolte e di quelle tenute: le prime senza nessuna delle seconde non si scrivono.
+            val droppedOnlyStops = HashSet<Int>()
+            val servedStops = HashSet<Int>()
             // Con tripKeys: secondi della prima partenza di ogni corsa (la sequenza piu' bassa), per start_time.
             val firstSeconds = HashMap<Int, IntArray>()
             conn.prepareStatement("INSERT INTO raw_time (trip, seq, stop, minute, pickup, arrival, flags) VALUES (?, ?, ?, ?, ?, ?, ?)").use { insert ->
                 rows("stop_times.txt") { r ->
-                    val trip = trips[r.getValue("trip_id")] ?: return@rows
+                    val trip = trips[r.getValue("trip_id")] ?: run {
+                        if (r.getValue("trip_id") in droppedTrips) stops[r.getValue("stop_id")]?.let { droppedOnlyStops += it.id }
+                        return@rows
+                    }
+                    stops[r.getValue("stop_id")]?.let { servedStops += it.id }
                     if (tripKeys) {
                         val seconds = gtfsSeconds(r["departure_time"].orEmpty().ifEmpty { r["arrival_time"].orEmpty() })
                         val sequence = r["stop_sequence"]?.toIntOrNull() ?: 0
@@ -236,7 +262,15 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
                     items.forEach { st.bind(it); st.addBatch() }
                     st.executeBatch()
                 }
-            insertAll("INSERT INTO stop VALUES (?, ?, ?, ?, ?, ?, ?)", stops.values) { stop ->
+            // Fermate servite solo da linee tolte (le stazioni SNCF in un aggregato senza i TER), e le stazioni rimaste
+            // senza banchine: non si scrivono. Gli id delle altre restano quelli assegnati alla lettura.
+            val dropped = droppedOnlyStops - servedStops
+            val keptParents = stops.values.filter { it.id !in dropped }.mapNotNullTo(HashSet()) { it.parent }
+            val droppedParents = (stops.values.filter { it.id in dropped }.mapNotNullTo(HashSet()) { it.parent } - keptParents)
+                .filterTo(HashSet()) { stops[it]?.id !in servedStops }
+            val keptStops = stops.filter { (gtfsId, stop) -> stop.id !in dropped && gtfsId !in droppedParents }.values
+            if (stops.size > keptStops.size) println("-- GTFS $feedId: ${stops.size - keptStops.size} fermate servite solo dalle linee tolte")
+            insertAll("INSERT INTO stop VALUES (?, ?, ?, ?, ?, ?, ?)", keptStops) { stop ->
                 setInt(1, stop.id); setString(2, stop.code); setString(3, stop.name)
                 setInt(4, (stop.lat * 1_000_000).roundToInt()); setInt(5, (stop.lon * 1_000_000).roundToInt())
                 val parent = stop.parent?.let { stops[it]?.id }
@@ -384,9 +418,9 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
             conn.autoCommit = true
             conn.createStatement().use { it.execute("VACUUM") }
 
-            val used = stops.values
+            val used = keptStops
             val bbox = if (used.isEmpty()) null else doubleArrayOf(used.minOf { it.lon }, used.minOf { it.lat }, used.maxOf { it.lon }, used.maxOf { it.lat })
-            return TransitStats(stops.size, routes.size, tripPattern.size, departures, validUntil, bbox)
+            return TransitStats(keptStops.size, routes.size, tripPattern.size, departures, validUntil, bbox)
         }
     }
 }
@@ -503,13 +537,17 @@ internal fun readCsv(reader: BufferedReader, onRow: (Map<String, String>) -> Uni
 fun main(args: Array<String>) {
     // --gtfs-ids: la rete ha un feed GTFS-RT o degli avvisi, vedi gtfs_trip, gtfs_stop e gtfs_route.
     // --trip-keys: il tempo reale non ha trip_id, vedi direction_id e start_time di gtfs_trip (implica --gtfs-ids).
+    // --exclude-agencies=A,B: le linee di quegli agency_id non entrano (colonna agenzie_escluse di transit-feeds.tsv).
     val options = args.drop(5)
-    require(args.size >= 5 && options.all { it == "--gtfs-ids" || it == "--trip-keys" }) {
-        "Uso: generateTransit <gtfs.zip> <transit.db> <feedId> <inizio finestra AAAA-MM-GG> <giorni> [--gtfs-ids] [--trip-keys]"
+    val agencyOption = "--exclude-agencies="
+    require(args.size >= 5 && options.all { it == "--gtfs-ids" || it == "--trip-keys" || it.startsWith(agencyOption) }) {
+        "Uso: generateTransit <gtfs.zip> <transit.db> <feedId> <inizio finestra AAAA-MM-GG> <giorni> [--gtfs-ids] [--trip-keys] [--exclude-agencies=A,B]"
     }
+    val excludedAgencies = options.filter { it.startsWith(agencyOption) }
+        .flatMap { it.removePrefix(agencyOption).split(',') }.filter { it.isNotEmpty() }.toSet()
     val stats = generateTransit(
         File(args[0]), File(args[1]), args[2], LocalDate.parse(args[3]), args[4].toInt(),
-        gtfsIds = "--gtfs-ids" in options, tripKeys = "--trip-keys" in options,
+        gtfsIds = "--gtfs-ids" in options, tripKeys = "--trip-keys" in options, excludedAgencies = excludedAgencies,
     )
     // Riga TSV per build-transit.sh: fermate, linee, corse, orari, valido fino a (AAAA-MM-GG o vuoto), rettangolo.
     println(

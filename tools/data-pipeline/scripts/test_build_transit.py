@@ -30,11 +30,14 @@ def feed_zip(content=b"stop_id\n1\n"):
     return buffer.getvalue()
 
 
-def feeds_row(feed_id="rete-a", url="http://127.0.0.1:9/feed.zip", realtime="", alerts=None, match=None):
-    """Riga della lista; [alerts] e [match] None = riga senza le colonne url_sa e aggancio_rt (facoltative)."""
-    tail = "" if alerts is None and match is None else f"\t{alerts or ''}"
-    if match is not None:
-        tail += f"\t{match}"
+def feeds_row(feed_id="rete-a", url="http://127.0.0.1:9/feed.zip", realtime="", alerts=None, match=None, agencies=None):
+    """Riga della lista; [alerts], [match] e [agencies] None = riga senza le colonne url_sa, aggancio_rt e agenzie_escluse
+    (facoltative)."""
+    tail = "" if alerts is None and match is None and agencies is None else f"\t{alerts or ''}"
+    if match is not None or agencies is not None:
+        tail += f"\t{match or ''}"
+    if agencies is not None:
+        tail += f"\t{agencies}"
     return f"{feed_id}\tit,fr\tRete A\tCC-BY-4.0\tAttribuzione A\thttps://licenza\t{url}\t\t{realtime}{tail}\n"
 
 
@@ -101,6 +104,13 @@ class BuildTransitTest(unittest.TestCase):
         proc = self.run_script(["rete-a", "v", "https://h", self.out], rows=feeds_row(match="per_trip_id"))
         self.assertEqual(1, proc.returncode)
         self.assertIn("aggancio_rt non valido", proc.stderr)
+
+    def test_agenzie_escluse_non_valide(self):
+        for agencies in ("SNCF CUS", "SNCF,", "$(id)"):
+            with self.subTest(agencies=agencies):
+                proc = self.run_script(["rete-a", "v", "https://h", self.out], rows=feeds_row(agencies=agencies))
+                self.assertEqual(1, proc.returncode)
+                self.assertIn("agenzie_escluse non valide", proc.stderr)
 
     def test_download_only_scrive_lo_zip(self):
         data = feed_zip()
@@ -261,6 +271,13 @@ class BuildTransitTest(unittest.TestCase):
         for rows, expected in cases:
             with self.subTest(rows=rows):
                 self.assertEqual(expected, "--gtfs-ids" in self.gradle_args(rows))
+
+    def test_agenzie_escluse_passate_al_convertitore(self):
+        for agencies, expected in (("SNCF,CUS", True), ("", False)):
+            with self.subTest(agencies=agencies):
+                args = self.gradle_args(feeds_row(agencies=agencies))
+                self.assertEqual(expected, "--exclude-agencies=SNCF,CUS" in args)
+                self.assertEqual(expected, "--exclude-agencies" in args)
 
     def test_trip_keys_solo_con_linea_ora(self):
         for match, expected in (("linea_ora", True), ("", False)):

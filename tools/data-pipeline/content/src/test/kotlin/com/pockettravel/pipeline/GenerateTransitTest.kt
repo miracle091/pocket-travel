@@ -185,6 +185,54 @@ class GenerateTransitTest {
     }
 
     @Test
+    fun `linee delle agenzie escluse tolte con le loro corse`() {
+        val withAgencies = feed + mapOf(
+            "routes.txt" to """
+                route_id,agency_id,route_short_name,route_long_name,route_type
+                R1,a,1,Centro - Piazza,3
+                TER,SNCF,TER,Treno regionale,2
+            """,
+            "trips.txt" to feed.getValue("trips.txt").trimEnd() + "\n            TER,FERIALE,X1,\n",
+            "stop_times.txt" to feed.getValue("stop_times.txt").trimEnd() +
+                "\n            X1,07:00:00,07:00:00,S1,1,0\n            X1,07:10:00,07:10:00,B,2,0\n",
+        )
+        val zip = gtfs(withAgencies)
+        val all = generateTransit(zip, tmp.root.resolve("all.db"), "mdb-1", monday, 7)
+        val db = tmp.root.resolve("transit.db")
+        val stats = generateTransit(zip, db, "mdb-1", monday, 7, excludedAgencies = setOf("SNCF"))
+
+        assertEquals(2 to 4, all.routes to all.trips)
+        assertEquals(1 to 3, stats.routes to stats.trips)
+        assertEquals(listOf("Centro - Piazza"), queryDb(db, "SELECT long_name FROM route").map { it[0] })
+    }
+
+    @Test
+    fun `fermate e stazioni servite solo dalle linee tolte non si scrivono`() {
+        val withTrain = feed + mapOf(
+            "stops.txt" to feed.getValue("stops.txt").trimEnd() +
+                "\n            G,Gare lontana,48.8400,2.3700,1,\n            G1,Gare lontana binario 1,48.8401,2.3701,0,G\n",
+            "routes.txt" to """
+                route_id,agency_id,route_short_name,route_long_name,route_type
+                R1,a,1,Centro - Piazza,3
+                TER,SNCF,TER,Treno regionale,2
+            """,
+            "trips.txt" to feed.getValue("trips.txt").trimEnd() + "\n            TER,FERIALE,X1,\n",
+            // Il treno passa anche da S1, che resta perche' la servono le corse della linea 1.
+            "stop_times.txt" to feed.getValue("stop_times.txt").trimEnd() +
+                "\n            X1,07:00:00,07:00:00,S1,1,0\n            X1,09:00:00,09:00:00,G1,2,0\n",
+        )
+        val zip = gtfs(withTrain)
+        val all = generateTransit(zip, tmp.root.resolve("all.db"), "mdb-1", monday, 7)
+        val db = tmp.root.resolve("transit.db")
+        val stats = generateTransit(zip, db, "mdb-1", monday, 7, excludedAgencies = setOf("SNCF"))
+
+        assertEquals(5, all.stops)
+        assertEquals(3, stats.stops)
+        assertEquals(listOf("Piazza", "Stazione Centrale", "Stazione Centrale, binario 1"), queryDb(db, "SELECT name FROM stop ORDER BY name").map { it[0] })
+        assertEquals(24.13, requireNotNull(stats.bbox)[2], 0.001)
+    }
+
+    @Test
     fun `nessun servizio nella finestra, nessuna data di fine`() {
         val db = tmp.root.resolve("transit.db")
         val stats = generateTransit(gtfs(feed), db, "mdb-1", LocalDate.parse("2030-01-01"), 7)
