@@ -19,7 +19,7 @@ import shell_fixtures as fx
 
 SCRIPT = "tools/data-pipeline/scripts/build-transit.sh"
 HEADER = "# id\tregioni\tnome\tlicenza\tattribuzione\turl_licenza\turl_feed\tcerca_ultimo\turl_rt\turl_sa\taggancio_rt\n"
-GENERATOR = 2  # GENERATOR_VERSION di build-transit.sh
+GENERATOR = 3  # GENERATOR_VERSION di build-transit.sh
 FAILING_GRADLE = "#!/usr/bin/env bash\nexit 7\n"
 
 

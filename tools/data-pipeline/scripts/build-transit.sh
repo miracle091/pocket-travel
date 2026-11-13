@@ -70,7 +70,8 @@ TRANSIT_WINDOW_DAYS="${TRANSIT_WINDOW_DAYS:-90}"
 TRANSIT_MAX_AGE_DAYS="${TRANSIT_MAX_AGE_DAYS:-7}"
 # Versione del contenuto di transit.db: alzarla fa ricostruire tutte le reti anche con il feed invariato.
 # 2: trip_stop, trip.full_pattern, gtfs_route, direction_id e start_time (vista della corsa, avvisi, Helsinki).
-GENERATOR_VERSION=2
+# 3: niente linee scolastiche, a chiamata o taxi (route_type 712, 715, 1500-1599).
+GENERATOR_VERSION=3
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"

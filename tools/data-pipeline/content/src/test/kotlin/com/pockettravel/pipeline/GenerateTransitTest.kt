@@ -166,6 +166,25 @@ class GenerateTransitTest {
     }
 
     @Test
+    fun `scuolabus, servizi a chiamata e taxi tolti con le loro corse`() {
+        val withExcluded = feed + mapOf(
+            "routes.txt" to feed.getValue("routes.txt").trimEnd() +
+                "\n            SC,S1,Scuola,712,\n            AC,D1,A chiamata,715,\n            TX,T,Taxi collettivo,1501,\n" +
+                "            SP,S2,Scuola e pubblico,713,\n",
+            "trips.txt" to feed.getValue("trips.txt").trimEnd() +
+                "\n            SC,FERIALE,X1,\n            AC,FERIALE,X2,\n            TX,FERIALE,X3,\n            SP,FERIALE,X4,\n",
+            "stop_times.txt" to feed.getValue("stop_times.txt").trimEnd() + "\n" +
+                listOf("X1", "X2", "X3", "X4").joinToString("") { "            $it,07:00:00,07:00:00,S1,1,0\n            $it,07:10:00,07:10:00,B,2,0\n" },
+        )
+        val db = tmp.root.resolve("transit.db")
+        val stats = generateTransit(gtfs(withExcluded), db, "mdb-1", monday, 7)
+
+        assertEquals(2, stats.routes)
+        assertEquals(4, stats.trips)
+        assertEquals(listOf("Centro - Piazza", "Scuola e pubblico"), queryDb(db, "SELECT long_name FROM route ORDER BY id").map { it[0] })
+    }
+
+    @Test
     fun `nessun servizio nella finestra, nessuna data di fine`() {
         val db = tmp.root.resolve("transit.db")
         val stats = generateTransit(gtfs(feed), db, "mdb-1", LocalDate.parse("2030-01-01"), 7)

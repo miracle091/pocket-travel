@@ -61,6 +61,9 @@ data class TransitStats(val stops: Int, val routes: Int, val trips: Int, val sto
 
 private val GTFS_DATE: DateTimeFormatter = DateTimeFormatter.BASIC_ISO_DATE
 
+/** route_type estesi di GTFS tolti: 712 scuolabus, 715 servizio a chiamata, 1500-1599 taxi (anche collettivi). */
+internal val EXCLUDED_ROUTE_TYPES: Set<Int> = setOf(712, 715) + (1500..1599)
+
 /** Data GTFS (AAAAMMGG), o null se vuota o illeggibile. */
 private fun parseGtfsDate(text: String?): LocalDate? =
     text?.trim()?.takeIf { it.isNotEmpty() }?.let { runCatching { LocalDate.parse(it, GTFS_DATE) }.getOrNull() }
@@ -133,13 +136,22 @@ fun generateTransit(gtfsZip: File, outputDb: File, feedId: String, windowStart: 
 
         data class Route(val id: Int, val shortName: String?, val longName: String?, val type: Int, val color: String?, val textColor: String?)
         val routes = LinkedHashMap<String, Route>()
+        var excludedRoutes = 0
         rows("routes.txt") { r ->
             if (r.getValue("route_id") in routes) return@rows
+            val type = r["route_type"]?.toIntOrNull() ?: 3
+            // Scuolabus, servizi a chiamata e taxi (tipi estesi di GTFS) non entrano nel tabellone (utente, 2026-11-13):
+            // le loro corse cadono con la linea. Non i nomi delle linee: "Cite Scolaire" a Tolosa e' una fermata.
+            if (type in EXCLUDED_ROUTE_TYPES) {
+                excludedRoutes++
+                return@rows
+            }
             routes[r.getValue("route_id")] = Route(
                 routes.size, r["route_short_name"]?.ifEmpty { null }, r["route_long_name"]?.ifEmpty { null },
-                r["route_type"]?.toIntOrNull() ?: 3, r["route_color"]?.ifEmpty { null }, r["route_text_color"]?.ifEmpty { null },
+                type, r["route_color"]?.ifEmpty { null }, r["route_text_color"]?.ifEmpty { null },
             )
         }
+        if (excludedRoutes > 0) println("-- GTFS $feedId: $excludedRoutes linee scolastiche, a chiamata o taxi tolte (route_type 712, 715, 1500-1599)")
 
         data class Trip(val id: Int, val gtfsId: String, val route: Int, val service: Int, var headsign: String?, val wheelchair: Int?, val direction: Int?)
         val trips = HashMap<String, Trip>()
