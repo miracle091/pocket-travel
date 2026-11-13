@@ -207,6 +207,29 @@ class GenerateTransitTest {
     }
 
     @Test
+    fun `linee il cui nome breve corrisponde a linee_escluse tolte con le loro corse`() {
+        val withNamed = feed + mapOf(
+            "routes.txt" to """
+                route_id,agency_id,route_short_name,route_long_name,route_type
+                R1,a,1,Centro - Piazza,3
+                T1,a,TAD ABEXT,,3
+                S1,a,S1 SC 2627,,3
+            """,
+            "trips.txt" to feed.getValue("trips.txt").trimEnd() + "\n            T1,FERIALE,X1,\n            S1,FERIALE,X2,\n",
+            "stop_times.txt" to feed.getValue("stop_times.txt").trimEnd() + "\n" +
+                listOf("X1", "X2").joinToString("") { "            $it,07:00:00,07:00:00,S1,1,0\n            $it,07:10:00,07:10:00,B,2,0\n" },
+        )
+        val zip = gtfs(withNamed)
+        val all = generateTransit(zip, tmp.root.resolve("all.db"), "mdb-1", monday, 7)
+        val db = tmp.root.resolve("transit.db")
+        val stats = generateTransit(zip, db, "mdb-1", monday, 7, excludedRouteNames = Regex("^(TAD|S[0-9]+R? ?SC)"))
+
+        assertEquals(3 to 5, all.routes to all.trips)
+        assertEquals(1 to 3, stats.routes to stats.trips)
+        assertEquals(listOf("1"), queryDb(db, "SELECT short_name FROM route").map { it[0] })
+    }
+
+    @Test
     fun `fermate e stazioni servite solo dalle linee tolte non si scrivono`() {
         val withTrain = feed + mapOf(
             "stops.txt" to feed.getValue("stops.txt").trimEnd() +
@@ -300,6 +323,19 @@ class GenerateTransitTest {
         assertEquals(3, stats.stopTimes)
         // Ordine: lon minima, lat minima, lon massima, lat massima; l'entrata (location_type 2) non conta.
         assertArrayEquals(doubleArrayOf(24.1210, 56.9460, 24.1300, 56.9500), stats.bbox, 1e-9)
+    }
+
+    @Test
+    fun `fermata con latitudine e longitudine scambiate corretta, il rettangolo resta sulla rete`() {
+        val swapped = feed + mapOf(
+            "stops.txt" to feed.getValue("stops.txt").trimEnd() + "\n        P,Porto,24.1250,56.9480,0,\n",
+            "stop_times.txt" to feed.getValue("stop_times.txt").trimEnd() + "\n        T1,08:20:00,08:20:00,P,3,0\n",
+        )
+        val db = tmp.root.resolve("swapped.db")
+        val stats = generateTransit(zipOf("swapped.zip", swapped), db, "mdb-1", monday, 7)
+
+        assertArrayEquals(doubleArrayOf(24.1210, 56.9460, 24.1300, 56.9500), stats.bbox, 1e-9)
+        assertEquals(listOf<Any?>(56948000, 24125000), queryDb(db, "SELECT latE6, lonE6 FROM stop WHERE name = 'Porto'").single())
     }
 
     @Test

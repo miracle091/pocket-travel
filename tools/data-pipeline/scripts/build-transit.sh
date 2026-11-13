@@ -70,8 +70,8 @@ TRANSIT_WINDOW_DAYS="${TRANSIT_WINDOW_DAYS:-90}"
 TRANSIT_MAX_AGE_DAYS="${TRANSIT_MAX_AGE_DAYS:-7}"
 # Versione del contenuto di transit.db: alzarla fa ricostruire tutte le reti anche con il feed invariato.
 # 2: trip_stop, trip.full_pattern, gtfs_route, direction_id e start_time (vista della corsa, avvisi, Helsinki).
-# 3: niente linee scolastiche, a chiamata o taxi (route_type 712, 715, 1500-1599), ne' quelle di agenzie_escluse,
-# ne' le fermate servite solo da quelle linee.
+# 3: niente linee scolastiche, a chiamata o taxi (route_type 712, 715, 1500-1599), ne' quelle di agenzie_escluse o di
+# linee_escluse, ne' le fermate servite solo da quelle linee; latitudine e longitudine scambiate corrette.
 GENERATOR_VERSION=3
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -84,13 +84,15 @@ source "$SCRIPT_DIR/lib.sh"
 LINE="$(awk -F'\t' -v id="$FEED_ID" '$0 !~ /^#/ && $1 == id' "$TRANSIT_FEEDS")"
 [ -n "$LINE" ] || { echo "$FEED_ID non e' nella lista $TRANSIT_FEEDS" >&2; exit 1; }
 # Tab -> \x1f come per STATS sotto: con IFS=tab le colonne vuote prima di url_rt si fonderebbero.
-# Le colonne in fondo (url_rt, url_sa, aggancio_rt, agenzie_escluse) sono facoltative: se mancano le variabili restano
-# vuote.
-IFS=$'\x1f' read -r _ REGIONS NAME LICENSE ATTRIBUTION LICENSE_URL FEED_URL FIND_LATEST REALTIME_URL ALERTS_URL RT_MATCH EXCLUDED_AGENCIES <<< "${LINE//$'\t'/$'\x1f'}"
+# Le colonne in fondo (url_rt, url_sa, aggancio_rt, agenzie_escluse, linee_escluse) sono facoltative: se mancano le
+# variabili restano vuote.
+IFS=$'\x1f' read -r _ REGIONS NAME LICENSE ATTRIBUTION LICENSE_URL FEED_URL FIND_LATEST REALTIME_URL ALERTS_URL RT_MATCH EXCLUDED_AGENCIES EXCLUDED_ROUTES <<< "${LINE//$'\t'/$'\x1f'}"
 [ -z "$REALTIME_URL" ] || [[ "$REALTIME_URL" == https://* ]] || { echo "-- $FEED_ID: url_rt non https: $REALTIME_URL" >&2; exit 1; }
 [ -z "$ALERTS_URL" ] || [[ "$ALERTS_URL" == https://* ]] || { echo "-- $FEED_ID: url_sa non https: $ALERTS_URL" >&2; exit 1; }
 [ -z "$RT_MATCH" ] || [ "$RT_MATCH" = linea_ora ] || { echo "-- $FEED_ID: aggancio_rt non valido (vuoto o linea_ora): $RT_MATCH" >&2; exit 1; }
 [[ "$EXCLUDED_AGENCIES" =~ ^([A-Za-z0-9_.:-]+(,[A-Za-z0-9_.:-]+)*)?$ ]] || { echo "-- $FEED_ID: agenzie_escluse non valide (agency_id separati da virgola): $EXCLUDED_AGENCIES" >&2; exit 1; }
+# linee_escluse va tra virgolette in --args di Gradle: niente virgolette ne' barre rovesciate.
+[[ "$EXCLUDED_ROUTES" != *[\"\'\\]* ]] || { echo "-- $FEED_ID: linee_escluse non valide (virgolette o barre rovesciate): $EXCLUDED_ROUTES" >&2; exit 1; }
 TRIP_KEYS=false
 [ "$RT_MATCH" != linea_ora ] || TRIP_KEYS=true
 WORKDIR="$(mktemp -d)"
@@ -297,6 +299,7 @@ GTFS_IDS_ARG=""
 [ -z "$REALTIME_URL$ALERTS_URL$RT_MATCH" ] || GTFS_IDS_ARG=" --gtfs-ids"
 [ "$TRIP_KEYS" = false ] || GTFS_IDS_ARG="$GTFS_IDS_ARG --trip-keys"
 [ -z "$EXCLUDED_AGENCIES" ] || GTFS_IDS_ARG="$GTFS_IDS_ARG --exclude-agencies=$EXCLUDED_AGENCIES"
+[ -z "$EXCLUDED_ROUTES" ] || GTFS_IDS_ARG="$GTFS_IDS_ARG \"--exclude-routes=$EXCLUDED_ROUTES\""
 STATS="$(cd "$REPO_ROOT" && ./gradlew -q :tools:data-pipeline:content:generateTransit \
   --args="\"$(winpath "$FEED_ZIP")\" \"$(winpath "$DB")\" $FEED_ID $WINDOW_START $TRANSIT_WINDOW_DAYS$GTFS_IDS_ARG" | tail -1)"
 # Tab -> \x1f prima di leggere: il tab e' uno spazio per IFS, due tab di fila (validUntil vuoto) ne valgono

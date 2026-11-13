@@ -30,14 +30,17 @@ def feed_zip(content=b"stop_id\n1\n"):
     return buffer.getvalue()
 
 
-def feeds_row(feed_id="rete-a", url="http://127.0.0.1:9/feed.zip", realtime="", alerts=None, match=None, agencies=None):
-    """Riga della lista; [alerts], [match] e [agencies] None = riga senza le colonne url_sa, aggancio_rt e agenzie_escluse
-    (facoltative)."""
-    tail = "" if alerts is None and match is None and agencies is None else f"\t{alerts or ''}"
-    if match is not None or agencies is not None:
+def feeds_row(feed_id="rete-a", url="http://127.0.0.1:9/feed.zip", realtime="", alerts=None, match=None, agencies=None,
+              routes=None):
+    """Riga della lista; [alerts], [match], [agencies] e [routes] None = riga senza le colonne url_sa, aggancio_rt,
+    agenzie_escluse e linee_escluse (facoltative)."""
+    tail = "" if alerts is None and match is None and agencies is None and routes is None else f"\t{alerts or ''}"
+    if match is not None or agencies is not None or routes is not None:
         tail += f"\t{match or ''}"
-    if agencies is not None:
-        tail += f"\t{agencies}"
+    if agencies is not None or routes is not None:
+        tail += f"\t{agencies or ''}"
+    if routes is not None:
+        tail += f"\t{routes}"
     return f"{feed_id}\tit,fr\tRete A\tCC-BY-4.0\tAttribuzione A\thttps://licenza\t{url}\t\t{realtime}{tail}\n"
 
 
@@ -111,6 +114,20 @@ class BuildTransitTest(unittest.TestCase):
                 proc = self.run_script(["rete-a", "v", "https://h", self.out], rows=feeds_row(agencies=agencies))
                 self.assertEqual(1, proc.returncode)
                 self.assertIn("agenzie_escluse non valide", proc.stderr)
+
+    def test_linee_escluse_passate_al_convertitore_tra_virgolette(self):
+        for routes, expected in (("^(TAD|S[0-9]+R? ?SC)", True), ("", False)):
+            with self.subTest(routes=routes):
+                args = self.gradle_args(feeds_row(routes=routes))
+                self.assertEqual(expected, '"--exclude-routes=^(TAD|S[0-9]+R? ?SC)"' in args)
+                self.assertEqual(expected, "--exclude-routes" in args)
+
+    def test_linee_escluse_non_valide(self):
+        for routes in ('^"TAD', "^TAD\\d", "'x'"):
+            with self.subTest(routes=routes):
+                proc = self.run_script(["rete-a", "v", "https://h", self.out], rows=feeds_row(routes=routes))
+                self.assertEqual(1, proc.returncode)
+                self.assertIn("linee_escluse non valide", proc.stderr)
 
     def test_download_only_scrive_lo_zip(self):
         data = feed_zip()

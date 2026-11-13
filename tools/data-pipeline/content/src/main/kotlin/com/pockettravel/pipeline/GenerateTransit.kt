@@ -7,6 +7,7 @@ import java.sql.DriverManager
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.zip.ZipFile
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -70,7 +71,7 @@ private fun parseGtfsDate(text: String?): LocalDate? =
 
 fun generateTransit(
     gtfsZip: File, outputDb: File, feedId: String, windowStart: LocalDate, windowDays: Int, gtfsIds: Boolean = false, tripKeys: Boolean = false,
-    excludedAgencies: Set<String> = emptySet(),
+    excludedAgencies: Set<String> = emptySet(), excludedRouteNames: Regex? = null,
 ): TransitStats {
     val withIds = gtfsIds || tripKeys
     require(windowDays in 1..366) { "windowDays fuori intervallo: $windowDays" }
@@ -114,7 +115,7 @@ fun generateTransit(
                 "2" -> days[i.toInt()] = false
             }
         }
-        if (badCalendarRows > 0) println("::warning::GTFS $feedId: $badCalendarRows righe di calendar.txt o calendar_dates.txt con data vuota o illeggibile, saltate")
+        if (badCalendarRows > 0) System.err.println("::warning::GTFS $feedId: $badCalendarRows righe di calendar.txt o calendar_dates.txt con data vuota o illeggibile, saltate")
         val activeServices = services.filterValues { days -> days.any { it } }
         val serviceIds = activeServices.keys.sorted().withIndex().associate { (i, id) -> id to i }
 
@@ -136,11 +137,29 @@ fun generateTransit(
             if (id in stops) return@rows
             stops[id] = Stop(stops.size, r["stop_code"]?.ifEmpty { null }, r["stop_name"].orEmpty(), lat, lon, r["parent_station"]?.ifEmpty { null }, gtfsWheelchair(r["wheelchair_boarding"]))
         }
+        // Latitudine e longitudine scambiate (1 fermata a Bastia, 3 a CA2BM): il rettangolo della rete arriverebbe
+        // all'Africa e l'app la crederebbe vicina a mezza Francia. Si scambiano di nuovo quando cosi' la fermata
+        // cade entro un grado dalla mediana delle fermate.
+        if (stops.isNotEmpty()) {
+            val medianLat = stops.values.map { it.lat }.sorted()[stops.size / 2]
+            val medianLon = stops.values.map { it.lon }.sorted()[stops.size / 2]
+            var swapped = 0
+            stops.replaceAll { _, s ->
+                if (abs(s.lat - medianLat) > 1 && abs(s.lon - medianLat) <= 1 && abs(s.lat - medianLon) <= 1) {
+                    swapped++
+                    s.copy(lat = s.lon, lon = s.lat)
+                } else {
+                    s
+                }
+            }
+            if (swapped > 0) System.err.println("-- GTFS $feedId: $swapped fermate con latitudine e longitudine scambiate, corrette")
+        }
 
         data class Route(val id: Int, val shortName: String?, val longName: String?, val type: Int, val color: String?, val textColor: String?)
         val routes = LinkedHashMap<String, Route>()
         var excludedRoutes = 0
         var agencyRoutes = 0
+        var namedRoutes = 0
         // Linee tolte: le loro corse cadono con la linea, e con loro le fermate che servivano da sole.
         val droppedRoutes = HashSet<String>()
         rows("routes.txt") { r ->
@@ -159,13 +178,24 @@ fun generateTransit(
                 droppedRoutes += r.getValue("route_id")
                 return@rows
             }
+            // Linee scolastiche e a chiamata col tipo generico, riconoscibili solo dal nome breve (TAD di Abbeville).
+            if (excludedRouteNames?.containsMatchIn(r["route_short_name"].orEmpty()) == true) {
+                namedRoutes++
+                droppedRoutes += r.getValue("route_id")
+                return@rows
+            }
             routes[r.getValue("route_id")] = Route(
                 routes.size, r["route_short_name"]?.ifEmpty { null }, r["route_long_name"]?.ifEmpty { null },
                 type, r["route_color"]?.ifEmpty { null }, r["route_text_color"]?.ifEmpty { null },
             )
         }
-        if (excludedRoutes > 0) println("-- GTFS $feedId: $excludedRoutes linee scolastiche, a chiamata o taxi tolte (route_type 712, 715, 1500-1599)")
-        if (excludedAgencies.isNotEmpty()) println("-- GTFS $feedId: $agencyRoutes linee delle agenzie escluse (${excludedAgencies.sorted().joinToString()}) tolte")
+        if (excludedRoutes > 0) System.err.println("-- GTFS $feedId: $excludedRoutes linee scolastiche, a chiamata o taxi tolte (route_type 712, 715, 1500-1599)")
+        if (excludedAgencies.isNotEmpty()) System.err.println("-- GTFS $feedId: $agencyRoutes linee delle agenzie escluse (${excludedAgencies.sorted().joinToString()}) tolte")
+        // Nessuna linea trovata: il feed ha cambiato i nomi e le linee scolastiche o a chiamata tornerebbero senza avviso.
+        if (excludedRouteNames != null) {
+            val line = "GTFS $feedId: $namedRoutes linee tolte per nome (linee_escluse ${excludedRouteNames.pattern})"
+            System.err.println(if (namedRoutes == 0) "::warning::$line, nessuna: controllare i nomi delle linee del feed" else "-- $line")
+        }
 
         data class Trip(val id: Int, val gtfsId: String, val route: Int, val service: Int, var headsign: String?, val wheelchair: Int?, val direction: Int?)
         val trips = HashMap<String, Trip>()
@@ -269,7 +299,7 @@ fun generateTransit(
             val droppedParents = (stops.values.filter { it.id in dropped }.mapNotNullTo(HashSet()) { it.parent } - keptParents)
                 .filterTo(HashSet()) { stops[it]?.id !in servedStops }
             val keptStops = stops.filter { (gtfsId, stop) -> stop.id !in dropped && gtfsId !in droppedParents }.values
-            if (stops.size > keptStops.size) println("-- GTFS $feedId: ${stops.size - keptStops.size} fermate servite solo dalle linee tolte")
+            if (stops.size > keptStops.size) System.err.println("-- GTFS $feedId: ${stops.size - keptStops.size} fermate servite solo dalle linee tolte")
             insertAll("INSERT INTO stop VALUES (?, ?, ?, ?, ?, ?, ?)", keptStops) { stop ->
                 setInt(1, stop.id); setString(2, stop.code); setString(3, stop.name)
                 setInt(4, (stop.lat * 1_000_000).roundToInt()); setInt(5, (stop.lon * 1_000_000).roundToInt())
@@ -538,16 +568,20 @@ fun main(args: Array<String>) {
     // --gtfs-ids: la rete ha un feed GTFS-RT o degli avvisi, vedi gtfs_trip, gtfs_stop e gtfs_route.
     // --trip-keys: il tempo reale non ha trip_id, vedi direction_id e start_time di gtfs_trip (implica --gtfs-ids).
     // --exclude-agencies=A,B: le linee di quegli agency_id non entrano (colonna agenzie_escluse di transit-feeds.tsv).
+    // --exclude-routes=REGEX: le linee il cui route_short_name contiene REGEX non entrano (colonna linee_escluse).
     val options = args.drop(5)
     val agencyOption = "--exclude-agencies="
-    require(args.size >= 5 && options.all { it == "--gtfs-ids" || it == "--trip-keys" || it.startsWith(agencyOption) }) {
-        "Uso: generateTransit <gtfs.zip> <transit.db> <feedId> <inizio finestra AAAA-MM-GG> <giorni> [--gtfs-ids] [--trip-keys] [--exclude-agencies=A,B]"
+    val routeOption = "--exclude-routes="
+    require(args.size >= 5 && options.all { it == "--gtfs-ids" || it == "--trip-keys" || it.startsWith(agencyOption) || it.startsWith(routeOption) }) {
+        "Uso: generateTransit <gtfs.zip> <transit.db> <feedId> <inizio finestra AAAA-MM-GG> <giorni> [--gtfs-ids] [--trip-keys] [--exclude-agencies=A,B] [--exclude-routes=REGEX]"
     }
     val excludedAgencies = options.filter { it.startsWith(agencyOption) }
         .flatMap { it.removePrefix(agencyOption).split(',') }.filter { it.isNotEmpty() }.toSet()
+    val excludedRouteNames = options.lastOrNull { it.startsWith(routeOption) }?.removePrefix(routeOption)?.takeIf { it.isNotEmpty() }?.let(::Regex)
     val stats = generateTransit(
         File(args[0]), File(args[1]), args[2], LocalDate.parse(args[3]), args[4].toInt(),
         gtfsIds = "--gtfs-ids" in options, tripKeys = "--trip-keys" in options, excludedAgencies = excludedAgencies,
+        excludedRouteNames = excludedRouteNames,
     )
     // Riga TSV per build-transit.sh: fermate, linee, corse, orari, valido fino a (AAAA-MM-GG o vuoto), rettangolo.
     println(
