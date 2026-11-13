@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,6 +34,22 @@ class AiSettingsStoreDeviceTest {
 
         store.clearApiKey()
         assertNull(aiSettingsStore(context).apiKey())
+    }
+
+    @Test
+    fun eachServiceKeepsItsOwnKey() {
+        val store = aiSettingsStore(context)
+        store.setOnlineProvider(OnlineProvider.GEMINI)
+        store.setApiKey("chiave-gemini")
+        store.setOnlineProvider(OnlineProvider.MISTRAL)
+        assertNull(store.apiKey())
+        assertFalse(store.hasApiKeyFlow.value)
+
+        store.setApiKey("chiave-mistral")
+        store.setOnlineProvider(OnlineProvider.GEMINI)
+
+        assertEquals("chiave-gemini", aiSettingsStore(context).apiKey())
+        assertTrue(store.hasApiKeyFlow.value)
     }
 
 }

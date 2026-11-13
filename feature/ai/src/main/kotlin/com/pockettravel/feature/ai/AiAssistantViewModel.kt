@@ -382,8 +382,6 @@ class AiAssistantViewModel @Inject constructor(
 
     private fun showProvider(provider: OnlineProvider) {
         cancelAsk()
-        // La chiave e' stata cancellata: i modelli visti con quella non valgono piu'.
-        if (!aiSettingsStore.hasApiKey()) onlineModelOptions.forgetAll()
         _uiState.update {
             it.copy(onlineProvider = provider, accountIdInput = aiSettingsStore.accountId(provider), onlineModelSetting = aiSettingsStore.onlineModelSetting(provider), sendsPhotos = aiSettingsStore.sendsPhotos(provider), isApiKeyConfigured = aiSettingsStore.hasApiKey(), answer = null, askedQuestion = null, emergencyCard = null, answerCredit = null)
         }
@@ -447,7 +445,7 @@ class AiAssistantViewModel @Inject constructor(
     fun clearApiKey() {
         cancelAsk()
         aiSettingsStore.clearApiKey()
-        onlineModelOptions.forgetAll()
+        onlineModelOptions.forget(_uiState.value.onlineProvider)
         _uiState.update { it.copy(isApiKeyConfigured = false, answer = null, askedQuestion = null, emergencyCard = null, answerCredit = null) }
     }
 
@@ -590,11 +588,12 @@ class AiAssistantViewModel @Inject constructor(
         forecastJob?.cancel()
         // Con un testo selezionato ogni domanda sta da sola: un seguito si unirebbe a quella prima, senza il suo testo.
         val previous = if (state.selectedText != null) null else conversation.previousQuestion(state.mode)
-        val photo = state.photoToSend(state.attachedPhoto) ?: state.photoToSend(state.askedPhoto)?.takeIf { previous != null && aiSettingsStore.sendsPhotos() }
+        val photo = state.photoForQuestion(followUp = previous != null, consented = aiSettingsStore.sendsPhotos())
+        val attached = state.photoToSend(state.attachedPhoto)
         // Una conversazione ripresa resta nella sua regione, anche aperta dalla scheda IA di un'altra.
         val region = conversation.regionId ?: regionId
         // Subito, prima di ogni attesa: un secondo tocco su Invia trova la domanda gia' in corso.
-        _uiState.update { it.startingTurn(question)?.copy(attachedPhoto = null, askedPhoto = state.photoToSend(state.attachedPhoto)?.askedWith(question) ?: it.askedPhoto) ?: it }
+        _uiState.update { it.startingTurn(question)?.copy(attachedPhoto = null, askedPhoto = attached?.askedWith(question) ?: it.askedPhoto) ?: it }
         // Il riquadro della domanda precedente e' un figlio del suo lavoro: va fermato, o sovrascriverebbe quello nuovo.
         askJob?.cancel()
         askJob = viewModelScope.launch {
@@ -606,10 +605,12 @@ class AiAssistantViewModel @Inject constructor(
             // Accanto alla ricerca e al modello, non prima: le allerte di una domanda su una catastrofe arrivano da
             // piu' fonti in rete, e il numero da chiamare non aspetta la risposta.
             launch { _uiState.showEmergencyCard(emergencyCards, region, question) }
-            collectAnswer(region, question, state.mode, previous, photo) { answer ->
+            val answered = collectAnswer(region, question, state.mode, previous, photo) { answer ->
                 // Dal foglio "Chiedi all'assistente" niente cronologia: domanda e risposta restano nel foglio.
                 conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer, save = state.selectedText == null)
             }
+            // Senza risposta la foto torna allegata: un turno fallito non e' un seguito, e la domanda dopo la perderebbe.
+            if (!answered && attached != null) _uiState.update { if (it.attachedPhoto == null) it.copy(attachedPhoto = attached) else it }
         }
     }
 
@@ -633,8 +634,8 @@ class AiAssistantViewModel @Inject constructor(
         }
     }
 
-    // La risposta in arrivo nella schermata; [onDone] la registra nella conversazione.
-    private suspend fun collectAnswer(region: String, question: String, mode: AiEngineMode, previous: String?, photo: AttachedPhoto?, onDone: (AssistantAnswer) -> Unit) {
+    // La risposta in arrivo nella schermata; [onDone] la registra nella conversazione. Falso se la risposta non e' arrivata.
+    private suspend fun collectAnswer(region: String, question: String, mode: AiEngineMode, previous: String?, photo: AttachedPhoto?, onDone: (AssistantAnswer) -> Unit): Boolean =
         try {
             answerKeepAlive.during {
                 travelAssistant.ask(region, question, mode, previous, _uiState.value.selectedText?.text, photo?.jpeg).collect { progress ->
@@ -649,6 +650,7 @@ class AiAssistantViewModel @Inject constructor(
                     }
                 }
             }
+            true
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
@@ -659,8 +661,8 @@ class AiAssistantViewModel @Inject constructor(
             Log.w(TAG, "Risposta non riuscita ($mode): ${error.javaClass.name}$detail")
             conversation.onFailed()
             _uiState.update { it.copy(isThinking = false, streamingText = "", errorMessage = askErrorMessage(error), notice = null, quota = onlineQuota.quotaNotice(error, it, System.currentTimeMillis())) }
+            false
         }
-    }
 
     /**
      * Riconosciuti sul dispositivo con regole, anche con il motore online, e mai mandati al modello: "/model" e le

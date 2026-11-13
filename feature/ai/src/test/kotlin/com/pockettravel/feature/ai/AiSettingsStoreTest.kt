@@ -100,16 +100,16 @@ class AiSettingsStoreTest {
     }
 
     @Test
-    fun `cambiare servizio toglie la chiave salvata, lasciarlo uguale no`() {
-        raw.edit().putString("api_key_payload", "cifrato").apply()
+    fun `ogni servizio tiene la sua chiave e la chiave unica di prima diventa del servizio scelto`() {
+        raw.edit().putString("online_provider", "GEMINI").putString("api_key_payload", "cifrato").apply()
         val store = newStore()
-
-        store.setOnlineProvider(OnlineProvider.CHATGPT)
-        assertEquals("cifrato", raw.getString("api_key_payload", null))
+        assertNull(raw.getString("api_key_payload", null))
+        assertEquals("cifrato", raw.getString("api_key_payload_GEMINI", null))
 
         store.setOnlineProvider(OnlineProvider.CLAUDE)
+        store.clearApiKey()
 
-        assertNull(raw.getString("api_key_payload", null))
+        assertEquals("cifrato", raw.getString("api_key_payload_GEMINI", null))
         assertEquals(OnlineProvider.CLAUDE, newStore().onlineProvider())
         assertEquals("CLAUDE", raw.getString("online_provider", null))
     }

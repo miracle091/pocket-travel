@@ -21,7 +21,7 @@
     <string name="ai_large_download_message">%1$s is about %2$s and the device is on mobile data. Continue?</string>
     <string name="ai_large_download_confirm">Download</string>
     <string name="ai_api_key_intro">With the Online engine, questions are sent to an AI service of your choice, using your own API key. Choose the service, create a key on its website and paste it below</string>
-    <string name="ai_api_key_privacy">The key stays only on this device, encrypted. Questions are sent directly to %1$s, never to a Pocket Travel server, and usage is charged to your own account. Changing the service deletes the key</string>
+    <string name="ai_api_key_privacy">The key stays only on this device, encrypted. Questions are sent directly to %1$s, never to a Pocket Travel server, and usage is charged to your own account. Each service has its own key</string>
     <string name="ai_api_key_label">API key</string>
     <string name="ai_api_key_save">Save key</string>
     <string name="ai_api_key_show">Show key</string>

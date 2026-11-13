@@ -21,7 +21,7 @@
     <string name="ai_large_download_message">%1$s occupa circa %2$s e il dispositivo usa la rete mobile. Continuare?</string>
     <string name="ai_large_download_confirm">Scarica</string>
     <string name="ai_api_key_intro">Con il motore Online le domande vengono inviate a un servizio di intelligenza artificiale a scelta, con una chiave API personale. Scegli il servizio, crea la chiave sul suo sito e incollala qui sotto</string>
-    <string name="ai_api_key_privacy">La chiave resta solo su questo dispositivo, cifrata. Le domande vengono inviate direttamente a %1$s, mai a un server di Pocket Travel, e l\'uso viene addebitato sull\'account personale. Cambiando servizio, la chiave viene eliminata</string>
+    <string name="ai_api_key_privacy">La chiave resta solo su questo dispositivo, cifrata. Le domande vengono inviate direttamente a %1$s, mai a un server di Pocket Travel, e l\'uso viene addebitato sull\'account personale. Ogni servizio ha la sua chiave</string>
     <string name="ai_api_key_label">Chiave API</string>
     <string name="ai_api_key_save">Salva la chiave</string>
     <string name="ai_api_key_show">Mostra la chiave</string>

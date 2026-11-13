@@ -48,6 +48,13 @@ val AiUiState.lastQuestionPhoto: AttachedPhoto? get() = askedPhoto?.takeIf { it.
 fun AiUiState.photoToSend(photo: AttachedPhoto?): AttachedPhoto? = photo?.takeIf { mode == AiEngineMode.ONLINE && canAttachPhoto }
 
 /**
+ * La foto che parte con la domanda: quella allegata o, in un seguito ([followUp]), l'ultima della conversazione. Mai senza
+ * il consenso del servizio scelto ([consented]).
+ */
+internal fun AiUiState.photoForQuestion(followUp: Boolean, consented: Boolean): AttachedPhoto? =
+    (photoToSend(attachedPhoto) ?: photoToSend(askedPhoto)?.takeIf { followUp })?.takeIf { consented }
+
+/**
  * La foto letta con [open] (aperta tre volte: misure, pixel, rotazione) pronta per il servizio: girata come la mostra
  * la galleria, lato lungo al massimo [maxSide], JPEG di qualita' 80. La nuova codifica non scrive nessun metadato: posizione (GPS), data, telefono e gli altri campi EXIF
  * dell'originale non escono mai. A 1568 px il JPEG resta sotto 1 MB, molto sotto i limiti dei servizi (5 MB per immagine

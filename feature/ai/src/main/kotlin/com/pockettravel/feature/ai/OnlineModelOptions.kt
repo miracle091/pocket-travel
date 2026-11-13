@@ -68,8 +68,4 @@ internal class OnlineModelOptions(
 
     /** La chiave di [provider] e' cambiata: i modelli visti con quella di prima non valgono piu'. */
     fun forget(provider: OnlineProvider) = available.update { it - provider }
-
-    fun forgetAll() {
-        available.value = emptyMap()
-    }
 }

@@ -33,7 +33,15 @@ class AiSettingsStore(
     ) : this(preferencesFactory, modelsDir, deviceAiCapability::ramTier)
 
     private val prefs = preferencesFactory.open(PREFERENCES_NAME)
-    private val apiKeyStore = AndroidKeystoreSecretStore(prefs, API_KEY_ALIAS, API_KEY_PAYLOAD)
+    private val apiKeyStore = AndroidKeystoreSecretStore(prefs, API_KEY_ALIAS)
+
+    init {
+        // Prima c'era una chiave sola, del servizio scelto allora: diventa la sua.
+        prefs.getString(API_KEY_PAYLOAD, null)?.let { old -> prefs.edit { putString(apiKeyName(), old).remove(API_KEY_PAYLOAD) } }
+    }
+
+    // Una chiave per servizio: quella di un servizio non parte mai verso un altro.
+    private fun apiKeyName() = API_KEY_PAYLOAD + "_" + onlineProvider().name
 
     fun engineMode(): AiEngineMode =
         AiEngineMode.valueOf(prefs.getString(KEY_MODE, AiEngineMode.ON_DEVICE.name) ?: AiEngineMode.ON_DEVICE.name)
@@ -49,20 +57,20 @@ class AiSettingsStore(
 
     fun hasApiKey(): Boolean = !apiKey().isNullOrBlank()
 
-    fun apiKey(): String? = apiKeyStore.read()
+    fun apiKey(): String? = apiKeyStore.read(apiKeyName())
 
-    // Segue setApiKey/clearApiKey (cambiare servizio passa da clearApiKey): serve a sapere subito
+    // Segue setApiKey/clearApiKey e il servizio scelto (ognuno ha la sua chiave): serve a sapere subito
     // se l'assistente e' configurato (vedi AiAvailability).
     private val _hasApiKeyFlow = MutableStateFlow(hasApiKey())
     val hasApiKeyFlow: StateFlow<Boolean> = _hasApiKeyFlow.asStateFlow()
 
     fun setApiKey(key: String) {
-        apiKeyStore.write(key)
+        apiKeyStore.write(apiKeyName(), key)
         _hasApiKeyFlow.value = hasApiKey()
     }
 
     fun clearApiKey() {
-        apiKeyStore.clear()
+        apiKeyStore.clear(apiKeyName())
         _hasApiKeyFlow.value = false
     }
 
@@ -70,14 +78,11 @@ class AiSettingsStore(
     fun onlineProvider(): OnlineProvider =
         OnlineProvider.entries.firstOrNull { it.name == prefs.getString(KEY_PROVIDER, null) } ?: OnlineProvider.CHATGPT
 
-    /**
-     * Cambiando servizio la chiave salvata si cancella: e' di un altro servizio, mandarla al nuovo la
-     * farebbe conoscere a chi non deve averla.
-     */
+    /** Cambiando servizio la chiave e' quella salvata per il nuovo, se c'e'. */
     fun setOnlineProvider(provider: OnlineProvider) {
         if (provider == onlineProvider()) return
-        clearApiKey()
         prefs.edit { putString(KEY_PROVIDER, provider.name) }
+        _hasApiKeyFlow.value = hasApiKey()
         _onlineChoiceFlow.value = onlineChoice()
     }
 
@@ -203,6 +208,8 @@ class AiSettingsStore(
         const val KEY_SEND_PHOTOS_PREFIX = "online_send_photos_"
         const val KEY_NETWORK_VOICES = "read_aloud_network_voices"
         const val API_KEY_ALIAS = "pocket_travel_ai_api_key_v2"
+
+        // Da sola: la chiave unica di prima; con "_" e il servizio: la chiave di quel servizio.
         const val API_KEY_PAYLOAD = "api_key_payload"
         const val KEY_SELECTED_MODEL_ID = "selected_model_id"
         const val KEY_PENDING_MODEL_ID = "pending_model_id"
@@ -221,23 +228,22 @@ class AiSettingsStore(
 private class AndroidKeystoreSecretStore(
     private val prefs: SharedPreferences,
     keyAlias: String,
-    private val payloadKey: String,
 ) {
 
     private val cipher = KeystoreCipher(keyAlias = keyAlias)
 
-    fun read(): String? {
+    fun read(payloadKey: String): String? {
         val payload = prefs.getString(payloadKey, null) ?: return null
         return cipher.decrypt(payload)
     }
 
-    fun write(value: String) {
+    fun write(payloadKey: String, value: String) {
         prefs.edit {
             putString(payloadKey, cipher.encrypt(value))
         }
     }
 
-    fun clear() {
+    fun clear(payloadKey: String) {
         prefs.edit {
             remove(payloadKey)
         }
