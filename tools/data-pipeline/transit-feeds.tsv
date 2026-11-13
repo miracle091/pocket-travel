@@ -90,7 +90,8 @@
 # Funchal, Santiago del Cile, TheBus Honolulu (nessuna licenza dichiarata), Volanbusz (registrazione), Israele
 # (176 MB); Tirana e Thailandia da ricontrollare (pagine della licenza non raggiungibili o dietro login).
 #
-# regioni: regionId di regions.sh separati da virgola (le regioni che propongono la rete).
+# regioni: regionId di regions.sh separati da virgola (le regioni che propongono la rete). Per i feed con
+#   il rettangolo del catalogo inutilizzabile, scripts/transit_feeds_bbox.py propone la regione dalle fermate.
 # attribuzione: testo per la schermata Licenze e sotto il tabellone.
 # url_feed (facoltativa): dove scaricare il feed, se non dalla copia del Mobility Database. {anno},
 # {ultimo} e #percorso: vedi build-transit.sh.
