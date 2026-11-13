@@ -103,9 +103,17 @@ class DescribeTest(unittest.TestCase):
 
     def test_tie_goes_to_smallest_rectangle(self):
         # Parigi sta sia nell'Ile-de-France sia nel rettangolo piu' grande: stesse fermate, vince il piu' piccolo.
+        # La scelta resta incerta: la nota nomina l'altra regione.
         files = {"stops.txt": "stop_lat,stop_lon\n48.85,2.35\n"}
-        self.assertEqual(t.describe(feed_row(), self.regions, "ua", TODAY, opener_for(files))[2],
-                         "francia-ile-de-france")
+        row = t.describe(feed_row(), self.regions, "ua", TODAY, opener_for(files))
+        self.assertEqual(row[2], "francia-ile-de-france")
+        self.assertEqual(row[6], "da controllare, rettangoli sovrapposti: francia-grande (1 fermate)")
+
+    def test_no_note_when_one_region_clearly_wins(self):
+        # Tre fermate in Bretagna e una a Parigi: l'Ile-de-France e il rettangolo grande ne hanno 1, meno della meta'.
+        files = {"stops.txt": "stop_lat,stop_lon\n48.1,-1.7\n48.2,-1.6\n48.3,-1.5\n48.85,2.35\n"}
+        row = t.describe(feed_row(), self.regions, "ua", TODAY, opener_for(files))
+        self.assertEqual(row[2:7:4], ["francia-bretagna", ""])
 
     def test_direct_download_when_latest_missing(self):
         seen = []
@@ -152,7 +160,7 @@ class RangeFileTest(unittest.TestCase):
             with zipfile.ZipFile(t.RangeFile("https://x", len(data), {})) as zf:
                 regions = t.load_regions(REGIONS, "FR")
                 self.assertEqual(t.stops_region(t.read_csv(zf, "stops.txt"), regions),
-                                 ("francia-ile-de-france", 1, 1))
+                                 ("francia-ile-de-france", 1, 1, [("francia-grande", 1)]))
         finally:
             t.urllib.request.urlopen = original
         self.assertTrue(requests)

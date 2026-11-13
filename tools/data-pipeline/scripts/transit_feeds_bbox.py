@@ -14,8 +14,8 @@ Azzurra e l'aggregato del Grand Est in Centro-Valle della Loira. Legge anche i g
 (fine di feed_info.txt, o ultima data di calendar.txt e calendar_dates.txt).
 
 Esce con una tabella TSV: id, nome, regione, licenza del catalogo, giorni rimasti, fermate nella regione
-scelta su quelle lette (poche: rete su piu' regioni o internazionale, o coordinate sbagliate), motivo quando
-la regione manca. Serve a scegliere a mano le reti da aggiungere a transit-feeds.tsv; non e' usato dalla
+scelta su quelle lette (poche: rete su piu' regioni o internazionale, o coordinate sbagliate), nota (perche'
+la regione manca, o le altre regioni con almeno meta' delle fermate, da controllare a mano). Serve a scegliere a mano le reti da aggiungere a transit-feeds.tsv; non e' usato dalla
 pipeline.
 """
 
@@ -122,8 +122,10 @@ def read_csv(zf, name):
 
 
 def stops_region(stops, regions):
-    """(regione o None, fermate nel suo rettangolo, fermate lette). Le fermate fuori da tutte le regioni non
-    contano: coordinate scambiate o a zero, o fermate all'estero delle reti internazionali."""
+    """(regione o None, fermate nel suo rettangolo, fermate lette, [(altra regione, fermate)]). Le fermate fuori da
+    tutte le regioni non contano: coordinate scambiate o a zero, o fermate all'estero delle reti internazionali.
+    Le altre regioni sono quelle con almeno meta' delle fermate della prima: dove i rettangoli si sovrappongono la
+    scelta va controllata a mano (Bourg-en-Bresse, nell'Ain, sta anche nel rettangolo della Borgogna-Franca Contea)."""
     counts = Counter()
     total = 0
     for s in stops:
@@ -134,9 +136,10 @@ def stops_region(stops, regions):
         total += 1
         counts.update(r for r in regions if r[1] <= lon <= r[3] and r[2] <= lat <= r[4])
     if not counts:
-        return None, 0, total
-    best = max(counts, key=lambda r: (counts[r], -(r[3] - r[1]) * (r[4] - r[2])))
-    return best[0], counts[best], total
+        return None, 0, total, []
+    ranked = sorted(counts, key=lambda r: (-counts[r], (r[3] - r[1]) * (r[4] - r[2])))
+    best = ranked[0]
+    return best[0], counts[best], total, [(r[0], counts[r]) for r in ranked[1:] if 2 * counts[r] >= counts[best]]
 
 
 def last_day(zf):
@@ -151,7 +154,8 @@ def last_day(zf):
 
 
 def describe(row, regions, user_agent, today, opener=open_zip):
-    """Riga della tabella per un feed: id, nome, regione, licenza, giorni rimasti, fermate tenute/lette, motivo."""
+    """Riga della tabella per un feed: id, nome, regione, licenza, giorni rimasti, fermate nella regione/lette, nota
+    (perche' la regione manca, o le altre regioni da controllare)."""
     out = [row["id"], row["name"] or row["provider"], "", row["urls.license"], "", "", ""]
     url = row["urls.latest"] or row["urls.direct_download"]
     if not url:
@@ -159,7 +163,7 @@ def describe(row, regions, user_agent, today, opener=open_zip):
         return out
     try:
         with opener(url, user_agent) as zf:
-            region, inside, total = stops_region(read_csv(zf, "stops.txt"), regions)
+            region, inside, total, others = stops_region(read_csv(zf, "stops.txt"), regions)
             end = last_day(zf)
     except Exception as exc:  # noqa: BLE001 - un feed rotto non ferma la tabella, il motivo va nella riga
         out[6] = f"feed non letto: {type(exc).__name__}: {exc}"
@@ -171,6 +175,8 @@ def describe(row, regions, user_agent, today, opener=open_zip):
         out[6] = "nessuna fermata dentro le regioni del paese"
     else:
         out[2] = region
+        if others:
+            out[6] = "da controllare, rettangoli sovrapposti: " + ", ".join(f"{r} ({n} fermate)" for r, n in others)
     return out
 
 
@@ -203,7 +209,7 @@ def main(argv=None):
     with (open(args.out, "w", encoding="utf-8", newline="") if args.out else
           io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", newline="", write_through=True)) as f:
         w = csv.writer(f, delimiter="\t", lineterminator="\n")
-        w.writerow(["id", "nome", "regione", "licenza", "giorni", "fermate", "motivo"])
+        w.writerow(["id", "nome", "regione", "licenza", "giorni", "fermate", "nota"])
         w.writerows(rows)
 
 

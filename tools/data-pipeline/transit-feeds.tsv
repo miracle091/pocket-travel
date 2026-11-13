@@ -89,6 +89,11 @@
 # dei 10 del file della ZTM. Escluse: Slovenia (registrazione), King County Metro (manleva), Cracovia, treni CP,
 # Funchal, Santiago del Cile, TheBus Honolulu (nessuna licenza dichiarata), Volanbusz (registrazione), Israele
 # (176 MB); Tirana e Thailandia da ricontrollare (pagine della licenza non raggiungibili o dietro login).
+# Francia d'oltremare (2026-11-13): feed senza un rettangolo utilizzabile nel catalogo, con la regione presa dalle
+# fermate (scripts/transit_feeds_bbox.py); licenze lette sulle pagine dei dataset di transport.data.gouv.fr:
+# Licence Ouverte 2.0 per TUNGT e Trans Sud (Guadalupa) e Agglobus (Caienna, solo le linee 7 e 8 nel feed); ODbL con
+# le condizioni particolari del PAN, come SNCF, per Tanéo (Nouméa), scaricato da data.gouv.fr perche' la copia del
+# Mobility Database risponde 403.
 #
 # regioni: regionId di regions.sh separati da virgola (le regioni che propongono la rete). Per i feed con
 #   il rettangolo del catalogo inutilizzabile, scripts/transit_feeds_bbox.py propone la regione dalle fermate.
@@ -188,6 +193,10 @@ tdg-83200	francia,francia-corsica	Corsica, autobus interurbani (Via Strada)	etal
 tdg-81996	italia,francia,francia-corsica,francia-provenza-alpi-costa-azzurra,francia-occitania,spagna	Traghetti Corsica Ferries - Sardinia Ferries	etalab-2.0	Corsica Ferries (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/programme-des-rotations-corsica-ferries	https://www.data.gouv.fr/api/1/datasets/r/b95d6838-1143-4653-840f-eebc33c16fa7
 tdg-82199	francia,francia-ile-de-france,francia-alta-francia,francia-alvernia-rodano-alpi,regno-unito,belgio,paesi-bassi,germania	Treni Eurostar (Londra, Parigi, Bruxelles, Amsterdam, Colonia, Alpi)	etalab-2.0	Eurostar (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/eurostar-gtfs-plan-de-transport-et-temps-reel				https://integration-storage.dm.eurostar.com/gtfs-prod/gtfs_rt_v2.bin
 tdg-83756	monaco,francia-provenza-alpi-costa-azzurra	Principato di Monaco, autobus (CAM)	etalab-2.0	Compagnie des Autobus de Monaco (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/gtfs-3
+tdg-83020	guadalupa	Guadalupa, Nord Grande-Terre (TUNGT)	etalab-2.0	Communauté d'Agglomération du Nord Grande-Terre, TUNGT (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/reseau-transport-urbain-du-nord-grande-terre-1
+tdg-83511	guadalupa	Guadalupa, Basse-Terre e sud (Trans Sud)	etalab-2.0	Communauté d'Agglomération Grand Sud Caraïbe, Trans Sud (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/donnee-statistiques-transport
+tdg-83304	guyana-francese	Caienna, linee 7 e 8 (Agglobus)	etalab-2.0	Communauté d'Agglomération du Centre Littoral de Guyane, Agglobus (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/agence-agglobus
+tdg-84147	nuova-caledonia	Nouméa, autobus (Tanéo)	ODbL-1.0	Syndicat Mixte des Transports Urbains du Grand Nouméa, Tanéo (transport.data.gouv.fr, ODbL 1.0); modificato	https://transport.data.gouv.fr/datasets/reseau-taneo-1	https://www.data.gouv.fr/api/1/datasets/r/c1cd3c14-f18e-471d-9184-85ab668b8910
 tdg-83510	francia,francia-corsica,francia-provenza-alpi-costa-azzurra,francia-occitania,algeria,tunisia	Traghetti Corsica Linea	etalab-2.0	Corsica Linea (transport.data.gouv.fr, Licence Ouverte 2.0); modificato	https://transport.data.gouv.fr/datasets/programme-des-rotations-corsica-linea
 mdb-2820	spagna	Madrid, autobus urbani (CRTM)	CRTM	Powered by CRTM, Consorcio Regional de Transportes de Madrid (licencia de datos abiertos del CRTM); modificato	https://www.crtm.es/
 mdb-2832	spagna	Barcellona e Catalogna (ATM, metro, treni e bus)	NAP-MITRAMS	Powered by MITRAMS: Autoritat del Transport Metropolità (nap.transportes.gob.es); modificato	https://www.transportes.gob.es/
