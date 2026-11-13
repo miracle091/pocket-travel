@@ -190,4 +190,26 @@ class AiSettingsStoreTest {
 
         assertEquals(listOf(id), store.allBenchmarkResults().map { it.modelId })
     }
+
+    @Test
+    fun `il consenso alle foto vale per un servizio solo`() {
+        val store = newStore()
+        store.setSendsPhotos(OnlineProvider.GEMINI, true)
+
+        assertTrue(store.sendsPhotos(OnlineProvider.GEMINI))
+        assertFalse(store.sendsPhotos(OnlineProvider.MISTRAL))
+        store.setOnlineProvider(OnlineProvider.MISTRAL)
+        assertFalse(store.sendsPhotos())
+        assertTrue(newStore().sendsPhotos(OnlineProvider.GEMINI))
+    }
+
+    @Test
+    fun `servizio e modello cambiati arrivano a chi osserva`() {
+        val store = newStore()
+        store.setOnlineProvider(OnlineProvider.GEMINI)
+        assertEquals(OnlineProvider.GEMINI to "", store.onlineChoiceFlow.value)
+
+        store.setOnlineModelSetting(OnlineProvider.GEMINI, "gemini-3.6-flash")
+        assertEquals(OnlineProvider.GEMINI to "gemini-3.6-flash", store.onlineChoiceFlow.value)
+    }
 }

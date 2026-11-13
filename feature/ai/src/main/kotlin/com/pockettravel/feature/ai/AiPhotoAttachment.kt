@@ -109,6 +109,9 @@ internal fun PhotoAttachButton(actions: AiActions) {
 // Foto solo online, con un modello che la legge, e non nel foglio del testo selezionato.
 private val AiUiState.canAttach: Boolean get() = mode == AiEngineMode.ONLINE && canAttachPhoto && selectedText == null
 
+/** Una foto allegata che partira' con la domanda: basta da sola, con la domanda di ai_photo_question. */
+internal val AiUiState.hasPhotoToSend: Boolean get() = canAttach && attachedPhoto != null
+
 /** "Allega una foto" a sinistra del campo della domanda, o null dove una foto non si puo' allegare. */
 internal fun photoAttachIcon(uiState: AiUiState, actions: AiActions): (@Composable () -> Unit)? =
     if (uiState.canAttach) ({ PhotoAttachButton(actions) }) else null

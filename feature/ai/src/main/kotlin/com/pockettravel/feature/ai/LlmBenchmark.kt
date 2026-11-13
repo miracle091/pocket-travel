@@ -3,9 +3,13 @@ package com.pockettravel.feature.ai
 import android.content.Context
 import android.os.Build
 import android.os.PowerManager
+import android.util.Log
 import com.pockettravel.core.data.IoDispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.security.MessageDigest
@@ -216,4 +220,17 @@ private fun sha256Of(file: File): String {
         }
     }
     return digest.digest().joinToString("") { "%02x".format(it) }
+}
+
+/** Misura [modelId] con [benchmark] e salva il risultato in [store]; un errore lo dice nella schermata. */
+internal suspend fun MutableStateFlow<AiUiState>.runBenchmark(benchmark: LlmBenchmark, store: AiSettingsStore, modelId: String) {
+    // Qualunque errore del motore diventa il messaggio, come nel ViewModel da cui viene; non l'annullamento e gli Error.
+    val result = runCatching { benchmark.run(modelId) }.getOrElse { error ->
+        if (error is CancellationException || error is Error) throw error
+        Log.w("AiAssistant", "Benchmark non riuscito: ${error.javaClass.name}: ${error.message}")
+        update { it.copy(isBenchmarking = false, errorMessage = R.string.ai_error_benchmark) }
+        return
+    }
+    store.saveBenchmarkResult(result)
+    update { it.copy(isBenchmarking = false, benchmarkResult = result, allBenchmarkResults = store.allBenchmarkResults()) }
 }

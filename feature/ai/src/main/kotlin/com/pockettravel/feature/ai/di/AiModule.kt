@@ -27,6 +27,11 @@ import javax.inject.Singleton
 @Retention(AnnotationRetention.BINARY)
 annotation class AiModelsDir
 
+/** Cartella della foto allegata all'assistente e non ancora inviata (SavedPhoto.kt). */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class AiPhotosDir
+
 // OkHttpClient e Json sono forniti da com.pockettravel.core.sync.di.SyncModule: entrambi i moduli
 // sono @InstallIn(SingletonComponent::class) e finiscono nello stesso componente Hilt lato app,
 // quindi un secondo @Provides qui darebbe un binding duplicato.
@@ -39,6 +44,11 @@ object AiModule {
     @AiModelsDir
     fun provideAiModelsDir(@ApplicationContext context: Context): File =
         File(context.filesDir, "models").apply { mkdirs() }
+
+    // Nella cache, accanto allo scatto della fotocamera: se Android la svuota si perde solo una foto non inviata.
+    @Provides
+    @AiPhotosDir
+    fun provideAiPhotosDir(@ApplicationContext context: Context): File = File(context.cacheDir, "photos")
 
     @Provides
     @Singleton

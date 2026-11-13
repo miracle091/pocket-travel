@@ -31,3 +31,10 @@ internal fun downloadFailureMessage(reason: String?): Int = when (reason) {
     LlmModelDownloadWorker.FAILURE_REASON_SPACE -> R.string.ai_error_space
     else -> R.string.ai_error_download
 }
+
+/** La parte del modello gia' scaricata, da 0 a 1; 0 finche' la dimensione non e' nota. */
+internal fun WorkInfo.downloadFraction(): Float {
+    val downloaded = progress.getLong(LlmModelDownloadWorker.KEY_BYTES_DOWNLOADED, 0L)
+    val total = progress.getLong(LlmModelDownloadWorker.KEY_TOTAL_BYTES, 0L)
+    return if (total > 0) downloaded / total.toFloat() else 0f
+}

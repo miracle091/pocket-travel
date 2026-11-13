@@ -17,6 +17,7 @@ import com.pockettravel.core.data.crypto.HistoryUnreadableException
 import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.sync.AppStatusClient
 import com.pockettravel.core.sync.OnlineModelEntry
+import com.pockettravel.feature.ai.di.AiPhotosDir
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -76,8 +77,9 @@ data class AiUiState(
     val canAttachPhoto: Boolean = false,
     // Foto allegata alla prossima domanda, gia' pronta per il servizio (preparePhoto); null senza.
     val attachedPhoto: AttachedPhoto? = null,
-    // La foto mandata con una domanda (AttachedPhoto.question): conta solo finche' quella e' la domanda in fondo
-    // (lastQuestionPhoto), e non va nella cronologia.
+    // L'ultima foto mandata nella conversazione, con la sua domanda (AttachedPhoto.question): si rimanda con i seguiti
+    // finche' la conversazione resta aperta (cancelAsk la toglie), si mostra sopra la sua domanda (lastQuestionPhoto e
+    // ShownTurn.photo), e non va nella cronologia.
     val askedPhoto: AttachedPhoto? = null,
     // La foto scelta si sta ancora riducendo (attachPhoto): Invia aspetta, o la domanda partirebbe senza.
     val isPreparingPhoto: Boolean = false,
@@ -135,7 +137,7 @@ class AttachedPhoto(val jpeg: ByteArray, val question: String? = null) {
 }
 
 /** Un turno gia' concluso della conversazione mostrata; [credit] e' il modello che ha scritto la risposta. */
-data class ShownTurn(val askedQuestion: String, val answer: AssistantAnswer, val credit: ModelCredit? = null)
+data class ShownTurn(val askedQuestion: String, val answer: AssistantAnswer, val credit: ModelCredit? = null, val photo: AttachedPhoto? = null)
 
 /** La fascia di RAM di [definition]: dalla RAM stimata se c'e', altrimenti quella del catalogo. */
 internal fun AiUiState.minRamTier(definition: LlmModelDefinition): RamTier =
@@ -196,6 +198,7 @@ class AiAssistantViewModel @Inject constructor(
     private val answerKeepAlive: AnswerKeepAlive,
     private val modelRamEstimates: ModelRamEstimates,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @AiPhotosDir photosDir: File,
 ) : ViewModel() {
 
     private val onlineModelOptions = OnlineModelOptions(onlineModelCatalog, onlineModelAvailability, aiSettingsStore, viewModelScope)
@@ -233,6 +236,7 @@ class AiAssistantViewModel @Inject constructor(
 
     init {
         savedStateHandle.keepQuestion(viewModelScope, _uiState)
+        addCloseable(savedStateHandle.keepPhoto(viewModelScope, _uiState, photosDir, ioDispatcher))
         // "Ferma" della notifica della risposta in corso (AnswerService).
         viewModelScope.launch {
             answerKeepAlive.stopRequests.collect { stopAnswer() }
@@ -244,6 +248,15 @@ class AiAssistantViewModel @Inject constructor(
         }
         viewModelScope.launch {
             onlineModelOptions.changes.collect { updateOnlineModels() }
+        }
+        viewModelScope.launch {
+            // Servizio o modello cambiati da un'altra schermata (la chat aperta mentre si cambiano nelle Impostazioni).
+            aiSettingsStore.onlineChoiceFlow.collect { (provider, setting) ->
+                when {
+                    provider != _uiState.value.onlineProvider -> showProvider(provider)
+                    setting != _uiState.value.onlineModelSetting -> _uiState.update { it.copy(onlineModelSetting = setting) }.also { updateOnlineModels() }
+                }
+            }
         }
         loadOnlineModels()
         // Il modello scaricato o eliminato da fuori (worker di download, pulizia dei file) aggiorna anche
@@ -300,12 +313,7 @@ class AiAssistantViewModel @Inject constructor(
                 if (workInfo == null) return@collect
                 val reportsFailure = failureGate.reportsFailure(workInfo.state)
                 when (workInfo.state) {
-                    WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED -> {
-                        val downloaded = workInfo.progress.getLong(LlmModelDownloadWorker.KEY_BYTES_DOWNLOADED, 0L)
-                        val total = workInfo.progress.getLong(LlmModelDownloadWorker.KEY_TOTAL_BYTES, 0L)
-                        val progress = if (total > 0) downloaded / total.toFloat() else 0f
-                        _uiState.update { it.copy(downloadProgress = progress) }
-                    }
+                    WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED -> _uiState.update { it.copy(downloadProgress = workInfo.downloadFraction()) }
                     WorkInfo.State.SUCCEEDED -> {
                         if (_uiState.value.selectedModelId != aiSettingsStore.selectedModelId()) engine.release()
                         _uiState.update { it.afterModelDownload(aiSettingsStore, modelManager) }
@@ -368,12 +376,16 @@ class AiAssistantViewModel @Inject constructor(
 
     /** Cambiare servizio cancella la chiave salvata (vedi AiSettingsStore.setOnlineProvider). */
     fun onProviderSelected(provider: OnlineProvider) {
-        cancelAsk()
         aiSettingsStore.setOnlineProvider(provider)
+        showProvider(provider)
+    }
+
+    private fun showProvider(provider: OnlineProvider) {
+        cancelAsk()
         // La chiave e' stata cancellata: i modelli visti con quella non valgono piu'.
         if (!aiSettingsStore.hasApiKey()) onlineModelOptions.forgetAll()
         _uiState.update {
-            it.copy(onlineProvider = provider, accountIdInput = aiSettingsStore.accountId(provider), onlineModelSetting = aiSettingsStore.onlineModelSetting(provider), isApiKeyConfigured = aiSettingsStore.hasApiKey(), answer = null, askedQuestion = null, emergencyCard = null, answerCredit = null)
+            it.copy(onlineProvider = provider, accountIdInput = aiSettingsStore.accountId(provider), onlineModelSetting = aiSettingsStore.onlineModelSetting(provider), sendsPhotos = aiSettingsStore.sendsPhotos(provider), isApiKeyConfigured = aiSettingsStore.hasApiKey(), answer = null, askedQuestion = null, emergencyCard = null, answerCredit = null)
         }
         updateOnlineModels()
     }
@@ -392,7 +404,7 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     fun onSendsPhotosChanged(enabled: Boolean) {
-        aiSettingsStore.setSendsPhotos(enabled)
+        aiSettingsStore.setSendsPhotos(_uiState.value.onlineProvider, enabled)
         _uiState.update { it.copy(sendsPhotos = enabled) }
     }
 
@@ -478,20 +490,7 @@ class AiAssistantViewModel @Inject constructor(
         if (_uiState.value.isBenchmarking) return
         val modelId = _uiState.value.selectedModelId
         _uiState.update { it.copy(isBenchmarking = true, errorMessage = null) }
-        viewModelScope.launch {
-            try {
-                val result = llmBenchmark.run(modelId)
-                aiSettingsStore.saveBenchmarkResult(result)
-                _uiState.update {
-                    it.copy(isBenchmarking = false, benchmarkResult = result, allBenchmarkResults = aiSettingsStore.allBenchmarkResults())
-                }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                Log.w(TAG, "Benchmark non riuscito: ${error.javaClass.name}: ${error.message}")
-                _uiState.update { it.copy(isBenchmarking = false, errorMessage = R.string.ai_error_benchmark) }
-            }
-        }
+        viewModelScope.launch { _uiState.runBenchmark(llmBenchmark, aiSettingsStore, modelId) }
     }
 
     fun showBenchmarkComparison() {
@@ -554,13 +553,7 @@ class AiAssistantViewModel @Inject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                val message = when (error) {
-                    is ModelNoSpaceException -> R.string.ai_import_no_space
-                    is ModelIntegrityException -> R.string.ai_import_damaged
-                    is ModelUnknownFileException -> R.string.ai_import_unknown
-                    else -> R.string.ai_import_failed
-                }
-                _uiState.update { it.copy(isImportingModel = false, importError = message) }
+                _uiState.update { it.copy(isImportingModel = false, importError = importFailureMessage(error)) }
             }
         }
     }
@@ -592,16 +585,16 @@ class AiAssistantViewModel @Inject constructor(
         // Il consenso letto dalle impostazioni, non dallo stato: le Impostazioni hanno un loro ViewModel, e "Invia le foto
         // al servizio" spento li' vale anche qui.
         if (_uiState.awaitsPhotoConsent(aiSettingsStore.sendsPhotos())) return
-        val photo = state.photoToSend(state.attachedPhoto)
 
         resumeJob?.cancel()
         forecastJob?.cancel()
         // Con un testo selezionato ogni domanda sta da sola: un seguito si unirebbe a quella prima, senza il suo testo.
         val previous = if (state.selectedText != null) null else conversation.previousQuestion(state.mode)
+        val photo = state.photoToSend(state.attachedPhoto) ?: state.photoToSend(state.askedPhoto)?.takeIf { previous != null && aiSettingsStore.sendsPhotos() }
         // Una conversazione ripresa resta nella sua regione, anche aperta dalla scheda IA di un'altra.
         val region = conversation.regionId ?: regionId
         // Subito, prima di ogni attesa: un secondo tocco su Invia trova la domanda gia' in corso.
-        _uiState.update { it.startingTurn(question)?.copy(attachedPhoto = null, askedPhoto = photo?.askedWith(question)) ?: it }
+        _uiState.update { it.startingTurn(question)?.copy(attachedPhoto = null, askedPhoto = state.photoToSend(state.attachedPhoto)?.askedWith(question) ?: it.askedPhoto) ?: it }
         // Il riquadro della domanda precedente e' un figlio del suo lavoro: va fermato, o sovrascriverebbe quello nuovo.
         askJob?.cancel()
         askJob = viewModelScope.launch {
@@ -634,7 +627,7 @@ class AiAssistantViewModel @Inject constructor(
                 it.copy(isThinking = true, errorMessage = null, canRefreshForecast = false, answer = null, answerCredit = it.currentModelCredit(), streamingText = "")
             }
             // La domanda gia' unita a quella prima se era un seguito (followUpQuestion): non c'e' un seguito da risolvere.
-            collectAnswer(region, answer.question ?: asked, state.mode, previous = null, photo = state.photoToSend(state.lastQuestionPhoto)?.takeIf { aiSettingsStore.sendsPhotos() }) { refreshed ->
+            collectAnswer(region, answer.question ?: asked, state.mode, previous = null, photo = state.photoToSend(state.askedPhoto)?.takeIf { aiSettingsStore.sendsPhotos() }) { refreshed ->
                 conversation.onReplaced(region, state.selectedModelId, asked, refreshed)
             }
         }
@@ -698,8 +691,9 @@ class AiAssistantViewModel @Inject constructor(
      */
     fun onModelChoice(choice: ModelChoice, regionId: String) {
         val retry = _uiState.value.takeUnless { it.isThinking }?.questionToRetry() ?: return
+        val photo = _uiState.value.lastQuestionPhoto
         applyChoice(choice)
-        _uiState.update { if (retry.isEmpty()) it.copy(notice = ChatNotice.ModelChosen(choice)) else it.copy(question = retry, attachedPhoto = it.lastQuestionPhoto) }
+        _uiState.update { if (retry.isEmpty()) it.copy(notice = ChatNotice.ModelChosen(choice)) else it.copy(question = retry, attachedPhoto = photo) }
         if (retry.isNotEmpty()) ask(regionId)
     }
 
@@ -757,6 +751,7 @@ class AiAssistantViewModel @Inject constructor(
                 isThinking = false,
                 streamingText = "",
                 earlierTurns = emptyList(),
+                askedPhoto = null,
                 readOnlyRegion = null,
                 showsSavedContent = false,
                 canRefreshForecast = false,
@@ -857,6 +852,7 @@ class AiAssistantViewModel @Inject constructor(
                     isThinking = false,
                     streamingText = "",
                     earlierTurns = shown.dropLast(1),
+                    askedPhoto = null,
                     askedQuestion = shown.lastOrNull()?.askedQuestion,
                     emergencyCard = null,
                     answer = shown.lastOrNull()?.answer,
@@ -941,7 +937,7 @@ internal fun forecastRefreshDelayMillis(updatedAtMillis: Long, nowMillis: Long):
  */
 internal fun AiUiState.startingTurn(question: String): AiUiState? {
     if (question.isBlank() || isThinking || readOnlyRegion != null) return null
-    val done = askedQuestion?.let { asked -> answer?.let { ShownTurn(asked, it, answerCredit) } }
+    val done = askedQuestion?.let { asked -> answer?.let { ShownTurn(asked, it, answerCredit, lastQuestionPhoto) } }
     return copy(
         answerCredit = currentModelCredit(),
         isThinking = true,

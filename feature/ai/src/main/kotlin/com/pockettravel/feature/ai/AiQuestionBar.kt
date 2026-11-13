@@ -42,7 +42,8 @@ import com.pockettravel.core.ui.Spacing
 
 @Composable
 internal fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: Boolean, voice: VoiceInputUiState) {
-    val canSend = uiState.question.isNotBlank() && !uiState.isThinking
+    val canSend = (uiState.question.isNotBlank() || uiState.hasPhotoToSend) && !uiState.isThinking
+    val send = rememberSend(uiState, actions)
     val context = LocalContext.current
     // Il permesso del microfono si chiede al primo tocco, non all'apertura della schermata.
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -68,14 +69,7 @@ internal fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: B
             },
             modifier = Modifier.weight(1f),
             leadingIcon = photoAttachIcon(uiState, actions),
-            placeholder = {
-                val hint = when {
-                    voice.isListening -> R.string.ai_voice_listening
-                    splitCountry -> R.string.ai_question_hint
-                    else -> R.string.ai_question_hint_country
-                }
-                Text(stringResource(hint))
-            },
+            placeholder = { Text(stringResource(questionHint(uiState, splitCountry, voice))) },
             trailingIcon = if (voice.isAvailable) {
                 {
                     if (voice.isListening) {
@@ -99,13 +93,31 @@ internal fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: B
             shape = MaterialTheme.shapes.extraLarge,
             maxLines = 4,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { if (canSend) actions.onAsk() }),
+            keyboardActions = KeyboardActions(onSend = { if (canSend) send() }),
         )
         Spacer(modifier = Modifier.width(Spacing.s))
-        FilledIconButton(onClick = actions.onAsk, enabled = canSend, modifier = Modifier.size(48.dp)) {
+        FilledIconButton(onClick = send, enabled = canSend, modifier = Modifier.size(48.dp)) {
             Icon(AppIcons.Send, contentDescription = stringResource(R.string.ai_send))
         }
     }
+}
+
+// Una foto senza testo parte con una domanda fissa, la stessa che il campo vuoto mostra (questionHint).
+@Composable
+private fun rememberSend(uiState: AiUiState, actions: AiActions): () -> Unit {
+    val photoQuestion = stringResource(R.string.ai_photo_question)
+    val photoOnly = uiState.question.isBlank() && uiState.hasPhotoToSend
+    return {
+        if (photoOnly) actions.onQuestionChanged(photoQuestion)
+        actions.onAsk()
+    }
+}
+
+private fun questionHint(uiState: AiUiState, splitCountry: Boolean, voice: VoiceInputUiState): Int = when {
+    voice.isListening -> R.string.ai_voice_listening
+    uiState.hasPhotoToSend -> R.string.ai_photo_question
+    splitCountry -> R.string.ai_question_hint
+    else -> R.string.ai_question_hint_country
 }
 
 // Sopra il campo, quando la domanda comincia con "/": i comandi e, dopo "/model", i modelli da scegliere con un tocco.

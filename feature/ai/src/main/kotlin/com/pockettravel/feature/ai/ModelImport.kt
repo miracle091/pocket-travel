@@ -6,6 +6,14 @@ class ModelUnknownFileException(message: String) : Exception(message)
 /** Spazio libero insufficiente per copiare il file da importare. */
 class ModelNoSpaceException(message: String) : Exception(message)
 
+/** Il messaggio di "Importa da file" non riuscito per [error]. */
+internal fun importFailureMessage(error: Exception): Int = when (error) {
+    is ModelNoSpaceException -> R.string.ai_import_no_space
+    is ModelIntegrityException -> R.string.ai_import_damaged
+    is ModelUnknownFileException -> R.string.ai_import_unknown
+    else -> R.string.ai_import_failed
+}
+
 /** Esito del confronto fra un file ricevuto e i modelli del catalogo. */
 sealed interface ImportVerdict {
     /** Stesso sha256 di [definition]: il file è quel modello. */

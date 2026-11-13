@@ -302,11 +302,12 @@
     <string name="ai_selected_text_no_engine">No engine is available to answer: download a model or save an API key in Settings</string>
     <string name="ai_selected_text_open_settings">Open Settings</string>
     <string name="ai_online_photos_title">Send photos to the service</string>
-    <string name="ai_online_photos_hint">Location and photo details are always removed before sending</string>
+    <string name="ai_online_photos_hint">Only for the chosen service. Location and photo details are always removed before sending</string>
     <string name="ai_photo_attach">Attach a photo</string>
     <string name="ai_photo_gallery">Choose from gallery</string>
     <string name="ai_photo_camera">Take a photo</string>
     <string name="ai_photo_remove">Remove the photo</string>
+    <string name="ai_photo_question">What\'s in this photo?</string>
     <string name="ai_photo_attached">Photo attached to the question</string>
     <string name="ai_photo_unreadable">Unable to read the photo. Choose another one</string>
     <string name="ai_photo_no_camera">No camera app available. Choose a photo from the gallery</string>

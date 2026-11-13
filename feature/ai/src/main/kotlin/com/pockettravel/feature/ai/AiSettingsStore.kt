@@ -78,6 +78,7 @@ class AiSettingsStore(
         if (provider == onlineProvider()) return
         clearApiKey()
         prefs.edit { putString(KEY_PROVIDER, provider.name) }
+        _onlineChoiceFlow.value = onlineChoice()
     }
 
     /** Scelta salvata per [provider] (ricordata per ogni servizio): "" = Automatico, altrimenti il nome del modello. */
@@ -86,7 +87,14 @@ class AiSettingsStore(
 
     fun setOnlineModelSetting(provider: OnlineProvider, setting: String) {
         prefs.edit { putString(KEY_MODEL_PREFIX + provider.name, setting) }
+        _onlineChoiceFlow.value = onlineChoice()
     }
+
+    private fun onlineChoice() = onlineProvider() to onlineModelSetting()
+
+    // Servizio e modello scelti, come engineModeFlow: la chat aperta vede quelli cambiati dalle Impostazioni.
+    private val _onlineChoiceFlow = MutableStateFlow(onlineChoice())
+    val onlineChoiceFlow: StateFlow<Pair<OnlineProvider, String>> = _onlineChoiceFlow.asStateFlow()
 
     /** ID dell'account di [provider] per l'indirizzo ([OnlineTerms.idField]); "" se non e' mai stato scritto. Non e' segreto. */
     fun accountId(provider: OnlineProvider = onlineProvider()): String =
@@ -104,10 +112,13 @@ class AiSettingsStore(
 
     fun setSharesPersonalData(enabled: Boolean) = prefs.edit { putBoolean(KEY_SHARE_NOTE_POSITION, enabled) }
 
-    /** Consenso a mandare le foto ai servizi online ("Invia le foto al servizio"): spento finche' l'utente non lo accende o conferma la prima foto. */
-    fun sendsPhotos(): Boolean = prefs.getBoolean(KEY_SEND_PHOTOS, false)
+    /**
+     * Consenso a mandare le foto a [provider] ("Invia le foto al servizio"), uno per servizio: spento finche' l'utente non lo
+     * accende o conferma la prima foto mandata a quel servizio.
+     */
+    fun sendsPhotos(provider: OnlineProvider = onlineProvider()): Boolean = prefs.getBoolean(KEY_SEND_PHOTOS_PREFIX + provider.name, false)
 
-    fun setSendsPhotos(enabled: Boolean) = prefs.edit { putBoolean(KEY_SEND_PHOTOS, enabled) }
+    fun setSendsPhotos(provider: OnlineProvider, enabled: Boolean) = prefs.edit { putBoolean(KEY_SEND_PHOTOS_PREFIX + provider.name, enabled) }
 
     /** Permette a "Ascolta" le voci che usano la rete (il motore di sintesi riceve il testo della risposta): spento di default. */
     fun allowsNetworkVoices(): Boolean = prefs.getBoolean(KEY_NETWORK_VOICES, false)
@@ -189,7 +200,7 @@ class AiSettingsStore(
         const val KEY_MODEL_PREFIX = "online_model_"
         const val KEY_ACCOUNT_ID_PREFIX = "online_account_id_"
         const val KEY_SHARE_NOTE_POSITION = "online_share_personal_data"
-        const val KEY_SEND_PHOTOS = "online_send_photos"
+        const val KEY_SEND_PHOTOS_PREFIX = "online_send_photos_"
         const val KEY_NETWORK_VOICES = "read_aloud_network_voices"
         const val API_KEY_ALIAS = "pocket_travel_ai_api_key_v2"
         const val API_KEY_PAYLOAD = "api_key_payload"

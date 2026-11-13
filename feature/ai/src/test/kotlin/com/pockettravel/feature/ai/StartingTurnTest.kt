@@ -104,4 +104,20 @@ class StartingTurnTest {
         assertNull(state().startingTurn("  "))
         assertNull(state(readOnlyRegion = "Giappone").startingTurn("Serve il visto?"))
     }
+
+    @Test
+    fun `la foto resta sopra la sua domanda anche quando il turno sale`() {
+        val answer = AssistantAnswer("E' il menu del giorno", emptyList(), false)
+        val photo = AttachedPhoto(byteArrayOf(1, 2, 3), question = "Cosa dice il cartello?")
+        val state = state(askedQuestion = "Cosa dice il cartello?", answer = answer).copy(askedPhoto = photo)
+
+        val next = requireNotNull(state.startingTurn("Quanto costa?"))
+        assertEquals(photo, next.earlierTurns.single().photo)
+        // Il seguito non mostra di nuovo la foto, che resta quella della conversazione per l'invio.
+        assertNull(next.lastQuestionPhoto)
+        assertEquals(photo, next.askedPhoto)
+
+        val third = requireNotNull(next.copy(answer = answer, isThinking = false).startingTurn("E il dolce?"))
+        assertNull(third.earlierTurns.last().photo)
+    }
 }

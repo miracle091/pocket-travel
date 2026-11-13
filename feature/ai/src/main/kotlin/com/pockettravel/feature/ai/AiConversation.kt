@@ -82,6 +82,7 @@ internal fun Conversation(
         verticalArrangement = Arrangement.spacedBy(Spacing.m),
     ) {
         uiState.earlierTurns.forEach { turn ->
+            AskedPhoto(turn.photo)
             QuestionBubble(turn.askedQuestion)
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(Spacing.l)) {
