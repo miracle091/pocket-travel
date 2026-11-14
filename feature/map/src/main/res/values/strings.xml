@@ -175,6 +175,7 @@
     <string name="navigation_wheelchair_notice">Escludendo le scale, i percorsi possono risultare incompleti</string>
     <string name="navigation_allow_steps">Consenti alcuni gradini</string>
     <string name="navigation_failed">Impossibile calcolare il percorso</string>
+    <string name="navigation_merge_failed">Il percorso attraversa più regioni, ma le loro reti stradali non si sono potute unire. Libera spazio sul dispositivo e riprova</string>
     <string name="navigation_retry">Riprova</string>
     <string name="navigation_meters">%1$d m</string>
     <string name="navigation_kilometers">%1$s km</string>

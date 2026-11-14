@@ -38,6 +38,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA, motore Online: ogni servizio tiene la sua chiave API; prima cambiare servizio cancellava la chiave salvata. La chiave già salvata resta al servizio scelto.
 
 ### Corretto
+- Navigatore: quando un percorso attraversa più regioni e le loro reti stradali non si possono unire (file rovinato, spazio pieno), compare «Il percorso attraversa più regioni, ma le loro reti stradali non si sono potute unire. Libera spazio sul dispositivo e riprova»; prima diceva che il percorso usciva dalla rete stradale scaricata, anche con la rete installata.
 - Assistente IA, motore Online: la scheda IA aperta segue il servizio e il modello cambiati in Altro > Impostazioni; prima restava sul servizio di prima fino alla riapertura.
 - Assistente IA, motore Online: con una chiave di Gemini sbagliata compare «Il servizio ha rifiutato la chiave API», con l'invito a inserirne una nuova, e non più un errore generico: Gemini segnala la chiave sbagliata con un codice diverso dagli altri servizi.
 - Assistente IA: la domanda scritta e non ancora inviata resta nel campo anche quando Android chiude l'app in background per liberare memoria; prima, tornando nell'app, il campo era vuoto.

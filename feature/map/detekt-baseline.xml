@@ -86,8 +86,6 @@
     <ID>MultiLineIfElse:NavigationTracker.kt:NavigationTracker$points.firstOrNull() ?: position</ID>
     <ID>MultiLineIfElse:PoiTypes.kt:R.string.poi_type_historic</ID>
     <ID>MultiLineIfElse:PoiTypes.kt:null</ID>
-    <ID>MultiLineIfElse:RouteEngineModule.kt:RouteEngineModule$FallbackRouteEngine(engine(merged), dirs.map(::engine))</ID>
-    <ID>MultiLineIfElse:RouteEngineModule.kt:RouteEngineModule$engine(dirs.first())</ID>
     <ID>NoConsecutiveBlankLines:NavigationPlannerScreen.kt: </ID>
     <ID>NoConsecutiveBlankLines:PoiPins.kt: </ID>
     <ID>NoUnusedImports:MapScreen.kt:com.pockettravel.feature.map.MapScreen.kt</ID>

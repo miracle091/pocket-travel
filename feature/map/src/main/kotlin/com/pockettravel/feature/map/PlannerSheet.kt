@@ -107,6 +107,7 @@ internal fun PlannerSheet(
             preview is PlannerPreview.Unavailable -> RetryMessage(
                 stringResource(
                     when (preview.result) {
+                        RouteResult.MergeFailed -> R.string.navigation_merge_failed
                         RouteResult.NotFound -> R.string.navigation_not_found
                         RouteResult.TimedOut -> R.string.navigation_timed_out
                         is RouteResult.Isolated -> isolatedText(preview.result)

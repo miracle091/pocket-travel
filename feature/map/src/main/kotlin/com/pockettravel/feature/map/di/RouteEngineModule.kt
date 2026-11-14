@@ -25,6 +25,7 @@ import com.pockettravel.feature.map.FallbackRouteEngine
 import com.pockettravel.feature.map.GpsLocationSource
 import com.pockettravel.feature.map.GuidanceServiceStarter
 import com.pockettravel.feature.map.IslandRetryRouteEngine
+import com.pockettravel.feature.map.MergeFailedRouteEngine
 import com.pockettravel.feature.map.OfflineTileSource
 import com.pockettravel.feature.map.PmtilesTileSource
 import com.pockettravel.feature.map.RouteEngineFactory
@@ -85,8 +86,11 @@ object RouteEngineModule {
                 val dirs = regionIds.map { File(regionsDir, "$it/$ROUTING_DIR_NAME") }
                 val merged = mergedDirOrNull(dirs, mergedDir, ioDispatcher)
                 IslandRetryRouteEngine(
-                    if (merged == null) engine(dirs.first())
-                    else FallbackRouteEngine(engine(merged), dirs.map(::engine)),
+                    when {
+                        merged != null -> FallbackRouteEngine(engine(merged), dirs.map(::engine))
+                        dirs.size == 1 -> engine(dirs.first())
+                        else -> MergeFailedRouteEngine(engine(dirs.first()))
+                    },
                 )
             }
         }
@@ -99,7 +103,7 @@ object RouteEngineModule {
 
     // Una regione: null, si usa la sua cartella senza costi in piu'. Piu' regioni: i segmenti uniti
     // (FallbackRouteEngine riprova con ogni regione da sola dopo un'isola); null anche se non si riesce a unirli
-    // (file rovinato, disco pieno): si naviga con la sola prima regione.
+    // (file rovinato, disco pieno): si naviga con la sola prima regione, e un percorso che ne esce e' MergeFailed.
     private suspend fun mergedDirOrNull(dirs: List<File>, mergedDir: File, ioDispatcher: CoroutineDispatcher): File? {
         if (dirs.size == 1) return null
         return withContext(ioDispatcher) {

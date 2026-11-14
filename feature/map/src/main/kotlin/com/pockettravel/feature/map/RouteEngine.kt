@@ -61,6 +61,9 @@ sealed interface RouteResult {
      */
     data class Isolated(val atStart: Boolean) : RouteResult
 
+    /** Le reti stradali delle regioni del percorso non si sono unite (file rovinato, disco pieno): vedi [MergeFailedRouteEngine]. */
+    data object MergeFailed : RouteResult
+
     /** Altro errore del motore. */
     data class Failed(val message: String) : RouteResult
 }
