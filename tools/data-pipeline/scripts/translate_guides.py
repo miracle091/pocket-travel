@@ -255,6 +255,25 @@ def blocks(texts, size=BLOCK_CHARS):
     return out + ([current] if current else [])
 
 
+CLOCK_12 = re.compile(r"\b(\d{1,2})(?::(\d\d))?\s*([ap])\.?m\b\.?", re.IGNORECASE)
+CLOCK_24 = re.compile(r"\b0(\d:\d\d)\b")
+ROUND_THE_CLOCK = re.compile(r"\b(\d+) (?:ore|giorni) su \1\b")
+THOUSANDS = re.compile(r"\b\d{1,3}(?:[ \u00a0\u202f.,]\d{3})+\b")
+
+
+def same_numbers(src, out):
+    """ts._plausible con i numeri scritti all'italiana: "8 p.m." = "20:00", "24/7" = "24 ore su 24, 7 giorni su 7",
+    "20 000" = "20.000". Senza, il controllo scarta proprio le traduzioni che convertono gli orari; con un orario a 12
+    ore nell'inglese vale solo la forma convertita ("after 9 pm" non e' "dopo le 9")."""
+    def clock(m):
+        hour = int(m.group(1)) % 12 + (12 if m.group(3).lower() == "p" else 0)
+        return f"{hour}:{m.group(2) or '00'}"
+    def plain(text):
+        return THOUSANDS.sub(lambda m: re.sub(r"\D", "", m.group()), text)
+    return not CLOCK_12.search(src) and ts._plausible(src, out) or ts._plausible(plain(CLOCK_24.sub(r"\1", CLOCK_12.sub(clock, src).replace("24/7", "24 7"))),
+                                                    plain(CLOCK_24.sub(r"\1", ROUND_THE_CLOCK.sub(r"\1", out))))
+
+
 def translate_block(chat, head, texts):
     """Traduzioni di [texts] (stesso ordine) in una richiesta a righe numerate; una riga mancante o sospetta (numeri
     diversi, lunghezza fuori misura) si ritraduce da sola, poi None se resta sospetta."""
@@ -265,10 +284,10 @@ def translate_block(chat, head, texts):
     out = []
     for i, text in enumerate(texts, 1):
         result = got.get(i)
-        if not result or not ts._plausible(text, result):
+        if not result or not same_numbers(text, result):
             result = NUMBERED.sub(r"\2", chat(f"{head}\n\n[1] {text}").strip()).strip()
         result = strip_markers(result)
-        out.append(result if result and "\n" not in result and ts._plausible(text, result) else None)
+        out.append(result if result and "\n" not in result and same_numbers(text, result) else None)
     return out
 
 

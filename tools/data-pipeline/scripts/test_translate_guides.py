@@ -471,6 +471,19 @@ class LlamaBackendTest(unittest.TestCase):
         self.assertEqual(3, len(chat.prompts))
         self.assertTrue(chat.prompts[0].startswith("Guida: a, sezione SALUTE.\n\n[1] Drink water.\n[2] Eat rice.\n[3] Malaria"))
 
+    def test_orari_a_24_ore_24_su_7_e_migliaia_non_sono_numeri_diversi(self):
+        pairs = {"Buses operate between 6 a.m. and 8 p.m.": "Gli autobus circolano dalle 6:00 alle 20:00.",
+                 "Curfew from 12 am to 5 am, airport closed until 3:05 pm.":
+                     "Coprifuoco dalle 00:00 alle 05:00, aeroporto chiuso fino alle 15:05.",
+                 "Call the 24/7 centre.": "Chiamare il centro attivo 24 ore su 24, 7 giorni su 7.",
+                 "A 24-hour police station.": "Una stazione di polizia aperta 24 ore su 24.",
+                 "Declare 20 000 RMB or USD 10,000.": "Dichiarare 20.000 RMB o USD 10 000.",
+                 "Avoid all movements after 6 p.m.": "Evitare ogni spostamento dopo le 19:00.",
+                 "Avoid the area after 9 pm.": "Evitare la zona dopo le 9."}
+        chat = FakeChat(lambda text, *_: "[1] " + pairs[text.split("[1] ")[1]])
+        self.assertEqual(list(pairs.values())[:5] + [None, None],
+                         [tg.translate_block(chat, "Guida", [en])[0] for en in pairs])  # 19:00 e "le 9" restano sospette
+
     def test_segno_iniziale_aggiunto_dal_modello_tolto(self):
         chat = FakeChat(lambda *_: "[1] • Rispettare sempre gli ordini.")
         self.assertEqual(["Rispettare sempre gli ordini."], tg.translate_block(chat, "Guida: a.", ["Always comply with orders."]))
