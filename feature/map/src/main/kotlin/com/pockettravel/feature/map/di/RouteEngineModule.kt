@@ -2,6 +2,7 @@ package com.pockettravel.feature.map.di
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.os.PowerManager
 import android.util.Log
 import com.pockettravel.core.data.CarRouteCalculator
 import com.pockettravel.core.data.DefaultDispatcher
@@ -140,8 +141,8 @@ object RouteEngineModule {
         context.getSystemService(ConnectivityManager::class.java)
 
     @Provides
-    fun provideConnectivityChecker(connectivityManager: ConnectivityManager): ConnectivityChecker =
-        AndroidConnectivityChecker(connectivityManager)
+    fun provideConnectivityChecker(connectivityManager: ConnectivityManager, @ApplicationContext context: Context): ConnectivityChecker =
+        AndroidConnectivityChecker(connectivityManager, context.getSystemService(PowerManager::class.java))
 
     @Provides
     fun provideConnectivityObserver(connectivityManager: ConnectivityManager): ConnectivityObserver =

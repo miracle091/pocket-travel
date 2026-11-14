@@ -252,6 +252,8 @@
     <string name="transit_up_to_date">Nessun orario più recente disponibile</string>
     <string name="transit_update_failed">Download degli orari dei mezzi pubblici non riuscito. Controlla la connessione e riprova</string>
     <string name="transit_source">Fonte: %1$s</string>
+    <string name="transit_source_modified">modificato</string>
+    <string name="transit_source_estimated_stop_times">orari delle fermate intermedie stimati</string>
     <string name="transit_source_dated">Fonte: %1$s, dati del giorno %2$s</string>
     <string name="transit_in_min">tra %1$d min</string>
     <string name="transit_now">ora</string>
@@ -275,6 +277,11 @@
     <string name="transit_realtime_updated">In tempo reale, aggiornato alle %1$s</string>
     <string name="transit_realtime_loading">Aggiornamento dei ritardi…</string>
     <string name="transit_realtime_failed">Ritardi non aggiornati: il servizio dell\'ente non risponde</string>
+    <string name="transit_realtime_offline">Ritardi non disponibili: senza rete</string>
+    <string name="transit_realtime_data_saver">Ritardi non aggiornati: il risparmio dati può limitare la rete dell\'app</string>
+    <string name="transit_realtime_data_saver_settings">Apri le impostazioni del risparmio dati</string>
+    <string name="transit_realtime_battery_saver">Ritardi non aggiornati: il risparmio energetico può limitare la rete</string>
+    <string name="transit_realtime_battery_saver_settings">Apri le impostazioni del risparmio energetico</string>
     <string name="transit_realtime_paused">Aggiornamento automatico dei ritardi in pausa</string>
     <string name="transit_realtime_refresh">Aggiorna i ritardi</string>
     <string name="transit_realtime_refresh_size">Aggiorna i ritardi (%1$s)</string>

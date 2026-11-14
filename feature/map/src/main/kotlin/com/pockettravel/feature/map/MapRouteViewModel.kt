@@ -169,7 +169,8 @@ class MapRouteViewModel @Inject constructor(
                 _transitBoard.value = board
                 val networks = realtimeNetworks(board)
                 _transitRealtime.value = transitRealtime.ui(networks, loading = false)
-                if (_transitRealtime.value != null) {
+                // Senza rete il riquadro dice solo che si e' offline: niente download ne' seconda lettura.
+                if (_transitRealtime.value?.let { it.problem != RealtimeProblem.Offline } == true) {
                     // Da solo scarica solo le reti con una partenza nell'ora successiva; un tocco le scarica tutte. L'indicatore
                     // di caricamento compare solo se c'e' un download vero.
                     transitRealtime.refresh(if (tapped) networks else realtimeNetworksDue(board), tapped, alertNetworks = networks) {

@@ -45,4 +45,13 @@ class TransitDeparturesTest {
         assertTrue(PoiCategory.TAXI !in TRANSIT_CATEGORIES)
         assertTrue(PoiCategory.AEROPORTO !in TRANSIT_CATEGORIES)
     }
+
+    @Test
+    fun `la nota di modifica dell'attribuzione segue la lingua dell'app`() {
+        val sncf = "SNCF Voyageurs (transport.data.gouv.fr, ODbL 1.0); modificato"
+        assertEquals("SNCF Voyageurs (transport.data.gouv.fr, ODbL 1.0); modified", localizedAttribution(sncf, "modified", "estimated"))
+        assertEquals("X; modified, estimated", localizedAttribution("X; modificato, orari delle fermate intermedie stimati", "modified", "estimated"))
+        assertEquals(sncf, localizedAttribution(sncf, "modificato", "orari delle fermate intermedie stimati"))
+        assertEquals("Renfe (CC BY 4.0)", localizedAttribution("Renfe (CC BY 4.0)", "modified", "estimated"))
+    }
 }

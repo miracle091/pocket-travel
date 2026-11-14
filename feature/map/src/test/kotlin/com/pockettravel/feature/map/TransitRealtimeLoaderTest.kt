@@ -67,7 +67,7 @@ class TransitRealtimeLoaderTest {
         assertEquals(1, client.requests.size)
         // Feed scaricato prima, ma ora offline: il tabellone resta l'orario.
         assertEquals(emptyMap<String, RealtimeFeed>(), loader.usable(listOf(small)))
-        assertNull(loader.ui(listOf(small), loading = false))
+        assertEquals(RealtimeProblem.Offline, loader.ui(listOf(small), loading = false)?.problem)
     }
 
     @Test

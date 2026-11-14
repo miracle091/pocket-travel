@@ -500,7 +500,7 @@ class MapRouteViewModelTest {
         connectivity.online.value = false
         runCurrent()
         assertEquals(emptyMap<String, RealtimeFeed>(), transit.requests.last().realtime)
-        assertNull(settled(viewModel.uiState).transitRealtime)
+        assertEquals(RealtimeProblem.Offline, settled(viewModel.uiState).transitRealtime?.problem)
         // Nessun download in piu': il cambio di rete non vale come un tocco.
         assertEquals(1, realtimeClient.requests.size)
         viewModel.showDepartures(null)
@@ -518,7 +518,7 @@ class MapRouteViewModelTest {
         runCurrent()
         assertTrue(realtimeClient.requests.isEmpty())
         assertEquals(listOf(emptyMap<String, RealtimeFeed>()), transit.requests.map { it.realtime })
-        assertNull(settled(viewModel.uiState).transitRealtime)
+        assertEquals(RealtimeProblem.Offline, settled(viewModel.uiState).transitRealtime?.problem)
         viewModel.showDepartures(null)
     }
 }

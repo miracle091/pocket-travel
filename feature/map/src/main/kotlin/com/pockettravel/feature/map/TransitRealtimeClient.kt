@@ -55,7 +55,7 @@ class HttpTransitRealtimeClient @Inject constructor(
         }
         try {
             call.execute().use { response ->
-                if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+                if (!response.isSuccessful) throw RealtimeHttpException(response.code)
                 val counted = CountingInputStream(response.body.byteStream())
                 val gzip = response.header("Content-Encoding").equals("gzip", ignoreCase = true)
                 val bytes = (if (gzip) GZIPInputStream(counted) else counted).use { readAtMost(this, it, MAX_REALTIME_BYTES) }

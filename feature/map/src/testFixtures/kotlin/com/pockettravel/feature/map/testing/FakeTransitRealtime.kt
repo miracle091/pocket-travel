@@ -24,10 +24,19 @@ class FakeTransitRealtimeClient : TransitRealtimeClient {
 }
 
 /** [ConnectivityChecker] pilotabile. */
-class FakeConnectivityChecker(var online: Boolean = true, var metered: Boolean = false) : ConnectivityChecker {
+class FakeConnectivityChecker(
+    var online: Boolean = true,
+    var metered: Boolean = false,
+    var dataSaver: Boolean = false,
+    var powerSave: Boolean = false,
+) : ConnectivityChecker {
     override fun isOnline() = online
 
     override fun isMetered() = metered
+
+    override fun isDataSaverRestricting() = dataSaver
+
+    override fun isPowerSaveMode() = powerSave
 }
 
 /** Orologio fermo su [now], da spostare a mano. */

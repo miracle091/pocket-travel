@@ -9,6 +9,12 @@ interface ConnectivityChecker {
 
     /** Rete a consumo (dati mobili, hotspot, Wi-Fi impostato "a consumo"): i feed grandi del tempo reale solo con un tocco. */
     fun isMetered(): Boolean = false
+
+    /** Risparmio dati attivo e l'app senza deroga (RESTRICT_BACKGROUND_STATUS_ENABLED): dice perche' manca il tempo reale. */
+    fun isDataSaverRestricting(): Boolean = false
+
+    /** Risparmio energetico attivo. */
+    fun isPowerSaveMode(): Boolean = false
 }
 
 /** Segnala ogni cambio dello stato di rete utilizzabile (persa, ottenuta, o le sue capacita' cambiate,

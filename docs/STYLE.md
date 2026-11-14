@@ -195,6 +195,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Cosa evitare in un percorso: chip dell'anteprima del percorso e voce delle Impostazioni con i valori di partenza | Opzioni, Opzioni di percorso; «Evita i pedaggi», «Evita le autostrade», «Evita le strade sterrate», «Evita le strade trafficate», «Evita i traghetti» | Options, Route options; "Avoid tolls", "Avoid motorways", "Avoid unpaved roads", "Avoid busy roads", "Avoid ferries" |
 | Ora dell'ultimo download del tempo reale | Aggiornato alle 14:05 | Updated at 14:05 |
 | Pulsante che scarica di nuovo il tempo reale | Aggiorna i ritardi | Refresh delays |
+| Impostazioni di Android che possono limitare la rete dell'app (i nomi di Android; minuscoli dentro una frase) | Risparmio dati; Risparmio energetico | Data Saver; Battery Saver |
 | Pulsante sotto una risposta dell'assistente con le previsioni più vecchie di 10 minuti | Aggiorna le previsioni | Refresh the forecast |
 | Aggiornamento automatico fermo dopo un quarto d'ora senza tocchi | in pausa | paused |
 | Contenuto con negozi, ristoranti, musei... (e la sua aggiunta) | punti di interesse (punti di interesse extra) | points of interest (extra points of interest) |

@@ -1,5 +1,9 @@
 package com.pockettravel.feature.map
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import android.text.format.DateFormat
 import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.net.toUri
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
 import java.util.Date
@@ -46,9 +51,12 @@ internal fun RealtimeStatus(realtime: TransitRealtimeUi, onRefresh: () -> Unit) 
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-    if (realtime.failed && !realtime.loading) {
-        Text(stringResource(R.string.transit_realtime_failed), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+    // Senza rete non c'e' niente da aggiornare: al ritorno della rete il ciclo del tabellone riparte da solo.
+    if (realtime.problem == RealtimeProblem.Offline) {
+        Text(stringResource(R.string.transit_realtime_offline), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
     }
+    if (realtime.failed && !realtime.loading) RealtimeFailure(realtime.problem)
     val size = realtime.tapSizeBytes
     TextButton(onClick = onRefresh, enabled = !realtime.loading) {
         Text(
@@ -58,5 +66,33 @@ internal fun RealtimeStatus(realtime: TransitRealtimeUi, onRefresh: () -> Unit) 
                 stringResource(R.string.transit_realtime_refresh)
             },
         )
+    }
+}
+
+/** Perche' i ritardi non sono aggiornati e, per il risparmio dati o energetico, il pulsante alle impostazioni. */
+@Composable
+private fun RealtimeFailure(problem: RealtimeProblem?) {
+    val context = LocalContext.current
+    val (message, settings) = when (problem) {
+        RealtimeProblem.DataSaver ->
+            R.string.transit_realtime_data_saver to (R.string.transit_realtime_data_saver_settings to dataSaverSettings(context.packageName))
+        RealtimeProblem.BatterySaver ->
+            R.string.transit_realtime_battery_saver to
+                (R.string.transit_realtime_battery_saver_settings to Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
+        RealtimeProblem.Offline, RealtimeProblem.FeedUnreachable, null -> R.string.transit_realtime_failed to null
+    }
+    Text(stringResource(message), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+    settings?.let { (label, intent) -> TextButton(onClick = { openSettings(context, intent) }) { Text(stringResource(label)) } }
+}
+
+private fun dataSaverSettings(packageName: String) =
+    Intent(Settings.ACTION_IGNORE_BACKGROUND_DATA_RESTRICTIONS_SETTINGS, "package:$packageName".toUri())
+
+// Su alcuni telefoni la schermata non esiste: ripiega sulle impostazioni generali, e se manca anche quella non fa nulla.
+private fun openSettings(context: Context, intent: Intent) {
+    try {
+        context.startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS)) }
     }
 }

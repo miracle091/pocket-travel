@@ -365,9 +365,12 @@ private fun Note(text: String) {
 @Composable
 private fun Sources(feeds: List<TransitFeedInfo>) {
     // Con la data in cui gli orari sono stati presi dalla fonte (Licence Ouverte, Renfe).
+    val modified = stringResource(R.string.transit_source_modified)
+    val estimated = stringResource(R.string.transit_source_estimated_stop_times)
     feeds.distinctBy { it.attribution to it.dataDate }.forEach { feed ->
-        val text = feed.dataDate?.let { stringResource(R.string.transit_source_dated, feed.attribution, formatDate(it)) }
-            ?: stringResource(R.string.transit_source, feed.attribution)
+        val attribution = localizedAttribution(feed.attribution, modified, estimated)
+        val text = feed.dataDate?.let { stringResource(R.string.transit_source_dated, attribution, formatDate(it)) }
+            ?: stringResource(R.string.transit_source, attribution)
         Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

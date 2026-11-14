@@ -19,7 +19,8 @@ import javax.inject.Inject
  * Stato del tempo reale sotto il tabellone: [updatedAt] l'ora del download piu' vecchio tra le reti della fermata
  * (null se nessuno e' ancora arrivato), [failed] se l'ultimo tentativo di una rete non e' andato, [tapSizeBytes] il
  * peso dei feed che su rete a consumo si scaricano solo con un tocco (null se nessuno aspetta), [paused] se
- * l'aggiornamento automatico e' fermo perche' il riquadro e' aperto da [REALTIME_IDLE_PAUSE] senza un tocco.
+ * l'aggiornamento automatico e' fermo perche' il riquadro e' aperto da [REALTIME_IDLE_PAUSE] senza un tocco, [problem]
+ * perche' i ritardi mancano (senza rete, o la causa dell'ultimo fallimento; null se tutto va).
  */
 data class TransitRealtimeUi(
     val updatedAt: Instant?,
@@ -27,6 +28,7 @@ data class TransitRealtimeUi(
     val failed: Boolean,
     val tapSizeBytes: Long?,
     val paused: Boolean = false,
+    val problem: RealtimeProblem? = null,
 )
 
 /**
@@ -53,7 +55,9 @@ class TransitRealtimeLoader @Inject constructor(
     // Per chiave di download (vedi Job): id della rete, o id + ALERTS_SUFFIX per gli avvisi a parte.
     private val feeds = mutableMapOf<String, Entry>()
     private val lastTry = mutableMapOf<String, Instant>()
-    private val failed = mutableSetOf<String>()
+
+    // Chiave del download non riuscito -> causa, valutata con lo stato del telefono al momento del fallimento.
+    private val failed = mutableMapOf<String, RealtimeProblem>()
 
     // Byte scaricati (compressi) nell'ultimo download di ogni rete.
     private val lastBytes = mutableMapOf<String, Long>()
@@ -91,6 +95,7 @@ class TransitRealtimeLoader @Inject constructor(
      * Le corse si scaricano solo per [networks] (il chiamante passa quelle con una partenza vicina); gli avvisi anche per
      * le altre reti di [alertNetworks], perche' valgono a prescindere dalle partenze, al piu' ogni [ALERTS_MIN_INTERVAL].
      */
+    @Suppress("TooGenericExceptionCaught") // Qualunque errore del download: il tabellone resta con l'orario e se ne mostra la causa.
     suspend fun refresh(
         networks: List<TransitFeedInfo>,
         tapped: Boolean,
@@ -120,33 +125,49 @@ class TransitRealtimeLoader @Inject constructor(
                         // Download interrotto (riquadro chiuso): la fermata dopo della stessa rete lo riprova subito.
                         lastTry -= job.key
                         throw e
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
                         // OkHttp segnala l'annullamento come IOException("Canceled"): non e' un fallimento, vale come il download interrotto.
                         if (!currentCoroutineContext().isActive) {
                             lastTry -= job.key
                             currentCoroutineContext().ensureActive()
                         }
                         // Ente irraggiungibile o feed illeggibile: il tabellone resta con l'ultimo feed valido o l'orario.
-                        failed += job.key
+                        failed[job.key] = classifyRealtimeFailure(e, deviceState())
                     }
                 }
             }.awaitAll()
         }
     }
 
-    /** Lo stato da mostrare per [networks]; null se nessuna ha il tempo reale o gli avvisi, o non c'e' rete. */
+    private fun deviceState() = RealtimeDeviceState(
+        online = connectivity.isOnline(),
+        metered = connectivity.isMetered(),
+        dataSaverRestricts = connectivity.isDataSaverRestricting(),
+        powerSave = connectivity.isPowerSaveMode(),
+    )
+
+    /**
+     * Lo stato da mostrare per [networks]; null se nessuna ha il tempo reale o gli avvisi. Senza rete e' solo il
+     * problema [RealtimeProblem.Offline].
+     */
     fun ui(networks: List<TransitFeedInfo>, loading: Boolean): TransitRealtimeUi? {
-        if (networks.isEmpty() || !connectivity.isOnline()) return null
+        if (networks.isEmpty()) return null
         val now = clock.instant()
         val allJobs = networks.flatMap { jobs(it, withTrips = true, withAlerts = true) }
         val waiting = allJobs.filter { validEntry(it.key, now) == null && waitsForTap(it) }
-        return TransitRealtimeUi(
-            updatedAt = allJobs.mapNotNull { validEntry(it.key, now)?.at }.minOrNull(),
-            loading = loading,
-            failed = allJobs.any { it.key in failed },
-            tapSizeBytes = waiting.takeIf { it.isNotEmpty() }?.sumOf { sizeOf(it) ?: 0L },
-            paused = paused(now),
-        )
+        return if (!connectivity.isOnline()) {
+            TransitRealtimeUi(null, loading = false, failed = false, tapSizeBytes = null, problem = RealtimeProblem.Offline)
+        } else {
+            TransitRealtimeUi(
+                updatedAt = allJobs.mapNotNull { validEntry(it.key, now)?.at }.minOrNull(),
+                loading = loading,
+                failed = allJobs.any { it.key in failed },
+                tapSizeBytes = waiting.takeIf { it.isNotEmpty() }?.sumOf { sizeOf(it) ?: 0L },
+                paused = paused(now),
+                // Se piu' reti falliscono per cause diverse conta la prima dell'elenco: le impostazioni prima dell'ente.
+                problem = allJobs.mapNotNull { failed[it.key] }.minOrNull(),
+            )
+        }
     }
 
     private fun validEntry(key: String, now: Instant): Entry? = feeds[key]?.takeIf { Duration.between(it.at, now) <= REALTIME_MAX_AGE }
