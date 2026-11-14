@@ -569,7 +569,7 @@ class NavigationPlannerViewModel @Inject constructor(
         distanceMeters = reference?.let { approximateDistance(it, RoutePoint(latitude, longitude)) },
     )
 
-    // Regioni installate con la rete stradale utile al modo scelto e rettangolo della loro mappa, come in NavigationViewModel.
+    // Regioni installate con la rete stradale utile al modo scelto e rettangolo della loro mappa, come in NavigationController.
     private suspend fun routingRegions(): List<RoutingRegion> = withContext(ioDispatcher) {
         val usable = usableRouting().first()
         regionRepository.observeInstalled().first()

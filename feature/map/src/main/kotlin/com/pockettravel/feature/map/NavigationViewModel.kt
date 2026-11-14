@@ -7,30 +7,18 @@ import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.RegionRepository
-import com.pockettravel.core.data.RoutingVariantPreferences
-import com.pockettravel.core.speech.ReadAloudResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Clock
 import java.time.LocalDateTime
@@ -39,76 +27,53 @@ import javax.inject.Inject
 
 /**
  * Navigazione passo passo dentro la scheda Navigatore: "Avvia" chiama [start] con la destinazione e il modo
- * scelti, "Termina" (o l'arrivo, chiuso dal Navigatore) [stop]. Il GPS si ascolta solo mentre si naviga.
- * Destinazione, modo e ora di arrivo stanno in [SavedStateHandle]: se il sistema chiude l'app, tornando il
+ * scelti, "Termina" (o l'arrivo, chiuso dal Navigatore) [stop]. GPS, tracker, ricalcolo e voce stanno nel
+ * [NavigationController], che continua con l'app chiusa: questo ViewModel ne mostra lo stato e la ritrova riaprendo l'app.
+ * Destinazione, modo e ora di arrivo stanno anche in [SavedStateHandle]: se il sistema chiude il processo, tornando il
  * Navigatore chiede se riprendere la navigazione ([NavigationUiState.resumeOffer]) invece di ripartire da solo.
  */
 @HiltViewModel
 class NavigationViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
-    private val routeEngineFactory: RouteEngineFactory,
+    private val controller: NavigationController,
     private val regionRepository: RegionRepository,
     private val gps: GpsLocationSource,
     /** Per la mappa della navigazione: lo stesso stile della scheda Mappa, con una sorgente per regione. */
     val tileSource: OfflineTileSource,
-    private val usageModePreferences: UsageModePreferences,
     /** Ponte con il servizio in primo piano e la sua notifica (vedi [NavigationService]). */
-    private val session: NavigationSession,
+    session: NavigationSession,
     private val navigationPreferences: NavigationPreferences,
-    private val routingVariantPreferences: RoutingVariantPreferences,
     nationalityPreferences: NationalityPreferences,
-    private val serviceStarter: GuidanceServiceStarter,
-    private val simulationLog: RouteSimulationLog,
-    private val announcer: NavigationAnnouncer,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-    private val clock: Clock,
+    clock: Clock,
 ) : ViewModel() {
-    // La regione da cui si e' partiti (la scheda aperta) e la destinazione; null = non si sta navigando.
-    private var regionId: String = savedStateHandle[KEY_REGION] ?: ""
-    private val destination = MutableStateFlow<NavigationPlace?>(null)
+    // La regione da cui si e' partiti (la scheda aperta), anche per riprendere una navigazione interrotta.
+    private val regionId: String get() = controller.regionId.ifEmpty { savedStateHandle[KEY_REGION] ?: "" }
+
     /**
      * Se una navigazione e' in corso. Per chi reagisce a un evento (la notifica toccata) senza osservare lo stato: lo stato
      * di schermata si aggiorna solo mentre qualcuno lo raccoglie.
      */
-    val isNavigating: Boolean get() = destination.value != null
-    // Navigazione interrotta: dallo stato salvato da Android (app riaperta dalle recenti) o dal disco (riaperta dall'icona).
-    private val savedNavigation = navigationPreferences.activeNavigation(clock.millis())
-    private val _resumeOffer = MutableStateFlow(savedStateHandle.savedPlace(KEY_DESTINATION) ?: savedNavigation?.place)
-    private val arrival = MutableStateFlow(savedStateHandle.get<Long>(KEY_ARRIVE_BY)?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) })
+    val isNavigating: Boolean get() = controller.isNavigating
 
-    // Regioni del percorso in corso (navigationRegionIds), aggiornate a ogni calcolo: la mappa ha una sorgente per ognuna.
-    private val _regionIds = MutableStateFlow(listOfNotNull(regionId.takeIf { it.isNotEmpty() }))
+    // Navigazione interrotta: dallo stato salvato da Android (app riaperta dalle recenti) o dal disco (riaperta dall'icona).
+    // Nessuna proposta se la navigazione e' ancora in corso (app chiusa con il servizio vivo, poi riaperta).
+    private val savedNavigation = if (controller.isNavigating) null else navigationPreferences.activeNavigation(clock.millis())
+    private val resumeOffer = MutableStateFlow(if (controller.isNavigating) null else savedStateHandle.savedPlace(KEY_DESTINATION) ?: savedNavigation?.place)
+    private val savedArrival = MutableStateFlow(savedStateHandle.get<Long>(KEY_ARRIVE_BY)?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) })
+    private val savedMode = savedStateHandle.get<String>(KEY_MODE)?.let(RouteProfile::valueOf)
 
     /**
      * Il lato di guida da ricordare in auto: quello delle nazioni del percorso, se diverso da quello del paese di
      * chi viaggia (nazionalita'); null se e' lo stesso.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val drivingSideWarning: StateFlow<DrivingSide?> = combine(_regionIds, nationalityPreferences.nationality, ::Pair)
+    private val drivingSideWarning: StateFlow<DrivingSide?> = combine(controller.regionIds, nationalityPreferences.nationality, ::Pair)
         .mapLatest { (ids, home) ->
             val countries = withContext(ioDispatcher) { ids.mapNotNull { regionRepository.installed(it)?.countryCode } }
             drivingSideWarning(countries, home)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
-
-    // Guida vocale accesa ma senza voce installata nella lingua dell'app: la scheda lo dice.
-    private val voiceUnavailable = MutableStateFlow(false)
-
-    private val permissionGranted = MutableStateFlow(gps.hasPermission())
-    private val gpsEnabled = gps.gpsEnabled().stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    private val lastFix = MutableStateFlow<GpsFix?>(null)
-
-    private val calculating = MutableStateFlow(false)
-    private val calculationStartedMillis = MutableStateFlow(0L)
-    private val calculationProgress = MutableStateFlow(0.0)
-    private var calculationJob: Job? = null
-    private val _routeProfile = MutableStateFlow(
-        savedStateHandle.get<String>(KEY_MODE)?.let(RouteProfile::valueOf) ?: RouteProfile.from(usageModePreferences.modes.value),
-    )
-    private val routeResult = MutableStateFlow<RouteResult?>(null)
-    private val arrived = MutableStateFlow(false)
-    private val _arrivedAtMillis = MutableStateFlow<Long?>(null)
-    private var lastCalculationMillis = 0L
 
     // Ticchetta ogni secondo, sull'orologio monotono delle posizioni (GpsFix.timeMillis): una posizione che invecchia deve far passare a "segnale perso"
     // anche se il GPS non ne manda di nuove.
@@ -119,312 +84,106 @@ class NavigationViewModel @Inject constructor(
         }
     }
 
-    // Un tracker per percorso (costruirlo e' O(punti), e tiene la posizione piu' avanti raggiunta): lo usano sia
-    // le posizioni GPS sia il calcolo dello stato ogni secondo. Il percorso si riconosce per identita'.
-    private var tracker: NavigationTracker? = null
-    private var trackerRoute: Route? = null
-
-    private fun trackerFor(route: Route): NavigationTracker =
-        tracker?.takeIf { trackerRoute === route } ?: NavigationTracker(route, _routeProfile.value).also { tracker = it; trackerRoute = route }
-
     private val navigationStatus: StateFlow<NavigationStatus> = combine(
-        combine(permissionGranted, gpsEnabled, lastFix, ::Triple),
-        combine(calculating, calculationStartedMillis, calculationProgress, routeResult, arrived) { isCalculating, started, progress, result, hasArrived ->
+        combine(controller.permissionGranted, controller.gpsEnabled, controller.lastFix, ::Triple),
+        combine(controller.calculating, controller.calculationStartedMillis, controller.calculationProgress, controller.routeResult, controller.arrived) { isCalculating, started, progress, result, hasArrived ->
             CalculationInputs(isCalculating, started, progress, result, hasArrived)
         },
         ticks,
     ) { (permission, enabled, fix), calc, now ->
-        navigationUiState(permission, enabled, fix, now, calc.calculating, calc.result, calc.arrived, calc.startedMillis, calc.progress, ::trackerFor)
+        navigationUiState(permission, enabled, fix, now, calc.calculating, calc.result, calc.arrived, calc.startedMillis, calc.progress, controller::trackerFor)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NavigationStatus.WaitingForFix)
 
     /** Tutto quello che la scheda Navigatore legge della navigazione, in un solo stato. */
     val uiState: StateFlow<NavigationUiState> = combine(
         combine(
-            navigationStatus, destination, _resumeOffer, _routeProfile, combine(navigationPreferences.voiceGuidance, voiceUnavailable, ::Pair),
+            navigationStatus, controller.destination, resumeOffer, controller.routeProfile,
+            combine(navigationPreferences.voiceGuidance, controller.voiceUnavailable, ::Pair),
         ) { status, target, offer, mode, (voice, noVoice) ->
-            NavigationUiState(status = status, target = target, resumeOffer = offer, routeProfile = mode, voiceGuidance = voice, voiceUnavailable = noVoice)
+            NavigationUiState(status = status, target = target, resumeOffer = offer, routeProfile = if (offer != null) savedMode ?: mode else mode, voiceGuidance = voice, voiceUnavailable = noVoice)
         },
-        arrival, _regionIds, drivingSideWarning, _arrivedAtMillis,
-    ) { state, arriveBy, regionIds, drivingSide, arrivedAt ->
-        state.copy(arriveBy = arriveBy, regionIds = regionIds, drivingSideWarning = drivingSide, arrivedAtMillis = arrivedAt)
+        combine(controller.arrival, controller.destination, savedArrival) { arriveBy, target, saved -> if (target != null) arriveBy else saved },
+        controller.regionIds, drivingSideWarning, controller.arrivedAtMillis,
+    ) { state, arriveBy, ids, drivingSide, arrivedAt ->
+        state.copy(arriveBy = arriveBy, regionIds = regionIdsOrTab(ids), drivingSideWarning = drivingSide, arrivedAtMillis = arrivedAt)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         NavigationUiState(
             status = NavigationStatus.WaitingForFix,
-            target = destination.value,
-            resumeOffer = _resumeOffer.value,
-            routeProfile = _routeProfile.value,
+            target = controller.destination.value,
+            resumeOffer = resumeOffer.value,
+            routeProfile = if (resumeOffer.value != null) savedMode ?: controller.routeProfile.value else controller.routeProfile.value,
             voiceGuidance = navigationPreferences.voiceGuidance.value,
-            arriveBy = arrival.value,
-            regionIds = _regionIds.value,
+            arriveBy = if (controller.isNavigating) controller.arrival.value else savedArrival.value,
+            regionIds = regionIdsOrTab(controller.regionIds.value),
         ),
     )
 
-    // Strade del percorso in corso, per punto della svolta: le trova la mappa della navigazione, che le passa a onStreetNames.
-    private val streetNames = mutableMapOf<Int, String>()
-    private var lastProgress: Pair<Route, NavigationProgress>? = null
-
-    // L'anteprima del percorso del Navigatore da cui e' partita la navigazione: si usa alla prima posizione, se e' sul percorso.
-    private var previewToUse: PlannerPreview.Ready? = null
-
     init {
-        // Posizioni raccolte solo navigando, con permesso e GPS acceso: spegnendo il GPS il flusso si
-        // chiude e la navigazione si ferma finche' non torna. Arrivati il GPS si spegne subito, senza aspettare
-        // che la scheda chiuda la navigazione.
-        @OptIn(ExperimentalCoroutinesApi::class)
-        combine(permissionGranted, gpsEnabled, destination, arrived) { permission, enabled, target, hasArrived ->
-            permission && enabled && target != null && !hasArrived
-        }
-            .flatMapLatest { active -> if (active) gps.fixes() else emptyFlow() }
-            .onEach(::onFix)
-            .launchIn(viewModelScope)
-        // "Termina" dalla notifica, anche con l'app in secondo piano.
-        session.stopRequests.onEach { if (destination.value != null) stop() }.launchIn(viewModelScope)
-        // La voce resta accesa per tutta la navigazione con "Guida vocale" attiva: accenderla a ogni frase costerebbe tempo.
-        @OptIn(ExperimentalCoroutinesApi::class)
-        combine(destination, navigationPreferences.voiceGuidance) { target, voice -> target != null && voice }
-            .distinctUntilChanged()
-            .mapLatest { on ->
-                if (on) {
-                    voiceUnavailable.value = announcer.startVoice() != ReadAloudResult.FINISHED
-                } else {
-                    announcer.stopVoice()
-                    voiceUnavailable.value = false
-                }
-            }
-            .launchIn(viewModelScope)
+        controller.onPermissionResult()
     }
+
+    // Senza navigazione in corso la mappa usa la regione della scheda.
+    private fun regionIdsOrTab(ids: List<String>): List<String> = ids.ifEmpty { listOfNotNull(regionId.takeIf { it.isNotEmpty() }) }
 
     /** Il pulsante della voce durante la navigazione: lo stesso interruttore delle Impostazioni. */
     fun setVoiceGuidance(enabled: Boolean) = navigationPreferences.setVoiceGuidance(enabled)
 
     /** "Riprendi": la navigazione interrotta riparte con la stessa destinazione, modo e ora di arrivo. */
     fun resume() {
-        val place = _resumeOffer.value ?: return
-        _resumeOffer.value = null
+        val place = resumeOffer.value ?: return
+        resumeOffer.value = null
         // Dal disco: regione, modo e ora di arrivo vengono da li' se lo stato di Android non c'e'.
         val fromDisk = savedNavigation?.takeIf { savedStateHandle.savedPlace(KEY_DESTINATION) == null }
         start(
             regionId = fromDisk?.regionId ?: regionId,
             place = place,
-            mode = fromDisk?.mode ?: _routeProfile.value,
-            arriveBy = fromDisk?.arriveByEpochMinute?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) } ?: arrival.value,
+            mode = fromDisk?.mode ?: savedMode ?: controller.routeProfile.value,
+            arriveBy = fromDisk?.arriveByEpochMinute?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) } ?: savedArrival.value,
         )
     }
 
     /** "No": la navigazione interrotta si dimentica. */
     fun dismissResume() {
-        _resumeOffer.value = null
-        arrival.value = null
+        resumeOffer.value = null
         savedStateHandle.remove<String>(KEY_DESTINATION)
+        savedStateHandle.remove<Long>(KEY_ARRIVE_BY)
+        savedArrival.value = null
         navigationPreferences.clearActiveNavigation()
-    }
-
-    // Il servizio in primo piano parte con la navigazione (dal primo piano: da sfondo Android 12+ non puo'): senza,
-    // a schermo spento le posizioni verrebbero limitate. Il permesso di posizione serve gia' per partire (da
-    // Android 14 senza il servizio non parte), se manca arriva da onPermissionResult.
-    private fun beginSession(place: NavigationPlace) {
-        session.update(NavigationSnapshot(place.name, null, 0.0, 0.0, 0.0, waitingForFix = true))
-        if (gps.hasPermission()) serviceStarter.start()
     }
 
     /** Notifica della navigazione toccata con l'app aperta: chi mostra l'hub porta in primo piano il Navigatore. */
     val openNavigatorRequests: SharedFlow<Unit> = session.openRequests
 
     /** Nomi di strada trovati dalla mappa della navigazione, per la notifica (accumulati, come nella navigazione a schermo). */
-    fun onStreetNames(found: Map<Int, String>) {
-        streetNames += found
-        lastProgress?.let { (route, progress) -> publish(route, progress) }
-    }
-
-    private fun publish(route: Route, progress: NavigationProgress) {
-        val place = destination.value ?: return
-        lastProgress = route to progress
-        session.update(
-            NavigationSnapshot(
-                destinationName = place.name,
-                turn = progress.nextInstruction,
-                distanceToNextMeters = progress.distanceToNextMeters,
-                remainingMeters = progress.remainingMeters,
-                remainingSeconds = progress.remainingSeconds,
-                street = streetNames[progress.nextInstruction.pointIndex],
-            ),
-        )
-    }
+    fun onStreetNames(found: Map<Int, String>) = controller.onStreetNames(found)
 
     /**
      * Parte la navigazione verso [place] con il modo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
      * Con [preview] (il percorso gia' calcolato nell'anteprima del percorso) si riparte da quello, se la prima posizione e' sul percorso.
      */
     fun start(regionId: String, place: NavigationPlace, mode: RouteProfile, arriveBy: LocalDateTime? = null, preview: PlannerPreview.Ready? = null) {
-        this.regionId = regionId
-        _resumeOffer.value = null
-        _regionIds.value = preview?.regionIds ?: listOf(regionId)
-        previewToUse = preview
-        // Anche la stessa anteprima del percorso riavviata riparte da capo: il tracker ricorda quanto si e' avanzati.
-        tracker = null
-        trackerRoute = null
-        _routeProfile.value = mode
-        calculationJob?.cancel()
-        calculating.value = false
-        routeResult.value = null
-        arrived.value = false
-        _arrivedAtMillis.value = null
-        lastFix.value = null
-        permissionGranted.value = gps.hasPermission()
-        arrival.value = arriveBy
-        destination.value = place
-        streetNames.clear()
-        lastProgress = null
-        announcer.begin(mode)
-        beginSession(place)
+        resumeOffer.value = null
+        controller.start(regionId, place, mode, arriveBy, preview)
         savedStateHandle[KEY_REGION] = regionId
         savedStateHandle[KEY_MODE] = mode.name
         savedStateHandle[KEY_ARRIVE_BY] = arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }
         savedStateHandle[KEY_DESTINATION] = place.toSavedState()
-        navigationPreferences.saveActiveNavigation(
-            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }, clock.millis()),
-        )
     }
 
     /** "Termina": la navigazione si chiude e il GPS non si ascolta piu'. */
     fun stop() {
-        calculationJob?.cancel()
-        calculating.value = false
-        previewToUse = null
-        destination.value = null
-        arrival.value = null
-        routeResult.value = null
-        arrived.value = false
-        _arrivedAtMillis.value = null
+        controller.stop()
         savedStateHandle.remove<String>(KEY_DESTINATION)
-        navigationPreferences.clearActiveNavigation()
-        // Snapshot null: il servizio in primo piano si ferma da solo.
-        session.clear()
-        lastProgress = null
-        announcer.end()
+        savedStateHandle.remove<Long>(KEY_ARRIVE_BY)
+        savedArrival.value = null
     }
 
-    fun onPermissionResult(granted: Boolean) {
-        permissionGranted.value = granted || gps.hasPermission()
-        if (permissionGranted.value && destination.value != null) serviceStarter.start()
-    }
-
-    // Activity chiusa (o hub chiuso): senza ViewModel nessuno ascolta il GPS, il servizio non ha piu' ragione di vivere.
-    override fun onCleared() {
-        if (destination.value != null) session.clear()
-        announcer.stopVoice()
-    }
+    fun onPermissionResult(granted: Boolean) = controller.onPermissionResult(granted)
 
     /** Dopo un errore: si ricalcola dall'ultima posizione. */
-    fun retry() {
-        if (calculating.value) return
-        routeResult.value = null
-        lastFix.value?.let { calculate(it) }
-    }
-
-    private fun onFix(fix: GpsFix) {
-        lastFix.value = fix
-        if (arrived.value) return
-        when (val result = routeResult.value) {
-            null -> if (!calculating.value) {
-                // "Avvia" dall'anteprima del percorso: il percorso c'e' gia', si ricalcola solo se la posizione e' fuori percorso.
-                val preview = previewToUse?.takeIf { !trackerFor(it.route).progress(RoutePoint(fix.latitude, fix.longitude), fix.timeMillis).offRoute }
-                previewToUse = null
-                if (preview != null) {
-                    simulationLog.log(preview.route)
-                    routeResult.value = RouteResult.Found(preview.route)
-                    onFix(fix)
-                } else {
-                    calculate(fix)
-                }
-            }
-            is RouteResult.Found -> {
-                val progress = trackerFor(result.route).progress(RoutePoint(fix.latitude, fix.longitude), fix.timeMillis)
-                announcer.onProgress(result.route, progress, streetNames[progress.nextInstruction.pointIndex], fix.timeMillis)
-                if (progress.arrived && navigationPreferences.stopGpsOnArrival.value) {
-                    _arrivedAtMillis.value = clock.millis()
-                    arrived.value = true
-                    // Detto l'arrivo la voce non serve piu', anche se la scheda chiude la navigazione solo quando torna visibile.
-                    announcer.stopVoice()
-                    session.clear()
-                    navigationPreferences.clearActiveNavigation()
-                } else {
-                    // Con "Spegni il GPS all'arrivo" tolto la navigazione resta aperta: l'arrivo si segna una volta sola
-                    // (per l'avviso), poi si continua a seguire la posizione finche' non si chiude.
-                    if (progress.arrived && _arrivedAtMillis.value == null) _arrivedAtMillis.value = clock.millis()
-                    publish(result.route, progress)
-                    if (shouldRecalculate(progress, calculating.value, lastCalculationMillis, fix.timeMillis, fix.accuracyMeters)) calculate(fix)
-                }
-            }
-            else -> Unit
-        }
-    }
-
-    // Un calcolo alla volta: fuori percorso non si interrompe quello in corso, il successivo parte
-    // comunque dalla posizione piu' recente. Per questo il flag lo rimette a false solo il calcolo
-    // ancora corrente.
-    private fun calculate(from: GpsFix) {
-        val target = destination.value ?: return
-        if (calculating.value) return
-        lastCalculationMillis = from.timeMillis
-        calculationStartedMillis.value = gps.elapsedRealtimeMillis()
-        calculationProgress.value = 0.0
-        calculating.value = true
-        // Prima posizione arrivata: la notifica passa da "In attesa del segnale GPS…" a "Calcolo del percorso".
-        if (routeResult.value !is RouteResult.Found) session.update(NavigationSnapshot(target.name, null, 0.0, 0.0, 0.0))
-        val choice = brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value)
-        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
-            val self = coroutineContext[Job]
-            try {
-                val start = RoutePoint(from.latitude, from.longitude)
-                val candidates = routingRegions()
-                val regionIds = navigationRegionIds(regionId, candidates, start, target.point)
-                _regionIds.value = regionIds
-                // Fuori dalle regioni con la rete stradale (un ricalcolo dopo una deviazione oltre il confine) BRouter
-                // cercherebbe fino al tempo massimo: "manca la rete stradale" subito, come nell'anteprima.
-                val result = if (leavesRoutingRegions(candidates, start, target.point)) {
-                    RouteResult.NoRoutingData
-                } else {
-                    routeEngineFactory.create(regionIds).route(start, target.point, choice.profile, choice.params) { progress ->
-                        // Annullato ma non ancora sostituito: un avanzamento in ritardo non sporca quello del calcolo nuovo.
-                        if (calculationJob === self && self?.isActive == true) calculationProgress.value = progress
-                    }
-                }
-                if (result is RouteResult.Found) simulationLog.log(result.route)
-                // Un ricalcolo fuori percorso fallito (partenza in un parcheggio, tempo scaduto) non butta
-                // via il percorso buono: si riprova al prossimo intervallo. "Riprova" azzera prima il
-                // risultato, quindi li' arriva anche l'errore.
-                if (result is RouteResult.Found || routeResult.value !is RouteResult.Found) routeResult.value = result
-                if (result is RouteResult.Found) {
-                    // Un percorso nuovo ha altre svolte: i nomi trovati per il vecchio non valgono.
-                    streetNames.clear()
-                    // La notifica mostra subito la prima svolta, invece di "Calcolo del percorso" fino alla posizione successiva.
-                    val fix = lastFix.value ?: from
-                    publish(result.route, trackerFor(result.route).progress(RoutePoint(fix.latitude, fix.longitude), fix.timeMillis))
-                }
-            } finally {
-                if (calculationJob === self) calculating.value = false
-            }
-        }
-        calculationJob = job
-        job.start()
-    }
-
-    // Regioni installate con la rete stradale utile al modo (usableRoutingRegions) e rettangolo della loro mappa (127 byte di
-    // header ognuna).
-    private suspend fun routingRegions(): List<RoutingRegion> = withContext(ioDispatcher) {
-        val regions = regionRepository.observeInstalled().first()
-        val usable = usableRoutingRegions(
-            regions.filter { it.routingVersion != null }.map { it.regionId }.toSet(),
-            routingVariantPreferences.installedCarOnly.value,
-            _routeProfile.value,
-        )
-        regions
-            .filter { it.regionId in usable }
-            .map { RoutingRegion(it.regionId, tileSource.regionBounds(it.regionId)) }
-    }
+    fun retry() = controller.retry()
 
     private companion object {
         const val KEY_REGION = "regionId"

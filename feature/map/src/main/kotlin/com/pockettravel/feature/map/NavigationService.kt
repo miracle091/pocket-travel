@@ -40,8 +40,8 @@ import kotlinx.coroutines.launch
 /**
  * Servizio in primo piano di tipo posizione, vivo mentre la navigazione e' attiva: con lo schermo spento o
  * l'app in secondo piano Android limita le posizioni alle app senza un servizio cosi', e la navigazione si
- * bloccherebbe. Non traccia nulla (GPS e percorso restano nel [NavigationViewModel]): tiene l'app in
- * primo piano e disegna la notifica da [NavigationSession.snapshot]; si ferma quando questo torna null.
+ * bloccherebbe. Tiene vivo il processo, e con lui il [NavigationController] (GPS, tracker, voce), anche con l'app
+ * chiusa dalle recenti; disegna la notifica da [NavigationSession.snapshot] e si ferma quando questo torna null.
  */
 @AndroidEntryPoint
 class NavigationService : Service() {

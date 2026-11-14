@@ -26,9 +26,9 @@ data class NavigationSnapshot(
 )
 
 /**
- * Ponte tra il [NavigationViewModel], che resta il proprietario di GPS e tracking, e il
- * [NavigationService], che tiene solo l'app in primo piano (senza, Android limita le posizioni a
- * schermo spento) e disegna la notifica. Il ViewModel scrive [snapshot] (null = nessuna navigazione: il
+ * Ponte tra il [NavigationController], proprietario di GPS e tracking, e il
+ * [NavigationService], che tiene l'app in primo piano (senza, Android limita le posizioni a
+ * schermo spento) e disegna la notifica. Il controller scrive [snapshot] (null = nessuna navigazione: il
  * servizio si ferma); dalla notifica tornano la richiesta di "Termina" e quella di aprire il Navigatore.
  */
 @Singleton

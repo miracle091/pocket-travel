@@ -2,7 +2,7 @@
 // Simula una guida sull'emulatore Android: legge dal log l'ultimo percorso calcolato dal Navigatore e muove
 // il GPS dell'emulatore lungo il percorso, una posizione al secondo.
 //
-// Il percorso arriva dal log solo nelle build di debug: NavigationViewModel lo scrive con il tag
+// Il percorso arriva dal log solo nelle build di debug: NavigationController lo scrive con il tag
 // PocketTravelRoute ("route <metri> <secondi> <parte>/<parti> lon,lat;lon,lat;...", su piu' righe). Prima di lanciare lo script si apre il
 // Navigatore, si sceglie la meta e si tocca "Avvia" (con il GPS dell'emulatore sulla partenza, per esempio
 // `adb emu geo fix 24.105 56.95`), cosi' il percorso e' nel log.

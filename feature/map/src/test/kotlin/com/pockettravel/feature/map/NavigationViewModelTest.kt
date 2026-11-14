@@ -15,7 +15,10 @@ import com.pockettravel.feature.map.testing.FakeOfflineTileSource
 import com.pockettravel.feature.map.testing.FakeRouteSimulationLog
 import com.pockettravel.feature.map.testing.ScriptedRouteEngineFactory
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
@@ -92,17 +95,33 @@ class NavigationViewModelTest {
     private val destination = NavigationPlace("Destinazione", end.latitude, end.longitude, "r1")
     private val arrival = LocalDateTime.of(2026, 10, 12, 18, 0)
 
+    // La navigazione in corso vive quanto il processo: il suo scope si chiude solo a fine test o con processRestarted.
+    private var controllerScope = CoroutineScope(SupervisorJob() + main.dispatcher)
+    private var controller = newController()
+
+    private fun newController() = NavigationController(
+        engines, regions, gps, tileSource, usageModes, session, preferences, variants, starter, simulationLog, announcer, main.dispatcher, clock,
+        controllerScope,
+    )
+
+    // Il sistema chiude il processo: restano solo il disco e lo stato salvato da Android (handle).
+    private fun processRestarted() {
+        host?.clear()
+        controllerScope.cancel()
+        controllerScope = CoroutineScope(SupervisorJob() + main.dispatcher)
+        session.clear()
+        controller = newController()
+    }
+
     @After
     fun close() {
         host?.clear()
+        controllerScope.cancel()
     }
 
     private fun TestScope.viewModel(): NavigationViewModel {
         val created = ViewModelHost(NavigationViewModel::class.java) {
-            NavigationViewModel(
-                handle, engines, regions, gps, tileSource, usageModes, session, preferences, variants, nationality, starter,
-                simulationLog, announcer, main.dispatcher, clock,
-            )
+            NavigationViewModel(handle, controller, regions, gps, tileSource, session, preferences, nationality, main.dispatcher, clock)
         }
         host = created
         keepCollecting(created.viewModel.uiState)
@@ -265,19 +284,23 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `chiudere l'hub con una navigazione in corso toglie la notifica, senza navigazione non tocca nulla`() = runTest {
-        val viewModel = viewModel()
-        viewModel.begin()
-        assertNotNull(session.snapshot.value)
-
+    fun `chiusa l'app la navigazione continua col GPS e la voce, e riaprendola il ViewModel nuovo la ritrova`() = runTest {
+        engines.defaultResult = RouteResult.Found(route)
+        viewModel().begin()
         host?.clear()
 
-        assertNull(session.snapshot.value)
+        gps.emit(fix(origin))
+        gps.emit(fix(RoutePoint(45.0, 10.0045)))
 
-        val other = NavigationSnapshot("Altro", null, 0.0, 0.0, 0.0)
-        session.update(other)
-        viewModel().also { host?.clear() }
-        assertEquals(other, session.snapshot.value)
+        assertEquals("il GPS si ascolta ancora", 1, engines.requests.size)
+        assertEquals(TurnType.LEFT, session.snapshot.value?.turn?.type)
+        assertTrue("la voce dice la svolta", voice.said.isNotEmpty())
+        val reopened = viewModel()
+        assertEquals(destination, reopened.uiState.value.target)
+        assertNull("nessuna proposta di ripresa: e' ancora in corso", reopened.uiState.value.resumeOffer)
+        assertTrue(reopened.isNavigating)
+        reopened.stop()
+        assertNull(session.snapshot.value)
     }
 
     // --- Calcolo e navigazione ---
@@ -661,7 +684,7 @@ class NavigationViewModelTest {
     @Test
     fun `ricreato con lo stesso handle il ViewModel ritrova destinazione e modo e la navigazione riprende`() = runTest {
         viewModel().begin(RouteProfile.CAR)
-        host?.clear()
+        processRestarted()
 
         val recreated = viewModel()
 
