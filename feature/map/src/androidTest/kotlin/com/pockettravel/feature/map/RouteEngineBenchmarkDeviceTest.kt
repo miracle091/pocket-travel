@@ -34,23 +34,29 @@ class RouteEngineBenchmarkDeviceTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val benchDir: File? = File(context.filesDir, "rd5-bench")
 
+    // Profili dei mezzi del Navigatore (RouteProfile), quelli che l'app passa davvero a BRouter.
     @Test
-    fun corto_sanMarinoAPiedi() = measure("sanmarino", "trekking", "San Marino a piedi", RoutePoint(43.9690, 12.4800), RoutePoint(43.9356, 12.4473))
+    fun corto_sanMarinoAPiedi() = measure("sanmarino", RouteProfile.WALK, "San Marino a piedi", RoutePoint(43.9690, 12.4800), RoutePoint(43.9356, 12.4473))
 
     @Test
-    fun medio_romaAPiedi() = measure("italia", "trekking", "Roma Termini -> Vaticano a piedi", RoutePoint(41.9009, 12.5010), RoutePoint(41.9022, 12.4539))
+    fun medio_romaAPiedi() = measure("italia", RouteProfile.WALK, "Roma Termini -> Vaticano a piedi", RoutePoint(41.9009, 12.5010), RoutePoint(41.9022, 12.4539))
 
     @Test
-    fun lungo_milanoRomaInAuto() = measure("italia", "car-vario", "Milano -> Roma in auto", RoutePoint(45.4642, 9.1900), RoutePoint(41.9009, 12.5010))
+    fun medio_romaInBici() = measure("italia", RouteProfile.BIKE, "Roma Termini -> Vaticano in bici", RoutePoint(41.9009, 12.5010), RoutePoint(41.9022, 12.4539))
 
-    private fun measure(dirName: String, profile: String, label: String, from: RoutePoint, to: RoutePoint) {
+    @Test
+    fun lungo_milanoRomaInAuto() = measure("italia", RouteProfile.CAR, "Milano -> Roma in auto", RoutePoint(45.4642, 9.1900), RoutePoint(41.9009, 12.5010))
+
+    private fun measure(dirName: String, mode: RouteProfile, label: String, from: RoutePoint, to: RoutePoint) {
+        val profile = mode.routingProfile
         val segments = benchDir?.let { File(it, dirName) }
         assumeTrue("segmenti mancanti in $segments", segments?.listFiles { f -> f.extension == "rd5" }?.isNotEmpty() == true)
-        // Stessi profili dell'app: creare la factory li copia dagli asset, come in produzione.
+        // Stessi profili dell'app: il primo motore creato dalla factory li copia dagli asset, come in produzione.
         val profileDir = File(context.filesDir, "brouter-profile")
         val preferences = PreferencesFactory { name -> context.getSharedPreferences(name, Context.MODE_PRIVATE) }
-        RouteEngineModule.provideRouteEngineFactory(File(context.cacheDir, "unused"), context,
+        val factory = RouteEngineModule.provideRouteEngineFactory(File(context.cacheDir, "unused"), context,
             UsageModePreferences(preferences, MapFilterPreferences(preferences), RoutingVariantPreferences(preferences)), Dispatchers.IO, Dispatchers.Default)
+        runBlocking { factory.create(listOf("unused")) }
         val engine = BRouterRouteEngine(segments!!, profileDir, profile, maxRunningTimeMillis = 300_000, ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default)
 
         repeat(2) { attempt ->

@@ -62,7 +62,7 @@ Alcuni test dei percorsi usano segmenti BRouter veri, troppo grandi per il repos
 - `RD5_CLIP_TEST_DIR`: una cartella con `orig/E10_N40.rd5` (il file di brouter.de) e `clipped/E10_N40.rd5` (lo stesso ritagliato su San Marino con `tools/data-pipeline/scripts/clip_rd5.py --bbox=12.40,43.89,12.52,43.99 --margin 0.1`);
 - `RD5_UK_TEST_DIR`: una cartella con `W5_N50.rd5` (rotonde con guida a sinistra, Milton Keynes).
 
-Tempo e memoria del calcolo sul dispositivo li misura `RouteEngineBenchmarkDeviceTest` (il commento in testa al file spiega come copiare i segmenti sul dispositivo).
+Tempo e memoria del calcolo sul dispositivo li misura `RouteEngineBenchmarkDeviceTest`, con i profili dei mezzi del Navigatore (il commento in testa al file spiega come copiare i segmenti sul dispositivo). I risultati si leggono con `adb logcat -s RouteBenchmark`. Quando un percorso non si calcola, il messaggio di BRouter (con profilo, cartella dei segmenti e tratti esplorati) e gli errori dell'unione delle reti stradali di più regioni si leggono con `adb logcat -s RouteEngine`.
 
 La libreria nativa dell'assistente (llama.cpp) la prova `LlamaEngineDeviceTest` con un modello GGUF vero (Qwen3.5 0.8B, ~530 MB): senza il file i test vengono saltati. Copialo come spiega il commento in testa al file, poi usa `installDebugAndroidTest` e `am instrument` invece di `connectedDebugAndroidTest`, che disinstalla l'app di test e cancella il modello:
 

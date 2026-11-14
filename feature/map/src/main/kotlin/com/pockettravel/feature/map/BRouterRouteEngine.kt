@@ -27,7 +27,8 @@ import java.util.concurrent.locks.ReentrantLock
 //
 // segmentDir: cartella con uno o piu' file .rd5 (segmenti BRouter per la regione). profileDir:
 // cartella con "<profileName>.brf" + lookups.dat — bundlati nell'app (asset, non dati per-regione:
-// stesso profilo per tutte le regioni), vedi RouteEngineModule.
+// stesso profilo per tutte le regioni), vedi RouteEngineModule. logError: riceve ogni errore di BRouter, che
+// l'interfaccia riassume in "percorso non trovato" o "manca la rete stradale" (nell'app va nel log).
 class BRouterRouteEngine(
     private val segmentDir: File,
     private val profileDir: File,
@@ -35,6 +36,7 @@ class BRouterRouteEngine(
     private val maxRunningTimeMillis: Long = 60_000,
     private val ioDispatcher: CoroutineDispatcher,
     private val defaultDispatcher: CoroutineDispatcher,
+    private val logError: (String) -> Unit = {},
 ) : RouteEngine {
 
     override suspend fun route(
@@ -73,7 +75,9 @@ class BRouterRouteEngine(
             } catch (error: IllegalArgumentException) {
                 // BRouter la lancia, fuori da doRun, per un profilo .brf mancante o una variabile del profilo non valida:
                 // diventa un errore del motore invece di arrivare fino al ViewModel.
-                RouteResult.Failed(error.message ?: error.javaClass.simpleName)
+                val message = error.message ?: error.javaClass.simpleName
+                logError("${profile ?: profileName}: $message")
+                RouteResult.Failed(message)
             } finally {
                 stopper.cancel()
                 progressPoller.cancel()
@@ -122,6 +126,7 @@ class BRouterRouteEngine(
             // alla destinazione ("target island detected"); dalla partenza la ricerca si ferma sotto i 500 nodi e la
             // ripete al piu' 5 volte scartando le strade dell'isola (RoutingEngine: MAXNODES_ISLAND_CHECK,
             // getFreezeCount() < 5), poi dice "no track found". Una ricerca completa senza percorso esplora molto di piu'.
+            logError("$profile, ${segmentDir.name}: $message (${engine.linksProcessed} tratti esplorati)")
             return when {
                 "not found" in message || "not mapped" in message -> RouteResult.NoRoutingData
                 "timeout" in message -> RouteResult.TimedOut

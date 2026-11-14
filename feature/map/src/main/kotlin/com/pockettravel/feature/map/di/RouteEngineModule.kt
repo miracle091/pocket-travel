@@ -2,6 +2,7 @@ package com.pockettravel.feature.map.di
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.util.Log
 import com.pockettravel.core.data.CarRouteCalculator
 import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.IoDispatcher
@@ -16,21 +17,21 @@ import com.pockettravel.feature.map.AndroidGpsLocationSource
 import com.pockettravel.feature.map.AndroidGuidanceServiceStarter
 import com.pockettravel.feature.map.BRouterCarRouteCalculator
 import com.pockettravel.feature.map.BRouterRd5Links
-import com.pockettravel.feature.map.GpsLocationSource
 import com.pockettravel.feature.map.BRouterRouteEngine
 import com.pockettravel.feature.map.ConnectivityChecker
 import com.pockettravel.feature.map.ConnectivityObserver
 import com.pockettravel.feature.map.DepartureReminderScheduler
 import com.pockettravel.feature.map.FallbackRouteEngine
+import com.pockettravel.feature.map.GpsLocationSource
 import com.pockettravel.feature.map.GuidanceServiceStarter
 import com.pockettravel.feature.map.IslandRetryRouteEngine
 import com.pockettravel.feature.map.OfflineTileSource
 import com.pockettravel.feature.map.PmtilesTileSource
 import com.pockettravel.feature.map.RouteEngineFactory
 import com.pockettravel.feature.map.UsageMode
+import com.pockettravel.feature.map.UsageModePreferences
 import com.pockettravel.feature.map.createOrFailed
 import com.pockettravel.feature.map.defaultRoutingProfile
-import com.pockettravel.feature.map.UsageModePreferences
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -52,6 +53,7 @@ object RouteEngineModule {
     // Cache dei segmenti uniti di piu' regioni (Rd5Merger): si rifa' quando serve, il sistema puo' svuotarla.
     private const val MERGED_DIR_NAME = "routing-merged"
     private const val PROFILE_ASSET_DIR = "brouter-profile"
+    private const val TAG = "RouteEngine"
 
     // Tempo massimo di un calcolo: Milano-Roma in auto (575 km) ha richiesto 45-48 s sull'emulatore,
     // un dispositivo e' piu' lento. Oltre, RouteResult.TimedOut ("destinazione troppo lontana").
@@ -78,7 +80,8 @@ object RouteEngineModule {
                 withContext(ioDispatcher) { profilesSynced.value }
                 // Il profilo del modo scelto, letto a ogni motore creato.
                 val profileName = usageModePreferences.modes.value.defaultRoutingProfile()
-                fun engine(segmentDir: File) = BRouterRouteEngine(segmentDir, profileDir, profileName, ROUTE_TIMEOUT_MILLIS, ioDispatcher, defaultDispatcher)
+                fun engine(segmentDir: File) =
+                    BRouterRouteEngine(segmentDir, profileDir, profileName, ROUTE_TIMEOUT_MILLIS, ioDispatcher, defaultDispatcher) { Log.w(TAG, it) }
                 val dirs = regionIds.map { File(regionsDir, "$it/$ROUTING_DIR_NAME") }
                 val merged = mergedDirOrNull(dirs, mergedDir, ioDispatcher)
                 IslandRetryRouteEngine(
@@ -106,6 +109,7 @@ object RouteEngineModule {
                 throw error
             } catch (error: Exception) {
                 // IOException, ma anche errori di un file rovinato (dimensioni assurde nell'indice).
+                Log.w(TAG, "Unione delle reti stradali ${dirs.map { it.parentFile?.name }} non riuscita", error)
                 null
             }
         }
