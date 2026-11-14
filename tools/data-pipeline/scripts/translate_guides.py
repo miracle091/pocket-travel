@@ -124,7 +124,7 @@ LLAMA_PROMPT = (
     "Ricevi righe numerate [n]: rispondi solo con le stesse righe numerate [n] tradotte, una per riga, nessun commento. "
     "Registro impersonale, come in una guida pubblicata: non rivolgerti al lettore con tu, voi o Lei; usa l'infinito "
     "o il si impersonale per consigli e avvertenze.")
-NUMBERED = re.compile(r"^\[(\d+)\]\s?(.*)$")
+NUMBERED = re.compile(r"^\[(\d+)\]\s?(?:\[n\]\s*)?(.*)$")  # a volte il modello ricopia anche il segnaposto [n] del prompt
 FIX_PROMPT = (
     "La traduzione qui sotto si rivolge al lettore con tu o voi, ma la guida usa il registro impersonale. "
     "Riscrivi la traduzione dell'inglese con l'infinito (\"Evitare...\", \"Portare...\") o con il si impersonale "
@@ -145,6 +145,14 @@ def split_line(line):
     """(segno iniziale "▸ ", "• " o "", testo) di una riga del corpo."""
     marker = next((m for m in ts.MARKERS if line.startswith(m)), "")
     return marker, line[len(marker):].strip()
+
+
+def strip_markers(line):
+    """[line] tradotta senza segni iniziali, anche ripetuti: in un elenco il modello mette "• " anche dove l'inglese non
+    lo ha, o lo raddoppia; il segno giusto lo rimette overlay_from_store dalla riga inglese."""
+    while (parts := split_line(line))[0]:
+        line = parts[1]
+    return line.strip()
 
 
 def paragraphs(rows):
@@ -242,7 +250,7 @@ def translate_block(chat, head, texts):
         result = got.get(i)
         if not result or not ts._plausible(text, result):
             result = NUMBERED.sub(r"\2", chat(f"{head}\n\n[1] {text}").strip()).strip()
-        result = split_line(result)[1]  # il segno iniziale lo rimette overlay_from_store dalla riga inglese
+        result = strip_markers(result)
         out.append(result if result and "\n" not in result and ts._plausible(text, result) else None)
     return out
 
@@ -265,7 +273,7 @@ def fix_register(chat, english, italian, second_person):
                                        temperature, seed).strip()).strip()
         # a volte il modello da' piu' versioni, una per riga: vale ognuna
         for candidate in [raw] + raw.splitlines():
-            candidate = split_line(candidate.strip())[1]
+            candidate = strip_markers(candidate)
             if register_ok(candidate, italian, second_person):
                 return candidate, True
     return italian, False

@@ -499,6 +499,16 @@ class LlamaBackendTest(unittest.TestCase):
             self.assertEqual(40, counts["modello"])  # la regione b ha gli stessi paragrafi: nessuna richiesta in piu'
             self.assertEqual("Italiano Step 7: walk " + "far " * 40 + ".", store.get(f"Step 7: walk {'far ' * 40}."))
 
+    def test_segnaposto_n_del_prompt_tolto(self):
+        # il modello a volte ricopia il segnaposto "[n]" del prompt dopo il numero vero, anche prima del segno "▸ "
+        chat = FakeChat(lambda text, *_: "[1] [n] Italiano uno\n[2] [n] ▸ Italiano due")
+        self.assertEqual(["Italiano uno", "Italiano due"], tg.translate_block(chat, "Guida", ["One one", "▸ Two two"]))
+
+    def test_segni_iniziali_aggiunti_dal_modello_tolti(self):
+        # in un elenco il modello mette "• " anche a una riga che non lo ha, o lo raddoppia: lo rimette solo overlay_from_store
+        chat = FakeChat(lambda text, *_: "[1] • Italiano uno\n[2] • • Italiano due")
+        self.assertEqual(["Italiano uno", "Italiano due"], tg.translate_block(chat, "Guida", ["One one", "• Two two"]))
+
     def test_blocco_fallito_non_ferma_gli_altri(self):
         many = "\n".join(f"Step {i}: walk {'far ' * 40}." for i in range(40))
         picks = [("a", "SALUTE", [("Health (Government of Canada)", many, GC)])]
