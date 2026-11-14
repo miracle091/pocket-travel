@@ -23,3 +23,10 @@ internal fun withoutInjectedInstructions(text: String): String = text.lines().jo
         line.split(SENTENCE_END).filterNot { sentence -> INJECTED_INSTRUCTION.any { it.containsMatchIn(sentence) } }.joinToString(" ")
     }
 }
+
+// Mistral Small ha ricopiato una volta nella risposta il tag del blocco ("<contesto fonte=...>"): nella chat non va mostrato.
+private val CONTEXT_TAG = Regex("""</?(?:contesto|context)(?:\s[^>]*)?>\n?""", RegexOption.IGNORE_CASE)
+
+/** La risposta del servizio online senza i tag dei blocchi di contesto ricopiati dal modello. */
+internal fun withoutContextTags(answer: String): String =
+    if (CONTEXT_TAG.containsMatchIn(answer)) answer.replace(CONTEXT_TAG, "").trim() else answer

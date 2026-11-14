@@ -398,8 +398,8 @@ internal class RateLimit(val remaining: Int?, val resetAtMillis: Long?)
 /**
  * Lo stato delle richieste dalle intestazioni di [header]: OpenAI e compatibili (`x-ratelimit-remaining-requests`,
  * `x-ratelimit-reset-requests`, durata come "1s" o "6m0s") e Anthropic (`anthropic-ratelimit-requests-remaining`,
- * `anthropic-ratelimit-requests-reset`, data RFC 3339). Nomi e formati dalla documentazione dei servizi, non provati
- * su una chiave; quello che non si capisce si ignora.
+ * `anthropic-ratelimit-requests-reset`, data RFC 3339). Nomi e formati dalla documentazione dei servizi
+ * (ricontrollata il 2026-11-14), non provati su una chiave; quello che non si capisce si ignora.
  */
 internal fun rateLimit(header: (String) -> String?, nowMillis: Long): RateLimit {
     fun first(vararg names: String) = names.firstNotNullOfOrNull { header(it)?.trim()?.takeIf(String::isNotEmpty) }

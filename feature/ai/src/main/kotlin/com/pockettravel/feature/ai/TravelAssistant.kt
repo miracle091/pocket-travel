@@ -448,8 +448,8 @@ class TravelAssistant @Inject constructor(
                         throw OnlineDailyQuotaException("Quota giornaliera gia' finita", model, resetAtMillis = known.resetAtMillis, daily = known.daily)
                     }
                     text(model).accumulated(PARTIAL_INTERVAL_MS).collect {
-                        answer = it
-                        emit(AssistantProgress.Partial(it))
+                        answer = withoutContextTags(it)
+                        emit(AssistantProgress.Partial(answer))
                     }
                     break
                 } catch (quota: OnlineDailyQuotaException) {
