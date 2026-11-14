@@ -191,6 +191,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Corsa che non parte (nelle partenze successive "11:50 soppressa", minuscolo) | soppressa | canceled |
 | Avviso dell'ente su linee, fermate o corse (deviazioni, lavori, scioperi), distinto dall'allerta meteo | avviso di servizio, avvisi di servizio | service alert, service alerts |
 | Le fermate di una corsa in ordine, aperte dal tocco su una partenza | corsa (Mostra la corsa) | trip (Show the trip) |
+| Pulsante della corsa che apre il Navigatore a piedi verso la fermata, per prendere quella corsa | Raggiungi la fermata | Walk to the stop |
 | Ora dell'ultimo download del tempo reale | Aggiornato alle 14:05 | Updated at 14:05 |
 | Pulsante che scarica di nuovo il tempo reale | Aggiorna i ritardi | Refresh delays |
 | Pulsante sotto una risposta dell'assistente con le previsioni più vecchie di 10 minuti | Aggiorna le previsioni | Refresh the forecast |

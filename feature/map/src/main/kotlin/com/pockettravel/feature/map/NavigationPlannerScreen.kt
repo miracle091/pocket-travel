@@ -157,6 +157,7 @@ fun NavigationPlannerScreen(
             destinationName = guidingTarget.name,
             routeProfile = navigationMode,
             arriveBy = navigationArriveBy,
+            toCatch = navigation.toCatch,
             tileSource = navigationViewModel.tileSource,
             regionIds = navigationRegions.ifEmpty { mapRegionIds },
             onPermissionResult = navigationViewModel::onPermissionResult,
@@ -189,6 +190,7 @@ fun NavigationPlannerScreen(
             routingInstalled = planner.routingInstalled,
             arriveBy = arriveBy,
             reminder = planner.reminder,
+            toCatch = planner.toCatch,
             missingRegions = missingRegions,
             downloadProgress = downloadProgress,
             downloadFailed = downloadFailed,
@@ -210,7 +212,7 @@ fun NavigationPlannerScreen(
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 // Il percorso gia' calcolato per l'anteprima del percorso non si ricalcola da zero (se la posizione e' sul percorso).
-                to?.let { navigationViewModel.start(regionId ?: it.regionId, it, routeProfile, arriveBy, preview as? PlannerPreview.Ready) }
+                to?.let { navigationViewModel.start(regionId ?: it.regionId, it, routeProfile, arriveBy, preview as? PlannerPreview.Ready, planner.toCatch) }
             },
             onSwap = viewModel::swap,
             onRouteProfileChange = viewModel::setRouteProfile,
@@ -256,6 +258,7 @@ internal data class NavigationPlannerState(
     val routingInstalled: Boolean = true,
     val arriveBy: LocalDateTime? = null,
     val reminder: LocalDateTime? = null,
+    val toCatch: TripToCatch? = null,
     // Le regioni del catalogo senza rete stradale tra partenza e arrivo, in ordine (vuota se non si sono trovate).
     val missingRegions: List<MissingRegion> = emptyList(),
     val downloadProgress: Float? = null,
@@ -345,6 +348,7 @@ internal fun NavigationPlannerContent(
                 onStart = actions.onStart,
                 arriveBy = state.arriveBy,
                 reminder = state.reminder,
+                toCatch = state.toCatch,
                 onArriveByChange = actions.onArriveByChange,
                 onSetReminder = actions.onSetReminder,
                 onRetry = actions.onRetry,

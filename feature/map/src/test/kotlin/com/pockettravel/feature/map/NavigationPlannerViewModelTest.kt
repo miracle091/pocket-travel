@@ -307,6 +307,48 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
         assertEquals(PlannerPreview.Idle, settled(viewModel.uiState).preview)
     }
 
+    @Test
+    fun `Raggiungi la fermata va a piedi alla fermata per la partenza della corsa, che un'altra ora o destinazione toglie`() = runTest {
+        val viewModel = viewModel()
+        viewModel.setRouteProfile(RouteProfile.CAR)
+        val trip = TripToCatch("Piazza", 41.89, 12.49, "12", null, null, "Centro", listOf(departure, departure.plusMinutes(10)))
+
+        viewModel.reachStop(trip, "r1")
+        runCurrent()
+
+        val state = settled(viewModel.uiState)
+        assertEquals(NavigationPlace("Piazza", 41.89, 12.49, "r1"), state.to)
+        assertEquals(RouteProfile.WALK, state.routeProfile)
+        assertEquals(departure, state.arriveBy)
+        assertEquals(trip, state.toCatch)
+
+        viewModel.setArriveBy(departure.plusHours(1))
+        assertNull(settled(viewModel.uiState).toCatch)
+        viewModel.reachStop(trip, "r1")
+        viewModel.setDestination(colosseo)
+        assertNull(settled(viewModel.uiState).toCatch)
+    }
+
+    @Test
+    fun `Raggiungi la fermata con il percorso pronto sceglie la prima partenza che si fa in tempo a prendere`() = runTest {
+        engines.defaultResult = RouteResult.Found(route)
+        val viewModel = viewModel()
+        // Il percorso dura 100 minuti: le corse tra 30 e 90 si perdono, quella tra 130 si prende.
+        val now = LocalDateTime.now().withSecond(0).withNano(0)
+        val trip = TripToCatch("Piazza", 41.89, 12.49, "12", null, null, "Centro", listOf(30L, 90L, 130L).map { now.plusMinutes(it) })
+
+        viewModel.load("r1")
+        viewModel.reachStop(trip, "r1")
+        runCurrent()
+        gps.emit(fix())
+        runCurrent()
+
+        val state = settled(viewModel.uiState)
+        assertEquals(PlannerPreview.Ready(route, listOf("r1")), state.preview)
+        assertEquals(trip.departures[2], state.arriveBy)
+        assertEquals(trip, state.toCatch)
+    }
+
     // --- Modo e accessibilita' ---
 
     @Test

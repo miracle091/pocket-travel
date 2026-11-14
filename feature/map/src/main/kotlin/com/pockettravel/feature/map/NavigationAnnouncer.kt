@@ -2,6 +2,9 @@ package com.pockettravel.feature.map
 
 import com.pockettravel.core.speech.NavigationVoice
 import com.pockettravel.core.speech.ReadAloudResult
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import javax.inject.Inject
 
 /**
@@ -41,5 +44,12 @@ class NavigationAnnouncer @Inject constructor(
             VoiceCue.Arrived -> vibration.arrived()
             is VoiceCue.Follow, is VoiceCue.Prepare -> Unit
         }
+    }
+
+    /** "Raggiungi la fermata": la corsa delle [missed] non si prende piu', la prossima parte alle [next]. */
+    fun onMissedDeparture(missed: LocalDateTime, next: LocalDateTime) {
+        if (!preferences.voiceGuidance.value) return
+        val clock = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(texts.locale)
+        voice.say(texts.string(R.string.voice_missed_departure, missed.format(clock), next.format(clock)))
     }
 }

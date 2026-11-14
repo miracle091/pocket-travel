@@ -80,7 +80,8 @@ fun transitStationModes(osmTag: String): Set<TransitMode> = when (osmTag) {
  * finche' si legge. [onDownload] scarica o aggiorna il pacchetto orari della regione; [updateResult] e' l'esito
  * dell'ultimo tocco, se non ha avviato un download. [staleNetworks]: nomi delle reti installate non piu' pubblicate.
  * [realtime]: il tempo reale delle reti della fermata (null senza, o senza rete), [onRefreshRealtime] "Aggiorna i ritardi".
- * [trip]: la vista della corsa aperta (null chiusa), [onOpenTrip] e [onCloseTrip] la aprono e la chiudono.
+ * [trip]: la vista della corsa aperta (null chiusa), [onOpenTrip] e [onCloseTrip] la aprono e la chiudono; [onReachStop] e'
+ * "Raggiungi la fermata" nella vista della corsa.
  */
 @Composable
 internal fun TransitDeparturesSection(
@@ -95,10 +96,11 @@ internal fun TransitDeparturesSection(
     trip: TripUi? = null,
     onOpenTrip: (TripRef) -> Unit = {},
     onCloseTrip: () -> Unit = {},
+    onReachStop: ((TripToCatch) -> Unit)? = null,
 ) {
     var selectedLine by rememberSaveable { mutableStateOf<String?>(null) }
     if (state == TransitPackageState.UNKNOWN) return
-    trip?.let { TripSheet(it, onCloseTrip) }
+    trip?.let { TripSheet(it, onCloseTrip, onReachStop) }
     Column(modifier = Modifier.fillMaxWidth().padding(top = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         Text(
             text = stringResource(R.string.transit_title),

@@ -66,6 +66,8 @@ fun NavigationInstructions(
     routeProfile: RouteProfile,
     // Ora a cui si vuole arrivare ("Arriva alle…"), null se non scelta: il pannello dice se si e' in ritardo.
     arriveBy: LocalDateTime?,
+    // "Raggiungi la fermata": la corsa da prendere, con linea e direzione sopra il ritardo; null se non si va a una fermata.
+    toCatch: TripToCatch? = null,
     // Mappa della navigazione: lo stile della scheda Mappa, con una sorgente per ognuna delle regioni del percorso.
     tileSource: OfflineTileSource,
     regionIds: List<String>,
@@ -104,7 +106,7 @@ fun NavigationInstructions(
     }
 
     if (state is NavigationStatus.Navigating) {
-        ActiveNavigationContent(state, destinationName, routeProfile, arriveBy, tileSource, regionIds, onClose, onStreetNames, drivingSide, voice)
+        ActiveNavigationContent(state, destinationName, routeProfile, arriveBy, tileSource, regionIds, onClose, onStreetNames, drivingSide, voice, toCatch)
         return
     }
     // Senza percorso da seguire: un messaggio al centro, con la destinazione in cima e sempre "Termina".

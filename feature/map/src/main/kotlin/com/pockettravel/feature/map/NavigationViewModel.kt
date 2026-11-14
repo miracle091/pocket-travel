@@ -102,10 +102,12 @@ class NavigationViewModel @Inject constructor(
         ) { status, target, offer, mode, (voice, noVoice) ->
             NavigationUiState(status = status, target = target, resumeOffer = offer, routeProfile = if (offer != null) savedMode ?: mode else mode, voiceGuidance = voice, voiceUnavailable = noVoice)
         },
-        combine(controller.arrival, controller.destination, savedArrival) { arriveBy, target, saved -> if (target != null) arriveBy else saved },
+        combine(controller.arrival, controller.destination, savedArrival, controller.toCatch) { arriveBy, target, saved, toCatch ->
+            (if (target != null) arriveBy else saved) to toCatch
+        },
         controller.regionIds, drivingSideWarning, controller.arrivedAtMillis,
-    ) { state, arriveBy, ids, drivingSide, arrivedAt ->
-        state.copy(arriveBy = arriveBy, regionIds = regionIdsOrTab(ids), drivingSideWarning = drivingSide, arrivedAtMillis = arrivedAt)
+    ) { state, (arriveBy, toCatch), ids, drivingSide, arrivedAt ->
+        state.copy(arriveBy = arriveBy, toCatch = toCatch, regionIds = regionIdsOrTab(ids), drivingSideWarning = drivingSide, arrivedAtMillis = arrivedAt)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
@@ -162,10 +164,18 @@ class NavigationViewModel @Inject constructor(
     /**
      * Parte la navigazione verso [place] con il modo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
      * Con [preview] (il percorso gia' calcolato nell'anteprima del percorso) si riparte da quello, se la prima posizione e' sul percorso.
+     * [toCatch]: la corsa da prendere alla fermata ("Raggiungi la fermata").
      */
-    fun start(regionId: String, place: NavigationPlace, mode: RouteProfile, arriveBy: LocalDateTime? = null, preview: PlannerPreview.Ready? = null) {
+    fun start(
+        regionId: String,
+        place: NavigationPlace,
+        mode: RouteProfile,
+        arriveBy: LocalDateTime? = null,
+        preview: PlannerPreview.Ready? = null,
+        toCatch: TripToCatch? = null,
+    ) {
         resumeOffer.value = null
-        controller.start(regionId, place, mode, arriveBy, preview)
+        controller.start(regionId, place, mode, arriveBy, preview, toCatch)
         savedStateHandle[KEY_REGION] = regionId
         savedStateHandle[KEY_MODE] = mode.name
         savedStateHandle[KEY_ARRIVE_BY] = arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }
@@ -200,7 +210,7 @@ class NavigationViewModel @Inject constructor(
  * Lo stato della scheda Navigatore durante la navigazione. [target] e' la destinazione della navigazione in corso (null se non si sta
  * navigando); [resumeOffer] la navigazione interrotta perche' il sistema ha chiuso l'app, da riprendere o dimenticare;
  * [voiceGuidance] la guida vocale accesa e [voiceUnavailable] senza una voce installata nella lingua dell'app; [arriveBy] l'ora a cui si vuole
- * arrivare, per mostrare il ritardo; [regionIds] le regioni del percorso, una sorgente di mappa per ognuna;
+ * arrivare, per mostrare il ritardo, e [toCatch] la corsa da prendere se si va a una fermata; [regionIds] le regioni del percorso, una sorgente di mappa per ognuna;
  * [drivingSideWarning] il lato di guida da ricordare in auto; [arrivedAtMillis] quando e' stata raggiunta la destinazione, per
  * distinguere un arrivo appena avvenuto da uno di cui nessuno si e' accorto.
  */
@@ -212,6 +222,7 @@ data class NavigationUiState(
     val voiceGuidance: Boolean,
     val voiceUnavailable: Boolean = false,
     val arriveBy: LocalDateTime? = null,
+    val toCatch: TripToCatch? = null,
     val regionIds: List<String> = emptyList(),
     val drivingSideWarning: DrivingSide? = null,
     val arrivedAtMillis: Long? = null,

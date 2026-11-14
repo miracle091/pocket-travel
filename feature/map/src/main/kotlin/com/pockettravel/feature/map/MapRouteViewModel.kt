@@ -40,6 +40,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 // Holder minimo per far arrivare OfflineTileSource (fornito da RouteEngineModule), i segnalini e i
@@ -127,7 +128,9 @@ class MapRouteViewModel @Inject constructor(
         openTrip.value = TripUi(loading = true)
         val networks = realtimeNetworks(_transitBoard.value).filter { it.id == ref.network }
         tripJob = viewModelScope.launch {
-            openTrip.value = TripUi(loading = false, view = transitRepository.tripStops(regionId, ref, realtime = transitRealtime.usable(networks)))
+            val view = transitRepository.tripStops(regionId, ref, realtime = transitRealtime.usable(networks))
+            val departures = (_transitBoard.value as? TransitBoard.Departures)?.items.orEmpty()
+            openTrip.value = TripUi(loading = false, view = view, toCatch = view?.let { tripToCatch(it, ref, departures, LocalDateTime.now()) })
         }
     }
 
@@ -324,5 +327,8 @@ data class MapUiState(
     val mapSource: MapSourceState? = null,
 )
 
-/** La vista della corsa aperta: [view] null a lettura finita vuol dire corsa non trovata (rete aggiornata nel frattempo). */
-data class TripUi(val loading: Boolean, val view: TripView? = null)
+/**
+ * La vista della corsa aperta: [view] null a lettura finita vuol dire corsa non trovata (rete aggiornata nel frattempo).
+ * [toCatch]: la corsa per "Raggiungi la fermata", null se la partenza non e' piu' nel tabellone.
+ */
+data class TripUi(val loading: Boolean, val view: TripView? = null, val toCatch: TripToCatch? = null)

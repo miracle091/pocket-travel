@@ -69,8 +69,11 @@ internal fun PlannerSheet(
     // Le regioni del catalogo senza rete stradale tra partenza e arrivo, in ordine (vuota se non si sono trovate).
     missingRegions: List<MissingRegion>,
     wheelchairOptions: (@Composable () -> Unit)?,
+    // "Raggiungi la fermata": la linea della corsa da prendere sopra il percorso.
+    toCatch: TripToCatch? = null,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l).padding(bottom = Spacing.l)) {
+        if (to != null && toCatch != null && arriveBy != null) TripToCatchLine(toCatch, arriveBy)
         when {
             to == null -> Recents(recents, onRecent, onRemoveRecent, onClearRecents)
             preview is PlannerPreview.Ready -> RouteSummary(preview.route, routeProfile, startsFromMe, onStart, wheelchairOptions, arriveBy, reminder, onArriveByChange, onSetReminder)

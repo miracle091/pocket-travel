@@ -39,6 +39,9 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 
 /** Orologio che parte da un'ora fissa e avanza con il tempo virtuale di [scheduler]. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -610,6 +613,29 @@ class NavigationViewModelTest {
 
         assertNull(session.snapshot.value)
         assertFalse(viewModel.uiState.value.status is NavigationStatus.Navigating)
+    }
+
+    // --- Raggiungi la fermata (la scelta della corsa: TripToCatchTest) ---
+
+    @Test
+    fun `persa la corsa scelta l'ora di arrivo passa alla successiva e la voce lo dice`() = runTest {
+        engines.defaultResult = RouteResult.Found(route)
+        val viewModel = viewModel()
+        val now = LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault()).withSecond(0).withNano(0)
+        val trip = TripToCatch("Fermata", end.latitude, end.longitude, "12", null, null, "Centro", listOf(5L, 15L).map { now.plusMinutes(it) })
+        viewModel.start("r1", destination, RouteProfile.WALK, trip.departures[0], toCatch = trip)
+
+        // 10 minuti a piedi: quella tra 5 non si prende. La prima posizione calcola il percorso, la seconda lo segue.
+        repeat(2) {
+            gps.emit(fix(origin))
+            runCurrent()
+        }
+
+        assertEquals(trip.departures[1], viewModel.uiState.value.arriveBy)
+        assertEquals(trip, viewModel.uiState.value.toCatch)
+        val time = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(Locale.ITALIAN)
+        val phrase = "Non fai in tempo per la corsa delle ${trip.departures[0].format(time)}: la prossima parte alle ${trip.departures[1].format(time)}"
+        assertEquals(listOf(phrase), voice.said.filter { it.startsWith("Non fai") })
     }
 
     // --- Arrivo ---

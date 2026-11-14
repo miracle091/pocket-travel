@@ -5,12 +5,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -19,9 +24,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -37,14 +44,16 @@ import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
 import java.util.Date
 import java.util.TimeZone
+import com.pockettravel.core.ui.R as UiR
 
 /**
  * La vista della corsa di una partenza: le fermate in ordine fino al capolinea, con l'ora programmata, il ritardo se
- * c'e' il tempo reale e la fermata del tabellone in evidenza.
+ * c'e' il tempo reale e la fermata del tabellone in evidenza. Con [onReachStop] "Raggiungi la fermata" porta a piedi alla
+ * fermata per prendere questa corsa.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun TripSheet(trip: TripUi, onDismiss: () -> Unit) {
+internal fun TripSheet(trip: TripUi, onDismiss: () -> Unit, onReachStop: ((TripToCatch) -> Unit)? = null) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         val view = trip.view
         Column(
@@ -57,7 +66,17 @@ internal fun TripSheet(trip: TripUi, onDismiss: () -> Unit) {
                     Text(stringResource(R.string.trip_loading), style = MaterialTheme.typography.bodyMedium)
                 }
                 view == null -> Text(stringResource(R.string.trip_not_found), style = MaterialTheme.typography.bodyMedium)
-                else -> TripStops(view)
+                else -> {
+                    val toCatch = trip.toCatch
+                    if (toCatch != null && onReachStop != null) {
+                        Button(onClick = { onReachStop(toCatch) }) {
+                            Icon(ImageVector.vectorResource(UiR.drawable.ms_directions_walk), contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(Spacing.s))
+                            Text(stringResource(R.string.trip_reach_stop))
+                        }
+                    }
+                    TripStops(view)
+                }
             }
         }
     }

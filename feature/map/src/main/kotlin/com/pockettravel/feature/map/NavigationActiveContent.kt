@@ -86,6 +86,7 @@ internal fun ActiveNavigationContent(
     onStreetNames: (Map<Int, String>) -> Unit,
     drivingSide: DrivingSide?,
     voice: VoiceControl,
+    toCatch: TripToCatch? = null,
 ) {
     val progress = state.progress
     val route = state.route
@@ -197,6 +198,7 @@ internal fun ActiveNavigationContent(
                         Icon(AppIcons.Close, contentDescription = stringResource(R.string.navigation_close))
                     }
                 }
+                if (arriveBy != null && toCatch != null) TripToCatchLine(toCatch, arriveBy)
                 if (arriveBy != null && late != null) ArrivalStatus(arriveBy, late)
                 if (routeProfile != RouteProfile.WALK) {
                     Spacer(modifier = Modifier.height(Spacing.s))

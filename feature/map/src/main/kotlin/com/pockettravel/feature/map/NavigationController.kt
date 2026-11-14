@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Clock
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 import javax.inject.Inject
 import javax.inject.Qualifier
@@ -67,6 +68,10 @@ class NavigationController @Inject constructor(
     val destination: StateFlow<NavigationPlace?> = _destination.asStateFlow()
     private val _arrival = MutableStateFlow<LocalDateTime?>(null)
     val arrival: StateFlow<LocalDateTime?> = _arrival.asStateFlow()
+
+    // "Raggiungi la fermata": la corsa da prendere; [arrival] e' la sua prima partenza che si fa ancora in tempo a prendere.
+    private val _toCatch = MutableStateFlow<TripToCatch?>(null)
+    val toCatch: StateFlow<TripToCatch?> = _toCatch.asStateFlow()
     private val _routeProfile = MutableStateFlow(RouteProfile.from(usageModePreferences.modes.value))
     val routeProfile: StateFlow<RouteProfile> = _routeProfile.asStateFlow()
 
@@ -152,8 +157,16 @@ class NavigationController @Inject constructor(
     /**
      * Parte la navigazione verso [place] con il modo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
      * Con [preview] (il percorso gia' calcolato nell'anteprima del percorso) si riparte da quello, se la prima posizione e' sul percorso.
+     * Con [toCatch] l'ora di arrivo segue le partenze della corsa: persa una, passa alla successiva.
      */
-    fun start(regionId: String, place: NavigationPlace, mode: RouteProfile, arriveBy: LocalDateTime?, preview: PlannerPreview.Ready?) {
+    fun start(
+        regionId: String,
+        place: NavigationPlace,
+        mode: RouteProfile,
+        arriveBy: LocalDateTime?,
+        preview: PlannerPreview.Ready?,
+        toCatch: TripToCatch? = null,
+    ) {
         this.regionId = regionId
         _regionIds.value = preview?.regionIds ?: listOf(regionId)
         previewToUse = preview
@@ -169,6 +182,7 @@ class NavigationController @Inject constructor(
         _lastFix.value = null
         _permissionGranted.value = gps.hasPermission()
         _arrival.value = arriveBy
+        _toCatch.value = toCatch
         _destination.value = place
         streetNames.clear()
         lastProgress = null
@@ -186,6 +200,7 @@ class NavigationController @Inject constructor(
         previewToUse = null
         _destination.value = null
         _arrival.value = null
+        _toCatch.value = null
         _routeResult.value = null
         _arrived.value = false
         _arrivedAtMillis.value = null
@@ -239,6 +254,14 @@ class NavigationController @Inject constructor(
                 street = streetNames[progress.nextInstruction.pointIndex],
             ),
         )
+        // "Raggiungi la fermata": persa la partenza scelta, l'ora di arrivo passa alla successiva che si prende, e la voce
+        // lo dice. Se nessuna, resta quella e il Navigatore mostra il ritardo.
+        val current = _arrival.value ?: return
+        val departures = _toCatch.value?.departures.takeUnless { progress.arrived }
+        nextDeparture(departures, current, progress.remainingSeconds, LocalDateTime.ofInstant(clock.instant(), ZoneId.systemDefault()))?.let { next ->
+            _arrival.value = next
+            announcer.onMissedDeparture(current, next)
+        }
     }
 
     private fun onFix(fix: GpsFix) {

@@ -217,6 +217,7 @@
     <string name="voice_follow">Prosegui per %1$s</string>
     <string name="voice_onto_street">%1$s in %2$s</string>
     <string name="voice_then">%1$s, poi %2$s</string>
+    <string name="voice_missed_departure">Non fai in tempo per la corsa delle %1$s: la prossima parte alle %2$s</string>
     <string name="voice_arrive_ahead">arrivi a destinazione</string>
     <string name="voice_arrived">Destinazione raggiunta</string>
     <plurals name="voice_meters">
@@ -292,6 +293,9 @@
     <string name="trip_board_stop">Questa fermata</string>
     <string name="trip_drop_off_only">Solo discesa</string>
     <string name="trip_pickup_only">Solo salita</string>
+    <string name="trip_reach_stop">Raggiungi la fermata</string>
+    <string name="trip_to_catch">Parte alle %1$s</string>
+    <string name="trip_to_catch_headsign">Direzione %1$s, parte alle %2$s</string>
     <plurals name="transit_in_minutes_spoken">
         <item quantity="one">tra %1$d minuto</item>
         <item quantity="many">tra %1$d minuti</item>

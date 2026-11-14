@@ -139,6 +139,8 @@ fun MapScreen(
     trip: TripUi? = null,
     onOpenTrip: (TripRef) -> Unit = {},
     onCloseTrip: () -> Unit = {},
+    // "Raggiungi la fermata" dalla vista della corsa: guida a piedi fino alla fermata; null = niente pulsante.
+    onReachStop: ((TripToCatch) -> Unit)? = null,
     transitUpdateResult: TransitUpdateResult? = null,
     staleTransit: List<String> = emptyList(),
     onDownloadTransit: () -> Unit = {},
@@ -463,6 +465,14 @@ fun MapScreen(
                     TransitDeparturesSection(
                         transitPackage, transitBoard, hideInaccessible, transitUpdateResult, staleTransit, onDownloadTransit, transitRealtime,
                         onRefreshRealtime, trip, onOpenTrip, onCloseTrip,
+                        onReachStop = onReachStop?.let { reach ->
+                            { toCatch ->
+                                onCloseTrip()
+                                selectedPinId = null
+                                stopPin = null
+                                reach(toCatch)
+                            }
+                        },
                     )
                 }
                 onNavigate?.let { navigate ->

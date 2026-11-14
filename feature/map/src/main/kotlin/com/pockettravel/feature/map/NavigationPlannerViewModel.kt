@@ -137,7 +137,7 @@ sealed interface PlannerPreview {
  * le regioni della mappa; [idlePosition] la propria posizione sulla mappa senza destinazione, con i [nearbyPois] attorno;
  * [routingInstalled] dice se la regione aperta ha la rete stradale e [routingRegionIds] quali regioni ce l'hanno utile
  * al modo; [arriveBy] e' l'ora a cui si vuole arrivare (null = si parte subito) e [reminder] l'ora di partenza con un
- * avviso programmato.
+ * avviso programmato. [toCatch]: la corsa da prendere con "Raggiungi la fermata", alla cui partenza [arriveBy] e' fissata.
  */
 data class PlannerUiState(
     val from: NavigationPlace? = null,
@@ -157,6 +157,7 @@ data class PlannerUiState(
     val routingRegionIds: Set<String> = emptySet(),
     val arriveBy: LocalDateTime? = null,
     val reminder: LocalDateTime? = null,
+    val toCatch: TripToCatch? = null,
 )
 
 /**
@@ -281,6 +282,9 @@ class NavigationPlannerViewModel @Inject constructor(
 
     private val _reminder = MutableStateFlow(savedStateHandle.get<Long>(KEY_REMINDER)?.let(::minuteToDateTime))
 
+    // Non si salva con lo stato: dopo la chiusura del processo resta l'ora d'arrivo, senza la linea.
+    private val toCatch = MutableStateFlow<TripToCatch?>(null)
+
     // Il percorso scelto, la ricerca e la mappa, a gruppi di cinque flussi: ognuno parte dal precedente.
     private val routeState = combine(_from, _to, _routeProfile, routing, _preview) { from, to, mode, profile, preview ->
         PlannerUiState(from = from, to = to, routeProfile = mode, routing = profile, preview = preview)
@@ -294,9 +298,9 @@ class NavigationPlannerViewModel @Inject constructor(
 
     /** Tutto quello che la scheda Navigatore legge del percorso, in un solo stato. */
     val uiState: StateFlow<PlannerUiState> = combine(
-        mapState, routingRegionIds, usageModePreferences.allowSteps, _arriveBy, _reminder,
-    ) { state, routingRegionIds, allowSteps, arriveBy, reminder ->
-        state.copy(routingRegionIds = routingRegionIds, allowSteps = allowSteps, arriveBy = arriveBy, reminder = reminder)
+        mapState, routingRegionIds, usageModePreferences.allowSteps, combine(_arriveBy, toCatch, ::Pair), _reminder,
+    ) { state, routingRegionIds, allowSteps, (arriveBy, trip), reminder ->
+        state.copy(routingRegionIds = routingRegionIds, allowSteps = allowSteps, arriveBy = arriveBy, reminder = reminder, toCatch = trip)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
@@ -320,6 +324,16 @@ class NavigationPlannerViewModel @Inject constructor(
         _routeProfile.onEach { savedStateHandle[KEY_MODE] = it.name }.launchIn(viewModelScope)
         _arriveBy.onEach { savedStateHandle[KEY_ARRIVE_BY] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
         _reminder.onEach { savedStateHandle[KEY_REMINDER] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
+        // "Raggiungi la fermata": con la durata del percorso l'ora di arrivo va alla prima partenza che si fa in tempo a
+        // prendere; se nessuna, resta la scelta e il riquadro mostra il ritardo.
+        combine(_preview, toCatch, ::Pair).onEach { (preview, trip) ->
+            val route = (preview as? PlannerPreview.Ready)?.route ?: return@onEach
+            val catchable = trip?.departures?.firstOrNull { minutesLate(it, route.durationSeconds) <= 0 } ?: return@onEach
+            if (catchable != _arriveBy.value) {
+                cancelReminder()
+                _arriveBy.value = catchable
+            }
+        }.launchIn(viewModelScope)
         // Rete stradale appena installata dopo "Scarica la rete stradale" (della regione aperta o di un'altra che copre
         // partenza o arrivo): l'anteprima del percorso si ricalcola da sola.
         viewModelScope.launch {
@@ -353,8 +367,12 @@ class NavigationPlannerViewModel @Inject constructor(
         _from.value = place
     }
 
+    // Con un'altra destinazione o un'altra ora la corsa da prendere non vale piu'.
     private fun setTo(place: NavigationPlace?) {
-        if (place != _to.value) cancelReminder()
+        if (place != _to.value) {
+            cancelReminder()
+            toCatch.value = null
+        }
         _to.value = place
     }
 
@@ -362,7 +380,16 @@ class NavigationPlannerViewModel @Inject constructor(
     fun setArriveBy(time: LocalDateTime?) {
         if (time == _arriveBy.value) return
         cancelReminder()
+        toCatch.value = null
         _arriveBy.value = time
+    }
+
+    /** "Raggiungi la fermata": a piedi fino alla fermata di [trip], per arrivarci all'ora della sua partenza. */
+    fun reachStop(trip: TripToCatch, regionId: String) {
+        setRouteProfile(RouteProfile.WALK)
+        setDestination(NavigationPlace(trip.stopName, trip.latitude, trip.longitude, regionId))
+        setArriveBy(trip.departures.first())
+        toCatch.value = trip
     }
 
     /** "Avvisami quando partire": una notifica all'ora di [departure], che sostituisce l'eventuale precedente. */

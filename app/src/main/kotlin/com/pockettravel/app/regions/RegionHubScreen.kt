@@ -217,6 +217,11 @@ fun RegionHubScreen(
                                         trip = mapScreen.trip,
                                         onOpenTrip = mapViewModel::showTrip,
                                         onCloseTrip = { mapViewModel.showTrip(null) },
+                                        // A piedi fino alla fermata, con la partenza della corsa come ora di arrivo.
+                                        onReachStop = { toCatch ->
+                                            plannerViewModel.reachStop(toCatch, regionId)
+                                            selectedTab = RegionTab.NAVIGATION
+                                        },
                                         transitUpdateResult = hubState.transitUpdateResult,
                                         staleTransit = hubState.staleTransit,
                                         onDownloadTransit = viewModel::downloadTransit,
