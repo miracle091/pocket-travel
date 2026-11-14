@@ -82,12 +82,31 @@ class DailyQuota(Exception):
     """Quota giornaliera del servizio finita: si ferma e si scrive il rapporto delle righe fatte."""
 
 
+# Le stesse espressioni di OnlineContextFilter.kt: le frasi delle guide che danno ordini all'assistente non partono.
+INJECTED_INSTRUCTION = (
+    re.compile(r"\b(ignora|dimentica|ignore|disregard|forget)\b[^.!?\n]{0,30}\b(istruzioni|instructions)\b[^.!?\n]{0,20}"
+               r"\b(precedenti|sopra|previous|prior|above|earlier)\b", re.I),
+    re.compile(r'\b(rispondi|reply|respond|answer)\s+(solo|only)\b[^.!?\n]{0,15}[«"“]', re.I),
+)
+SENTENCE_END = re.compile(r'(?<=[.!?»"”])\s+')
+
+
+def without_injected_instructions(text):
+    """[text] senza le frasi che danno ordini all'assistente, come withoutInjectedInstructions dell'app."""
+    def clean(line):
+        if not any(p.search(line) for p in INJECTED_INSTRUCTION):
+            return line
+        return " ".join(s for s in SENTENCE_END.split(line) if not any(p.search(s) for p in INJECTED_INSTRUCTION))
+    return "\n".join(clean(line) for line in text.split("\n"))
+
+
 def system_prompt(context, lang):
     """Il messaggio system dell'app; con context un solo blocco, con la fonte generica della guida (le righe del test
     hanno il contesto gia' unito, senza il nome della sezione di ogni parte)."""
     base, intro = (SYSTEM_EN, CONTEXT_EN) if lang == "en" else (SYSTEM_IT, CONTEXT_IT)
     if not context:
         return base
+    context = without_injected_instructions(context)
     block = (f'<context source="Wikivoyage, app guide">\n{context}\n</context>' if lang == "en"
              else f'<contesto fonte="Wikivoyage, guida dell\'app">\n{context}\n</contesto>')
     return base + intro + block

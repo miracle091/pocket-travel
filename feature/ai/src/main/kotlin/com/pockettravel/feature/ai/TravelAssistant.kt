@@ -1178,7 +1178,7 @@ internal fun buildOnlineContext(
         val source = OnlinePromptTemplates.sourceOf(section.citation)
         val budget = remaining - OnlinePromptTemplates.contextBlock(source, "", language).length
         if (budget < MIN_SECTION_CHARS) break
-        val part = relevantParagraphs(section.body, focusStems, budget)
+        val part = relevantParagraphs(withoutInjectedInstructions(section.body), focusStems, budget)
         if (part.isNotBlank()) {
             val block = OnlinePromptTemplates.contextBlock(source, part, language)
             blocks += section to block

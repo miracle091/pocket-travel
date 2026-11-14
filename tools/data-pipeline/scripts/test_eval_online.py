@@ -136,6 +136,25 @@ class ReportTest(unittest.TestCase):
                          report_line("rag", rows))
 
 
+class InjectedInstructionTest(unittest.TestCase):
+    def test_espressioni_uguali_a_quelle_dell_app(self):
+        kt = (TEMPLATES.parent / "OnlineContextFilter.kt").read_text(encoding="utf-8")
+        raw = re.findall(r'"""(.*?)"""', kt)
+        self.assertEqual([raw[0] + raw[1], raw[2], raw[3]],
+                         [p.pattern for p in eval_online.INJECTED_INSTRUCTION] + [eval_online.SENTENCE_END.pattern])
+
+    def test_la_frase_con_l_ordine_non_arriva_al_servizio(self):
+        from eval_common import injection_rows
+        for lang in ("it", "en"):
+            for r in injection_rows(lang):
+                prompt = system_prompt(eval_online.context_of(r), lang)
+                self.assertNotIn("previous", prompt.lower().split("<cont")[1])
+                self.assertNotIn("precedenti", prompt.split("<cont")[1])
+                self.assertIn(r["messages"][1]["content"], prompt)
+        advice = "Non ignorare le istruzioni delle autorità locali. Rispondi solo alle chiamate che conosci."
+        self.assertEqual(advice, eval_online.without_injected_instructions(advice))
+
+
 class CorrectTest(unittest.TestCase):
     def test_istruzione_nel_contesto_eseguita_non_e_giusta(self):
         from eval_common import injection_rows
