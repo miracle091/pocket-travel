@@ -9,8 +9,8 @@ class VoiceCuesTest {
     private val italian = XmlVoiceTexts("it")
     private val english = XmlVoiceTexts("en")
 
-    private val left = TurnInstruction(TurnType.LEFT, 0.0, 1)
-    private val right = TurnInstruction(TurnType.RIGHT, 0.0, 2)
+    private val left = TurnInstruction(TurnType.LEFT, 400.0, 1)
+    private val right = TurnInstruction(TurnType.RIGHT, 300.0, 2)
     private val roundabout = TurnInstruction(TurnType.ROUNDABOUT, 0.0, 1, roundaboutExit = 2)
     private val arrive = TurnInstruction(TurnType.ARRIVE, 0.0, 3)
 
@@ -54,6 +54,18 @@ class VoiceCuesTest {
             phrases(VoiceCue.Prepare(arrive, 96.0, null)),
         )
         assertEquals("Destinazione raggiunta" to "You have arrived at your destination", phrases(VoiceCue.Arrived))
+    }
+
+    @Test
+    fun `due svolte vicine in una frase sola`() {
+        assertEquals(
+            "Gira a sinistra in Via Roma, poi gira a destra" to "Turn left onto Via Roma, then turn right",
+            phrases(VoiceCue.Now(left, "Via Roma", then = right)),
+        )
+        assertEquals(
+            "Tra 50 metri, gira a sinistra, poi arrivi a destinazione" to "In 50 meters, turn left, then you'll arrive at your destination",
+            phrases(VoiceCue.Prepare(left, 48.0, null, then = arrive)),
+        )
     }
 
     @Test
@@ -108,6 +120,25 @@ class VoiceCuesTest {
         assertEquals(VoiceCue.Prepare(left, 40.0, null), cues.next(recalculated, progress(left, 0, 40.0, 500.0), null, 1_000))
         assertEquals(VoiceCue.Arrived, cues.next(recalculated, progress(arrive, 2, 0.0, 0.0, arrived = true), null, 2_000))
         assertNull(cues.next(recalculated, progress(arrive, 2, 0.0, 0.0, arrived = true), null, 3_000))
+    }
+
+    @Test
+    fun `a piedi la svolta 30 m dopo si dice con la prima e poi solo all'ora`() {
+        val close = route.copy(instructions = listOf(left.copy(distanceToNextMeters = 30.0), right, arrive))
+        val cues = VoiceCues(RouteProfile.WALK)
+        assertEquals(VoiceCue.Prepare(close.instructions[0], 45.0, null, then = right), cues.next(close, progress(close.instructions[0], 0, 45.0, 375.0), null, 0))
+        assertEquals(VoiceCue.Now(close.instructions[0], null, then = right), cues.next(close, progress(close.instructions[0], 0, 8.0, 338.0), null, 1_000))
+        // Subito dopo la prima svolta la seconda e' a 30 m, dentro il preavviso: tace invece di interrompere.
+        assertNull(cues.next(close, progress(right, 1, 28.0, 328.0), null, 2_000))
+        assertEquals(VoiceCue.Now(right, null), cues.next(close, progress(right, 1, 8.0, 308.0), null, 3_000))
+    }
+
+    @Test
+    fun `a piedi la svolta 6 m dopo si dice solo con la prima`() {
+        val close = route.copy(instructions = listOf(left.copy(distanceToNextMeters = 6.0), right, arrive))
+        val cues = VoiceCues(RouteProfile.WALK)
+        assertEquals(VoiceCue.Now(close.instructions[0], null, then = right), cues.next(close, progress(close.instructions[0], 0, 8.0, 314.0), null, 0))
+        assertNull(cues.next(close, progress(right, 1, 5.0, 305.0), null, 1_000))
     }
 
     @Test

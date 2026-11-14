@@ -15,11 +15,11 @@ sealed interface VoiceCue {
     /** Dopo una svolta, con la prossima lontana: "Prosegui per 2 chilometri". */
     data class Follow(val meters: Double) : VoiceCue
 
-    /** Il preavviso: "Tra 200 metri, gira a sinistra in via Roma". */
-    data class Prepare(val instruction: TurnInstruction, val meters: Double, val street: String?) : VoiceCue
+    /** Il preavviso: "Tra 200 metri, gira a sinistra in via Roma". [then]: la svolta subito dopo, detta insieme. */
+    data class Prepare(val instruction: TurnInstruction, val meters: Double, val street: String?, val then: TurnInstruction? = null) : VoiceCue
 
-    /** Alla svolta: "Gira a sinistra in via Roma". */
-    data class Now(val instruction: TurnInstruction, val street: String?) : VoiceCue
+    /** Alla svolta: "Gira a sinistra in via Roma", con [then] "…, poi gira a destra". */
+    data class Now(val instruction: TurnInstruction, val street: String?, val then: TurnInstruction? = null) : VoiceCue
 
     data object Arrived : VoiceCue
 }
@@ -27,13 +27,16 @@ sealed interface VoiceCue {
 /**
  * Quando parlare lungo un percorso: al piu' un preavviso e un "ora" per svolta, l'arrivo una volta, niente fuori percorso.
  * Le soglie crescono con la velocita' in auto, cosi' il preavviso arriva circa [CAR_PREPARE_SECONDS] prima della svolta.
- * Un percorso nuovo (ricalcolo) riparte da capo.
+ * Una svolta piu' vicina del preavviso a quella prima si dice insieme a quella ("Gira a sinistra, poi gira a destra"):
+ * altrimenti il suo preavviso partirebbe subito e interromperebbe la frase. Poi non ha un suo preavviso, e nemmeno
+ * un suo "ora" se e' entro la distanza dell'"ora". Un percorso nuovo (ricalcolo) riparte da capo.
  */
 class VoiceCues(private val profile: RouteProfile) {
     private var route: Route? = null
     private var announcedIndex = -1
     private var preparedIndex = -1
     private var nowIndex = -1
+    private var skipNowIndex = -1
     private var arrived = false
     private val speed = SpeedEstimate()
 
@@ -43,16 +46,17 @@ class VoiceCues(private val profile: RouteProfile) {
             announcedIndex = -1
             preparedIndex = -1
             nowIndex = -1
+            skipNowIndex = -1
         }
         speed.update(progress.remainingMeters, timeMillis * NANOS_PER_MILLI)
         return when {
             progress.offRoute -> null
             progress.arrived -> VoiceCue.Arrived.takeUnless { arrived }.also { arrived = true }
-            else -> turnCue(progress, street)
+            else -> turnCue(route, progress, street)
         }
     }
 
-    private fun turnCue(progress: NavigationProgress, street: String?): VoiceCue? {
+    private fun turnCue(route: Route, progress: NavigationProgress, street: String?): VoiceCue? {
         val index = progress.nextInstructionIndex
         val instruction = progress.nextInstruction
         val meters = progress.distanceToNextMeters
@@ -61,18 +65,32 @@ class VoiceCues(private val profile: RouteProfile) {
         val prepareAt = prepareMeters(profile, mps)
         val firstSeen = index != announcedIndex
         announcedIndex = index
+        val then = closeNext(route, index, prepareAt)
         return when {
-            instruction.type != TurnType.ARRIVE && meters <= nowAt && index != nowIndex -> {
+            instruction.type != TurnType.ARRIVE && meters <= nowAt && index != nowIndex && index != skipNowIndex -> {
                 nowIndex = index
-                VoiceCue.Now(instruction, street)
+                if (then != null) join(index, instruction.distanceToNextMeters <= nowAt)
+                VoiceCue.Now(instruction, street, then)
             }
             meters <= prepareAt && meters > nowAt && index != preparedIndex && index != nowIndex -> {
                 preparedIndex = index
-                VoiceCue.Prepare(instruction, meters, street)
+                VoiceCue.Prepare(instruction, meters, street, then)
             }
             firstSeen && meters > FOLLOW_FACTOR * prepareAt -> VoiceCue.Follow(meters)
             else -> null
         }
+    }
+
+    // La svolta dopo [index], se arriva prima di [prepareAt] metri: si dice insieme.
+    private fun closeNext(route: Route, index: Int, prepareAt: Double): TurnInstruction? {
+        val gap = route.instructions.getOrNull(index)?.distanceToNextMeters ?: return null
+        return route.instructions.getOrNull(index + 1).takeIf { gap <= prepareAt }
+    }
+
+    // La svolta dopo [index], gia' detta con l'"ora" di questa: niente suo preavviso, e niente suo "ora" se [skipNow].
+    private fun join(index: Int, skipNow: Boolean) {
+        preparedIndex = index + 1
+        if (skipNow) skipNowIndex = index + 1
     }
 
     private companion object {
@@ -126,10 +144,19 @@ fun voicePhrase(cue: VoiceCue, texts: VoiceTexts): String = when (cue) {
     is VoiceCue.Follow -> texts.string(R.string.voice_follow, spokenDistance(cue.meters, texts))
     is VoiceCue.Prepare -> {
         val turn = if (cue.instruction.type == TurnType.ARRIVE) texts.string(R.string.voice_arrive_ahead) else turnWithStreet(cue.instruction, cue.street, texts)
-        texts.string(R.string.voice_in_distance, spokenDistance(cue.meters, texts), turn.replaceFirstChar { it.lowercase(texts.locale) })
+        texts.string(R.string.voice_in_distance, spokenDistance(cue.meters, texts), withThen(turn, cue.then, texts).lowercaseFirst(texts))
     }
-    is VoiceCue.Now -> turnWithStreet(cue.instruction, cue.street, texts)
+    is VoiceCue.Now -> withThen(turnWithStreet(cue.instruction, cue.street, texts), cue.then, texts)
     VoiceCue.Arrived -> texts.string(R.string.voice_arrived)
+}
+
+private fun String.lowercaseFirst(texts: VoiceTexts) = replaceFirstChar { it.lowercase(texts.locale) }
+
+// "Gira a sinistra, poi gira a destra": la seconda svolta senza strada, che la mappa da' solo per la prossima.
+private fun withThen(turn: String, then: TurnInstruction?, texts: VoiceTexts): String {
+    if (then == null) return turn
+    val next = if (then.type == TurnType.ARRIVE) texts.string(R.string.voice_arrive_ahead) else texts.string(turnTextRes(then.type), then.roundaboutExit)
+    return texts.string(R.string.voice_then, turn, next.lowercaseFirst(texts))
 }
 
 // Alla rotonda la strada dopo "l'uscita 2" si confonderebbe con l'uscita: solo il numero.

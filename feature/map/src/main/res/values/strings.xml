@@ -216,6 +216,7 @@
     <string name="voice_in_distance">Tra %1$s, %2$s</string>
     <string name="voice_follow">Prosegui per %1$s</string>
     <string name="voice_onto_street">%1$s in %2$s</string>
+    <string name="voice_then">%1$s, poi %2$s</string>
     <string name="voice_arrive_ahead">arrivi a destinazione</string>
     <string name="voice_arrived">Destinazione raggiunta</string>
     <plurals name="voice_meters">

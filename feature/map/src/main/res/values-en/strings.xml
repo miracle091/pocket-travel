@@ -213,6 +213,7 @@
     <string name="voice_in_distance">In %1$s, %2$s</string>
     <string name="voice_follow">Continue for %1$s</string>
     <string name="voice_onto_street">%1$s onto %2$s</string>
+    <string name="voice_then">%1$s, then %2$s</string>
     <string name="voice_arrive_ahead">you\'ll arrive at your destination</string>
     <string name="voice_arrived">You have arrived at your destination</string>
     <plurals name="voice_meters">

@@ -13,7 +13,7 @@ class NavigationAnnouncerTest {
     private val preferences = NavigationPreferences(InMemoryPreferencesFactory())
     private val announcer = NavigationAnnouncer(voice, vibration, XmlVoiceTexts("it"), preferences)
 
-    private val left = TurnInstruction(TurnType.LEFT, 0.0, 1)
+    private val left = TurnInstruction(TurnType.LEFT, 400.0, 1)
     private val arrive = TurnInstruction(TurnType.ARRIVE, 0.0, 2)
     private val route = Route(points = listOf(RoutePoint(0.0, 0.0), RoutePoint(0.0, 0.01)), distanceMeters = 500.0, durationSeconds = 400.0, instructions = listOf(left, arrive))
 
