@@ -141,6 +141,9 @@ def paragraph_key(text, src="en", tgt="it"):
     return hashlib.sha1(f"{src}-{tgt}\n{text}".encode("utf-8")).hexdigest()
 
 
+LEADING_INFINITIVE = re.compile(r"[a-zàèéìòù]+(?:are|ere|ire|rre)(?:si|lo|la|li|le|ne|vi|ci)?\b")
+
+
 def split_line(line):
     """(segno iniziale "▸ ", "• " o "", testo) di una riga del corpo."""
     marker = next((m for m in ts.MARKERS if line.startswith(m)), "")
@@ -155,12 +158,18 @@ def strip_markers(line):
     return line.strip()
 
 
-def match_case(english, italian):
-    """[italian] con la maiuscola iniziale se [english] comincia con una: in un elenco il modello a volte scrive
-    "seguire i media locali" per "Follow local media"."""
-    if english[:1].isupper() and italian[:1].islower():
-        return italian[0].upper() + italian[1:]
-    return italian
+def capitalize_list_infinitives(lines):
+    """[lines] con la maiuscola alle voci di elenco che cominciano con un infinito minuscolo accanto a una voce
+    maiuscola: travel.gc.ca a volte scrive "• monitor local media" fra "• Avoid ..." e "• Follow ...". Le altre voci
+    minuscole restano ("• i buddisti")."""
+    out = list(lines)
+    for i, line in enumerate(lines):
+        marker, text = split_line(line)
+        if marker == "• " and LEADING_INFINITIVE.match(text):
+            near = [split_line(lines[j]) for j in (i - 1, i + 1) if 0 <= j < len(lines)]
+            if any(m == "• " and t[:1].isupper() for m, t in near):
+                out[i] = marker + text[0].upper() + text[1:]
+    return out
 
 
 def paragraphs(rows):
@@ -221,7 +230,7 @@ def overlay_from_store(picks, store):
             for line in body.split("\n"):
                 marker, text = split_line(line)
                 lines.append(marker + store.get(text) if text else line)
-            out.append((new_title, "\n".join(lines), url))
+            out.append((new_title, "\n".join(capitalize_list_infinitives(lines)), url))
         translated[(owner, category)] = out
     return translated, missing
 
@@ -258,7 +267,7 @@ def translate_block(chat, head, texts):
         result = got.get(i)
         if not result or not ts._plausible(text, result):
             result = NUMBERED.sub(r"\2", chat(f"{head}\n\n[1] {text}").strip()).strip()
-        result = match_case(text, strip_markers(result))
+        result = strip_markers(result)
         out.append(result if result and "\n" not in result and ts._plausible(text, result) else None)
     return out
 
@@ -281,7 +290,7 @@ def fix_register(chat, english, italian, second_person):
                                        temperature, seed).strip()).strip()
         # a volte il modello da' piu' versioni, una per riga: vale ognuna
         for candidate in [raw] + raw.splitlines():
-            candidate = match_case(english, strip_markers(candidate))
+            candidate = strip_markers(candidate)
             if register_ok(candidate, italian, second_person):
                 return candidate, True
     return italian, False

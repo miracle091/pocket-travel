@@ -406,6 +406,20 @@ class ParagraphStoreTest(unittest.TestCase):
                          translated)
         self.assertEqual({}, missing)
 
+    def test_infinito_minuscolo_in_un_elenco_con_maiuscole_prende_la_maiuscola(self):
+        # travel.gc.ca a volte scrive una voce in minuscolo fra voci in maiuscolo ("• monitor local media"); "i buddisti"
+        # fra voci minuscole resta com'e'
+        with tempfile.TemporaryDirectory() as d:
+            store = tg.TranslationStore(Path(d) / "t.jsonl", "m")
+            for en, it in (("Avoid the area", "Evitare la zona"), ("monitor local media", "seguire i media locali"),
+                           ("Buddhists", "i buddisti"), ("Christians", "i cristiani"), ("attacks target:", "colpiscono:")):
+                store.add(en, it)
+            rows = [("Health (Government of Canada)",
+                     "• Avoid the area\n• monitor local media\n\nattacks target:\n• Buddhists\n• Christians", GC)]
+            translated, _ = tg.overlay_from_store([("a", "SALUTE", rows)], store)
+        self.assertEqual("• Evitare la zona\n• Seguire i media locali\n\ncolpiscono:\n• i buddisti\n• i cristiani",
+                         translated[("a", "SALUTE")][0][1])
+
     def test_paragrafo_assente_lascia_la_categoria_e_va_tra_i_mancanti(self):
         with tempfile.TemporaryDirectory() as d:
             store = tg.TranslationStore(Path(d) / "t.jsonl", "m")
@@ -508,12 +522,6 @@ class LlamaBackendTest(unittest.TestCase):
         # in un elenco il modello mette "• " anche a una riga che non lo ha, o lo raddoppia: lo rimette solo overlay_from_store
         chat = FakeChat(lambda text, *_: "[1] • Italiano uno\n[2] • • Italiano due")
         self.assertEqual(["Italiano uno", "Italiano due"], tg.translate_block(chat, "Guida", ["One one", "• Two two"]))
-
-    def test_maiuscola_iniziale_come_inglese(self):
-        # in un elenco il modello a volte comincia in minuscolo ("• seguire i media locali") dove l'inglese ha la maiuscola
-        chat = FakeChat(lambda text, *_: "[1] seguire i media locali\n[2] eSIM disponibili")
-        self.assertEqual(["Seguire i media locali", "eSIM disponibili"],
-                         tg.translate_block(chat, "Guida", ["Follow local media", "eSIMs available"]))
 
     def test_blocco_fallito_non_ferma_gli_altri(self):
         many = "\n".join(f"Step {i}: walk {'far ' * 40}." for i in range(40))
