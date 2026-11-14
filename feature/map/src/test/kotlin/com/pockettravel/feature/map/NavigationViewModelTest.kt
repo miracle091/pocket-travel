@@ -371,6 +371,19 @@ class NavigationViewModelTest {
     }
 
     @Test
+    fun `le opzioni Evita dell'anteprima valgono per i calcoli della navigazione e si salvano`() = runTest {
+        engines.defaultResult = RouteResult.Found(route)
+        val viewModel = viewModel()
+        viewModel.start("r1", destination, RouteProfile.CAR, avoid = setOf(RouteAvoid.TOLLS))
+
+        gps.emit(fix(origin))
+        runCurrent()
+
+        assertEquals(mapOf("avoid_toll" to "1"), engines.requests.single().params)
+        assertEquals(setOf(RouteAvoid.TOLLS), preferences.activeNavigation(clock.millis())?.avoid)
+    }
+
+    @Test
     fun `se il percorso non si trova la schermata lo dice e Riprova ricalcola dall'ultima posizione`() = runTest {
         engines.defaultResult = RouteResult.NotFound
         val viewModel = viewModel()

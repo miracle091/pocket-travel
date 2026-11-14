@@ -65,6 +65,16 @@ class NavigationPreferencesTest {
     }
 
     @Test
+    fun `le opzioni Evita restano, nelle Impostazioni e nella navigazione salvata`() {
+        val files = InMemoryPreferencesFactory()
+        NavigationPreferences(files).setAvoid(setOf(RouteAvoid.MOTORWAYS))
+        NavigationPreferences(files).saveActiveNavigation(navigation().copy(avoid = setOf(RouteAvoid.BUSY_ROADS)))
+
+        assertEquals(setOf(RouteAvoid.MOTORWAYS), NavigationPreferences(files).avoid.value)
+        assertEquals(setOf(RouteAvoid.BUSY_ROADS), NavigationPreferences(files).activeNavigation(now = 2_000L)?.avoid)
+    }
+
+    @Test
     fun `senza ora di arrivo scelta resta null`() {
         val files = InMemoryPreferencesFactory()
         NavigationPreferences(files).saveActiveNavigation(navigation())

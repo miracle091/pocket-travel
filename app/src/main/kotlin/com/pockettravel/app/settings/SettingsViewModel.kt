@@ -9,6 +9,7 @@ import com.pockettravel.core.sync.CatalogCheck
 import com.pockettravel.core.sync.CatalogPreferences
 import com.pockettravel.core.sync.CustomCatalog
 import com.pockettravel.feature.map.NavigationPreferences
+import com.pockettravel.feature.map.RouteAvoid
 import com.pockettravel.feature.map.UsageMode
 import com.pockettravel.feature.map.UsageModePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,6 +34,7 @@ data class SettingsUiState(
     val stopGpsOnArrival: Boolean = true,
     val walkingHaptics: Boolean = true,
     val voiceGuidance: Boolean = true,
+    val avoid: Set<RouteAvoid> = emptySet(),
     val catalogState: CatalogState = CatalogState.Idle,
 )
 
@@ -71,6 +73,8 @@ class SettingsViewModel @Inject constructor(
 
     fun setVoiceGuidance(enabled: Boolean) = navigationPreferences.setVoiceGuidance(enabled)
 
+    fun setAvoid(avoid: Set<RouteAvoid>) = navigationPreferences.setAvoid(avoid)
+
     /** Catalogo scelto al posto di quello ufficiale; null = ufficiale. */
     val customCatalog: CustomCatalog? = catalogPreferences.saved()
 
@@ -84,8 +88,9 @@ class SettingsViewModel @Inject constructor(
 
     /** Tutto quello che le Impostazioni leggono, in un solo stato. */
     val uiState: StateFlow<SettingsUiState> = combine(
-        appearance, usage, nationalityPreferences.nationality, navigation, catalogState,
-    ) { (dynamicColor, dark), usageSettings, nationality, (stopGps, haptics, voice), catalog ->
+        appearance, usage, nationalityPreferences.nationality, combine(navigation, navigationPreferences.avoid, ::Pair), catalogState,
+    ) { (dynamicColor, dark), usageSettings, nationality, (navigationSettings, avoid), catalog ->
+        val (stopGps, haptics, voice) = navigationSettings
         SettingsUiState(
             useDynamicColor = dynamicColor,
             forceDark = dark,
@@ -96,6 +101,7 @@ class SettingsViewModel @Inject constructor(
             stopGpsOnArrival = stopGps,
             walkingHaptics = haptics,
             voiceGuidance = voice,
+            avoid = avoid,
             catalogState = catalog,
         )
     }.stateIn(
@@ -111,6 +117,7 @@ class SettingsViewModel @Inject constructor(
             stopGpsOnArrival = navigationPreferences.stopGpsOnArrival.value,
             walkingHaptics = navigationPreferences.walkingHaptics.value,
             voiceGuidance = navigationPreferences.voiceGuidance.value,
+            avoid = navigationPreferences.avoid.value,
         ),
     )
 

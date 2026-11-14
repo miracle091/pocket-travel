@@ -391,6 +391,8 @@
     <string name="settings_walking_haptics_subtitle">One long vibration to turn left, two short ones for right, one short for other turns and three on arrival, to follow navigation without looking at the screen</string>
     <string name="settings_voice_guidance">Voice guidance</string>
     <string name="settings_voice_guidance_subtitle">Navigation directions spoken by the system voice installed on the phone, offline, even with the screen off</string>
+    <string name="settings_route_options">Route options</string>
+    <string name="settings_route_options_body">What to avoid on routes. They apply to every new route and can be changed in the route preview for that route only.</string>
     <string name="settings_alert_notifications">Alert notifications</string>
     <string name="settings_alert_notifications_denied">Notification permission denied: alerts can\'t be delivered</string>
     <string name="settings_open_app_settings">Settings</string>

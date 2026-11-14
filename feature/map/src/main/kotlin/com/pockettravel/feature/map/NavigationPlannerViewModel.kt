@@ -149,6 +149,7 @@ data class PlannerUiState(
     val routeProfile: RouteProfile,
     val routing: BRouterProfile,
     val allowSteps: Boolean = false,
+    val avoid: Set<RouteAvoid> = emptySet(),
     val recents: List<NavigationPlace> = emptyList(),
     val mapRegionIds: List<String> = emptyList(),
     val idlePosition: RoutePoint? = null,
@@ -180,6 +181,7 @@ class NavigationPlannerViewModel @Inject constructor(
     private val gps: GpsLocationSource,
     private val recentDestinations: RecentDestinations,
     private val usageModePreferences: UsageModePreferences,
+    private val navigationPreferences: NavigationPreferences,
     private val routingVariantPreferences: RoutingVariantPreferences,
     /** Per la mappa dell'anteprima del percorso: lo stesso stile della scheda Mappa. */
     val tileSource: OfflineTileSource,
@@ -201,8 +203,11 @@ class NavigationPlannerViewModel @Inject constructor(
     private val _routeProfile = MutableStateFlow(
         savedStateHandle.get<String>(KEY_MODE)?.let(RouteProfile::valueOf) ?: RouteProfile.from(usageModePreferences.modes.value),
     )
-    private val routing: StateFlow<BRouterProfile> = combine(_routeProfile, usageModePreferences.accessible, usageModePreferences.allowSteps, ::brouterProfile)
-        .stateIn(viewModelScope, SharingStarted.Eagerly, brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value))
+
+    // Cosa evitare in questo percorso: parte dalle Impostazioni e torna a quelle con un'altra destinazione.
+    private val routeAvoid = MutableStateFlow(savedStateHandle.get<String>(KEY_AVOID)?.let(RouteAvoid::decode) ?: navigationPreferences.avoid.value)
+    private val routing: StateFlow<BRouterProfile> = combine(_routeProfile, usageModePreferences.accessible, usageModePreferences.allowSteps, routeAvoid, ::brouterProfile)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value, routeAvoid.value))
 
     private val _preview = MutableStateFlow<PlannerPreview>(PlannerPreview.Idle)
     private var previewJob: Job? = null
@@ -298,9 +303,9 @@ class NavigationPlannerViewModel @Inject constructor(
 
     /** Tutto quello che la scheda Navigatore legge del percorso, in un solo stato. */
     val uiState: StateFlow<PlannerUiState> = combine(
-        mapState, routingRegionIds, usageModePreferences.allowSteps, combine(_arriveBy, toCatch, ::Pair), _reminder,
-    ) { state, routingRegionIds, allowSteps, (arriveBy, trip), reminder ->
-        state.copy(routingRegionIds = routingRegionIds, allowSteps = allowSteps, arriveBy = arriveBy, reminder = reminder, toCatch = trip)
+        mapState, routingRegionIds, combine(usageModePreferences.allowSteps, routeAvoid, ::Pair), combine(_arriveBy, toCatch, ::Pair), _reminder,
+    ) { state, routingRegionIds, (allowSteps, avoid), (arriveBy, trip), reminder ->
+        state.copy(routingRegionIds = routingRegionIds, allowSteps = allowSteps, avoid = avoid, arriveBy = arriveBy, reminder = reminder, toCatch = trip)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
@@ -311,6 +316,7 @@ class NavigationPlannerViewModel @Inject constructor(
             routeProfile = _routeProfile.value,
             routing = routing.value,
             allowSteps = usageModePreferences.allowSteps.value,
+            avoid = routeAvoid.value,
             routingInstalled = routingInstalled.value,
             routingRegionIds = routingRegionIds.value,
             arriveBy = _arriveBy.value,
@@ -372,6 +378,7 @@ class NavigationPlannerViewModel @Inject constructor(
         if (place != _to.value) {
             cancelReminder()
             toCatch.value = null
+            saveAvoid(navigationPreferences.avoid.value)
         }
         _to.value = place
     }
@@ -515,6 +522,21 @@ class NavigationPlannerViewModel @Inject constructor(
         refreshPreview()
     }
 
+    /** Un'opzione "Evita" dell'anteprima, solo per questo percorso. */
+    fun setAvoid(option: RouteAvoid, on: Boolean) {
+        val avoid = if (on) routeAvoid.value + option else routeAvoid.value - option
+        if (avoid == routeAvoid.value) return
+        // Come le scale: cambia la durata del percorso, e con lei l'ora di partenza.
+        cancelReminder()
+        saveAvoid(avoid)
+        refreshPreview()
+    }
+
+    private fun saveAvoid(avoid: Set<RouteAvoid>) {
+        routeAvoid.value = avoid
+        savedStateHandle[KEY_AVOID] = RouteAvoid.encode(avoid)
+    }
+
     fun onPermissionResult(granted: Boolean) {
         locationAllowed.value = granted || gps.hasPermission()
         if (granted || gps.hasPermission()) refreshPreview()
@@ -528,7 +550,7 @@ class NavigationPlannerViewModel @Inject constructor(
         val current = regionId.value ?: destination.regionId
         // Dai valori di partenza, non da [routing]: quello si aggiorna solo al giro successivo della sua coroutine, e
         // dopo un cambio fatto da dentro una coroutine l'anteprima del percorso userebbe il modo di prima.
-        val choice = brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value)
+        val choice = brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value, routeAvoid.value)
         // Assegnato prima di partire: un dispatcher che esegue subito chiamerebbe onProgress con previewJob ancora vecchio.
         val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             val self = coroutineContext[Job]
@@ -610,6 +632,7 @@ class NavigationPlannerViewModel @Inject constructor(
         const val KEY_MODE = "mode"
         const val KEY_ARRIVE_BY = "arriveBy"
         const val KEY_REMINDER = "reminder"
+        const val KEY_AVOID = "avoid"
         const val SEARCH_DEBOUNCE_MILLIS = 300L
         const val SEARCH_LIMIT = 200
         // Abbastanza per trovare il nome a parole intere tra quelli che contengono la destinazione solo come parte

@@ -50,6 +50,7 @@ abstract class NavigationPlannerTestBase {
     protected val filters = MapFilterPreferences(files)
     protected val variants = RoutingVariantPreferences(files)
     protected val usageModes = UsageModePreferences(files, filters, variants)
+    protected val navigationPreferences = NavigationPreferences(files)
     protected val tileSource = FakeOfflineTileSource().apply {
         bounds["r1"] = MapBounds(6.0, 36.0, 19.0, 47.0)
         bounds["r2"] = MapBounds(-5.0, 42.0, 8.0, 51.0)
@@ -78,7 +79,7 @@ abstract class NavigationPlannerTestBase {
     protected fun TestScope.viewModel(): NavigationPlannerViewModel {
         val created = ViewModelHost(NavigationPlannerViewModel::class.java) {
             NavigationPlannerViewModel(
-                handle, reminders, main.dispatcher, main.dispatcher, PoiRepository(dao), addresses, regions, engines, gps, recents, usageModes, variants, tileSource,
+                handle, reminders, main.dispatcher, main.dispatcher, PoiRepository(dao), addresses, regions, engines, gps, recents, usageModes, navigationPreferences, variants, tileSource,
             )
         }
         host = created

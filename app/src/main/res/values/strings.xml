@@ -401,6 +401,8 @@
     <string name="settings_walking_haptics_subtitle">Una vibrazione lunga per girare a sinistra, due brevi per la destra, una breve per le altre svolte e tre all\'arrivo, per seguire la navigazione senza guardare lo schermo</string>
     <string name="settings_voice_guidance">Guida vocale</string>
     <string name="settings_voice_guidance_subtitle">Le indicazioni della navigazione dette dalla voce di sistema installata sul telefono, senza rete, anche a schermo spento</string>
+    <string name="settings_route_options">Opzioni di percorso</string>
+    <string name="settings_route_options_body">Cosa evitare nei percorsi. Valgono per ogni percorso nuovo e si possono cambiare nell\'anteprima del percorso, solo per quello.</string>
     <string name="settings_alert_notifications">Notifiche delle allerte</string>
     <string name="settings_alert_notifications_denied">Autorizzazione per le notifiche negata: le allerte non possono arrivare</string>
     <string name="settings_open_app_settings">Impostazioni</string>

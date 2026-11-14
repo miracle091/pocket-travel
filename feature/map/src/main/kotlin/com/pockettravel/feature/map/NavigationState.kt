@@ -45,11 +45,6 @@ data class BRouterProfile(val profile: String, val params: Map<String, String> =
 }
 
 /**
- * A piedi con "In sedia a rotelle" si usa il profilo in sedia a rotelle: scale vietate, oppure molto
- * penalizzate se l'utente accetta qualche gradino ([allowSteps], variabile allow_steps del profilo).
- * Bici e auto restano quelle del modo.
- */
-/**
  * Le regioni con la rete stradale utile per [mode]: quelle con la rete stradale solo auto ([carOnly], RoutingVariantPreferences)
  * valgono solo in auto; a piedi, in bici e in sedia a rotelle contano come regioni senza rete stradale (il Navigatore le propone
  * da scaricare complete).
@@ -57,11 +52,16 @@ data class BRouterProfile(val profile: String, val params: Map<String, String> =
 fun usableRoutingRegions(withRouting: Set<String>, carOnly: Set<String>, mode: RouteProfile): Set<String> =
     if (mode == RouteProfile.CAR) withRouting else withRouting - carOnly
 
-fun brouterProfile(mode: RouteProfile, accessible: Boolean, allowSteps: Boolean): BRouterProfile =
+/**
+ * A piedi con "In sedia a rotelle" si usa il profilo in sedia a rotelle: scale vietate, oppure molto
+ * penalizzate se l'utente accetta qualche gradino ([allowSteps], variabile allow_steps del profilo).
+ * Bici e auto restano quelle del modo, con le variabili delle opzioni [avoid] del modo.
+ */
+fun brouterProfile(mode: RouteProfile, accessible: Boolean, allowSteps: Boolean, avoid: Set<RouteAvoid> = emptySet()): BRouterProfile =
     if (mode == RouteProfile.WALK && accessible) {
         BRouterProfile(UsageMode.WHEELCHAIR_ROUTING_PROFILE, if (allowSteps) mapOf("allow_steps" to "1") else emptyMap())
     } else {
-        BRouterProfile(mode.routingProfile)
+        BRouterProfile(mode.routingProfile, avoid.filter { it.mode == mode }.associate { it.key to it.value })
     }
 
 /** Cosa mostra la schermata di navigazione. */

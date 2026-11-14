@@ -52,15 +52,17 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pockettravel.core.sync.AlertNotificationSwitch
 import com.pockettravel.app.R
+import com.pockettravel.core.sync.AlertNotificationSwitch
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CountryPickerSheet
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.countryName
 import com.pockettravel.feature.ai.AiSettingsSection
+import com.pockettravel.feature.map.RouteAvoidOptions
 import com.pockettravel.feature.map.UsageMode
 import com.pockettravel.feature.map.UsageModeOptions
+import com.pockettravel.feature.map.routeAvoidSummary
 import kotlinx.coroutines.launch
 import com.pockettravel.core.ui.R as UiR
 
@@ -75,6 +77,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     var showNationality by rememberSaveable { mutableStateOf(false) }
     var showLanguage by rememberSaveable { mutableStateOf(false) }
     var showCatalog by rememberSaveable { mutableStateOf(false) }
+    var showRouteOptions by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     // Chiave sulla configurazione: la lingua cambia senza ricreare l'activity (configChanges nel manifest).
     val language = remember(LocalConfiguration.current) { AppLanguage.current(context) }
@@ -130,6 +133,9 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 checked = state.voiceGuidance,
                 onCheckedChange = viewModel::setVoiceGuidance,
             )
+            SettingsItem(ImageVector.vectorResource(UiR.drawable.ms_filter_list), stringResource(R.string.settings_route_options), routeAvoidSummary(state.avoid)) {
+                showRouteOptions = true
+            }
 
             SectionHeader(stringResource(R.string.settings_section_ai))
             AiSettingsSection()
@@ -184,6 +190,26 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                     onDirectionsChange = viewModel::setWantsDirections,
                     modifier = Modifier.padding(horizontal = Spacing.s),
                 )
+            }
+        }
+    }
+
+    if (showRouteOptions) {
+        // Aperto per intero e scorrevole, come "Come ti sposti": cinque interruttori non stanno a mezza altezza.
+        ModalBottomSheet(onDismissRequest = { showRouteOptions = false }, sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))) {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = Spacing.l)) {
+                Text(
+                    text = stringResource(R.string.settings_route_options),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = Spacing.xl).semantics { heading() },
+                )
+                Text(
+                    text = stringResource(R.string.settings_route_options_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.s),
+                )
+                RouteAvoidOptions(state.avoid, viewModel::setAvoid, modifier = Modifier.padding(horizontal = Spacing.xl))
             }
         }
     }

@@ -20,6 +20,16 @@ class NavigationTest {
         assertEquals(BRouterProfile("car-vario"), brouterProfile(RouteProfile.CAR, accessible = true, allowSteps = false))
     }
 
+    @Test
+    fun `le opzioni Evita diventano variabili del profilo solo per il loro mezzo`() {
+        val avoid = setOf(RouteAvoid.TOLLS, RouteAvoid.UNPAVED, RouteAvoid.FERRIES)
+
+        assertEquals(BRouterProfile("car-vario", mapOf("avoid_toll" to "1", "avoid_unpaved" to "1")), brouterProfile(RouteProfile.CAR, false, false, avoid))
+        assertEquals(BRouterProfile("trekking", mapOf("allow_ferries" to "0")), brouterProfile(RouteProfile.BIKE, false, false, avoid))
+        assertEquals(BRouterProfile("shortest"), brouterProfile(RouteProfile.WALK, false, false, avoid))
+        assertEquals(avoid, RouteAvoid.decode(RouteAvoid.encode(avoid) + ",SCONOSCIUTA"))
+    }
+
     // Percorso a L: verso est lungo il parallelo 45 (circa 393 m), poi a sinistra verso nord (circa 445 m).
     private val start = RoutePoint(45.0, 10.0)
     private val corner = RoutePoint(45.0, 10.005)

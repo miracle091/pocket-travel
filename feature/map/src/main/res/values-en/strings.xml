@@ -328,6 +328,17 @@
     <string name="planner_no_routing_data">Calculating the route requires this region\'s road network (downloaded once, then kept on the device)</string>
     <string name="planner_start">Start</string>
     <string name="planner_no_traffic">Estimated time without traffic</string>
+    <string name="planner_route_options">Options</string>
+    <string name="planner_route_options_count">Options (%1$d)</string>
+    <string name="planner_route_options_note">They apply only to this route. Choose the starting ones in Settings.</string>
+    <string name="route_avoid_tolls">Avoid tolls</string>
+    <string name="route_avoid_motorways">Avoid motorways</string>
+    <string name="route_avoid_unpaved">Avoid unpaved roads</string>
+    <string name="route_avoid_busy_roads">Avoid busy roads</string>
+    <string name="route_avoid_ferries">Avoid ferries</string>
+    <string name="route_avoid_car">By car</string>
+    <string name="route_avoid_bike">By bike</string>
+    <string name="route_avoid_none">None</string>
     <string name="planner_preview_only">Starting from a chosen place: route only. Turn-by-turn navigation starts from your location</string>
     <string name="planner_steps">Turns</string>
     <string name="planner_search_start">Choose the starting point</string>

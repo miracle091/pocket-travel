@@ -47,6 +47,16 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
         _voiceGuidance.value = enabled
     }
 
+    private val _avoid = MutableStateFlow(RouteAvoid.decode(prefs.getString(KEY_AVOID, null)))
+
+    /** Cosa evitare nei percorsi, dalle Impostazioni: il valore di partenza di ogni percorso, che l'anteprima cambia per quel percorso. */
+    val avoid: StateFlow<Set<RouteAvoid>> = _avoid.asStateFlow()
+
+    fun setAvoid(avoid: Set<RouteAvoid>) {
+        prefs.edit { putString(KEY_AVOID, RouteAvoid.encode(avoid)) }
+        _avoid.value = avoid
+    }
+
     /**
      * La navigazione in corso, salvata su disco finche' non si chiude: se il sistema chiude l'app (anche a schermo
      * spento), alla riapertura il Navigatore propone di riprenderla, sia dalle app recenti sia dall'icona.
@@ -59,6 +69,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
             putLong(KEY_NAVIGATION_ARRIVE_BY, navigation.arriveByEpochMinute ?: -1L)
             putLong(KEY_NAVIGATION_STARTED, navigation.startedAtMillis)
             putString(KEY_NAVIGATION_TRIP, navigation.toCatch?.let(TripToCatch::encode))
+            putString(KEY_NAVIGATION_AVOID, RouteAvoid.encode(navigation.avoid))
         }
     }
 
@@ -77,6 +88,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
             arriveByEpochMinute = prefs.getLong(KEY_NAVIGATION_ARRIVE_BY, -1L).takeIf { it >= 0 },
             startedAtMillis = started,
             toCatch = TripToCatch.decode(prefs.getString(KEY_NAVIGATION_TRIP, null)),
+            avoid = RouteAvoid.decode(prefs.getString(KEY_NAVIGATION_AVOID, null)),
         )
     }
 
@@ -87,6 +99,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
         remove(KEY_NAVIGATION_ARRIVE_BY)
         remove(KEY_NAVIGATION_STARTED)
         remove(KEY_NAVIGATION_TRIP)
+        remove(KEY_NAVIGATION_AVOID)
     }
 
     private companion object {
@@ -96,10 +109,12 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
         const val KEY_NAVIGATION_ARRIVE_BY = "guidance_arrive_by"
         const val KEY_NAVIGATION_STARTED = "guidance_started"
         const val KEY_NAVIGATION_TRIP = "guidance_trip"
+        const val KEY_NAVIGATION_AVOID = "guidance_avoid"
         const val ACTIVE_NAVIGATION_MAX_AGE_MILLIS = 12 * 60 * 60 * 1000L
         const val KEY_STOP_GPS_ON_ARRIVAL = "stop_gps_on_arrival"
         const val KEY_WALKING_HAPTICS = "walking_haptics"
         const val KEY_VOICE_GUIDANCE = "voice_guidance"
+        const val KEY_AVOID = "avoid"
     }
 }
 
@@ -113,4 +128,6 @@ data class ActiveNavigation(
     val startedAtMillis: Long,
     // "Raggiungi la fermata": la corsa da prendere, per riprendere anche il passaggio alla successiva.
     val toCatch: TripToCatch? = null,
+    // Cosa evitare, scelto nell'anteprima: vale anche per i ricalcoli.
+    val avoid: Set<RouteAvoid> = emptySet(),
 )

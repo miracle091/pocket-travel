@@ -144,6 +144,7 @@ class NavigationViewModel @Inject constructor(
             mode = fromDisk?.mode ?: savedMode ?: controller.routeProfile.value,
             arriveBy = fromDisk?.arriveByEpochMinute?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) } ?: savedArrival.value,
             toCatch = savedNavigation?.toCatch,
+            avoid = savedNavigation?.avoid.orEmpty(),
         )
     }
 
@@ -165,7 +166,7 @@ class NavigationViewModel @Inject constructor(
     /**
      * Parte la navigazione verso [place] con il modo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
      * Con [preview] (il percorso gia' calcolato nell'anteprima del percorso) si riparte da quello, se la prima posizione e' sul percorso.
-     * [toCatch]: la corsa da prendere alla fermata ("Raggiungi la fermata").
+     * [toCatch]: la corsa da prendere alla fermata ("Raggiungi la fermata"); [avoid]: cosa evitare, dall'anteprima.
      */
     fun start(
         regionId: String,
@@ -174,9 +175,10 @@ class NavigationViewModel @Inject constructor(
         arriveBy: LocalDateTime? = null,
         preview: PlannerPreview.Ready? = null,
         toCatch: TripToCatch? = null,
+        avoid: Set<RouteAvoid> = emptySet(),
     ) {
         resumeOffer.value = null
-        controller.start(regionId, place, mode, arriveBy, preview, toCatch)
+        controller.start(regionId, place, mode, arriveBy, preview, toCatch, avoid)
         savedStateHandle[KEY_REGION] = regionId
         savedStateHandle[KEY_MODE] = mode.name
         savedStateHandle[KEY_ARRIVE_BY] = arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }

@@ -40,4 +40,37 @@ class NavigationPlannerProfileTest : NavigationPlannerTestBase() {
 
         assertEquals(mapOf("allow_steps" to "1"), engines.requests.last().params)
     }
+
+    @Test
+    fun `l'anteprima parte dalle opzioni delle Impostazioni e le cambia solo per questo percorso`() = runTest(main.dispatcher) {
+        navigationPreferences.setAvoid(setOf(RouteAvoid.TOLLS))
+        val viewModel = viewModel()
+        viewModel.setRouteProfile(RouteProfile.CAR)
+        viewModel.plan(colosseo)
+        advanceUntilIdle()
+        assertEquals(mapOf("avoid_toll" to "1"), engines.requests.last().params)
+
+        viewModel.setAvoid(RouteAvoid.MOTORWAYS, true)
+        advanceUntilIdle()
+
+        assertEquals(mapOf("avoid_toll" to "1", "avoid_motorways" to "1"), engines.requests.last().params)
+        assertEquals(setOf(RouteAvoid.TOLLS, RouteAvoid.MOTORWAYS), viewModel.uiState.value.avoid)
+        assertEquals("le Impostazioni non cambiano", setOf(RouteAvoid.TOLLS), navigationPreferences.avoid.value)
+    }
+
+    @Test
+    fun `con un'altra destinazione le opzioni tornano quelle delle Impostazioni`() = runTest(main.dispatcher) {
+        val viewModel = viewModel()
+        viewModel.setRouteProfile(RouteProfile.CAR)
+        viewModel.plan(colosseo)
+        viewModel.setAvoid(RouteAvoid.UNPAVED, true)
+        advanceUntilIdle()
+
+        // Un'altra destinazione nella stessa regione, per avere di nuovo un calcolo.
+        viewModel.plan(NavigationPlace("Pantheon", 41.9, 12.48, "r1"))
+        advanceUntilIdle()
+
+        assertEquals(emptySet<RouteAvoid>(), viewModel.uiState.value.avoid)
+        assertEquals(emptyMap<String, String>(), engines.requests.last().params)
+    }
 }

@@ -64,6 +64,9 @@ class NavigationController @Inject constructor(
     // La regione da cui si e' partiti (la scheda aperta) e la destinazione; null = non si sta navigando.
     var regionId: String = ""
         private set
+
+    // Cosa evitare, scelto nell'anteprima del percorso: vale per tutti i calcoli della navigazione.
+    private var avoid: Set<RouteAvoid> = emptySet()
     private val _destination = MutableStateFlow<NavigationPlace?>(null)
     val destination: StateFlow<NavigationPlace?> = _destination.asStateFlow()
     private val _arrival = MutableStateFlow<LocalDateTime?>(null)
@@ -157,7 +160,8 @@ class NavigationController @Inject constructor(
     /**
      * Parte la navigazione verso [place] con il modo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
      * Con [preview] (il percorso gia' calcolato nell'anteprima del percorso) si riparte da quello, se la prima posizione e' sul percorso.
-     * Con [toCatch] l'ora di arrivo segue le partenze della corsa: persa una, passa alla successiva.
+     * Con [toCatch] l'ora di arrivo segue le partenze della corsa: persa una, passa alla successiva. [avoid]: le opzioni
+     * dell'anteprima, anche per i ricalcoli.
      */
     fun start(
         regionId: String,
@@ -166,8 +170,10 @@ class NavigationController @Inject constructor(
         arriveBy: LocalDateTime?,
         preview: PlannerPreview.Ready?,
         toCatch: TripToCatch? = null,
+        avoid: Set<RouteAvoid> = emptySet(),
     ) {
         this.regionId = regionId
+        this.avoid = avoid
         _regionIds.value = preview?.regionIds ?: listOf(regionId)
         previewToUse = preview
         // Anche la stessa anteprima del percorso riavviata riparte da capo: il tracker ricorda quanto si e' avanzati.
@@ -189,7 +195,7 @@ class NavigationController @Inject constructor(
         announcer.begin(mode)
         beginSession(place)
         navigationPreferences.saveActiveNavigation(
-            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }, clock.millis(), toCatch),
+            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }, clock.millis(), toCatch, avoid),
         )
     }
 
@@ -314,7 +320,7 @@ class NavigationController @Inject constructor(
         _calculating.value = true
         // Prima posizione arrivata: la notifica passa da "In attesa del segnale GPS…" a "Calcolo del percorso".
         if (_routeResult.value !is RouteResult.Found) session.update(NavigationSnapshot(target.name, null, 0.0, 0.0, 0.0))
-        val choice = brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value)
+        val choice = brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value, avoid)
         val job = scope.launch(start = CoroutineStart.LAZY) {
             val self = coroutineContext[Job]
             try {

@@ -185,6 +185,7 @@ fun NavigationPlannerScreen(
             routeProfile = routeProfile,
             wheelchair = planner.routing.wheelchair,
             allowSteps = planner.allowSteps,
+            avoid = planner.avoid,
             recents = planner.recents,
             mapRegionIds = mapRegionIds,
             routingInstalled = planner.routingInstalled,
@@ -212,7 +213,7 @@ fun NavigationPlannerScreen(
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 // Il percorso gia' calcolato per l'anteprima del percorso non si ricalcola da zero (se la posizione e' sul percorso).
-                to?.let { navigationViewModel.start(regionId ?: it.regionId, it, routeProfile, arriveBy, preview as? PlannerPreview.Ready, planner.toCatch) }
+                to?.let { navigationViewModel.start(regionId ?: it.regionId, it, routeProfile, arriveBy, preview as? PlannerPreview.Ready, planner.toCatch, planner.avoid) }
             },
             onSwap = viewModel::swap,
             onRouteProfileChange = viewModel::setRouteProfile,
@@ -222,6 +223,7 @@ fun NavigationPlannerScreen(
             onRequestPermission = requestPermission,
             onDownloadRouting = { onDownloadRouting(missingRegions.map { it.regionId }, routeProfile == RouteProfile.CAR) },
             onAllowStepsChange = viewModel::setAllowSteps,
+            onAvoidChange = viewModel::setAvoid,
             onArrivalAnnounced = { arrivedAt = null },
         ),
         map = { regionIds, route, topPaddingPx, bottomPaddingPx, modifier ->
@@ -253,6 +255,7 @@ internal data class NavigationPlannerState(
     // Percorso in sedia a rotelle: sotto tempo e distanza si offre "Accetta qualche gradino".
     val wheelchair: Boolean = false,
     val allowSteps: Boolean = false,
+    val avoid: Set<RouteAvoid> = emptySet(),
     val recents: List<NavigationPlace> = emptyList(),
     val mapRegionIds: List<String> = emptyList(),
     val routingInstalled: Boolean = true,
@@ -285,6 +288,7 @@ internal class NavigationPlannerActions(
     val onRequestPermission: () -> Unit = {},
     val onDownloadRouting: () -> Unit = {},
     val onAllowStepsChange: (Boolean) -> Unit = {},
+    val onAvoidChange: (RouteAvoid, Boolean) -> Unit = { _, _ -> },
     val onArrivalAnnounced: () -> Unit = {},
 )
 
@@ -389,6 +393,8 @@ internal fun NavigationPlannerContent(
                         onSwap = actions.onSwap,
                         routeProfile = state.routeProfile,
                         onRouteProfileChange = actions.onRouteProfileChange,
+                        avoid = state.avoid,
+                        onAvoidChange = actions.onAvoidChange,
                     )
                 }
             }

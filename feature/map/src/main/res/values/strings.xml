@@ -338,6 +338,17 @@
     <string name="planner_start">Avvia</string>
     <!-- "passo passo" è la locuzione italiana, non una parola ripetuta per errore. -->
     <string name="planner_no_traffic">Tempo stimato senza traffico</string>
+    <string name="planner_route_options">Opzioni</string>
+    <string name="planner_route_options_count">Opzioni (%1$d)</string>
+    <string name="planner_route_options_note">Valgono solo per questo percorso. Quelle di partenza si scelgono in Impostazioni.</string>
+    <string name="route_avoid_tolls">Evita i pedaggi</string>
+    <string name="route_avoid_motorways">Evita le autostrade</string>
+    <string name="route_avoid_unpaved">Evita le strade sterrate</string>
+    <string name="route_avoid_busy_roads">Evita le strade trafficate</string>
+    <string name="route_avoid_ferries">Evita i traghetti</string>
+    <string name="route_avoid_car">In auto</string>
+    <string name="route_avoid_bike">In bici</string>
+    <string name="route_avoid_none">Nessuna</string>
     <string name="planner_preview_only" tools:ignore="Typos">Partenza da un luogo scelto: si vede solo il percorso. La navigazione passo passo parte dalla tua posizione</string>
     <string name="planner_steps">Svolte</string>
     <string name="planner_search_start">Scegli la partenza</string>
