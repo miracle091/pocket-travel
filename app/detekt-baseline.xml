@@ -66,6 +66,7 @@
     <ID>TooManyFunctions:PocketTravelNavHost.kt:com.pockettravel.app.navigation.PocketTravelNavHost.kt</ID>
     <ID>TooManyFunctions:RegionListViewModel.kt:RegionListViewModel : ViewModel</ID>
     <ID>TooManyFunctions:RegionPackagesSheet.kt:com.pockettravel.app.regions.RegionPackagesSheet.kt</ID>
+    <ID>TooManyFunctions:SettingsViewModel.kt:SettingsViewModel : ViewModel</ID>
     <ID>Wrapping:RegionGroupingTest.kt:RegionGroupingTest$(</ID>
     <ID>Wrapping:RegionGroupingTest.kt:RegionGroupingTest$(listOf("Canada", "Messico", "Stati Uniti d'America"), entries.map { when (it) { is RegionListEntry.Single -&gt; it.item.displayName is RegionListEntry.Country -&gt; it.name } })</ID>
     <ID>Wrapping:RegionPackagesSheet.kt:-&gt;</ID>

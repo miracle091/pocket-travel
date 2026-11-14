@@ -212,6 +212,24 @@
     <string name="turn_u_turn">Fai inversione</string>
     <string name="turn_roundabout">Alla rotonda prendi l\'uscita %1$d</string>
     <string name="turn_arrive">Arrivo</string>
+    <!-- Guida vocale: frasi dette dalla voce di sistema (VoiceCues.kt). -->
+    <string name="voice_in_distance">Tra %1$s, %2$s</string>
+    <string name="voice_follow">Prosegui per %1$s</string>
+    <string name="voice_onto_street">%1$s in %2$s</string>
+    <string name="voice_arrive_ahead">arrivi a destinazione</string>
+    <string name="voice_arrived">Destinazione raggiunta</string>
+    <plurals name="voice_meters">
+        <item quantity="one">%1$d metro</item>
+        <item quantity="many">%1$d metri</item>
+        <item quantity="other">%1$d metri</item>
+    </plurals>
+    <plurals name="voice_kilometers">
+        <item quantity="one">%1$s chilometro</item>
+        <item quantity="many">%1$s chilometri</item>
+        <item quantity="other">%1$s chilometri</item>
+    </plurals>
+    <string name="navigation_voice">Guida vocale</string>
+    <string name="navigation_voice_unavailable">Guida vocale non disponibile: sul telefono manca una voce installata nella lingua dell\'app. Si aggiunge nelle impostazioni della sintesi vocale.</string>
     <string name="transit_title">Prossime partenze</string>
     <string name="transit_loading">Caricamento degli orari…</string>
     <string name="transit_no_stops">Nessun orario per questa fermata: le reti scaricate non la coprono</string>

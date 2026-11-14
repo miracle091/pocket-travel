@@ -388,7 +388,9 @@
     <string name="settings_stop_gps_on_arrival">Turn off GPS on arrival</string>
     <string name="settings_stop_gps_on_arrival_subtitle">On arrival at the destination, navigation closes automatically, even with the app in the background, to save battery. With this option off, navigation stays active until it is closed</string>
     <string name="settings_walking_haptics">Vibration when walking</string>
-    <string name="settings_walking_haptics_subtitle">A light vibration at each turn and two on arrival, to follow navigation without looking at the screen</string>
+    <string name="settings_walking_haptics_subtitle">One long vibration to turn left, two short ones for right, one short for other turns and three on arrival, to follow navigation without looking at the screen</string>
+    <string name="settings_voice_guidance">Voice guidance</string>
+    <string name="settings_voice_guidance_subtitle">Navigation directions spoken by the system voice installed on the phone, offline, even with the screen off</string>
     <string name="settings_alert_notifications">Alert notifications</string>
     <string name="settings_alert_notifications_denied">Notification permission denied: alerts can\'t be delivered</string>
     <string name="settings_open_app_settings">Settings</string>

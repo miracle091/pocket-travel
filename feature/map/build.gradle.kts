@@ -26,6 +26,8 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(libs.androidx.core.ktx)
     implementation(project(":core:routing-engine"))
+    // Guida vocale: la voce di sistema della navigazione.
+    implementation(project(":core:speech"))
     implementation(libs.maplibre.android.sdk)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
@@ -38,6 +40,7 @@ dependencies {
     // Tipi nelle firme dei fake: PoiDao e Flow.
     testFixturesApi(project(":core:data"))
     testFixturesApi(libs.kotlinx.coroutines.android)
+    testFixturesApi(project(":core:speech"))
     // Il plugin del compilatore Compose del modulo vale anche per i fake e richiede il runtime.
     testFixturesImplementation(platform(libs.compose.bom))
     testFixturesImplementation(libs.compose.ui)

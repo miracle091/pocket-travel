@@ -210,6 +210,21 @@
     <string name="turn_u_turn">Make a U-turn</string>
     <string name="turn_roundabout">At the roundabout, take exit %1$d</string>
     <string name="turn_arrive">Arrive</string>
+    <string name="voice_in_distance">In %1$s, %2$s</string>
+    <string name="voice_follow">Continue for %1$s</string>
+    <string name="voice_onto_street">%1$s onto %2$s</string>
+    <string name="voice_arrive_ahead">you\'ll arrive at your destination</string>
+    <string name="voice_arrived">You have arrived at your destination</string>
+    <plurals name="voice_meters">
+        <item quantity="one">%1$d meter</item>
+        <item quantity="other">%1$d meters</item>
+    </plurals>
+    <plurals name="voice_kilometers">
+        <item quantity="one">%1$s kilometer</item>
+        <item quantity="other">%1$s kilometers</item>
+    </plurals>
+    <string name="navigation_voice">Voice guidance</string>
+    <string name="navigation_voice_unavailable">Voice guidance unavailable: the phone has no installed voice in the app\'s language. You can add one in the text-to-speech settings.</string>
     <string name="transit_title">Next departures</string>
     <string name="transit_loading">Loading timetables…</string>
     <string name="transit_no_stops">No timetables for this stop: the downloaded networks don\'t cover it</string>

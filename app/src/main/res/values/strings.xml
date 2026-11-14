@@ -398,7 +398,9 @@
     <string name="settings_stop_gps_on_arrival">Spegni il GPS all\'arrivo</string>
     <string name="settings_stop_gps_on_arrival_subtitle">All\'arrivo a destinazione la navigazione si chiude da sola, anche con l\'app in background, per risparmiare batteria. Con l\'opzione disattivata, la navigazione resta attiva finché non viene chiusa</string>
     <string name="settings_walking_haptics">Vibrazione a piedi</string>
-    <string name="settings_walking_haptics_subtitle">Una vibrazione leggera a ogni svolta e due all\'arrivo, per seguire la navigazione senza guardare lo schermo</string>
+    <string name="settings_walking_haptics_subtitle">Una vibrazione lunga per girare a sinistra, due brevi per la destra, una breve per le altre svolte e tre all\'arrivo, per seguire la navigazione senza guardare lo schermo</string>
+    <string name="settings_voice_guidance">Guida vocale</string>
+    <string name="settings_voice_guidance_subtitle">Le indicazioni della navigazione dette dalla voce di sistema installata sul telefono, senza rete, anche a schermo spento</string>
     <string name="settings_alert_notifications">Notifiche delle allerte</string>
     <string name="settings_alert_notifications_denied">Autorizzazione per le notifiche negata: le allerte non possono arrivare</string>
     <string name="settings_open_app_settings">Impostazioni</string>

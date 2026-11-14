@@ -37,6 +37,16 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
         _walkingHaptics.value = enabled
     }
 
+    private val _voiceGuidance = MutableStateFlow(prefs.getBoolean(KEY_VOICE_GUIDANCE, true))
+
+    /** Indicazioni dette a voce durante la navigazione, con la voce di sistema installata (NavigationAnnouncer). */
+    val voiceGuidance: StateFlow<Boolean> = _voiceGuidance.asStateFlow()
+
+    fun setVoiceGuidance(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_VOICE_GUIDANCE, enabled) }
+        _voiceGuidance.value = enabled
+    }
+
     /**
      * La navigazione in corso, salvata su disco finche' non si chiude: se il sistema chiude l'app (anche a schermo
      * spento), alla riapertura il Navigatore propone di riprenderla, sia dalle app recenti sia dall'icona.
@@ -85,6 +95,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
         const val ACTIVE_NAVIGATION_MAX_AGE_MILLIS = 12 * 60 * 60 * 1000L
         const val KEY_STOP_GPS_ON_ARRIVAL = "stop_gps_on_arrival"
         const val KEY_WALKING_HAPTICS = "walking_haptics"
+        const val KEY_VOICE_GUIDANCE = "voice_guidance"
     }
 }
 

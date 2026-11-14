@@ -72,8 +72,8 @@ fun NavigationInstructions(
     onPermissionResult: (Boolean) -> Unit,
     onRetry: () -> Unit,
     onClose: () -> Unit,
-    // Vibrazione a piedi (Impostazioni) e nomi delle strade trovati dalla mappa, per la notifica della navigazione.
-    walkingHaptics: Boolean = true,
+    // Guida vocale (pulsante e avviso senza voce) e nomi delle strade trovati dalla mappa, per la notifica della navigazione.
+    voice: VoiceControl = VoiceControl(enabled = false),
     onStreetNames: (Map<Int, String>) -> Unit = {},
     // In auto, il lato di guida della nazione se diverso da quello di casa: un avviso sempre visibile.
     drivingSide: DrivingSide? = null,
@@ -104,7 +104,7 @@ fun NavigationInstructions(
     }
 
     if (state is NavigationStatus.Navigating) {
-        ActiveNavigationContent(state, destinationName, routeProfile, arriveBy, tileSource, regionIds, onClose, walkingHaptics, onStreetNames, drivingSide)
+        ActiveNavigationContent(state, destinationName, routeProfile, arriveBy, tileSource, regionIds, onClose, onStreetNames, drivingSide, voice)
         return
     }
     // Senza percorso da seguire: un messaggio al centro, con la destinazione in cima e sempre "Termina".

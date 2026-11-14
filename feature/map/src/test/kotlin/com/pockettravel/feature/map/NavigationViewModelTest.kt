@@ -6,8 +6,11 @@ import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
+import com.pockettravel.core.speech.ReadAloudResult
 import com.pockettravel.feature.map.testing.FakeGpsLocationSource
 import com.pockettravel.feature.map.testing.FakeGuidanceServiceStarter
+import com.pockettravel.feature.map.testing.FakeNavigationVibration
+import com.pockettravel.feature.map.testing.FakeNavigationVoice
 import com.pockettravel.feature.map.testing.FakeOfflineTileSource
 import com.pockettravel.feature.map.testing.FakeRouteSimulationLog
 import com.pockettravel.feature.map.testing.ScriptedRouteEngineFactory
@@ -71,6 +74,8 @@ class NavigationViewModelTest {
     private val nationality = NationalityPreferences(files.also { it.open("profile").edit().putString("nationality", "IT").commit() })
     private val starter = FakeGuidanceServiceStarter()
     private val simulationLog = FakeRouteSimulationLog()
+    private val voice = FakeNavigationVoice()
+    private val announcer = NavigationAnnouncer(voice, FakeNavigationVibration(), XmlVoiceTexts("it"), preferences)
     private var handle = SavedStateHandle()
     private var host: ViewModelHost<NavigationViewModel>? = null
 
@@ -96,7 +101,7 @@ class NavigationViewModelTest {
         val created = ViewModelHost(NavigationViewModel::class.java) {
             NavigationViewModel(
                 handle, engines, regions, gps, tileSource, usageModes, session, preferences, variants, nationality, starter,
-                simulationLog, main.dispatcher, clock,
+                simulationLog, announcer, main.dispatcher, clock,
             )
         }
         host = created
@@ -144,13 +149,47 @@ class NavigationViewModelTest {
     }
 
     @Test
-    fun `la vibrazione a piedi segue le impostazioni`() = runTest {
+    fun `la guida vocale si accende con la navigazione e dice l'arrivo, poi si spegne`() = runTest {
+        engines.defaultResult = RouteResult.Found(route)
         val viewModel = viewModel()
-        assertTrue(viewModel.uiState.value.walkingHaptics)
+        runCurrent()
+        assertFalse(voice.started)
 
-        preferences.setWalkingHaptics(false)
+        viewModel.begin()
+        runCurrent()
+        assertTrue(voice.started)
+        assertTrue(viewModel.uiState.value.voiceGuidance)
+        gps.emit(fix(origin))
+        runCurrent()
+        gps.emit(fix(end))
+        runCurrent()
 
-        assertFalse(viewModel.uiState.value.walkingHaptics)
+        assertEquals(listOf("Destinazione raggiunta"), voice.said)
+        assertFalse(voice.started)
+    }
+
+    @Test
+    fun `il pulsante della voce la spegne e la riaccende, e senza voce installata la schermata lo dice`() = runTest {
+        voice.startResult = ReadAloudResult.LANGUAGE_UNAVAILABLE
+        val viewModel = viewModel()
+        viewModel.begin()
+        runCurrent()
+        assertTrue(viewModel.uiState.value.voiceUnavailable)
+
+        viewModel.setVoiceGuidance(false)
+        runCurrent()
+        assertFalse(viewModel.uiState.value.voiceGuidance)
+        assertFalse(viewModel.uiState.value.voiceUnavailable)
+
+        voice.startResult = ReadAloudResult.FINISHED
+        viewModel.setVoiceGuidance(true)
+        runCurrent()
+        assertTrue(voice.started)
+        assertFalse(viewModel.uiState.value.voiceUnavailable)
+
+        viewModel.stop()
+        runCurrent()
+        assertFalse(voice.started)
     }
 
     // --- Avvio e fine della navigazione ---

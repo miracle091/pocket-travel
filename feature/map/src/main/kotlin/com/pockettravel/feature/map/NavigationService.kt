@@ -220,22 +220,8 @@ class NavigationService : Service() {
             }
         }
 
-        private fun turnText(context: Context, instruction: TurnInstruction): String = when (instruction.type) {
-            TurnType.CONTINUE -> context.getString(R.string.turn_continue)
-            TurnType.SLIGHT_LEFT -> context.getString(R.string.turn_slight_left)
-            TurnType.LEFT -> context.getString(R.string.turn_left)
-            TurnType.SHARP_LEFT -> context.getString(R.string.turn_sharp_left)
-            TurnType.SLIGHT_RIGHT -> context.getString(R.string.turn_slight_right)
-            TurnType.RIGHT -> context.getString(R.string.turn_right)
-            TurnType.SHARP_RIGHT -> context.getString(R.string.turn_sharp_right)
-            TurnType.KEEP_LEFT -> context.getString(R.string.turn_keep_left)
-            TurnType.KEEP_RIGHT -> context.getString(R.string.turn_keep_right)
-            TurnType.EXIT_LEFT -> context.getString(R.string.turn_exit_left)
-            TurnType.EXIT_RIGHT -> context.getString(R.string.turn_exit_right)
-            TurnType.U_TURN -> context.getString(R.string.turn_u_turn)
-            TurnType.ROUNDABOUT, TurnType.ROUNDABOUT_LEFT -> context.getString(R.string.turn_roundabout, instruction.roundaboutExit)
-            TurnType.ARRIVE -> context.getString(R.string.turn_arrive)
-        }
+        private fun turnText(context: Context, instruction: TurnInstruction): String =
+            context.getString(turnTextRes(instruction.type), instruction.roundaboutExit)
 
         // Le stesse frecce di turnIcon() della navigazione a schermo (che e' un composable: qui servono gli id).
         private fun turnIconRes(type: TurnType): Int = when (type) {

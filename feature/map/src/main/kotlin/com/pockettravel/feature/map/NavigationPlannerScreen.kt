@@ -127,15 +127,8 @@ fun NavigationPlannerScreen(
         val navigationRegions = navigation.regionIds
         val navigationMode = navigation.routeProfile
         val navigationArriveBy = navigation.arriveBy
-        val walkingHaptics = navigation.walkingHaptics
         val drivingSide = navigation.drivingSideWarning
         val arrivedAtMillis = navigation.arrivedAtMillis
-        // Con "Spegni il GPS all'arrivo" tolto la navigazione resta aperta: all'arrivo solo la vibrazione.
-        LaunchedEffect(arrivedAtMillis) {
-            if (navigationState != NavigationStatus.Arrived && isRecentArrival(arrivedAtMillis, System.currentTimeMillis())) {
-                if (navigationMode == RouteProfile.WALK && walkingHaptics) NavigationHaptics.arrived(context)
-            }
-        }
         BackHandler(onBack = navigationViewModel::stop)
         // Rete stradale mancante a meta' strada: come nell'anteprima del percorso, la regione da scaricare; a download finito si riprova da soli.
         val navigationNoRouting = (navigationState as? NavigationStatus.Unavailable)?.result == RouteResult.NoRoutingData
@@ -152,10 +145,8 @@ fun NavigationPlannerScreen(
             if (navigationState == NavigationStatus.Arrived) {
                 // L'arrivo puo' essere avvenuto mentre la scheda non era aperta (il GPS lo ascolta il ViewModel):
                 // dopo qualche minuto non si annuncia piu', la navigazione si chiude e basta.
-                if (isRecentArrival(arrivedAtMillis, System.currentTimeMillis())) {
-                    arrivedAt = guidingTarget.name
-                    if (navigationMode == RouteProfile.WALK && walkingHaptics) NavigationHaptics.arrived(context)
-                }
+                // Voce e vibrazione dell'arrivo le da' NavigationAnnouncer, anche a schermo spento.
+                if (isRecentArrival(arrivedAtMillis, System.currentTimeMillis())) arrivedAt = guidingTarget.name
                 // Viaggio concluso: il Navigatore riparte da "Dove vuoi andare?", senza il percorso ormai vecchio.
                 viewModel.clearDestination()
                 navigationViewModel.stop()
@@ -171,7 +162,7 @@ fun NavigationPlannerScreen(
             onPermissionResult = navigationViewModel::onPermissionResult,
             onRetry = navigationViewModel::retry,
             onClose = navigationViewModel::stop,
-            walkingHaptics = walkingHaptics,
+            voice = VoiceControl(navigation.voiceGuidance, navigation.voiceUnavailable, navigationViewModel::setVoiceGuidance),
             onStreetNames = navigationViewModel::onStreetNames,
             drivingSide = drivingSide,
             missingRegions = navigationMissing,

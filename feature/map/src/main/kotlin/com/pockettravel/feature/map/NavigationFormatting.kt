@@ -27,21 +27,24 @@ internal fun arrivalTime(remainingSeconds: Double): String {
 }
 
 @Composable
-internal fun turnText(instruction: TurnInstruction): String = when (instruction.type) {
-    TurnType.CONTINUE -> stringResource(R.string.turn_continue)
-    TurnType.SLIGHT_LEFT -> stringResource(R.string.turn_slight_left)
-    TurnType.LEFT -> stringResource(R.string.turn_left)
-    TurnType.SHARP_LEFT -> stringResource(R.string.turn_sharp_left)
-    TurnType.SLIGHT_RIGHT -> stringResource(R.string.turn_slight_right)
-    TurnType.RIGHT -> stringResource(R.string.turn_right)
-    TurnType.SHARP_RIGHT -> stringResource(R.string.turn_sharp_right)
-    TurnType.KEEP_LEFT -> stringResource(R.string.turn_keep_left)
-    TurnType.KEEP_RIGHT -> stringResource(R.string.turn_keep_right)
-    TurnType.EXIT_LEFT -> stringResource(R.string.turn_exit_left)
-    TurnType.EXIT_RIGHT -> stringResource(R.string.turn_exit_right)
-    TurnType.U_TURN -> stringResource(R.string.turn_u_turn)
-    TurnType.ROUNDABOUT, TurnType.ROUNDABOUT_LEFT -> stringResource(R.string.turn_roundabout, instruction.roundaboutExit)
-    TurnType.ARRIVE -> stringResource(R.string.turn_arrive)
+internal fun turnText(instruction: TurnInstruction): String = stringResource(turnTextRes(instruction.type), instruction.roundaboutExit)
+
+/** Il testo dell'indicazione (la rotonda vuole il numero dell'uscita come argomento): schermo, notifica e voce. */
+internal fun turnTextRes(type: TurnType): Int = when (type) {
+    TurnType.CONTINUE -> R.string.turn_continue
+    TurnType.SLIGHT_LEFT -> R.string.turn_slight_left
+    TurnType.LEFT -> R.string.turn_left
+    TurnType.SHARP_LEFT -> R.string.turn_sharp_left
+    TurnType.SLIGHT_RIGHT -> R.string.turn_slight_right
+    TurnType.RIGHT -> R.string.turn_right
+    TurnType.SHARP_RIGHT -> R.string.turn_sharp_right
+    TurnType.KEEP_LEFT -> R.string.turn_keep_left
+    TurnType.KEEP_RIGHT -> R.string.turn_keep_right
+    TurnType.EXIT_LEFT -> R.string.turn_exit_left
+    TurnType.EXIT_RIGHT -> R.string.turn_exit_right
+    TurnType.U_TURN -> R.string.turn_u_turn
+    TurnType.ROUNDABOUT, TurnType.ROUNDABOUT_LEFT -> R.string.turn_roundabout
+    TurnType.ARRIVE -> R.string.turn_arrive
 }
 
 // Frecce di Material Symbols, come le altre icone dell'app. Uscite = rampe, "mantieni" = biforcazione.

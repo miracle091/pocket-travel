@@ -27,11 +27,13 @@ private const val ANNOUNCEMENT_FAR_STEP_METERS = 100
 internal fun rememberSpeedMps(remainingMeters: Double, routeProfile: RouteProfile): Double {
     val holder = remember { SpeedEstimate() }
     SideEffect { holder.update(remainingMeters, System.nanoTime()) }
-    return holder.speed ?: when (routeProfile) {
-        RouteProfile.WALK -> WALK_TYPICAL_SPEED_MPS
-        RouteProfile.BIKE -> BIKE_TYPICAL_SPEED_MPS
-        RouteProfile.CAR -> CAR_TYPICAL_SPEED_MPS
-    }
+    return holder.speed ?: typicalSpeedMps(routeProfile)
+}
+
+internal fun typicalSpeedMps(routeProfile: RouteProfile): Double = when (routeProfile) {
+    RouteProfile.WALK -> WALK_TYPICAL_SPEED_MPS
+    RouteProfile.BIKE -> BIKE_TYPICAL_SPEED_MPS
+    RouteProfile.CAR -> CAR_TYPICAL_SPEED_MPS
 }
 
 internal class SpeedEstimate {

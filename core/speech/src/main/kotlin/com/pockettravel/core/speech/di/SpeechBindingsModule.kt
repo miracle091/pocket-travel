@@ -1,6 +1,8 @@
 package com.pockettravel.core.speech.di
 
+import com.pockettravel.core.speech.NavigationVoice
 import com.pockettravel.core.speech.ReadAloud
+import com.pockettravel.core.speech.SystemNavigationVoice
 import com.pockettravel.core.speech.SystemReadAloud
 import dagger.Binds
 import dagger.Module
@@ -14,4 +16,7 @@ interface SpeechBindingsModule {
 
     @Binds
     fun bindReadAloud(readAloud: SystemReadAloud): ReadAloud
+
+    @Binds
+    fun bindNavigationVoice(voice: SystemNavigationVoice): NavigationVoice
 }

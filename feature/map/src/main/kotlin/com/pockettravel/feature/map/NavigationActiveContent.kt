@@ -1,33 +1,36 @@
 package com.pockettravel.feature.map
 
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.runtime.mutableIntStateOf
-import java.time.ZoneId
-import java.time.LocalDateTime
 import android.text.format.DateFormat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.ZeroCornerSize
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.ZeroCornerSize
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -35,6 +38,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -45,15 +50,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
+import java.time.LocalDateTime
+import java.time.ZoneId
 import com.pockettravel.core.ui.R as UiR
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
 
 @Composable
 private fun SpeedCameraNotice() {
@@ -84,9 +83,9 @@ internal fun ActiveNavigationContent(
     tileSource: OfflineTileSource,
     regionIds: List<String>,
     onClose: () -> Unit,
-    walkingHaptics: Boolean,
     onStreetNames: (Map<Int, String>) -> Unit,
     drivingSide: DrivingSide?,
+    voice: VoiceControl,
 ) {
     val progress = state.progress
     val route = state.route
@@ -95,17 +94,6 @@ internal fun ActiveNavigationContent(
     val tracker = remember(route) { NavigationTracker(route) }
     var showSteps by rememberSaveable { mutableStateOf(false) }
     val upcoming = route.instructions.drop(progress.nextInstructionIndex + 1)
-    // A piedi una vibrazione leggera quando la svolta e' "Ora", una volta per svolta (l'arrivo ha la sua):
-    // con il GPS che oscilla attorno ai 10 m la stessa svolta tornerebbe "Ora" piu' volte.
-    val context = LocalContext.current
-    val turnNow = progress.distanceToNextMeters < NOW_METERS && progress.nextInstruction.type != TurnType.ARRIVE
-    var lastVibratedIndex by remember(route) { mutableIntStateOf(-1) }
-    LaunchedEffect(progress.nextInstructionIndex, turnNow) {
-        if (turnNow && routeProfile == RouteProfile.WALK && walkingHaptics && progress.nextInstructionIndex != lastVibratedIndex) {
-            lastVibratedIndex = progress.nextInstructionIndex
-            NavigationHaptics.turn(context)
-        }
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         NavigationMap(
@@ -128,6 +116,7 @@ internal fun ActiveNavigationContent(
         Column(modifier = Modifier.fillMaxWidth().padding(Spacing.s)) {
             TurnBanner(progress, streetNames[progress.nextInstruction.pointIndex], rememberSpeedMps(progress.remainingMeters, routeProfile))
             if (drivingSide != null && routeProfile == RouteProfile.CAR) DrivingSideNotice(drivingSide)
+            if (voice.enabled && voice.unavailable) VoiceUnavailableNotice()
             // "Poi": la svolta dopo, in piccolo sotto il riquadro, come nelle app di navigazione.
             upcoming.firstOrNull()?.takeIf { progress.nextInstruction.type != TurnType.ARRIVE }?.let { then ->
                 Surface(
@@ -188,6 +177,14 @@ internal fun ActiveNavigationContent(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    // Guida vocale accesa o spenta al volo, come nelle app di navigazione: lo stesso interruttore delle Impostazioni.
+                    FilledTonalIconToggleButton(checked = voice.enabled, onCheckedChange = voice.onChange, modifier = Modifier.size(56.dp)) {
+                        Icon(
+                            ImageVector.vectorResource(if (voice.enabled) UiR.drawable.ms_volume_up else UiR.drawable.ms_volume_off),
+                            contentDescription = stringResource(R.string.navigation_voice),
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(Spacing.s))
                     // Un pulsante tondo con la X, come nelle app di navigazione: il nome lo legge TalkBack.
                     FilledTonalIconButton(
                         onClick = onClose,
@@ -289,6 +286,31 @@ private fun DrivingSideNotice(side: DrivingSide) {
                 },
                 style = MaterialTheme.typography.labelLarge,
                 // Letto da TalkBack quando compare, poi resta fisso.
+                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
+    }
+}
+
+/** Il pulsante della guida vocale: accesa, senza voce installata, e l'interruttore. */
+data class VoiceControl(val enabled: Boolean, val unavailable: Boolean = false, val onChange: (Boolean) -> Unit = {})
+
+// Senza una voce installata nella lingua dell'app la guida vocale tace: lo si dice, con dove aggiungerla.
+@Composable
+private fun VoiceUnavailableNotice() {
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        shape = MaterialTheme.shapes.medium,
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth().padding(top = Spacing.xs),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s)) {
+            Icon(ImageVector.vectorResource(UiR.drawable.ms_volume_off), contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(Spacing.s))
+            Text(
+                stringResource(R.string.navigation_voice_unavailable),
+                style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }

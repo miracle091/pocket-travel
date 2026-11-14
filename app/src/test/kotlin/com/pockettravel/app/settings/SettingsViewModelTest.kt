@@ -168,10 +168,13 @@ class SettingsViewModelTest {
 
         viewModel.setStopGpsOnArrival(false)
         viewModel.setWalkingHaptics(false)
+        viewModel.setVoiceGuidance(false)
         runCurrent()
 
         assertFalse(viewModel.uiState.value.stopGpsOnArrival)
         assertFalse(viewModel.uiState.value.walkingHaptics)
+        assertFalse(viewModel.uiState.value.voiceGuidance)
+        assertFalse(NavigationPreferences(files).voiceGuidance.value)
         assertFalse(NavigationPreferences(files).stopGpsOnArrival.value)
     }
 

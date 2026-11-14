@@ -1,20 +1,17 @@
 package com.pockettravel.feature.map
 
-import kotlinx.coroutines.flow.mapLatest
-import com.pockettravel.core.data.IoDispatcher
-import com.pockettravel.core.data.NationalityPreferences
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.pockettravel.core.data.IoDispatcher
+import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RoutingVariantPreferences
-import java.time.Clock
-import java.time.LocalDateTime
-import java.time.ZoneOffset
-import kotlinx.coroutines.CoroutineStart
+import com.pockettravel.core.speech.ReadAloudResult
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -23,16 +20,21 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Clock
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import javax.inject.Inject
 
 /**
@@ -57,6 +59,7 @@ class NavigationViewModel @Inject constructor(
     nationalityPreferences: NationalityPreferences,
     private val serviceStarter: GuidanceServiceStarter,
     private val simulationLog: RouteSimulationLog,
+    private val announcer: NavigationAnnouncer,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val clock: Clock,
 ) : ViewModel() {
@@ -87,6 +90,9 @@ class NavigationViewModel @Inject constructor(
             drivingSideWarning(countries, home)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    // Guida vocale accesa ma senza voce installata nella lingua dell'app: la scheda lo dice.
+    private val voiceUnavailable = MutableStateFlow(false)
 
     private val permissionGranted = MutableStateFlow(gps.hasPermission())
     private val gpsEnabled = gps.gpsEnabled().stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -133,8 +139,10 @@ class NavigationViewModel @Inject constructor(
 
     /** Tutto quello che la scheda Navigatore legge della navigazione, in un solo stato. */
     val uiState: StateFlow<NavigationUiState> = combine(
-        combine(navigationStatus, destination, _resumeOffer, _routeProfile, navigationPreferences.walkingHaptics) { status, target, offer, mode, haptics ->
-            NavigationUiState(status = status, target = target, resumeOffer = offer, routeProfile = mode, walkingHaptics = haptics)
+        combine(
+            navigationStatus, destination, _resumeOffer, _routeProfile, combine(navigationPreferences.voiceGuidance, voiceUnavailable, ::Pair),
+        ) { status, target, offer, mode, (voice, noVoice) ->
+            NavigationUiState(status = status, target = target, resumeOffer = offer, routeProfile = mode, voiceGuidance = voice, voiceUnavailable = noVoice)
         },
         arrival, _regionIds, drivingSideWarning, _arrivedAtMillis,
     ) { state, arriveBy, regionIds, drivingSide, arrivedAt ->
@@ -147,7 +155,7 @@ class NavigationViewModel @Inject constructor(
             target = destination.value,
             resumeOffer = _resumeOffer.value,
             routeProfile = _routeProfile.value,
-            walkingHaptics = navigationPreferences.walkingHaptics.value,
+            voiceGuidance = navigationPreferences.voiceGuidance.value,
             arriveBy = arrival.value,
             regionIds = _regionIds.value,
         ),
@@ -173,7 +181,23 @@ class NavigationViewModel @Inject constructor(
             .launchIn(viewModelScope)
         // "Termina" dalla notifica, anche con l'app in secondo piano.
         session.stopRequests.onEach { if (destination.value != null) stop() }.launchIn(viewModelScope)
+        // La voce resta accesa per tutta la navigazione con "Guida vocale" attiva: accenderla a ogni frase costerebbe tempo.
+        @OptIn(ExperimentalCoroutinesApi::class)
+        combine(destination, navigationPreferences.voiceGuidance) { target, voice -> target != null && voice }
+            .distinctUntilChanged()
+            .mapLatest { on ->
+                if (on) {
+                    voiceUnavailable.value = announcer.startVoice() != ReadAloudResult.FINISHED
+                } else {
+                    announcer.stopVoice()
+                    voiceUnavailable.value = false
+                }
+            }
+            .launchIn(viewModelScope)
     }
+
+    /** Il pulsante della voce durante la navigazione: lo stesso interruttore delle Impostazioni. */
+    fun setVoiceGuidance(enabled: Boolean) = navigationPreferences.setVoiceGuidance(enabled)
 
     /** "Riprendi": la navigazione interrotta riparte con la stessa destinazione, modo e ora di arrivo. */
     fun resume() {
@@ -253,6 +277,7 @@ class NavigationViewModel @Inject constructor(
         destination.value = place
         streetNames.clear()
         lastProgress = null
+        announcer.begin(mode)
         beginSession(place)
         savedStateHandle[KEY_REGION] = regionId
         savedStateHandle[KEY_MODE] = mode.name
@@ -278,6 +303,7 @@ class NavigationViewModel @Inject constructor(
         // Snapshot null: il servizio in primo piano si ferma da solo.
         session.clear()
         lastProgress = null
+        announcer.end()
     }
 
     fun onPermissionResult(granted: Boolean) {
@@ -288,6 +314,7 @@ class NavigationViewModel @Inject constructor(
     // Activity chiusa (o hub chiuso): senza ViewModel nessuno ascolta il GPS, il servizio non ha piu' ragione di vivere.
     override fun onCleared() {
         if (destination.value != null) session.clear()
+        announcer.stopVoice()
     }
 
     /** Dopo un errore: si ricalcola dall'ultima posizione. */
@@ -315,9 +342,12 @@ class NavigationViewModel @Inject constructor(
             }
             is RouteResult.Found -> {
                 val progress = trackerFor(result.route).progress(RoutePoint(fix.latitude, fix.longitude), fix.timeMillis)
+                announcer.onProgress(result.route, progress, streetNames[progress.nextInstruction.pointIndex], fix.timeMillis)
                 if (progress.arrived && navigationPreferences.stopGpsOnArrival.value) {
                     _arrivedAtMillis.value = clock.millis()
                     arrived.value = true
+                    // Detto l'arrivo la voce non serve piu', anche se la scheda chiude la navigazione solo quando torna visibile.
+                    announcer.stopVoice()
                     session.clear()
                     navigationPreferences.clearActiveNavigation()
                 } else {
@@ -410,7 +440,7 @@ class NavigationViewModel @Inject constructor(
 /**
  * Lo stato della scheda Navigatore durante la navigazione. [target] e' la destinazione della navigazione in corso (null se non si sta
  * navigando); [resumeOffer] la navigazione interrotta perche' il sistema ha chiuso l'app, da riprendere o dimenticare;
- * [walkingHaptics] la vibrazione alle svolte e all'arrivo a piedi (Impostazioni); [arriveBy] l'ora a cui si vuole
+ * [voiceGuidance] la guida vocale accesa e [voiceUnavailable] senza una voce installata nella lingua dell'app; [arriveBy] l'ora a cui si vuole
  * arrivare, per mostrare il ritardo; [regionIds] le regioni del percorso, una sorgente di mappa per ognuna;
  * [drivingSideWarning] il lato di guida da ricordare in auto; [arrivedAtMillis] quando e' stata raggiunta la destinazione, per
  * distinguere un arrivo appena avvenuto da uno di cui nessuno si e' accorto.
@@ -420,7 +450,8 @@ data class NavigationUiState(
     val target: NavigationPlace? = null,
     val resumeOffer: NavigationPlace? = null,
     val routeProfile: RouteProfile,
-    val walkingHaptics: Boolean,
+    val voiceGuidance: Boolean,
+    val voiceUnavailable: Boolean = false,
     val arriveBy: LocalDateTime? = null,
     val regionIds: List<String> = emptyList(),
     val drivingSideWarning: DrivingSide? = null,

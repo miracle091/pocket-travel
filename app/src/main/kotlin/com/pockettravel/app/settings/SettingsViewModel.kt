@@ -32,6 +32,7 @@ data class SettingsUiState(
     val nationality: String? = null,
     val stopGpsOnArrival: Boolean = true,
     val walkingHaptics: Boolean = true,
+    val voiceGuidance: Boolean = true,
     val catalogState: CatalogState = CatalogState.Idle,
 )
 
@@ -68,6 +69,8 @@ class SettingsViewModel @Inject constructor(
 
     fun setWalkingHaptics(enabled: Boolean) = navigationPreferences.setWalkingHaptics(enabled)
 
+    fun setVoiceGuidance(enabled: Boolean) = navigationPreferences.setVoiceGuidance(enabled)
+
     /** Catalogo scelto al posto di quello ufficiale; null = ufficiale. */
     val customCatalog: CustomCatalog? = catalogPreferences.saved()
 
@@ -77,12 +80,12 @@ class SettingsViewModel @Inject constructor(
     private val usage = combine(
         usageModePreferences.modes, usageModePreferences.accessible, usageModePreferences.wantsDirections, ::UsageSettings,
     )
-    private val navigation = combine(navigationPreferences.stopGpsOnArrival, navigationPreferences.walkingHaptics, ::Pair)
+    private val navigation = combine(navigationPreferences.stopGpsOnArrival, navigationPreferences.walkingHaptics, navigationPreferences.voiceGuidance, ::Triple)
 
     /** Tutto quello che le Impostazioni leggono, in un solo stato. */
     val uiState: StateFlow<SettingsUiState> = combine(
         appearance, usage, nationalityPreferences.nationality, navigation, catalogState,
-    ) { (dynamicColor, dark), usageSettings, nationality, (stopGps, haptics), catalog ->
+    ) { (dynamicColor, dark), usageSettings, nationality, (stopGps, haptics, voice), catalog ->
         SettingsUiState(
             useDynamicColor = dynamicColor,
             forceDark = dark,
@@ -92,6 +95,7 @@ class SettingsViewModel @Inject constructor(
             nationality = nationality,
             stopGpsOnArrival = stopGps,
             walkingHaptics = haptics,
+            voiceGuidance = voice,
             catalogState = catalog,
         )
     }.stateIn(
@@ -106,6 +110,7 @@ class SettingsViewModel @Inject constructor(
             nationality = nationalityPreferences.nationality.value,
             stopGpsOnArrival = navigationPreferences.stopGpsOnArrival.value,
             walkingHaptics = navigationPreferences.walkingHaptics.value,
+            voiceGuidance = navigationPreferences.voiceGuidance.value,
         ),
     )
 

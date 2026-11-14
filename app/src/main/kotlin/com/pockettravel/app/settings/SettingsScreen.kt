@@ -123,6 +123,13 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                 checked = state.walkingHaptics,
                 onCheckedChange = viewModel::setWalkingHaptics,
             )
+            SwitchItem(
+                icon = ImageVector.vectorResource(UiR.drawable.ms_volume_up),
+                title = stringResource(R.string.settings_voice_guidance),
+                subtitle = stringResource(R.string.settings_voice_guidance_subtitle),
+                checked = state.voiceGuidance,
+                onCheckedChange = viewModel::setVoiceGuidance,
+            )
 
             SectionHeader(stringResource(R.string.settings_section_ai))
             AiSettingsSection()

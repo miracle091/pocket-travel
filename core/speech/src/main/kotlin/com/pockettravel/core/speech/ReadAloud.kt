@@ -104,31 +104,31 @@ class SystemReadAloud @Inject constructor(@ApplicationContext private val contex
             }
         }
     }
+}
 
-    // Sceglie la voce di [locale] e ritorna null, o il motivo per cui la lingua non si puo' leggere.
-    private fun selectVoice(tts: TextToSpeech, locale: Locale, allowNetworkVoice: Boolean): ReadAloudResult? {
-        if (allowNetworkVoice) {
-            val support = tts.setLanguage(locale)
-            val missing = support == TextToSpeech.LANG_MISSING_DATA || support == TextToSpeech.LANG_NOT_SUPPORTED
-            return if (missing) ReadAloudResult.LANGUAGE_UNAVAILABLE else null
-        }
-        val voices = runCatching { tts.voices }.getOrNull().orEmpty()
-        val candidates = voices.map { it.toCandidate() }
-        return when (val choice = chooseOfflineVoice(candidates, locale.language)) {
-            VoiceChoice.None -> ReadAloudResult.LANGUAGE_UNAVAILABLE
-            VoiceChoice.OnlyNetwork -> ReadAloudResult.ONLY_NETWORK_VOICE
-            is VoiceChoice.Offline -> {
-                val voice = voices.first { it.name == choice.name }
-                if (tts.setVoice(voice) == TextToSpeech.SUCCESS) null else ReadAloudResult.LANGUAGE_UNAVAILABLE
-            }
+// Sceglie la voce di [locale] e ritorna null, o il motivo per cui la lingua non si puo' leggere.
+internal fun selectVoice(tts: TextToSpeech, locale: Locale, allowNetworkVoice: Boolean): ReadAloudResult? {
+    if (allowNetworkVoice) {
+        val support = tts.setLanguage(locale)
+        val missing = support == TextToSpeech.LANG_MISSING_DATA || support == TextToSpeech.LANG_NOT_SUPPORTED
+        return if (missing) ReadAloudResult.LANGUAGE_UNAVAILABLE else null
+    }
+    val voices = runCatching { tts.voices }.getOrNull().orEmpty()
+    val candidates = voices.map { it.toCandidate() }
+    return when (val choice = chooseOfflineVoice(candidates, locale.language)) {
+        VoiceChoice.None -> ReadAloudResult.LANGUAGE_UNAVAILABLE
+        VoiceChoice.OnlyNetwork -> ReadAloudResult.ONLY_NETWORK_VOICE
+        is VoiceChoice.Offline -> {
+            val voice = voices.first { it.name == choice.name }
+            if (tts.setVoice(voice) == TextToSpeech.SUCCESS) null else ReadAloudResult.LANGUAGE_UNAVAILABLE
         }
     }
-
-    private fun Voice.toCandidate() = VoiceCandidate(
-        name = name,
-        language = locale.language,
-        requiresNetwork = isNetworkConnectionRequired,
-        installed = TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED !in features.orEmpty(),
-        quality = quality,
-    )
 }
+
+private fun Voice.toCandidate() = VoiceCandidate(
+    name = name,
+    language = locale.language,
+    requiresNetwork = isNetworkConnectionRequired,
+    installed = TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED !in features.orEmpty(),
+    quality = quality,
+)
