@@ -509,6 +509,12 @@ class LlamaBackendTest(unittest.TestCase):
         chat = FakeChat(lambda text, *_: "[1] • Italiano uno\n[2] • • Italiano due")
         self.assertEqual(["Italiano uno", "Italiano due"], tg.translate_block(chat, "Guida", ["One one", "• Two two"]))
 
+    def test_maiuscola_iniziale_come_inglese(self):
+        # in un elenco il modello a volte comincia in minuscolo ("• seguire i media locali") dove l'inglese ha la maiuscola
+        chat = FakeChat(lambda text, *_: "[1] seguire i media locali\n[2] eSIM disponibili")
+        self.assertEqual(["Seguire i media locali", "eSIM disponibili"],
+                         tg.translate_block(chat, "Guida", ["Follow local media", "eSIMs available"]))
+
     def test_blocco_fallito_non_ferma_gli_altri(self):
         many = "\n".join(f"Step {i}: walk {'far ' * 40}." for i in range(40))
         picks = [("a", "SALUTE", [("Health (Government of Canada)", many, GC)])]
