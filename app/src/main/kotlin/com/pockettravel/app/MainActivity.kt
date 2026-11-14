@@ -84,8 +84,10 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         intent.removeNavigationDeepLinkExtras()
-        // Activity ricreata dal tocco sulla notifica (non gia' aperta): onNewIntent non scatta, lo legge il NavHost.
-        val openNavigator = savedInstanceState == null && intent.getBooleanExtra(NavigationService.EXTRA_OPEN_NAVIGATOR, false)
+        // Activity creata dal tocco sulla notifica (non gia' aperta), o riaperta con la navigazione che continua dopo la
+        // chiusura dalle app recenti: onNewIntent non scatta, il NavHost porta al Navigatore.
+        val openNavigator = savedInstanceState == null &&
+            (intent.getBooleanExtra(NavigationService.EXTRA_OPEN_NAVIGATOR, false) || navigationSession.snapshot.value != null)
         if (savedInstanceState == null) intent.requestOpenScreen()
         reloadForLanguage()
         setContent {

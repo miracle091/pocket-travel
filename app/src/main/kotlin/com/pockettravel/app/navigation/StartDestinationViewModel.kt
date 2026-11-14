@@ -38,7 +38,7 @@ class StartDestinationViewModel @Inject constructor(
     /**
      * I comandi dell'avvio, nell'ordine in cui eseguirli. App gia' in uso: la mappa dell'ultima regione sopra l'elenco, una
      * volta sola (non dopo una ricreazione dell'activity: il back stack e' gia' ripristinato). Activity aperta dalla notifica
-     * della navigazione [openNavigatorOnStart]: dopo la regione, che altrimenti resterebbe in cima, il Navigatore, solo se
+     * della navigazione o riaperta durante una navigazione [openNavigatorOnStart]: dopo la regione, che altrimenti resterebbe in cima, il Navigatore, solo se
      * una navigazione e' in corso ([isNavigating]) e mai durante l'onboarding.
      */
     fun startCommands(openNavigatorOnStart: Boolean, isNavigating: Boolean): List<StartCommand> = buildList {
