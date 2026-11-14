@@ -15,6 +15,8 @@ devi\tdovere\tMOD:ind+pres+2+s
 informa\tinformare\tVER:impr+pres+2+s
 informa\tinformare\tVER:ind+pres+3+s
 zone\tzona\tNOUN-F:p
+vedi\tvedere\tVER:ind+pres+2+s
+vedi\tvedere\tVER:impr+pres+2+s
 dota\tdotare\tVER:impr+pres+2+s
 dotati\tdotare\tVER:part+past+p+m
 ritarda\tritardare\tVER:impr+pres+2+s
@@ -54,6 +56,11 @@ class RegisterCheckTest(unittest.TestCase):
         self.assertEqual([], rc.hits("I voli potrebbero essere cancellati, ritardati o deviati."))
         self.assertEqual([], rc.hits("Diffidare dei medicinali contraffatti."))
         self.assertEqual([], rc.hits("Evitare le aree colpite, a meno che non sia sicuro accedervi."))
+
+    def test_vedi_tra_parentesi_e_un_rimando(self):
+        # "(vedi Livelli di rischio)" e' la forma scelta per i rimandi (utente, 2026-11-14); fuori dalle parentesi conta
+        self.assertEqual([], rc.hits("Evitare lo stato di Sinaloa (vedi Livelli di rischio)."))
+        self.assertEqual([("vedi", "verbo 2a")], rc.hits("Se vedi un incendio, chiamare i soccorsi."))
 
 
 if __name__ == "__main__":

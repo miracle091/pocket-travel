@@ -8,7 +8,8 @@ forme che si rivolgono al lettore con tu o voi.
   persona + ti, vi, ci, lo, la, li, le, ne, gli; dentro la frase non conta un participio o aggettivo plurale ("taxi
   ufficiali, dotati di tassametro", "farmaci contraffatti");
 - "vi" pronome, salvo prima di essere e di "si" ("vi sono", "vi si trova").
-Non conta: il testo tra virgolette (citazioni in altre lingue), la forma di cortesia, "Non" + infinito.
+Non conta: il testo tra virgolette (citazioni in altre lingue), la forma di cortesia, "Non" + infinito, il rimando
+"(vedi ...)".
 Misurato il 2026-10-31 contro tre revisori su traduzioni dei consigli del Governo del Canada e di Wikivoyage: precisione
 0,98, copertura 0,96. Il 2026-11-14, su tutti i consigli canadesi tradotti, la regola dei participi e del "vi" di luogo
 ha tolto 24 segnalazioni, tutte false.
@@ -35,6 +36,7 @@ PLACE_VI = {"accedere", "andare", "entrare", "arrivare", "tornare", "restare", "
             "salire", "scendere", "circolare", "vivere", "lavorare"}
 SUBORD = {"se","quando", "dove", "come", "mentre", "perché", "perche"}  # dopo queste il congiuntivo di 3a e' raro
 QUOTED = re.compile(r"\"[^\"]*\"|“[^”]*”|«[^»]*»")
+CROSS_REF = re.compile(r"\(vedi\b", re.IGNORECASE)  # "(vedi Livelli di rischio)": forma scelta per i rimandi
 CLAUSE = re.compile(r"(?<=[.!?;:])\s+|\n|^\s*[•▸\-–]\s*|\(|\)")
 WORD = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ']+")
 
@@ -111,7 +113,7 @@ def participle(word):
 def hits(text):
     if LEX is None:
         raise RuntimeError("lessico Morph-it non caricato: chiamare load() prima di hits()")
-    text = QUOTED.sub(" ", text)
+    text = CROSS_REF.sub("(", QUOTED.sub(" ", text))
     out = []
     for clause in CLAUSE.split(text):
         if not clause or not clause.strip():
