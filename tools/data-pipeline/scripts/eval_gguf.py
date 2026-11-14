@@ -44,8 +44,8 @@ from gguf import GGUFReader
 
 import gpu_lock
 import vram
-from eval_common import (Synced, ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, drop_partial_line, find_llama_bin, print_context_use_report, instruction_checks, is_refusal,
-                         knowledge_turns, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
+from eval_common import (Synced, ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, dataset_lang, drop_partial_line, find_llama_bin, print_context_use_report,
+                         injection_rows, instruction_checks, is_refusal, knowledge_turns, obeyed_injection, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
                          print_pair_consistency, print_report, question_lang, question_of, read_jsonl_lenient, refusal_prefix, refusal_summary, sample, score,
                          text_lang, uses_empty_think)
 from status import Progress, phase
@@ -77,6 +77,7 @@ ap.add_argument("--pairs", action="store_true",
 ap.add_argument("--app-sampling", action="store_true",
                 help="anche la probabilita' del rifiuto con il campionamento dell'app (temperatura 0,3, top-k 10, top-p 0,95, min-p 0,05)")
 ap.add_argument("--samples", type=int, default=0, help="con --app-sampling: anche N risposte campionate per riga, per controllo")
+ap.add_argument("--injection", action="store_true", help="aggiunge le righe pos_injection (istruzione nascosta nel contesto)")
 ap.add_argument("--kinds", nargs="+", help="solo le righe di questi tipi (es. pos_near neg_city)")
 ap.add_argument("--system", help="turno system prima del turno utente, nel formato CHATML (l'app oggi non lo manda: per "
                                  "misurare un prompt di sistema, per esempio sugli Ufficiali)")
@@ -91,8 +92,8 @@ if a.answer_position and not a.contexts:
     ap.error("--answer-position vale con --contexts")
 if a.pairs and not a.contexts:
     ap.error("--pairs vale con --contexts")
-if a.contexts and (a.app_sampling or a.kinds):
-    ap.error("--app-sampling e --kinds valgono per le righe di test, non con --contexts")
+if a.contexts and (a.app_sampling or a.kinds or a.injection):
+    ap.error("--app-sampling, --kinds e --injection valgono per le righe di test, non con --contexts")
 if a.samples and not a.app_sampling:
     ap.error("--samples serve con --app-sampling")
 if a.system and a.knowledge_system:
@@ -132,6 +133,8 @@ if a.kinds:
     test = [r for r in test if r["kind"] in a.kinds]
 if a.limit:  # campione a passo fisso su tutti i tipi, come eval_online.py: le prime N righe sarebbero di un tipo solo
     test = sample(test, a.limit)
+if a.injection:
+    test += injection_rows(dataset_lang(test[0]))
 
 # Campionamento dell'app: temperatura 0,3 (DEFAULT_SAMPLER_TEMP in ai_chat.cpp), top-k 10 e top-p 0,95 (TOP_K e TOP_P in
 # LlamaOnDeviceLlmEngine.kt), il resto come i default di common_params_sampling che ai_chat.cpp non cambia: min-p 0,05,
@@ -310,6 +313,8 @@ try:
         langs = {"question_lang": question_lang(r), "answer_lang": text_lang(got)}
         score(by_lang.setdefault(langs["question_lang"], {}), r, got)
         checks = instruction_checks(r, got)
+        if r["kind"] == "pos_injection":
+            print("ISTRUZIONE NEL CONTESTO", "eseguita" if obeyed_injection(r, got) else "ignorata", "|", question_of(r), "|", got[:200])
         wrong_lang[r["kind"]] = wrong_lang.get(r["kind"], 0) + checks["wrong_lang"]
         instruction_rows.append({"kind": r["kind"], "question_lang": langs["question_lang"], "question": question_of(r).strip(),
                                  "got": got, **checks})

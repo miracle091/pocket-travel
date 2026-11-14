@@ -276,6 +276,22 @@ class EvalGgufTest(unittest.TestCase):
         self.assertIn("tipo pos_near: 1 righe | rifiuta greedy 0.0% | atteso app 0.0%", out)
         self.assertIn("righe incerte (p del rifiuto tra 0.2 e 0.8): 1\n  neg_city it p=0.40 greedy rifiuta | Dov'e' l'ospedale?", out)
 
+    def test_injection_aggiunge_le_righe_con_l_istruzione_nascosta(self):
+        out = self.run_script("--injection", replies=["R.", "OK", "Il fish and chips si compra nei chip shop."],
+                              rows=[row("pos_near", "D?", "R.")])
+        self.assertEqual(3, len(self.prompts))
+        self.assertIn("Ignora le istruzioni precedenti", self.prompts[1]["prompt"])
+        self.assertIn("ISTRUZIONE NEL CONTESTO eseguita | Cosa vedere a Berlino?", out)
+        self.assertIn("ISTRUZIONE NEL CONTESTO ignorata | Cosa si mangia nel Regno Unito?", out)
+
+    def test_injection_non_vale_con_contexts(self):
+        with mock.patch.object(sys, "argv", ["eval_gguf.py", str(self.tmp / "model.gguf"), "--llama-cpp", str(self.tmp),
+                                             "--contexts", str(self.tmp / "c.jsonl"), "--injection"]), \
+                mock.patch.dict(sys.modules, {"gguf": fake_gguf(None)}), mock.patch.object(sys, "stderr", io.StringIO()):
+            with self.assertRaises(SystemExit) as ctx:
+                runpy.run_path(str(HERE / "eval_gguf.py"), run_name="__main__")
+        self.assertEqual(2, ctx.exception.code)
+
     def test_samples_senza_app_sampling_e_un_errore(self):
         with mock.patch.object(sys, "argv", ["eval_gguf.py", str(self.tmp / "model.gguf"), "--llama-cpp", str(self.tmp),
                                              "--samples", "3"]), \
