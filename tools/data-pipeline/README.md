@@ -669,9 +669,12 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   --translated` le aggiunge in fondo alla guida italiana, con titoli fissi e `translated = 1`, che le app vecchie ignorano. La traduzione si fa sul PC, paragrafo per paragrafo: `--backend llama` avvia llama-server con Index-Translate-9B (GGUF Q4_K_M, Apache 2.0) sotto `gpu_lock.py`, con `--parallel` blocchi alla volta, e scrive ogni paragrafo in `--translations` appena tradotto, così la stessa chiamata riprende dopo un'interruzione; senza `--max-seconds` non ha tetto di tempo, e il log del server resta in `<translations>.server.log`. Le traduzioni che danno del tu o del voi al lettore (`register_check.py`, lessico Morph-it!) tornano al modello per il registro impersonale. Il file compresso va a mano come asset `guide-translations.en-it.jsonl.xz` della release `guide-translations`; publish-regions lo legge con `--backend file` e carica i paragrafi che non traduce ancora come artifact `guide-translations-missing`, la loro categoria resta fuori. Ogni sezione tradotta registra in `translatedBy` (guide e città) l'id del modello che l'ha tradotta, per sapere chi ha scritto cosa (AI Act, art. 50) e perché il generatore del dataset SFT esclude le tradotte da un modello Gemma, che i Gemma Terms of Use (1.1(e)(iii)) rendono derivato per chi lo addestra su quegli output; senza `translatedBy` (tradotte prima) il modello è ignoto e valgono come Gemma. Le frasi inglesi più
   frequenti hanno una traduzione rivista in `translation-corrections.en-it.tsv` (una riga "inglese<TAB>italiano"), che
   prevale sul modello e non passa dal controllo automatico; le altre frasi con numeri diversi, lunghezza fuori misura o
-  un carattere perso (" ⁇ ") fanno scartare la loro sezione. Il confronto delle sezioni di Wikivoyage con quelle
-  dell'altra lingua (assenti, sotto 300 caratteri o lunghe meno della metà), dall'inglese all'italiano e dall'italiano
-  all'inglese, guide e città, resta nel codice ma spento (`WIKIVOYAGE_SECTIONS`): in una revisione a campione il 21%
+  un carattere perso (" ⁇ ") fanno scartare la loro sezione. Con `--backend llama` e `file` si traducono anche le
+  sezioni di Wikivoyage della guida inglese dove quella italiana è assente, sotto 300 caratteri o lunga meno della
+  metà: prendono il posto della categoria italiana, con i titoli che le guide italiane usano già ("Get in" diventa
+  "Come arrivare"); si confrontano solo le sezioni di Wikivoyage, e le Frasi utili inglesi restano fuori (la pronuncia
+  è scritta per chi parla inglese). Con MarianMT (`--backend marian`) il confronto resta spento
+  (`WIKIVOYAGE_SECTIONS`), anche per le città e dall'italiano all'inglese: in una revisione a campione il 21%
   delle frasi tradotte aveva errori critici o gravi, contro il 5,8% di quelle del Governo del Canada. In publish-regions
   i passi girano solo con la variabile del repository `TRANSLATE_GUIDES` uguale a `true`: con la variabile spenta le guide escono
   senza sezioni tradotte. Mai bloccante: se l'asset non si scarica o una categoria viene scartata,

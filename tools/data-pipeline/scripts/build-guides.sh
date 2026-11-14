@@ -35,8 +35,9 @@
 #
 # Sezioni tradotte dall'altra lingua (sezione 3a): con TRANSLATE_CACHE_DIR e i modelli attivi (vedi translate_overlay in
 # lib.sh) translate_guides.py traduce le sezioni del governo canadese della guida inglese, che si aggiungono alla guida
-# italiana con translated = 1 in guide_sections e l'url della pagina d'origine (il confronto con le sezioni povere di
-# Wikivoyage e' spento, vedi WIKIVOYAGE_SECTIONS li'). La passata "en" va lanciata prima di quella italiana, con
+# italiana con translated = 1 in guide_sections e l'url della pagina d'origine; con l'asset delle traduzioni (--backend
+# file) anche le sezioni povere di Wikivoyage, al posto della categoria italiana (con MarianMT il confronto e' spento,
+# vedi WIKIVOYAGE_SECTIONS li'). La passata "en" va lanciata prima di quella italiana, con
 # GUIDES_FINAL_COPY=<file> (dove lascia la guida inglese che pubblica, con i consigli) e poi GUIDES_SOURCE_DB=<lo stesso
 # file> per l'italiana; GUIDES_TRANSLATE_SECONDS e' il tempo massimo di traduzione della passata. Senza o se qualcosa
 # non riesce, guide come prima.

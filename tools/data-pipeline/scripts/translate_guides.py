@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Guide arricchite dall'altra lingua. Oggi solo le guide italiane, con le sezioni del governo canadese (travel.gc.ca)
-della guida inglese tradotte (pick_travel_advice): generateGuides (--translated) le aggiunge alla guida italiana. Spento
-dopo la revisione a campione (vedi WIKIVOYAGE_SECTIONS): per ogni regione (o citta') e categoria si confronta la sezione
-della guida con quella nell'altra lingua (translate_dataset.needs_translation: assente, sotto 300 caratteri o lunga meno
-della meta') e, dove l'altra e' molto piu' ricca, la si traduce, italiano dall'inglese o inglese dall'italiano (--from).
+della guida inglese tradotte (pick_travel_advice): generateGuides (--translated) le aggiunge alla guida italiana. Con i
+motori llama e file anche le sezioni di Wikivoyage (pick_sections; con marian spento, vedi WIKIVOYAGE_SECTIONS): per ogni
+regione (o citta') e categoria si confronta la sezione di Wikivoyage della guida con quella nell'altra lingua
+(translate_dataset.needs_translation: assente, sotto 300 caratteri o lunga meno della meta') e, dove l'altra e' molto
+piu' ricca, la si traduce, italiano dall'inglese o inglese dall'italiano (--from).
 Scrive un file di sezioni tradotte (una riga JSON per regione e categoria) che generateGuides / generateCities
 (--translated) mettono al posto di quelle povere, segnandole con translated = 1 e con il modello usato in translatedBy nel database.
 
@@ -62,16 +63,19 @@ import translate_dataset as ts
 from eval_common import Synced, drop_partial_line
 from status import Progress
 
-# Dai fatti rapidi in inglese non si traduce: li costruisce la pipeline dai Fatti rapidi italiani.
-SKIP_CATEGORIES = {"FATTI_RAPIDI"}
+# Dai fatti rapidi in inglese non si traduce: li costruisce la pipeline dai Fatti rapidi italiani. Le frasi utili inglesi
+# (Talk) sono per chi parla inglese: la pronuncia ("Bonjour (bohn-ZHOOR)") tradotta resterebbe all'inglese.
+SKIP_CATEGORIES = {"FATTI_RAPIDI", "FRASI_UTILI"}
 # Revisione a campione del 2026-10-09 (1786 frasi tradotte dall'inglese, controllate una per una per omissioni,
-# aggiunte, numeri e senso): le sezioni di
+# aggiunte, numeri e senso): con MarianMT le sezioni di
 # Wikivoyage hanno il 21% di frasi con errori critici o gravi (senso sbagliato delle parole ambigue: "Muggings" -> "I
-# muggini", "tip" -> "consigliare"), quelle del governo canadese il 5,8%, con testo formale e frasi ripetute da un paese
-# all'altro. Si traducono solo queste ultime (guide italiane, aggiunte alle sezioni di Wikivoyage, vedi
-# pick_travel_advice); il confronto con le sezioni povere (pick_sections) resta spento, in tutte e due le direzioni e
-# per le citta', finche' un motore migliore non passa la stessa revisione.
+# muggini", "tip" -> "consigliare"), quelle del governo canadese il 5,8%. Con MarianMT (--backend marian) il confronto
+# con le sezioni povere (pick_sections) resta spento, in tutte e due le direzioni e per le citta'; con Index-Translate
+# (--backend llama e file, guide dall'inglese) e' acceso: 0,3% di frasi con difetti gravi nella revisione cieca del
+# 2026-10-31 su testo misto di Wikivoyage e Canada. Si confrontano solo le sezioni di Wikivoyage, mai Wikipedia o
+# i consigli dei governi.
 WIKIVOYAGE_SECTIONS = False
+WIKIVOYAGE_HOST = ".wikivoyage.org/"
 TRAVEL_ADVICE_HOST = "://travel.gc.ca/"
 # Titoli delle sezioni del governo canadese (GenerateTravelAdvice.kt): fissi, il modello fuori contesto li sbaglia.
 FIXED_TITLES = {
@@ -79,6 +83,11 @@ FIXED_TITLES = {
     "Laws and culture (Government of Canada)": "Leggi e cultura (Governo del Canada)",
     "Natural disasters and climate (Government of Canada)": "Catastrofi naturali e clima (Governo del Canada)",
     "Health (Government of Canada)": "Salute (Governo del Canada)",
+    # sezioni standard di Wikivoyage: i titoli che le guide italiane usano per la stessa categoria
+    "Get in": "Come arrivare", "Get around": "Come spostarsi", "See": "Cosa vedere", "Do": "Cosa fare",
+    "Buy": "Valuta e acquisti", "Eat": "A tavola", "Drink": "Bevande", "Sleep": "Dove alloggiare",
+    "Stay safe": "Sicurezza", "Stay healthy": "Situazione sanitaria", "Respect": "Rispettare le usanze",
+    "Connect": "Come restare in contatto", "Cope": "Tenersi informati",
 }
 # Traduzioni corrette a mano delle frasi inglesi piu' frequenti (una riga "inglese<TAB>italiano"): prevalgono sulla cache
 # e sul modello.
@@ -231,7 +240,7 @@ def overlay_from_store(picks, store):
                 marker, text = split_line(line)
                 lines.append(marker + store.get(text) if text else line)
             out.append((new_title, "\n".join(capitalize_list_infinitives(lines)), url))
-        translated[(owner, category)] = out
+        translated.setdefault((owner, category), []).extend(out)  # consigli e Wikivoyage della stessa categoria
     return translated, missing
 
 
@@ -664,8 +673,11 @@ def main(argv=None):
         finally:
             con.close()
     picks = pick_travel_advice(source, source_owner) if (args.kind, source_lang) == ("guides", "en") else []
-    if WIKIVOYAGE_SECTIONS:
-        picks += pick_sections(group(own_rows, drop_url_prefix=f"https://{source_lang}."), source, source_owner)
+    if WIKIVOYAGE_SECTIONS or args.backend != "marian":
+        def wikivoyage(rows):
+            return [r for r in rows if WIKIVOYAGE_HOST in r[4]]
+        picks += pick_sections(group(wikivoyage(own_rows), drop_url_prefix=f"https://{source_lang}."),
+                               group(wikivoyage(source_rows), drop_url_prefix=f"https://{own_lang}."), source_owner)
     if not picks:
         print(f"traduzioni {source_lang}->{own_lang} ({args.kind}): niente da tradurre", file=sys.stderr)
         write_overlay(args.overlay, {}, ts.MODELS[(source_lang, own_lang)])

@@ -132,20 +132,20 @@ class TravelAdviceTest(unittest.TestCase):
 
 class TranslatePicksTest(unittest.TestCase):
     def _picks(self, *specs):
-        return [(owner, "SALUTE", [("Stay safe", body, "https://en.wikivoyage.org/wiki/X")]) for owner, body in specs]
+        return [(owner, "SALUTE", [("Safety tips", body, "https://en.wikivoyage.org/wiki/X")]) for owner, body in specs]
 
     def test_traduce_titoli_e_corpi_con_marcatori(self):
         with tempfile.TemporaryDirectory() as d:
             t = FakeTranslator(d)
             result, pending = tg.translate_picks(self._picks(("a", "Water is safe.\n▸ Tips\n• Boil it.")), t, time.time() + 60)
         self.assertEqual([], pending)
-        self.assertEqual({("a", "SALUTE"): [("IT:Stay safe", "IT:Water is safe.\n▸ IT:Tips\n• IT:Boil it.",
+        self.assertEqual({("a", "SALUTE"): [("IT:Safety tips", "IT:Water is safe.\n▸ IT:Tips\n• IT:Boil it.",
                                              "https://en.wikivoyage.org/wiki/X")]}, result)
 
     def test_tempo_finito_rimanda_le_nuove_ma_include_quelle_in_cache(self):
         with tempfile.TemporaryDirectory() as d:
             t = FakeTranslator(d)
-            for sentence in ("Cached text.", "Stay safe"):
+            for sentence in ("Cached text.", "Safety tips"):
                 t.cache[t._key(sentence)] = f"IT:{sentence}"
             result, pending = tg.translate_picks(self._picks(("a", "Cached text."), ("b", "Brand new text.")), t, time.time() - 1)
         self.assertEqual([("a", "SALUTE")], list(result))
@@ -184,9 +184,9 @@ class TranslatePicksTest(unittest.TestCase):
     def test_titoli_uguali_dopo_la_traduzione_tengono_l_originale(self):
         with tempfile.TemporaryDirectory() as d:
             t = FakeTranslator(d)
-            t.cache[t._key("See")] = "Vedere"
+            t.cache[t._key("Sights")] = "Vedere"
             t.cache[t._key("Look")] = "Vedere"
-            picks = [("a", "COSA_VEDERE", [("See", "Text one.", "u"), ("Look", "Text two.", "u")])]
+            picks = [("a", "COSA_VEDERE", [("Sights", "Text one.", "u"), ("Look", "Text two.", "u")])]
             t.cache[t._key("Text one.")] = "Testo uno."
             t.cache[t._key("Text two.")] = "Testo due."
             result, _ = tg.translate_picks(picks, t, time.time() + 60)
@@ -582,6 +582,33 @@ class ParagraphMainTest(unittest.TestCase):
         self.assertEqual([{"owner": "a", "category": "SALUTE", "model": "index-translate-9b-q4_k_m",
                            "sections": [{"title": "Salute (Governo del Canada)", "body": "La malaria è presente.", "sourceUrl": GC}]}], lines)
         self.assertEqual([{"k": tg.paragraph_key("Dengue occurs."), "src": "Dengue occurs."}], absent)
+
+    def test_backend_file_traduce_anche_le_sezioni_povere_di_wikivoyage(self):
+        wv, uk = "https://en.wikivoyage.org/wiki/A", "https://www.gov.uk/foreign-travel-advice/a/health"
+        with tempfile.TemporaryDirectory() as d:
+            it = DatabaseTest._db(self, d, "it.db", "guide_sections", "regionId",
+                                  [("a", "SALUTE", "Salute", "Bere acqua.", "https://it.wikivoyage.org/wiki/A", None),
+                                   ("a", "SALUTE", "Salute (Governo del Canada)", "x" * 900, GC, None),  # non rende ricca la categoria
+                                   ("a", "CIBO_BEVANDE", "Gastronomia", "y" * 900, "https://it.wikipedia.org/wiki/A", None)])
+            en = DatabaseTest._db(self, d, "en.db", "guide_sections", "regionId",
+                                  [("a", "SALUTE", "Stay healthy", "Drink bottled water.\n• Avoid ice.", wv, None),
+                                   ("a", "SALUTE", "Health (Government of Canada)", "Malaria occurs.", GC, None),
+                                   ("a", "SALUTE", "Entry (Government of Canada)", "Visa needed.", GC + "#for-nationality=CA", None),
+                                   ("a", "SALUTE", "Health (UK government)", "Rabies occurs.", uk, None),
+                                   ("a", "CIBO_BEVANDE", "Eat", "Rice " * 100, wv, None),
+                                   ("a", "FRASI_UTILI", "Talk", "Hello: Bonjour (bohn-ZHOOR). " * 20, wv, None)])
+            translations, overlay = Path(d) / "t.jsonl", Path(d) / "o.jsonl"
+            store = tg.TranslationStore(translations, "m")
+            for en_text, it_text in [("Drink bottled water.", "Bere acqua in bottiglia."),
+                                     ("Avoid ice.", "Evitare il ghiaccio."), ("Malaria occurs.", "La malaria è presente."),
+                                     ("Rice " * 100, "Riso " * 100)]:
+                store.add(en_text.strip(), it_text.strip())
+            tg.main(["guides", str(it), str(en), str(overlay), "--cache-dir", d, "--backend", "file", "--translations", str(translations)])
+            lines = {(r["owner"], r["category"]): r["sections"] for r in map(json.loads, overlay.read_text(encoding="utf-8").splitlines())}
+        self.assertEqual({("a", "SALUTE"), ("a", "CIBO_BEVANDE")}, set(lines))  # FRASI_UTILI fuori; Wikipedia non conta
+        self.assertEqual([("Salute (Governo del Canada)", "La malaria è presente.", GC),
+                          ("Situazione sanitaria", "Bere acqua in bottiglia.\n• Evitare il ghiaccio.", wv)],
+                         [(s["title"], s["body"], s["sourceUrl"]) for s in lines[("a", "SALUTE")]])
 
     def test_backend_llama_chiede_i_suoi_argomenti(self):
         with tempfile.TemporaryDirectory() as d, mock.patch("sys.stderr"):
