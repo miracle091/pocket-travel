@@ -32,7 +32,7 @@ l'asset che la CI legge con il motore file. Un file contiene le traduzioni di un
 Motore file (in CI): nessun modello, solo --translations. Una categoria con un paragrafo assente resta com'e'; i paragrafi
 assenti vanno in --missing, una riga JSON {"k", "src"} per paragrafo, da tradurre al giro locale successivo.
 
-Tetto di tempo: --max-seconds per questa chiamata e --deadline (secondi dal 1970) per un tetto comune a piu'
+Tetto di tempo: --max-seconds per questa chiamata (3600 di default, nessuno con llama) e --deadline (secondi dal 1970) per un tetto comune a piu'
 chiamate; passato il primo si smette di tradurre frasi nuove e le sezioni restanti seguono nella run successiva (la
 cache in --cache-dir tiene il lavoro fatto). Le sezioni gia' interamente in cache si includono sempre, a prescindere dal
 tempo, cosi' una guida gia' tradotta non torna povera a pezzi. Una sezione con una frase sospetta resta com'e'.
@@ -51,7 +51,6 @@ import socket
 import sqlite3
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.parse
 import urllib.request
@@ -272,9 +271,9 @@ def fix_register(chat, english, italian, second_person):
     return italian, False
 
 
-def start_llama_server(gguf, llama_cpp, device, parallel=1):
+def start_llama_server(gguf, llama_cpp, device, log_path, parallel=1):
     """llama-server su una porta libera di localhost, tutto sulla GPU [device], con [parallel] richieste insieme in una
-    cache KV comune da 4096 token ciascuna; (processo, url) a modello carico."""
+    cache KV comune da 4096 token ciascuna, stderr in [log_path]; (processo, url) a modello carico."""
     import vram
     from eval_common import find_llama_bin, llama_env
     with socket.socket() as s:
@@ -285,8 +284,9 @@ def start_llama_server(gguf, llama_cpp, device, parallel=1):
     cmd = [exe, "-m", str(gguf), "--host", "127.0.0.1", "--port", str(port), "-c", str(4096 * parallel),
            "-np", str(parallel), "--kv-unified", "-fa", "on", "-b", "2048", "-ub", "512", "--load-mode", "none", "--jinja",
            "--no-webui", "-ngl", "99", "--device", device]
-    # stderr in un file temporaneo: se il server esce subito (un'opzione che la build non conosce), il motivo si legge
-    log = tempfile.TemporaryFile()
+    # stderr in un file: se il server esce subito (un'opzione che la build non conosce) il motivo si stampa, se cade a
+    # meta' giro resta da leggere
+    log = open(log_path, "w+b")
     server = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=log, env=llama_env(exe))
     url = f"http://127.0.0.1:{port}"
     for _ in range(600):
@@ -585,9 +585,11 @@ def main(argv=None):
     ap.add_argument("--morphit", type=Path, help="llama: lessico Morph-it m.utf8 (register_check.py)")
     ap.add_argument("--from", dest="source_lang", choices=["en", "it"], default="en")
     ap.add_argument("--parallel", type=int, default=1, help="llama: blocchi tradotti insieme")
-    ap.add_argument("--max-seconds", type=float, default=3600)
+    ap.add_argument("--max-seconds", type=float, help="default 3600; con llama nessun tetto (giro sul PC)")
     ap.add_argument("--deadline", type=float, default=float("inf"))
     args = ap.parse_args(argv)
+    if args.max_seconds is None:
+        args.max_seconds = float("inf") if args.backend == "llama" else 3600
     needed = {"marian": ["model_dir"], "file": ["translations"],
               "llama": ["translations", "gguf", "llama_cpp", "device", "morphit"]}[args.backend]
     if absent := [n for n in needed if getattr(args, n) is None]:
@@ -633,12 +635,15 @@ def main(argv=None):
             import register_check
             register_check.load(args.morphit)
             gpu_lock.gpu_job("translate_guides.py")
-            server, url = start_llama_server(args.gguf, args.llama_cpp, args.device, args.parallel)
+            server_log = args.translations.with_suffix(".server.log")
+            server, url = start_llama_server(args.gguf, args.llama_cpp, args.device, server_log, args.parallel)
             # l'attesa del lucchetto e il caricamento del modello non consumano il tempo della traduzione
             deadline = min(time.time() + args.max_seconds, args.deadline)
             try:
-                translate_paragraphs(picks, store, llama_chat(url), read_corrections(),
-                                     lambda t: bool(register_check.hits(t)), deadline, args.parallel)
+                counts = translate_paragraphs(picks, store, llama_chat(url), read_corrections(),
+                                              lambda t: bool(register_check.hits(t)), deadline, args.parallel)
+                if counts["errori"]:
+                    print(f"blocchi non tradotti: log di llama-server in {server_log}", file=sys.stderr)
             finally:
                 server.terminate()
                 server.wait()

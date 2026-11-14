@@ -607,7 +607,7 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   training resta pulito. Toglie sempre le risposte che cominciano con un rimando ("Tuttavia", "Questo", "They",
   "However"…) a una frase rimasta fuori dallo stesso paragrafo (motivo `risposta-con-rimando`): da sole non stanno in
   piedi. Le note di `ATTRIBUTION` sono nella lingua del dataset. Le sezioni di `guides.db` e `cities.db` tradotte
-  automaticamente entrano solo se `translatedBy` nomina un modello con una licenza verificata (opus-mt, Gemma 4; non
+  automaticamente entrano solo se `translatedBy` nomina un modello con una licenza verificata (opus-mt, Gemma 4, Index-Translate; non
   Gemma 3 né TranslateGemma, che hanno i Gemma Terms of Use), e la loro riga di `ATTRIBUTION` dice che il testo è tradotto, con quale modello e con la licenza del modello. I file di output sono
   `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v11 con
   `--nearby`, `--distances`, `--cities-db`, `--emergency`, le domande in stile utente, `--city-daily-life`,
@@ -663,11 +663,10 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   dump completo di Wikivoyage (`fetch_wikivoyage_dump_parts` in `lib.sh`, quello del mese prima finché il nuovo non
   ha `SHA256SUMS`), verificato con sha256 e tenuto nella cache di Actions fino al dump successivo; dopo un download
   riuscito le parti dei dump vecchi escono dalla cache.
-- **Guide arricchite dall'altra lingua**: `scripts/translate_guides.py` traduce con MarianMT (`opus-mt-tc-big-en-it`,
-  CC BY 4.0, CTranslate2 int8 su CPU) le sezioni del Governo del Canada della guida inglese che pubblica la passata
+- **Guide arricchite dall'altra lingua**: `scripts/translate_guides.py` traduce le sezioni del Governo del Canada della guida inglese che pubblica la passata
   `en` (`GUIDES_FINAL_COPY`, poi `GUIDES_SOURCE_DB` della passata italiana), senza quelle per i soli canadesi
   (`#for-nationality=CA`: requisiti d'ingresso, indirizzi e numeri restano nella guida inglese); `generateGuides
-  --translated` le aggiunge in fondo alla guida italiana, con titoli fissi e `translated = 1`, che le app vecchie ignorano. Ogni sezione tradotta registra in `translatedBy` (guide e città) l'id del modello che l'ha tradotta, per sapere chi ha scritto cosa (AI Act, art. 50) e perché il generatore del dataset SFT esclude le tradotte da un modello Gemma, che i Gemma Terms of Use (1.1(e)(iii)) rendono derivato per chi lo addestra su quegli output; senza `translatedBy` (tradotte prima) il modello è ignoto e valgono come Gemma. Le frasi inglesi più
+  --translated` le aggiunge in fondo alla guida italiana, con titoli fissi e `translated = 1`, che le app vecchie ignorano. La traduzione si fa sul PC, paragrafo per paragrafo: `--backend llama` avvia llama-server con Index-Translate-9B (GGUF Q4_K_M, Apache 2.0) sotto `gpu_lock.py`, con `--parallel` blocchi alla volta, e scrive ogni paragrafo in `--translations` appena tradotto, così la stessa chiamata riprende dopo un'interruzione; senza `--max-seconds` non ha tetto di tempo, e il log del server resta in `<translations>.server.log`. Le traduzioni che danno del tu o del voi al lettore (`register_check.py`, lessico Morph-it!) tornano al modello per il registro impersonale. Il file compresso va a mano come asset `guide-translations.en-it.jsonl.xz` della release `guide-translations`; publish-regions lo legge con `--backend file` e carica i paragrafi che non traduce ancora come artifact `guide-translations-missing`, la loro categoria resta fuori. Ogni sezione tradotta registra in `translatedBy` (guide e città) l'id del modello che l'ha tradotta, per sapere chi ha scritto cosa (AI Act, art. 50) e perché il generatore del dataset SFT esclude le tradotte da un modello Gemma, che i Gemma Terms of Use (1.1(e)(iii)) rendono derivato per chi lo addestra su quegli output; senza `translatedBy` (tradotte prima) il modello è ignoto e valgono come Gemma. Le frasi inglesi più
   frequenti hanno una traduzione rivista in `translation-corrections.en-it.tsv` (una riga "inglese<TAB>italiano"), che
   prevale sul modello e non passa dal controllo automatico; le altre frasi con numeri diversi, lunghezza fuori misura o
   un carattere perso (" ⁇ ") fanno scartare la loro sezione. Il confronto delle sezioni di Wikivoyage con quelle
@@ -675,6 +674,5 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   all'inglese, guide e città, resta nel codice ma spento (`WIKIVOYAGE_SECTIONS`): in una revisione a campione il 21%
   delle frasi tradotte aveva errori critici o gravi, contro il 5,8% di quelle del Governo del Canada. In publish-regions
   i passi girano solo con la variabile del repository `TRANSLATE_GUIDES` uguale a `true`: con la variabile spenta le guide escono
-  senza sezioni tradotte. Mai bloccante: se CTranslate2 o il modello mancano, il tempo finisce o una categoria viene scartata,
-  restano i consigli tradotti già pubblicati (nessuno, la prima volta); la cache delle frasi tradotte tiene il lavoro
-  fatto. Spegnendo di nuovo la variabile i consigli tradotti già pubblicati restano, senza aggiornamenti.
+  senza sezioni tradotte. Mai bloccante: se l'asset non si scarica o una categoria viene scartata,
+  restano i consigli tradotti già pubblicati (nessuno, la prima volta). Spegnendo di nuovo la variabile i consigli tradotti già pubblicati restano, senza aggiornamenti.

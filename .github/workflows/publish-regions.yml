@@ -231,10 +231,16 @@ jobs:
         continue-on-error: true
         run: |
           n="$(wc -l < guide-translations-missing.en-it.jsonl)"
+          if [ "$n" -eq 0 ]; then
+            echo "Consigli canadesi: tutti i paragrafi hanno la traduzione." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           echo "Paragrafi dei consigli canadesi senza traduzione: $n (artifact guide-translations-missing)." >> "$GITHUB_STEP_SUMMARY"
+          echo "upload=true" >> "$GITHUB_OUTPUT"
 
+      # Solo con almeno un paragrafo: un file vuoto non serve al giro sul PC
       - name: Carica i paragrafi senza traduzione
-        if: ${{ always() && steps.missing-translations.outcome == 'success' }}
+        if: ${{ always() && steps.missing-translations.outputs.upload == 'true' }}
         continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
