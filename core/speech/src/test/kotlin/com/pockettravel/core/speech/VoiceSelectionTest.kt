@@ -15,14 +15,14 @@ class VoiceSelectionTest {
     ) = VoiceCandidate(name, language, network, installed, quality)
 
     @Test
-    fun `sceglie la voce offline di qualita' piu' alta della lingua`() {
+    fun `le voci offline della lingua dalla qualita' piu' alta, da provare in ordine`() {
         val voices = listOf(
             voice("it-rete", network = true, quality = 500),
             voice("it-bassa", quality = 200),
             voice("it-alta", quality = 400),
             voice("en-alta", language = "en", quality = 500),
         )
-        assertEquals(VoiceChoice.Offline("it-alta"), chooseOfflineVoice(voices, "it"))
+        assertEquals(VoiceChoice.Offline(listOf("it-alta", "it-bassa")), chooseOfflineVoice(voices, "it"))
     }
 
     @Test

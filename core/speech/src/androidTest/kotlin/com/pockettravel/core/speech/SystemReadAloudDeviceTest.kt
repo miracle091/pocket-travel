@@ -18,8 +18,17 @@ class SystemReadAloudDeviceTest {
 
     private val readAloud = SystemReadAloud(InstrumentationRegistry.getInstrumentation().targetContext)
 
-    private fun speak(text: String, language: String): ReadAloudResult =
-        runBlocking { withContext(Dispatchers.Main) { readAloud.speak(text, language, allowNetworkVoice = true) } }
+    private fun speak(text: String, language: String, allowNetworkVoice: Boolean = true): ReadAloudResult =
+        runBlocking { withContext(Dispatchers.Main) { readAloud.speak(text, language, allowNetworkVoice) } }
+
+    // Sull'emulatore la voce inglese installata migliore non si apre: senza la prova delle voci la lettura falliva.
+    @Test
+    fun conLeSoleVociInstallateLeggeConLaPrimaCheParla() {
+        val italian = speak("Il museo apre alle nove.", "it", allowNetworkVoice = false)
+        assumeTrue("Nessuna voce italiana installata", italian != ReadAloudResult.FAILED && italian != ReadAloudResult.LANGUAGE_UNAVAILABLE)
+        assertEquals(ReadAloudResult.FINISHED, italian)
+        assertEquals(ReadAloudResult.FINISHED, speak("The museum opens at nine.", "en", allowNetworkVoice = false))
+    }
 
     @Test
     fun leggeFinoInFondoNelleDueLingue() {

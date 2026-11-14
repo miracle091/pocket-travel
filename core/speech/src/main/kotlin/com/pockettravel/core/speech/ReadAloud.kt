@@ -8,6 +8,7 @@ import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.io.File
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -60,6 +61,29 @@ class SystemReadAloud @Inject constructor(@ApplicationContext private val contex
                 continuation.resume(result)
             }
             val lastId = "${chunks.lastIndex}"
+
+            // La lettura, con la voce scelta: dai thread del motore, a prova della voce finita.
+            fun read(tts: TextToSpeech) {
+                tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String) = Unit
+
+                    override fun onDone(utteranceId: String) {
+                        if (utteranceId == lastId) finish(ReadAloudResult.FINISHED)
+                    }
+
+                    @Deprecated("Sostituito da onError(String, Int), chiamato ancora dai motori vecchi")
+                    override fun onError(utteranceId: String) = finish(ReadAloudResult.FAILED)
+
+                    override fun onError(utteranceId: String, errorCode: Int) = finish(ReadAloudResult.FAILED)
+
+                    // Il motore ha scartato la frase senza leggerla (per esempio perche' e' stato fermato da fuori).
+                    override fun onStop(utteranceId: String, interrupted: Boolean) = finish(ReadAloudResult.FAILED)
+                })
+                val queued = chunks.withIndex().all { (i, chunk) ->
+                    tts.speak(chunk, TextToSpeech.QUEUE_ADD, null, "$i") == TextToSpeech.SUCCESS
+                }
+                if (!queued) finish(ReadAloudResult.FAILED)
+            }
             // Senza motori installati TextToSpeech chiama onInit con ERROR gia' dentro il costruttore.
             engine.set(
                 TextToSpeech(context) { status ->
@@ -68,30 +92,9 @@ class SystemReadAloud @Inject constructor(@ApplicationContext private val contex
                         finish(ReadAloudResult.FAILED)
                         return@TextToSpeech
                     }
-                    val unavailable = selectVoice(tts, Locale.forLanguageTag(language), allowNetworkVoice)
-                    if (unavailable != null) {
-                        finish(unavailable)
-                        return@TextToSpeech
+                    selectVoice(tts, Locale.forLanguageTag(language), allowNetworkVoice, File(context.cacheDir, PROBE_FILE)) { unavailable ->
+                        if (unavailable != null) finish(unavailable) else read(tts)
                     }
-                    tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                        override fun onStart(utteranceId: String) = Unit
-
-                        override fun onDone(utteranceId: String) {
-                            if (utteranceId == lastId) finish(ReadAloudResult.FINISHED)
-                        }
-
-                        @Deprecated("Sostituito da onError(String, Int), chiamato ancora dai motori vecchi")
-                        override fun onError(utteranceId: String) = finish(ReadAloudResult.FAILED)
-
-                        override fun onError(utteranceId: String, errorCode: Int) = finish(ReadAloudResult.FAILED)
-
-                        // Il motore ha scartato la frase senza leggerla (per esempio perche' e' stato fermato da fuori).
-                        override fun onStop(utteranceId: String, interrupted: Boolean) = finish(ReadAloudResult.FAILED)
-                    })
-                    val queued = chunks.withIndex().all { (i, chunk) ->
-                        tts.speak(chunk, TextToSpeech.QUEUE_ADD, null, "$i") == TextToSpeech.SUCCESS
-                    }
-                    if (!queued) finish(ReadAloudResult.FAILED)
                 },
             )
             handler.postDelayed({ finish(ReadAloudResult.FAILED) }, readTimeoutMillis(text.length))
@@ -106,24 +109,56 @@ class SystemReadAloud @Inject constructor(@ApplicationContext private val contex
     }
 }
 
-// Sceglie la voce di [locale] e ritorna null, o il motivo per cui la lingua non si puo' leggere.
-internal fun selectVoice(tts: TextToSpeech, locale: Locale, allowNetworkVoice: Boolean): ReadAloudResult? {
-    if (allowNetworkVoice) {
-        val support = tts.setLanguage(locale)
-        val missing = support == TextToSpeech.LANG_MISSING_DATA || support == TextToSpeech.LANG_NOT_SUPPORTED
-        return if (missing) ReadAloudResult.LANGUAGE_UNAVAILABLE else null
-    }
+/**
+ * Sceglie la voce di [locale] e passa a [onSelected] null, o il motivo per cui la lingua non si puo' leggere. Ogni voce
+ * si prova con una sillaba sintetizzata in [probe] (prima quella del motore se la rete e' permessa, poi le installate
+ * dalla migliore): una voce che il motore dice pronta puo' non aprirsi (sull'emulatore en-US), e si passa alla seguente.
+ * [onSelected] arriva dai thread del motore.
+ */
+internal fun selectVoice(tts: TextToSpeech, locale: Locale, allowNetworkVoice: Boolean, probe: File, onSelected: (ReadAloudResult?) -> Unit) {
     val voices = runCatching { tts.voices }.getOrNull().orEmpty()
-    val candidates = voices.map { it.toCandidate() }
-    return when (val choice = chooseOfflineVoice(candidates, locale.language)) {
-        VoiceChoice.None -> ReadAloudResult.LANGUAGE_UNAVAILABLE
-        VoiceChoice.OnlyNetwork -> ReadAloudResult.ONLY_NETWORK_VOICE
-        is VoiceChoice.Offline -> {
-            val voice = voices.first { it.name == choice.name }
-            if (tts.setVoice(voice) == TextToSpeech.SUCCESS) null else ReadAloudResult.LANGUAGE_UNAVAILABLE
-        }
-    }
+    val choice = chooseOfflineVoice(voices.map { it.toCandidate() }, locale.language)
+    val installed = (choice as? VoiceChoice.Offline)?.names.orEmpty().map { name -> voices.first { it.name == name } }
+    val support = if (allowNetworkVoice) tts.setLanguage(locale) else TextToSpeech.LANG_NOT_SUPPORTED
+    val engineVoice = support != TextToSpeech.LANG_MISSING_DATA && support != TextToSpeech.LANG_NOT_SUPPORTED
+    // Se nessuna voce parla: senza voci della lingua "non disponibile", con le sole voci di rete non permesse lo si dice.
+    val unavailable = if (choice == VoiceChoice.OnlyNetwork && !allowNetworkVoice) ReadAloudResult.ONLY_NETWORK_VOICE else ReadAloudResult.LANGUAGE_UNAVAILABLE
+    val tryInstalled = { tryVoices(tts, installed, probe, unavailable, onSelected) }
+    if (engineVoice) probeVoice(tts, probe) { works -> if (works) onSelected(null) else tryInstalled() } else tryInstalled()
 }
+
+private fun tryVoices(tts: TextToSpeech, voices: List<Voice>, probe: File, unavailable: ReadAloudResult, onSelected: (ReadAloudResult?) -> Unit) {
+    val voice = voices.firstOrNull()
+    if (voice == null || tts.setVoice(voice) != TextToSpeech.SUCCESS) {
+        if (voice == null) onSelected(unavailable) else tryVoices(tts, voices.drop(1), probe, unavailable, onSelected)
+        return
+    }
+    probeVoice(tts, probe) { works -> if (works) onSelected(null) else tryVoices(tts, voices.drop(1), probe, unavailable, onSelected) }
+}
+
+// Sintetizza una sillaba in [probe] con la voce impostata e dice se ci e' riuscita; il file si cancella subito.
+private fun probeVoice(tts: TextToSpeech, probe: File, onResult: (Boolean) -> Unit) {
+    fun result(works: Boolean) {
+        probe.delete()
+        onResult(works)
+    }
+    tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+        override fun onStart(utteranceId: String) = Unit
+
+        override fun onDone(utteranceId: String) = result(true)
+
+        @Deprecated("Sostituito da onError(String, Int), chiamato ancora dai motori vecchi")
+        override fun onError(utteranceId: String) = result(false)
+
+        override fun onError(utteranceId: String, errorCode: Int) = result(false)
+    })
+    if (tts.synthesizeToFile(PROBE_TEXT, null, probe, PROBE_TEXT) != TextToSpeech.SUCCESS) result(false)
+}
+
+private const val PROBE_TEXT = "a"
+
+/** File della prova della voce, nella cache dell'app: si cancella a prova finita. */
+internal const val PROBE_FILE = "voice-probe.wav"
 
 private fun Voice.toCandidate() = VoiceCandidate(
     name = name,

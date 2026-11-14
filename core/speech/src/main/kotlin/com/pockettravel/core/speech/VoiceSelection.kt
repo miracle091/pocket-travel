@@ -13,7 +13,8 @@ internal data class VoiceCandidate(
 )
 
 internal sealed interface VoiceChoice {
-    data class Offline(val name: String) : VoiceChoice
+    // Le voci installate, dalla migliore: una puo' essere guasta, si prova la prima che parla.
+    data class Offline(val names: List<String>) : VoiceChoice
 
     // Per la lingua ci sono solo voci che usano la rete.
     data object OnlyNetwork : VoiceChoice
@@ -21,12 +22,12 @@ internal sealed interface VoiceChoice {
     data object None : VoiceChoice
 }
 
-/** La migliore voce installata di [language] che non usa la rete; senza, se ne esistono solo di rete, lo dice. */
+/** Le voci installate di [language] che non usano la rete, dalla migliore; senza, se ne esistono solo di rete, lo dice. */
 internal fun chooseOfflineVoice(voices: List<VoiceCandidate>, language: String): VoiceChoice {
     val ofLanguage = voices.filter { it.language.equals(language, ignoreCase = true) }
-    val offline = ofLanguage.filter { !it.requiresNetwork && it.installed }.maxByOrNull { it.quality }
+    val offline = ofLanguage.filter { !it.requiresNetwork && it.installed }.sortedByDescending { it.quality }
     return when {
-        offline != null -> VoiceChoice.Offline(offline.name)
+        offline.isNotEmpty() -> VoiceChoice.Offline(offline.map { it.name })
         ofLanguage.any { it.requiresNetwork } -> VoiceChoice.OnlyNetwork
         else -> VoiceChoice.None
     }

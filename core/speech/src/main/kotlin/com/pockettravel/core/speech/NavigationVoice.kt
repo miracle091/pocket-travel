@@ -8,6 +8,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.io.File
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -62,14 +63,16 @@ class SystemNavigationVoice @Inject constructor(@ApplicationContext private val 
                         finish(ReadAloudResult.FAILED)
                         return@TextToSpeech
                     }
-                    val unavailable = selectVoice(tts, Locale.forLanguageTag(language), allowNetworkVoice = false)
-                    if (unavailable != null) {
-                        finish(unavailable)
-                        return@TextToSpeech
+                    // La voce si prova prima della guida: una voce guasta resterebbe muta per tutto il viaggio.
+                    selectVoice(tts, Locale.forLanguageTag(language), allowNetworkVoice = false, File(context.cacheDir, PROBE_FILE)) { unavailable ->
+                        if (unavailable != null) {
+                            finish(unavailable)
+                        } else {
+                            tts.setAudioAttributes(NAVIGATION_AUDIO)
+                            tts.setOnUtteranceProgressListener(Listener(tts))
+                            finish(ReadAloudResult.FINISHED)
+                        }
                     }
-                    tts.setAudioAttributes(NAVIGATION_AUDIO)
-                    tts.setOnUtteranceProgressListener(Listener(tts))
-                    finish(ReadAloudResult.FINISHED)
                 },
             )
             if (done.get()) created.getAndSet(null)?.shutdown()
