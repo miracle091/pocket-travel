@@ -58,6 +58,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
             putString(KEY_NAVIGATION_MODE, navigation.mode.name)
             putLong(KEY_NAVIGATION_ARRIVE_BY, navigation.arriveByEpochMinute ?: -1L)
             putLong(KEY_NAVIGATION_STARTED, navigation.startedAtMillis)
+            putString(KEY_NAVIGATION_TRIP, navigation.toCatch?.let(TripToCatch::encode))
         }
     }
 
@@ -75,6 +76,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
             mode = prefs.getString(KEY_NAVIGATION_MODE, null)?.let { name -> RouteProfile.entries.firstOrNull { it.name == name } } ?: RouteProfile.WALK,
             arriveByEpochMinute = prefs.getLong(KEY_NAVIGATION_ARRIVE_BY, -1L).takeIf { it >= 0 },
             startedAtMillis = started,
+            toCatch = TripToCatch.decode(prefs.getString(KEY_NAVIGATION_TRIP, null)),
         )
     }
 
@@ -84,6 +86,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
         remove(KEY_NAVIGATION_MODE)
         remove(KEY_NAVIGATION_ARRIVE_BY)
         remove(KEY_NAVIGATION_STARTED)
+        remove(KEY_NAVIGATION_TRIP)
     }
 
     private companion object {
@@ -92,6 +95,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
         const val KEY_NAVIGATION_MODE = "guidance_mode"
         const val KEY_NAVIGATION_ARRIVE_BY = "guidance_arrive_by"
         const val KEY_NAVIGATION_STARTED = "guidance_started"
+        const val KEY_NAVIGATION_TRIP = "guidance_trip"
         const val ACTIVE_NAVIGATION_MAX_AGE_MILLIS = 12 * 60 * 60 * 1000L
         const val KEY_STOP_GPS_ON_ARRIVAL = "stop_gps_on_arrival"
         const val KEY_WALKING_HAPTICS = "walking_haptics"
@@ -107,4 +111,6 @@ data class ActiveNavigation(
     // Ora di arrivo scelta, in minuti dall'epoca come ora locale (null se si e' partiti senza).
     val arriveByEpochMinute: Long?,
     val startedAtMillis: Long,
+    // "Raggiungi la fermata": la corsa da prendere, per riprendere anche il passaggio alla successiva.
+    val toCatch: TripToCatch? = null,
 )

@@ -212,6 +212,7 @@ fun RegionHubScreen(
                                         },
                                         transitPackage = hubState.transitState,
                                         transitBoard = mapScreen.transitBoard,
+                                        transitBoardTime = mapScreen.transitBoardTime,
                                         transitRealtime = mapScreen.transitRealtime,
                                         onRefreshRealtime = mapViewModel::refreshRealtime,
                                         trip = mapScreen.trip,

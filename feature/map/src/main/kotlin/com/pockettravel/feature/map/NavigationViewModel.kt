@@ -132,7 +132,7 @@ class NavigationViewModel @Inject constructor(
     /** Il pulsante della voce durante la navigazione: lo stesso interruttore delle Impostazioni. */
     fun setVoiceGuidance(enabled: Boolean) = navigationPreferences.setVoiceGuidance(enabled)
 
-    /** "Riprendi": la navigazione interrotta riparte con la stessa destinazione, modo e ora di arrivo. */
+    /** "Riprendi": la navigazione interrotta riparte con la stessa destinazione, modo, ora di arrivo e corsa da prendere. */
     fun resume() {
         val place = resumeOffer.value ?: return
         resumeOffer.value = null
@@ -143,6 +143,7 @@ class NavigationViewModel @Inject constructor(
             place = place,
             mode = fromDisk?.mode ?: savedMode ?: controller.routeProfile.value,
             arriveBy = fromDisk?.arriveByEpochMinute?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) } ?: savedArrival.value,
+            toCatch = savedNavigation?.toCatch,
         )
     }
 

@@ -21,6 +21,7 @@ import com.pockettravel.core.data.TripView
 import com.pockettravel.core.ui.Spacing
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import java.util.Date
 
@@ -38,24 +39,71 @@ data class TripToCatch(
     val textColor: Int?,
     val headsign: String?,
     val departures: List<LocalDateTime>,
-)
+) {
+    companion object {
+        /** Una riga di testo per salvarla con la navigazione attiva: campi separati da tabulazioni, partenze in minuti dall'epoca. */
+        fun encode(trip: TripToCatch): String = listOf(
+            trip.stopName.clean(), trip.latitude, trip.longitude, trip.line.clean(), trip.color ?: "", trip.textColor ?: "", trip.headsign?.clean() ?: "",
+            trip.departures.joinToString(",") { "${it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE}" },
+        ).joinToString("\t")
+
+        /** null se [text] manca o non si legge. */
+        fun decode(text: String?): TripToCatch? {
+            val fields = text?.split('\t')?.takeIf { it.size == FIELD_COUNT } ?: return null
+            val departures = fields[DEPARTURES].split(',').mapNotNull { it.toLongOrNull() }
+                .map { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) }
+            val latitude = fields[1].toDoubleOrNull()
+            val longitude = fields[2].toDoubleOrNull()
+            return if (latitude == null || longitude == null || departures.isEmpty()) {
+                null
+            } else {
+                TripToCatch(
+                    fields[0], latitude, longitude, fields[LINE], fields[COLOR].toIntOrNull(), fields[TEXT_COLOR].toIntOrNull(),
+                    fields[HEADSIGN].ifEmpty { null }, departures,
+                )
+            }
+        }
+
+        private fun String.clean() = replace('\t', ' ').replace('\n', ' ')
+
+        private const val SECONDS_PER_MINUTE = 60
+        private const val FIELD_COUNT = 8
+        private const val LINE = 3
+        private const val COLOR = 4
+        private const val TEXT_COLOR = 5
+        private const val HEADSIGN = 6
+        private const val DEPARTURES = 7
+    }
+}
 
 /**
  * La corsa [ref] aperta nella vista della corsa, con le partenze successive della sua linea dal tabellone [items]; null se
- * la fermata del tabellone non e' nella corsa o la partenza non e' piu' nel tabellone. Le soppresse si saltano.
+ * la fermata del tabellone non e' nella corsa o la partenza non e' piu' nel tabellone.
  */
 internal fun tripToCatch(view: TripView, ref: TripRef, items: List<TransitDeparture>, now: LocalDateTime): TripToCatch? {
     val stop = view.stops.firstOrNull { it.isBoardStop }
     val group = items.firstOrNull { head -> head.trip == ref || head.later.any { it.trip == ref } }
-    val minute = now.truncatedTo(ChronoUnit.MINUTES)
     val departures = group?.let { listOf(it) + it.later }.orEmpty().dropWhile { it.trip != ref }
-        .filter { it.realtime != DepartureRealtime.Cancelled }
-        .map { minute.plusMinutes(it.inMinutes.toLong()) }
-    return if (stop == null || departures.isEmpty()) {
-        null
-    } else {
-        TripToCatch(stop.name, stop.latitude, stop.longitude, view.line, view.color, view.textColor, view.headsign, departures)
-    }
+    return stop?.let { tripToCatch(departures, view.headsign, it.name, it.latitude, it.longitude, now) }
+}
+
+/** La partenza [departure] di una riga del tabellone e le sue successive, alla fermata [stopName] della mappa. */
+internal fun tripToCatch(departure: TransitDeparture, stopName: String, latitude: Double, longitude: Double, now: LocalDateTime): TripToCatch? =
+    tripToCatch(listOf(departure) + departure.later, departure.headsign, stopName, latitude, longitude, now)
+
+// Le soppresse si saltano; l'ora e' quella del telefono piu' i minuti che mancano (con il ritardo del tempo reale).
+private fun tripToCatch(
+    departures: List<TransitDeparture>,
+    headsign: String?,
+    stopName: String,
+    latitude: Double,
+    longitude: Double,
+    now: LocalDateTime,
+): TripToCatch? {
+    val first = departures.firstOrNull() ?: return null
+    val minute = now.truncatedTo(ChronoUnit.MINUTES)
+    val times = departures.filter { it.realtime != DepartureRealtime.Cancelled }.map { minute.plusMinutes(it.inMinutes.toLong()) }
+    return times.takeIf { it.isNotEmpty() }?.let { TripToCatch(stopName, latitude, longitude, first.line, first.color, first.textColor, headsign, it) }
 }
 
 /**

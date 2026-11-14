@@ -60,4 +60,14 @@ class TripToCatchTest {
         // 40 minuti: nessuna si prende.
         assertNull(nextDeparture(departures, departures[0], 2_400.0, clock))
     }
+
+    @Test
+    fun `dalla riga del tabellone la partenza con le successive, alla fermata della mappa`() {
+        val toCatch = tripToCatch(board[0], "Piazza", 45.1, 10.1, now)
+
+        assertEquals("Piazza", toCatch?.stopName)
+        assertEquals(45.1, toCatch?.latitude)
+        assertEquals(listOf(3, 13, 33).map { now.withSecond(0).plusMinutes(it.toLong()) }, toCatch?.departures)
+        assertNull(tripToCatch(departure(8, 2, DepartureRealtime.Cancelled), "Piazza", 45.1, 10.1, now))
+    }
 }

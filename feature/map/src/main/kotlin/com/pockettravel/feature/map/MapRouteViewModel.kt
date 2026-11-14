@@ -40,7 +40,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 import javax.inject.Inject
 
 // Holder minimo per far arrivare OfflineTileSource (fornito da RouteEngineModule), i segnalini e i
@@ -99,6 +101,9 @@ class MapRouteViewModel @Inject constructor(
 
     // Partenze del POI di trasporto aperto nel riquadro: null finche' si leggono o senza POI.
     private val _transitBoard = MutableStateFlow<TransitBoard?>(null)
+
+    // Ora del telefono dell'ultima lettura del tabellone: i suoi "tra N minuti" contano da li', non da adesso.
+    private val transitBoardTime = MutableStateFlow<LocalDateTime?>(null)
     private var transitJob: Job? = null
 
     // Tempo reale del tabellone aperto (null senza reti con il tempo reale o senza rete) e i risvegli del suo ciclo: true per un
@@ -130,7 +135,7 @@ class MapRouteViewModel @Inject constructor(
         tripJob = viewModelScope.launch {
             val view = transitRepository.tripStops(regionId, ref, realtime = transitRealtime.usable(networks))
             val departures = (_transitBoard.value as? TransitBoard.Departures)?.items.orEmpty()
-            openTrip.value = TripUi(loading = false, view = view, toCatch = view?.let { tripToCatch(it, ref, departures, LocalDateTime.now()) })
+            openTrip.value = TripUi(loading = false, view = view, toCatch = view?.let { tripToCatch(it, ref, departures, transitBoardTime.value ?: LocalDateTime.now()) })
         }
     }
 
@@ -153,8 +158,12 @@ class MapRouteViewModel @Inject constructor(
         transitJob = viewModelScope.launch {
             var tapped = false
             while (true) {
-                suspend fun read(realtime: Map<String, RealtimeFeed>) =
-                    transitRepository.board(regionId, pin.latitude, pin.longitude, transitStationModes(pin.osmTag), realtime = realtime)
+                suspend fun read(realtime: Map<String, RealtimeFeed>): TransitBoard {
+                    val now = Instant.now()
+                    val board = transitRepository.board(regionId, pin.latitude, pin.longitude, transitStationModes(pin.osmTag), now, realtime)
+                    transitBoardTime.value = LocalDateTime.ofInstant(now, ZoneId.systemDefault())
+                    return board
+                }
                 // Prima con i feed gia' scaricati (o nessuno, senza rete), poi con quelli appena arrivati.
                 val board = read(transitRealtime.usable(realtimeNetworks(_transitBoard.value)))
                 _transitBoard.value = board
@@ -205,9 +214,12 @@ class MapRouteViewModel @Inject constructor(
         combine(accessible, filterPreferences.hiddenCategories, onlyAccessible) { accessible, hidden, only ->
             MapUiState(accessible = accessible, hiddenCategories = hidden, onlyAccessible = only)
         },
-        _pins, _presentCategories, combine(_transitBoard, _transitRealtime, openTrip, ::Triple), mapSource,
-    ) { filters, pins, present, (board, realtime, trip), source ->
-        filters.copy(pins = pins, presentCategories = present, transitBoard = board, transitRealtime = realtime, trip = trip, mapSource = source)
+        _pins, _presentCategories, combine(_transitBoard, transitBoardTime, _transitRealtime, openTrip, ::BoardState), mapSource,
+    ) { filters, pins, present, board, source ->
+        filters.copy(
+            pins = pins, presentCategories = present, transitBoard = board.board, transitBoardTime = board.time, transitRealtime = board.realtime,
+            trip = board.trip, mapSource = source,
+        )
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
@@ -322,10 +334,13 @@ data class MapUiState(
     val accessible: Boolean = false,
     val onlyAccessible: Boolean = false,
     val transitBoard: TransitBoard? = null,
+    val transitBoardTime: LocalDateTime? = null,
     val transitRealtime: TransitRealtimeUi? = null,
     val trip: TripUi? = null,
     val mapSource: MapSourceState? = null,
 )
+
+private data class BoardState(val board: TransitBoard?, val time: LocalDateTime?, val realtime: TransitRealtimeUi?, val trip: TripUi?)
 
 /**
  * La vista della corsa aperta: [view] null a lettura finita vuol dire corsa non trovata (rete aggiornata nel frattempo).

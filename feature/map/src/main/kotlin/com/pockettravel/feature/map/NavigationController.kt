@@ -189,7 +189,7 @@ class NavigationController @Inject constructor(
         announcer.begin(mode)
         beginSession(place)
         navigationPreferences.saveActiveNavigation(
-            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }, clock.millis()),
+            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }, clock.millis(), toCatch),
         )
     }
 

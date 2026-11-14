@@ -6,6 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDateTime
 
 class NavigationPreferencesTest {
 
@@ -47,6 +48,20 @@ class NavigationPreferencesTest {
         NavigationPreferences(files).saveActiveNavigation(saved)
 
         assertEquals(saved, NavigationPreferences(files).activeNavigation(now = 6_000L))
+    }
+
+    @Test
+    fun `la corsa da prendere torna uguale, anche con tabulazioni nei nomi e senza colori`() {
+        val files = InMemoryPreferencesFactory()
+        val departures = listOf(LocalDateTime.of(2026, 11, 14, 14, 7), LocalDateTime.of(2026, 11, 14, 14, 27))
+        val trip = TripToCatch("Carenes", 43.62, 1.47, "83", 0xFFE6007E.toInt(), null, "St-Orens Lycee", departures)
+        NavigationPreferences(files).saveActiveNavigation(navigation().copy(toCatch = trip))
+        assertEquals(trip, NavigationPreferences(files).activeNavigation(now = 2_000L)?.toCatch)
+
+        val tabs = trip.copy(stopName = "Piazza	Grande", headsign = null)
+        NavigationPreferences(files).saveActiveNavigation(navigation().copy(toCatch = tabs))
+        assertEquals(tabs.copy(stopName = "Piazza Grande"), NavigationPreferences(files).activeNavigation(now = 2_000L)?.toCatch)
+        assertNull(TripToCatch.decode("rotta"))
     }
 
     @Test

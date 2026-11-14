@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -81,7 +82,7 @@ fun transitStationModes(osmTag: String): Set<TransitMode> = when (osmTag) {
  * dell'ultimo tocco, se non ha avviato un download. [staleNetworks]: nomi delle reti installate non piu' pubblicate.
  * [realtime]: il tempo reale delle reti della fermata (null senza, o senza rete), [onRefreshRealtime] "Aggiorna i ritardi".
  * [trip]: la vista della corsa aperta (null chiusa), [onOpenTrip] e [onCloseTrip] la aprono e la chiudono; [onReachStop] e'
- * "Raggiungi la fermata" nella vista della corsa.
+ * "Raggiungi la fermata" nella vista della corsa, [onReachDeparture] lo stesso dalla riga di una partenza.
  */
 @Composable
 internal fun TransitDeparturesSection(
@@ -97,6 +98,7 @@ internal fun TransitDeparturesSection(
     onOpenTrip: (TripRef) -> Unit = {},
     onCloseTrip: () -> Unit = {},
     onReachStop: ((TripToCatch) -> Unit)? = null,
+    onReachDeparture: ((TransitDeparture) -> Unit)? = null,
 ) {
     var selectedLine by rememberSaveable { mutableStateOf<String?>(null) }
     if (state == TransitPackageState.UNKNOWN) return
@@ -164,7 +166,7 @@ internal fun TransitDeparturesSection(
                     val lines = board.items.map { it.line }.distinct()
                     val shown = selectedLine?.takeIf { it in lines }
                     if (lines.size > 1) LineFilter(lines, shown) { selectedLine = it }
-                    board.items.filter { shown == null || it.line == shown }.forEach { DepartureRow(it, showAccessibility, onOpenTrip) }
+                    board.items.filter { shown == null || it.line == shown }.forEach { DepartureRow(it, showAccessibility, onOpenTrip, onReachDeparture) }
                     // Con le sole reti scadute da poco la scadenza e' gia' nella nota sopra.
                     if (board.daysLeft >= 0) Note(stringResource(R.string.transit_valid_until, formatDate(board.validUntil)))
                     if (board.expiresSoon) {
@@ -200,7 +202,12 @@ internal fun TransitDeparturesSection(
 }
 
 @Composable
-private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean, onOpenTrip: (TripRef) -> Unit) {
+private fun DepartureRow(
+    departure: TransitDeparture,
+    showAccessibility: Boolean,
+    onOpenTrip: (TripRef) -> Unit,
+    onReachDeparture: ((TransitDeparture) -> Unit)?,
+) {
     // Ora della rete nel formato del dispositivo (24 h o AM/PM, anche per TalkBack), vedi networkClock.
     val res = LocalResources.current
     val clockOf = networkClock()
@@ -290,6 +297,12 @@ private fun DepartureRow(departure: TransitDeparture, showAccessibility: Boolean
                 )
             }
             if (!cancelled) Text(text = relative, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        // "Raggiungi la fermata" anche nelle reti senza le fermate delle corse, dove la corsa non si apre.
+        if (onReachDeparture != null) {
+            IconButton(onClick = { onReachDeparture(departure) }) {
+                Icon(ImageVector.vectorResource(UiR.drawable.ms_directions_walk), contentDescription = stringResource(R.string.trip_reach_stop))
+            }
         }
     }
     if (laterTrips != null) LaterTripButtons(laterTrips, clockOf, labels, onOpenTrip)

@@ -63,6 +63,7 @@ import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.MapBounds
 import com.pockettravel.core.data.TransitBoard
+import com.pockettravel.core.data.TransitDeparture
 import com.pockettravel.core.data.TripRef
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AppIcons
@@ -85,6 +86,7 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
 import java.time.LocalDate
+import java.time.LocalDateTime
 import com.pockettravel.core.ui.R as UiR
 
 private const val PIN_ICON_PREFIX = "pocket-travel-pin-"
@@ -132,6 +134,8 @@ fun MapScreen(
     // tabellone del POI aperto (null finche' si legge), esito dell'ultimo "Aggiorna", download e il POI di cui leggere le partenze.
     transitPackage: TransitPackageState = TransitPackageState.UNKNOWN,
     transitBoard: TransitBoard? = null,
+    // Ora del telefono della lettura del tabellone, da cui contano i suoi "tra N minuti".
+    transitBoardTime: LocalDateTime? = null,
     // Tempo reale del tabellone aperto (null senza) e "Aggiorna i ritardi".
     transitRealtime: TransitRealtimeUi? = null,
     onRefreshRealtime: () -> Unit = {},
@@ -472,6 +476,18 @@ fun MapScreen(
                                 stopPin = null
                                 reach(toCatch)
                             }
+                        },
+                        // Dalla riga: la fermata e' quella della mappa (il nome del riquadro e la sua posizione).
+                        onReachDeparture = onReachStop?.let { reach ->
+                            val stopName = pin.displayName(LocalLocale.current.platformLocale.language) ?: pin.name ?: stringResource(pin.category.label())
+                            val reachDeparture: (TransitDeparture) -> Unit = { departure ->
+                                tripToCatch(departure, stopName, pin.latitude, pin.longitude, transitBoardTime ?: LocalDateTime.now())?.let { toCatch ->
+                                    selectedPinId = null
+                                    stopPin = null
+                                    reach(toCatch)
+                                }
+                            }
+                            reachDeparture
                         },
                     )
                 }
