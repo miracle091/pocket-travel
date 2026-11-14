@@ -138,13 +138,9 @@ jobs:
     needs: plan
     if: ${{ !(github.event.inputs.continuation > 0) && contains(fromJSON('["all","guides"]'), github.event.inputs.only || 'all') }}
     runs-on: ubuntu-24.04
-    # 240: scaricare le pagine e generare le guide richiede pochi minuti, il resto e' il tetto di traduzione (75 minuti in
-    # tutto, vedi GUIDES_TRANSLATE_SECONDS sotto) con la conversione dei modelli alla prima run.
     timeout-minutes: 240
-    # actions: write per togliere le cache delle frasi tradotte piu' vecchie (passo dopo il salvataggio).
     permissions:
       contents: write
-      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -152,22 +148,34 @@ jobs:
 
       - uses: ./.github/actions/setup-pipeline
 
-      # Traduzione delle sezioni povere dall'altra lingua (translate_guides.py): motore, modelli e cache delle frasi
-      # gia' tradotte (setup-translation). Mai bloccante: senza, le guide escono come prima. Accesa solo con la variabile
-      # del repository TRANSLATE_GUIDES = true, dopo una revisione a campione delle traduzioni (sostituiscono gran parte
-      # delle sezioni italiane).
-      - name: Prepara la traduzione
+      # Sezioni del governo canadese tradotte per la guida italiana: le traduce sul PC translate_guides.py --backend llama
+      # (un modello di chat, per paragrafo) e le pubblica a mano come asset della release guide-translations; qui si
+      # leggono soltanto (--backend file, via TRANSLATE_FILE_EN_IT). Mai bloccante: senza l'asset le guide escono come
+      # prima. Accesa solo con la variabile del repository TRANSLATE_GUIDES = true, dopo la revisione a campione.
+      - name: Scarica le traduzioni delle guide
         if: ${{ vars.TRANSLATE_GUIDES == 'true' }}
         continue-on-error: true
-        uses: ./.github/actions/setup-translation
-        with:
-          cache-name: guides
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/retry.sh
+          dir="$RUNNER_TEMP/guide-translations"
+          mkdir -p "$dir"
+          if ! retry gh release download guide-translations --repo "$GITHUB_REPOSITORY" \
+            --pattern guide-translations.en-it.jsonl.xz --dir "$dir" --clobber; then
+            echo "::error::traduzioni delle guide non scaricate (asset guide-translations.en-it.jsonl.xz della release guide-translations)"
+            echo "Traduzioni delle guide non scaricate: la guida italiana esce senza i consigli canadesi tradotti." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          xz -d "$dir/guide-translations.en-it.jsonl.xz"
+          { echo "TRANSLATE_CACHE_DIR=$dir"
+            echo "TRANSLATE_FILE_EN_IT=$dir/guide-translations.en-it.jsonl"
+            echo "TRANSLATE_MISSING_EN_IT=$GITHUB_WORKSPACE/guide-translations-missing.en-it.jsonl"; } >> "$GITHUB_ENV"
 
       # La passata inglese gira per prima: la guida che pubblica (GUIDES_FINAL_COPY) serve all'italiana per tradurre le
-      # sezioni del governo canadese (GUIDES_SOURCE_DB), e la passata inglese ricava da sola quella italiana per le sue.
-      # GUIDES_TRANSLATE_SECONDS: tempo massimo di traduzione di ciascuna passata (60 minuti per l'italiano, che parte
-      # da molto piu' testo inglese da tradurre, 15 per l'inglese), cosi' una direzione non toglie tempo all'altra; il
-      # job pubblica comunque quello che e' pronto, il resto segue nelle run dopo grazie alla cache.
+      # sezioni del governo canadese (GUIDES_SOURCE_DB). La passata inglese non traduce (nessun motore it->en qui) e
+      # riceve tolto TRANSLATE_CACHE_DIR, cosi' non genera le guide "semplici" che servono solo al confronto.
       # GUIDES_PAGE_CACHE: la passata italiana riusa le pagine Wikivoyage scaricate da quella inglese.
       # Il token serve solo a "gh release upload" di questo passo: build-guides.sh, che elabora dati di terzi, lo riceve
       # tolto (env -u).
@@ -186,7 +194,7 @@ jobs:
           # fallisce non blocca quella italiana: `manifest.json` tiene la voce guidesEn gia' pubblicata.
           OUT_EN="$RUNNER_TEMP/guides-en-out"
           EN_FINAL="$RUNNER_TEMP/guides-en-final.db"
-          if env -u GH_TOKEN GUIDES_TRANSLATE_SECONDS=900 GUIDES_FINAL_COPY="$EN_FINAL" tools/data-pipeline/scripts/build-guides.sh "$VERSION" \
+          if env -u GH_TOKEN -u TRANSLATE_CACHE_DIR GUIDES_FINAL_COPY="$EN_FINAL" tools/data-pipeline/scripts/build-guides.sh "$VERSION" \
             "$RELEASE_URL" "$OUT_EN" "$PAGES_BASE_URL/manifest.json" en; then
             EN_UPLOADED=true
             if [ -f "$OUT_EN/guides.db.xz" ]; then
@@ -215,22 +223,24 @@ jobs:
           fi
           cp "$OUT/manifest-fragment.json" "$RUNNER_TEMP/fragments/guides.json"
 
-      # Nuova cache delle frasi solo se questa run ne ha tradotte di nuove (translate-grown.flag).
-      - name: Salva le frasi tradotte
-        id: save-translations
-        if: ${{ always() && hashFiles('translate-grown.flag') != '' }}
+      # Paragrafi che l'asset non traduce ancora (testo nuovo o cambiato dei consigli canadesi): le loro categorie restano
+      # fuori dalla guida italiana; il file e' il punto di partenza del prossimo giro di traduzione sul PC.
+      - name: Paragrafi senza traduzione
+        id: missing-translations
+        if: ${{ always() && hashFiles('guide-translations-missing.en-it.jsonl') != '' }}
         continue-on-error: true
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ github.workspace }}/translate-cache
-          key: translations-guides-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          n="$(wc -l < guide-translations-missing.en-it.jsonl)"
+          echo "Paragrafi dei consigli canadesi senza traduzione: $n (artifact guide-translations-missing)." >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Elimina le cache delle frasi piu' vecchie
-        if: ${{ always() && steps.save-translations.outcome == 'success' }}
+      - name: Carica i paragrafi senza traduzione
+        if: ${{ always() && steps.missing-translations.outcome == 'success' }}
         continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: bash .github/scripts/trim-caches.sh translations-guides- "translations-guides-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: guide-translations-missing
+          path: guide-translations-missing.en-it.jsonl
+          if-no-files-found: ignore
 
       # !cancelled(): anche se la guida italiana fallisce, il frammento della guida inglese (guides-en.json) va al job "publish".
       - name: Carica il frammento di catalogo delle guide

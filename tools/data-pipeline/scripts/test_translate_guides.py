@@ -5,6 +5,8 @@ Translator usa una cache gia' piena o un _run sostituito.
 
 Uso: python test_translate_guides.py
 """
+import contextlib
+import io
 import json
 import sqlite3
 import tempfile
@@ -371,6 +373,185 @@ class OtherTitlesWikidataTest(unittest.TestCase):
             (Path(d) / "city-titles.it-en.jsonl").write_text(json.dumps({"own": "Venezia", "other": "Venice"}) + "\n", encoding="utf-8")
             with mock.patch.object(tg.city_population, "wikibase_items", return_value={}):
                 self.assertEqual({}, tg.other_titles({"Venezia"}, {"Rimini"}, "it", "en", d))
+
+
+GC = "https://travel.gc.ca/destinations/x"
+
+
+class FakeChat:
+    """Modello finto: [answer](testo, temperatura, seme); tiene i testi ricevuti."""
+
+    def __init__(self, answer):
+        self.answer, self.prompts = answer, []
+
+    def __call__(self, text, temperature=0, seed=0):
+        self.prompts.append(text)
+        return self.answer(text, temperature, seed)
+
+
+def numbered_italian(text, *_):
+    """Risposta a righe numerate: ogni riga [n] diventa "[n] Italiano <riga>"."""
+    return "\n".join(f"[{m.group(1)}] Italiano {m.group(2)}" for line in text.splitlines() if (m := tg.NUMBERED.match(line)))
+
+
+class ParagraphStoreTest(unittest.TestCase):
+    def test_overlay_per_paragrafo_con_segni_e_titoli_fissi(self):
+        with tempfile.TemporaryDirectory() as d:
+            store = tg.TranslationStore(Path(d) / "t.jsonl", "index-translate-9b-q4_k_m")
+            store.add("Malaria occurs.", "La malaria è presente.")
+            store.add("Bring repellent.", "Portare un repellente.")
+            rows = [("Health (Government of Canada)", "▸ Malaria occurs.\n\n• Bring repellent.", GC)]
+            translated, missing = tg.overlay_from_store([("a", "SALUTE", rows)], store)
+        self.assertEqual({("a", "SALUTE"): [("Salute (Governo del Canada)", "▸ La malaria è presente.\n\n• Portare un repellente.", GC)]},
+                         translated)
+        self.assertEqual({}, missing)
+
+    def test_paragrafo_assente_lascia_la_categoria_e_va_tra_i_mancanti(self):
+        with tempfile.TemporaryDirectory() as d:
+            store = tg.TranslationStore(Path(d) / "t.jsonl", "m")
+            store.add("Malaria occurs.", "La malaria è presente.")
+            picks = [("a", "SALUTE", [("Health (Government of Canada)", "Malaria occurs.\nDengue too.", GC)])]
+            translated, missing = tg.overlay_from_store(picks, store)
+        self.assertEqual({}, translated)
+        self.assertEqual({tg.paragraph_key("Dengue too."): "Dengue too."}, missing)
+
+    def test_righe_k_t_m_v_rilette_saltando_quelle_troncate(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "t.jsonl"
+            tg.TranslationStore(path, "m").add("Drink water.", "Bere acqua.")
+            with open(path, "a", encoding="utf-8") as f:
+                f.write('{"k": "tronc')
+            again = tg.TranslationStore(path)
+            again.add("Eat rice.", "Mangiare riso.")
+            rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.startswith('{"k": "') and line.endswith("}")]
+        self.assertEqual("m", again.model)
+        self.assertEqual("Bere acqua.", again.get("Drink water."))
+        self.assertEqual([{"k": tg.paragraph_key("Drink water."), "t": "Bere acqua.", "m": "m", "v": tg.LLAMA_PROMPT_VERSION},
+                          {"k": tg.paragraph_key("Eat rice."), "t": "Mangiare riso.", "m": "m", "v": tg.LLAMA_PROMPT_VERSION}], rows)
+
+    def test_un_file_per_modello(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "t.jsonl"
+            tg.TranslationStore(path, "gemma-4").add("Drink water.", "Bere acqua.")
+            with self.assertRaises(SystemExit):
+                tg.TranslationStore(path, "index-translate-9b")
+
+    def test_correzioni_solo_se_coprono_tutte_le_frasi(self):
+        corrections = {"Drink water.": "Bere acqua.", "Eat rice.": "Mangiare riso."}
+        self.assertEqual("Bere acqua. Mangiare riso.", tg.from_corrections("Drink water. Eat rice.", corrections))
+        self.assertIsNone(tg.from_corrections("Drink water. Sleep well.", corrections))
+
+    def test_blocchi_fino_al_limite_e_testo_lungo_da_solo(self):
+        self.assertEqual([["a" * 6, "b" * 4], ["c" * 20], ["d"]], tg.blocks(["a" * 6, "b" * 4, "c" * 20, "d"], size=10))
+
+
+class LlamaBackendTest(unittest.TestCase):
+    def test_riga_mancante_ritradotta_da_sola_e_sospetta_scartata(self):
+        def answer(text, *_):
+            if "[2]" in text:
+                return "[1] Italiano Drink water."  # salta la riga 2 e la 3
+            return "[1] Ci sono 5 casi." if "Malaria" in text else "[1] Italiano Eat rice."
+        chat = FakeChat(answer)
+        out = tg.translate_block(chat, "Guida: a, sezione SALUTE.", ["Drink water.", "Eat rice.", "Malaria: 3 cases."])
+        self.assertEqual(["Italiano Drink water.", "Italiano Eat rice.", None], out)  # 5 al posto di 3: sospetta
+        self.assertEqual(3, len(chat.prompts))
+        self.assertTrue(chat.prompts[0].startswith("Guida: a, sezione SALUTE.\n\n[1] Drink water.\n[2] Eat rice.\n[3] Malaria"))
+
+    def test_segno_iniziale_aggiunto_dal_modello_tolto(self):
+        chat = FakeChat(lambda *_: "[1] • Rispettare sempre gli ordini.")
+        self.assertEqual(["Rispettare sempre gli ordini."], tg.translate_block(chat, "Guida: a.", ["Always comply with orders."]))
+
+    def test_registro_riscritto_solo_se_la_riscrittura_regge(self):
+        second = lambda t: t.startswith("Evita ")
+        ok = FakeChat(lambda *_: "Evitare le zone isolate dopo le 22.")
+        self.assertEqual(("Evitare le zone isolate dopo le 22.", True),
+                         tg.fix_register(ok, "Avoid remote areas after 22.", "Evita le zone isolate dopo le 22.", second))
+        wrong_number = FakeChat(lambda *_: "Evitare le zone isolate dopo le 23.")
+        self.assertEqual(("Evita le zone isolate dopo le 22.", False),
+                         tg.fix_register(wrong_number, "Avoid remote areas after 22.", "Evita le zone isolate dopo le 22.", second))
+        self.assertEqual(len(tg.FIX_TRIES), len(wrong_number.prompts))
+        untouched = FakeChat(lambda *_: self.fail("modello chiamato"))
+        self.assertEqual(("Evitare le zone.", None), tg.fix_register(untouched, "Avoid areas.", "Evitare le zone.", second))
+
+    def test_correzioni_doppioni_e_tempo(self):
+        picks = [("a", "SALUTE", [("Health (Government of Canada)", "Drink water.\nEat rice.", GC)]),
+                 ("b", "SALUTE", [("Health (Government of Canada)", "Eat rice.", GC)])]
+        with tempfile.TemporaryDirectory() as d:
+            store = tg.TranslationStore(Path(d) / "t.jsonl", "m")
+            chat = FakeChat(numbered_italian)
+            counts = tg.translate_paragraphs(picks, store, chat, {"Drink water.": "Bere acqua."}, lambda t: False, float("inf"))
+            self.assertEqual("Bere acqua.", store.get("Drink water."))
+            self.assertEqual("Italiano Eat rice.", store.get("Eat rice."))
+            self.assertEqual(["Guida: a, sezione SALUTE.\n\n[1] Eat rice."], chat.prompts)  # una volta sola, senza la correzione
+            self.assertEqual((1, 1), (counts["modello"], counts["correzioni"]))
+            late = tg.TranslationStore(Path(d) / "late.jsonl", "m")
+            tg.translate_paragraphs(picks, late, FakeChat(lambda *_: self.fail("modello chiamato")), {}, lambda t: False, 0)
+            self.assertEqual({}, late.done)
+
+    def test_blocchi_in_parallelo_salvati_tutti(self):
+        many = "\n".join(f"Step {i}: walk {'far ' * 40}." for i in range(40))  # piu' blocchi da 1500 caratteri
+        picks = [(r, "SALUTE", [("Health (Government of Canada)", many, GC)]) for r in ("a", "b")]
+        with tempfile.TemporaryDirectory() as d:
+            store = tg.TranslationStore(Path(d) / "t.jsonl", "m")
+            chat = FakeChat(numbered_italian)
+            counts = tg.translate_paragraphs(picks, store, chat, {}, lambda t: False, float("inf"), parallel=4)
+            self.assertGreater(len(chat.prompts), 1)
+            self.assertEqual(40, counts["modello"])  # la regione b ha gli stessi paragrafi: nessuna richiesta in piu'
+            self.assertEqual("Italiano Step 7: walk " + "far " * 40 + ".", store.get(f"Step 7: walk {'far ' * 40}."))
+
+    def test_blocco_fallito_non_ferma_gli_altri(self):
+        many = "\n".join(f"Step {i}: walk {'far ' * 40}." for i in range(40))
+        picks = [("a", "SALUTE", [("Health (Government of Canada)", many, GC)])]
+
+        def answer(text, *rest):
+            if "Step 0:" in text:
+                raise ConnectionResetError("server caduto")
+            return numbered_italian(text, *rest)
+
+        with tempfile.TemporaryDirectory() as d:
+            store = tg.TranslationStore(Path(d) / "t.jsonl", "m")
+            with contextlib.redirect_stderr(io.StringIO()):
+                counts = tg.translate_paragraphs(picks, store, FakeChat(answer), {}, lambda t: False, float("inf"),
+                                                 parallel=2)
+            self.assertEqual(1, counts["errori"])
+            self.assertIsNone(store.get(f"Step 0: walk {'far ' * 40}."))
+            self.assertIsNotNone(store.get(f"Step 39: walk {'far ' * 40}."))
+            self.assertEqual(counts["modello"], len(store.done))
+
+
+class ParagraphMainTest(unittest.TestCase):
+    def _dbs(self, d):
+        it = DatabaseTest._db(self, d, "it.db", "guide_sections", "regionId",
+                              [("a", "SALUTE", "Salute", "Bere acqua.", "https://it.wikivoyage.org/wiki/A", None)])
+        en = DatabaseTest._db(self, d, "en.db", "guide_sections", "regionId",
+                              [("a", "SALUTE", "Health (Government of Canada)", "Malaria occurs.", GC, None),
+                               ("b", "SALUTE", "Health (Government of Canada)", "Dengue occurs.", GC, None)])
+        con = sqlite3.connect(it)
+        con.execute("INSERT INTO guide_sections VALUES ('b', 'SICUREZZA', 'Sicurezza', 'Poco.', 'https://it.wikivoyage.org/wiki/B', NULL)")
+        con.commit()
+        con.close()
+        return it, en
+
+    def test_backend_file_overlay_dal_file_e_paragrafi_mancanti(self):
+        with tempfile.TemporaryDirectory() as d:
+            it, en = self._dbs(d)
+            translations, overlay, missing = Path(d) / "t.jsonl", Path(d) / "o.jsonl", Path(d) / "missing.jsonl"
+            tg.TranslationStore(translations, "index-translate-9b-q4_k_m").add("Malaria occurs.", "La malaria è presente.")
+            with mock.patch.object(tg, "Ct2Translator", side_effect=AssertionError("modello caricato")):
+                self.assertEqual(0, tg.main(["guides", str(it), str(en), str(overlay), "--cache-dir", d, "--backend", "file",
+                                             "--translations", str(translations), "--missing", str(missing)]))
+            lines = [json.loads(line) for line in overlay.read_text(encoding="utf-8").splitlines()]
+            absent = [json.loads(line) for line in missing.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual([{"owner": "a", "category": "SALUTE", "model": "index-translate-9b-q4_k_m",
+                           "sections": [{"title": "Salute (Governo del Canada)", "body": "La malaria è presente.", "sourceUrl": GC}]}], lines)
+        self.assertEqual([{"k": tg.paragraph_key("Dengue occurs."), "src": "Dengue occurs."}], absent)
+
+    def test_backend_llama_chiede_i_suoi_argomenti(self):
+        with tempfile.TemporaryDirectory() as d, mock.patch("sys.stderr"):
+            it, en = self._dbs(d)
+            with self.assertRaises(SystemExit):
+                tg.main(["guides", str(it), str(en), str(Path(d) / "o.jsonl"), "--cache-dir", d, "--backend", "llama",
+                         "--translations", str(Path(d) / "t.jsonl")])
 
 
 if __name__ == "__main__":

@@ -491,20 +491,32 @@ pmtiles_log() {
 # sezioni povere tradotte dall'altra lingua (translate_guides.py, <en|it> e' la lingua d'origine), scritte in <overlay.jsonl>
 # per generateGuides/generateCities --translated. Ritorna 1, senza scrivere nulla, se la traduzione non e' attiva (senza la
 # cache TRANSLATE_CACHE_DIR e il modello di quella direzione, TRANSLATE_MODEL_EN_IT / TRANSLATE_MODEL_IT_EN, preparati dal
-# passo setup-translation del workflow) o non riesce: il chiamante tiene allora la guida com'e'. TRANSLATE_PYTHON e' il
+# passo setup-translation del workflow, o per le guide dall'inglese il file TRANSLATE_FILE_EN_IT dell'asset
+# guide-translations) o non riesce: il chiamante tiene allora la guida com'e'. TRANSLATE_PYTHON e' il
 # python con ctranslate2; TRANSLATE_DEADLINE (secondi dal 1970) e' un tetto comune a piu' chiamate.
 translate_overlay() {
   local kind="$1" own="$2" source="$3" overlay="$4" from="$5" maxSeconds="${6:-${TRANSLATE_MAX_SECONDS:-3600}}" model
+  local -a engine
   case "$from" in
     en) model="${TRANSLATE_MODEL_EN_IT:-}" ;;
     it) model="${TRANSLATE_MODEL_IT_EN:-}" ;;
     *) return 1 ;;
   esac
-  [ -n "${TRANSLATE_CACHE_DIR:-}" ] && [ -d "$model" ] && [ -s "$own" ] && [ -s "$source" ] || return 1
+  # Guide dall'inglese con TRANSLATE_FILE_EN_IT: traduzioni per paragrafo gia' fatte sul PC (--backend file), i
+  # paragrafi assenti in TRANSLATE_MISSING_EN_IT; altrimenti MarianMT con il modello della direzione.
+  if [ "$kind/$from" = guides/en ] && [ -s "${TRANSLATE_FILE_EN_IT:-}" ]; then
+    engine=(--backend file --translations "$(winpath "$TRANSLATE_FILE_EN_IT")")
+    [ -n "${TRANSLATE_MISSING_EN_IT:-}" ] && engine+=(--missing "$(winpath "$TRANSLATE_MISSING_EN_IT")")
+  elif [ -d "$model" ]; then
+    engine=(--model-dir "$(winpath "$model")")
+  else
+    return 1
+  fi
+  [ -n "${TRANSLATE_CACHE_DIR:-}" ] && [ -s "$own" ] && [ -s "$source" ] || return 1
   rm -f "$overlay"
   if ! "${TRANSLATE_PYTHON:-python3}" "$(dirname "${BASH_SOURCE[0]}")/translate_guides.py" "$kind" \
     "$(winpath "$own")" "$(winpath "$source")" "$(winpath "$overlay")" --from "$from" \
-    --cache-dir "$(winpath "$TRANSLATE_CACHE_DIR")" --model-dir "$(winpath "$model")" --max-seconds "$maxSeconds" \
+    --cache-dir "$(winpath "$TRANSLATE_CACHE_DIR")" "${engine[@]}" --max-seconds "$maxSeconds" \
     ${TRANSLATE_DEADLINE:+--deadline "$TRANSLATE_DEADLINE"}; then
     echo "::warning::traduzione $from ($kind) non riuscita, resta il contenuto originale" >&2
     rm -f "$overlay"
