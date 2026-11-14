@@ -13,10 +13,14 @@ sealed interface ChatNotice {
         val resetAtMillis: Long,
         val choices: List<ModelChoice>,
         val notInFreePlan: Boolean = false,
+        val daily: Boolean = true,
     ) : ChatNotice
 
-    /** In Automatico ha risposto [to] perche' la quota giornaliera di [from] e' finita (torna a [resetAtMillis]). */
-    data class ModelSwitched(val from: String, val to: String, val resetAtMillis: Long) : ChatNotice
+    /**
+     * In Automatico ha risposto [to] perche' la quota giornaliera di [from] e' finita (torna a [resetAtMillis]);
+     * con [daily] falso, perche' ha raggiunto il limite di richieste.
+     */
+    data class ModelSwitched(val from: String, val to: String, val resetAtMillis: Long, val daily: Boolean = true) : ChatNotice
 
     /** Risposta a /model: il modello in uso e gli altri da scegliere. */
     data class ModelList(val current: ModelChoice, val choices: List<ModelChoice>) : ChatNotice
@@ -96,7 +100,7 @@ internal fun ModelChoice.engineMode(): AiEngineMode = if (this is ModelChoice.On
 /** In Automatico risponde un altro modello: l'etichetta della risposta lo nomina e la riga sopra dice perche'. */
 internal fun AiUiState.switchedModel(progress: AssistantProgress.ModelSwitched): AiUiState = copy(
     answerCredit = ModelCredit(progress.to, onlineProvider.modelsPageUrl),
-    notice = ChatNotice.ModelSwitched(progress.from, progress.to, progress.resetAtMillis),
+    notice = ChatNotice.ModelSwitched(progress.from, progress.to, progress.resetAtMillis, progress.daily),
 )
 
 /** Il messaggio per "/model" seguito da [name] e la scelta da applicare: null senza nome o con un nome sconosciuto. */

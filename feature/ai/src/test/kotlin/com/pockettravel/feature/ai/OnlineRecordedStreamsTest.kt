@@ -39,6 +39,7 @@ class OnlineRecordedStreamsTest {
         try {
             val response = MockResponse().setResponseCode(status).setBody(file.readText())
             if (status == 200) response.setHeader("Content-Type", "text/event-stream") else response.setHeader("Retry-After", "60")
+            expected.filterKeys { it.startsWith("header-") }.forEach { (key, value) -> response.setHeader(key.removePrefix("header-"), value) }
             server.enqueue(response)
             val client = OnlineLlmClient(OkHttpClient(), Json { ignoreUnknownKeys = true }, Dispatchers.IO)
             val outcome = runCatching {

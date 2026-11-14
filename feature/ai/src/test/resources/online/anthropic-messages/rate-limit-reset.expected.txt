@@ -1,0 +1,4 @@
+status: 429
+header-anthropic-ratelimit-requests-remaining: 0
+header-anthropic-ratelimit-requests-reset: 2099-01-01T00:00:00Z
+error: OnlineDailyQuotaException

@@ -29,6 +29,7 @@ import okhttp3.Response
 import java.io.IOException
 import java.net.ConnectException
 import java.net.UnknownHostException
+import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
@@ -53,6 +54,8 @@ class OnlineLlmClient @Inject constructor(
      * la Messages API di Anthropic [sendTemperature] non conta. [zeroDataRetention]: OpenRouter instrada la domanda
      * solo ai fornitori che non la conservano ([OnlineTerms.zeroDataRetention]). [photo]: un JPEG gia' pulito
      * (OnlinePhoto.preparePhoto) da mandare con [prompt], solo ai modelli con `vision` (OnlineModelCatalog.supportsVision).
+     * [onRequestsExhausted]: chiamata, con l'istante in cui tornano, quando una risposta riuscita dice che al modello non restano
+     * richieste (intestazioni `x-ratelimit-*` e `anthropic-ratelimit-*`), cosi' la prossima domanda puo' passare a un altro.
      */
     fun stream(
         baseUrl: String,
@@ -64,6 +67,7 @@ class OnlineLlmClient @Inject constructor(
         api: OnlineApi = OnlineApi.CHAT_COMPLETIONS,
         zeroDataRetention: Boolean = false,
         photo: ByteArray? = null,
+        onRequestsExhausted: (resetAtMillis: Long) -> Unit = {},
     ): Flow<String> = flow {
         val request = when (api) {
             OnlineApi.CHAT_COMPLETIONS ->
@@ -74,7 +78,7 @@ class OnlineLlmClient @Inject constructor(
         var retried = false
         while (true) {
             try {
-                answer(request, model, api).collect {
+                answer(request, model, api, onRequestsExhausted).collect {
                     emitted = true
                     emit(it)
                 }
@@ -130,11 +134,11 @@ class OnlineLlmClient @Inject constructor(
     // Una richiesta: i pezzi di testo fino a finish_reason o [DONE]. Gemini non manda finish_reason, solo [DONE];
     // Mistral manda l'ultimo pezzo insieme a finish_reason (provati il 2026-10-31). Dopo la fine non si aspetta altro
     // (un eventuale pezzo con l'uso dei token non serve): il flusso si ferma e la connessione si chiude.
-    private fun answer(request: Request, model: String, api: OnlineApi): Flow<String> = flow {
+    private fun answer(request: Request, model: String, api: OnlineApi, onRequestsExhausted: (Long) -> Unit): Flow<String> = flow {
         var finished = false
         var emitted = false
         try {
-            sseLines(request, model, api).transformWhile { line ->
+            sseLines(request, model, api, onRequestsExhausted).transformWhile { line ->
                 val chunk = when (api) {
                     OnlineApi.CHAT_COMPLETIONS -> sseChunk(line, model)
                     OnlineApi.ANTHROPIC_MESSAGES -> anthropicChunk(line, model)
@@ -161,7 +165,7 @@ class OnlineLlmClient @Inject constructor(
     // Le righe del corpo SSE, lette sul thread di OkHttp. Senza redirect: un 307/308 rimanderebbe la domanda (e
     // un'intestazione con la chiave diversa da Authorization) a un altro indirizzo. readTimeout: l'attesa massima tra due
     // pezzi, larga per i modelli che ragionano prima del primo. La cancellazione chiude la connessione (awaitClose).
-    private fun sseLines(request: Request, model: String, api: OnlineApi): Flow<String> = callbackFlow {
+    private fun sseLines(request: Request, model: String, api: OnlineApi, onRequestsExhausted: (Long) -> Unit): Flow<String> = callbackFlow {
         val call = okHttpClient.newBuilder().readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .followRedirects(false).followSslRedirects(false).build()
             .newCall(request)
@@ -173,15 +177,18 @@ class OnlineLlmClient @Inject constructor(
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     try {
+                        val now = System.currentTimeMillis()
+                        val limit = rateLimit({ response.header(it) }, now)
                         if (!response.isSuccessful) {
                             val body = response.peekBody(MAX_ERROR_BODY_BYTES).string()
                             val code = when (api) {
                                 OnlineApi.CHAT_COMPLETIONS -> response.code
                                 OnlineApi.ANTHROPIC_MESSAGES -> anthropicStatus(body, json) ?: response.code
                             }
-                            close(httpError(code, body, response.header("Retry-After"), model))
+                            close(httpError(code, body, response.header("Retry-After"), model, limit.resetAtMillis))
                             return
                         }
+                        if (limit.remaining == 0) limit.resetAtMillis?.takeIf { it > now }?.let(onRequestsExhausted)
                         val source = response.body.source()
                         while (true) {
                             val line = source.readUtf8Line() ?: break
@@ -239,7 +246,7 @@ class OnlineLlmClient @Inject constructor(
         }
     }
 
-    private fun httpError(code: Int, responseBody: String, retryAfter: String?, model: String): Exception = when {
+    private fun httpError(code: Int, responseBody: String, retryAfter: String?, model: String, rateLimitResetAt: Long? = null): Exception = when {
         // Un 403 di Gemini puo' essere un saldo scoperto, non la chiave: lo decide onlineErrorKind.
         isApiKeyRejected(code, responseBody) || (code == HTTP_FORBIDDEN && onlineErrorKind(code, responseBody) != OnlineErrorKind.CREDIT) ->
             OnlineApiKeyRejectedException("Chiave API rifiutata (HTTP $code)")
@@ -247,11 +254,20 @@ class OnlineLlmClient @Inject constructor(
         isDailyQuota(code, responseBody) -> OnlineDailyQuotaException("Quota giornaliera finita (HTTP $code)", model, isNotInFreePlan(responseBody))
         else -> when (onlineErrorKind(code, responseBody)) {
             OnlineErrorKind.CREDIT -> OnlineCreditExhaustedException("Credito esaurito (HTTP $code)")
-            OnlineErrorKind.TEMPORARY -> OnlineServiceBusyException(
-                "Servizio occupato (HTTP $code)",
-                retryDelayMillis(retryAfter, responseBody, System.currentTimeMillis()),
-            )
+            OnlineErrorKind.TEMPORARY -> busyOrExhausted(code, responseBody, retryAfter, model, rateLimitResetAt)
             OnlineErrorKind.PERMANENT -> IllegalStateException("Errore dal servizio online (HTTP $code)")
+        }
+    }
+
+    // Un 429 con l'ora in cui tornano le richieste, oltre l'attesa possibile, dice il modello fermo fino ad allora
+    // (Automatico passa al successivo); in tutti gli altri casi e' un servizio occupato.
+    private fun busyOrExhausted(code: Int, responseBody: String, retryAfter: String?, model: String, rateLimitResetAt: Long?): Exception {
+        val resetAt = rateLimitResetAt.takeIf { code == HTTP_TOO_MANY_REQUESTS }
+        val delay = retryDelayMillis(retryAfter, responseBody, System.currentTimeMillis(), resetAt)
+        return if (delay == null && resetAt != null) {
+            OnlineDailyQuotaException("Limite di richieste raggiunto (HTTP $code)", model, resetAtMillis = resetAt, daily = false)
+        } else {
+            OnlineServiceBusyException("Servizio occupato (HTTP $code)", delay)
         }
     }
 
@@ -362,18 +378,53 @@ internal fun onlineErrorKind(statusCode: Int, responseBody: String): OnlineError
 /**
  * Quanto aspettare prima del nuovo tentativo: Retry-After in secondi o come data HTTP, altrimenti il retryDelay di
  * Gemini nel corpo ("13s"), altrimenti 2 s. Null, cioe' nessun nuovo tentativo, se il servizio chiede piu' di 10 s:
- * l'utente aspetterebbe troppo, e il messaggio gli dice di riprovare tra poco.
+ * l'utente aspetterebbe troppo, e il messaggio gli dice di riprovare tra poco. [resetAtMillis]: l'ora in cui tornano le
+ * richieste secondo le intestazioni `ratelimit` ([rateLimit]), che vale dopo Retry-After e prima del corpo.
  */
-internal fun retryDelayMillis(retryAfter: String?, responseBody: String, nowMillis: Long): Long? {
+internal fun retryDelayMillis(retryAfter: String?, responseBody: String, nowMillis: Long, resetAtMillis: Long? = null): Long? {
     val header = retryAfter?.trim()?.takeIf { it.isNotEmpty() }
     val millis = header?.let { value ->
         value.toLongOrNull()?.let { it * MILLIS_PER_SECOND }
             ?: runCatching { ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli() - nowMillis }
                 .getOrNull()
-    } ?: RETRY_DELAY_IN_BODY.find(responseBody)?.groupValues?.get(1)?.toDoubleOrNull()?.let { (it * MILLIS_PER_SECOND).toLong() }
+    } ?: resetAtMillis?.minus(nowMillis) ?: RETRY_DELAY_IN_BODY.find(responseBody)?.groupValues?.get(1)?.toDoubleOrNull()?.let { (it * MILLIS_PER_SECOND).toLong() }
         ?: DEFAULT_RETRY_MILLIS
     return millis.coerceAtLeast(0).takeIf { it <= MAX_RETRY_MILLIS }
 }
+
+/** Le richieste che restano a un modello e quando tornano, dalle intestazioni di una risposta; null per quelle assenti o illeggibili. */
+internal class RateLimit(val remaining: Int?, val resetAtMillis: Long?)
+
+/**
+ * Lo stato delle richieste dalle intestazioni di [header]: OpenAI e compatibili (`x-ratelimit-remaining-requests`,
+ * `x-ratelimit-reset-requests`, durata come "1s" o "6m0s") e Anthropic (`anthropic-ratelimit-requests-remaining`,
+ * `anthropic-ratelimit-requests-reset`, data RFC 3339). Nomi e formati dalla documentazione dei servizi, non provati
+ * su una chiave; quello che non si capisce si ignora.
+ */
+internal fun rateLimit(header: (String) -> String?, nowMillis: Long): RateLimit {
+    fun first(vararg names: String) = names.firstNotNullOfOrNull { header(it)?.trim()?.takeIf(String::isNotEmpty) }
+    return RateLimit(
+        remaining = first("x-ratelimit-remaining-requests", "anthropic-ratelimit-requests-remaining")?.toIntOrNull(),
+        resetAtMillis = first("x-ratelimit-reset-requests", "anthropic-ratelimit-requests-reset")?.let { parseRateLimitReset(it, nowMillis) },
+    )
+}
+
+internal fun parseRateLimitReset(value: String, nowMillis: Long): Long? =
+    if (RESET_DURATION.matches(value)) {
+        RESET_DURATION_PART.findAll(value).sumOf { (it.groupValues[1].toDouble() * resetUnitMillis(it.groupValues[2])).toLong() } + nowMillis
+    } else {
+        runCatching { OffsetDateTime.parse(value).toInstant().toEpochMilli() }.getOrNull()
+    }
+
+private fun resetUnitMillis(unit: String): Long = when (unit) {
+    "ms" -> 1L
+    "s" -> MILLIS_PER_SECOND
+    "m" -> MILLIS_PER_MINUTE
+    else -> MILLIS_PER_HOUR
+}
+
+private val RESET_DURATION = Regex("""(?:\d+(?:\.\d+)?(?:ms|h|m|s))+""")
+private val RESET_DURATION_PART = Regex("""(\d+(?:\.\d+)?)(ms|h|m|s)""")
 
 /**
  * Timeout e connessione chiusa a meta' sono temporanei (un nuovo tentativo dopo 2 s); senza rete (nome del server
@@ -386,6 +437,8 @@ internal fun transportError(error: IOException): Exception = when (error) {
 
 private val RETRY_DELAY_IN_BODY = Regex(""""retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"""")
 private const val MILLIS_PER_SECOND = 1_000L
+private const val MILLIS_PER_MINUTE = 60 * MILLIS_PER_SECOND
+private const val MILLIS_PER_HOUR = 60 * MILLIS_PER_MINUTE
 private const val DEFAULT_RETRY_MILLIS = 2_000L
 private const val MAX_RETRY_MILLIS = 10_000L
 private const val HTTP_PAYMENT_REQUIRED = 402

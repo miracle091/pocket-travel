@@ -237,9 +237,17 @@ class OnlineCreditExhaustedException(message: String) : IllegalStateException(me
 /**
  * La quota giornaliera di [model] e' finita (Gemini: "PerDay" nel quotaId del 429, anche col piano gratuito). La quota
  * e' di ogni modello, non dell'account: un altro modello dello stesso servizio puo' ancora rispondere. [notInFreePlan]:
- * il piano gratuito non include il modello (limite 0), quindi la quota non torna.
+ * il piano gratuito non include il modello (limite 0), quindi la quota non torna. [resetAtMillis]: quando tornano le
+ * richieste, se il servizio l'ha detto nelle intestazioni (altrimenti vale la mezzanotte di Gemini). [daily]: falso
+ * per il limite di richieste delle intestazioni, che non e' la quota del giorno.
  */
-class OnlineDailyQuotaException(message: String, val model: String, val notInFreePlan: Boolean = false) : IllegalStateException(message)
+class OnlineDailyQuotaException(
+    message: String,
+    val model: String,
+    val notInFreePlan: Boolean = false,
+    val resetAtMillis: Long? = null,
+    val daily: Boolean = true,
+) : IllegalStateException(message)
 
 /**
  * Errore temporaneo (servizio sovraccarico, limite di richieste, timeout) rimasto anche dopo il nuovo tentativo.

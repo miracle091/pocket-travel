@@ -80,7 +80,7 @@ sealed interface AssistantProgress {
     data class Done(val answer: AssistantAnswer) : AssistantProgress
 
     /** Online in Automatico: la quota giornaliera di [from] e' finita (torna a [resetAtMillis]), risponde [to]. */
-    data class ModelSwitched(val from: String, val to: String, val resetAtMillis: Long) : AssistantProgress
+    data class ModelSwitched(val from: String, val to: String, val resetAtMillis: Long, val daily: Boolean = true) : AssistantProgress
 }
 
 /**
@@ -443,8 +443,9 @@ class TravelAssistant @Inject constructor(
             while (true) {
                 val model = models[index]
                 try {
-                    if (index < models.lastIndex && onlineQuota.resetAtMillis(provider, model, System.currentTimeMillis()) != null) {
-                        throw OnlineDailyQuotaException("Quota giornaliera gia' finita", model)
+                    val known = onlineQuota.exhaustion(provider, model, System.currentTimeMillis())
+                    if (index < models.lastIndex && known != null) {
+                        throw OnlineDailyQuotaException("Quota giornaliera gia' finita", model, resetAtMillis = known.resetAtMillis, daily = known.daily)
                     }
                     text(model).accumulated(PARTIAL_INTERVAL_MS).collect {
                         answer = it
@@ -452,10 +453,10 @@ class TravelAssistant @Inject constructor(
                     }
                     break
                 } catch (quota: OnlineDailyQuotaException) {
-                    val resetAt = onlineQuota.markExhausted(provider, model, System.currentTimeMillis())
+                    val resetAt = onlineQuota.markExhausted(provider, model, System.currentTimeMillis(), quota.resetAtMillis, quota.daily)
                     if (index == models.lastIndex) throw quota
                     index++
-                    emit(AssistantProgress.ModelSwitched(model, models[index], resetAt))
+                    emit(AssistantProgress.ModelSwitched(model, models[index], resetAt, quota.daily))
                 }
             }
             if (answer.isBlank()) error("Il servizio online non ha restituito una risposta")
@@ -500,6 +501,7 @@ class TravelAssistant @Inject constructor(
                 api = provider.terms.api,
                 zeroDataRetention = provider.terms.zeroDataRetention,
                 photo = photo,
+                onRequestsExhausted = { resetAt -> onlineQuota.markExhausted(provider, model, System.currentTimeMillis(), resetAt, daily = false) },
             )
         }
     }

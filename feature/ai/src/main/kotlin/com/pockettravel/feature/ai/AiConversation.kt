@@ -123,7 +123,7 @@ internal fun AiUiState.isEmptyConversation(): Boolean =
 @Composable
 private fun ModelSwitchedLine(notice: ChatNotice.ModelSwitched) {
     Text(
-        stringResource(R.string.ai_notice_model_switched, notice.from, quotaResetTime(notice.resetAtMillis), notice.to),
+        stringResource(notice.textRes(), notice.from, quotaResetTime(notice.resetAtMillis), notice.to),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(bottom = Spacing.s),
@@ -186,7 +186,7 @@ private fun quotaResetTime(resetAtMillis: Long): String = remember(resetAtMillis
 internal fun quotaText(quota: ChatNotice.QuotaExhausted, provider: OnlineProvider): String = if (quota.notInFreePlan) {
     stringResource(R.string.ai_error_not_in_free_plan, quota.model, provider.displayName)
 } else {
-    stringResource(R.string.ai_error_daily_quota, quota.model, quotaResetTime(quota.resetAtMillis))
+    stringResource(quota.textRes(), quota.model, quotaResetTime(quota.resetAtMillis))
 }
 
 // Al posto del campo della domanda, per una conversazione ripresa la cui regione non e' piu' installata.

@@ -139,8 +139,10 @@
     <string name="ai_error_key_rejected">The service rejected the API key: it may have expired or been revoked. Remove it and enter a new one</string>
     <string name="ai_error_credit">The service credit has run out. Top up your account on %1$s</string>
     <string name="ai_error_daily_quota">The daily quota for %1$s has run out: it resets at %2$s</string>
+    <string name="ai_error_request_limit">Request limit for %1$s reached: it resets at %2$s</string>
     <string name="ai_error_not_in_free_plan">The %2$s free plan doesn\'t include %1$s</string>
     <string name="ai_notice_model_switched">Daily quota for %1$s used up (it resets at %2$s): %3$s is answering</string>
+    <string name="ai_notice_model_switched_request_limit">Request limit for %1$s reached (it resets at %2$s): %3$s is answering</string>
     <string name="ai_notice_model_list">Model in use: %1$s. Pick another one below or type /model and its name</string>
     <string name="ai_notice_model_chosen">Model selected: %1$s</string>
     <string name="ai_notice_model_unknown">No model is called \"%1$s\". Pick one below</string>

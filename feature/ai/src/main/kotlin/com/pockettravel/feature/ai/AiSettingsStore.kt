@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -41,7 +42,7 @@ class AiSettingsStore(
     }
 
     // Una chiave per servizio: quella di un servizio non parte mai verso un altro.
-    private fun apiKeyName() = API_KEY_PAYLOAD + "_" + onlineProvider().name
+    private fun apiKeyName(provider: OnlineProvider = onlineProvider()) = API_KEY_PAYLOAD + "_" + provider.name
 
     fun engineMode(): AiEngineMode =
         AiEngineMode.valueOf(prefs.getString(KEY_MODE, AiEngineMode.ON_DEVICE.name) ?: AiEngineMode.ON_DEVICE.name)
@@ -57,20 +58,28 @@ class AiSettingsStore(
 
     fun hasApiKey(): Boolean = !apiKey().isNullOrBlank()
 
-    fun apiKey(): String? = apiKeyStore.read(apiKeyName())
+    fun apiKey(provider: OnlineProvider = onlineProvider()): String? = apiKeyStore.read(apiKeyName(provider))
 
     // Segue setApiKey/clearApiKey e il servizio scelto (ognuno ha la sua chiave): serve a sapere subito
     // se l'assistente e' configurato (vedi AiAvailability).
     private val _hasApiKeyFlow = MutableStateFlow(hasApiKey())
     val hasApiKeyFlow: StateFlow<Boolean> = _hasApiKeyFlow.asStateFlow()
 
+    // Impronte delle chiavi per OnlineQuotaTracker: la chiave si decifra dal Keystore una volta, non a ogni controllo della quota.
+    private val fingerprints = ConcurrentHashMap<OnlineProvider, String>()
+
+    fun apiKeyFingerprint(provider: OnlineProvider): String? =
+        fingerprints[provider] ?: apiKeyFingerprint(apiKey(provider))?.also { fingerprints[provider] = it }
+
     fun setApiKey(key: String) {
         apiKeyStore.write(apiKeyName(), key)
+        fingerprints.remove(onlineProvider())
         _hasApiKeyFlow.value = hasApiKey()
     }
 
     fun clearApiKey() {
         apiKeyStore.clear(apiKeyName())
+        fingerprints.remove(onlineProvider())
         _hasApiKeyFlow.value = false
     }
 

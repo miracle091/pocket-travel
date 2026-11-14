@@ -140,9 +140,11 @@
     <string name="ai_error_key_rejected">Il servizio ha rifiutato la chiave API: potrebbe essere scaduta o revocata. Rimuovila e inseriscine una nuova</string>
     <string name="ai_error_credit">Credito del servizio esaurito. Ricarica l\'account su %1$s</string>
     <string name="ai_error_daily_quota">La quota giornaliera di %1$s è finita: torna alle %2$s</string>
+    <string name="ai_error_request_limit">Limite di richieste di %1$s raggiunto: torna alle %2$s</string>
     <string name="ai_error_not_in_free_plan">Il piano gratuito di %2$s non include %1$s</string>
     <!-- Messaggi dell'app nella conversazione: cambio di modello per la quota e comando /model -->
     <string name="ai_notice_model_switched">Quota giornaliera di %1$s finita (torna alle %2$s): risponde %3$s</string>
+    <string name="ai_notice_model_switched_request_limit">Limite di richieste di %1$s raggiunto (torna alle %2$s): risponde %3$s</string>
     <string name="ai_notice_model_list">Modello in uso: %1$s. Scegline un altro qui sotto o scrivi /model e il nome</string>
     <string name="ai_notice_model_chosen">Modello scelto: %1$s</string>
     <string name="ai_notice_model_unknown">Nessun modello si chiama «%1$s». Scegline uno qui sotto</string>

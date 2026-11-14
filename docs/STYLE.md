@@ -124,6 +124,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Pulsante e voci per aggiungere o togliere la foto della domanda al motore Online | Allega una foto; Scegli dalla galleria; Scatta una foto; Togli la foto | Attach a photo; Choose from gallery; Take a photo; Remove the photo |
 | Interruttore che lascia mandare al motore Online nota, posizione, partenza e nazionalità | Invia dati personali al servizio | Send personal data to the service |
 | Richieste gratuite al giorno per ogni modello di un servizio (Gemini: 20) | quota giornaliera (mai "quota" da sola per il credito) | daily quota |
+| Richieste al minuto o all'ora finite secondo le intestazioni del servizio, distinte dalla quota giornaliera | limite di richieste | request limit |
 | Modello proposto più economico di quello di Automatico | Più leggero | Lighter |
 | Bolla della conversazione scritta dall'app, non dal modello (quota, cambio di modello, /model) | messaggio dell'app | app message |
 | Menu sopra il campo della domanda che compare scrivendo "/" | menu dei comandi | command menu |
