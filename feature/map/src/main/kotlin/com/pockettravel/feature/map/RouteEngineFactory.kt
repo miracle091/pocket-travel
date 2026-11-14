@@ -30,6 +30,7 @@ internal suspend fun createOrFailed(create: suspend () -> RouteEngine): RouteEng
                 to: RoutePoint,
                 profile: String?,
                 profileParams: Map<String, String>,
+                alternatives: Int,
                 onProgress: (Double) -> Unit,
             ): RouteResult = failed
         }

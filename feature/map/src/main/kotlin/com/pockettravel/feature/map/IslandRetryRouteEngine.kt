@@ -20,12 +20,13 @@ class IslandRetryRouteEngine(private val inner: RouteEngine) : RouteEngine {
         to: RoutePoint,
         profile: String?,
         profileParams: Map<String, String>,
+        alternatives: Int,
         onProgress: (Double) -> Unit,
     ): RouteResult {
         // Ogni tentativo riparte da 0: la barra mostra solo il valore piu' alto.
         var shown = 0.0
         val progress: (Double) -> Unit = { value -> if (value > shown) shown = value.also(onProgress) }
-        val route: suspend (RoutePoint, RoutePoint) -> RouteResult = { start, end -> inner.route(start, end, profile, profileParams, progress) }
+        val route: suspend (RoutePoint, RoutePoint) -> RouteResult = { start, end -> inner.route(start, end, profile, profileParams, alternatives, progress) }
         var attempt = Attempt(from, to, route(from, to))
         // Spostata la destinazione puo' risultare isolata la partenza (BRouter controlla prima la destinazione).
         repeat(2) { attempt = moveOffIsland(attempt, route) }
@@ -50,14 +51,14 @@ class IslandRetryRouteEngine(private val inner: RouteEngine) : RouteEngine {
         return when {
             island != null -> RouteResult.Isolated(island)
             result !is RouteResult.Found -> result
-            else -> RouteResult.Found(
-                result.route.copy(
-                    startOffsetMeters = if (start == from) 0.0 else NavigationTracker.distanceMeters(from, result.route.points.first()),
-                    endOffsetMeters = if (end == to) 0.0 else NavigationTracker.distanceMeters(to, result.route.points.last()),
-                ),
-            )
+            else -> RouteResult.Found(withOffsets(result.route, from, to), result.alternatives.map { withOffsets(it, from, to) })
         }
     }
+
+    private fun Attempt.withOffsets(route: Route, from: RoutePoint, to: RoutePoint): Route = route.copy(
+        startOffsetMeters = if (start == from) 0.0 else NavigationTracker.distanceMeters(from, route.points.first()),
+        endOffsetMeters = if (end == to) 0.0 else NavigationTracker.distanceMeters(to, route.points.last()),
+    )
 
     companion object {
         /** Distanza massima del punto spostato (utente, 2026-11-05). */

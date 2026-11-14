@@ -19,6 +19,7 @@ class IslandRetryRouteEngineTest {
             to: RoutePoint,
             profile: String?,
             profileParams: Map<String, String>,
+            alternatives: Int,
             onProgress: (Double) -> Unit,
         ): RouteResult {
             requests += from to to
@@ -66,6 +67,22 @@ class IslandRetryRouteEngineTest {
         // Due punti a 250 m: il primo in mare, il secondo sulla strada.
         assertEquals(250.0, route.startOffsetMeters, 1.0)
         assertEquals(0.0, route.endOffsetMeters, 0.0)
+    }
+
+    @Test
+    fun `le alternative di una partenza spostata hanno la stessa distanza dalla partenza chiesta`() = runBlocking {
+        val inner = FakeEngine { start, end ->
+            if (start == from) {
+                RouteResult.Failed("start island detected (no track found at pass=0)")
+            } else {
+                RouteResult.Found(Route(listOf(start, end), 1000.0, 60.0), listOf(Route(listOf(start, RoutePoint(3.76, 8.74), end), 1200.0, 70.0)))
+            }
+        }
+
+        val result = IslandRetryRouteEngine(inner).route(from, to, alternatives = 2) as RouteResult.Found
+
+        assertEquals(250.0, result.alternatives.single().startOffsetMeters, 1.0)
+        assertEquals(result.route.startOffsetMeters, result.alternatives.single().startOffsetMeters, 0.0)
     }
 
     @Test

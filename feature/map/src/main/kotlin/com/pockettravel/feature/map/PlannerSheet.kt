@@ -77,6 +77,8 @@ internal fun PlannerSheet(
     toCatch: TripToCatch? = null,
     // Il giorno della rete stradale piu' vecchia del percorso, se ha piu' di tre mesi: l'avviso sopra il percorso.
     oldRoutingDate: LocalDate? = null,
+    onFindAlternatives: () -> Unit = {},
+    onSelectRoute: (Route) -> Unit = {},
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l).padding(bottom = Spacing.l)) {
         if (to != null && toCatch != null && arriveBy != null) TripToCatchLine(toCatch, arriveBy)
@@ -86,7 +88,11 @@ internal fun PlannerSheet(
         }
         when {
             to == null -> Recents(recents, onRecent, onRemoveRecent, onClearRecents)
-            preview is PlannerPreview.Ready -> RouteSummary(preview.route, routeProfile, startsFromMe, onStart, wheelchairOptions, arriveBy, reminder, onArriveByChange, onSetReminder)
+            preview is PlannerPreview.Ready -> {
+                RouteSummary(preview.route, routeProfile, startsFromMe, onStart, wheelchairOptions, arriveBy, reminder, onArriveByChange, onSetReminder) {
+                    OtherRoutesRow(preview, onFindAlternatives, onSelectRoute)
+                }
+            }
             // Il download si propone se il catalogo dice quali regioni mancano tra partenza e arrivo, o se la regione aperta
             // non ha la rete stradale; altrimenti "nessun dato" vuol dire fuori dalle zone scaricate, e riscaricare non cambierebbe nulla.
             preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData && missingRegions.isNotEmpty() ->
@@ -229,6 +235,7 @@ private fun RouteSummary(
     reminder: LocalDateTime?,
     onArriveByChange: (LocalDateTime?) -> Unit,
     onSetReminder: (LocalDateTime) -> Unit,
+    otherRoutes: @Composable () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = Spacing.s)) {
         Column(modifier = Modifier.weight(1f)) {
@@ -247,6 +254,7 @@ private fun RouteSummary(
             }
         }
     }
+    otherRoutes()
     ArriveBy(route, arriveBy, reminder, onArriveByChange, onSetReminder)
     // Sotto tempo e distanza: cambia il percorso come il modo, ma non deve coprire la mappa in alto.
     wheelchairOptions?.invoke()

@@ -20,6 +20,7 @@ class FallbackRouteEngineTest {
             to: RoutePoint,
             profile: String?,
             profileParams: Map<String, String>,
+            alternatives: Int,
             onProgress: (Double) -> Unit,
         ): RouteResult {
             calls++

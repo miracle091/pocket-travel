@@ -44,6 +44,7 @@ class BRouterRouteEngine(
         to: RoutePoint,
         profile: String?,
         profileParams: Map<String, String>,
+        alternatives: Int,
         onProgress: (Double) -> Unit,
     ): RouteResult {
         // Con la cartella dei segmenti uniti (Rd5Merger) le tile possono stare solo nella cartella secondaria.
@@ -71,7 +72,7 @@ class BRouterRouteEngine(
             }
             try {
                 // Calcolo bloccante di minuti (anche in auto): su IO, per non occupare i thread di Default.
-                runInterruptible(ioDispatcher) { compute(from, to, profile ?: profileName, profileParams, running) }
+                runInterruptible(ioDispatcher) { compute(from, to, profile ?: profileName, profileParams, alternatives, running) }
             } catch (error: IllegalArgumentException) {
                 // BRouter la lancia, fuori da doRun, per un profilo .brf mancante o una variabile del profilo non valida:
                 // diventa un errore del motore invece di arrivare fino al ViewModel.
@@ -90,6 +91,7 @@ class BRouterRouteEngine(
         to: RoutePoint,
         profile: String,
         profileParams: Map<String, String>,
+        alternatives: Int,
         running: AtomicReference<RoutingEngine?>,
     ): RouteResult = BROUTER_RUNTIME_LOCK.withInterruptibleLock {
         // segmentBaseDir/profileBaseDir sono System property globali (stesso meccanismo usato da
@@ -108,7 +110,9 @@ class BRouterRouteEngine(
         // resterebbe 0 e BRouter non calcolerebbe le svolte.
         // Variabili del profilo come "profile:<nome>=<valore>" (RoutingParamCollector le passa al profilo).
         val extra = profileParams.entries.joinToString("") { (key, value) -> "&profile:$key=$value" }
-        val params = paramCollector.getUrlParams("lonlats=$lonlats&profile=$profile&timode=1$extra")
+        // alternativeidx=n: doRun calcola il principale e le alternative fino alla n-esima, tutte in foundTracks (patch 0004).
+        val alternativeIdx = if (alternatives > 0) "&alternativeidx=$alternatives" else ""
+        val params = paramCollector.getUrlParams("lonlats=$lonlats&profile=$profile&timode=1$extra$alternativeIdx")
         paramCollector.setParams(routingContext, waypoints, params)
 
         val engine = RoutingEngine(null, null, segmentDir, waypoints, routingContext)
@@ -116,7 +120,8 @@ class BRouterRouteEngine(
         // Annullata prima che il motore fosse registrato (anche mentre aspettava il lock):
         // runInterruptible ha gia' interrotto il thread, lo stopper non l'ha visto.
         if (Thread.currentThread().isInterrupted) engine.terminate()
-        engine.doRun(maxRunningTimeMillis)
+        // Il tempo massimo vale per tutto doRun: ogni alternativa e' una ricerca in piu'.
+        engine.doRun(maxRunningTimeMillis * (alternatives + 1))
 
         engine.errorMessage?.let { message ->
             // Messaggi di NodesCache/RoutingEngine: "datafile ... not found",
@@ -137,7 +142,10 @@ class BRouterRouteEngine(
         }
         val track = engine.foundTrack ?: return RouteResult.NotFound
         if (track.nodes.isEmpty()) return RouteResult.NotFound
-        RouteResult.Found(track.toRoute())
+        val main = track.toRoute()
+        // Senza un'alternativa vera BRouter ridà lo stesso percorso: si tengono solo quelli diversi.
+        val others = engine.foundTracks.drop(1).filter { it.nodes.isNotEmpty() }.map { it.toRoute() }
+        RouteResult.Found(main, others.distinctBy { it.points }.filter { it.points != main.points })
     }
 
     private companion object {

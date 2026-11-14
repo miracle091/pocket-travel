@@ -226,6 +226,8 @@ fun NavigationPlannerScreen(
             onDownloadRouting = { onDownloadRouting(missingRegions.map { it.regionId }, routeProfile == RouteProfile.CAR) },
             onAllowStepsChange = viewModel::setAllowSteps,
             onAvoidChange = viewModel::setAvoid,
+            onFindAlternatives = viewModel::findAlternatives,
+            onSelectRoute = viewModel::selectRoute,
             onArrivalAnnounced = { arrivedAt = null },
         ),
         map = { regionIds, route, topPaddingPx, bottomPaddingPx, modifier ->
@@ -233,6 +235,9 @@ fun NavigationPlannerScreen(
                 tileSource = viewModel.tileSource,
                 regionIds = regionIds,
                 route = route,
+                // Le alternative trovate con «Altri percorsi», in grigio sotto il percorso scelto; toccandole si scelgono.
+                others = ((preview as? PlannerPreview.Ready)?.others as? OtherRoutes.Found)?.routes.orEmpty().filter { it != route },
+                onSelectRoute = viewModel::selectRoute,
                 from = from?.point,
                 to = to?.point,
                 position = planner.idlePosition,
@@ -293,6 +298,8 @@ internal class NavigationPlannerActions(
     val onDownloadRouting: () -> Unit = {},
     val onAllowStepsChange: (Boolean) -> Unit = {},
     val onAvoidChange: (RouteAvoid, Boolean) -> Unit = { _, _ -> },
+    val onFindAlternatives: () -> Unit = {},
+    val onSelectRoute: (Route) -> Unit = {},
     val onArrivalAnnounced: () -> Unit = {},
 )
 
@@ -361,6 +368,8 @@ internal fun NavigationPlannerContent(
                 onArriveByChange = actions.onArriveByChange,
                 onSetReminder = actions.onSetReminder,
                 onRetry = actions.onRetry,
+                onFindAlternatives = actions.onFindAlternatives,
+                onSelectRoute = actions.onSelectRoute,
                 onRequestPermission = actions.onRequestPermission,
                 routingInstalled = state.routingInstalled,
                 downloadProgress = state.downloadProgress,

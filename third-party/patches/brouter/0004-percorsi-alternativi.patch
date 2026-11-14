@@ -1,0 +1,32 @@
+RoutingEngine.foundTracks: tutti i percorsi calcolati da doRun, il principale e poi le alternative fino ad
+alternativeidx. Upstream doRun ricalcola il principale e le alternative precedenti per arrivare a quella chiesta
+e tiene solo l'ultima: con questa lista l'app mostra il principale e due alternative con un calcolo solo, invece
+di tre calcoli (alternativeidx 0, 1 e 2) che rifarebbero cinque ricerche.
+Upstream: nessuna PR o issue (funzione solo di questo progetto).
+Da togliere quando: BRouter upstream restituisce da solo tutte le alternative calcolate, oppure l'app smette di
+mostrare i percorsi alternativi.
+Applicata dal build (task brouterSources di core/routing-engine/build.gradle.kts) alla copia dei
+sorgenti in build/generated/brouter; percorsi dalla root del submodule third-party/brouter.
+
+diff --git a/brouter-core/src/main/java/btools/router/RoutingEngine.java b/brouter-core/src/main/java/btools/router/RoutingEngine.java
+--- a/brouter-core/src/main/java/btools/router/RoutingEngine.java
++++ b/brouter-core/src/main/java/btools/router/RoutingEngine.java
+@@ -68,6 +68,10 @@ public class RoutingEngine extends Thread {
+ 
+   private volatile boolean terminated;
+ 
++  // Pocket Travel (aggiunta non presente upstream): tutti i percorsi calcolati da doRun, nell'ordine (il principale,
++  // poi le alternative fino ad alternativeidx), perche' l'app mostri le alternative con un calcolo solo.
++  public final List<OsmTrack> foundTracks = new ArrayList<>();
++
+   // Pocket Travel (aggiunta non presente upstream): stima dell'avanzamento del calcolo, 0..1, letta
+   // da un altro thread per la barra di avanzamento dell'app. Vedi updateProgress.
+   private volatile double progress;
+@@ -298,6 +302,7 @@ public class RoutingEngine extends Thread {
+           alternativeIndex = i;
+           outfile = filename;
+         } else {
++          foundTracks.add(track);
+           if (i == routingContext.getAlternativeIdx(0, 3)) {
+             if ("CSV".equals(System.getProperty("reportFormat"))) {
+               String filename = outfileBase + i + ".csv";

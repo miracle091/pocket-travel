@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import android.graphics.RectF
 import android.view.View
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
@@ -9,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
@@ -50,6 +52,9 @@ internal fun PlannerMap(
     tileSource: OfflineTileSource,
     regionIds: List<String>,
     route: Route?,
+    // Gli altri percorsi trovati, in grigio sotto [route]; toccandone uno si sceglie ([onSelectRoute]).
+    others: List<Route>,
+    onSelectRoute: (Route) -> Unit,
     from: RoutePoint?,
     to: RoutePoint?,
     // Senza destinazione: la propria posizione e i POI attorno (null = niente), inquadrati sul raggio della ricerca.
@@ -73,6 +78,7 @@ internal fun PlannerMap(
         value = withContext(Dispatchers.IO) { regionIds.firstNotNullOfOrNull(tileSource::regionBounds) }
     }
     val routeColor = MaterialTheme.colorScheme.primary.toArgb()
+    val otherRouteColor = MaterialTheme.colorScheme.outline.toArgb()
     val startColor = MaterialTheme.colorScheme.surface.toArgb()
     val endColor = MaterialTheme.colorScheme.error.toArgb()
     val positionStroke = MaterialTheme.colorScheme.surface.toArgb()
@@ -84,6 +90,7 @@ internal fun PlannerMap(
         mapView.getMapAsync { map ->
             map.setStyle(Style.Builder().fromJson(json)) { style ->
                 val routeSource = GeoJsonSource(PLANNER_ROUTE_SOURCE).also(style::addSource)
+                val otherSource = GeoJsonSource(PLANNER_OTHER_ROUTES_SOURCE).also(style::addSource)
                 val startSource = GeoJsonSource(PLANNER_START_SOURCE).also(style::addSource)
                 val endSource = GeoJsonSource(PLANNER_END_SOURCE).also(style::addSource)
                 val poiSource = GeoJsonSource(PLANNER_POI_SOURCE).also(style::addSource)
@@ -93,6 +100,20 @@ internal fun PlannerMap(
                     SymbolLayer(PLANNER_POI_SOURCE, PLANNER_POI_SOURCE).withProperties(
                         PropertyFactory.iconImage(Expression.get(PLANNER_POI_ICON)),
                         PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+                    ),
+                )
+                style.addLayer(
+                    LineLayer(PLANNER_OTHER_ROUTES_SOURCE, PLANNER_OTHER_ROUTES_SOURCE).withProperties(
+                        PropertyFactory.lineColor(otherRouteColor), PropertyFactory.lineWidth(OTHER_ROUTE_LINE_WIDTH),
+                        PropertyFactory.lineOpacity(OTHER_ROUTE_OPACITY),
+                        PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                    ),
+                )
+                // Bordo chiaro sotto il percorso scelto: si stacca dalle alternative grigie anche dove si incrociano.
+                style.addLayer(
+                    LineLayer("$PLANNER_ROUTE_SOURCE-casing", PLANNER_ROUTE_SOURCE).withProperties(
+                        PropertyFactory.lineColor(startColor), PropertyFactory.lineWidth(ROUTE_LINE_WIDTH + 2 * ROUTE_CASING_WIDTH),
+                        PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                     ),
                 )
                 style.addLayer(
@@ -123,7 +144,23 @@ internal fun PlannerMap(
                         PropertyFactory.circleStrokeColor(positionStroke), PropertyFactory.circleStrokeWidth(POSITION_STROKE_WIDTH),
                     ),
                 )
-                sources = PlannerSources(routeSource, startSource, endSource, poiSource, positionSource)
+                sources = PlannerSources(routeSource, otherSource, startSource, endSource, poiSource, positionSource)
+            }
+        }
+    }
+    // Tocco su un percorso grigio: si sceglie quello (il primo sotto il dito, con un margine perche' la linea e' sottile).
+    val currentOthers by rememberUpdatedState(others)
+    val currentOnSelect by rememberUpdatedState(onSelectRoute)
+    LaunchedEffect(mapView) {
+        mapView.getMapAsync { map ->
+            map.addOnMapClickListener { latLng ->
+                val point = map.projection.toScreenLocation(latLng)
+                val margin = ROUTE_TOUCH_MARGIN_DP * density
+                val index = map.queryRenderedFeatures(RectF(point.x - margin, point.y - margin, point.x + margin, point.y + margin), PLANNER_OTHER_ROUTES_SOURCE)
+                    .firstNotNullOfOrNull { it.getNumberProperty(PLANNER_ROUTE_INDEX)?.toInt() }
+                val chosen = index?.let(currentOthers::getOrNull)
+                chosen?.let(currentOnSelect)
+                chosen != null
             }
         }
     }
@@ -150,21 +187,29 @@ internal fun PlannerMap(
         }
     }
     // I dati del percorso non dipendono dall'altezza del pannello: cambiarla non li riscrive.
-    LaunchedEffect(sources, route, from, to) {
+    LaunchedEffect(sources, route, others, from, to) {
         val current = sources ?: return@LaunchedEffect
         val points = route?.points.orEmpty()
+        current.others.setGeoJson(
+            FeatureCollection.fromFeatures(
+                others.mapIndexedNotNull { index, other ->
+                    other.points.takeIf { it.size >= 2 }?.let { Feature.fromGeometry(lineString(it)).apply { addNumberProperty(PLANNER_ROUTE_INDEX, index) } }
+                },
+            ),
+        )
         current.route.setGeoJson(FeatureCollection.fromFeatures(listOfNotNull(points.takeIf { it.size >= 2 }?.let { Feature.fromGeometry(lineString(it)) })))
         current.start.setGeoJson(pointCollection(points.firstOrNull() ?: from))
         current.end.setGeoJson(pointCollection(to))
     }
-    LaunchedEffect(sources, route, from, to, topPaddingPx, nearby, regionBounds) {
+    LaunchedEffect(sources, route, others, from, to, topPaddingPx, nearby, regionBounds) {
         if (sources == null) return@LaunchedEffect
         val area = regionBounds
         val points = route?.points.orEmpty()
         val start = points.firstOrNull() ?: from
         val end = to
         mapView.getMapAsync { map ->
-            val framed = (points.ifEmpty { listOfNotNull(start, end) })
+            // Con gli altri percorsi si inquadrano tutti, perche' si possano toccare.
+            val framed = (points.ifEmpty { listOfNotNull(start, end) }) + others.flatMap { it.points }
             when {
                 framed.size >= 2 -> {
                     val bounds = LatLngBounds.Builder().apply { framed.forEach { include(LatLng(it.latitude, it.longitude)) } }.build()
@@ -200,7 +245,7 @@ internal fun PlannerMap(
 }
 
 private class PlannerSources(
-    val route: GeoJsonSource, val start: GeoJsonSource, val end: GeoJsonSource, val pois: GeoJsonSource, val position: GeoJsonSource,
+    val route: GeoJsonSource, val others: GeoJsonSource, val start: GeoJsonSource, val end: GeoJsonSource, val pois: GeoJsonSource, val position: GeoJsonSource,
 )
 
 private fun pointCollection(point: RoutePoint?): FeatureCollection =
@@ -210,6 +255,8 @@ private fun lineString(points: List<RoutePoint>): LineString =
     LineString.fromLngLats(points.map { Point.fromLngLat(it.longitude, it.latitude) })
 
 private const val PLANNER_ROUTE_SOURCE = "planner-route"
+private const val PLANNER_OTHER_ROUTES_SOURCE = "planner-other-routes"
+private const val PLANNER_ROUTE_INDEX = "index"
 
 private const val PLANNER_START_SOURCE = "planner-start"
 private const val PLANNER_END_SOURCE = "planner-end"
@@ -220,11 +267,19 @@ private const val PLANNER_POI_ICON_PREFIX = "planner-poi-"
 
 // Spessori e raggi (px) dei livelli della mappa: percorso, anello e punto di partenza, posizione.
 private const val ROUTE_LINE_WIDTH = 7f
+private const val ROUTE_CASING_WIDTH = 2.5f
+
+// Alternative piu' sottili e trasparenti del percorso scelto, per distinguerle anche senza vedere i colori.
+private const val OTHER_ROUTE_LINE_WIDTH = 5f
+private const val OTHER_ROUTE_OPACITY = 0.6f
 private const val START_RING_RADIUS = 11f
 private const val START_RING_STROKE_WIDTH = 5f
 private const val START_DOT_RADIUS = 4f
 private const val POSITION_DOT_RADIUS = 8f
 private const val POSITION_STROKE_WIDTH = 3f
+
+// Margine (dp) attorno al dito per toccare un percorso grigio.
+private const val ROUTE_TOUCH_MARGIN_DP = 12f
 
 // Zoom quando il percorso inquadra un solo punto.
 private const val SINGLE_POINT_ZOOM = 15.0

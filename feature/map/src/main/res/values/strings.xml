@@ -338,6 +338,11 @@
     <string name="planner_start">Avvia</string>
     <!-- "passo passo" è la locuzione italiana, non una parola ripetuta per errore. -->
     <string name="planner_no_traffic">Tempo stimato senza traffico</string>
+    <string name="planner_other_routes">Altri percorsi</string>
+    <string name="planner_other_routes_searching">Cerco altri percorsi…</string>
+    <string name="planner_no_other_routes">Nessun altro percorso con queste opzioni</string>
+    <!-- Un percorso tra quelli trovati: tempo e distanza, per esempio «28 min · 27,7 km». -->
+    <string name="planner_route_choice">%1$s · %2$s</string>
     <string name="planner_routing_old">Rete stradale con dati più vecchi di 3 mesi (%1$s): le strade aperte o chiuse dopo mancano. Aggiorna la regione in Nazioni quando c\'è una versione nuova.</string>
     <string name="planner_route_options">Opzioni</string>
     <string name="planner_route_options_count">Opzioni (%1$d)</string>

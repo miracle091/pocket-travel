@@ -115,6 +115,16 @@ private val SPACES = Regex("\\s+")
 // carOnly: c'e' gia' la rete stradale solo auto, manca quella completa per il modo scelto.
 data class MissingRegion(val regionId: String, val name: String, val routingBytes: Long, val carOnly: Boolean = false)
 
+/** Gli altri percorsi dell'anteprima: si calcolano solo a richiesta, perche' ognuno costa quanto il principale. */
+sealed interface OtherRoutes {
+    data object NotAsked : OtherRoutes
+
+    data object Calculating : OtherRoutes
+
+    /** [routes]: il percorso principale e poi le alternative; con il solo principale non c'e' un altro percorso. */
+    data class Found(val routes: List<Route>) : OtherRoutes
+}
+
 /** Anteprima del percorso prima di partire. */
 sealed interface PlannerPreview {
     /** Manca la destinazione (o la partenza scelta). */
@@ -128,7 +138,8 @@ sealed interface PlannerPreview {
 
     data class Calculating(val progress: Double) : PlannerPreview
 
-    data class Ready(val route: Route, val regionIds: List<String>) : PlannerPreview
+    /** [route]: il percorso scelto, quello che parte con la navigazione; [others]: gli altri percorsi, chiesti con «Altri percorsi». */
+    data class Ready(val route: Route, val regionIds: List<String>, val others: OtherRoutes = OtherRoutes.NotAsked) : PlannerPreview
 
     data class Unavailable(val result: RouteResult) : PlannerPreview
 }
@@ -214,6 +225,10 @@ class NavigationPlannerViewModel @Inject constructor(
 
     private val _preview = MutableStateFlow<PlannerPreview>(PlannerPreview.Idle)
     private var previewJob: Job? = null
+    private var alternativesJob: Job? = null
+
+    // Partenza dell'ultima anteprima: con «La mia posizione», il fix usato, cosi' le alternative partono dallo stesso punto.
+    private var previewStart: RoutePoint? = null
 
     /** Posizione nota (dall'ultimo calcolo da "La mia posizione"): ordina i risultati per distanza. */
     private val lastPosition = MutableStateFlow<RoutePoint?>(null)
@@ -558,6 +573,7 @@ class NavigationPlannerViewModel @Inject constructor(
     /** Ricalcola l'anteprima del percorso: dopo ogni cambio di partenza, arrivo o modo, o con "Riprova". */
     fun refreshPreview() {
         previewJob?.cancel()
+        alternativesJob?.cancel()
         val destination = _to.value ?: run { _preview.value = PlannerPreview.Idle; return }
         val origin = _from.value
         val current = regionId.value ?: destination.regionId
@@ -576,6 +592,7 @@ class NavigationPlannerViewModel @Inject constructor(
                     ?: run { _preview.value = PlannerPreview.NoLocation; return@launch }
                 RoutePoint(fix.latitude, fix.longitude).also { lastPosition.value = it }
             }
+            previewStart = start
             _preview.value = PlannerPreview.Calculating(0.0)
             val candidates = routingRegions()
             val regionIds = navigationRegionIds(current, candidates, start, destination.point)
@@ -592,6 +609,29 @@ class NavigationPlannerViewModel @Inject constructor(
         }
         previewJob = job
         job.start()
+    }
+
+    /** «Altri percorsi»: fino a [ALTERNATIVE_ROUTES] alternative al percorso dell'anteprima, con le stesse opzioni. */
+    fun findAlternatives() {
+        val ready = _preview.value as? PlannerPreview.Ready
+        val start = previewStart
+        val destination = _to.value
+        if (ready == null || start == null || destination == null) return
+        val choice = brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value, routeAvoid.value)
+        alternativesJob?.cancel()
+        _preview.value = ready.copy(others = OtherRoutes.Calculating)
+        alternativesJob = viewModelScope.launch {
+            val result = routeEngineFactory.create(ready.regionIds)
+                .route(start, destination.point, choice.profile, choice.params, alternatives = ALTERNATIVE_ROUTES)
+            val alternatives = (result as? RouteResult.Found)?.alternatives.orEmpty().filter { it.points != ready.route.points }
+            _preview.value = ready.copy(others = OtherRoutes.Found(listOf(ready.route) + alternatives))
+        }
+    }
+
+    /** Sceglie uno dei percorsi trovati da [findAlternatives]: e' quello che parte con la navigazione. */
+    fun selectRoute(route: Route) {
+        val ready = _preview.value as? PlannerPreview.Ready ?: return
+        if (route in (ready.others as? OtherRoutes.Found)?.routes.orEmpty()) _preview.value = ready.copy(route = route)
     }
 
     private suspend fun search(text: String, current: String?, regions: Map<String, String>): List<PlannerResult> {
@@ -654,6 +694,7 @@ class NavigationPlannerViewModel @Inject constructor(
         const val RESULTS_SHOWN = 30
         const val ADDRESS_RESULTS_SHOWN = 10
         const val LOCATION_TIMEOUT_MILLIS = 20_000L
+        const val ALTERNATIVE_ROUTES = 2
         const val NEARBY_REFRESH_METERS = 50.0
         const val SEARCH_REFRESH_METERS = 200.0
     }

@@ -91,4 +91,43 @@ class NavigationPlannerProfileTest : NavigationPlannerTestBase() {
         advanceUntilIdle()
         assertNull(viewModel.uiState.value.oldRoutingDate)
     }
+
+    @Test
+    fun `«Altri percorsi» calcola due alternative e la scelta diventa il percorso dell'anteprima`() = runTest(main.dispatcher) {
+        engines.defaultResult = RouteResult.Found(route)
+        val viewModel = viewModel()
+        viewModel.plan(colosseo)
+        advanceUntilIdle()
+        val ready = viewModel.uiState.value.preview as PlannerPreview.Ready
+        assertEquals(OtherRoutes.NotAsked, ready.others)
+
+        val other = route.copy(points = listOf(RoutePoint(45.46, 9.19), RoutePoint(43.0, 11.0), RoutePoint(41.89, 12.49)))
+        // Il motore ridà anche il principale tra le alternative: non compare due volte.
+        engines.defaultResult = RouteResult.Found(route, listOf(route, other))
+        viewModel.findAlternatives()
+        advanceUntilIdle()
+        assertEquals(2, engines.requests.last().alternatives)
+        assertEquals(engines.requests.first().from, engines.requests.last().from)
+        val found = viewModel.uiState.value.preview as PlannerPreview.Ready
+        assertEquals(OtherRoutes.Found(listOf(route, other)), found.others)
+
+        viewModel.selectRoute(other)
+        assertEquals(other, (viewModel.uiState.value.preview as PlannerPreview.Ready).route)
+
+        // Un altro modo ricalcola l'anteprima da capo, senza le alternative di prima.
+        viewModel.setRouteProfile(RouteProfile.BIKE)
+        advanceUntilIdle()
+        assertEquals(PlannerPreview.Ready(route, listOf("r1")), viewModel.uiState.value.preview)
+    }
+
+    @Test
+    fun `senza un altro percorso resta solo il principale`() = runTest(main.dispatcher) {
+        engines.defaultResult = RouteResult.Found(route)
+        val viewModel = viewModel()
+        viewModel.plan(colosseo)
+        advanceUntilIdle()
+        viewModel.findAlternatives()
+        advanceUntilIdle()
+        assertEquals(OtherRoutes.Found(listOf(route)), (viewModel.uiState.value.preview as PlannerPreview.Ready).others)
+    }
 }

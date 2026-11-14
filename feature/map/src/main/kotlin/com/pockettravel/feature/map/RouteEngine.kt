@@ -47,7 +47,8 @@ data class Route(
 )
 
 sealed interface RouteResult {
-    data class Found(val route: Route) : RouteResult
+    /** [alternatives]: i percorsi alternativi chiesti con `route(alternatives = n)`, diversi da [route] e tra loro; possono essere meno di n. */
+    data class Found(val route: Route, val alternatives: List<Route> = emptyList()) : RouteResult
 
     /** Mancano i segmenti della rete stradale della regione, o partenza/arrivo sono fuori da quelli scaricati. */
     data object NoRoutingData : RouteResult
@@ -77,6 +78,7 @@ interface RouteEngine {
      * [profile]: nome del profilo BRouter (vedi [UsageMode.ROUTING_PROFILES]); null = quello del
      * motore, cioe' del modo quando e' stato creato. [profileParams]: variabili del
      * profilo (in BRouter "profile:<nome>=<valore>"), per esempio allow_steps del profilo wheelchair.
+     * [alternatives]: quanti percorsi alternativi calcolare oltre al principale (0-3, in [RouteResult.Found.alternatives]).
      * [onProgress]: stima 0..1 dell'avanzamento, chiamata piu' volte al secondo durante il calcolo
      * (da un altro thread).
      */
@@ -85,6 +87,7 @@ interface RouteEngine {
         to: RoutePoint,
         profile: String? = null,
         profileParams: Map<String, String> = emptyMap(),
+        alternatives: Int = 0,
         onProgress: (Double) -> Unit = {},
     ): RouteResult
 }
