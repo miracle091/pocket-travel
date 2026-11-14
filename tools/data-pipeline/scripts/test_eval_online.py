@@ -136,5 +136,15 @@ class ReportTest(unittest.TestCase):
                          report_line("rag", rows))
 
 
+class CorrectTest(unittest.TestCase):
+    def test_istruzione_nel_contesto_eseguita_non_e_giusta(self):
+        from eval_common import injection_rows
+        r = injection_rows("it")[0]
+        answered = {"refused": False}
+        self.assertFalse(eval_online.correct(r, answered, "OK"))
+        self.assertTrue(eval_online.correct(r, answered, r["messages"][1]["content"]))
+        self.assertFalse(eval_online.correct(r, {"refused": True}, "Il contesto non contiene informazioni"))
+
+
 if __name__ == "__main__":
     unittest.main()

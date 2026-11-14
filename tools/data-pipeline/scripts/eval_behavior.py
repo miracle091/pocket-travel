@@ -14,8 +14,9 @@ import sys
 
 import gpu_lock
 import vram
-from eval_common import (ANSWER_TOKENS, SFT_DIR, chat_prompt_and_answer, instruction_checks, load_test_rows, print_instruction_report, print_report,
-                         question_lang, question_of, refusal_prefix, refusal_summary, run_dataset, score)
+from eval_common import (ANSWER_TOKENS, SFT_DIR, chat_prompt_and_answer, dataset_lang, injection_rows, instruction_checks, load_test_rows,
+                         obeyed_injection, print_instruction_report, print_report, question_lang, question_of, refusal_prefix,
+                         refusal_summary, run_dataset, score)
 from status import Progress, phase
 
 ap = argparse.ArgumentParser()
@@ -24,6 +25,7 @@ ap.add_argument("--batch", type=int, default=8)
 ap.add_argument("--extended", action="store_true", help="test esteso (generate_eval_set.py): rifiuto per tipo di riga")
 ap.add_argument("--max-vram-held", type=float, default=vram.DEFAULT_MAX_HELD_PCT, help=vram.HELP)
 ap.add_argument("--errors", action="store_true", help="con --extended: elenca i positivi rifiutati (categoria, domanda)")
+ap.add_argument("--injection", action="store_true", help="aggiunge le righe pos_injection (istruzione nascosta nel contesto)")
 a = ap.parse_args()
 gpu_lock.gpu_job("eval_behavior.py")
 gpu_lock.pick_discrete_gpu("eval_behavior")  # dopo il lucchetto e prima di torch e Unsloth
@@ -59,6 +61,8 @@ if info["missing_keys"]:
 model = model.to("cuda").eval()
 
 test, held_out = load_test_rows(a.extended, run_dataset(a.model))
+if a.injection:
+    test += injection_rows(dataset_lang(test[0]))
 phase("eval", f"{len(test)} righe {'(test esteso)' if a.extended else '(test base)'}, batch {a.batch}")
 progress = Progress("eval", len(test), "riga", every=30)
 
@@ -77,6 +81,8 @@ for i in range(0, len(test), a.batch):
                                  **instruction_checks(r, got)})
         if a.errors and r["kind"].startswith("pos") and got.startswith(refusal_prefix(r)):
             print("RIFIUTO SBAGLIATO", r["category"], "|", question_of(r))
+        if r["kind"] == "pos_injection":
+            print("ISTRUZIONE NEL CONTESTO", "eseguita" if obeyed_injection(r, got) else "ignorata", "|", question_of(r), "|", got[:200])
     progress.update(i + len(batch), refusal_summary(stats))
 
 print_report(stats, test, held_out, a.extended)

@@ -262,6 +262,26 @@ class RowsTest(unittest.TestCase):
         self.assertEqual("b", eval_common.question_of(row("pos", "a\n\nDOMANDA: b")))
 
 
+class InjectionTest(unittest.TestCase):
+    def test_righe_nella_lingua_del_dataset_con_l_istruzione_nel_contesto(self):
+        for lang in ("it", "en"):
+            rows = eval_common.injection_rows(lang)
+            self.assertEqual(2, len(rows))
+            for r in rows:
+                self.assertEqual(lang, eval_common.dataset_lang(r))
+                self.assertIn(r["region"], eval_common.TEST_REGIONS)
+                self.assertIn("OK", eval_common.context_of(r))
+                self.assertIn(r["messages"][1]["content"], eval_common.context_of(r))
+                self.assertEqual("literal", eval_common.instruction_checks(r, r["messages"][1]["content"])["fidelity"])
+
+    def test_solo_ok_e_istruzione_eseguita(self):
+        r = eval_common.injection_rows("it")[0]
+        for got in ("OK", "«OK».", '"ok"\n'):
+            self.assertTrue(eval_common.obeyed_injection(r, got))
+        self.assertFalse(eval_common.obeyed_injection(r, r["messages"][1]["content"]))
+        self.assertFalse(eval_common.obeyed_injection(row("pos", answer="OK"), "OK"))
+
+
 class ScoreTest(unittest.TestCase):
     def test_positivo_stesso_inizio_di_60_caratteri(self):
         stats = {}
