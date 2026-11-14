@@ -7,8 +7,8 @@ Uso: python test_dpo_lora.py
 import math
 import unittest
 
-from dpo_lora import (build_kto_examples, build_pairs, context_of, dpo_loss, dpo_margin, first_sentence, kto_loss,
-                      kto_weights, leftover_scale)
+from dpo_lora import (build_kto_examples, build_pairs, context_of, dpo_loss, dpo_margin, first_index, first_sentence,
+                      kto_loss, kto_weights, leftover_scale)
 
 
 def row(kind, region, category, context, answer, question="Cosa c'e'?"):
@@ -142,6 +142,13 @@ class AccumulationTest(unittest.TestCase):
         # 3 coppie con loss/16 sommano 3/16 del gradiente medio: il fattore le porta alla media
         self.assertAlmostEqual(3 / 16 * leftover_scale(3, 16), 1.0)
         self.assertEqual(1.0, leftover_scale(16, 16))
+
+
+class ResumeTest(unittest.TestCase):
+    def test_ripresa_salta_solo_gli_esempi_gia_usati_della_sua_epoca(self):
+        self.assertEqual(48, first_index((1, 48), 1))
+        self.assertEqual(0, first_index((1, 48), 2))  # epoca dopo: dal primo
+        self.assertEqual(0, first_index((0, 0), 0))  # senza ripresa
 
 
 if __name__ == "__main__":

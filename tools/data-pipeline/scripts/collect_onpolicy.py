@@ -29,7 +29,7 @@ from pathlib import Path
 
 import gpu_lock
 import vram
-from eval_common import (ANSWER_TOKENS, MAX_ANSWER_CHARS, SFT_DIR, TEST_REGIONS, chatml_prompt, ensure_final_newline,
+from eval_common import (Synced, ANSWER_TOKENS, MAX_ANSWER_CHARS, SFT_DIR, TEST_REGIONS, chatml_prompt, drop_partial_line,
                          extended_file, find_llama_bin, instruction_checks, dataset_lang, llama_env,
                          read_jsonl_lenient, refusal_prefix)
 
@@ -158,10 +158,10 @@ def main():
                     "group": group_of(row), "region": row["region"], "category": row["category"],
                     "lang": dataset_lang(row), "samples": samples}
 
-        ensure_final_newline(a.out)
+        drop_partial_line(a.out)
         progress = Progress("raccolta", len(todo), "prompt", every=60)
         bad = 0
-        with a.out.open("a", encoding="utf-8", buffering=1) as out, ThreadPoolExecutor(a.parallel) as pool:
+        with Synced(a.out) as out, ThreadPoolExecutor(a.parallel) as pool:
             for n, result in enumerate(pool.map(collect, todo), 1):
                 out.write(json.dumps(result, ensure_ascii=False) + "\n")
                 bad += any(s["label"] == "bad" for s in result["samples"])

@@ -468,7 +468,8 @@ def cached_coordinates(titles, lang, cache_path, fetch=city_population.wikidata_
     if missing := sorted(set(titles) - cache.keys()):
         found = fetch(missing, lang)
         cache.update({t: found.get(t) for t in missing})
-        cache_path.write_text(json.dumps(cache, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+        with replaced_when_done(cache_path) as tmp:
+            tmp.write_text(json.dumps(cache, ensure_ascii=False, sort_keys=True), encoding="utf-8")
     return {t: tuple(cache[t]) for t in titles if cache.get(t)}
 
 

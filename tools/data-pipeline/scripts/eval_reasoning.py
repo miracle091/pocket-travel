@@ -24,7 +24,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import gpu_lock
-from eval_common import (EMPTY_THINK, chatml_prompt, ensure_final_newline, find_llama_bin, llama_env,
+from eval_common import (Synced, EMPTY_THINK, chatml_prompt, drop_partial_line, find_llama_bin, llama_env,
                          read_jsonl_lenient)
 from generate_reasoning_set import KINDS, score_answer
 
@@ -109,11 +109,11 @@ def main():
 
     rows = [json.loads(line) for line in a.set.read_text(encoding="utf-8").splitlines() if line.strip()]
     done = read_jsonl_lenient(a.answers) if a.answers.exists() else []
-    ensure_final_newline(a.answers)
+    drop_partial_line(a.answers)
     seen = {(d["mode"], d["id"]) for d in done}
     server, url = start_server(a.model, a.llama_cpp, a.gpu_layers, a.device, a.max_tokens + 1024)
     try:
-        with a.answers.open("a", encoding="utf-8", buffering=1) as out:
+        with Synced(a.answers) as out:
             for mode in a.modes:
                 for n, row in enumerate(rows, 1):
                     if (mode, row["id"]) in seen:

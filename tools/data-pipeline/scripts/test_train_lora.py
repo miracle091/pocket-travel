@@ -14,11 +14,9 @@ import unittest
 from unittest import mock
 from pathlib import Path
 
+from eval_common import last_complete_checkpoint  # anche di dpo_lora.py
+
 SOURCE = (Path(__file__).resolve().parent / "train_lora.py").read_text(encoding="utf-8")
-NODE = next(n for n in ast.parse(SOURCE).body if isinstance(n, ast.FunctionDef) and n.name == "last_complete_checkpoint")
-NAMESPACE = {"Path": Path}
-exec(compile(ast.Module([NODE], []), "train_lora.py", "exec"), NAMESPACE)
-last_complete_checkpoint = NAMESPACE["last_complete_checkpoint"]
 SPOT_NODE = next(n for n in ast.parse(SOURCE).body if isinstance(n, ast.FunctionDef) and n.name == "spot_check_rows")
 SPOT_NAMESPACE = {"random": __import__("random")}
 exec(compile(ast.Module([SPOT_NODE], []), "train_lora.py", "exec"), SPOT_NAMESPACE)

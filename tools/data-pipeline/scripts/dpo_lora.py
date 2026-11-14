@@ -25,19 +25,27 @@ sul gruppo di --accum esempi, del log-rapporto di ogni prompt con la risposta de
 sotto zero. lr consigliata da TRL 5e-7 - 5e-6:
   python dpo_lora.py --base <run> --dataset pocket_travel_sft.v11.it.jsonl --loss kto --onpolicy <file> --lr 5e-6 \\
                      --out <cartella> --merge
+
+Ogni SAVE_STEPS passi un checkpoint in <out>/checkpoint-N (LoRA, ottimizzatore, scheduler e punto dei dati, solo
+l'ultimo): rilanciando lo stesso comando dopo un'interruzione si riparte da li', con gli stessi esempi nello stesso
+ordine; con altri argomenti lo script si ferma invece di riprendere un training diverso.
 """
 import argparse
+import hashlib
 import json
 import math
 import random
 import re
+import shutil
 import sys
 from pathlib import Path
 
-from eval_common import SFT_DIR, TEST_REGIONS, chat_prompt_and_answer, context_of, extended_file, read_jsonl_lenient
+from eval_common import (SFT_DIR, TEST_REGIONS, chat_prompt_and_answer, context_of, extended_file,
+                         last_complete_checkpoint, read_jsonl_lenient)
 from text_only import text_only_base
 
 GROUPS = ("neg_city", "pos_city", "pos_near", "neg_near")
+SAVE_STEPS = 20  # passi dell'ottimizzatore tra due checkpoint (~140 in un DPO con i gruppi di default)
 
 
 def first_sentence(context):
@@ -119,6 +127,12 @@ def leftover_scale(pending, accum):
     """Fattore per i gradienti di un passo con meno di `accum` coppie: la loss e' gia' divisa per accum, e il passo
     deve valere la media delle coppie presenti."""
     return accum / pending
+
+
+def first_index(resume, epoch):
+    """Primo esempio dell'epoca [epoch] da usare: dopo una ripresa da (epoca, esempio) [resume], nella sua epoca si
+    saltano quelli gia' usati, nelle altre si parte dal primo."""
+    return resume[1] if epoch == resume[0] else 0
 
 
 def build_pairs(rows, excluded_regions, per_group, seed=42):
@@ -222,6 +236,8 @@ def main():
     model = PeftModel.from_pretrained(model, Path(a.base) / "lora").merge_and_unload().cuda()
     model.gradient_checkpointing_enable()
     model.enable_input_require_grads()
+    # stessa LoRA iniziale a ogni avvio, come i seed 42 dei dati: due run con le stesse opzioni si possono confrontare
+    torch.manual_seed(42)
     model = get_peft_model(model, LoraConfig(r=16, lora_alpha=32, lora_dropout=0.0, task_type="CAUSAL_LM",
                                              target_modules=r"^(?!.*visual).*\.(q_proj|k_proj|v_proj|o_proj|gate_proj|up_proj|down_proj)$"))
 
@@ -262,8 +278,43 @@ def main():
     model.train()
     step, losses, wins = 0, [], []
     wins_label = "dal lato giusto di z0" if a.loss == "kto" else "preferita sopra"
+    out = Path(a.out)
+    # si riprende un checkpoint solo dello stesso training: tutti gli argomenti tranne --out e --merge, e gli esempi
+    # (un dataset rigenerato o un --onpolicy allungato con lo stesso nome cambiano ordine e numero dei passi)
+    run_key = {k: str(v) if isinstance(v, Path) else v for k, v in vars(a).items() if k not in ("out", "merge")}
+    run_key["data_sha256"] = hashlib.sha256(json.dumps(data, ensure_ascii=False).encode("utf-8")).hexdigest()
+    resume = (0, 0)  # (epoca, esempio) da cui partire
+    if last := last_complete_checkpoint(out):
+        state = json.loads((Path(last) / "trainer_state.json").read_text(encoding="utf-8"))
+        if state["run_key"] != run_key:
+            sys.exit(f"{last} e' di un training diverso (base, dati o parametri): cancellalo o usa un altro --out")
+        phase("ripresa", last)
+        weights = torch.load(Path(last) / "lora.pt", weights_only=True)
+        for n, p in model.named_parameters():
+            if p.requires_grad:
+                p.data.copy_(weights[n])
+        states = torch.load(Path(last) / "optimizer.pt", weights_only=True)
+        optimizer.load_state_dict(states["optimizer"])
+        scheduler.load_state_dict(states["scheduler"])
+        step, losses, wins, resume = state["step"], state["losses"], state["wins"], (state["epoch"], state["index"])
+        progress.mark_start(step)  # velocita' e tempo che manca dai passi di questo avvio
 
-    def optimizer_step(pending):
+    def save_checkpoint(epoch, index):
+        """Checkpoint dopo il passo [step], che riparte dall'esempio [index] dell'epoca [epoch]; poi via i precedenti."""
+        checkpoint = out / f"checkpoint-{step}"
+        checkpoint.mkdir(parents=True, exist_ok=True)
+        torch.save({n: p.detach().cpu() for n, p in model.named_parameters() if p.requires_grad}, checkpoint / "lora.pt")
+        torch.save({"optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict()}, checkpoint / "optimizer.pt")
+        # per ultimo: last_complete_checkpoint riprende solo le cartelle che lo hanno
+        (checkpoint / "trainer_state.json").write_text(json.dumps({
+            "run_key": run_key, "step": step, "epoch": epoch, "index": index, "losses": losses, "wins": wins}),
+            encoding="utf-8")
+        for old in out.glob("checkpoint-*"):
+            if old != checkpoint:  # un file ancora aperto (antivirus, Syncthing) non ferma il training
+                shutil.rmtree(old, ignore_errors=True)
+
+    def optimizer_step(pending, epoch, index):
+        """Passo dell'ottimizzatore; [epoch] e [index] dicono da dove riprendere dopo questo passo."""
         nonlocal step
         if pending < a.accum:
             for p in model.parameters():
@@ -276,6 +327,8 @@ def main():
         recent = slice(-a.accum * 10, None)
         progress.update(step, f"loss {sum(losses[recent]) / len(losses[recent]):.3f} · "
                               f"{wins_label} {100 * sum(wins[recent]) / len(wins[recent]):.0f}%".replace(".", ","))
+        if step % SAVE_STEPS == 0 and step < total:
+            save_checkpoint(epoch, index)
 
     def logratio(ids, start):
         """Log-rapporto della risposta tra modello e riferimento (LoRA spenta); il gradiente passa solo dal modello."""
@@ -284,10 +337,10 @@ def main():
             reference = answer_logps([ids], [start])[0]
         return policy - reference
 
-    def kto_epoch():
+    def kto_epoch(epoch):
         encoded = [(encode(prompt, completion), prompt, completion, desirable) for prompt, completion, desirable in data]
         encoded = [e for e in encoded if len(e[0][0]) <= a.max_len]
-        for i in range(0, len(encoded), a.accum):
+        for i in range(first_index(resume, epoch), len(encoded), a.accum):
             chunk = encoded[i:i + a.accum]
             # z0: ogni prompt del gruppo con la risposta dell'esempio dopo, senza gradiente, come il KL di TRL
             z0 = 0.0
@@ -302,14 +355,15 @@ def main():
                 (loss / a.accum).backward()
                 losses.append(loss.item())
                 wins.append(float((r.item() > z0) == desirable))
-            optimizer_step(len(chunk))
+            optimizer_step(len(chunk), epoch, i + a.accum)
 
-    for _ in range(a.epochs):
+    for epoch in range(resume[0], a.epochs):
         if a.loss == "kto":
-            kto_epoch()
+            kto_epoch(epoch)
             continue
         pending = 0  # coppie accumulate dall'ultimo passo dell'ottimizzatore
-        for prompt_messages, chosen, rejected in data:
+        for index in range(first_index(resume, epoch), len(data)):
+            prompt_messages, chosen, rejected = data[index]
             (chosen_ids, start), (rejected_ids, _) = encode(prompt_messages, chosen), encode(prompt_messages, rejected)
             if max(len(chosen_ids), len(rejected_ids)) > a.max_len:
                 continue
@@ -323,10 +377,10 @@ def main():
             wins.append(float(margin.item() > 0))
             pending += 1
             if pending == a.accum:
-                optimizer_step(pending)
+                optimizer_step(pending, epoch, index + 1)
                 pending = 0
         if pending:  # coppie rimaste a fine epoca: un passo a parte, senza trascinarle nell'epoca successiva
-            optimizer_step(pending)
+            optimizer_step(pending, epoch + 1, 0)
     print("peak VRAM GiB:", round(torch.cuda.max_memory_allocated() / 2**30, 2))
     Path(a.out).mkdir(parents=True, exist_ok=True)
     record = {"base": a.base, "dataset": a.dataset, "loss": a.loss, "beta": a.beta, "lr": a.lr, "epochs": a.epochs,
@@ -342,6 +396,8 @@ def main():
         phase("merge", a.out + "/merged")
         model.merge_and_unload().save_pretrained(a.out + "/merged")
         tok.save_pretrained(a.out + "/merged")
+    for checkpoint in out.glob("checkpoint-*"):  # servivano solo alla ripresa: tutto salvato, merge compreso
+        shutil.rmtree(checkpoint, ignore_errors=True)
     sys.stdout.flush()
     return 0
 

@@ -233,6 +233,24 @@ def row(kind, question="Q", answer="A", lang="it", region="canada", category="c"
             "messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": answer}]}
 
 
+class SyncedTest(unittest.TestCase):
+    def test_sul_disco_ogni_sync_seconds_e_alla_chiusura(self):
+        clock = [100.0]
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(eval_common.time, "monotonic", lambda: clock[0]), \
+                mock.patch.object(eval_common.os, "fsync") as fsync:
+            path = Path(d) / "out.jsonl"
+            with eval_common.Synced(path) as out:
+                out.write("a\n")
+                self.assertEqual(0, fsync.call_count)  # appena aperto: non ancora
+                clock[0] += eval_common.SYNC_SECONDS
+                out.write("b\n")
+                self.assertEqual(1, fsync.call_count)
+                out.write("c\n")
+                self.assertEqual(1, fsync.call_count)
+            self.assertEqual(2, fsync.call_count)  # alla chiusura
+            self.assertEqual("a\nb\nc\n", path.read_text(encoding="utf-8"))
+
+
 class RowsTest(unittest.TestCase):
     def test_rifiuto_per_lingua_della_riga(self):
         self.assertEqual(eval_common.REFUSAL, eval_common.refusal_prefix(row("pos")))
@@ -518,21 +536,30 @@ class LoadTestRowsTest(unittest.TestCase):
 
 
 class JsonlResumeTest(unittest.TestCase):
-    def test_riga_troncata_in_coda_si_ignora_e_si_riprende_a_capo(self):
+    def test_riga_troncata_in_coda_si_ignora_e_si_toglie(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "risposte.jsonl"
             path.write_bytes(b'{"a": 1}\n{"a": 2}\n{"a": 3, "got": "tron')
             self.assertEqual([{"a": 1}, {"a": 2}], eval_common.read_jsonl_lenient(path))
-            eval_common.ensure_final_newline(path)
+            eval_common.drop_partial_line(path)
             with path.open("a", encoding="utf-8") as f:
                 f.write('{"a": 4}\n')
-            self.assertEqual([{"a": 1}, {"a": 2}, {"a": 4}], eval_common.read_jsonl_lenient(path))
+            # ogni riga valida: anche json.loads riga per riga (eval_answers.py) legge il file ripreso
+            self.assertEqual([{"a": 1}, {"a": 2}, {"a": 4}],
+                             [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()])
+
+    def test_solo_una_riga_troncata_file_vuoto(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "risposte.jsonl"
+            path.write_bytes(b'{"a": 1, "got": "tron')
+            eval_common.drop_partial_line(path)
+            self.assertEqual(b"", path.read_bytes())
 
     def test_file_completo_non_cambia(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "risposte.jsonl"
             path.write_bytes(b'{"a": 1}\n')
-            eval_common.ensure_final_newline(path)
+            eval_common.drop_partial_line(path)
             self.assertEqual(b'{"a": 1}\n', path.read_bytes())
 
 

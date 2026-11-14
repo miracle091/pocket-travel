@@ -28,7 +28,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from eval_common import (DEFAULT_DATASET, context_of, dataset_lang, ensure_final_newline, instruction_checks,  # noqa: E402
+from eval_common import (Synced, DEFAULT_DATASET, context_of, dataset_lang, drop_partial_line, instruction_checks,  # noqa: E402
                          load_test_rows, question_of, read_jsonl_lenient, sample)
 
 USER_AGENT = "pocket-travel-eval-online/1.0 (https://github.com/miracle091/pocket-travel)"
@@ -176,11 +176,11 @@ def main():
     rows, _ = load_test_rows(True, a.dataset)
     rows = sample(rows, a.limit)
     done = read_jsonl_lenient(a.answers) if a.answers.exists() else []
-    ensure_final_newline(a.answers)
+    drop_partial_line(a.answers)
     seen = {(d["variant"], d.get("region"), d["question"], d["kind"]) for d in done}
     print(f"{a.service} {model}: {len(rows)} righe x {len(VARIANTS)} varianti, {len(done)} gia' fatte", flush=True)
     interval = 60 / a.rpm
-    with a.answers.open("a", encoding="utf-8", buffering=1) as out:
+    with Synced(a.answers) as out:
         try:
             for n, row in enumerate(rows, 1):
                 question, lang = question_of(row).strip(), dataset_lang(row)

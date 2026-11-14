@@ -159,6 +159,41 @@ class EvalGgufTest(unittest.TestCase):
                          lines[0])  # "fuori": la riga di prova non ha il contesto con la risposta
         self.assertTrue(lines[1]["truncated"])  # llama-server fermo al limite di token
 
+    def test_answers_ripreso_solo_con_stesso_modello_e_opzioni(self):
+        rows = [row("pos", f"Q: Domanda {i}?\n\nDOMANDA: Domanda {i}?", f"Risposta {i}.") for i in range(4)]
+        answers = self.tmp / "answers.jsonl"
+        self.run_script("--answers", str(answers), replies=[f"Risposta {i}." for i in range(4)], rows=rows)
+        answers.write_bytes(b"".join(answers.read_bytes().splitlines(keepends=True)[:2]))  # interrotto dopo due righe
+        self.prompts.clear()
+        out = self.run_script("--answers", str(answers), replies=["Risposta 2.", "Risposta 3."], rows=rows)
+        self.assertEqual(2, len(self.prompts))  # le due gia' salvate non si richiedono
+        self.assertIn("inizio uguale all'atteso 100.0%", out)  # ma contano nel rapporto
+        self.assertEqual(["Domanda 0?", "Domanda 1?", "Domanda 2?", "Domanda 3?"],
+                         [json.loads(l)["question"] for l in answers.read_text(encoding="utf-8").splitlines()])
+        self.prompts.clear()
+        self.run_script("--answers", str(answers), "--limit", "2", replies=["Risposta 0.", "Risposta 2."], rows=rows)
+        self.assertEqual(2, len(self.prompts))  # altro --limit: altre righe di test, da zero
+        self.assertEqual(2, len(answers.read_text(encoding="utf-8").splitlines()))
+        self.prompts.clear()
+        self.run_script("--answers", str(answers), "--system", "Altro.", replies=[f"Risposta {i}." for i in range(4)], rows=rows)
+        self.assertEqual(4, len(self.prompts))  # altre opzioni: da zero
+        self.assertEqual(4, len(answers.read_text(encoding="utf-8").splitlines()))
+
+    def test_answers_ripreso_con_righe_della_stessa_chiave_nell_ordine(self):
+        # stessa domanda, prompt diversi (come nel test vero): ogni riga riprende la sua risposta, non l'ultima
+        rows = [row("pos", f"Contesto {i}.\n\nDOMANDA: Cosa mangiare?", f"Risposta {i}.") for i in range(3)]
+        answers = self.tmp / "answers.jsonl"
+        self.run_script("--answers", str(answers), replies=["Risposta 0.", "Risposta 1.", "Risposta 2."], rows=rows)
+        lines = answers.read_bytes().splitlines(keepends=True)
+        answers.write_bytes(b"".join(lines[:2]) + lines[2][:20])  # interrotto a meta' della terza riga
+        self.prompts.clear()
+        out = self.run_script("--answers", str(answers), replies=["Risposta 2."], rows=rows)
+        self.assertEqual(1, len(self.prompts))
+        self.assertIn("Contesto 2.", self.prompts[0]["prompt"])
+        self.assertIn("inizio uguale all'atteso 100.0%", out)
+        self.assertEqual(["Risposta 0.", "Risposta 1.", "Risposta 2."],
+                         [json.loads(l)["got"] for l in answers.read_text(encoding="utf-8").splitlines()])
+
     def test_limit_prende_un_campione_di_tutti_i_tipi(self):
         rows = [row("neg", f"Q: N{i}?\n\nDOMANDA: N{i}?", REFUSAL) for i in range(4)] + \
                [row("pos", f"Q: P{i}?\n\nDOMANDA: P{i}?", f"Risposta {i}.") for i in range(4)]

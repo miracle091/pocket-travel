@@ -650,7 +650,8 @@ def fetch_off_topic(sources=OFF_TOPIC_SOURCES, keywords=KEYWORDS, travel_stems=T
                         continue
                     qs.append(q)
                 offset += 100; time.sleep(2)
-            cache.write_text("\n".join(qs[:keep]) + "\n", encoding="utf-8")
+            with replaced_when_done(cache) as tmp:
+                tmp.write_text("\n".join(qs[:keep]) + "\n", encoding="utf-8")
         out[name] = [l for l in cache.read_text(encoding="utf-8").splitlines() if l.strip()]
     return out
 
@@ -776,8 +777,12 @@ def main():
                    }[lang](title); time.sleep(0.5)
             if not res:
                 print(f"-- {rid}: nessuna pagina {lang.upper()}")
-                cache.write_text("", encoding="utf-8"); meta.write_text("", encoding="utf-8"); return None
-            cache.write_text(res[0], encoding="utf-8"); meta.write_text(res[1], encoding="utf-8")
+                meta.write_text("", encoding="utf-8"); cache.write_text("", encoding="utf-8"); return None
+            # prima l'url, poi il testo in un colpo solo: il testo dice che la pagina e' in cache, quindi
+            # un'interruzione in mezzo lascia una pagina da riscaricare, non un testo troncato o senza url
+            meta.write_text(res[1], encoding="utf-8")
+            with replaced_when_done(cache) as tmp:
+                tmp.write_text(res[0], encoding="utf-8")
             return res
         except Exception as e:
             print(f"-- {rid}: errore {lang.upper()} {e}", file=sys.stderr); return None

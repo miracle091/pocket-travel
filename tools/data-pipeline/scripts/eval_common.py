@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import sys
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -269,15 +270,57 @@ def read_jsonl_lenient(path):
     return rows
 
 
-def ensure_final_newline(path):
-    """Chiude con un a capo l'ultima riga di un file da riprendere in aggiunta, se manca (riga troncata da
-    un'interruzione): la riga che si aggiunge non si incolla a quella parziale."""
+SYNC_SECONDS = 30
+
+
+class Synced:
+    """File di un lavoro lungo scritto riga per riga, come open(path, mode) a righe, forzato sul disco (flush e
+    os.fsync) al massimo ogni SYNC_SECONDS e alla chiusura: senza, dopo un blocco del PC o un'interruzione di corrente
+    si perderebbero le righe ancora nella cache del sistema, anche se il programma le aveva gia' scritte."""
+
+    def __init__(self, path, mode="a"):
+        self.file, self.synced = open(path, mode, encoding="utf-8", buffering=1), time.monotonic()
+
+    def write(self, text):
+        self.file.write(text)
+        if time.monotonic() - self.synced >= SYNC_SECONDS:
+            self.sync()
+
+    def sync(self):
+        self.file.flush()
+        os.fsync(self.file.fileno())
+        self.synced = time.monotonic()
+
+    def close(self):
+        try:
+            self.sync()
+        finally:
+            self.file.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+
+def last_complete_checkpoint(out):
+    """Il checkpoint-N piu' recente con trainer_state.json (il Trainer di train_lora.py e dpo_lora.py lo scrivono per ultimo): una cartella lasciata a
+    meta' da un'interruzione durante il salvataggio non si riprende. None se non ce ne sono."""
+    done = [c for c in Path(out).glob("checkpoint-*") if c.name[11:].isdigit() and (c / "trainer_state.json").is_file()]
+    return str(max(done, key=lambda c: int(c.name[11:]))) if done else None
+
+
+def drop_partial_line(path):
+    """Toglie da un file da riprendere in aggiunta l'ultima riga senza a capo (troncata da un'interruzione): non resta
+    in mezzo alle righe nuove, dove i lettori rigorosi (eval_answers.py, compare_answers.py) si fermerebbero."""
     path = Path(path)
     if path.exists() and path.stat().st_size:
         with path.open("rb+") as f:
             f.seek(-1, 2)
             if f.read(1) != b"\n":
-                f.write(b"\n")
+                data = (f.seek(0), f.read())[1]
+                f.truncate(data.rfind(b"\n") + 1)
 
 
 @contextmanager

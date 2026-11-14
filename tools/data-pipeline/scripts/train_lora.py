@@ -48,19 +48,12 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from eval_common import TEST_REGIONS, chat_prompt_and_answer, question_of
+from eval_common import TEST_REGIONS, chat_prompt_and_answer, last_complete_checkpoint, question_of
 import gpu_lock
 from status import Progress, phase
 from text_only import CHATML, check_chat_format, check_loaded_embeddings, check_no_vision, text_only_base
 
 SFT_DIR = Path(__file__).resolve().parent.parent / "data" / "sft"
-
-
-def last_complete_checkpoint(out):
-    """Il checkpoint-N piu' recente con trainer_state.json (il Trainer lo scrive per ultimo): una cartella lasciata a
-    meta' da un'interruzione durante il salvataggio non si riprende. None se non ce ne sono."""
-    done = [c for c in Path(out).glob("checkpoint-*") if c.name[11:].isdigit() and (c / "trainer_state.json").is_file()]
-    return str(max(done, key=lambda c: int(c.name[11:]))) if done else None
 
 
 def spot_check_rows(rows, seed=0):

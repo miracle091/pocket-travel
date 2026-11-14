@@ -32,6 +32,7 @@ solo al controllo del formato al caricamento e ai modelli non ChatML). /completi
 e' esattamente quello che finisce nel modello.
 """
 import argparse
+import hashlib
 import json
 import socket
 import subprocess
@@ -43,9 +44,9 @@ from gguf import GGUFReader
 
 import gpu_lock
 import vram
-from eval_common import (ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, find_llama_bin, print_context_use_report, instruction_checks, is_refusal,
+from eval_common import (Synced, ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, drop_partial_line, find_llama_bin, print_context_use_report, instruction_checks, is_refusal,
                          knowledge_turns, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
-                         print_pair_consistency, print_report, question_lang, question_of, refusal_prefix, refusal_summary, sample, score,
+                         print_pair_consistency, print_report, question_lang, question_of, read_jsonl_lenient, refusal_prefix, refusal_summary, sample, score,
                          text_lang, uses_empty_think)
 from status import Progress, phase
 
@@ -193,6 +194,43 @@ def ask(url, content):
 
 
 refusal_tokens = {}  # inizio del rifiuto -> token del modello
+APP_FIELDS = ("p_refusal", "samples", "sampled_refusals")  # campi di app_refusal nelle righe di --answers
+
+
+def row_id(d):
+    """Identita' di una riga di test o di --contexts, uguale prima della risposta e nella riga salvata in --answers."""
+    if a.contexts:
+        return json.dumps({k: v for k, v in d.items() if k not in ("got", "truncated", "refused")}, sort_keys=True,
+                          ensure_ascii=False)
+    return d["kind"], d["region"], d.get("category"), d["question"]
+
+
+def open_answers():
+    """(--answers aperto, {row_id: [righe gia' salvate, nell'ordine del file]}): piu' righe di test hanno la stessa
+    chiave con prompt diversi, e si usano nell'ordine in cui compaiono, come in eval_answers.py. Si riprende il file di
+    un avvio interrotto con lo stesso modello (stesso file, dimensione e data), le stesse opzioni e le stesse righe di
+    test, scritti in <answers>.run.json; altrimenti si riparte da zero: risposte di un altro modello, di altre opzioni o
+    di altri prompt falserebbero i conti."""
+    run_path = a.answers.with_name(a.answers.name + ".run.json")
+    stat = a.model.stat()
+    run = {"model": str(a.model.resolve()), "size": stat.st_size, "mtime_ns": stat.st_mtime_ns,
+           "test_sha256": hashlib.sha256(json.dumps(test, sort_keys=True).encode("utf-8")).hexdigest(),
+           **{k: str(v) for k, v in vars(a).items() if k not in ("model", "answers")}}
+    if a.answers.exists() and run_path.exists() and json.loads(run_path.read_text(encoding="utf-8")) == run:
+        saved = {}
+        for d in read_jsonl_lenient(a.answers):
+            saved.setdefault(row_id(d), []).append(d)
+        drop_partial_line(a.answers)
+        print(f"--answers: {sum(map(len, saved.values()))} risposte riprese da {a.answers}", flush=True)
+        return Synced(a.answers), saved
+    run_path.write_text(json.dumps(run, indent=2), encoding="utf-8")
+    return Synced(a.answers, "w"), {}
+
+
+def saved_answer(key):
+    """La prima riga salvata non ancora usata con questa chiave, o None."""
+    rows = saved.get(key)
+    return rows.pop(0) if rows else None
 
 
 def app_refusal(url, row):
@@ -227,12 +265,14 @@ def answer_contexts(url):
     seen = {}
     progress = Progress("eval", len(test), "domanda", every=30)
     for n, r in enumerate(test, 1):
-        prompt = on_device_prompt(r["context"], r["question"], r["lang"])
-        if prompt not in seen:
+        prompt, done = on_device_prompt(r["context"], r["question"], r["lang"]), saved_answer(row_id(r))
+        if done:
+            seen.setdefault(prompt, (done["got"], done["truncated"]))
+        elif prompt not in seen:
             seen[prompt] = ask(url, prompt)
         r["got"], r["truncated"] = seen[prompt]
         r["refused"] = is_refusal(r["got"], r["lang"])
-        if answers:
+        if answers and not done:
             answers.write(json.dumps(r, ensure_ascii=False) + "\n")
         progress.update(n, f"rifiuti {sum(x['refused'] for x in test[:n])}")
     print("lingua serie ricerca: domande | sezione attesa nel contesto | rifiuti con la sezione | rifiuti senza")
@@ -249,7 +289,7 @@ by_lang = {}  # lingua della domanda -> stats
 wrong_lang = {}  # tipo di riga -> risposte non nella lingua del dataset
 app_rows = []  # con --app-sampling: righe di print_app_sampling_report
 instruction_rows = []  # righe di print_instruction_report
-answers = open(a.answers, "w", encoding="utf-8", buffering=1) if a.answers else None  # a righe: resta anche se llama crasha
+answers, saved = open_answers() if a.answers else (None, {})  # a righe: resta anche se llama crasha
 phase("eval GGUF", f"{a.model.name}, {len(test)} righe {'(test esteso)' if a.extended else ''}")
 server, url = start_server()
 if a.contexts:
@@ -257,11 +297,15 @@ if a.contexts:
         answer_contexts(url)
     finally:
         server.kill()
+        if answers:
+            answers.close()
     raise SystemExit(0)
 progress = Progress("eval", len(test), "riga", every=30)
 try:
     for n, r in enumerate(test, 1):
-        got, truncated = ask(url, r["messages"][0]["content"])
+        done = saved_answer(row_id({"kind": r["kind"], "region": r["region"], "category": r.get("category"),
+                                    "question": question_of(r).strip()}))
+        got, truncated = (done["got"], done["truncated"]) if done else ask(url, r["messages"][0]["content"])
         score(stats, r, got)
         langs = {"question_lang": question_lang(r), "answer_lang": text_lang(got)}
         score(by_lang.setdefault(langs["question_lang"], {}), r, got)
@@ -269,17 +313,19 @@ try:
         wrong_lang[r["kind"]] = wrong_lang.get(r["kind"], 0) + checks["wrong_lang"]
         instruction_rows.append({"kind": r["kind"], "question_lang": langs["question_lang"], "question": question_of(r).strip(),
                                  "got": got, **checks})
-        app = app_refusal(url, r) if a.app_sampling else {}
+        app = ({k: done[k] for k in APP_FIELDS if k in done} if done else app_refusal(url, r)) if a.app_sampling else {}
         if app:
             app_rows.append({"kind": r["kind"], "question_lang": langs["question_lang"], "question": question_of(r).strip(),
                              "greedy": got.startswith(refusal_prefix(r)), **app})
         progress.update(n, refusal_summary(stats))
-        if answers:
+        if answers and not done:
             answers.write(json.dumps({"kind": r["kind"], "region": r["region"], "category": r.get("category"),
                                       "question": question_of(r).strip(), "want": r["messages"][1]["content"], "got": got,
                                       "truncated": truncated, **langs, **checks, **app}, ensure_ascii=False) + "\n")
 finally:
     server.kill()
+    if answers:
+        answers.close()
 
 print_report(stats, test, held_out, a.extended)
 if a.extended:

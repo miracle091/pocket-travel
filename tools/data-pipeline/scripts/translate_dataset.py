@@ -19,7 +19,7 @@ import re
 import sys
 from pathlib import Path
 
-from eval_common import ensure_final_newline
+from eval_common import Synced, drop_partial_line
 
 MODELS = {("en", "it"): "Helsinki-NLP/opus-mt-tc-big-en-it", ("it", "en"): "Helsinki-NLP/opus-mt-tc-big-it-en"}
 # Revisioni fissate, le stesse di convert-translation-model.sh: un modello aggiornato cambierebbe le traduzioni del
@@ -121,9 +121,9 @@ class Translator:
         # per lunghezza: lotti con frasi simili, meno padding
         order = sorted(range(len(sentences)), key=lambda i: len(sentences[i]))
         done = [None] * len(sentences)
-        ensure_final_newline(self.cache_path)
+        drop_partial_line(self.cache_path)
         # ogni lotto finisce subito in cache: un'interruzione non butta le ore di traduzione gia' fatte
-        with open(self.cache_path, "a", encoding="utf-8") as f:
+        with Synced(self.cache_path) as f:
             for start in range(0, len(order), self.batch):
                 idx = order[start:start + self.batch]
                 for i, text in zip(idx, self._decode([sentences[i] for i in idx])):
@@ -131,7 +131,6 @@ class Translator:
                     k = self._key(sentences[i])
                     self.cache[k] = done[i]
                     f.write(json.dumps({"k": k, "t": done[i]}, ensure_ascii=False) + "\n")
-                f.flush()
                 if (start // self.batch) % 20 == 0:
                     print(f"[traduzione] {min(start + self.batch, len(order))}/{len(order)} frasi", file=sys.stderr)
         return done
