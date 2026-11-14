@@ -7,12 +7,13 @@ import kotlin.math.ceil
 /**
  * Modo scelto nella schermata di navigazione: stessi profili BRouter dei modi di [UsageMode]. [offRouteMeters]: oltre
  * questa distanza dal percorso si e' fuori strada (a piedi le strade sono piu' strette e si va piano); [maxSpeedMps]:
- * la velocita' massima credibile, che limita quanto avanti lungo il percorso puo' stare la posizione successiva.
+ * la velocita' massima credibile, che limita quanto avanti lungo il percorso puo' stare la posizione successiva;
+ * [arrivalMeters]: a meno di questi metri dalla fine del percorso si e' arrivati (in auto ci si ferma prima, dove si parcheggia).
  */
-enum class RouteProfile(val routingProfile: String, val offRouteMeters: Double, val maxSpeedMps: Double) {
-    WALK("shortest", WALK_OFF_ROUTE_METERS, WALK_MAX_SPEED_MPS),
-    BIKE("trekking", BIKE_OFF_ROUTE_METERS, BIKE_MAX_SPEED_MPS),
-    CAR("car-vario", CAR_OFF_ROUTE_METERS, CAR_MAX_SPEED_MPS),
+enum class RouteProfile(val routingProfile: String, val offRouteMeters: Double, val maxSpeedMps: Double, val arrivalMeters: Double) {
+    WALK("shortest", WALK_OFF_ROUTE_METERS, WALK_MAX_SPEED_MPS, WALK_ARRIVAL_METERS),
+    BIKE("trekking", BIKE_OFF_ROUTE_METERS, BIKE_MAX_SPEED_MPS, BIKE_ARRIVAL_METERS),
+    CAR("car-vario", CAR_OFF_ROUTE_METERS, CAR_MAX_SPEED_MPS, CAR_ARRIVAL_METERS),
     ;
 
     companion object {
@@ -33,6 +34,10 @@ private const val CAR_OFF_ROUTE_METERS = 40.0
 private const val WALK_MAX_SPEED_MPS = 5.0
 private const val BIKE_MAX_SPEED_MPS = 15.0
 private const val CAR_MAX_SPEED_MPS = 60.0
+
+private const val WALK_ARRIVAL_METERS = 15.0
+private const val BIKE_ARRIVAL_METERS = 20.0
+private const val CAR_ARRIVAL_METERS = 30.0
 
 /** Profilo BRouter e sue variabili (vedi RouteEngine.route) per un percorso. */
 data class BRouterProfile(val profile: String, val params: Map<String, String> = emptyMap()) {

@@ -73,7 +73,7 @@ internal fun PlannerSheet(
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l).padding(bottom = Spacing.l)) {
         when {
             to == null -> Recents(recents, onRecent, onRemoveRecent, onClearRecents)
-            preview is PlannerPreview.Ready -> RouteSummary(preview.route, startsFromMe, onStart, wheelchairOptions, arriveBy, reminder, onArriveByChange, onSetReminder)
+            preview is PlannerPreview.Ready -> RouteSummary(preview.route, routeProfile, startsFromMe, onStart, wheelchairOptions, arriveBy, reminder, onArriveByChange, onSetReminder)
             // Il download si propone se il catalogo dice quali regioni mancano tra partenza e arrivo, o se la regione aperta
             // non ha la rete stradale; altrimenti "nessun dato" vuol dire fuori dalle zone scaricate, e riscaricare non cambierebbe nulla.
             preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData && missingRegions.isNotEmpty() ->
@@ -208,6 +208,7 @@ private fun Recents(recents: List<NavigationPlace>, onRecent: (NavigationPlace) 
 @Composable
 private fun RouteSummary(
     route: Route,
+    routeProfile: RouteProfile,
     startsFromMe: Boolean,
     onStart: () -> Unit,
     wheelchairOptions: (@Composable () -> Unit)?,
@@ -220,6 +221,8 @@ private fun RouteSummary(
         Column(modifier = Modifier.weight(1f)) {
             Text(durationText(route.durationSeconds), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
             Text(distanceText(route.distanceMeters), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Il tempo e' quello di BRouter: strade, pendenze e svolte, non il traffico (conta solo in auto).
+            if (routeProfile == RouteProfile.CAR) Text(stringResource(R.string.planner_no_traffic), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             // Partenza o destinazione su strade non collegate al resto della rete: IslandRetryRouteEngine le ha spostate.
             if (route.startOffsetMeters > 0) OffsetNote(stringResource(R.string.planner_start_offset, distanceText(route.startOffsetMeters)))
             if (route.endOffsetMeters > 0) OffsetNote(stringResource(R.string.planner_end_offset, distanceText(route.endOffsetMeters)))

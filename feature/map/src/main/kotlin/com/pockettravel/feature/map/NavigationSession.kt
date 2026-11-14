@@ -78,7 +78,7 @@ internal fun distanceLabel(meters: Double): DistanceLabel {
     return if (rounded < METERS_PER_KILOMETER) DistanceLabel.Meters(rounded) else DistanceLabel.Kilometers(meters / METERS_PER_KILOMETER)
 }
 
-/** Secondi che restano: la durata del percorso in proporzione ai metri ancora da fare. */
+/** Secondi che restano senza i tempi dei punti ([Route.pointSeconds]): la durata del percorso in proporzione ai metri ancora da fare. */
 internal fun remainingSeconds(route: Route, remainingMeters: Double): Double =
     if (route.distanceMeters > 0) route.durationSeconds * remainingMeters / route.distanceMeters else 0.0
 

@@ -33,6 +33,8 @@ data class TurnInstruction(
 /**
  * [startOffsetMeters]/[endOffsetMeters]: metri tra la partenza o la destinazione chieste e l'inizio o la fine del
  * percorso, quando [IslandRetryRouteEngine] le ha spostate sulla strada raggiungibile piu' vicina; 0 altrimenti.
+ * [pointSeconds]: secondi dalla partenza a ogni punto di [points], secondo BRouter (velocita' della strada, pendenza,
+ * svolte; non il traffico); vuota se il motore non li da', e il tempo restante va in proporzione ai metri.
  */
 data class Route(
     val points: List<RoutePoint>,
@@ -41,6 +43,7 @@ data class Route(
     val instructions: List<TurnInstruction> = emptyList(),
     val startOffsetMeters: Double = 0.0,
     val endOffsetMeters: Double = 0.0,
+    val pointSeconds: List<Double> = emptyList(),
 )
 
 sealed interface RouteResult {

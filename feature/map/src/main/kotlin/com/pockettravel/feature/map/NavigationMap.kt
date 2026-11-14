@@ -5,9 +5,6 @@ import android.view.View
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import com.pockettravel.core.ui.R as UiR
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,36 +13,41 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.viewinterop.AndroidView
 import com.pockettravel.core.data.MapBounds
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
-import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.style.sources.VectorSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.MultiLineString
 import org.maplibre.geojson.Point
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.pockettravel.core.ui.R as UiR
 
 /**
- * Mappa della navigazione: il percorso intero, il tratto fino alla prossima svolta piu' marcato e
- * la posizione GPS, con la camera che la segue. Nascosta a TalkBack: le svolte sono nel
+ * Mappa della navigazione: il percorso intero, quello gia' fatto attenuato, il tratto fino alla prossima svolta piu'
+ * marcato e la posizione, con la camera che la segue orientata nella direzione di marcia ([bearingDegrees]) e la
+ * posizione nella parte bassa della mappa, per vedere piu' strada davanti. Nascosta a TalkBack: le svolte sono nel
  * testo sopra.
  */
 @Composable
@@ -55,6 +57,8 @@ internal fun NavigationMap(
     route: Route,
     pathToNext: List<RoutePoint>,
     position: RoutePoint,
+    segmentIndex: Int,
+    bearingDegrees: Double,
     distanceToNextMeters: Double,
     onStreetNames: (Map<Int, String>) -> Unit,
     modifier: Modifier = Modifier,
@@ -74,6 +78,7 @@ internal fun NavigationMap(
         value = withContext(Dispatchers.IO) { regionIds.mapNotNull(tileSource::regionBounds) }
     }
     val routeColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f).toArgb()
+    val doneColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f).toArgb()
     val nextColor = MaterialTheme.colorScheme.tertiary.toArgb()
     val positionColor = MaterialTheme.colorScheme.primary.toArgb()
     val positionStroke = MaterialTheme.colorScheme.surface.toArgb()
@@ -87,12 +92,20 @@ internal fun NavigationMap(
         mapView.getMapAsync { map ->
             map.setStyle(Style.Builder().fromJson(json)) { style ->
                 val routeSource = GeoJsonSource(ROUTE_SOURCE).also(style::addSource)
+                val doneSource = GeoJsonSource(DONE_SOURCE).also(style::addSource)
                 val nextSource = GeoJsonSource(NEXT_SOURCE).also(style::addSource)
                 val positionSource = GeoJsonSource(POSITION_SOURCE).also(style::addSource)
                 val destinationSource = GeoJsonSource(DESTINATION_SOURCE).also(style::addSource)
                 style.addLayer(
                     LineLayer(ROUTE_SOURCE, ROUTE_SOURCE).withProperties(
                         PropertyFactory.lineColor(routeColor), PropertyFactory.lineWidth(ROUTE_LINE_WIDTH),
+                        PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+                    ),
+                )
+                // Il percorso gia' fatto sopra quello intero, in grigio: resta visibile da dove si e' arrivati.
+                style.addLayer(
+                    LineLayer(DONE_SOURCE, DONE_SOURCE).withProperties(
+                        PropertyFactory.lineColor(doneColor), PropertyFactory.lineWidth(ROUTE_LINE_WIDTH),
                         PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
                     ),
                 )
@@ -111,7 +124,7 @@ internal fun NavigationMap(
                         PropertyFactory.circleStrokeColor(positionStroke), PropertyFactory.circleStrokeWidth(POSITION_STROKE_WIDTH),
                     ),
                 )
-                sources = NavigationSources(routeSource, nextSource, positionSource, destinationSource)
+                sources = NavigationSources(routeSource, doneSource, nextSource, positionSource, destinationSource)
             }
         }
     }
@@ -119,13 +132,23 @@ internal fun NavigationMap(
         sources?.route?.setGeoJson(lineString(route.points))
         route.points.lastOrNull()?.let { end -> sources?.destination?.setGeoJson(Point.fromLngLat(end.longitude, end.latitude)) }
     }
-    LaunchedEffect(sources, pathToNext, position) {
+    LaunchedEffect(sources, pathToNext, position, segmentIndex) {
         val current = sources ?: return@LaunchedEffect
         current.next.setGeoJson(lineString(pathToNext))
+        // Dalla partenza alla posizione; pathToNext comincia dal punto della posizione sul percorso.
+        val done = route.points.subList(0, (segmentIndex + 1).coerceAtMost(route.points.size)) + listOfNotNull(pathToNext.firstOrNull())
+        current.done.setGeoJson(lineString(done))
         current.position.setGeoJson(Point.fromLngLat(position.longitude, position.latitude))
         mapView.getMapAsync { map ->
             val zoom = followZoom(distanceToNextMeters, insideRegion = regionBounds.any { it.contains(position.latitude, position.longitude) })
-            map.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(position.latitude, position.longitude), zoom), CAMERA_ANIMATION_MILLIS)
+            // Il margine in alto sposta il centro della camera, e con lui la posizione, verso il basso.
+            val camera = CameraPosition.Builder()
+                .target(LatLng(position.latitude, position.longitude))
+                .zoom(zoom)
+                .bearing(bearingDegrees)
+                .padding(0.0, mapView.height * POSITION_OFFSET_FRACTION, 0.0, 0.0)
+                .build()
+            map.animateCamera(CameraUpdateFactory.newCameraPosition(camera), CAMERA_ANIMATION_MILLIS)
         }
     }
 
@@ -200,7 +223,7 @@ internal fun NavigationMap(
     )
 }
 
-private class NavigationSources(val route: GeoJsonSource, val next: GeoJsonSource, val position: GeoJsonSource, val destination: GeoJsonSource)
+private class NavigationSources(val route: GeoJsonSource, val done: GeoJsonSource, val next: GeoJsonSource, val position: GeoJsonSource, val destination: GeoJsonSource)
 
 // Nome nella lingua dell'app come le etichette della mappa (labelField): in italiano name:it ->
 // name:en -> name, in inglese name:en -> name. Una MultiLineString diventa piu' linee.
@@ -225,8 +248,13 @@ private const val ROADS_SOURCE_LAYER = "roads"
 private const val ROUTE_SOURCE = "navigation-route"
 private const val DESTINATION_SOURCE = "navigation-destination"
 private const val NEXT_SOURCE = "navigation-next"
+private const val DONE_SOURCE = "navigation-done"
 private const val POSITION_SOURCE = "navigation-position"
 private const val CAMERA_ANIMATION_MILLIS = 500
+
+// Margine in alto della camera, in frazione dell'altezza della mappa: la posizione sta a circa due terzi dall'alto,
+// sopra il pannello in basso, con la strada davanti nella parte alta.
+private const val POSITION_OFFSET_FRACTION = 0.35
 
 // Spessori e raggi (px) dei livelli della mappa: tratto del percorso, prossima svolta, posizione.
 private const val ROUTE_LINE_WIDTH = 6f

@@ -168,11 +168,14 @@ class BRouterRouteEngine(
             // Il post-processing di BRouter toglie l'indicazione di arrivo (END): si rimette
             // sull'ultimo punto, cosi' l'elenco finisce sempre con l'arrivo, anche senza svolte.
             val arrive = TurnInstruction(TurnType.ARRIVE, 0.0, nodes.lastIndex)
+            // getTime(): secondi dalla partenza al nodo, cumulati da BRouter (OsmTrack.getTotalSeconds usa gli stessi).
+            val startTime = nodes.firstOrNull()?.time ?: 0f
             return Route(
                 points = nodes.map { RoutePoint(ilatToLat(it.getILat()), ilonToLon(it.getILon())) },
                 distanceMeters = distance.toDouble(),
                 durationSeconds = getTotalSeconds().toDouble(),
                 instructions = if (turns.lastOrNull()?.type == TurnType.ARRIVE) turns else turns + arrive,
+                pointSeconds = nodes.map { (it.time - startTime).toDouble() },
             )
         }
 

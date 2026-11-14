@@ -223,7 +223,7 @@ class NavigationViewModel @Inject constructor(
                 turn = progress.nextInstruction,
                 distanceToNextMeters = progress.distanceToNextMeters,
                 remainingMeters = progress.remainingMeters,
-                remainingSeconds = remainingSeconds(route, progress.remainingMeters),
+                remainingSeconds = progress.remainingSeconds,
                 street = streetNames[progress.nextInstruction.pointIndex],
             ),
         )

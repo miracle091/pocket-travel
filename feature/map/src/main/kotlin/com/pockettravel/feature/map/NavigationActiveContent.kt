@@ -113,7 +113,11 @@ internal fun ActiveNavigationContent(
             regionIds = regionIds,
             route = route,
             pathToNext = progress.pathToNext,
-            position = state.position,
+            // Sul percorso il segnaposto sta sulla strada, non dove lo sposta l'errore del GPS; fuori percorso o senza
+            // segnale la posizione vera (o l'ultima nota).
+            position = if (progress.offRoute || state.signalLost) state.position else progress.positionOnRoute,
+            segmentIndex = progress.segmentIndex,
+            bearingDegrees = progress.bearingDegrees,
             distanceToNextMeters = progress.distanceToNextMeters,
             onStreetNames = { found ->
                 streetNames = streetNames + found
@@ -163,8 +167,8 @@ internal fun ActiveNavigationContent(
             modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
         ) {
             Column(modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.m)) {
-                // Tempo rimasto in proporzione alla distanza rimasta, dalla durata stimata da BRouter.
-                val remainingSeconds = if (route.distanceMeters > 0) route.durationSeconds * progress.remainingMeters / route.distanceMeters else 0.0
+                // Tempo rimasto dai tempi dei punti di BRouter, dalla posizione sul percorso (NavigationTracker).
+                val remainingSeconds = progress.remainingSeconds
                 // Con un'ora di arrivo scelta, il tempo rimasto diventa rosso quando non ci si arriva piu'.
                 val late = arriveBy?.let { minutesLate(it, remainingSeconds) }
                 Row(

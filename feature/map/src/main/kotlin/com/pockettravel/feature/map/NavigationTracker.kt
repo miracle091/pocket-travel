@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sqrt
@@ -26,6 +27,12 @@ data class NavigationProgress(
     val pathToNext: List<RoutePoint>,
     /** Posizioni di fila con [offRoute] vero, questa compresa (0 sul percorso). */
     val offRouteFixes: Int,
+    /** Secondi all'arrivo da [positionOnRoute], con i tempi dei punti di BRouter ([Route.pointSeconds]). */
+    val remainingSeconds: Double,
+    /** Il tratto di [positionOnRoute]: da [Route.points][segmentIndex] al punto dopo (il percorso gia' fatto e' prima). */
+    val segmentIndex: Int,
+    /** Direzione di marcia in gradi dal nord, in senso orario: verso il punto del percorso [NavigationTracker.BEARING_AHEAD_METERS] piu' avanti. */
+    val bearingDegrees: Double,
 )
 
 /**
@@ -205,11 +212,38 @@ class NavigationTracker(private val route: Route, private val profile: RouteProf
             distanceToNextMeters = distanceToNext,
             remainingMeters = remaining,
             offRoute = offRoute,
-            arrived = !offRoute && remaining <= ARRIVAL_METERS,
+            arrived = !offRoute && remaining <= profile.arrivalMeters,
             positionOnRoute = positionOnRoute,
             pathToNext = pathToNext,
             offRouteFixes = offRouteFixes,
+            remainingSeconds = remainingSecondsAt(bestSegment, bestFraction, remaining),
+            segmentIndex = bestSegment,
+            bearingDegrees = bearingAhead(positionOnRoute, bestSegment, travelled),
         )
+    }
+
+    // Dalla posizione sul percorso al punto [BEARING_AHEAD_METERS] piu' avanti: guardando un po' avanti la direzione non
+    // scatta a ogni nodo di una curva, e prima di una svolta ruota gia' verso la strada dopo. 0 (nord) senza tratti.
+    private fun bearingAhead(position: RoutePoint, segment: Int, travelled: Double): Double {
+        val points = route.points
+        if (points.size < 2) return 0.0
+        val target = travelled + BEARING_AHEAD_METERS
+        var i = segment
+        while (i < points.size - 2 && cumulative[i + 1] < target) i++
+        val length = cumulative[i + 1] - cumulative[i]
+        val ahead = if (length == 0.0) points[i + 1] else interpolate(points[i], points[i + 1], ((target - cumulative[i]) / length).coerceIn(0.0, 1.0))
+        val (x, y) = toLocalMeters(ahead, position)
+        // Sulla fine del percorso il punto avanti coincide con la posizione: la direzione dell'ultimo tratto.
+        val (dx, dy) = if (x == 0.0 && y == 0.0) toLocalMeters(points[i + 1], points[i]) else x to y
+        return (Math.toDegrees(atan2(dx, dy)) + FULL_TURN_DEGREES) % FULL_TURN_DEGREES
+    }
+
+    // Dai tempi dei punti, interpolati nel tratto; senza (o con un elenco che non combacia con i punti) in proporzione ai metri.
+    private fun remainingSecondsAt(segment: Int, fraction: Double, remainingMeters: Double): Double {
+        val seconds = route.pointSeconds
+        if (seconds.size != route.points.size || seconds.size < 2) return remainingSeconds(route, remainingMeters)
+        val elapsed = seconds[segment] + fraction * (seconds[segment + 1] - seconds[segment])
+        return (seconds.last() - elapsed).coerceAtLeast(0.0)
     }
 
     companion object {
@@ -237,8 +271,10 @@ class NavigationTracker(private val route: Route, private val profile: RouteProf
         /** Differenza di distanza sotto la quale due tratti sono vicini uguali. */
         private const val TIE_METERS = 1.0
 
-        /** A meno di questa distanza dalla fine del percorso si e' arrivati. */
-        const val ARRIVAL_METERS = 20.0
+        /** Quanto avanti lungo il percorso si guarda per la direzione di marcia. */
+        const val BEARING_AHEAD_METERS = 30.0
+
+        private const val FULL_TURN_DEGREES = 360.0
 
         /** Una svolta superata da meno di questi metri conta gia' come passata (errore del GPS). */
         private const val PASSED_TURN_METERS = 5.0

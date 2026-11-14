@@ -314,6 +314,7 @@
     <string name="planner_no_routing_data">Il calcolo del percorso richiede la rete stradale di questa regione (si scarica una sola volta e resta sul dispositivo)</string>
     <string name="planner_start">Avvia</string>
     <!-- "passo passo" è la locuzione italiana, non una parola ripetuta per errore. -->
+    <string name="planner_no_traffic">Tempo stimato senza traffico</string>
     <string name="planner_preview_only" tools:ignore="Typos">Partenza da un luogo scelto: si vede solo il percorso. La navigazione passo passo parte dalla tua posizione</string>
     <string name="planner_steps">Svolte</string>
     <string name="planner_search_start">Scegli la partenza</string>
