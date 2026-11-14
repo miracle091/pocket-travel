@@ -5,11 +5,13 @@ forme che si rivolgono al lettore con tu o voi.
 - forme ambigue (una analisi alla 2a persona e altre no: "evita", "portate", "sei"): a inizio frase o di voce
   (imperativo), oppure dopo se, quando, non, che, dove, come, mentre, perche', ne o un pronome atono;
 - imperativi con pronome attaccato a inizio frase o di voce ("Informati", "Assicuratevi"): radice imperativa di 2a
-  persona + ti, vi, ci, lo, la, li, le, ne, gli;
+  persona + ti, vi, ci, lo, la, li, le, ne, gli; dentro la frase non conta un participio o aggettivo plurale ("taxi
+  ufficiali, dotati di tassametro", "farmaci contraffatti");
 - "vi" pronome, salvo prima di essere e di "si" ("vi sono", "vi si trova").
 Non conta: il testo tra virgolette (citazioni in altre lingue), la forma di cortesia, "Non" + infinito.
 Misurato il 2026-10-31 contro tre revisori su traduzioni dei consigli del Governo del Canada e di Wikivoyage: precisione
-0,98, copertura 0,96.
+0,98, copertura 0,96. Il 2026-11-14, su tutti i consigli canadesi tradotti, la regola dei participi e del "vi" di luogo
+ha tolto 24 segnalazioni, tutte false.
 
 Il lessico non e' nel repository: si scarica da https://docs.sslmit.unibo.it/doku.php?id=resources:morph-it
 (morph-it.tgz, file current_version/m.utf8, una riga "forma<TAB>lemma<TAB>analisi").
@@ -28,7 +30,10 @@ ESSERE = {"è", "e'", "sono", "era", "erano", "sarà", "saranno", "sia", "siano"
 IMPERSONAL = {"bisogna", "occorre", "basta", "conviene", "serve", "servono"}
 DET = {"un", "una", "uno", "il", "lo", "la", "i", "gli", "le", "l", "sempre",
        "subito", "bene", "questo", "questa", "questi", "queste", "tutti", "tutte", "ogni"}
-SUBORD = {"se", "quando", "dove", "come", "mentre", "perché", "perche"}  # dopo queste il congiuntivo di 3a e' raro
+# verbi dopo cui "-vi" indica il luogo ("e' sicuro accedervi"), non voi
+PLACE_VI = {"accedere", "andare", "entrare", "arrivare", "tornare", "restare", "rimanere", "giungere", "soggiornare",
+            "salire", "scendere", "circolare", "vivere", "lavorare"}
+SUBORD = {"se","quando", "dove", "come", "mentre", "perché", "perche"}  # dopo queste il congiuntivo di 3a e' raro
 QUOTED = re.compile(r"\"[^\"]*\"|“[^”]*”|«[^»]*»")
 CLAUSE = re.compile(r"(?<=[.!?;:])\s+|\n|^\s*[•▸\-–]\s*|\(|\)")
 WORD = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ']+")
@@ -95,6 +100,14 @@ def clitic_second(word):
     return None
 
 
+def participle(word):
+    """Participio passato o aggettivo per Morph-it ("dotati"); per una parola che il lessico non ha, anche la sua parte
+    finale ("contraffatti" da "fatti")."""
+    def part(w):
+        return any(re.match(r"(VER|AUX|MOD):part|ADJ", t) for t in LEX.get(w, []))
+    return part(word) or word not in LEX and any(part(word[i:]) for i in range(2, len(word) - 3))
+
+
 def hits(text):
     if LEX is None:
         raise RuntimeError("lessico Morph-it non caricato: chiamare load() prima di hits()")
@@ -138,7 +151,10 @@ def hits(text):
                 elif k is None or "participio" in other:
                     c = clitic_second(w)
                     noun = any(t.startswith("NOUN") for t in LEX.get(w, []))
-                    if c == "infinito" and not noun or c == "imperativo" and (start or soft and not noun or w not in LEX):
+                    place = w.endswith("vi") and w[:-2] + "e" in PLACE_VI
+                    # fuori dall'inizio della frase un participio plurale ("taxi ufficiali, dotati di") non e' un imperativo
+                    if c == "infinito" and not noun and not place or c == "imperativo" and (
+                            start or not participle(w) and (soft and not noun or w not in LEX)):
                         out.append((raw, c + " con pronome"))
     return out
 

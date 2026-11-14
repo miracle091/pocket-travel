@@ -15,6 +15,15 @@ devi\tdovere\tMOD:ind+pres+2+s
 informa\tinformare\tVER:impr+pres+2+s
 informa\tinformare\tVER:ind+pres+3+s
 zone\tzona\tNOUN-F:p
+dota\tdotare\tVER:impr+pres+2+s
+dotati\tdotare\tVER:part+past+p+m
+ritarda\tritardare\tVER:impr+pres+2+s
+ritardati\tritardare\tVER:part+past+p+m
+fa\tfare\tVER:impr+pres+2+s
+fatti\tfare\tVER:part+past+p+m
+informati\tinformare\tVER:part+past+p+m
+accedere\taccedere\tVER:inf+pres
+impedire\timpedire\tVER:inf+pres
 """
 
 
@@ -36,6 +45,15 @@ class RegisterCheckTest(unittest.TestCase):
 
     def test_imperativo_con_pronome_attaccato(self):
         self.assertEqual([("Informati", "imperativo con pronome")], rc.hits("Informati prima di partire."))
+        self.assertEqual([("impedirvi", "infinito con pronome")], rc.hits("Nessuno può impedirvi di entrare."))
+
+    def test_participio_plurale_e_vi_di_luogo_non_contano(self):
+        # falsi allarmi visti il 2026-11-14 nei consigli canadesi tradotti: participi in -ti dopo una virgola o fuori
+        # dal lessico (composti di "fatti"), "vi" che indica il luogo dopo un verbo di movimento
+        self.assertEqual([], rc.hits("Usare solo taxi ufficiali, dotati di tassametro."))
+        self.assertEqual([], rc.hits("I voli potrebbero essere cancellati, ritardati o deviati."))
+        self.assertEqual([], rc.hits("Diffidare dei medicinali contraffatti."))
+        self.assertEqual([], rc.hits("Evitare le aree colpite, a meno che non sia sicuro accedervi."))
 
 
 if __name__ == "__main__":
