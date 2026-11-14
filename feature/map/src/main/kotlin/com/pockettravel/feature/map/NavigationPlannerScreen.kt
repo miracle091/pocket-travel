@@ -1,8 +1,5 @@
 package com.pockettravel.feature.map
 
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.window.DialogProperties
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -25,6 +22,7 @@ import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -35,15 +33,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.ui.Spacing
 import kotlinx.coroutines.flow.filterNotNull
+import java.time.LocalDate
 import java.time.LocalDateTime
 import com.pockettravel.core.ui.R as UiR
 
@@ -192,6 +193,7 @@ fun NavigationPlannerScreen(
             arriveBy = arriveBy,
             reminder = planner.reminder,
             toCatch = planner.toCatch,
+            oldRoutingDate = planner.oldRoutingDate,
             missingRegions = missingRegions,
             downloadProgress = downloadProgress,
             downloadFailed = downloadFailed,
@@ -262,6 +264,8 @@ internal data class NavigationPlannerState(
     val arriveBy: LocalDateTime? = null,
     val reminder: LocalDateTime? = null,
     val toCatch: TripToCatch? = null,
+    // La rete stradale piu' vecchia del percorso, se ha piu' di tre mesi.
+    val oldRoutingDate: LocalDate? = null,
     // Le regioni del catalogo senza rete stradale tra partenza e arrivo, in ordine (vuota se non si sono trovate).
     val missingRegions: List<MissingRegion> = emptyList(),
     val downloadProgress: Float? = null,
@@ -353,6 +357,7 @@ internal fun NavigationPlannerContent(
                 arriveBy = state.arriveBy,
                 reminder = state.reminder,
                 toCatch = state.toCatch,
+                oldRoutingDate = state.oldRoutingDate,
                 onArriveByChange = actions.onArriveByChange,
                 onSetReminder = actions.onSetReminder,
                 onRetry = actions.onRetry,

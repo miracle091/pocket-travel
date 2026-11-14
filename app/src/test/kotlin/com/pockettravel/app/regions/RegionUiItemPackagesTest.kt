@@ -19,6 +19,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.time.LocalDate
 import java.util.Locale
 
 class RegionUiItemPackagesTest {
@@ -194,5 +195,14 @@ class RegionUiItemPackagesTest {
     fun `il trattino senza gli spazi giusti non fa una nazione divisa`() {
         assertFalse(isSplitCountryName("Francia-Bretagna", "fr", Locale.ITALIAN))
         assertFalse(isSplitCountryName("Francia -Bretagna", "fr", Locale.ITALIAN))
+    }
+
+    @Test
+    fun `solo la rete stradale installata mostra il giorno dei dati`() {
+        val item = regionUiItem(remote.copy(routing = RoutingPackageEntry("2026.11.05.3.1", remote.routing?.files.orEmpty())), local(routing = "2026.11.05.3.1"), noBytes)
+
+        assertEquals(LocalDate.of(2026, 11, 5), item.packages.single { it.kind == PackageKind.ROUTING }.dataDate)
+        assertNull(item.packages.single { it.kind == PackageKind.MAP }.dataDate)
+        assertNull(regionUiItem(remote, null, noBytes).packages.single { it.kind == PackageKind.ROUTING }.dataDate)
     }
 }

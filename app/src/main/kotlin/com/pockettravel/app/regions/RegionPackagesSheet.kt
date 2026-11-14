@@ -1,10 +1,8 @@
 package com.pockettravel.app.regions
 
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.draw.rotate
-import androidx.compose.animation.core.animateFloatAsState
 import android.text.format.Formatter
 import androidx.annotation.StringRes
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,20 +37,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionZone
+import com.pockettravel.core.data.routingIsStale
 import com.pockettravel.core.sync.TransitDefaultReason
 import com.pockettravel.core.sync.TransitMissing
 import com.pockettravel.core.ui.AppIcons
@@ -60,6 +62,9 @@ import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.isOnCellularNetwork
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import com.pockettravel.core.ui.R as UiR
 
 // Dettaglio di una regione installata: mappa, rete stradale (routing) e punti di interesse, ciascuno
@@ -238,6 +243,7 @@ private fun PackageRow(pkg: PackageUiState, enabled: Boolean, onDownload: () -> 
                 // Le reti dei mezzi pubblici incluse nel pacchetto.
                 pkg.detail?.let { Text(it) }
                 Text(supporting)
+                pkg.dataDate?.let { DataDate(it) }
             }
         },
         leadingContent = { Icon(pkg.kind.icon(), contentDescription = null) },
@@ -257,6 +263,17 @@ private fun PackageRow(pkg: PackageUiState, enabled: Boolean, onDownload: () -> 
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth(),
         content = { Text(name) },
+    )
+}
+
+// Il giorno dei dati della rete stradale; oltre ROUTING_STALE_MONTHS mesi lo dice in rosso.
+@Composable
+private fun DataDate(date: LocalDate) {
+    val day = date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(LocalLocale.current.platformLocale))
+    val old = routingIsStale(date, LocalDate.now())
+    Text(
+        stringResource(if (old) R.string.package_data_date_old else R.string.package_data_date, day),
+        color = if (old) MaterialTheme.colorScheme.error else Color.Unspecified,
     )
 }
 

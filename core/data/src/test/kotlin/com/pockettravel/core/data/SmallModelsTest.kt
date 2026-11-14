@@ -7,6 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDate
 import java.util.Locale
 
 /** Piccole regole pure di core/data: zone, scelte della rete stradale, versioni installate, lingua delle guide, destinatari delle sezioni. */
@@ -103,6 +104,19 @@ class SmallModelsTest {
             installed(poi = POI_TO_REDOWNLOAD_VERSION, poiExtra = POI_TO_REDOWNLOAD_VERSION).poiToRedownload(),
         )
         assertEquals(emptySet<PackageKind>(), installed().poiToRedownload())
+    }
+
+    @Test
+    fun `il giorno dei dati viene dalla versione e la rete stradale e' vecchia dopo tre mesi`() {
+        assertEquals(LocalDate.of(2026, 11, 5), packageDate("2026.11.05.312.1"))
+        assertNull(packageDate("r1"))
+        assertNull(packageDate("2026.13.05.1.1"))
+        assertNull(packageDate(null))
+
+        val today = LocalDate.of(2026, 11, 14)
+        assertNull(staleRoutingDate("2026.08.14.1.1", today))
+        assertEquals(LocalDate.of(2026, 8, 13), staleRoutingDate("2026.08.13.1.1", today))
+        assertNull(staleRoutingDate("r1", today))
     }
 
     // Lingua delle guide

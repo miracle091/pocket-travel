@@ -2,6 +2,7 @@ package com.pockettravel.app.regions
 
 import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.PackageKind
+import com.pockettravel.core.data.routingDate
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.ui.countryName
@@ -21,7 +22,7 @@ internal fun offlineRegionItem(local: InstalledRegion, installedBytes: (Installe
         status = RegionStatus.INSTALLED,
         countryCode = local.countryCode,
         packages = PackageKind.entries.filter { local.versionOf(it) != null }.map { kind ->
-            PackageUiState(kind = kind, status = RegionStatus.INSTALLED, downloadBytes = 0, installedBytes = installedBytes(local, kind))
+            PackageUiState(kind = kind, status = RegionStatus.INSTALLED, downloadBytes = 0, installedBytes = installedBytes(local, kind), dataDate = routingDate(local, kind))
         },
     )
 
@@ -87,6 +88,8 @@ internal fun regionUiItem(
                 emptyList()
             },
             staleNetworks = if (kind == PackageKind.TRANSIT) remote.transit?.stale.orEmpty() else emptyList(),
+            // Solo la rete stradale mostra il giorno dei dati: e' quella che invecchia senza che si veda (strade nuove o chiuse).
+            dataDate = routingDate(local, kind),
         )
     }
     val toDownload = when (status) {

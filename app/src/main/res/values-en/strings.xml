@@ -77,6 +77,8 @@
     <string name="package_transit">Public transport</string>
     <string name="package_status_installed">Downloaded · %1$s</string>
     <string name="package_status_installed_no_size">Downloaded</string>
+    <string name="package_data_date">Data from %1$s</string>
+    <string name="package_data_date_old">Data from %1$s, older than 3 months: roads opened or closed since then are missing</string>
     <string name="package_status_update">Update available · %1$s</string>
     <string name="package_status_update_no_size">Update available</string>
     <string name="package_status_not_installed">Not downloaded · %1$s</string>

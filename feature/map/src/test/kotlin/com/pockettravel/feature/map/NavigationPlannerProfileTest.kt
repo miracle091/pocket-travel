@@ -6,7 +6,9 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
+import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class NavigationPlannerProfileTest : NavigationPlannerTestBase() {
@@ -72,5 +74,21 @@ class NavigationPlannerProfileTest : NavigationPlannerTestBase() {
 
         assertEquals(emptySet<RouteAvoid>(), viewModel.uiState.value.avoid)
         assertEquals(emptyMap<String, String>(), engines.requests.last().params)
+    }
+
+    @Test
+    fun `l'anteprima avvisa se la rete stradale del percorso ha piu' di tre mesi`() = runTest(main.dispatcher) {
+        engines.defaultResult = RouteResult.Found(route)
+        val old = LocalDate.now().minusMonths(4)
+        regions.installedRegions.value = listOf(installedRegion("r1").copy(routingVersion = "%d.%02d.%02d.1.1".format(old.year, old.monthValue, old.dayOfMonth)))
+        val viewModel = viewModel()
+        viewModel.plan(colosseo)
+        advanceUntilIdle()
+        assertEquals(old, viewModel.uiState.value.oldRoutingDate)
+
+        val recent = LocalDate.now().minusMonths(1)
+        regions.installedRegions.value = listOf(installedRegion("r1").copy(routingVersion = "%d.%02d.%02d.1.1".format(recent.year, recent.monthValue, recent.dayOfMonth)))
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.oldRoutingDate)
     }
 }

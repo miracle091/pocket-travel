@@ -328,6 +328,7 @@
     <string name="planner_no_routing_data">Calculating the route requires this region\'s road network (downloaded once, then kept on the device)</string>
     <string name="planner_start">Start</string>
     <string name="planner_no_traffic">Estimated time without traffic</string>
+    <string name="planner_routing_old">Road network with data older than 3 months (%1$s): roads opened or closed since then are missing. Update the region in Countries when a new version is out.</string>
     <string name="planner_route_options">Options</string>
     <string name="planner_route_options_count">Options (%1$d)</string>
     <string name="planner_route_options_note">They apply only to this route. Choose the starting ones in Settings.</string>

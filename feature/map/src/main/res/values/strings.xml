@@ -338,6 +338,7 @@
     <string name="planner_start">Avvia</string>
     <!-- "passo passo" è la locuzione italiana, non una parola ripetuta per errore. -->
     <string name="planner_no_traffic">Tempo stimato senza traffico</string>
+    <string name="planner_routing_old">Rete stradale con dati più vecchi di 3 mesi (%1$s): le strade aperte o chiuse dopo mancano. Aggiorna la regione in Nazioni quando c\'è una versione nuova.</string>
     <string name="planner_route_options">Opzioni</string>
     <string name="planner_route_options_count">Opzioni (%1$d)</string>
     <string name="planner_route_options_note">Valgono solo per questo percorso. Quelle di partenza si scelgono in Impostazioni.</string>

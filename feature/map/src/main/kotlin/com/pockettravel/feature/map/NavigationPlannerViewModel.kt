@@ -10,11 +10,12 @@ import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.NearbyPois
 import com.pockettravel.core.data.Poi
 import com.pockettravel.core.data.PoiRepository
-import com.pockettravel.core.data.parseAddressQuery
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.data.displayName
+import com.pockettravel.core.data.parseAddressQuery
 import com.pockettravel.core.data.poiCategory
+import com.pockettravel.core.data.staleRoutingDate
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.label
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,11 +29,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
@@ -40,6 +41,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.text.Normalizer
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import javax.inject.Inject
@@ -159,6 +161,7 @@ data class PlannerUiState(
     val arriveBy: LocalDateTime? = null,
     val reminder: LocalDateTime? = null,
     val toCatch: TripToCatch? = null,
+    val oldRoutingDate: LocalDate? = null,
 )
 
 /**
@@ -290,6 +293,13 @@ class NavigationPlannerViewModel @Inject constructor(
     // Non si salva con lo stato: dopo la chiusura del processo resta l'ora d'arrivo, senza la linea.
     private val toCatch = MutableStateFlow<TripToCatch?>(null)
 
+    // La rete stradale piu' vecchia tra le regioni dell'anteprima del percorso, se ha piu' di ROUTING_STALE_MONTHS mesi.
+    private val oldRoutingDate = combine(_preview, regionRepository.observeInstalled()) { preview, installed ->
+        val ids = (preview as? PlannerPreview.Ready)?.regionIds.orEmpty()
+        val today = LocalDate.now()
+        installed.filter { it.regionId in ids }.mapNotNull { staleRoutingDate(it.routingVersion, today) }.minOrNull()
+    }
+
     // Il percorso scelto, la ricerca e la mappa, a gruppi di cinque flussi: ognuno parte dal precedente.
     private val routeState = combine(_from, _to, _routeProfile, routing, _preview) { from, to, mode, profile, preview ->
         PlannerUiState(from = from, to = to, routeProfile = mode, routing = profile, preview = preview)
@@ -303,9 +313,12 @@ class NavigationPlannerViewModel @Inject constructor(
 
     /** Tutto quello che la scheda Navigatore legge del percorso, in un solo stato. */
     val uiState: StateFlow<PlannerUiState> = combine(
-        mapState, routingRegionIds, combine(usageModePreferences.allowSteps, routeAvoid, ::Pair), combine(_arriveBy, toCatch, ::Pair), _reminder,
-    ) { state, routingRegionIds, (allowSteps, avoid), (arriveBy, trip), reminder ->
-        state.copy(routingRegionIds = routingRegionIds, allowSteps = allowSteps, avoid = avoid, arriveBy = arriveBy, reminder = reminder, toCatch = trip)
+        mapState, routingRegionIds, combine(usageModePreferences.allowSteps, routeAvoid, ::Pair), combine(_arriveBy, toCatch, ::Pair), combine(_reminder, oldRoutingDate, ::Pair),
+    ) { state, routingRegionIds, (allowSteps, avoid), (arriveBy, trip), (reminder, oldRouting) ->
+        state.copy(
+            routingRegionIds = routingRegionIds, allowSteps = allowSteps, avoid = avoid, arriveBy = arriveBy, reminder = reminder, toCatch = trip,
+            oldRoutingDate = oldRouting,
+        )
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),

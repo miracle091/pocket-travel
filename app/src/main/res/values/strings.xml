@@ -78,6 +78,8 @@
     <string name="package_transit">Mezzi pubblici</string>
     <string name="package_status_installed">Scaricato · %1$s</string>
     <string name="package_status_installed_no_size">Scaricato</string>
+    <string name="package_data_date">Dati: %1$s</string>
+    <string name="package_data_date_old">Dati: %1$s, più vecchi di 3 mesi: le strade aperte o chiuse dopo mancano</string>
     <string name="package_status_update">Da aggiornare · %1$s</string>
     <string name="package_status_update_no_size">Da aggiornare</string>
     <string name="package_status_not_installed">Non scaricato · %1$s</string>

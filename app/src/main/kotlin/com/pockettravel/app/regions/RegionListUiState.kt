@@ -5,6 +5,7 @@ import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.sync.TransitDefaultReason
 import com.pockettravel.core.sync.TransitMissing
+import java.time.LocalDate
 
 enum class RegionStatus { NOT_INSTALLED, INSTALLED, UPDATE_AVAILABLE }
 
@@ -26,6 +27,8 @@ data class PackageUiState(
     val missingNetworks: List<TransitMissing> = emptyList(),
     // Mezzi pubblici: nomi delle reti installate i cui orari non sono piu' aggiornati.
     val staleNetworks: List<String> = emptyList(),
+    // Rete stradale installata: il giorno dei dati, dalla versione (packageDate).
+    val dataDate: LocalDate? = null,
 )
 
 data class TransitNetworkUi(val id: String, val name: String, val downloadBytes: Long, val selected: Boolean)
