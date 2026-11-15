@@ -17,8 +17,11 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 
 DEFAULT_MAX_HELD_PCT = 10
+WAIT_SECONDS = 600  # attesa massima che la VRAM degli altri processi scenda sotto la soglia
+POLL_SECONDS = 30
 HELP = "%% massima di VRAM gia' occupata da altri processi per partire (default %(default)s)"
 
 
@@ -59,17 +62,26 @@ def nvidia_used_gib(label):
 
 
 def check(total_gib, free_gib, max_pct, label="GPU"):
-    """Esce con un messaggio se gli altri processi occupano piu' di max_pct% della VRAM (total_gib).
-    free_gib (dal runtime) conta solo fuori da Windows e senza una misura di nvidia-smi (nvidia_used_gib)."""
-    held = held_processes()
-    if platform.system() == "Windows":
-        used = sum(gib for _, gib, _ in held)
-    else:
-        used = nvidia_used_gib(label)
+    """Esce con un messaggio se gli altri processi occupano piu' di max_pct% della VRAM (total_gib) per WAIT_SECONDS:
+    browser e launcher superano la soglia per pochi secondi (visto il 2026-11-15: 17% su 12 GB, 3 s dopo sotto il
+    10%), quindi la misura si ripete ogni POLL_SECONDS. free_gib (dal runtime) conta solo fuori da Windows e senza una
+    misura di nvidia-smi (nvidia_used_gib); in quel caso non cambia e si esce subito."""
+    waited = 0
+    while True:
+        held = held_processes()
+        used = sum(gib for _, gib, _ in held) if platform.system() == "Windows" else nvidia_used_gib(label)
+        fresh = used is not None
         used = total_gib - free_gib if used is None else used
-    pct = 100 * used / total_gib
-    if pct <= max_pct:
-        return
+        pct = 100 * used / total_gib
+        if pct <= max_pct:
+            return
+        if not fresh or waited >= WAIT_SECONDS:
+            break
+        if not waited:
+            print(f"VRAM ({label}) occupata al {pct:.0f}% da altri processi (limite {max_pct:.0f}%): riprovo ogni "
+                  f"{POLL_SECONDS} s per {WAIT_SECONDS // 60} minuti", file=sys.stderr, flush=True)
+        time.sleep(POLL_SECONDS)
+        waited += POLL_SECONDS
     sys.exit(f"VRAM ({label}) gia' occupata al {pct:.0f}% (limite {max_pct:.0f}%, --max-vram-held): "
              "il lavoro finirebbe in memoria condivisa o in out of memory.\n"
              + "".join(f"  PID {pid}: {gib:.1f} GiB, {name or 'processo terminato, memoria trattenuta dal driver'}\n"

@@ -89,11 +89,36 @@ class CheckTest(unittest.TestCase):
     def test_windows_usa_i_processi_e_ignora_la_memoria_libera(self):
         # free_gib dice "tutta libera" (PyTorch non vede gli altri processi), ma i contatori dicono 4 GiB su 8
         with mock.patch("platform.system", return_value="Windows"), mock.patch("platform.release", return_value="11"), \
-                mock.patch.object(vram, "held_processes", return_value=[(9, 4.0, "game")]):
+                mock.patch.object(vram, "held_processes", return_value=[(9, 4.0, "game")]), mock.patch("time.sleep"):
             with self.assertRaises(SystemExit) as ctx:
                 vram.check(8.0, 8.0, 10)
         self.assertIn("al 50%", str(ctx.exception))
         self.assertIn("pnputil", str(ctx.exception))
+
+    def test_windows_un_picco_passeggero_non_ferma_il_lavoro(self):
+        # browser e launcher salgono per qualche secondo oltre la soglia (visto: 17% su 12 GB, 3 s dopo sotto il 10%)
+        spike = [[(9, 2.0, "steamwebhelper")], [(9, 2.0, "steamwebhelper")], [(9, 0.5, "steamwebhelper")]]
+        with mock.patch("platform.system", return_value="Windows"), \
+                mock.patch.object(vram, "held_processes", side_effect=spike), mock.patch("time.sleep") as sleep:
+            self.assertIsNone(vram.check(12.0, 12.0, 10))
+        self.assertEqual(2, sleep.call_count)
+
+    def test_windows_esce_se_resta_occupata_per_tutta_l_attesa(self):
+        with mock.patch("platform.system", return_value="Windows"), mock.patch("platform.release", return_value="11"), \
+                mock.patch.object(vram, "held_processes", return_value=[(9, 4.0, "game")]) as held, \
+                mock.patch("time.sleep") as sleep:
+            with self.assertRaises(SystemExit):
+                vram.check(8.0, 8.0, 10)
+        self.assertEqual(vram.WAIT_SECONDS // vram.POLL_SECONDS, sleep.call_count)
+        self.assertEqual(sleep.call_count + 1, held.call_count)
+
+    def test_linux_senza_nuova_misura_esce_subito(self):
+        # la memoria libera viene dal chiamante e non cambia: riprovare non serve
+        with mock.patch("platform.system", return_value="Linux"), mock.patch("platform.release", return_value="6.1.0"), \
+                mock.patch.object(vram, "held_processes", return_value=[]), mock.patch("time.sleep") as sleep:
+            with self.assertRaises(SystemExit):
+                vram.check(8.0, 4.0, 10)
+        sleep.assert_not_called()
 
     def test_windows_senza_processi_parte(self):
         with mock.patch("platform.system", return_value="Windows"), mock.patch.object(vram, "held_processes", return_value=[]):
