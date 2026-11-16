@@ -115,6 +115,12 @@ private val currencyTemplateRegex = Regex("""[A-Z]{3}""")
 private val convertTemplateNames = setOf("convert", "cvt")
 private val convertRangeWords = setOf("and", "to", "or", "-", "–")
 private val unitSymbols = mapOf("C" to "°C", "F" to "°F", "km2" to "km²", "m2" to "m²", "m3" to "m³", "sqmi" to "sq mi")
+// Misure di Wikivoyage EN: {{km|39}}, {{mi|700}}, {{C|30}} (e i nomi interi {{Kilometer}}, ...) sono {{convert}} con
+// l'unita' fissa; {{m|2000}} minuscolo e' il metro, {{M|...}} maiuscolo la misura di Wikipedia IT.
+private val wikivoyageUnits = mapOf(
+    "km" to "km", "kilometer" to "km", "mi" to "mi", "mile" to "mi", "meter" to "m", "ft" to "ft", "foot" to "ft",
+    "c" to "°C", "celsius" to "°C", "f" to "°F", "fahrenheit" to "°F",
+)
 
 private fun convertMeasure(params: List<String>): String {
     val positional = params.filter { '=' !in it }
@@ -152,7 +158,9 @@ private fun resolveTemplate(inner: String): String? {
         // Valute ({{EUR|5}}, {{ALL|500}}): "5 EUR", altrimenti resterebbe "almeno ." nel testo.
         currencyTemplateRegex.matches(name) && first.isNotEmpty() && first.first().isDigit() -> "$first $name"
         lower in convertTemplateNames -> convertMeasure(params)
+        name == "m" && first.isNotEmpty() -> "$first m"
         lower == "m" -> italianMeasure(params)
+        lower in wikivoyageUnits && first.isNotEmpty() -> "$first ${wikivoyageUnits.getValue(lower)}"
         // Link a una voce in un'altra lingua di Wikipedia EN: il testo (lt=) o il titolo.
         lower == "interlanguage link" || lower == "ill" ->
             params.firstOrNull { it.startsWith("lt=") }?.substringAfter('=')?.takeIf { it.isNotEmpty() } ?: first

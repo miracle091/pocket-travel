@@ -67,6 +67,12 @@ class CleanWikitextTest {
     }
 
     @Test
+    fun `le misure dei template di Wikivoyage restano nel testo con la loro unita'`() {
+        assertEquals("Lookout Pass is over 700 mi, about 39 km from Reykjavík.", cleanBody("Lookout Pass is over {{mi|700}}, about {{km|39}} from Reykjavík."))
+        assertEquals("Up to 30 °C, 2000 m high, 500 ft, 5 km wide.", cleanBody("Up to {{C|30}}, {{m|2000}} high, {{ft|500}}, {{km|5|adj=on}} wide."))
+    }
+
+    @Test
     fun `un link ad altra lingua mostra il testo o il titolo della voce`() {
         assertEquals("Il parco Fiabilandia e Rimini Centrale.", cleanBody("Il parco {{Interlanguage link|Fiabilandia|lt=|it|}} e {{ill|Stazione di Rimini Centrale|lt=Rimini Centrale|it}}."))
     }
