@@ -86,6 +86,11 @@ class RegisterCheckTest(unittest.TestCase):
         # "(vedi Livelli di rischio)" e' la forma scelta per i rimandi (utente, 2026-11-14); fuori dalle parentesi conta
         self.assertEqual([], rc.hits("Evitare lo stato di Sinaloa (vedi Livelli di rischio)."))
         self.assertEqual([("vedi", "verbo 2a")], rc.hits("Se vedi un incendio, chiamare i soccorsi."))
+        # anche senza parentesi, davanti a un titolo, "anche", "sotto" o "#" (utente, 2026-11-16)
+        for text in ("Vedi anche: Guidare in Svezia.", "Per i tipi più comuni, vedi Cucina coreana.",
+                     "Le saune spartane, vedi sotto.", "Per dettagli, vedi #Abbigliamento.", "Vedi la sezione “A piedi”."):
+            self.assertEqual([], rc.hits(text), text)
+        self.assertEqual([("Vedi", "verbo 2a")], rc.hits("Vedi un incendio? Chiamare i soccorsi."))
 
 
 if __name__ == "__main__":

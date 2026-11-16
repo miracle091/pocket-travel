@@ -9,9 +9,9 @@ forme che si rivolgono al lettore con tu o voi.
   ufficiali, dotati di tassametro", "farmaci contraffatti");
 - "vi" pronome, salvo prima di essere e di "si" ("vi sono", "vi si trova") e in "che vi" + verbo di luogo ("le persone
   che vi vivono").
-Non conta: il testo tra virgolette (citazioni in altre lingue), la forma di cortesia, "Non" + infinito, il rimando
-"(vedi ...)", i nomi propri (una parola maiuscola anche dentro la frase, "Cuba"; le parole tutte maiuscole), "Sia ...
-sia/che", "Data/Date" + articolo, i plurali di nomi ("spinaci").
+Non conta: il testo tra virgolette (citazioni in altre lingue), la forma di cortesia, "Non" + infinito, i rimandi
+"(vedi ...)", "vedi anche", "vedi sotto", "vedi Titolo", i nomi propri (una parola maiuscola anche dentro la frase,
+"Cuba"; le parole tutte maiuscole), "Sia ... sia/che", "Data/Date" + articolo, i plurali di nomi ("spinaci").
 Misurato il 2026-10-31 contro tre revisori su traduzioni dei consigli del Governo del Canada e di Wikivoyage: precisione
 0,98, copertura 0,96. Il 2026-11-14, su tutti i consigli canadesi tradotti, la regola dei participi e del "vi" di luogo
 ha tolto 24 segnalazioni, tutte false. Il 2026-11-16, sulle 44.316 traduzioni di Canada e Wikivoyage, le regole su
@@ -42,7 +42,9 @@ PLACE_VI = {"accedere", "andare", "entrare", "arrivare", "tornare", "restare", "
 PLACE_VI_THIRD = {"condurre", "risiedere", "crescere", "transitare", "operare", "abitare"}
 SUBORD = {"se","quando", "dove", "come", "mentre", "perché", "perche"}  # dopo queste il congiuntivo di 3a e' raro
 QUOTED = re.compile(r"\"[^\"]*\"|“[^”]*”|«[^»]*»")
-CROSS_REF = re.compile(r"\(vedi\b", re.IGNORECASE)  # "(vedi Livelli di rischio)": forma scelta per i rimandi
+# Rimandi: "(vedi Livelli di rischio)", forma scelta, e "vedi" davanti a un titolo, "anche", "sotto", "sopra",
+# "di seguito", "la sezione" o "#" ("Vedi anche: Guidare in Svezia", "vedi #Abbigliamento"); "Se vedi un incendio" conta.
+CROSS_REF = re.compile(r"\([Vv]edi\b|\b[Vv]edi(?=\s+(?:anche|sotto|sopra|di seguito|la sezione)\b|\s*[#:]|\s+[A-ZÀ-Ö])")
 CLAUSE = re.compile(r"(?<=[.!?;:])\s+|\n|^\s*[•▸\-–]\s*|\(|\)")
 WORD = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ']+")
 
