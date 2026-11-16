@@ -25,7 +25,8 @@ cieca del 2026-10-31) su llama-server, sotto il lucchetto di gpu_lock.py, con --
 cache KV comune. Traduce per paragrafo (una riga del corpo, senza
 il segno iniziale "▸ " o "• "), a blocchi di righe numerate di BLOCK_CHARS caratteri con regione e categoria nel prompt,
 con il registro impersonale chiesto nel prompt; i paragrafi in cui register_check.py (lessico Morph-it) trova ancora il tu
-o il voi tornano al modello una alla volta (fix_register). Un paragrafo con numeri diversi dall'originale o di lunghezza
+o il voi tornano al modello una alla volta (fix_register), che tiene una riscrittura solo se cambia poco altro oltre
+alle parole segnalate (few_changes). Un paragrafo con numeri diversi dall'originale o di lunghezza
 fuori misura non si salva. Ogni paragrafo tradotto va subito in --translations, una riga JSON {"k": sha1("en-it\\n" +
 paragrafo), "t": traduzione, "m": modello, "v": versione del prompt}: il file e' la cache dei giri successivi e
 l'asset che la CI legge con il motore file. Un file contiene le traduzioni di un solo modello.
@@ -45,6 +46,7 @@ lingua non si aggiungono (Londra e London comparirebbero due volte).
 """
 import argparse
 import collections
+import difflib
 import hashlib
 import json
 import os
@@ -65,8 +67,11 @@ from eval_common import Synced, drop_partial_line
 from status import Progress
 
 # Dai fatti rapidi in inglese non si traduce: li costruisce la pipeline dai Fatti rapidi italiani. Le frasi utili inglesi
-# (Talk) sono per chi parla inglese: la pronuncia ("Bonjour (bohn-ZHOOR)") tradotta resterebbe all'inglese.
-SKIP_CATEGORIES = {"FATTI_RAPIDI", "FRASI_UTILI"}
+# (Talk) si traducono solo quando sono prosa su lingue e dialetti: un elenco di frasi ("Hello - Talofa (tah-low-fah)",
+# 9 sezioni su 310 nelle guide 167) ha la pronuncia per chi parla inglese, che tradotta resterebbe all'inglese.
+SKIP_CATEGORIES = {"FATTI_RAPIDI"}
+PHRASES = "FRASI_UTILI"
+PHRASE_LINE = re.compile(r"^(?:• )?[^\n]{1,40} [-–—:] [^\n]{1,60}$", re.M)
 # Revisione a campione del 2026-10-09 (1786 frasi tradotte dall'inglese, controllate una per una per omissioni,
 # aggiunte, numeri e senso): con MarianMT le sezioni di
 # Wikivoyage hanno il 21% di frasi con errori critici o gravi (senso sbagliato delle parole ambigue: "Muggings" -> "I
@@ -88,7 +93,7 @@ FIXED_TITLES = {
     "Get in": "Come arrivare", "Get around": "Come spostarsi", "See": "Cosa vedere", "Do": "Cosa fare",
     "Buy": "Valuta e acquisti", "Eat": "A tavola", "Drink": "Bevande", "Sleep": "Dove alloggiare",
     "Stay safe": "Sicurezza", "Stay healthy": "Situazione sanitaria", "Respect": "Rispettare le usanze",
-    "Connect": "Come restare in contatto", "Cope": "Tenersi informati",
+    "Connect": "Come restare in contatto", "Cope": "Tenersi informati", "Talk": "Frasi utili",
 }
 # Traduzioni corrette a mano delle frasi inglesi piu' frequenti (una riga "inglese<TAB>italiano"): prevalgono sulla cache
 # e sul modello.
@@ -387,6 +392,15 @@ def register_ok(new, old, second_person):
             and sum(map(new.count, "▸•")) <= sum(map(old.count, "▸•")))
 
 
+def few_changes(new, old, flagged):
+    """Vero se [new] cambia, tolte o aggiunte, al piu' le [flagged] parole segnalate di [old] piu' una, o piu' il 5% delle
+    parole di [old]. Revisione del 2026-11-16 su 80 riscritture: oltre questa soglia 8 su 37 peggioravano il senso (frasi
+    accorciate, soggetto cambiato), sotto 2 su 43."""
+    a, b = WORD.findall(old.lower()), WORD.findall(new.lower())
+    kept = sum(m.size for m in difflib.SequenceMatcher(None, a, b, autojunk=False).get_matching_blocks())
+    return max(len(a), len(b)) - kept - flagged <= max(1, 0.05 * len(a))
+
+
 def fix_register(chat, english, italian, second_person):
     """(traduzione, esito): [italian] se non si rivolge al lettore (esito None), altrimenti la prima riscrittura del
     modello che passa register_ok (True) o la migliore trovata (False). [second_person] da' le parole segnalate
@@ -395,7 +409,7 @@ def fix_register(chat, english, italian, second_person):
     hits = second_person(italian)
     if not hits:
         return italian, None
-    best = italian
+    best, flagged = italian, len(hits)
     for temperature, seed in FIX_TRIES:
         words = ", ".join(dict.fromkeys(w for w, _ in hits))
         raw = NUMBERED.sub(r"\2", chat(f"{FIX_PROMPT}\n\nParole da cambiare: {words}\nInglese: {english}\n"
@@ -403,6 +417,8 @@ def fix_register(chat, english, italian, second_person):
         # a volte il modello da' piu' versioni, una per riga: vale ognuna
         for candidate in [raw] + raw.splitlines():
             candidate = strip_markers(candidate)
+            if not few_changes(candidate, italian, flagged):
+                continue
             if register_ok(candidate, italian, second_person):
                 return candidate, True
             fewer = second_person(candidate)
@@ -564,12 +580,17 @@ def pick_sections(own_sections, source, source_owner):
     picks = []
     for owner, other in sorted(source_owner.items()):
         for category, rows in sorted(by_owner.get(other, {}).items()):
-            if category in SKIP_CATEGORIES:
+            if category in SKIP_CATEGORIES or (category == PHRASES and phrase_list(rows)):
                 continue
             own = "\n".join(body for _, body, _ in own_sections.get((owner, category), []))
             if ts.needs_translation(own, "\n".join(body for _, body, _ in rows)):
                 picks.append((owner, category, rows))
     return picks
+
+
+def phrase_list(rows):
+    """Vero se le sezioni [rows] hanno un elenco di frasi: almeno 3 righe brevi "frase - traduzione"."""
+    return sum(len(PHRASE_LINE.findall(body)) for _, body, _ in rows) >= 3
 
 
 def pick_travel_advice(source, source_owner):

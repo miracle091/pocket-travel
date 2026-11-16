@@ -53,6 +53,12 @@ class PickSectionsTest(unittest.TestCase):
         en = tg.group(rows("a", "FATTI_RAPIDI", "e" * 500))
         self.assertEqual([], tg.pick_sections({}, en, {"a": "a"}))
 
+    def test_frasi_utili_tradotte_solo_senza_elenco_di_frasi(self):
+        prose = "French is the main language, though many people in rural areas have strong accents. " * 4
+        phrases = prose + "\n\nSome common phrases:\n• Hello - Talofa (tah-low-fah)\n• Please - Fa'amolemole\n• Thank you - Fa'afetai"
+        en = tg.group(rows("a", "FRASI_UTILI", prose) + rows("b", "FRASI_UTILI", phrases))
+        self.assertEqual([("a", "FRASI_UTILI")], [(p[0], p[1]) for p in tg.pick_sections({}, en, {"a": "a", "b": "b"})])
+
     def test_solo_proprietari_italiani_con_omologo(self):
         en = tg.group(rows("Venice", "COSA_VEDERE", "e" * 500) + rows("Londra", "COSA_VEDERE", "e" * 500))
         picks = tg.pick_sections({}, en, {"Venezia": "Venice", "Roma": "Rome"})
@@ -517,6 +523,10 @@ class LlamaBackendTest(unittest.TestCase):
         self.assertEqual(("Evita le zone isolate. Parti dopo le 22.", False),
                          tg.fix_register(marker, "Avoid remote areas. Leave after 22.",
                                          "Evita le zone isolate. Parti dopo le 22.", second))
+        # riscrittura che cambia anche altre parole oltre a quelle segnalate (qui il soggetto): bocciata
+        rewritten = FakeChat(lambda *_: "Le zone isolate vanno evitate dagli stranieri dopo le 22.")
+        self.assertEqual(("Evita le zone isolate dopo le 22.", False),
+                         tg.fix_register(rewritten, "Avoid remote areas after 22.", "Evita le zone isolate dopo le 22.", second))
         untouched = FakeChat(lambda *_: self.fail("modello chiamato"))
         self.assertEqual(("Evitare le zone.", None), tg.fix_register(untouched, "Avoid areas.", "Evitare le zone.", second))
 

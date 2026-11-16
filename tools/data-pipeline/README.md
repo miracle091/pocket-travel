@@ -674,8 +674,9 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   decenni ("1990s" e "anni '90") e numeri fino a 12 in lettere. Con `--backend llama` e `file` si traducono anche le
   sezioni di Wikivoyage della guida inglese dove quella italiana è assente, sotto 300 caratteri o lunga meno della
   metà: prendono il posto della categoria italiana, con i titoli che le guide italiane usano già ("Get in" diventa
-  "Come arrivare"); si confrontano solo le sezioni di Wikivoyage, e le Frasi utili inglesi restano fuori (la pronuncia
-  è scritta per chi parla inglese). Con MarianMT (`--backend marian`) il confronto resta spento
+  "Come arrivare"); si confrontano solo le sezioni di Wikivoyage. Le Frasi utili inglesi si traducono solo quando sono
+  prosa su lingue e dialetti: un elenco di frasi ("Hello - Talofa (tah-low-fah)") resta fuori, perché la pronuncia è
+  scritta per chi parla inglese. Con MarianMT (`--backend marian`) il confronto resta spento
   (`WIKIVOYAGE_SECTIONS`), anche per le città e dall'italiano all'inglese: in una revisione a campione il 21%
   delle frasi tradotte aveva errori critici o gravi, contro il 5,8% di quelle del Governo del Canada. In publish-regions
   i passi girano solo con la variabile del repository `TRANSLATE_GUIDES` uguale a `true`: con la variabile spenta le guide escono
