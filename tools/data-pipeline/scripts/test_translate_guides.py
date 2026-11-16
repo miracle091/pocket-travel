@@ -512,6 +512,11 @@ class LlamaBackendTest(unittest.TestCase):
         self.assertEqual(("Evita le zone isolate dopo le 22.", False),
                          tg.fix_register(wrong_number, "Avoid remote areas after 22.", "Evita le zone isolate dopo le 22.", second))
         self.assertEqual(len(tg.FIX_TRIES), len(wrong_number.prompts))
+        # il modello a volte mette "▸ " o "• " davanti a una frase in mezzo al paragrafo
+        marker = FakeChat(lambda *_: "Evitare le zone isolate. • Partire dopo le 22.")
+        self.assertEqual(("Evita le zone isolate. Parti dopo le 22.", False),
+                         tg.fix_register(marker, "Avoid remote areas. Leave after 22.",
+                                         "Evita le zone isolate. Parti dopo le 22.", second))
         untouched = FakeChat(lambda *_: self.fail("modello chiamato"))
         self.assertEqual(("Evitare le zone.", None), tg.fix_register(untouched, "Avoid areas.", "Evitare le zone.", second))
 

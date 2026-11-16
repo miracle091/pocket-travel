@@ -379,11 +379,12 @@ def translate_block(chat, head, texts):
 
 
 def register_ok(new, old, second_person):
-    """Riscrittura accettabile: niente seconda ne' prima persona, stessi numeri, una riga, nessuna parola inglese in piu',
-    almeno il 70% della lunghezza (il modello a volte toglie frasi intere)."""
+    """Riscrittura accettabile: niente seconda ne' prima persona, stessi numeri, una riga, nessuna parola inglese e nessun
+    segno "▸"/"•" in piu', almeno il 70% della lunghezza (il modello a volte toglie frasi intere)."""
     return (len(new) >= 0.7 * len(old) and "\n" not in new and not second_person(new) and not FIRST_PERSON.search(new)
             and sorted(DIGITS.findall(new)) == sorted(DIGITS.findall(old))
-            and len(ENGLISH_WORDS.findall(new)) <= len(ENGLISH_WORDS.findall(old)))
+            and len(ENGLISH_WORDS.findall(new)) <= len(ENGLISH_WORDS.findall(old))
+            and sum(map(new.count, "▸•")) <= sum(map(old.count, "▸•")))
 
 
 def fix_register(chat, english, italian, second_person):
