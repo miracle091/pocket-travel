@@ -26,6 +26,18 @@ fatti\tfare\tVER:part+past+p+m
 informati\tinformare\tVER:part+past+p+m
 accedere\taccedere\tVER:inf+pres
 impedire\timpedire\tVER:inf+pres
+cuba\tcubare\tVER:impr+pres+2+s
+cuba\tcubare\tVER:ind+pres+3+s
+sia\tessere\tVER:sub+pres+2+s
+sia\tessere\tVER:sub+pres+3+s
+sia\tsia\tCON
+data\tdatare\tVER:impr+pres+2+s
+data\tdatare\tVER:ind+pres+3+s
+data\tdata\tNOUN-F:s
+spina\tspinare\tVER:impr+pres+2+s
+spinacio\tspinacio\tNOUN-M:s
+vivono\tvivere\tVER:ind+pres+3+p
+interessano\tinteressare\tVER:ind+pres+3+p
 """
 
 
@@ -56,6 +68,19 @@ class RegisterCheckTest(unittest.TestCase):
         self.assertEqual([], rc.hits("I voli potrebbero essere cancellati, ritardati o deviati."))
         self.assertEqual([], rc.hits("Diffidare dei medicinali contraffatti."))
         self.assertEqual([], rc.hits("Evitare le aree colpite, a meno che non sia sicuro accedervi."))
+
+    def test_falsi_allarmi_del_giro_wikivoyage(self):
+        # visti il 2026-11-15 nelle traduzioni di Wikivoyage: nomi propri e maiuscole a inizio frase, "sia ... che",
+        # "Data la", plurali di nomi, "che vi" + verbo di luogo
+        self.assertEqual([], rc.hits("Cuba ha un clima caldo. Arrivare a Cuba in aereo."))
+        self.assertEqual([], rc.hits("EVITA OGNI VIAGGIO NELLA ZONA."))
+        self.assertEqual([], rc.hits("Sia i treni che gli autobus sono lenti."))
+        self.assertEqual([], rc.hits("Data la distanza, prendere il treno."))
+        self.assertEqual([], rc.hits("Assaggiare il riso, spinaci e pesce."))
+        self.assertEqual([], rc.hits("Rispettare le persone che vi vivono."))
+        # restano: imperativo a inizio frase non usato come nome, "vi" che e' voi
+        self.assertEqual([("Evita", "verbo ambiguo a inizio frase")], rc.hits("Evita le zone. A Cuba piove."))
+        self.assertEqual([("vi", "vi")], rc.hits("Controllare i prezzi degli articoli che vi interessano."))
 
     def test_vedi_tra_parentesi_e_un_rimando(self):
         # "(vedi Livelli di rischio)" e' la forma scelta per i rimandi (utente, 2026-11-14); fuori dalle parentesi conta

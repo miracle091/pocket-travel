@@ -484,12 +484,27 @@ class LlamaBackendTest(unittest.TestCase):
         self.assertEqual(list(pairs.values())[:5] + [None, None],
                          [tg.translate_block(chat, "Guida", [en])[0] for en in pairs])  # 19:00 e "le 9" restano sospette
 
+    def test_secoli_decenni_e_numeri_in_lettere_non_sono_numeri_diversi(self):
+        good = {"Built in the 19th century.": "Costruito nel XIX secolo.",
+                "An 18th-century church.": "Una chiesa del Settecento.",
+                "Life in the 1800s.": "La vita nell'Ottocento.",
+                "Popular in the 1990s and 1960s.": "Popolare negli anni '90 e negli anni Sessanta.",
+                "Take 2 buses, 1st class.": "Prendere due autobus, in prima classe.",
+                "Two trains a day.": "2 treni al giorno.",
+                "Open 7-8PM, shops 9-5pm.": "Aperto dalle 19:00 alle 20:00, negozi dalle 9:00 alle 17:00."}
+        bad = {"Half a dozen stalls, 6 in all.": "Una dozzina di bancarelle, 12 in tutto.",
+               "Exit 7, then 2 km.": "Uscita 7, poi due chilometri e 3 metri.",
+               "Built in the 19th century.": "Costruito nel XVIII secolo.",
+               "Popular in the 1990s.": "Popolare negli anni '80."}
+        self.assertEqual([], [en for en, it in good.items() if not tg.same_numbers(en, it)])
+        self.assertEqual([], [en for en, it in bad.items() if tg.same_numbers(en, it)])
+
     def test_segno_iniziale_aggiunto_dal_modello_tolto(self):
         chat = FakeChat(lambda *_: "[1] • Rispettare sempre gli ordini.")
         self.assertEqual(["Rispettare sempre gli ordini."], tg.translate_block(chat, "Guida: a.", ["Always comply with orders."]))
 
     def test_registro_riscritto_solo_se_la_riscrittura_regge(self):
-        second = lambda t: t.startswith("Evita ")
+        second = lambda t: [(w, "verbo") for w in ("Evita", "ti") if w in t.split()]
         ok = FakeChat(lambda *_: "Evitare le zone isolate dopo le 22.")
         self.assertEqual(("Evitare le zone isolate dopo le 22.", True),
                          tg.fix_register(ok, "Avoid remote areas after 22.", "Evita le zone isolate dopo le 22.", second))
@@ -499,6 +514,17 @@ class LlamaBackendTest(unittest.TestCase):
         self.assertEqual(len(tg.FIX_TRIES), len(wrong_number.prompts))
         untouched = FakeChat(lambda *_: self.fail("modello chiamato"))
         self.assertEqual(("Evitare le zone.", None), tg.fix_register(untouched, "Avoid areas.", "Evitare le zone.", second))
+
+    def test_registro_riscrittura_parziale_base_del_tentativo_dopo(self):
+        # il modello corregge una frase e lascia l'altra: la riscrittura parziale vale come base, con le parole rimaste
+        second = lambda t: [(w, "verbo") for w in ("Evita", "Porta") if w in t.split()]
+        answers = iter(["Evitare le zone isolate. Porta acqua.", "Evitare le zone isolate. Portare acqua."])
+        chat = FakeChat(lambda *_: next(answers))
+        self.assertEqual(("Evitare le zone isolate. Portare acqua.", True),
+                         tg.fix_register(chat, "Avoid remote areas. Bring water.", "Evita le zone isolate. Porta acqua.", second))
+        self.assertIn("Parole da cambiare: Evita, Porta\n", chat.prompts[0])
+        self.assertIn("Parole da cambiare: Porta\n", chat.prompts[1])
+        self.assertTrue(chat.prompts[1].endswith("Traduzione da correggere: Evitare le zone isolate. Porta acqua."))
 
     def test_correzioni_doppioni_e_tempo(self):
         picks = [("a", "SALUTE", [("Health (Government of Canada)", "Drink water.\nEat rice.", GC)]),

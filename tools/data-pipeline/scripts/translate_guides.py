@@ -44,6 +44,7 @@ Citta': l'omologo di una pagina e' il titolo di Wikivoyage nell'altra lingua col
 lingua non si aggiungono (Londra e London comparirebbero due volte).
 """
 import argparse
+import collections
 import hashlib
 import json
 import os
@@ -268,19 +269,96 @@ CLOCK_12 = re.compile(r"\b(\d{1,2})(?::(\d\d))?\s*([ap])\.?m\b\.?", re.IGNORECAS
 CLOCK_24 = re.compile(r"\b0(\d:\d\d)\b")
 ROUND_THE_CLOCK = re.compile(r"\b(\d+) (?:ore|giorni) su \1\b")
 THOUSANDS = re.compile(r"\b\d{1,3}(?:[ \u00a0\u202f.,]\d{3})+\b")
+# "7-8PM": l'orario d'inizio senza suffisso prende quello della fine, se non e' piu' tardi ("9-5pm" va dalle 9 alle 17)
+CLOCK_12_RANGE = re.compile(r"\b(\d{1,2})(?::(\d\d))?\s*[-\u2013]\s*(?=(\d{1,2})(?::\d\d)?\s*([ap])\.?m\b)", re.IGNORECASE)
+# numeri che l'italiano scrive in lettere o in un'altra forma: fino a 12 (cardinali e ordinali), secoli ("Ottocento",
+# "XIX"), decenni ("anni Novanta"); l'inglese fino a 12 in lettere
+IT_WORDS = {w: n for n, words in enumerate((
+    "", "uno una un primo prima primi prime", "due secondo seconda secondi seconde", "tre terzo terza terzi terze",
+    "quattro quarto quarta quarti quarte", "cinque quinto quinta quinti quinte", "sei sesto sesta sesti seste",
+    "sette settimo settima settimi settime", "otto ottavo ottava ottavi ottave", "nove nono nona noni none",
+    "dieci decimo decima decimi decime", "undici undicesimo undicesima", "dodici dodicesimo dodicesima")) for w in words.split()}
+EN_WORDS = {w: n for n, words in enumerate((
+    "", "one first", "two second", "three third", "four fourth", "five fifth", "six sixth", "seven seventh",
+    "eight eighth", "nine ninth", "ten tenth", "eleven eleventh", "twelve twelfth")) for w in words.split()}
+IT_CENTURIES = {w: n for n, w in enumerate("Duecento Trecento Quattrocento Cinquecento Seicento Settecento Ottocento "
+                                           "Novecento".split(), 13)}
+IT_DECADES = {w: n for n, w in zip(range(20, 100, 10), "venti trenta quaranta cinquanta sessanta settanta ottanta novanta".split())}
+WORD = re.compile(r"[^\W\d_]+")
+ROMAN = re.compile(r"\b[IVXLC]+\b")
+
+
+def roman(text):
+    values = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100}
+    n = sum(-values[a] if values[a] < values[b] else values[a] for a, b in zip(text, text[1:])) + values[text[-1]]
+    return n if 0 < n < 40 and re.fullmatch(r"X{0,3}(IX|IV|V?I{0,3})", text) else None
+
+
+def _number_words(text, english):
+    """Counter dei numeri che [text] scrive in lettere (o in romani, secoli e decenni se italiano)."""
+    found = collections.Counter()
+    words = WORD.findall(text)
+    for prev, word in zip([""] + words, words):
+        if english:
+            n = EN_WORDS.get(word.lower())
+        else:
+            n = (IT_CENTURIES.get(word) or (IT_DECADES.get(word.lower()) if prev.lower() == "anni" else None)
+                 or IT_WORDS.get(word.lower()))
+        if n:
+            found[n] += 1
+    if not english:
+        found.update(n for n in map(roman, ROMAN.findall(text)) if n)
+    return found
+
+
+def _numbers_in_words(src, s, out, o):
+    """True se i numeri di [s] e [o] (src e out normalizzati) diversi tornano con le forme in lettere: un numero
+    dell'inglese che manca e' "due", "XIX secolo" o "Ottocento" nell'italiano; "1990s" e' "anni '90" o "anni Novanta";
+    un numero in piu' nell'italiano e' scritto in lettere nell'inglese. Ogni parola vale per un numero solo."""
+    a, b = collections.Counter(ts._numbers(s)), collections.Counter(ts._numbers(o))
+    lost, extra = a - b, b - a
+    it_words, en_words = _number_words(out, False), _number_words(src, True)
+    for n in lost.elements():
+        if not n.isdigit():
+            return False
+        v = int(n)
+        decade = len(n) == 4 and re.search(rf"\b{n}'?s\b", src)
+        if it_words[v]:
+            it_words[v] -= 1
+        elif decade and extra[n[2:]]:
+            extra[n[2:]] -= 1
+        elif decade and it_words[v % 100] and v % 100:
+            it_words[v % 100] -= 1
+        elif decade and v % 100 == 0 and it_words[v // 100 + 1]:
+            it_words[v // 100 + 1] -= 1  # "1800s" e' l'Ottocento
+        else:
+            return False
+    for n in (+extra).elements():
+        if not (n.isdigit() and en_words[int(n)]):
+            return False
+        en_words[int(n)] -= 1
+    return True
 
 
 def same_numbers(src, out):
     """ts._plausible con i numeri scritti all'italiana: "8 p.m." = "20:00", "24/7" = "24 ore su 24, 7 giorni su 7",
-    "20 000" = "20.000". Senza, il controllo scarta proprio le traduzioni che convertono gli orari; con un orario a 12
-    ore nell'inglese vale solo la forma convertita ("after 9 pm" non e' "dopo le 9")."""
-    def clock(m):
-        hour = int(m.group(1)) % 12 + (12 if m.group(3).lower() == "p" else 0)
-        return f"{hour}:{m.group(2) or '00'}"
+    "20 000" = "20.000", e le forme di _numbers_in_words ("19th century" = "XIX secolo", "2" = "due"). Senza, il
+    controllo scarta proprio le traduzioni corrette; con un orario a 12 ore nell'inglese vale solo la forma convertita
+    ("after 9 pm" non e' "dopo le 9")."""
+    def hour(h, minutes, suffix):
+        return f"{int(h) % 12 + (12 if suffix.lower() == 'p' else 0)}:{minutes or '00'}"
+    def start(m):
+        suffix = m.group(4) if int(m.group(1)) % 12 <= int(m.group(3)) % 12 else "pa"[m.group(4).lower() == "p"]
+        return hour(m.group(1), m.group(2), suffix) + "-"
     def plain(text):
         return THOUSANDS.sub(lambda m: re.sub(r"\D", "", m.group()), text)
-    return not CLOCK_12.search(src) and ts._plausible(src, out) or ts._plausible(plain(CLOCK_24.sub(r"\1", CLOCK_12.sub(clock, src).replace("24/7", "24 7"))),
-                                                    plain(CLOCK_24.sub(r"\1", ROUND_THE_CLOCK.sub(r"\1", out))))
+    if not CLOCK_12.search(src) and ts._plausible(src, out):
+        return True
+    s = plain(CLOCK_24.sub(r"\1", CLOCK_12.sub(lambda m: hour(*m.groups()), CLOCK_12_RANGE.sub(start, src))
+                           .replace("24/7", "24 7")))
+    o = plain(CLOCK_24.sub(r"\1", ROUND_THE_CLOCK.sub(r"\1", out)))
+    return ts._plausible(s, o) or (ts.UNKNOWN not in out and 0.5 <= (len(out) + 10) / (len(src) + 10) <= 2.0
+                                   and _numbers_in_words(src, s, out, o))
 
 
 def translate_block(chat, head, texts):
@@ -310,18 +388,27 @@ def register_ok(new, old, second_person):
 
 def fix_register(chat, english, italian, second_person):
     """(traduzione, esito): [italian] se non si rivolge al lettore (esito None), altrimenti la prima riscrittura del
-    modello che passa register_ok (True) o [italian] com'era (False)."""
-    if not second_person(italian):
+    modello che passa register_ok (True) o la migliore trovata (False). [second_person] da' le parole segnalate
+    (register_check.hits); il prompt le nomina, e una riscrittura con meno segnalazioni e nessun altro difetto diventa
+    la base del tentativo dopo: il modello spesso corregge una frase e lascia le altre."""
+    hits = second_person(italian)
+    if not hits:
         return italian, None
+    best = italian
     for temperature, seed in FIX_TRIES:
-        raw = NUMBERED.sub(r"\2", chat(f"{FIX_PROMPT}\n\nInglese: {english}\nTraduzione da correggere: {italian}",
-                                       temperature, seed).strip()).strip()
+        words = ", ".join(dict.fromkeys(w for w, _ in hits))
+        raw = NUMBERED.sub(r"\2", chat(f"{FIX_PROMPT}\n\nParole da cambiare: {words}\nInglese: {english}\n"
+                                       f"Traduzione da correggere: {best}", temperature, seed).strip()).strip()
         # a volte il modello da' piu' versioni, una per riga: vale ognuna
         for candidate in [raw] + raw.splitlines():
             candidate = strip_markers(candidate)
             if register_ok(candidate, italian, second_person):
                 return candidate, True
-    return italian, False
+            fewer = second_person(candidate)
+            if len(fewer) < len(hits) and register_ok(candidate, italian, lambda t: False):
+                best, hits = candidate, fewer
+                break
+    return best, False
 
 
 def start_llama_server(gguf, llama_cpp, device, log_path, parallel=1):
@@ -697,7 +784,7 @@ def main(argv=None):
             deadline = min(time.time() + args.max_seconds, args.deadline)
             try:
                 counts = translate_paragraphs(picks, store, llama_chat(url), read_corrections(),
-                                              lambda t: bool(register_check.hits(t)), deadline, args.parallel)
+                                              register_check.hits, deadline, args.parallel)
                 if counts["errori"]:
                     print(f"blocchi non tradotti: log di llama-server in {server_log}", file=sys.stderr)
             finally:
