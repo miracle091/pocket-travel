@@ -115,11 +115,16 @@ private val currencyTemplateRegex = Regex("""[A-Z]{3}""")
 private val convertTemplateNames = setOf("convert", "cvt")
 private val convertRangeWords = setOf("and", "to", "or", "-", "–")
 private val unitSymbols = mapOf("C" to "°C", "F" to "°F", "km2" to "km²", "m2" to "m²", "m3" to "m³", "sqmi" to "sq mi")
+
 // Misure di Wikivoyage EN: {{km|39}}, {{mi|700}}, {{C|30}} (e i nomi interi {{Kilometer}}, ...) sono {{convert}} con
 // l'unita' fissa; {{m|2000}} minuscolo e' il metro, {{M|...}} maiuscolo la misura di Wikipedia IT.
 private val wikivoyageUnits = mapOf(
     "km" to "km", "kilometer" to "km", "mi" to "mi", "mile" to "mi", "meter" to "m", "ft" to "ft", "foot" to "ft",
     "c" to "°C", "celsius" to "°C", "f" to "°F", "fahrenheit" to "°F",
+    "kmh" to "km/h", "kilometerperhour" to "km/h", "mph" to "mph", "milesperhour" to "mph", "kg" to "kg",
+    "kilogram" to "kg", "lb" to "lb", "km2" to "km²", "squarekilometer" to "km²", "mi2" to "sq mi",
+    "squaremile" to "sq mi", "ha" to "ha", "hectare" to "ha", "acre" to "acre", "in" to "in", "inch" to "in",
+    "mm" to "mm", "millimeter" to "mm", "yd" to "yd", "yard" to "yd",
 )
 
 private fun convertMeasure(params: List<String>): String {
