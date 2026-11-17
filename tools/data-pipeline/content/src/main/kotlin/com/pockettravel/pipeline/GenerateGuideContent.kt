@@ -142,6 +142,17 @@ private fun italianMeasure(params: List<String>): String {
     return "$value ${unitSymbols[unit] ?: unit}".trim()
 }
 
+// Eta' che crescono con gli anni ("Older Bulgarians ({{#expr:{{CURRENTYEAR}}-1976}}+)"): {{CURRENTYEAR}} e' l'anno
+// corrente, {{#expr:...}} si calcola se ha solo somme e differenze di interi.
+private val integerSumRegex = Regex("""\s*\d+(?:\s*[-+]\s*\d+)*\s*""")
+private val signedTermRegex = Regex("""([-+]?)\s*(\d+)""")
+
+private fun integerSum(expression: String): String {
+    if (!integerSumRegex.matches(expression)) return ""
+    return signedTermRegex.findAll(expression)
+        .sumOf { if (it.groupValues[1] == "-") -it.groupValues[2].toLong() else it.groupValues[2].toLong() }.toString()
+}
+
 private fun resolveTemplate(inner: String): String? {
     // Le | dentro un link non separano i parametri: {{lang|hr|[[24sata (Croatia)|24sata]]}}.
     val parts = listingParamSplitRegex.split(inner)
@@ -166,6 +177,8 @@ private fun resolveTemplate(inner: String): String? {
         name == "m" && first.isNotEmpty() -> "$first m"
         lower == "m" -> italianMeasure(params)
         lower in wikivoyageUnits && first.isNotEmpty() -> "$first ${wikivoyageUnits.getValue(lower)}"
+        name == "CURRENTYEAR" -> LocalDate.now(ZoneOffset.UTC).year.toString()
+        lower.startsWith("#expr:") -> integerSum(name.substringAfter(':'))
         // Link a una voce in un'altra lingua di Wikipedia EN: il testo (lt=) o il titolo.
         lower == "interlanguage link" || lower == "ill" ->
             params.firstOrNull { it.startsWith("lt=") }?.substringAfter('=')?.takeIf { it.isNotEmpty() } ?: first

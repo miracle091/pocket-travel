@@ -9,6 +9,8 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.lang.reflect.InvocationTargetException
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 /** cleanBody (casi di bordo non coperti da GuideMarkupTest) e il processo a righe JSON usato dagli script Python. */
 class CleanWikitextTest {
@@ -71,6 +73,14 @@ class CleanWikitextTest {
         assertEquals("Lookout Pass is over 700 mi, about 39 km from Reykjavík.", cleanBody("Lookout Pass is over {{mi|700}}, about {{km|39}} from Reykjavík."))
         assertEquals("Up to 30 °C, 2000 m high, 500 ft, 5 km wide.", cleanBody("Up to {{C|30}}, {{m|2000}} high, {{ft|500}}, {{km|5|adj=on}} wide."))
         assertEquals("A top speed of 160 km/h over 700 km, 20 kg, 3 km².", cleanBody("A top speed of {{kmh|160}} over {{km|700}}, {{kg|20}}, {{km2|3}}."))
+    }
+
+    @Test
+    fun `l'anno corrente e le somme di interi di Wikivoyage diventano numeri`() {
+        val age = LocalDate.now(ZoneOffset.UTC).year - 1976
+        assertEquals("Older Bulgarians ($age+) speak Russian.", cleanBody("Older Bulgarians ({{#expr:{{CURRENTYEAR}}-1976}}+) speak Russian."))
+        assertEquals("Open since 1990, 12 rooms.", cleanBody("Open since {{#expr:1990}}, {{#expr: 10 + 5 - 3 }} rooms."))
+        assertEquals("Ratio.", cleanBody("Ratio {{#expr:10/3}}."))
     }
 
     @Test
