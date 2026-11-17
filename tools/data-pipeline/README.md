@@ -446,6 +446,16 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   paragrafo entro 4.000 caratteri. Mai fatale: le regioni la cui voce non si legge tengono le sezioni di Wikipedia
   del `guides.db` pubblicato. Con le voci di ottobre 2026 escono circa 250 sezioni di 160 regioni in italiano e 390 di 250
   regioni in inglese.
+- **Termini locali**: `scripts/local_terms.py`, lanciato da `build-guides.sh` per ogni lingua, legge da Wikidata le
+  categorie di Wikipedia del paese di ogni regione (argomenti del paese, P971, e la cucina nazionale) e ne prende le
+  voci (piatti, bevande, feste, usanze, abiti, strumenti) con i redirect come nomi. Tiene quelle che la pagina di
+  Wikivoyage della regione nomina come parola intera, senza accenti né maiuscole, e scarta elenchi, disambigue, persone
+  e luoghi, e i nomi che sono il titolo di un'altra voce. Per ogni termine scrive il nome usato dalla guida, gli altri
+  nomi, l'introduzione della voce (fino a 600 caratteri, per frase intera), URL e revisione. `generateGuides
+  --local-terms` (`LocalTermRow.kt`) li scrive nella tabella `guide_terms`; le regioni non lette tengono i termini del
+  `guides.db` pubblicato. Mai fatale, 20 minuti per lingua (`MAX_SECONDS`). Su dieci nazioni di prova escono circa 190
+  termini in italiano e 400 in inglese (100 e 300 KB), con una precisione del 96-98% controllata a mano; l'inglese
+  richiede 11-14 minuti per le risposte 429 di Wikimedia.
 - **Misura della scelta del contesto**: `scripts/eval_retrieval.py` replica in Python la scelta del contesto di
   `TravelAssistant.kt` e `FtsRanking.kt` (BM25, città nominata nella domanda, paragrafi del contesto) e la misura sulle
   guide pubblicate di alcune regioni, con Storia e Clima da Wikipedia se i `cities.db` pubblicati non li hanno ancora,

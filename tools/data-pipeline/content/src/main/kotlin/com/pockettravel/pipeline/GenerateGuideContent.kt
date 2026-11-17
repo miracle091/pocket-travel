@@ -650,10 +650,14 @@ fun main(rawArgs: Array<String>) {
     // --wikipedia <jsonl>: sezioni della voce di Wikipedia di ogni regione (country_wikipedia.py, CountryWikipedia.kt).
     val wikipediaIndex = withoutEmergency.indexOf("--wikipedia")
     val wikipediaJsonl = if (wikipediaIndex >= 0) withoutEmergency.getOrNull(wikipediaIndex + 1)?.let(::File) else null
-    val args = if (wikipediaIndex >= 0) withoutEmergency.take(wikipediaIndex) + withoutEmergency.drop(wikipediaIndex + 2) else withoutEmergency
+    val withoutWikipedia = if (wikipediaIndex >= 0) withoutEmergency.take(wikipediaIndex) + withoutEmergency.drop(wikipediaIndex + 2) else withoutEmergency
+    // --local-terms <jsonl>: termini locali di ogni regione (local_terms.py, LocalTermRow.kt).
+    val termsIndex = withoutWikipedia.indexOf("--local-terms")
+    val termsJsonl = if (termsIndex >= 0) withoutWikipedia.getOrNull(termsIndex + 1)?.let(::File) else null
+    val args = if (termsIndex >= 0) withoutWikipedia.take(termsIndex) + withoutWikipedia.drop(termsIndex + 2) else withoutWikipedia
     require(args.size in 2..3) {
         "Uso: generateGuides [--lang en] [--missions <missioni.tsv>] [--translated <tradotte.jsonl>] [--travel-advice <consigli.tsv>] " +
-            "[--general-guide <guida-generale.tsv>] [--emergency-centre <pagina.html>] [--wikipedia <voci.jsonl>] " +
+            "[--general-guide <guida-generale.tsv>] [--emergency-centre <pagina.html>] [--wikipedia <voci.jsonl>] [--local-terms <termini.jsonl>] " +
             "<regioni.tsv> <output guides.db> [guides.db pubblicato]"
     }
     val outputDb = File(args[1])
@@ -699,6 +703,13 @@ fun main(rawArgs: Array<String>) {
     outputDb.delete()
     writeGuidesDb(guides, outputDb)
     writeDiplomaticMissions(missionsTsv, publishedDb, outputDb)
+    // Senza il file (script non riuscito) tutte le regioni tengono i termini pubblicati.
+    termsJsonl?.let { file ->
+        val fresh = file.takeIf { it.exists() }?.let { parseLocalTerms(it.readText()) }.orEmpty()
+        val terms = localTermsOf(guides.map { it.regionId }, fresh) { regionId -> publishedDb?.let { readLocalTerms(it, regionId) }.orEmpty() }
+        writeLocalTermsTable(terms, outputDb)
+        println("guide: ${terms.values.sumOf { it.size }} termini locali di ${terms.count { it.value.isNotEmpty() }} regioni")
+    }
     if (advice != null) {
         writeTravelAdviceMeta(advice, outputDb)
         // Con dei consigli gia' pubblicati: un cambio di rischio pubblica subito (keepPublishedGuides), qui l'avviso nel job.
@@ -820,6 +831,8 @@ fun sameGuidesContent(a: File, b: File, includeMissions: Boolean = true, include
         TRAVEL_ADVICE_STATE_QUERY.takeIf { includeTravelAdvice },
         "SELECT regionId, general, police, ambulance, fire FROM emergency_numbers ORDER BY 1",
         "SELECT regionId FROM emergency_numbers_none ORDER BY 1",
+        // Senza la revisione: cambia a ogni modifica della voce, anche fuori dall'introduzione.
+        "SELECT regionId, term, aliases, title, summary, sourceUrl FROM guide_terms ORDER BY 1, 4",
         "SELECT * FROM vacc_yf_risk ORDER BY 1, 2, 3",
         "SELECT * FROM vacc_yf_entry ORDER BY 1, 2, 3",
         "SELECT * FROM vacc_polio_status ORDER BY 1, 2, 3",

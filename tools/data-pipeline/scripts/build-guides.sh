@@ -361,6 +361,22 @@ done
 python3 "$SCRIPT_DIR/country_wikipedia.py" "$LANG_CODE" "$WIKIPEDIA_REGIONS_TSV" "$WIKIPEDIA_JSONL" \
   || echo "::warning::sezioni di Wikipedia non scaricate, restano quelle pubblicate" >&2
 
+# --- 2e. Termini locali ---------------------------------------------------------------------------
+# Voci di Wikipedia del paese (piatti, bevande, feste, usanze, abiti, strumenti) che la pagina di Wikivoyage della regione
+# nomina, con l'introduzione della voce (local_terms.py). Mai fatale: le regioni senza pagina in questa run o non lette
+# tengono i termini pubblicati (LocalTermRow.kt).
+TERMS_REGIONS_TSV="$WORKDIR/terms-regions.tsv"
+TERMS_JSONL="$WORKDIR/local-terms.jsonl"
+: > "$TERMS_REGIONS_TSV"
+for spec in "${ALL_REGIONS[@]}"; do
+  IFS='|' read -r regionId _ _ _ _ _ wikiTitle _ <<< "$spec"
+  if [ -s "$WORKDIR/$regionId.txt" ]; then
+    printf '%s\t%s\t%s\n' "$regionId" "${wikiTitle//_/ }" "$(winpath "$WORKDIR/$regionId.txt")" >> "$TERMS_REGIONS_TSV"
+  fi
+done
+python3 "$SCRIPT_DIR/local_terms.py" "$LANG_CODE" "$TERMS_REGIONS_TSV" "$TERMS_JSONL" \
+  || echo "::warning::termini locali non scaricati, restano quelli pubblicati" >&2
+
 # --- 3. guides.db ---------------------------------------------------------------------------------
 GUIDES_DB="$OUTPUT_DIR/guides.db"
 rm -f "$GUIDES_DB"
@@ -396,7 +412,7 @@ if [ -n "${TRANSLATE_CACHE_DIR:-}" ]; then
     echo "::warning::guida semplice non generata, niente traduzioni in questa run" >&2
   fi
 fi
-GUIDES_ARGS="--general-guide \"$(winpath "$GENERAL_GUIDE_TSV")\" --wikipedia \"$(winpath "$WIKIPEDIA_JSONL")\" $GUIDES_ARGS"
+GUIDES_ARGS="--general-guide \"$(winpath "$GENERAL_GUIDE_TSV")\" --wikipedia \"$(winpath "$WIKIPEDIA_JSONL")\" --local-terms \"$(winpath "$TERMS_JSONL")\" $GUIDES_ARGS"
 [ -s "$MISSIONS_TSV" ] && GUIDES_ARGS="--missions \"$(winpath "$MISSIONS_TSV")\" $GUIDES_ARGS"
 [ -n "$ADVICE_TSV" ] && GUIDES_ARGS="--travel-advice \"$(winpath "$ADVICE_TSV")\" $GUIDES_ARGS"
 [ -s "${EMERGENCY_HTML:-}" ] && GUIDES_ARGS="--emergency-centre \"$(winpath "$EMERGENCY_HTML")\" $GUIDES_ARGS"
