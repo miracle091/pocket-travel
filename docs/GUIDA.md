@@ -31,6 +31,8 @@ La CI controlla anche le vulnerabilità note (OSV) delle dipendenze di app e pip
 python .github/scripts/check-dependencies.py app.txt pipeline.txt
 ```
 
+Dopo la build la CI controlla anche che gli APK di debug e di release non contengano classi di Google Play Services, Firebase, librerie Play (`com/google/android/play/`) o ML Kit, con `dexdump` dei build-tools, e nessun tracker noto, con exodus-standalone. Una dipendenza nuova che porta con sé una di queste librerie fa fallire il job.
+
 detekt segnala solo i problemi nuovi: quelli già presenti stanno nel `detekt-baseline.xml` di ogni modulo. La baseline di un modulo si rigenera (`./gradlew :feature:map:detektBaseline`) solo quando si sposta codice che contiene già un problema registrato, non per far passare codice nuovo.
 
 detekt controlla anche la formattazione del codice Kotlin con le regole di ktlint (stile `intellij_idea`, senza limite di lunghezza delle righe; la configurazione è in `config/detekt/detekt.yml`, sezione `ktlint`). Gli script Gradle `.kts` restano fuori. I problemi di formattazione si correggono in automatico, per un modulo o per tutti:

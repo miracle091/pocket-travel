@@ -48,6 +48,8 @@ Pocket Travel funziona su **Android 8.0 o successivo** ed è distribuita solo su
 
 L'app segnala le nuove versioni con una notifica; le novità sono nel [CHANGELOG](CHANGELOG.md).
 
+Per installare gli aggiornamenti in automatico si può usare [Obtainium](https://github.com/ImranR98/Obtainium): si aggiunge l'app con l'indirizzo `https://github.com/miracle091/pocket-travel` e si attiva «Verifica l'etichetta 'Latest'», perché lo stesso repository pubblica anche i dati delle nazioni.
+
 ## Funzioni
 
 | | Funzione | Cosa fa |

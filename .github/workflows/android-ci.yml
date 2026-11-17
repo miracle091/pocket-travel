@@ -101,6 +101,85 @@ jobs:
       # compilano a ogni push, non per la prima volta in publish-apk.yml al rilascio.
       - run: ./gradlew assembleDebug :app:assembleRelease lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :tools:data-pipeline:content:test --no-daemon
 
+      # Vincolo del progetto: niente Google Play Services. Si cerca nelle classi dei classes*.dex (dexdump dei
+      # build-tools dell'SDK, senza rete) il package di Play Services (gms), di Firebase, delle librerie Play (core,
+      # integrity, review, feature delivery: com/google/android/play/) e di ML Kit (com/google/mlkit/). Non basta
+      # l'APK di release: R8 rinomina i package (com/google/android/gms/x diventa a/b), quindi anche l'APK di debug,
+      # costruito senza minificazione, dove i nomi restano quelli veri.
+      - name: Nessun Google Play Services o Firebase nelle classi dell'APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          dexdump="$(find "$ANDROID_HOME/build-tools" -name dexdump -type f 2>/dev/null | sort -V | tail -n 1 || true)"
+          [ -x "$dexdump" ] || { echo "::error::dexdump non trovato nei build-tools dell'SDK ($ANDROID_HOME)"; exit 1; }
+          banned='^(com/google/android/gms/|com/google/firebase/|com/google/android/play/|com/google/mlkit/)'
+          status=0
+          for apk in app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/release/*.apk; do
+            dir="$RUNNER_TEMP/dex/$(basename "$apk" .apk)"
+            mkdir -p "$dir"
+            unzip -oq "$apk" 'classes*.dex' -d "$dir"
+            for dex in "$dir"/classes*.dex; do "$dexdump" "$dex"; done \
+              | sed -n "s/^ *Class descriptor *: 'L\(.*\);'\$/\1/p" > "$dir/classes.txt"
+            [ -s "$dir/classes.txt" ] || { echo "::error::nessuna classe letta da $apk (dexdump non ha prodotto l'elenco)"; exit 1; }
+            echo "-- $apk: $(wc -l < "$dir/classes.txt") classi"
+            if grep -E "$banned" "$dir/classes.txt" > "$dir/found.txt"; then
+              echo "::error::$apk contiene classi di Google Play Services, Firebase, Play o ML Kit, vietate dal progetto (prime: $(head -n 5 "$dir/found.txt" | tr '\n' ' '))"
+              echo "$apk contiene $(wc -l < "$dir/found.txt") classi di Google Play Services, Firebase, Play o ML Kit. Prime: $(head -n 5 "$dir/found.txt" | tr '\n' ' ')" >> "$GITHUB_STEP_SUMMARY"
+              status=1
+            fi
+          done
+          exit "$status"
+
+      # Tracker noti con exodus-standalone (AGPL-3.0, usato solo come strumento esterno: immagine Docker ufficiale
+      # v1.5.0, fissata dal digest). Esce con il numero di tracker; il rapporto JSON (-j -o) si scrive soltanto dopo aver
+      # scaricato le firme da reports.exodus-privacy.eu.org, che le concede a 3 richieste al minuto per IP, e i runner
+      # condividono gli IP. Quindi: un rapporto assente vuol dire servizio non raggiungibile (si riprova dopo 60 secondi,
+      # poi e' un avviso e la build resta valida); un rapporto con tracker fa fallire il passo. Come sopra, anche l'APK
+      # di debug, perche' le firme guardano i nomi delle classi, che R8 nella release cambia.
+      - name: Nessun tracker nell'APK (exodus-standalone)
+        shell: bash
+        env:
+          EXODUS_IMAGE: exodusprivacy/exodus-standalone@sha256:a6531be9a6b666a8ffb6aec98b409cf6faf65536c5b9597e5b99195ca9422b88 # v1.5.0
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/exodus"
+          mkdir -p "$work"
+          cp app/build/outputs/apk/debug/app-debug.apk "$work/debug.apk"
+          cp app/build/outputs/apk/release/*.apk "$work/release.apk"
+          if ! docker pull -q "$EXODUS_IMAGE" > /dev/null; then
+            echo "::warning::immagine di exodus-standalone non scaricata, controllo dei tracker saltato"
+            echo "- Controllo dei tracker saltato: immagine di exodus-standalone non scaricata." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          trackers=0
+          for name in debug release; do
+            rm -f "$work/$name.json"
+            for attempt in 1 2 3 4; do
+              docker run --rm -v "$work:/app" "$EXODUS_IMAGE" -j -o "/app/$name.json" "/app/$name.apk" > "$work/$name.log" 2>&1 || true
+              [ -s "$work/$name.json" ] && break
+              echo "-- $name, tentativo $attempt: firme dei tracker non scaricate"
+              tail -n 3 "$work/$name.log"
+              if [ "$attempt" -lt 4 ]; then sleep 60; fi
+            done
+            if [ ! -s "$work/$name.json" ]; then
+              echo "::warning::exodus-standalone non ha potuto analizzare l'APK $name: servizio delle firme non raggiungibile dopo 4 tentativi, controllo saltato"
+              echo "- APK $name: controllo saltato, servizio delle firme non raggiungibile." >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            count="$(jq '.trackers | length' "$work/$name.json")"
+            echo "-- $name: $count tracker"
+            if [ "$count" -gt 0 ]; then
+              trackers=$((trackers + count))
+              names="$(jq -r '[.trackers[].name] | join(", ")' "$work/$name.json")"
+              echo "::error::l'APK $name contiene $count tracker: $names"
+              echo "- APK $name: $count tracker ($names)." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- APK $name: nessun tracker." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          echo "Firme dei tracker: εxodus (ODbL 1.0)" >> "$GITHUB_STEP_SUMMARY"
+          [ "$trackers" -eq 0 ] || exit 1
+
       # Tutti i test Python della pipeline e degli script dei workflow: un test nuovo (test_*.py) viene eseguito senza
       # toccare il workflow. Un file o una connessione lasciati aperti (ResourceWarning) fanno fallire il passo: Python li
       # segnala solo come avviso, anche con -W error. Lo stesso per un'eccezione in un thread, in un distruttore o nel
