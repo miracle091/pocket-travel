@@ -844,6 +844,23 @@ def rank_sections(guide, city, country_first, history_or_climate=True, general_g
     return sections
 
 
+SENTENCE_CUT = re.compile(r"[.!?…](?=\s|$)|\n")  # come SENTENCE_CUT in TravelAssistant.kt
+
+
+def cut_at_sentence(text, max_chars):
+    """cutAtSentence: [text] entro [max_chars] caratteri, tagliato dopo l'ultima frase intera (".", "!", "?", "…"
+    seguiti da uno spazio, o fine riga) se ne resta piu' di meta', altrimenti all'ultimo spazio; a meta' parola solo
+    senza spazi."""
+    if len(text) <= max_chars:
+        return text
+    probe = text[:max_chars + 1]
+    ends = [m.end() for m in SENTENCE_CUT.finditer(probe) if m.end() <= max_chars]
+    if ends and ends[-1] > max_chars // 2:
+        return text[:ends[-1]].rstrip()
+    space = max(probe.rfind(" "), probe.rfind("\n"))
+    return text[:space].rstrip() if space > 0 else text[:max_chars]
+
+
 def relevant_paragraphs(body, stems, budget):
     """relevantParagraphs."""
     if len(body) <= budget:
@@ -855,7 +872,7 @@ def relevant_paragraphs(body, stems, budget):
         if used + len(paragraphs[i]) + 1 <= budget:
             kept.append(i)
             used += len(paragraphs[i]) + 1
-    return "\n".join(paragraphs[i] for i in sorted(kept)) if kept else body[:budget]
+    return "\n".join(paragraphs[i] for i in sorted(kept)) if kept else cut_at_sentence(body, budget)
 
 
 CLIMATE_GROUPS = {"CLIMA", "PERIODI", "METEO"}  # come CLIMATE_GROUPS in TravelAssistant.kt
@@ -899,7 +916,7 @@ def context_parts(bodies, stems, max_chars=MAX_CONTEXT):
 
 def select_context(bodies, stems, max_chars=MAX_CONTEXT):
     """selectContext."""
-    return "\n\n".join(part for _, part in context_parts(bodies, stems, max_chars))[:max_chars]
+    return cut_at_sentence("\n\n".join(part for _, part in context_parts(bodies, stems, max_chars)), max_chars)
 
 
 def general_guide_after_first_section(parts):
@@ -921,7 +938,7 @@ def on_device_parts(sections, stems, max_chars=MAX_CONTEXT):
 
 def on_device_context(sections, stems, max_chars=MAX_CONTEXT):
     """buildOnDeviceContext senza nota."""
-    return "\n\n".join(part for _, part in on_device_parts(sections, stems, max_chars))[:max_chars]
+    return cut_at_sentence("\n\n".join(part for _, part in on_device_parts(sections, stems, max_chars)), max_chars)
 
 
 # --- contesto dei modelli online (--online) ----------------------------------------------------------------------------
@@ -1382,7 +1399,7 @@ def context_row(top, stems, match):
     resta in "answer_paragraph" (per spostarlo nel contesto con eval_gguf.py --answer-position). "parts" sono le sezioni
     entrate nel contesto, nell'ordine, con i loro paragrafi: eval_gguf.py vi cerca la parte che la risposta usa."""
     ordered = on_device_parts(top, stems)
-    context = "\n\n".join(part for _, part in ordered)[:MAX_CONTEXT]
+    context = cut_at_sentence("\n\n".join(part for _, part in ordered), MAX_CONTEXT)
     paragraphs = [p for s in match for p in s["body"].split("\n") if p.strip()]
     answer = answer_paragraph(match[0].get("section_body", match[0]["body"]), stems) if match else None
     in_context = bool(answer) and answer[:150] in context
@@ -1450,9 +1467,9 @@ def second_pass_fields(first, ranked, stems, is_expected, paragraph=None):
     tra [first] e [ranked], scelto tra i paragrafi di almeno MIN_SECTION_CHARS caratteri se ce ne sono: un titolo corto
     come "▸ Dormire" sta in molte sezioni)."""
     first_parts = on_device_parts(first, stems)
-    first_context = "\n\n".join(part for _, part in first_parts)[:MAX_CONTEXT]
+    first_context = cut_at_sentence("\n\n".join(part for _, part in first_parts), MAX_CONTEXT)
     ordered = on_device_parts(second_pass_sections(first, ranked, stems, first_context), stems)
-    second_context = "\n\n".join(part for _, part in ordered)[:MAX_CONTEXT]
+    second_context = cut_at_sentence("\n\n".join(part for _, part in ordered), MAX_CONTEXT)
     expected = next((s for s in [*first, *ranked] if is_expected(s)), None)
     lines = [p for p in (whole_body(expected) if expected else "").split("\n") if p.strip()]
     lines = [p for p in lines if len(p) >= MIN_SECTION_CHARS] or lines

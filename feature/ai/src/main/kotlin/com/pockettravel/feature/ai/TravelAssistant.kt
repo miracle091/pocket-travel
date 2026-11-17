@@ -1251,7 +1251,7 @@ internal fun contextParts(bodies: List<String>, focusStems: Set<String>, maxChar
 
 /**
  * [body] se sta in [budget]; altrimenti i suoi paragrafi (righe) con piu' radici [focusStems], a parita' i primi,
- * finche' ci stanno, rimessi nell'ordine del testo. Un solo paragrafo troppo lungo: il suo inizio.
+ * finche' ci stanno, rimessi nell'ordine del testo. Un solo paragrafo troppo lungo: il suo inizio, a frase intera.
  */
 internal fun relevantParagraphs(body: String, focusStems: Set<String>, budget: Int): String {
     if (body.length <= budget) return body
@@ -1266,7 +1266,7 @@ internal fun relevantParagraphs(body: String, focusStems: Set<String>, budget: I
             used += cost
         }
     }
-    return if (kept.isEmpty()) body.take(budget) else kept.sorted().joinToString("\n") { paragraphs[it] }
+    return if (kept.isEmpty()) cutAtSentence(body, budget) else kept.sorted().joinToString("\n") { paragraphs[it] }
 }
 
 /**
@@ -1317,8 +1317,22 @@ private const val LONG_WORD_CHARS = 8
 private val questionStopwords = WordLists.questionStopwords
 
 // maxChars di default ~2000 = ~500 token (stima 4 caratteri/token) per il chunk RAG.
-internal fun truncateContext(context: String, maxChars: Int = 2_000): String =
-    if (context.length <= maxChars) context else context.take(maxChars)
+internal fun truncateContext(context: String, maxChars: Int = 2_000): String = cutAtSentence(context, maxChars)
+
+/**
+ * [text] entro [maxChars], tagliato dopo l'ultima frase intera (".", "!", "?", "…" seguiti da uno spazio, o fine riga) se
+ * ne resta piu' di meta', altrimenti all'ultimo spazio; a meta' parola solo senza spazi. Il modello copiava la frase
+ * spezzata ("…sono bassi; i"). Replica: cut_at_sentence in eval_retrieval.py.
+ */
+private fun cutAtSentence(text: String, maxChars: Int): String {
+    if (text.length <= maxChars) return text
+    val probe = text.take(maxChars + 1)
+    val sentenceEnd = SENTENCE_CUT.findAll(probe).map { it.range.last + 1 }.lastOrNull { it <= maxChars }?.takeIf { it > maxChars / 2 }
+    val cut = sentenceEnd ?: probe.indexOfLast { it == ' ' || it == '\n' }.takeIf { it > 0 }
+    return cut?.let { text.take(it).trimEnd() } ?: text.take(maxChars)
+}
+
+private val SENTENCE_CUT = Regex("[.!?…](?=\\s|$)|\n")
 
 /** Con un testo selezionato niente posizione e vaccinazioni: le sceglierebbe il testo di un'altra app, non la domanda. */
 private fun personalSections(sharePersonal: Boolean, selectedText: String?): Boolean = sharePersonal && selectedText.isNullOrBlank()

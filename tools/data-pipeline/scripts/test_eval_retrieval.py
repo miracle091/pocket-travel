@@ -124,6 +124,16 @@ class ReplicaTest(unittest.TestCase):
         self.assertEqual(ev.select_context(["A" * 100, storia], {"roman", "medio"}, max_chars=160),
                          "A" * 100 + "\n\nFondata dai Romani.\nNel Medioevo fu libero comune.")
 
+    def test_taglio_all_ultima_frase_intera(self):
+        # truncateContext e relevantParagraphs: stessi dati e stessi risultati di TravelAssistantLogicTest.kt.
+        text = "Il museo apre alle 9. Chiude alle 18! I biglietti costano 10 euro"
+        self.assertEqual(ev.cut_at_sentence(text, 50), "Il museo apre alle 9. Chiude alle 18!")
+        self.assertEqual(ev.cut_at_sentence("Prima riga\nseconda riga lunga", 20), "Prima riga")
+        self.assertEqual(ev.cut_at_sentence("A. " + "parola " * 10, 40), "A. parola parola parola parola parola")
+        self.assertEqual(ev.cut_at_sentence("a" * 30, 20), "a" * 20)
+        self.assertEqual(ev.cut_at_sentence(text, 100), text)
+        self.assertEqual(ev.relevant_paragraphs(text, set(), 50), "Il museo apre alle 9. Chiude alle 18!")
+
     def test_quota_della_guida_generale_in_testa(self):
         # withGeneralGuideShare: stessi dati e stessi risultati di GeneralGuideShareTest.kt.
         paragraphs = [f"g{i:02d} " + "x" * 95 for i in range(20)]

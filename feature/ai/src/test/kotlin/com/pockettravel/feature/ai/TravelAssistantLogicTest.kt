@@ -528,7 +528,7 @@ class TravelAssistantLogicTest {
 
         val context = buildOnDeviceContext(sections, note, maxChars = 2000)
 
-        assertEquals(2000, context.length)
+        assertTrue(context.length <= 2000)
         // la nota resta (accorciata al suo tetto), sono le sezioni a cedere spazio
         assertTrue(context.contains("Nota personale: t"))
     }
