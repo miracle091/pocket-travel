@@ -112,7 +112,7 @@ jobs:
       cancel-in-progress: false
     env:
       CCACHE_DIR: /home/runner/.cache/ccache
-      CCACHE_MAXSIZE: 400M
+      CCACHE_MAXSIZE: 500M
     steps:
       # Niente credenziali git nel checkout: il job non fa operazioni git autenticate e il token di
       # scrittura non deve restare leggibile dal codice di build.
@@ -120,6 +120,11 @@ jobs:
         with:
           persist-credentials: false
           submodules: true
+
+      # bergamot-translator ha sottomoduli annidati: submodules: true non li scarica, e il build di :core:translate
+      # compila solo quelli che lo script elenca.
+      - name: Sottomoduli annidati di bergamot-translator
+        run: bash third-party/init-bergamot-submodules.sh
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:

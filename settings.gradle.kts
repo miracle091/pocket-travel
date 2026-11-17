@@ -32,6 +32,7 @@ include(
     ":core:tiles",
     ":core:routing-engine",
     ":core:speech",
+    ":core:translate",
     ":feature:guide",
     ":feature:map",
     ":feature:ai",

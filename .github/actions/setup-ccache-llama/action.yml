@@ -24,14 +24,17 @@ runs:
 
     # La chiave segue il commit del submodule third-party/llama-cpp, le patch, CMakeLists e build.gradle.kts di
     # feature/ai (argomenti CMake, ABI, versione dell'NDK); senza corrispondenza esatta si riparte dalla cache piu'
-    # recente e si ricompilano solo i file cambiati.
+    # recente e si ricompilano solo i file cambiati. Ogni job compila anche bergamot-translator (core/translate, circa
+    # 90 MB di oggetti per le due ABI, 30-45 MB in ccache): la chiave segue anche il suo commit, le patch e i file di
+    # core/translate, altrimenti con la chiave esatta trovata il salvataggio si salta e gli oggetti nuovi di bergamot
+    # non entrano mai in cache. Per questo CCACHE_MAXSIZE dei job e' 500M e non 400M.
     - name: Chiave della cache
       id: key
       continue-on-error: true
       shell: bash
       env:
-        HASH: ${{ hashFiles('third-party/patches/llama-cpp/**', 'feature/ai/src/main/cpp/**', 'feature/ai/build.gradle.kts') }}
-      run: echo "key=ccache-llama-$(git rev-parse HEAD:third-party/llama-cpp)-$HASH" >> "$GITHUB_OUTPUT"
+        HASH: ${{ hashFiles('third-party/patches/llama-cpp/**', 'feature/ai/src/main/cpp/**', 'feature/ai/build.gradle.kts', 'third-party/patches/bergamot-translator/**', 'core/translate/src/main/cpp/**', 'core/translate/build.gradle.kts') }}
+      run: echo "key=ccache-llama-$(git rev-parse HEAD:third-party/llama-cpp)-$(git rev-parse HEAD:third-party/bergamot-translator)-$HASH" >> "$GITHUB_OUTPUT"
 
     - name: Cache di ccache per llama.cpp
       id: restore

@@ -1,0 +1,33 @@
+createLoggers di marian-dev crea i logger spdlog 'general' e 'valid' con un nome fisso: un secondo caricamento nello
+stesso processo (per esempio le due direzioni di traduzione insieme) ferma il processo con 'logger with name general
+already exists'. La patch riusa il logger se esiste gia'. Il core di traduzione serializza i caricamenti con un mutex
+di processo (translate_jni.cpp): get-poi-crea non e' atomico.
+Applicata da core/translate/src/main/cpp/CMakeLists.txt alla copia dei sorgenti in core/translate/.cache; i percorsi
+partono dalla root del submodule third-party/bergamot-translator, anche per i file dei suoi sottomoduli annidati.
+Upstream: tetherto/qvac-ext-marian-dev, src/common/logging.cpp (stessa modifica); nessuna PR aperta dal progetto.
+Da togliere quando: marian-dev riusa i logger gia' registrati, o il progetto non carica piu' di un modello per processo.
+
+diff --git a/3rd_party/marian-dev/src/common/logging.cpp b/3rd_party/marian-dev/src/common/logging.cpp
+--- a/3rd_party/marian-dev/src/common/logging.cpp
++++ b/3rd_party/marian-dev/src/common/logging.cpp
+@@ -84,9 +84,18 @@ std::vector<Logger> createLoggers(const marian::Config* config) {
+   }
+ 
+   bool quiet = config && config->get<bool>("quiet");
+-  Logger general{createStderrLogger("general", "[%Y-%m-%d %T] %v", generalLogs, quiet)};
++
++  // Check if loggers already exist to avoid conflicts when multiple backends are used
++  Logger general = spdlog::get("general");
++  if (!general) {
++    general = createStderrLogger("general", "[%Y-%m-%d %T] %v", generalLogs, quiet);
++  }
+   loggers.push_back(general);
+-  Logger valid{createStderrLogger("valid", "[%Y-%m-%d %T] [valid] %v", validLogs, quiet)};
++
++  Logger valid = spdlog::get("valid");
++  if (!valid) {
++    valid = createStderrLogger("valid", "[%Y-%m-%d %T] [valid] %v", validLogs, quiet);
++  }
+   loggers.push_back(valid);
+ 
+   if(config && config->has("log-level")) {

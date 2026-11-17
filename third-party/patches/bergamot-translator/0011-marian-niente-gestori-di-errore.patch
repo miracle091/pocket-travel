@@ -1,0 +1,33 @@
+createLoggers di marian-dev installa per tutto il processo set_terminate e i gestori di SIGSEGV e SIGFPE, che chiamano
+ABORT (non async-signal-safe): un crash di un'altra libreria (llama.cpp, MapLibre) diventerebbe un blocco o un
+SIGABRT fuorviante. Su Android non si installano.
+Applicata da core/translate/src/main/cpp/CMakeLists.txt alla copia dei sorgenti in core/translate/.cache; i percorsi
+partono dalla root del submodule third-party/bergamot-translator, anche per i file dei suoi sottomoduli annidati.
+Upstream: nessuna PR o issue trovata (ricerca su GitHub, 2026-11-17); dipende dal modo in cui il progetto compila una copia senza .git.
+Da togliere quando: marian-dev non installa i gestori di segnale dalla libreria, o il progetto non carica piu' marian nel processo dell'app.
+
+diff --git a/3rd_party/marian-dev/src/common/logging.cpp b/3rd_party/marian-dev/src/common/logging.cpp
+--- a/3rd_party/marian-dev/src/common/logging.cpp
++++ b/3rd_party/marian-dev/src/common/logging.cpp
+@@ -105,10 +105,13 @@ std::vector<Logger> createLoggers(const marian::Config* config) {
+     tzset();
+   }
+ 
++#ifndef __ANDROID__
+   setErrorHandlers();
++#endif
+   return loggers;
+ }
+ 
++#ifndef __ANDROID__
+ static void unhandledException() {
+   if(std::current_exception()) {
+     try {
+@@ -137,6 +140,7 @@ static void setErrorHandlers() {
+   sigaction(SIGFPE, &sa, NULL);
+ #endif
+ }
++#endif  // __ANDROID__
+ 
+ // modify the log pattern for the "general" logger to include the MPI rank
+ // This is called upon initializing MPI. It is needed to associated error messages to ranks.

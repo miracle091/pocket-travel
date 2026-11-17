@@ -1,0 +1,434 @@
+Meno memoria dopo il caricamento del modello (Mozilla misura da -99 MB con il modello tiny a -323 MB con il base):
+- marian-dev: io::Item tiene i byte in uno shared_ptr<vector<char>>, cosi' copiare un Item non copia il modello;
+  Scorer::clearItems() libera gli Item del scorer dopo che il grafo li ha convertiti in Tensor;
+- bergamot: dopo graph->forward() TranslationModel::loadBackend chiama clearItems() e svuota memory_.models (la
+  copia del modello letta dal file).
+ATTENZIONE: memory_.models.clear() dopo il primo backend rompe le repliche successive (piu' di un worker, loadBackend
+pigro per thread): il progetto usa un solo backend (BlockingService). Rispetto al commit di Mozilla mancano i
+LOG(info) di debug in binary.cpp e io.cpp, MemoryBundle::clear() (liberava due volte AlignedMemory), il rilascio
+pubblico di AlignedVector, i ritocchi di spazi e commenti e lo script build-wasm.py.
+Applicata da core/translate/src/main/cpp/CMakeLists.txt alla copia dei sorgenti in core/translate/.cache; i percorsi
+partono dalla root del submodule third-party/bergamot-translator, anche per i file dei suoi sottomoduli annidati.
+Upstream: commit 724fc93 di mozilla/translations (PR 1135), inference/marian-fork e inference/src.
+Da togliere quando: il sottomodulo marian-dev include Item con byte condivisi e clearItems(), o la memoria al caricamento non conta piu'.
+
+diff --git a/3rd_party/marian-dev/src/common/binary.cpp b/3rd_party/marian-dev/src/common/binary.cpp
+--- a/3rd_party/marian-dev/src/common/binary.cpp
++++ b/3rd_party/marian-dev/src/common/binary.cpp
+@@ -37,6 +37,11 @@ void loadItems(const void* current, std::vector<io::Item>& items, bool mapped) {
+   uint64_t numHeaders = *get<uint64_t>(current); // number of item headers that follow
+   const Header* headers = get<Header>(current, numHeaders); // read that many headers
+ 
++  if(items.size() == numHeaders) {
++    // These items are already loaded.
++    return;
++  }
++
+   // prepopulate items with meta data from headers
+   items.resize(numHeaders);
+   for(int i = 0; i < numHeaders; ++i) {
+@@ -66,12 +71,12 @@ void loadItems(const void* current, std::vector<io::Item>& items, bool mapped) {
+                               // We are preparing some things on demand (the bottom portion of this code). Once we stop doing that, we can use the full mmap codepath
+                               // Also when using the full mmap codepath, we need to uncomment expression_graph.h:582
+     uint64_t len = headers[i].dataLength;
+-    items[i].bytes.resize(len);
++    items[i].bytes->resize(len);
+     const char* ptr = get<char>(current, len);
+     if (matchType<intgemm8>(items[i].type)) {
+       if (items[i].name.find("Wemb") != std::string::npos) { // Since Wemb need to be dequantised, we have a special case for them
+         items[i].type = Type::float32;
+-        items[i].bytes.resize(items[i].shape.elements()*sizeof(float)); // We should have an extra float at the back but that requires a different format, due to allocator work
++        items[i].bytes->resize(items[i].shape.elements()*sizeof(float)); // We should have an extra float at the back but that requires a different format, due to allocator work
+         cpu::integer::unquantizeWemb<Type::int8>(items[i], ptr);
+       } else {
+         cpu::integer::prepareAndTransposeB<Type::int8>(items[i], ptr);
+@@ -79,13 +84,13 @@ void loadItems(const void* current, std::vector<io::Item>& items, bool mapped) {
+     } else if (matchType<intgemm16>(items[i].type)) {
+       if (items[i].name.find("Wemb") != std::string::npos) { // Since Wemb need to be dequantised, we have a special case for them
+         items[i].type = Type::float32;
+-        items[i].bytes.resize(items[i].shape.elements()*sizeof(float)); // We should have an extra float at the back but that requires a different format, due to allocator work
++        items[i].bytes->resize(items[i].shape.elements()*sizeof(float)); // We should have an extra float at the back but that requires a different format, due to allocator work
+         cpu::integer::unquantizeWemb<Type::int16>(items[i], ptr);
+       } else {
+         cpu::integer::prepareAndTransposeB<Type::int16>(items[i], ptr);
+       }
+     } else {
+-      std::copy(ptr, ptr + len, items[i].bytes.begin());
++      std::copy(ptr, ptr + len, items[i].bytes->begin());
+     }
+   }
+ }
+@@ -145,7 +150,7 @@ void saveItems(const std::string& fileName,
+     headers.push_back(Header{item.name.size() + 1,
+                              (uint64_t)item.type,
+                              item.shape.size(),
+-                             item.bytes.size()}); // binary item size with padding, will be 256-byte-aligned
++                             item.bytes->size()}); // binary item size with padding, will be 256-byte-aligned
+   }
+ 
+   uint64_t headerSize = headers.size();
+@@ -173,7 +178,7 @@ void saveItems(const std::string& fileName,
+ 
+   // Write out all values
+   for(const auto& item : items)
+-    pos += out.write(item.data(), item.bytes.size()); // writes out data with padding, keeps 256-byte boundary. 
++    pos += out.write(item.data(), item.bytes->size()); // writes out data with padding, keeps 256-byte boundary. 
+                                                       // Amazingly this is binary-compatible with V1 and aligned and 
+                                                       // non-aligned models can be read with the same procedure.
+                                                       // No version-bump required. Gets 5-8% of speed back when mmapped.
+diff --git a/3rd_party/marian-dev/src/common/io.cpp b/3rd_party/marian-dev/src/common/io.cpp
+--- a/3rd_party/marian-dev/src/common/io.cpp
++++ b/3rd_party/marian-dev/src/common/io.cpp
+@@ -77,10 +77,10 @@ void addMetaToItems(const std::string& meta,
+   // increase size by 1 to add \0
+   item.shape = Shape({(int)meta.size() + 1});
+ 
+-  item.bytes.resize(item.shape.elements());
+-  std::copy(meta.begin(), meta.end(), item.bytes.begin());
++  item.bytes->resize(item.shape.elements());
++  std::copy(meta.begin(), meta.end(), item.bytes->begin());
+   // set string terminator
+-  item.bytes.back() = '\0';
++  item.bytes->back() = '\0';
+ 
+   item.type = Type::int8;
+ 
+@@ -104,7 +104,7 @@ void loadItemsFromNpz(const std::string& fileName, std::vector<Item>& items) {
+     Item item;
+     item.name = it.first;
+     item.shape = shape;
+-    item.bytes.swap(it.second->bytes);
++    item.bytes->swap(it.second->bytes);
+     items.emplace_back(std::move(item));
+   }
+ }
+@@ -155,7 +155,7 @@ void saveItemsNpz(const std::string& fileName, const std::vector<Item>& items) {
+     else
+       ABORT("Other types not supported yet");
+ 
+-    npzItems.emplace_back(item.name, item.bytes, shape, type, sizeOf(item.type));
++    npzItems.emplace_back(item.name, *item.bytes, shape, type, sizeOf(item.type));
+   }
+   cnpy::npz_save(fileName, npzItems);
+ }
+diff --git a/3rd_party/marian-dev/src/common/io_item.h b/3rd_party/marian-dev/src/common/io_item.h
+--- a/3rd_party/marian-dev/src/common/io_item.h
++++ b/3rd_party/marian-dev/src/common/io_item.h
+@@ -9,7 +9,7 @@ namespace marian {
+ namespace io {
+ 
+ struct Item {
+-  std::vector<char> bytes;
++  std::shared_ptr<std::vector<char>> bytes;
+   const char* ptr{0};
+   bool mapped{false};
+ 
+@@ -17,11 +17,64 @@ struct Item {
+   Shape shape;
+   Type type{Type::float32};
+ 
++  // Default constructor
++  Item() : bytes(std::make_shared<std::vector<char>>()) {}
++
++  // Copy constructor
++  Item(const Item& other)
++      : bytes(other.bytes),
++        ptr(other.ptr),
++        mapped(other.mapped),
++        name(other.name),
++        shape(other.shape),
++        type(other.type) {}
++
++  // Copy assignment operator
++  Item& operator=(const Item& other) {
++    if(this != &other) {
++      bytes = other.bytes;
++      ptr = other.ptr;
++      mapped = other.mapped;
++      name = other.name;
++      shape = other.shape;
++      type = other.type;
++    }
++    return *this;
++  }
++
++  // Move constructor
++  Item(Item&& other) noexcept
++      : bytes(std::move(other.bytes)),
++        ptr(other.ptr),
++        mapped(other.mapped),
++        name(std::move(other.name)),
++        shape(std::move(other.shape)),
++        type(other.type) {
++    other.ptr = nullptr;
++    other.mapped = false;
++  }
++
++  // Move assignment operator
++  Item& operator=(Item&& other) noexcept {
++    if(this != &other) {
++      bytes = std::move(other.bytes);
++      ptr = other.ptr;
++      mapped = other.mapped;
++      name = std::move(other.name);
++      shape = std::move(other.shape);
++      type = other.type;
++
++      other.ptr = nullptr;
++      other.mapped = false;
++    }
++    return *this;
++  }
++
+   const char* data() const {
+     if(mapped)
+       return ptr;
+     else
+-      return bytes.data();
++      return bytes->data();
+   }
+ 
+   size_t size() const { // @TODO: review this again for 256-bytes boundary alignment
+@@ -40,30 +93,30 @@ struct Item {
+ 
+     // cut to size (get rid of padding if any) to make append operation work correctly
+     size_t bytesWithoutPadding = shape.elements() * sizeOf(type);
+-    bytes.resize(bytesWithoutPadding);
++    bytes->resize(bytesWithoutPadding);
+ 
+     shape.set(-1, shape.elements() + other.shape.elements());
+ 
+     size_t addbytesWithoutPadding = other.shape.elements() * sizeOf(other.type); // ignore padding if any
+-    bytes.insert(bytes.end(), other.bytes.begin(), other.bytes.begin() + addbytesWithoutPadding);
++    bytes->insert(bytes->end(), other.bytes->begin(), other.bytes->begin() + addbytesWithoutPadding);
+ 
+     // grow to align to 256 bytes boundary (will be undone when more pieces are appended)
+-    size_t multiplier = (size_t)ceil((float)bytes.size() / (float)256);
+-    bytes.resize(multiplier * 256);
++    size_t multiplier = (size_t)ceil((float)bytes->size() / (float)256);
++    bytes->resize(multiplier * 256);
+   }
+ 
+   template <typename From, typename To>
+   void convertFromTo() {
+     size_t elements = size() / sizeof(From);
+     size_t newSize = elements * sizeof(To);
+-    std::vector<char> newBytes(newSize);
++    auto newBytes = std::make_shared<std::vector<char>>(newSize);
+ 
+-    From* in = (From*)bytes.data();
+-    To* out = (To*)newBytes.data();
++    From* in = (From*)bytes->data();
++    To* out = (To*)newBytes->data();
+     for(int i = 0; i < elements; ++i)
+       out[i] = (To)in[i];
+ 
+-    bytes.swap(newBytes);
++    bytes->swap(*newBytes);
+   }
+ 
+   template <typename T>
+diff --git a/3rd_party/marian-dev/src/models/amun.h b/3rd_party/marian-dev/src/models/amun.h
+--- a/3rd_party/marian-dev/src/models/amun.h
++++ b/3rd_party/marian-dev/src/models/amun.h
+@@ -180,7 +180,7 @@ public:
+     ioItems.emplace_back();
+     ioItems.back().name = "decoder_c_tt";
+     ioItems.back().shape = Shape({1, 0});
+-    ioItems.back().bytes.emplace_back((char)0);
++    ioItems.back().bytes->emplace_back((char)0);
+ 
+     io::addMetaToItems(getModelParametersAsString(), "special:model.yml", ioItems);
+     io::saveItems(name, ioItems);
+diff --git a/3rd_party/marian-dev/src/models/nematus.h b/3rd_party/marian-dev/src/models/nematus.h
+--- a/3rd_party/marian-dev/src/models/nematus.h
++++ b/3rd_party/marian-dev/src/models/nematus.h
+@@ -78,7 +78,7 @@ public:
+     ioItems.emplace_back();
+     ioItems.back().name = "decoder_c_tt";
+     ioItems.back().shape = Shape({1, 0});
+-    ioItems.back().bytes.emplace_back((char)0);
++    ioItems.back().bytes->emplace_back((char)0);
+ 
+     io::addMetaToItems(getModelParametersAsString(), "special:model.yml", ioItems);
+     io::saveItems(name, ioItems);
+diff --git a/3rd_party/marian-dev/src/optimizers/optimizers.cpp b/3rd_party/marian-dev/src/optimizers/optimizers.cpp
+--- a/3rd_party/marian-dev/src/optimizers/optimizers.cpp
++++ b/3rd_party/marian-dev/src/optimizers/optimizers.cpp
+@@ -108,8 +108,8 @@ void Adagrad::save(const std::string& name,
+   item.name = "adagrad_gt";
+   item.shape = Shape({1, (int)vGt.size()});
+   item.type = Type::float32;
+-  item.bytes.resize(vGt.size() * sizeOf(item.type));
+-  std::copy((char*)vGt.data(), (char*)(vGt.data() + vGt.size()), item.bytes.begin());
++  item.bytes->resize(vGt.size() * sizeOf(item.type));
++  std::copy((char*)vGt.data(), (char*)(vGt.data() + vGt.size()), item.bytes->begin());
+ 
+   io::saveItems(name, {item});
+ }
+@@ -277,17 +277,17 @@ void Adam::save(const std::string& name,
+   itemMt.name = "adam_mt";
+   itemMt.shape = Shape({1, (int)vMt.size()});
+   itemMt.type = Type::float32;
+-  itemMt.bytes.resize(vMt.size() * sizeOf(itemMt.type));
++  itemMt.bytes->resize(vMt.size() * sizeOf(itemMt.type));
+   std::copy(
+-      (char*)vMt.data(), (char*)(vMt.data() + vMt.size()), itemMt.bytes.begin());
++      (char*)vMt.data(), (char*)(vMt.data() + vMt.size()), itemMt.bytes->begin());
+ 
+   io::Item itemVt;
+   itemVt.name = "adam_vt";
+   itemVt.shape = Shape({1, (int)vVt.size()});
+   itemVt.type = Type::float32;
+-  itemVt.bytes.resize(vVt.size() * sizeOf(itemVt.type));
++  itemVt.bytes->resize(vVt.size() * sizeOf(itemVt.type));
+   std::copy(
+-      (char*)vVt.data(), (char*)(vVt.data() + vVt.size()), itemVt.bytes.begin());
++      (char*)vVt.data(), (char*)(vVt.data() + vVt.size()), itemVt.bytes->begin());
+ 
+   // @TODO: this pattern is duplicated several times; refactor it
+   std::array<double, 2> vDenoms{denom1_, denom2_};
+@@ -295,9 +295,9 @@ void Adam::save(const std::string& name,
+   itemDenoms.name = "adam_denoms";
+   itemDenoms.shape = Shape({1, (int)vDenoms.size()});
+   itemDenoms.type = Type::float64;
+-  itemDenoms.bytes.resize(vDenoms.size() * sizeOf(itemDenoms.type));
++  itemDenoms.bytes->resize(vDenoms.size() * sizeOf(itemDenoms.type));
+   std::copy(
+-      (char*)vDenoms.data(), (char*)(vDenoms.data() + vDenoms.size()), itemDenoms.bytes.begin());
++      (char*)vDenoms.data(), (char*)(vDenoms.data() + vDenoms.size()), itemDenoms.bytes->begin());
+ 
+   io::saveItems(name, {itemMt, itemVt, itemDenoms});
+ }
+diff --git a/3rd_party/marian-dev/src/tensors/cpu/expression_graph_packable.h b/3rd_party/marian-dev/src/tensors/cpu/expression_graph_packable.h
+--- a/3rd_party/marian-dev/src/tensors/cpu/expression_graph_packable.h
++++ b/3rd_party/marian-dev/src/tensors/cpu/expression_graph_packable.h
+@@ -125,8 +125,8 @@ public:
+         // When memory mapping this is required. Shape keeps track of
+         // tensor size. Saving to *.npz will cut to size.
+         auto mem = packedTensor->memory();
+-        item.bytes.resize(mem->size());
+-        copy(backend_, mem->data<char>(), mem->data<char>() + mem->size(), item.bytes.data());
++        item.bytes->resize(mem->size());
++        copy(backend_, mem->data<char>(), mem->data<char>() + mem->size(), item.bytes->data());
+ 
+         ioItems.emplace_back(std::move(item));
+ #else
+@@ -180,8 +180,8 @@ public:
+         // When memory mapping this is required. Shape keeps track of
+         // tensor size. Saving to *.npz will cut to size.
+         auto mem = packedTensor->memory();
+-        item.bytes.resize(mem->size());
+-        copy(backend_, mem->data<char>(), mem->data<char>() + mem->size(), item.bytes.data());
++        item.bytes->resize(mem->size());
++        copy(backend_, mem->data<char>(), mem->data<char>() + mem->size(), item.bytes->data());
+ 
+         ioItems.emplace_back(std::move(item));
+ #else
+@@ -245,8 +245,8 @@ public:
+         item.type = gemmElementType;
+ 
+         auto mem = paramMat->memory();
+-        item.bytes.resize(mem->size());
+-        copy(backend_, mem->data<char>(), mem->data<char>() + mem->size(), item.bytes.data());
++        item.bytes->resize(mem->size());
++        copy(backend_, mem->data<char>(), mem->data<char>() + mem->size(), item.bytes->data());
+         ioItems.emplace_back(std::move(item));
+ #else
+ ABORT("Packed type {} only supported when compiled with -COMPILE_CPU=on", gemmElementType);
+diff --git a/3rd_party/marian-dev/src/tensors/cpu/integer_common.h b/3rd_party/marian-dev/src/tensors/cpu/integer_common.h
+--- a/3rd_party/marian-dev/src/tensors/cpu/integer_common.h
++++ b/3rd_party/marian-dev/src/tensors/cpu/integer_common.h
+@@ -111,7 +111,7 @@ template<Type vtype>
+ void prepareAndTransposeB(io::Item& item, const char * input) {
+ #ifdef COMPILE_CPU
+     typedef typename intgemm_<vtype>::type Integer;
+-    Integer * output_tensor = reinterpret_cast<Integer *>(&(*item.bytes.begin()));
++    Integer * output_tensor = reinterpret_cast<Integer *>(&(*item.bytes->begin()));
+ #ifdef ARM
+     // On arm we do RowM * ColM. Our input already comes transposed due to the way we prepare matrices in the binary
+     // So on arm ALL we need to do is just copy. No need for pre
+@@ -168,7 +168,7 @@ template<Type vtype>
+ void unquantizeWemb(io::Item& item, const char * input) {
+     typedef typename intgemm_<vtype>::type Integer;
+     float quantMult = *(reinterpret_cast<const float *>(reinterpret_cast<const Integer *>(input) + item.shape.elements()));
+-    float * output_tensor = reinterpret_cast<float *>(&(*item.bytes.begin()));
++    float * output_tensor = reinterpret_cast<float *>(&(*item.bytes->begin()));
+     // Explicitly calculate n once beforehand because the compiler does not pick up on its
+     // static nature, and will end up calling marian::Shape::dim() a lot.
+     const size_t n = rows(item.shape) * cols(item.shape);
+diff --git a/3rd_party/marian-dev/src/tensors/tensor.cpp b/3rd_party/marian-dev/src/tensors/tensor.cpp
+--- a/3rd_party/marian-dev/src/tensors/tensor.cpp
++++ b/3rd_party/marian-dev/src/tensors/tensor.cpp
+@@ -121,20 +121,20 @@ void TensorBase::get(io::Item& item, const std::string& name) {
+   item.shape = shape_;
+   item.type  = type_;
+ 
+-  item.bytes.resize(memory_->size());
++  item.bytes->resize(memory_->size());
+   copy(backend_,
+        memory_->data<char>(),
+        memory_->data<char>() + memory_->size(),
+-       item.bytes.data());
++       item.bytes->data());
+ }
+ 
+ void TensorBase::set(const io::Item& item) {
+   ABORT_IF(item.type != type_, "Tensor type {} and item type {} do not match", type_, item.type);
+   ABORT_IF(item.shape != shape_, "Tensor shape {} and item shape {} do not match", shape_, item.shape);
+-  ABORT_IF(item.bytes.size() > memory_->size(), "Item data size {} too large for memory {}", item.bytes.size(), memory_->size());
++  ABORT_IF(item.bytes->size() > memory_->size(), "Item data size {} too large for memory {}", item.bytes->size(), memory_->size());
+   copy(backend_,
+-       item.bytes.data(),
+-       item.bytes.data() + item.bytes.size(),
++       item.bytes->data(),
++       item.bytes->data() + item.bytes->size(),
+        memory_->data<char>());
+ }
+ 
+diff --git a/3rd_party/marian-dev/src/translator/scorers.h b/3rd_party/marian-dev/src/translator/scorers.h
+--- a/3rd_party/marian-dev/src/translator/scorers.h
++++ b/3rd_party/marian-dev/src/translator/scorers.h
+@@ -49,6 +49,8 @@ public:
+   virtual Ptr<data::Shortlist> getShortlist() { return nullptr; };
+ 
+   virtual std::vector<float> getAlignment() { return {}; };
++
++  virtual void clearItems(){};
+ };
+ 
+ class ScorerWrapperState : public ScorerState {
+@@ -115,6 +117,8 @@ public:
+       encdec_->load(graph, fname_);
+   }
+ 
++  void clearItems() override { items_.clear(); }
++
+   virtual void clear(Ptr<ExpressionGraph> graph) override {
+     graph->switchParams(getName());
+     encdec_->clear(graph);
+diff --git a/src/translator/translation_model.cpp b/src/translator/translation_model.cpp
+--- a/src/translator/translation_model.cpp
++++ b/src/translator/translation_model.cpp
+@@ -90,13 +90,20 @@ void TranslationModel::loadBackend(size_t idx) {
+     LOG(debug, "Loaded {} model(s) from file", scorerEnsemble.size());
+   }
+ 
+-  for (auto scorer : scorerEnsemble) {
++  for (auto& scorer : scorerEnsemble) {
+     scorer->init(graph);
+     if (shortlistGenerator_) {
+       scorer->setShortlistGenerator(shortlistGenerator_);
+     }
+   }
+   graph->forward();
++
++  // A questo punto l'ExpressionGraph ha convertito gli `io::Item` dei scorer in `Tensor` (alla prima
++  // `forward`): gli Item e la copia del modello in MemoryBundle non servono piu' e si liberano.
++  for (auto scorer : scorerEnsemble) {
++    scorer->clearItems();
++  }
++  memory_.models.clear();
+ }
+ 
+ // Make request process is shared between Async and Blocking workflow of translating.

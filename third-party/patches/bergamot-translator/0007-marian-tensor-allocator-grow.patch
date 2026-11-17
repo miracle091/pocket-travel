@@ -1,0 +1,24 @@
+TensorAllocator di marian-dev fa crescere il workspace a blocchi da 128 MB: anche con 'workspace: 5' la prima traduzione
+ne alloca 128. Con GROW di 1 MB il picco di memoria scende. Mozilla lo fa solo per WASM; qui anche per Android.
+Applicata da core/translate/src/main/cpp/CMakeLists.txt alla copia dei sorgenti in core/translate/.cache; i percorsi
+partono dalla root del submodule third-party/bergamot-translator, anche per i file dei suoi sottomoduli annidati.
+Upstream: commit 724fc93 di mozilla/translations (PR 1135), inference/marian-fork/src/tensors/tensor_allocator.h, solo con WASM definito.
+Da togliere quando: il sottomodulo marian-dev include una GROW ridotta anche per Android, o il picco senza la patch non conta piu'.
+
+diff --git a/3rd_party/marian-dev/src/tensors/tensor_allocator.h b/3rd_party/marian-dev/src/tensors/tensor_allocator.h
+--- a/3rd_party/marian-dev/src/tensors/tensor_allocator.h
++++ b/3rd_party/marian-dev/src/tensors/tensor_allocator.h
+@@ -13,7 +13,13 @@ class TensorAllocator {
+ private:
+   const size_t CHUNK = 128;
+   const size_t MBYTE = 1024 * 1024;
++#if defined(WASM) || defined(__ANDROID__)
++  // Pocket Travel: come Mozilla per WASM, anche su Android (telefoni con poca memoria): il workspace cresce di 1 MB
++  // alla volta invece di 128 MB.
++  const size_t GROW = MBYTE;
++#else
+   const size_t GROW = CHUNK * MBYTE;
++#endif
+   const size_t ALIGN = 256;
+ 
+   Ptr<Backend> backend_;

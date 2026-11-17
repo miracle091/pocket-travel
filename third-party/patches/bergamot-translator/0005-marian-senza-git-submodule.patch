@@ -1,0 +1,21 @@
+CMakeLists.txt di marian-dev lancia 'git submodule update --init --recursive --no-fetch' a ogni configurazione. La copia dei
+sorgenti sta dentro il repository del progetto (senza .git proprio): git risale a quello e prova ad aggiornare i suoi
+sottomoduli, e con due ABI in parallelo fallisce sul lock di .git/modules. I sottomoduli li scarica gia' chi prepara il
+checkout (third-party/init-bergamot-submodules.sh).
+Applicata da core/translate/src/main/cpp/CMakeLists.txt alla copia dei sorgenti in core/translate/.cache; i percorsi
+partono dalla root del submodule third-party/bergamot-translator, anche per i file dei suoi sottomoduli annidati.
+Upstream: nessuna PR o issue trovata (ricerca su GitHub, 2026-11-17); dipende dal modo in cui il progetto compila una copia senza .git.
+Da togliere quando: marian-dev non aggiorna piu' i sottomoduli da CMake, o il build compila da una copia con .git.
+
+diff --git a/3rd_party/marian-dev/CMakeLists.txt b/3rd_party/marian-dev/CMakeLists.txt
+--- a/3rd_party/marian-dev/CMakeLists.txt
++++ b/3rd_party/marian-dev/CMakeLists.txt
+@@ -195,8 +195,6 @@ include(GetVersionFromFile)
+ message(STATUS "Project name: ${PROJECT_NAME}")
+ message(STATUS "Project version: ${PROJECT_VERSION_STRING_FULL}")
+ 
+-execute_process(COMMAND git submodule update --init --recursive --no-fetch
+-                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+ 
+ # Note that with CMake MSVC build, the option CMAKE_BUILD_TYPE is automatically derived from the key
+ # 'configurationType' in CMakeSettings.json configurations

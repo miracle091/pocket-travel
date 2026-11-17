@@ -1,0 +1,21 @@
+FindPCRE2.cmake di ssplit-cpp compila pcre2 (SSPLIT_USE_INTERNAL_PCRE2) come ExternalProject con un CONFIGURE_COMMAND
+proprio, senza -G: il cmake figlio prende il generatore di default della macchina (Visual Studio su Windows), non il
+Ninja del genitore, e la compilazione per Android fallisce. Si passano -G e CMAKE_MAKE_PROGRAM del genitore.
+Applicata da core/translate/src/main/cpp/CMakeLists.txt alla copia dei sorgenti in core/translate/.cache; i percorsi
+partono dalla root del submodule third-party/bergamot-translator, anche per i file dei suoi sottomoduli annidati.
+Upstream: nessuna PR o issue trovata su browsermt/ssplit-cpp (ricerca su GitHub, 2026-11-17); il repository non ha commit dal 2023-08-07.
+Da togliere quando: FindPCRE2.cmake passa il generatore al progetto figlio, o il build non usa piu' pcre2 interno.
+
+diff --git a/3rd_party/ssplit-cpp/cmake/FindPCRE2.cmake b/3rd_party/ssplit-cpp/cmake/FindPCRE2.cmake
+--- a/3rd_party/ssplit-cpp/cmake/FindPCRE2.cmake
++++ b/3rd_party/ssplit-cpp/cmake/FindPCRE2.cmake
+@@ -43,6 +43,9 @@ if(SSPLIT_USE_INTERNAL_PCRE2)
+   string(REPLACE ";" "$<SEMICOLON>" CMAKE_CROSSCOMPILING_EMULATOR_WITH_SEMICOLON "${CMAKE_CROSSCOMPILING_EMULATOR}")
+ 
+   set(PCRE2_CONFIGURE_OPTIONS
++    # Pocket Travel: il progetto figlio usa lo stesso generatore e lo stesso ninja del genitore (senza -G prende quello di default della macchina, su Windows Visual Studio).
++    -G${CMAKE_GENERATOR}
++    -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
+     -DBUILD_SHARED_LIBS=OFF
+     -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
+     -DCMAKE_BUILD_TYPE=Release

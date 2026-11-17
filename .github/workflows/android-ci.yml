@@ -39,13 +39,18 @@ jobs:
     timeout-minutes: 60
     env:
       CCACHE_DIR: /home/runner/.cache/ccache
-      CCACHE_MAXSIZE: 400M
+      CCACHE_MAXSIZE: 500M
     steps:
       # llama.cpp e BRouter sono submodule (third-party/), scaricati solo al commit registrato.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: true
           persist-credentials: false
+
+      # bergamot-translator ha sottomoduli annidati: submodules: true non li scarica, e il build di :core:translate
+      # compila solo quelli che lo script elenca.
+      - name: Sottomoduli annidati di bergamot-translator
+        run: bash third-party/init-bergamot-submodules.sh
 
       # Stesso JDK del daemon Gradle (toolchainVersion in gradle/gradle-daemon-jvm.properties): con
       # un JDK diverso Gradle ne scaricherebbe un secondo a ogni run. Stessa versione negli altri workflow.
@@ -81,14 +86,14 @@ jobs:
         run: |
           set -e
           shopt -s nullglob
-          for lib in llama-cpp brouter; do
+          for lib in llama-cpp brouter bergamot-translator; do
             patches=(third-party/patches/"$lib"/*.patch)
             [ ${#patches[@]} -gt 0 ] || continue
             cat "${patches[@]}" | git -C "third-party/$lib" apply --check \
               || { echo "::error::una patch di third-party/patches/$lib non si applica al submodule: rifarla o toglierla" >&2; exit 1; }
           done
           # Una patch che si toglie al contrario dal submodule pulito e' gia' upstream: va solo tolta, il build non fallisce.
-          for lib in llama-cpp brouter; do
+          for lib in llama-cpp brouter bergamot-translator; do
             for patch in third-party/patches/"$lib"/*.patch; do
               if git -C "third-party/$lib" apply --check --reverse < "$patch" 2>/dev/null; then
                 echo "::warning::$patch e' gia' nel submodule third-party/$lib: la patch non serve piu', toglierla"
@@ -209,7 +214,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git ls-files '.github/scripts/*.sh' 'tools/data-pipeline/scripts/*.sh' | xargs shellcheck -S warning || {
+          git ls-files '.github/scripts/*.sh' 'tools/data-pipeline/scripts/*.sh' 'third-party/*.sh' | xargs shellcheck -S warning || {
             echo "::error::shellcheck ha trovato avvisi negli script di shell (dettaglio nel log del passo)"
             echo "shellcheck ha trovato avvisi negli script di shell (dettaglio nel log del passo)." >> "$GITHUB_STEP_SUMMARY"
             exit 1
@@ -526,12 +531,17 @@ jobs:
     timeout-minutes: 75
     env:
       CCACHE_DIR: /home/runner/.cache/ccache
-      CCACHE_MAXSIZE: 400M
+      CCACHE_MAXSIZE: 500M
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: true
           persist-credentials: false
+
+      # bergamot-translator ha sottomoduli annidati: submodules: true non li scarica, e il build di :core:translate
+      # compila solo quelli che lo script elenca.
+      - name: Sottomoduli annidati di bergamot-translator
+        run: bash third-party/init-bergamot-submodules.sh
 
       # Stesso JDK del job "build".
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1

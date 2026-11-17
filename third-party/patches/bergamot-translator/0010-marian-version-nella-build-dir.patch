@@ -1,0 +1,24 @@
+CMakeLists.txt di marian-dev scrive src/common/project_version.h nella cartella dei sorgenti: la copia e' una sola per
+le due ABI, che configurano in parallelo (file e .tmp scritti insieme). Il file passa alla cartella di build di ogni ABI.
+Applicata da core/translate/src/main/cpp/CMakeLists.txt alla copia dei sorgenti in core/translate/.cache; i percorsi
+partono dalla root del submodule third-party/bergamot-translator, anche per i file dei suoi sottomoduli annidati.
+Upstream: nessuna PR o issue trovata (ricerca su GitHub, 2026-11-17); dipende dal modo in cui il progetto compila una copia senza .git.
+Da togliere quando: marian-dev scrive project_version.h nella cartella di build, o la copia dei sorgenti non e' piu' condivisa tra le ABI.
+
+diff --git a/3rd_party/marian-dev/CMakeLists.txt b/3rd_party/marian-dev/CMakeLists.txt
+--- a/3rd_party/marian-dev/CMakeLists.txt
++++ b/3rd_party/marian-dev/CMakeLists.txt
+@@ -733,9 +733,11 @@ if(COMPILE_EXAMPLES)
+   add_definitions(-DCOMPILE_EXAMPLES=1)
+ endif(COMPILE_EXAMPLES)
+ 
+-# Generate project_version.h to reflect our version number
++# Generate project_version.h to reflect our version number (Pocket Travel: nella cartella di build, non in quella dei
++# sorgenti, che le due ABI condividono)
+ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/src/common/project_version.h.in
+-               ${CMAKE_CURRENT_SOURCE_DIR}/src/common/project_version.h @ONLY)
++               ${CMAKE_CURRENT_BINARY_DIR}/src/common/project_version.h @ONLY)
++include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
+ 
+ # Generate build_info.cpp with CMake cache variables
+ include(GetCacheVariables)

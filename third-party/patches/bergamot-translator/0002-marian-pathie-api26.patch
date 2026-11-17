@@ -1,0 +1,57 @@
+pathie-cpp (dentro marian-dev) usa iconv e glob(), che l'NDK ha solo da API 28, mentre il minSdk del progetto
+e' 26: sotto API 28 convert_encodings restituisce la stringa com'e' (i nomi dei file su Android sono gia' UTF-8)
+e Path::glob un elenco vuoto (bergamot non lo usa).
+Applicata da core/translate/src/main/cpp/CMakeLists.txt alla copia dei sorgenti in core/translate/.cache; i percorsi
+partono dalla root del submodule third-party/bergamot-translator, anche per i file dei suoi sottomoduli annidati.
+Upstream: nessuna PR o issue trovata (ricerca su GitHub, 2026-11-17). browsermt/marian-dev e bergamot-translator non hanno commit dal 2024-05-12, ssplit-cpp dal 2023-08-07.
+Da togliere quando: il minSdk del progetto sale ad API 28 o piu', o pathie-cpp non usa piu' iconv e glob().
+
+diff --git a/3rd_party/marian-dev/src/3rd_party/pathie-cpp/src/path.cpp b/3rd_party/marian-dev/src/3rd_party/pathie-cpp/src/path.cpp
+--- a/3rd_party/marian-dev/src/3rd_party/pathie-cpp/src/path.cpp
++++ b/3rd_party/marian-dev/src/3rd_party/pathie-cpp/src/path.cpp
+@@ -3172,7 +3172,11 @@ Path Path::global_programs_dir()
+ ///
+ std::vector<Path> Path::glob(const std::string& pattern, int flags /* = 0 */)
+ {
+-#if defined(_PATHIE_UNIX)
++#if defined(__ANDROID__) && __ANDROID_API__ < 28
++  // glob() esiste solo da API 28; bergamot non lo usa.
++  (void) pattern; (void) flags;
++  return std::vector<Path>();
++#elif defined(_PATHIE_UNIX)
+   std::string nstr = utf8_to_filename(pattern);
+   glob_t globinfo;
+   int result = ::glob(nstr.c_str(), flags, NULL, &globinfo);
+diff --git a/3rd_party/marian-dev/src/3rd_party/pathie-cpp/src/pathie.cpp b/3rd_party/marian-dev/src/3rd_party/pathie-cpp/src/pathie.cpp
+--- a/3rd_party/marian-dev/src/3rd_party/pathie-cpp/src/pathie.cpp
++++ b/3rd_party/marian-dev/src/3rd_party/pathie-cpp/src/pathie.cpp
+@@ -82,7 +82,9 @@ std::wstring Pathie::utf8_to_utf16(std::string str)
+ #include <cstring>
+ #include <cstdlib>
+ #include <errno.h>
++#if !(defined(__ANDROID__) && __ANDROID_API__ < 28)
+ #include <iconv.h>
++#endif
+ #include <langinfo.h>
+ #include <sys/param.h> // defines "BSD" macro on BSD systems
+ 
+@@ -111,6 +113,11 @@ std::wstring Pathie::utf8_to_utf16(std::string str)
+  */
+ std::string Pathie::convert_encodings(const char* from_encoding, const char* to_encoding, const std::string& string)
+ {
++#if defined(__ANDROID__) && __ANDROID_API__ < 28
++  // iconv esiste solo da API 28; i nomi dei file su Android sono gia' UTF-8.
++  (void) from_encoding; (void) to_encoding;
++  return string;
++#else
+   size_t input_length = string.length();
+ 
+   // We need a C string working copy that isn’t const
+@@ -173,6 +180,7 @@ std::string Pathie::convert_encodings(const char* from_encoding, const char* to_
+   free(outbuf);
+ 
+   return result;
++#endif
+ }
+ 
+ /**

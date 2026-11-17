@@ -1,0 +1,54 @@
+src/CMakeLists.txt di marian-dev legge ../.git e genera common/git_revision.h con 'git log': la copia dei sorgenti
+non ha .git e il comando leggerebbe il repository del progetto (e la configurazione fallisce senza ../.git).
+La patch toglie la generazione e aggiunge il file con un valore fisso. Il file serve anche al controllo che le patch
+siano state applicate davvero (core/translate/src/main/cpp/CMakeLists.txt).
+Applicata da core/translate/src/main/cpp/CMakeLists.txt alla copia dei sorgenti in core/translate/.cache; i percorsi
+partono dalla root del submodule third-party/bergamot-translator, anche per i file dei suoi sottomoduli annidati.
+Upstream: nessuna PR o issue trovata (ricerca su GitHub, 2026-11-17); dipende dal modo in cui il progetto compila una copia senza .git.
+Da togliere quando: marian-dev non richiede .git per la versione, o il build compila da una copia con .git.
+
+diff --git a/3rd_party/marian-dev/src/CMakeLists.txt b/3rd_party/marian-dev/src/CMakeLists.txt
+--- a/3rd_party/marian-dev/src/CMakeLists.txt
++++ b/3rd_party/marian-dev/src/CMakeLists.txt
+@@ -135,33 +135,8 @@ add_library(marian STATIC ${MARIAN_SOURCES})
+ 
+ target_compile_options(marian PRIVATE ${ALL_WARNINGS})
+ 
+-# Generate git_revision.h to reflect current git revision information
+-# [https://stackoverflow.com/questions/1435953/how-can-i-pass-git-sha1-to-compiler-as-definition-using-cmake]
+-# Git updates .git/logs/HEAD file whenever you pull or commit something.
+-
+-# If Marian is checked out as a submodule in another repository,
+-# ${CMAKE_CURRENT_SOURCE_DIR}/../.git is not a directory but a file
+-# that specifies the relative path from ${CMAKE_CURRENT_SOURCE_DIR}/..
+-# to ./git/modules/<MARIAN_ROOT_DIR> in the root of the check_out of
+-# the project that contains Marian as a submodule.
+-#
+-# We set MARIAN_GIT_DIR to the appropriate path, depending on whether
+-# ${CMAKE_CURRENT_SOURCE_DIR}/../.git is a directory or file.
+-set(MARIAN_GIT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../.git)
+-if(NOT IS_DIRECTORY ${MARIAN_GIT_DIR}) # i.e., it's a submodule
+-  file(READ ${MARIAN_GIT_DIR} MARIAN_GIT_DIR)
+-  string(REGEX REPLACE "gitdir: (.*)\n" "\\1" MARIAN_GIT_DIR ${MARIAN_GIT_DIR})
+-  if(NOT IS_ABSOLUTE ${MARIAN_GIT_DIR})
+-    get_filename_component(MARIAN_GIT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../${MARIAN_GIT_DIR}" ABSOLUTE)
+-  endif()
+-endif(NOT IS_DIRECTORY ${MARIAN_GIT_DIR})
+-
+-add_custom_command(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/common/git_revision.h
+-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+-  COMMAND git log -1 --pretty=format:\#define\ GIT_REVISION\ \"\%h\ \%ai\" > ${CMAKE_CURRENT_SOURCE_DIR}/common/git_revision.h
+-  DEPENDS ${MARIAN_GIT_DIR}/logs/HEAD
+-  VERBATIM
+-)
++# Pocket Travel: common/git_revision.h e' un file fisso (patch), perche' la copia dei sorgenti non ha .git e il comando git log
++# leggerebbe il repository del progetto.
+ add_custom_target(marian_version DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/common/git_revision.h)
+ add_dependencies(marian marian_version) # marian must depend on it so that it gets created first
+ # make sure all local dependencies are installed first before this is built
+diff --git a/3rd_party/marian-dev/src/common/git_revision.h b/3rd_party/marian-dev/src/common/git_revision.h
+new file mode 100644
+--- /dev/null
++++ b/3rd_party/marian-dev/src/common/git_revision.h
+@@ -0,0 +1 @@
++#define GIT_REVISION "bergamot-translator"

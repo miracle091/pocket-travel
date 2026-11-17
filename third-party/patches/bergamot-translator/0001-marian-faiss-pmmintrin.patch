@@ -1,0 +1,20 @@
+faiss/VectorTransform.cpp di marian-dev usa le intrinseche SSE3 (__m128, _mm_hadd_ps...) senza includere
+<pmmintrin.h>: con il clang dell'NDK 29 su x86_64 non compila. L'include si aggiunge solo dove c'e' SSE.
+Applicata da core/translate/src/main/cpp/CMakeLists.txt alla copia dei sorgenti in core/translate/.cache; i percorsi
+partono dalla root del submodule third-party/bergamot-translator, anche per i file dei suoi sottomoduli annidati.
+Upstream: browsermt/marian-dev issue 113 "Missing includes for faiss when building for Android x86-64" (aperta, senza fix). browsermt/marian-dev e bergamot-translator non hanno commit dal 2024-05-12, ssplit-cpp dal 2023-08-07.
+Da togliere quando: marian-dev include <pmmintrin.h> in faiss/VectorTransform.cpp, o il build non usa piu' faiss.
+
+diff --git a/3rd_party/marian-dev/src/3rd_party/faiss/VectorTransform.cpp b/3rd_party/marian-dev/src/3rd_party/faiss/VectorTransform.cpp
+--- a/3rd_party/marian-dev/src/3rd_party/faiss/VectorTransform.cpp
++++ b/3rd_party/marian-dev/src/3rd_party/faiss/VectorTransform.cpp
+@@ -14,6 +14,9 @@
+ #include <cstring>
+ #include <memory>
+ 
++#ifdef __SSE__
++#include <pmmintrin.h>
++#endif
+ #include <faiss/utils/random.h>
+ #include "common/logging.h"
+ 
