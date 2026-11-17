@@ -26,12 +26,17 @@ diventati serie di sviluppo. Con --questions general le domande generali (jet la
 aperta ogni regione: attesa la sezione della pagina tematica della guida generale (regionId _general) che risponde.
 Le sezioni della guida generale concorrono in tutte le serie, come nell'app. Con --questions other-country le domande sul paese
 che nominano un'altra nazione ("Serve il passaporto per entrare in Grecia?" con aperto il Portogallo): attesa la sezione
-della guida della nazione nominata. Con --guides-db un guides.db locale al posto di quello
+della guida della nazione nominata. Con --questions unanswerable domande senza risposta nelle guide pubblicate
+(UNANSWERABLE_Q, verificate nei dati): nessuna sezione attesa, il modello deve rifiutare. Con --guides-db un guides.db locale al posto di quello
 pubblicato, per misurare un cambio delle guide prima di pubblicarlo. Con --word-lists la query ha anche le parole delle
 guide per la categoria della domanda (CategoryWords.kt, accese nell'app; senza l'opzione si misura la ricerca senza liste).
 Con --before-rag la ricerca senza guida generale e senza nazione nominata: senza --word-lists e' quella di prima del RAG.
 Con --model-categories FILE (scritto da model_categories.py) le domande in cui le liste non riconoscono una categoria usano
 quella scelta dal modello, come l'app sul dispositivo (ModelQuestionCategory.kt).
+Con --second-pass anche il secondo contesto di una seconda passata dopo un rifiuto (non nell'app): i paragrafi rimasti
+fuori delle sezioni del contesto e le sezioni dalla 4a alla 6a della ricerca, entro gli stessi 2000 caratteri; per tipo,
+quante domande hanno un secondo contesto non vuoto e quante hanno la sezione attesa (e il paragrafo della risposta) solo
+nel secondo; con --contexts il secondo contesto va nelle righe, per eval_gguf.py --contexts --second-pass.
 Con --contexts FILE ogni domanda (distanze escluse) va in JSONL con il contesto che l'app mette nel prompt e la presenza
 della sezione attesa, per far rispondere il modello con eval_gguf.py --contexts (ricerca e modello insieme).
 Con --online la ricerca e il contesto dei modelli online (buildOnlineContext): le 6 sezioni migliori (ONLINE_MAX_SECTIONS,
@@ -51,8 +56,8 @@ attesa, con le sezioni scelte e il posto di quella attesa. Con --baseline FILE c
 riferimento (scritta la prima volta, o con --write-baseline) e stampa le domande guadagnate e perse: per provare una
 modifica di word_lists.txt; con --questions control un saldo negativo fa uscire con errore.
 
-Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|dev2|other-lang|control|general|other-country] [--regions italia ...]
-[--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists [--model-categories FILE]] [--before-rag] [--contexts FILE [--contexts-sample N]] [--online]
+Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|dev2|other-lang|control|general|other-country|unanswerable] [--regions italia ...]
+[--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists [--model-categories FILE]] [--before-rag] [--contexts FILE [--contexts-sample N]] [--online] [--second-pass [cut-first|new-first]]
 [--rerank GGUF --llama-cpp DIR [--rerank-scoring yesno|refusal] [--rerank-mode replace|add|blend] [--gpu-layers 99 --device Vulkan0]]
 [--rrf [--rrf-weight W]] [--paragraphs rank|within|within-country [--paragraph-chars N]] [--history FILE] [--explain FILE]
 [--baseline FILE [--write-baseline]]
@@ -529,7 +534,137 @@ LANGS["it"]["dev2"] = (CITY_Q_DEV2, WIKI_Q_DEV2, COUNTRY_Q_DEV2, DISTANCE_Q)
 LANGS["en"]["dev2"] = (CITY_Q_DEV2_EN, WIKI_Q_DEV2_EN, COUNTRY_Q_DEV2_EN, DISTANCE_Q_EN)
 LANGS["it"]["control"] = (CITY_Q_CONTROL, WIKI_Q_CONTROL, COUNTRY_Q_CONTROL, DISTANCE_Q)
 LANGS["en"]["control"] = (CITY_Q_CONTROL_EN, WIKI_Q_CONTROL_EN, COUNTRY_Q_CONTROL_EN, DISTANCE_Q_EN)
-QUESTION_SETS = ["direct", "reworded", "dev", "dev2", "other-lang", "control", "general", "other-country"]
+# Domande senza risposta nelle guide (--questions unanswerable), con la regione da aprire: plausibili per chi viaggia, ma
+# ne' guide del paese ne' guida generale ne' sezioni delle citta' della regione (IT ed EN pubblicate al 2026-11-17)
+# hanno un paragrafo che risponde (orari, prezzi e servizi minuti, eventi del 2027); verificate cercando le parole chiave
+# nei guides.db e cities.db, non a memoria. Il contesto non deve contenere la risposta: il modello deve rifiutare.
+UNANSWERABLE_Q = {
+    "it": [
+        ("italia", "Quanto costa il parcheggio all'aeroporto di Bologna per una settimana?"),
+        ("italia", "Si possono portare i cani nei musei di Firenze?"),
+        ("italia", "C'è un veterinario aperto la domenica a Napoli?"),
+        ("italia", "Dove posso noleggiare una sedia a rotelle a Venezia?"),
+        ("italia", "Dove posso stampare la carta d'imbarco a Milano?"),
+        ("italia", "Quanto costa una visita dal dentista in Italia?"),
+        ("italia", "Che concerti ci sono a Verona il 12 marzo 2027?"),
+        ("italia", "Dove posso noleggiare un passeggino a Roma?"),
+        ("italia", "Ci sono colonnine per ricaricare l'auto elettrica a Trieste?"),
+        ("italia", "Si può pagare con Satispay nei negozi di Genova?"),
+        ("italia", "Dove trovo un parrucchiere a Bari?"),
+        ("italia", "C'è una lavanderia a gettoni a Catania?"),
+        ("portogallo", "Quanto costa il parcheggio all'aeroporto di Faro per una settimana?"),
+        ("portogallo", "Si possono portare i cani sui tram di Lisbona?"),
+        ("portogallo", "C'è un ufficio oggetti smarriti all'aeroporto di Porto?"),
+        ("portogallo", "Quanto costa una visita dal dentista in Portogallo?"),
+        ("portogallo", "Dove posso noleggiare una sedia a rotelle a Lisbona?"),
+        ("portogallo", "Che concerti ci sono a Braga il 20 aprile 2027?"),
+        ("portogallo", "Ci sono colonnine per ricaricare l'auto elettrica a Tavira?"),
+        ("portogallo", "Qual è il limite di velocità per i monopattini elettrici in Portogallo?"),
+        ("portogallo", "Dove posso stampare documenti a Sintra?"),
+        ("portogallo", "Dove trovo un parrucchiere a Cascais?"),
+        ("portogallo", "C'è un veterinario a Lagos?"),
+        ("portogallo", "Serve un permesso per far volare un drone in Portogallo?"),
+        ("portogallo", "C'è una lavanderia a gettoni a Coimbra?"),
+        ("grecia", "Quanto costa il parcheggio all'aeroporto di Atene per una settimana?"),
+        ("grecia", "A che ora apre l'ufficio postale di Salonicco il sabato?"),
+        ("grecia", "C'è un veterinario a Nauplia?"),
+        ("grecia", "Quanto costa una visita dal dentista in Grecia?"),
+        ("grecia", "Dove posso noleggiare una sedia a rotelle ad Atene?"),
+        ("grecia", "Che concerti ci sono a Patrasso il 3 maggio 2027?"),
+        ("grecia", "Ci sono colonnine per ricaricare l'auto elettrica a Calamata?"),
+        ("grecia", "C'è un ufficio oggetti smarriti al porto del Pireo?"),
+        ("grecia", "Dove posso stampare documenti a Volos?"),
+        ("grecia", "Dove trovo un parrucchiere a Candia?"),
+        ("grecia", "C'è una lavanderia a gettoni a Larissa?"),
+        ("grecia", "Qual è il limite di velocità per i monopattini elettrici in Grecia?"),
+        ("svizzera", "Quanto costa il parcheggio all'aeroporto di Zurigo per una settimana?"),
+        ("svizzera", "C'è un veterinario di turno a Locarno la domenica?"),
+        ("svizzera", "Quanto costa una visita dal dentista in Svizzera?"),
+        ("svizzera", "Dove posso noleggiare una sedia a rotelle a Ginevra?"),
+        ("svizzera", "Che concerti ci sono a Berna il 15 febbraio 2027?"),
+        ("svizzera", "Ci sono colonnine per ricaricare l'auto elettrica a Bellinzona?"),
+        ("svizzera", "Dove posso stampare la carta d'imbarco a Losanna?"),
+        ("svizzera", "Serve un permesso per far volare un drone in Svizzera?"),
+        ("svizzera", "Dove trovo un parrucchiere a Lucerna?"),
+        ("svizzera", "C'è una lavanderia a gettoni a Montreux?"),
+        ("svizzera", "Si può pagare con Twint senza un conto svizzero?"),
+        ("croazia", "Quanto costa il parcheggio all'aeroporto di Spalato per una settimana?"),
+        ("croazia", "C'è un veterinario a Rovigno?"),
+        ("croazia", "Quanto costa una visita dal dentista in Croazia?"),
+        ("croazia", "Dove posso noleggiare una sedia a rotelle a Traù?"),
+        ("croazia", "Che concerti ci sono a Pola il 10 giugno 2027?"),
+        ("croazia", "Ci sono colonnine per ricaricare l'auto elettrica a Parenzo?"),
+        ("croazia", "C'è un ufficio oggetti smarriti all'aeroporto di Ragusa?"),
+        ("croazia", "Dove posso stampare documenti a Fiume?"),
+        ("croazia", "Serve un permesso per far volare un drone in Croazia?"),
+        ("croazia", "Dove trovo un parrucchiere a Sebenico?"),
+        ("croazia", "C'è una lavanderia a gettoni a Osijek?"),
+        ("croazia", "Qual è il limite di velocità per i monopattini elettrici in Croazia?"),
+    ],
+    "en": [
+        ("italia", "How much does parking at Bologna airport cost for a week?"),
+        ("italia", "Can I bring my dog into museums in Florence?"),
+        ("italia", "Is there a vet open on Sunday in Naples?"),
+        ("italia", "Where can I rent a wheelchair in Venice?"),
+        ("italia", "Where can I print my boarding pass in Milan?"),
+        ("italia", "How much does a dentist visit cost in Italy?"),
+        ("italia", "Which concerts are on in Verona on 12 March 2027?"),
+        ("italia", "Where can I rent a stroller in Rome?"),
+        ("italia", "Are there charging stations for electric cars in Trieste?"),
+        ("italia", "Can I pay with Satispay in shops in Genoa?"),
+        ("italia", "Where can I find a hairdresser in Bari?"),
+        ("italia", "Is there a laundromat in Catania?"),
+        ("portogallo", "How much does parking at Faro airport cost for a week?"),
+        ("portogallo", "Can I bring my dog on the trams in Lisbon?"),
+        ("portogallo", "Is there a lost property office at Porto airport?"),
+        ("portogallo", "How much does a dentist visit cost in Portugal?"),
+        ("portogallo", "Where can I rent a wheelchair in Lisbon?"),
+        ("portogallo", "Which concerts are on in Braga on 20 April 2027?"),
+        ("portogallo", "Are there charging stations for electric cars in Tavira?"),
+        ("portogallo", "What is the speed limit for electric scooters in Portugal?"),
+        ("portogallo", "Where can I print documents in Sintra?"),
+        ("portogallo", "Where can I find a hairdresser in Cascais?"),
+        ("portogallo", "Is there a vet in Lagos?"),
+        ("portogallo", "Do I need a permit to fly a drone in Portugal?"),
+        ("portogallo", "Is there a laundromat in Coimbra?"),
+        ("grecia", "How much does parking at Athens airport cost for a week?"),
+        ("grecia", "What time does the post office in Thessaloniki open on Saturday?"),
+        ("grecia", "Is there a vet in Nafplio?"),
+        ("grecia", "How much does a dentist visit cost in Greece?"),
+        ("grecia", "Where can I rent a wheelchair in Athens?"),
+        ("grecia", "Which concerts are on in Patras on 3 May 2027?"),
+        ("grecia", "Are there charging stations for electric cars in Kalamata?"),
+        ("grecia", "Is there a lost property office at the port of Piraeus?"),
+        ("grecia", "Where can I print documents in Volos?"),
+        ("grecia", "Where can I find a hairdresser in Heraklion?"),
+        ("grecia", "Is there a laundromat in Larissa?"),
+        ("grecia", "What is the speed limit for electric scooters in Greece?"),
+        ("svizzera", "How much does parking at Zurich airport cost for a week?"),
+        ("svizzera", "Is there an on-call vet in Locarno on Sunday?"),
+        ("svizzera", "How much does a dentist visit cost in Switzerland?"),
+        ("svizzera", "Where can I rent a wheelchair in Geneva?"),
+        ("svizzera", "Which concerts are on in Bern on 15 February 2027?"),
+        ("svizzera", "Are there charging stations for electric cars in Bellinzona?"),
+        ("svizzera", "Where can I print my boarding pass in Lausanne?"),
+        ("svizzera", "Do I need a permit to fly a drone in Switzerland?"),
+        ("svizzera", "Where can I find a hairdresser in Lucerne?"),
+        ("svizzera", "Is there a laundromat in Montreux?"),
+        ("svizzera", "Can I pay with Twint without a Swiss bank account?"),
+        ("croazia", "How much does parking at Split airport cost for a week?"),
+        ("croazia", "Is there a vet in Rovinj?"),
+        ("croazia", "How much does a dentist visit cost in Croatia?"),
+        ("croazia", "Where can I rent a wheelchair in Trogir?"),
+        ("croazia", "Which concerts are on in Pula on 10 June 2027?"),
+        ("croazia", "Are there charging stations for electric cars in Poreč?"),
+        ("croazia", "Is there a lost property office at Dubrovnik airport?"),
+        ("croazia", "Where can I print documents in Rijeka?"),
+        ("croazia", "Do I need a permit to fly a drone in Croatia?"),
+        ("croazia", "Where can I find a hairdresser in Šibenik?"),
+        ("croazia", "Is there a laundromat in Osijek?"),
+        ("croazia", "What is the speed limit for electric scooters in Croatia?"),
+    ],
+}
+QUESTION_SETS = ["direct", "reworded", "dev", "dev2", "other-lang", "control", "general", "other-country", "unanswerable"]
 KINDS = ["citta', domande pratiche", "paese", "citta', storia e clima", "distanze"]
 # Un paragrafo con una distanza o un tempo di viaggio ("72 km", "3 h 30", "20 minuti", "2 hours").
 TRAVEL_FIGURE = re.compile(r"\d+\s*(km|h|ore|minuti|min|hours?|minutes?)\b")
@@ -882,7 +1017,7 @@ def city_candidates(db, region, fts, named):
         (fts, region, name, name, CITY_CANDIDATE_CAP if name else CANDIDATE_CAP))]
 
 
-def search(db, region, question, cities, lang="it", word_lists=False, before_rag=False, pool=None):
+def search(db, region, question, cities, lang="it", word_lists=False, before_rag=False, pool=None, limit=None):
     """TravelAssistant.searchSections: (sezioni, radici della domanda). Con [word_lists] la query ha anche le parole delle
     guide per la categoria della domanda; le radici restano quelle della domanda. Una nazione diversa da quella di
     [region] nominata senza citta' (named_place) fa cercare nelle sue regioni, senza il suo nome nella query. Con
@@ -890,8 +1025,8 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
     Con [pool] le prime [pool] sezioni della classifica invece del contesto, senza riordino (Hit@5 e MRR@10); altrimenti
     la prima pagina della guida generale ha gia' la sua quota del contesto sul dispositivo (general_guide_share, che
     nell'app si applica in buildOnDeviceContext). Con --online (ONLINE) le ONLINE_MAX_SECTIONS sezioni della ricerca
-    online, senza quota: la applica online_context."""
-    limit = ONLINE_MAX_SECTIONS if ONLINE["on"] else MAX_SECTIONS
+    online, senza quota: la applica online_context. Con [limit] quel numero di sezioni (--second-pass)."""
+    limit = limit or (ONLINE_MAX_SECTIONS if ONLINE["on"] else MAX_SECTIONS)
     named = named_cities(question, cities, lang)
     city = named[0] if len(named) == 1 else None
     country = None if named or before_rag else named_place(question, region, lang)
@@ -1274,6 +1409,81 @@ def write_contexts(path, rows, sample):
     print(f"contesti: {len(kept)} domande in {path}")
 
 
+# --- seconda passata (--second-pass, solo misura) --------------------------------------------------------------------
+# Quando il modello rifiuta, l'app potrebbe rigenerare una volta con un secondo contesto fatto di quello che il primo ha
+# lasciato fuori: i paragrafi tagliati delle sezioni del contesto e le sezioni dalla 4a alla SECOND_PASS_SECTIONS-esima
+# della ricerca. Non e' nell'app: qui si misura quanto porterebbe.
+SECOND_PASS = {"on": False, "order": "cut-first"}
+SECOND_PASS_SECTIONS = 6         # come ONLINE_MAX_SECTIONS: la ricerca e' la stessa del motore online
+
+
+def whole_body(section):
+    return section.get("section_body", section["body"])
+
+
+def same_section_key(section):
+    """Identita' di una sezione tra due ricerche: il corpo puo' essere ridotto (general_guide_share), quello intero no."""
+    return section.get("region"), section.get("city"), section["category"], section.get("title"), whole_body(section)[:80]
+
+
+def second_pass_sections(first, ranked, stems, first_context):
+    """Le sezioni del secondo contesto: di ogni sezione di [first] (le sezioni del primo contesto) i paragrafi che non sono
+    in [first_context] (tutta la sezione se non e' entrata), e le sezioni di [ranked] (la ricerca con SECOND_PASS_SECTIONS
+    sezioni) che non sono in [first]; con l'ordine "cut-first" prima i paragrafi tagliati, con "new-first" prima le sezioni
+    nuove. La prima pagina della guida generale ha la sua quota, come nel primo contesto."""
+    lines = set(first_context.split("\n"))
+    cut = []
+    for section in first:
+        left = [p for p in whole_body(section).split("\n") if p.strip() and p not in lines]
+        if left:
+            cut.append({**section, "body": "\n".join(left), "section_body": whole_body(section)})
+    seen = {same_section_key(s) for s in first}
+    new = [{**s, "body": whole_body(s)} for s in ranked if same_section_key(s) not in seen]
+    sections = cut + new if SECOND_PASS["order"] == "cut-first" else new + cut
+    return general_guide_share(sections, stems)
+
+
+def second_pass_fields(first, ranked, stems, is_expected, paragraph=None):
+    """Primo e secondo contesto di una domanda: il secondo ("second_context", "second_parts" come "parts" di context_row)
+    e, per la sezione attesa ([is_expected] su una sezione), se ne e' entrata una parte nel primo e nel secondo contesto
+    e se c'e' il paragrafo della risposta ([paragraph], o quello con piu' radici della domanda della prima sezione attesa
+    tra [first] e [ranked], scelto tra i paragrafi di almeno MIN_SECTION_CHARS caratteri se ce ne sono: un titolo corto
+    come "▸ Dormire" sta in molte sezioni)."""
+    first_parts = on_device_parts(first, stems)
+    first_context = "\n\n".join(part for _, part in first_parts)[:MAX_CONTEXT]
+    ordered = on_device_parts(second_pass_sections(first, ranked, stems, first_context), stems)
+    second_context = "\n\n".join(part for _, part in ordered)[:MAX_CONTEXT]
+    expected = next((s for s in [*first, *ranked] if is_expected(s)), None)
+    lines = [p for p in (whole_body(expected) if expected else "").split("\n") if p.strip()]
+    lines = [p for p in lines if len(p) >= MIN_SECTION_CHARS] or lines
+    answer = (paragraph or answer_paragraph("\n".join(lines), stems))[:150] if lines else None
+    return {"second_context": second_context,
+            "second_parts": [{"title": s.get("title"), "category": s.get("category"), "city": s.get("city"),
+                              "general_guide": bool(s.get("general_guide")), "expected": is_expected(s), "text": part}
+                             for s, part in ordered],
+            "first_section_in_context": any(is_expected(s) for s, _ in first_parts),
+            "second_section_in_context": any(is_expected(s) for s, _ in ordered),
+            "first_answer_in_context": bool(answer) and answer in first_context,
+            "second_answer_in_context": bool(answer) and answer in second_context}
+
+
+def count_second_pass(counts, fields):
+    """Somma in [counts] i contatori della seconda passata di una domanda (second_pass_fields)."""
+    counts["2a: secondo contesto"] += bool(fields["second_context"].strip())
+    counts["2a: sezione nel primo"] += fields["first_section_in_context"]
+    counts["2a: sezione solo nel secondo"] += fields["second_section_in_context"] and not fields["first_section_in_context"]
+    counts["2a: risposta nel primo"] += fields["first_answer_in_context"]
+    counts["2a: risposta solo nel secondo"] += fields["second_answer_in_context"] and not fields["first_answer_in_context"]
+
+
+def print_second_pass(label, counts):
+    n = max(counts["n"], 1)
+    pct = lambda k: f"{counts[k]} ({100 * counts[k] / n:.1f}%)"
+    print(f"  seconda passata, {label}: secondo contesto non vuoto {pct('2a: secondo contesto')}; sezione attesa nel primo "
+          f"contesto {pct('2a: sezione nel primo')}, solo nel secondo {pct('2a: sezione solo nel secondo')}; risposta nel "
+          f"primo {pct('2a: risposta nel primo')}, solo nel secondo {pct('2a: risposta solo nel secondo')}")
+
+
 # --- dati --------------------------------------------------------------------------------------------------------------
 UA = {"User-Agent": "pocket-travel-eval-retrieval/1.0 (https://github.com/miracle091/pocket-travel)"}
 
@@ -1389,11 +1599,19 @@ def general(guides_db, regions, lang, word_lists=False, before_rag=False, rows=N
     della guida generale attesa nel contesto, al primo posto, e il suo paragrafo con piu' parole della domanda nel contesto.
     In [rows], se c'e', una riga per domanda con il contesto (context_row)."""
     found = first = in_context = n = 0
+    second = defaultdict(int)
     for region in regions:
         db = build_db(guides_db, region, [])
         for question, page in GENERAL_Q[lang]:
             top, stems = search(db, region, question, [], lang, word_lists, before_rag)
-            match = [s for s in top if s.get("general_guide") and s["title"].split(": ")[0] == page]
+            is_expected = lambda s, page=page: bool(s.get("general_guide")) and s["title"].split(": ")[0] == page
+            match = [s for s in top if is_expected(s)]
+            fields = {}
+            if SECOND_PASS["on"]:
+                ranked, _ = search(db, region, question, [], lang, word_lists, before_rag, limit=SECOND_PASS_SECTIONS)
+                fields = second_pass_fields(top, ranked, stems, is_expected)
+                second["n"] += 1
+                count_second_pass(second, fields)
             n += 1
             found += bool(match)
             OUTCOMES[f"{region} | domande generali | {question}"] = bool(match)
@@ -1402,13 +1620,16 @@ def general(guides_db, regions, lang, word_lists=False, before_rag=False, rows=N
                 in_context += answer_paragraph(match[0].get("section_body", match[0]["body"]), stems)[:150] in context_text(top, stems, lang)
             if rows is not None:
                 rows.append({"region": region, "kind": "domande generali", "category": page, "city": None,
-                             "question": question, **context_row(top, stems, match)})
+                             "question": question, **context_row(top, stems, match), **fields})
         db.close()
     print(f"domande generali ({n} domande): trovata {100 * found / max(n, 1):.1f}%, prima {100 * first / max(n, 1):.1f}%, "
           f"risposta nel contesto {100 * in_context / max(found, 1):.1f}% delle trovate; margine al 95% di trovata "
           f"±{margin(found, n):.1f} punti")
+    if SECOND_PASS["on"]:
+        print_second_pass("domande generali", second)
     if results is not None:
-        results["domande generali"] = {"n": n, "trovata": found, "prima": first, "risposta nel contesto": in_context}
+        results["domande generali"] = {"n": n, "trovata": found, "prima": first, "risposta nel contesto": in_context,
+                                       **{k: v for k, v in second.items() if k != "n"}}
 
 
 def other_country(guides_db, regions, lang, word_lists=False, before_rag=False, results=None):
@@ -1417,6 +1638,7 @@ def other_country(guides_db, regions, lang, word_lists=False, before_rag=False, 
     la sezione della categoria in una regione della nazione nominata."""
     pairs = [(r, REGION_COUNTRY[regions[(i + 1) % len(regions)]]) for i, r in enumerate(regions)] + [(regions[0], "fr")]
     found = first = n = 0
+    second = defaultdict(int)
     for region, target in pairs:
         if target == REGION_COUNTRY.get(region) or target not in COUNTRY_NAMES:
             sys.exit(f"other-country: {target} e' la nazione di {region} o non ha un nome in COUNTRY_NAMES")
@@ -1424,8 +1646,13 @@ def other_country(guides_db, regions, lang, word_lists=False, before_rag=False, 
         db = build_db(guides_db, region, [])
         for cat, qs in OTHER_COUNTRY_Q[lang].items():
             for q in qs:
-                top, _ = search(db, region, q.format(p=name), [], lang, word_lists, before_rag)
-                match = [s for s in top if s["category"] == cat and s.get("region") in COUNTRY_REGIONS[target]]
+                top, stems = search(db, region, q.format(p=name), [], lang, word_lists, before_rag)
+                is_expected = lambda s, cat=cat, target=target: s["category"] == cat and s.get("region") in COUNTRY_REGIONS[target]
+                match = [s for s in top if is_expected(s)]
+                if SECOND_PASS["on"]:
+                    ranked, _ = search(db, region, q.format(p=name), [], lang, word_lists, before_rag, limit=SECOND_PASS_SECTIONS)
+                    second["n"] += 1
+                    count_second_pass(second, second_pass_fields(top, ranked, stems, is_expected))
                 n += 1
                 found += bool(match)
                 OUTCOMES[f"{region} | paese nominato | {q.format(p=name)}"] = bool(match)
@@ -1433,8 +1660,45 @@ def other_country(guides_db, regions, lang, word_lists=False, before_rag=False, 
         db.close()
     print(f"paese nominato ({n} domande): trovata {100 * found / max(n, 1):.1f}%, prima {100 * first / max(n, 1):.1f}%; "
           f"margine al 95% di trovata ±{margin(found, n):.1f} punti")
+    if SECOND_PASS["on"]:
+        print_second_pass("paese nominato", second)
     if results is not None:
-        results["paese nominato"] = {"n": n, "trovata": found, "prima": first}
+        results["paese nominato"] = {"n": n, "trovata": found, "prima": first, **{k: v for k, v in second.items() if k != "n"}}
+
+
+def unanswerable(guides_db, cache, regions, lang, word_lists=False, before_rag=False, no_wikipedia=False, rows=None,
+                 results=None):
+    """Le domande senza risposta (UNANSWERABLE_Q) con aperta la loro regione, se e' tra [regions]: nessuna sezione attesa,
+    il modello deve rifiutare. Conta i contesti non vuoti (quelli che possono indurre una risposta inventata) e, con
+    --second-pass, i secondi contesti non vuoti. In [rows], se c'e', una riga per domanda (tipo "senza risposta")."""
+    n = filled = 0
+    second = defaultdict(int)
+    for region in regions:
+        questions = [q for r, q in UNANSWERABLE_Q[lang] if r == region]
+        if not questions:
+            continue
+        city_rows = city_rows_of(cache, region, not no_wikipedia, lang)
+        db = build_db(guides_db, region, city_rows)
+        cities = sorted({r[0] for r in city_rows})
+        for question in questions:
+            top, stems = search(db, region, question, cities, lang, word_lists, before_rag)
+            n += 1
+            filled += bool(top)
+            fields = {}
+            if SECOND_PASS["on"]:
+                ranked, _ = search(db, region, question, cities, lang, word_lists, before_rag, limit=SECOND_PASS_SECTIONS)
+                fields = second_pass_fields(top, ranked, stems, lambda s: False)
+                second["n"] += 1
+                count_second_pass(second, fields)
+            if rows is not None:
+                rows.append({"region": region, "kind": "senza risposta", "category": None, "city": None,
+                             "question": question, **context_row(top, stems, []), **fields})
+        db.close()
+    print(f"senza risposta ({n} domande): contesto non vuoto {100 * filled / max(n, 1):.1f}% (nessuna sezione risponde)")
+    if SECOND_PASS["on"]:
+        print_second_pass("senza risposta", second)
+    if results is not None:
+        results["senza risposta"] = {"n": n, "contesto non vuoto": filled, **{k: v for k, v in second.items() if k != "n"}}
 
 
 # --- affidabilita' della misura --------------------------------------------------------------------------------------
@@ -1536,7 +1800,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--lang", choices=sorted(LANGS), default="it")
     ap.add_argument("--questions", choices=QUESTION_SETS, default="direct",
-                    help="domande dirette, riformulate o nell'altra lingua")
+                    help="serie di domande (unanswerable: senza risposta nelle guide)")
     ap.add_argument("--regions", nargs="+", default=DEFAULT_REGIONS)
     ap.add_argument("--cache", type=Path, default=Path(tempfile.gettempdir()) / "pocket-travel-eval-retrieval")
     ap.add_argument("--no-wikipedia", action="store_true", help="senza Storia e Clima (per confronto)")
@@ -1587,7 +1851,14 @@ def main():
     ap.add_argument("--device", help="con --rerank: GPU da usare, come in `llama-server --list-devices` (es. Vulkan0)")
     ap.add_argument("--online", action="store_true",
                     help="trovata e risposta nel contesto con le 6 sezioni e il contesto di 8000 caratteri dei modelli online")
+    ap.add_argument("--second-pass", nargs="?", const="cut-first", choices=["cut-first", "new-first"],
+                    help="anche il secondo contesto di un'eventuale seconda passata dopo un rifiuto: paragrafi tagliati delle "
+                         "sezioni del contesto e sezioni dalla 4a alla 6a della ricerca (cut-first: prima i paragrafi "
+                         "tagliati; new-first: prima le sezioni nuove); con --contexts nelle righe per eval_gguf.py --second-pass")
     a = ap.parse_args()
+    if a.second_pass and (a.online or a.rerank):
+        ap.error("--second-pass misura il contesto sul dispositivo con la ricerca di oggi: non vale con --online e --rerank")
+    SECOND_PASS.update(on=bool(a.second_pass), order=a.second_pass)
     if a.online and (a.rerank or a.contexts):
         ap.error("--online non vale con --rerank e --contexts, che misurano il modello sul dispositivo")
     ONLINE["on"] = a.online
@@ -1637,6 +1908,12 @@ def main():
         record_history(a.history, config, data, results)
         finish_baseline(a, config, data)
         return
+    if a.questions == "unanswerable":
+        unanswerable(guides_db, a.cache, a.regions, a.lang, a.word_lists, a.before_rag, a.no_wikipedia, context_rows, results)
+        if a.contexts:
+            write_contexts(a.contexts, [{**labels, **r} for r in context_rows], a.contexts_sample)
+        record_history(a.history, config, data, results)
+        return
     if a.questions == "other-country":
         other_country(guides_db, a.regions, a.lang, a.word_lists, a.before_rag, results)
         record_history(a.history, config, data, results)
@@ -1656,7 +1933,14 @@ def main():
             r = res[kind]
             r["n"] += 1
             # Una sezione della guida generale con la stessa categoria non e' quella del paese attesa.
-            match = [s for s in top if s["category"] == cat and (city is None or s["city"] == city) and not s.get("general_guide")]
+            is_expected = lambda s, cat=cat, city=city: (s["category"] == cat and (city is None or s.get("city") == city)
+                                                         and not s.get("general_guide"))
+            match = [s for s in top if is_expected(s)]
+            fields = {}
+            if SECOND_PASS["on"]:
+                ranked, _ = search(db, region, q, cities, a.lang, a.word_lists, a.before_rag, limit=SECOND_PASS_SECTIONS)
+                fields = second_pass_fields(top, ranked, stems, is_expected, paragraph)
+                count_second_pass(r, fields)
             r["trovata"] += bool(match)
             OUTCOMES[f"{region} | {kind} | {q}"] = bool(match)
             r["prima"] += bool(top) and top[0] in match
@@ -1678,7 +1962,7 @@ def main():
                                               "general_guide": bool(s.get("general_guide"))} for s in top]})
             if context_rows is not None and kind != KINDS[3]:
                 context_rows.append({**labels, "region": region, "kind": kind, "category": cat, "city": city, "question": q,
-                                     **context_row(top, stems, match)})
+                                     **context_row(top, stems, match), **fields})
     if a.contexts:
         write_contexts(a.contexts, context_rows, a.contexts_sample)
     if explained is not None:
@@ -1693,6 +1977,8 @@ def main():
               f"risposta nel contesto {100 * r['risposta nel contesto'] / max(r['trovata'], 1):.1f}% delle trovate, "
               f"Hit@1 {100 * r['hit1'] / n:.1f}%, Hit@5 {100 * r['hit5'] / n:.1f}%, MRR@{MRR_DEPTH} {r['rr'] / n:.3f}; "
               f"margine al 95% di trovata ±{margin(r['trovata'], r['n']):.1f} e di Hit@5 ±{margin(r['hit5'], r['n']):.1f} punti")
+        if SECOND_PASS["on"]:
+            print_second_pass(kind, r)
         results[kind] = {k: (round(v, 4) if isinstance(v, float) else v) for k, v in r.items()}
     record_history(a.history, config, data, results)
     finish_baseline(a, config, data)

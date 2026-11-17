@@ -371,7 +371,10 @@ def replaced_when_done(path):
 
 
 def question_of(row):
-    """La domanda della riga (dopo "DOMANDA: " o "QUESTION: "; senza, tutto il prompt)."""
+    """La domanda della riga (dopo "DOMANDA: " o "QUESTION: "; senza, tutto il prompt; nelle righe di
+    eval_retrieval.py --contexts, il campo "question")."""
+    if "messages" not in row:
+        return row["question"]
     content = row["messages"][0]["content"]
     return content.rsplit("QUESTION: " if content.startswith(EN_PROMPT) else "DOMANDA: ", 1)[-1]
 

@@ -261,6 +261,11 @@ class RowsTest(unittest.TestCase):
         self.assertEqual("What?", eval_common.question_of(row("pos", "What?", lang="en")))
         self.assertEqual("b", eval_common.question_of(row("pos", "a\n\nDOMANDA: b")))
 
+    def test_campione_delle_righe_di_contexts_senza_messages(self):
+        # Le righe di eval_retrieval.py --contexts hanno "question" e non "messages": eval_gguf.py --contexts --limit.
+        rows = [{"kind": "pos", "question": q} for q in "cab"]
+        self.assertEqual(["a", "b"],[r["question"] for r in eval_common.sample(rows, 2)])
+
 
 class InjectionTest(unittest.TestCase):
     def test_righe_nella_lingua_del_dataset_con_l_istruzione_nel_contesto(self):

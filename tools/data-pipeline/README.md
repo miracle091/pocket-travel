@@ -456,6 +456,8 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   lingua (stesse città nei tre casi), `--questions general` le domande generali sulle pagine della guida generale,
   `--questions control` le domande di controllo (mai usate per costruire le liste di parole), `--questions dev` e `dev2`
   i controlli di prima, diventati serie di sviluppo, `--questions other-country` le domande che nominano un'altra nazione (cercate nella sua guida, `CountryGuides.kt`),
+  `--questions unanswerable` 60 domande per lingua a cui le guide non rispondono (parcheggio in aeroporto, veterinari,
+  dentisti, colonnine di ricarica: il modello deve rifiutare),
   `--guides-db` un `guides.db` locale al posto di quello pubblicato, `--word-lists` la ricerca con le liste di parole
   che l'app usa (`word_lists.txt` in `feature/ai/src/main/resources/pockettravel/`, letto da `scripts/word_lists.py`;
   senza l'opzione si misura la ricerca senza liste), `--model-categories` le categorie
@@ -479,6 +481,15 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   ricerche sulle stesse domande, non come valore assoluto. Con `--pairs` e i contesti delle serie direct, reworded e
   other-lang, `eval_gguf.py` misura anche la coerenza tra domande equivalenti: stessa decisione di rifiuto e sezione
   attesa usata in tutte e due le risposte.
+- **Seconda passata dopo un rifiuto** (misura, non nell'app): `eval_retrieval.py --second-pass cut-first|new-first`
+  costruisce per ogni domanda anche un secondo contesto con quello che il primo ha lasciato fuori (i paragrafi tagliati
+  dai 2.000 caratteri e le sezioni dalla 4ª alla 6ª; `cut-first` mette prima i paragrafi, `new-first` le sezioni) e
+  conta quante sezioni attese e risposte stanno solo lì; con `--contexts` lo scrive nelle righe (`second_context`,
+  `second_parts`). `eval_gguf.py --contexts FILE ... --second-pass` fa rispondere di nuovo il modello col secondo
+  contesto alle righe rifiutate e stampa i rifiuti recuperati, con e senza la sezione attesa, e le risposte nuove alle
+  domande senza risposta. Sul 2B v11 (2026-11-17), su 561 rifiuti sbagliati, la seconda risposta era utile in circa 27
+  casi e sbagliata o fuori tema in circa 106, e le domande senza risposta rifiutate scendevano dall'80,0% al 73,3% in
+  italiano e dal 90,0% all'88,3% in inglese: per questo l'app non la fa.
 - **Numeri nelle risposte**: `scripts/check_answer_numbers.py <risposte.jsonl> [--test <test esteso>] [--out FILE]`
   segnala i numeri delle risposte salvate da `eval_gguf.py --answers` (telefoni, prezzi, orari, date, distanze, anni)
   che non stanno nel contesto né nella domanda, dopo aver normalizzato decimali, migliaia, orari e prefissi telefonici.

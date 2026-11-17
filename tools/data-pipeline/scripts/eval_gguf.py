@@ -15,6 +15,9 @@ Con --contexts il modello risponde con il contesto prodotto dalla ricerca vera (
 serie e variante della ricerca, rifiuti con la sezione attesa nel contesto (del modello) e senza (della ricerca); con le
 sezioni del contesto ("parts" di eval_retrieval.py --contexts) anche quante risposte usano la sezione attesa o la pagina
 della guida generale, e il confronto della prima ricerca dei file con le altre (context_use_report di eval_common.py).
+Con --second-pass e i file di eval_retrieval.py --contexts --second-pass, le righe rifiutate si richiedono una volta con
+il secondo contesto (seconda passata dopo un rifiuto, non nell'app): rifiuti recuperati con e senza la sezione attesa nel
+secondo contesto, risposte nuove alle domande senza risposta (serie unanswerable: errori) e rifiuti rimasti.
 Con --pairs e i file delle serie direct, reworded e other-lang, la coerenza tra domande equivalenti: stessa decisione di
 rifiuto e sezione attesa usata nelle due risposte (pair_consistency di eval_common.py).
 Dopo le metriche dei rifiuti, i controlli sulle istruzioni (instruction_checks di eval_common.py), anche nei campi di
@@ -45,7 +48,7 @@ from gguf import GGUFReader
 import gpu_lock
 import vram
 from eval_common import (Synced, ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, dataset_lang, drop_partial_line, find_llama_bin, print_context_use_report,
-                         injection_rows, instruction_checks, is_refusal, knowledge_turns, obeyed_injection, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
+                         injection_rows, instruction_checks, uses_part, is_refusal, knowledge_turns, obeyed_injection, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
                          print_pair_consistency, print_report, question_lang, question_of, read_jsonl_lenient, refusal_prefix, refusal_summary, sample, score,
                          text_lang, uses_empty_think)
 from status import Progress, phase
@@ -74,6 +77,10 @@ ap.add_argument("--answer-position", choices=ANSWER_POSITIONS,
 ap.add_argument("--pairs", action="store_true",
                 help="con --contexts dei file della serie direct e di reworded o other-lang: per ogni coppia di domande "
                      "equivalenti, stessa decisione di rifiuto e sezione attesa usata in tutte e due (pair_consistency)")
+ap.add_argument("--second-pass", action="store_true",
+                help="con --contexts di eval_retrieval.py --second-pass: le righe rifiutate si richiedono una volta con il secondo "
+                     "contesto (paragrafi tagliati e sezioni dalla 4a alla 6a); conta rifiuti recuperati, con e senza la "
+                     "sezione attesa, e risposte nuove alle domande senza risposta")
 ap.add_argument("--app-sampling", action="store_true",
                 help="anche la probabilita' del rifiuto con il campionamento dell'app (temperatura 0,3, top-k 10, top-p 0,95, min-p 0,05)")
 ap.add_argument("--samples", type=int, default=0, help="con --app-sampling: anche N risposte campionate per riga, per controllo")
@@ -92,6 +99,8 @@ if a.answer_position and not a.contexts:
     ap.error("--answer-position vale con --contexts")
 if a.pairs and not a.contexts:
     ap.error("--pairs vale con --contexts")
+if a.second_pass and (not a.contexts or a.answer_position):
+    ap.error("--second-pass vale con --contexts, senza --answer-position")
 if a.contexts and (a.app_sampling or a.kinds or a.injection):
     ap.error("--app-sampling, --kinds e --injection valgono per le righe di test, non con --contexts")
 if a.samples and not a.app_sampling:
@@ -197,13 +206,14 @@ def ask(url, content):
 
 
 refusal_tokens = {}  # inizio del rifiuto -> token del modello
+SECOND_FIELDS = ("second_got", "second_truncated", "second_refused")  # risposta della seconda passata (--second-pass)
 APP_FIELDS = ("p_refusal", "samples", "sampled_refusals")  # campi di app_refusal nelle righe di --answers
 
 
 def row_id(d):
     """Identita' di una riga di test o di --contexts, uguale prima della risposta e nella riga salvata in --answers."""
     if a.contexts:
-        return json.dumps({k: v for k, v in d.items() if k not in ("got", "truncated", "refused")}, sort_keys=True,
+        return json.dumps({k: v for k, v in d.items() if k not in ("got", "truncated", "refused", *SECOND_FIELDS)}, sort_keys=True,
                           ensure_ascii=False)
     return d["kind"], d["region"], d.get("category"), d["question"]
 
@@ -275,6 +285,15 @@ def answer_contexts(url):
             seen[prompt] = ask(url, prompt)
         r["got"], r["truncated"] = seen[prompt]
         r["refused"] = is_refusal(r["got"], r["lang"])
+        if a.second_pass and r["refused"] and r.get("second_context", "").strip():
+            if done and "second_got" in done:
+                r.update({k: done[k] for k in SECOND_FIELDS})
+            else:
+                second = on_device_prompt(r["second_context"], r["question"], r["lang"])
+                if second not in seen:
+                    seen[second] = ask(url, second)
+                r["second_got"], r["second_truncated"] = seen[second]
+                r["second_refused"] = is_refusal(r["second_got"], r["lang"])
         if answers and not done:
             answers.write(json.dumps(r, ensure_ascii=False) + "\n")
         progress.update(n, f"rifiuti {sum(x['refused'] for x in test[:n])}")
@@ -285,6 +304,36 @@ def answer_contexts(url):
     print_context_use_report(test)
     if a.pairs:
         print_pair_consistency(test)
+    if a.second_pass:
+        print_second_pass_report(test)
+
+
+def print_second_pass_report(rows):
+    """--second-pass: per (lingua, serie, ricerca), rifiuti della prima risposta, quanti hanno un secondo contesto, e di
+    questi quanti la seconda risposta non rifiuta: con la sezione attesa nel secondo contesto (recuperati), con la
+    risposta che usa quella sezione (uses_part), senza la sezione (risposta da altre sezioni: da controllare), e alle
+    domande senza risposta ("senza risposta": un errore nuovo). Rifiuti finali = rifiuti che restano dopo la seconda."""
+    out = {}
+    for r in rows:
+        c = out.setdefault((r["lang"], r["series"], r["search"]), dict.fromkeys(
+            ("n", "rifiuti 1a", "con 2o contesto", "recuperati con la sezione", "usano la sezione",
+             "risposte senza la sezione", "risposte senza risposta", "rifiuti finali"), 0))
+        answered = "second_refused" in r and not r["second_refused"]
+        with_section = any(p["expected"] for p in r.get("second_parts", []))
+        c["n"] += 1
+        c["rifiuti 1a"] += r["refused"]
+        c["con 2o contesto"] += "second_refused" in r
+        c["recuperati con la sezione"] += answered and with_section
+        c["usano la sezione"] += answered and any(p["expected"] and uses_part(r["second_got"], p["text"])
+                                                  for p in r.get("second_parts", []))
+        c["risposte senza la sezione"] += answered and not with_section and r["kind"] != "senza risposta"
+        c["risposte senza risposta"] += answered and r["kind"] == "senza risposta"
+        c["rifiuti finali"] += r["refused"] and not answered
+    if not out:
+        return
+    print("seconda passata, lingua serie ricerca: " + " | ".join(next(iter(out.values()))))
+    for key, c in sorted(out.items()):
+        print(" ".join(key) + ": " + " | ".join(str(v) for v in c.values()))
 
 
 stats = {}  # tipo di riga -> [(ha rifiutato, risposta ok)]
