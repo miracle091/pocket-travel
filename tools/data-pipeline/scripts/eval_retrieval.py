@@ -57,7 +57,7 @@ riferimento (scritta la prima volta, o con --write-baseline) e stampa le domande
 modifica di word_lists.txt; con --questions control un saldo negativo fa uscire con errore.
 
 Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|dev2|other-lang|control|general|other-country|unanswerable] [--regions italia ...]
-[--cache DIR] [--no-wikipedia] [--guides-db FILE] [--word-lists [--model-categories FILE]] [--before-rag] [--contexts FILE [--contexts-sample N]] [--online] [--second-pass [cut-first|new-first]]
+[--cache DIR [--keep-data]] [--no-wikipedia] [--guides-db FILE] [--word-lists [--model-categories FILE]] [--before-rag] [--contexts FILE [--contexts-sample N]] [--online] [--second-pass [cut-first|new-first]]
 [--rerank GGUF --llama-cpp DIR [--rerank-scoring yesno|refusal] [--rerank-mode replace|add|blend] [--gpu-layers 99 --device Vulkan0]]
 [--rrf [--rrf-weight W]] [--paragraphs rank|within|within-country [--paragraph-chars N]] [--history FILE] [--explain FILE]
 [--baseline FILE [--write-baseline]]
@@ -1522,11 +1522,14 @@ def download(url, out):
     return out
 
 
-def fetch_data(regions, cache, lang):
+def fetch_data(regions, cache, lang, keep=False):
     """guides<suffisso>.db e <regione>.cities<suffisso>.db pubblicati, piu' <regione>.wp<suffisso>.db con Storia e
-    Clima se i cities.db pubblicati non li hanno ancora."""
+    Clima se i cities.db pubblicati non li hanno ancora. Con [keep] e i file gia' in cache non riscarica niente: una
+    misura lunga resta sugli stessi dati anche se nel frattempo esce un catalogo nuovo."""
     conf = LANGS[lang]
     sfx = conf["suffix"]
+    if keep and all((cache / name).exists() for name in [f"guides{sfx}.db"] + [f"{r}.cities{sfx}.db" for r in regions]):
+        return
     cache.mkdir(parents=True, exist_ok=True)
     manifest = json.loads(fetch(MANIFEST_URL))
     download(manifest[conf["guides"]]["fileXz"]["url"], cache / f"guides{sfx}.db")
@@ -1822,6 +1825,8 @@ def main():
     ap.add_argument("--cache", type=Path, default=Path(tempfile.gettempdir()) / "pocket-travel-eval-retrieval")
     ap.add_argument("--no-wikipedia", action="store_true", help="senza Storia e Clima (per confronto)")
     ap.add_argument("--guides-db", type=Path, help="un guides.db locale al posto di quello pubblicato (per misurare prima di pubblicare)")
+    ap.add_argument("--keep-data", action="store_true",
+                    help="usa i file gia' in cache senza riscaricarli (misure lunghe sugli stessi dati); li scarica solo se mancano")
     ap.add_argument("--word-lists", action="store_true", help="con le liste di parole per categoria (word_lists.txt)")
     ap.add_argument("--before-rag", action="store_true",
                     help="ricerca senza guida generale e senza nazione nominata (con le liste spente: com'era prima del RAG)")
@@ -1904,7 +1909,7 @@ def main():
         atexit.register(lambda: MODEL_CATEGORY_MISSES and print(
             f"attenzione: {len(MODEL_CATEGORY_MISSES)} domande senza categoria nel file di --model-categories (altre regioni o "
             "cache? rigeneralo con model_categories.py)", file=sys.stderr))
-    fetch_data(a.regions, a.cache, a.lang)
+    fetch_data(a.regions, a.cache, a.lang, a.keep_data)
     guides_db = a.guides_db or a.cache / f"guides{LANGS[a.lang]['suffix']}.db"
     sfx = LANGS[a.lang]["suffix"]
     data = fingerprint([guides_db] + [a.cache / f"{r}.{kind}{sfx}.db" for r in a.regions for kind in ("cities", "wp")])

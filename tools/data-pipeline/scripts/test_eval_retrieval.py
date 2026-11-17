@@ -618,6 +618,17 @@ class WriteContextsTest(unittest.TestCase):
 
 
 class MeasureTest(unittest.TestCase):
+    def test_keep_data_non_riscarica_se_i_file_ci_sono(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(ev, "fetch", side_effect=AssertionError("rete")) as net:
+            cache = Path(tmp)
+            for name in ("guides.db", "italia.cities.db"):
+                (cache / name).write_bytes(b"")
+            ev.fetch_data(["italia"], cache, "it", keep=True)
+            (cache / "italia.cities.db").unlink()
+            with self.assertRaises(AssertionError):
+                ev.fetch_data(["italia"], cache, "it", keep=True)
+            self.assertEqual(net.call_count, 1)
+
     def test_margine_di_wilson(self):
         self.assertEqual(ev.margin(0, 0), 0.0)
         # 85% su 20 righe: intervallo al 95% circa 64-95% (calcolo del piano valutazione-modelli.md)
