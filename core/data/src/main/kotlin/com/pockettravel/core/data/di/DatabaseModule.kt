@@ -8,11 +8,12 @@ import com.pockettravel.core.data.db.ConversationDao
 import com.pockettravel.core.data.db.DiplomaticMissionDao
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.GuideDao
+import com.pockettravel.core.data.db.GuideTermDao
+import com.pockettravel.core.data.db.InstalledRegionDao
 import com.pockettravel.core.data.db.NoteDao
 import com.pockettravel.core.data.db.PassportDao
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.RegionDatabase
-import com.pockettravel.core.data.db.InstalledRegionDao
 import com.pockettravel.core.data.db.UNRELEASED_VERSIONS
 import com.pockettravel.core.data.db.VaccinationDao
 import dagger.Module
@@ -24,6 +25,7 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
+@Suppress("TooManyFunctions") // un provider per DAO
 object DatabaseModule {
 
     @Provides
@@ -44,6 +46,9 @@ object DatabaseModule {
 
     @Provides
     fun provideDiplomaticMissionDao(database: RegionDatabase): DiplomaticMissionDao = database.diplomaticMissionDao()
+
+    @Provides
+    fun provideGuideTermDao(database: RegionDatabase): GuideTermDao = database.guideTermDao()
 
     @Provides
     fun provideVaccinationDao(database: RegionDatabase): VaccinationDao = database.vaccinationDao()

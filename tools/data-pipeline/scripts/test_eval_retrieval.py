@@ -104,6 +104,18 @@ class ReplicaTest(unittest.TestCase):
         self.assertEqual(ev.named_cities("Cosa vedere a male?", homonyms), ["Malé"])
         self.assertEqual(ev.named_cities("Quanto dista Siena da Firenze?", ["Firenze", "Roma", "Siena"]), ["Firenze", "Siena"])
 
+    def test_named_term_per_nome_o_alias_parola_intera_senza_accenti_il_piu_lungo(self):
+        # Gli stessi casi del test di namedTerm in TravelAssistantLogicTest.kt.
+        ceviche = {"term": "Ceviche", "aliases": ["Cebiche"]}
+        aji = {"term": "Ají", "aliases": []}
+        aji_de_gallina = {"term": "Ají de gallina", "aliases": []}
+        terms = [ceviche, aji, aji_de_gallina]
+        self.assertIs(ev.named_term("Cos'è il CEBICHE?", terms), ceviche)
+        self.assertIs(ev.named_term("com'e' l'aji de gallina?", terms), aji_de_gallina)
+        self.assertIs(ev.named_term("Quanto piccante e' l'ají?", terms), aji)
+        self.assertIsNone(ev.named_term("Dove trovo una cevicheria?", terms))
+        self.assertIsNone(ev.named_term("Serve il visto?", terms))
+
     def test_named_cities_con_l_articolo_dopo_una_preposizione_articolata(self):
         cities = ["La Valletta", "L'Aquila", "La Spezia", "Sliema"]
         self.assertEqual(ev.named_cities("Storia della Valletta?", cities), ["La Valletta"])
@@ -228,6 +240,19 @@ class SearchTest(unittest.TestCase):
         top, stems = ev.search(self.db, "italia", "Dove dormire a Rimini?", self.cities)
         self.assertEqual([(s["city"], s["category"]) for s in top][:1], [("Rimini", "ALLOGGIO")])
         self.assertEqual(stems, {"dove", "dormi"})
+
+    def test_il_termine_nominato_entra_per_primo_con_la_sua_voce(self):
+        guides = Path(self.tmp.name) / "guides-termini.db"
+        with contextlib.closing(sqlite3.connect(guides)) as g:
+            g.execute("CREATE TABLE guide_sections (regionId TEXT, category TEXT, title TEXT, body TEXT, sourceUrl TEXT)")
+            g.execute("INSERT INTO guide_sections VALUES ('peru', 'CIBO_BEVANDE', 'Mangiare', 'Il cebiche si mangia a pranzo.', 'u')")
+            g.execute("CREATE TABLE guide_terms (regionId TEXT, term TEXT, aliases TEXT, title TEXT, summary TEXT, sourceUrl TEXT, revision INTEGER)")
+            g.execute("INSERT INTO guide_terms VALUES ('peru', 'Cebiche', 'Ceviche', 'Ceviche', 'Piatto di pesce crudo.', 'u', 7)")
+            g.commit()
+        with contextlib.closing(ev.build_db(guides, "peru", [])) as db:
+            top, _ = ev.search(db, "peru", "Cos'è il cebiche?", [])
+        self.assertEqual([(s["category"], s["body"]) for s in top][:2],
+                         [("DA_SAPERE", "Piatto di pesce crudo."), ("CIBO_BEVANDE", "Il cebiche si mangia a pranzo.")])
 
     def test_parole_di_storia_e_clima(self):
         self.assertTrue(ev.HISTORY_CLIMATE_WORDS.search("Does it rain a lot in Porto?"))

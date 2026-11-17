@@ -6,19 +6,19 @@ import android.location.Location
 import com.pockettravel.core.data.CarRoute
 import com.pockettravel.core.data.CarRouteCalculator
 import com.pockettravel.core.data.CityRepository
+import com.pockettravel.core.data.CitySection
 import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.FtsCorpusStats
 import com.pockettravel.core.data.FtsMatchInfo
-import com.pockettravel.core.data.CitySection
+import com.pockettravel.core.data.GENERAL_GUIDE_REGION_ID
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideRepository
 import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.data.GuideSourceSite
-import com.pockettravel.core.data.guideSourceSiteOf
-import com.pockettravel.core.data.guideSourceUrlWithoutAudience
-import com.pockettravel.core.data.isGuideSectionFor
+import com.pockettravel.core.data.GuideTerm
+import com.pockettravel.core.data.GuideTermRepository
 import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.Note
@@ -29,12 +29,13 @@ import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.TransitBoard
 import com.pockettravel.core.data.TransitMode
 import com.pockettravel.core.data.TransitRepository
-import com.pockettravel.core.data.GENERAL_GUIDE_REGION_ID
 import com.pockettravel.core.data.bm25Score
-import com.pockettravel.core.data.db.CityCoordinates
 import com.pockettravel.core.data.currentGuidesLanguage
-import com.pockettravel.core.ui.PlaceWeather
+import com.pockettravel.core.data.db.CityCoordinates
 import com.pockettravel.core.data.displayName
+import com.pockettravel.core.data.guideSourceSiteOf
+import com.pockettravel.core.data.guideSourceUrlWithoutAudience
+import com.pockettravel.core.data.isGuideSectionFor
 import com.pockettravel.core.data.officialSourceFor
 import com.pockettravel.core.data.poiCategory
 import com.pockettravel.core.data.urlFor
@@ -44,6 +45,7 @@ import com.pockettravel.core.data.vaccination.VaccinationPreferences
 import com.pockettravel.core.data.vaccination.VaccinationRepository
 import com.pockettravel.core.data.vaccination.toSummaryText
 import com.pockettravel.core.poi.PoiCategory
+import com.pockettravel.core.ui.PlaceWeather
 import com.pockettravel.core.ui.label
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
@@ -96,6 +98,7 @@ sealed interface AssistantProgress {
  */
 class TravelAssistant @Inject constructor(
     private val guideRepository: GuideRepository,
+    private val guideTermRepository: GuideTermRepository,
     private val cityRepository: CityRepository,
     private val noteRepository: NoteRepository,
     private val engine: OnDeviceLlmEngine,
@@ -259,7 +262,8 @@ class TravelAssistant @Inject constructor(
      * posto di quella della regione e delle sue citta' (namedPlace), senza il suo nome nella query come per le citta'.
      * Con le liste di parole (CategoryWords.kt) la ricerca usa la query allargata, anche con le parole della categoria
      * scelta dal modello ([modelGroups]); storia, clima e periodi delle liste o del modello valgono come domanda di storia
-     * o clima (le sezioni di Wikipedia non si abbassano).
+     * o clima (le sezioni di Wikipedia non si abbassano). Un termine locale nominato nella domanda («cos'è il cebiche?») entra
+     * per primo con la voce di Wikipedia che lo spiega, prima delle sezioni trovate dalla ricerca.
      */
     private suspend fun searchSections(
         regionId: String,
@@ -282,7 +286,8 @@ class TravelAssistant @Inject constructor(
         val withCityName = city != null && topicQuery.isNotBlank() && topicMatches.isEmpty()
         val baseQuery = if (withCityName) buildFtsQuery(question, regionId) else topicBase
         val ftsQuery = withCategoryWords(baseQuery, question, language, wordLists, modelGroups)
-        if (ftsQuery.isBlank()) return SectionSearch(emptyList(), baseQuery, country)
+        val term = namedTerm(question, guideTermRepository.termsFor(country?.regionIds ?: listOf(regionId)))?.toAssistantSection(language)
+        if (ftsQuery.isBlank()) return SectionSearch(listOfNotNull(term), baseQuery, country)
         val sections = rankSections(
             guideRepository.searchCandidates(country?.regionIds ?: listOf(regionId), ftsQuery).filter { isGuideSectionFor(it.first.sourceUrl, nationality) },
             if (withCityName) cityRepository.candidates(regionId, ftsQuery, cities) else topicMatches,
@@ -295,7 +300,8 @@ class TravelAssistant @Inject constructor(
             comparePhrases = questionPhrases(baseQuery, modelGroups),
         )
         val groups = (questionGroups(question) + modelGroups).takeIf { wordLists }.orEmpty()
-        return SectionSearch(cityRepository.withClimateFirst(regionId, sections, cities.firstOrNull() ?: country?.name, groups, language, maxSections), baseQuery, country)
+        val found = cityRepository.withClimateFirst(regionId, sections, cities.firstOrNull() ?: country?.name, groups, language, maxSections)
+        return SectionSearch((listOfNotNull(term) + found).take(maxSections), baseQuery, country)
     }
 
     private class SectionSearch(val sections: List<AssistantSection>, val baseQuery: String, val country: NamedPlace?)
@@ -801,6 +807,12 @@ internal fun GuideSection.citation(language: String): String {
     return if (language == "en") "Source: $site, section $title — $url" else "Fonte: $site, sezione $title — $url"
 }
 
+// La voce di Wikipedia del termine: categoria DA_SAPERE, che non accende il banner delle fonti ufficiali.
+private fun GuideTerm.toAssistantSection(language: String): AssistantSection {
+    val citation = if (language == "en") "Source: Wikipedia, article $title — $sourceUrl" else "Fonte: Wikipedia, voce $title — $sourceUrl"
+    return AssistantSection(body = summary, category = GuideCategory.DA_SAPERE, citation = citation, fromSearch = true)
+}
+
 private fun CitySection.toAssistantSection(language: String) =
     AssistantSection(body = body, category = category, citation = citation(language), fromSearch = true)
 
@@ -1017,6 +1029,14 @@ internal fun namedCities(question: String, cities: List<String>, language: Strin
         val name = normalizedWords(spokenCityName(city))
         if (kept.any { name in normalizedWords(spokenCityName(it)) }) kept else kept + city
     }
+}
+
+/** Il termine di [terms] nominato in [question] come parole intere, senza accenti né maiuscole; col nome più lungo se sono più d'uno. */
+internal fun namedTerm(question: String, terms: List<GuideTerm>): GuideTerm? {
+    val words = normalizedWords(question)
+    return terms.flatMap { term -> (listOf(term.term) + term.aliases).map { term to normalizedWords(it) } }
+        .filter { (_, name) -> name.isNotBlank() && name in words }
+        .maxByOrNull { (_, name) -> name.length }?.first
 }
 
 // Parole con cui comincia il seguito di una domanda ("E per quanto tempo?", "Ma a Lisbona?", "And in winter?").

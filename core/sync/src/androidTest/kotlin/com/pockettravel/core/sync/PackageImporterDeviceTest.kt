@@ -56,7 +56,7 @@ class PackageImporterDeviceTest {
 
     @Test
     fun importaLeGuideDiTutteLeRegioniERegistraLaVersione() = runBlocking {
-        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db, Dispatchers.IO)
+        val importer = GuidesImporter(db.guideDao(), db.guideTermDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db, Dispatchers.IO)
         assertNull(repository.installedGuidesVersion())
 
         val file = copyAsset("guides.db")
@@ -78,7 +78,7 @@ class PackageImporterDeviceTest {
 
     @Test
     fun importaLeRappresentanzeDiplomaticheSeLaTabellaCeESostituisceLePrecedenti() = runBlocking {
-        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db, Dispatchers.IO)
+        val importer = GuidesImporter(db.guideDao(), db.guideTermDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db, Dispatchers.IO)
         importer.import(guidesDbWithMissions("guides-missions.db", "Q1", "Q2"), "2026.10.01")
 
         val missions = db.diplomaticMissionDao().missions("it", "es")
@@ -99,7 +99,7 @@ class PackageImporterDeviceTest {
 
     @Test
     fun importaIDatiVaccinaliSeLeTabelleCeranoESenzaDiLoroNonLasciaNulla() = runBlocking {
-        val importer = GuidesImporter(db.guideDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db, Dispatchers.IO)
+        val importer = GuidesImporter(db.guideDao(), db.guideTermDao(), db.emergencyNumbersDao(), db.diplomaticMissionDao(), db.vaccinationDao(), repository, db, Dispatchers.IO)
         assertNull("senza import non ci sono dati vaccinali", VaccinationRepository(db.vaccinationDao()).load())
 
         importer.import(guidesDbWithVaccinations("guides-vacc.db"), "2026.10.01")

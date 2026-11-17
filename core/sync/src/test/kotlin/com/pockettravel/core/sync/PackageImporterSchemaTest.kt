@@ -123,6 +123,31 @@ class PackageImporterSchemaTest {
     }
 
     @Test
+    fun `guide_terms si legge solo se guides db ha la tabella`() = withDb { conn ->
+        conn.createStatement().use { statement ->
+            assertEquals(false, statement.executeQuery(GuidesImporter.tableQuery("guide_terms")).next())
+            // Come writeLocalTermsTable (tools/data-pipeline, LocalTermRow.kt).
+            statement.execute(
+                "CREATE TABLE guide_terms (regionId TEXT NOT NULL, term TEXT NOT NULL, aliases TEXT NOT NULL, " +
+                    "title TEXT NOT NULL, summary TEXT NOT NULL, sourceUrl TEXT NOT NULL, revision INTEGER)",
+            )
+            statement.execute(
+                "INSERT INTO guide_terms VALUES ('peru', 'Cebiche', 'Ceviche', 'Ceviche', 'Piatto di pesce crudo.', " +
+                    "'https://it.wikipedia.org/wiki/Ceviche', NULL)",
+            )
+        }
+        conn.createStatement().use { statement ->
+            assertEquals(true, statement.executeQuery(GuidesImporter.tableQuery("guide_terms")).next())
+            val rs = statement.executeQuery(GuidesImporter.GUIDE_TERMS_QUERY)
+            assertEquals(true, rs.next())
+            assertEquals(listOf("peru", "Cebiche", "Ceviche", "Ceviche", "Piatto di pesce crudo.", "https://it.wikipedia.org/wiki/Ceviche"), (1..6).map(rs::getString))
+            rs.getLong(7)
+            assertEquals(true, rs.wasNull())
+            assertEquals(false, rs.next())
+        }
+    }
+
+    @Test
     fun `le tabelle vacc si leggono solo se guides db le ha e con le colonne scritte dalla pipeline`() = withDb { conn ->
         conn.createStatement().use { statement ->
             assertEquals(false, statement.executeQuery(GuidesImporter.tableQuery("vacc_yf_entry")).next())

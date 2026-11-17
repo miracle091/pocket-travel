@@ -11,6 +11,8 @@ import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.EmergencyNumbersEntity
 import com.pockettravel.core.data.db.GuideDao
 import com.pockettravel.core.data.db.GuideSectionEntity
+import com.pockettravel.core.data.db.GuideTermDao
+import com.pockettravel.core.data.db.GuideTermEntity
 import com.pockettravel.core.data.db.NoCentralEmergencyNumberEntity
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.db.VaccMetaEntity
@@ -29,13 +31,14 @@ import javax.inject.Inject
 
 /**
  * Importa guides.db (guide Wikivoyage, numeri di emergenza e ambasciate/consolati Wikidata di tutte le
- * regioni, generato da tools/data-pipeline) in region.db: sostituisce tutte le righe di guide_sections,
+ * regioni, generato da tools/data-pipeline) in region.db: sostituisce tutte le righe di guide_sections, guide_terms,
  * emergency_numbers, emergency_numbers_none, diplomatic_missions e vacc_* (dati vaccinali) e registra la versione installata, in
  * una sola transazione. guides.db viene
  * cancellato dopo l'import: il contenuto e' gia' in region.db.
  */
 class GuidesImporter @Inject constructor(
     private val guideDao: GuideDao,
+    private val guideTermDao: GuideTermDao,
     private val emergencyNumbersDao: EmergencyNumbersDao,
     private val diplomaticMissionDao: DiplomaticMissionDao,
     private val vaccinationDao: VaccinationDao,
@@ -46,18 +49,21 @@ class GuidesImporter @Inject constructor(
     suspend fun import(guidesDbFile: File, version: String) = withContext(ioDispatcher) {
         SQLiteDatabase.openDatabase(guidesDbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
             val sections = readGuideSections(db)
+            val terms = readGuideTerms(db)
             val emergencyNumbers = readEmergencyNumbers(db)
             val noCentralNumber = readNoCentralEmergencyNumber(db)
             val missions = readDiplomaticMissions(db)
             val vaccinations = readVaccinations(db)
             database.withTransaction {
                 guideDao.deleteAll()
+                guideTermDao.deleteAll()
                 emergencyNumbersDao.deleteAll()
                 emergencyNumbersDao.deleteAllNoCentralNumber()
                 diplomaticMissionDao.deleteAll()
                 vaccinationDao.deleteAll()
                 guideDao.insertAll(sections)
                 guideDao.optimizeFts()
+                guideTermDao.insertAll(terms)
                 emergencyNumbersDao.insertAll(emergencyNumbers)
                 emergencyNumbersDao.insertNoCentralNumber(noCentralNumber)
                 diplomaticMissionDao.insertAll(missions)
@@ -91,6 +97,27 @@ class GuidesImporter @Inject constructor(
             }
         }
         return sections
+    }
+
+    // I guides.db pubblicati prima dei termini locali non hanno la tabella.
+    private fun readGuideTerms(db: SQLiteDatabase): List<GuideTermEntity> {
+        val hasTable = db.rawQuery(tableQuery("guide_terms"), null).use { it.moveToFirst() }
+        if (!hasTable) return emptyList()
+        val terms = mutableListOf<GuideTermEntity>()
+        db.rawQuery(GUIDE_TERMS_QUERY, null).use { cursor ->
+            while (cursor.moveToNext()) {
+                terms += GuideTermEntity(
+                    regionId = cursor.getString(0),
+                    term = cursor.getString(1),
+                    aliases = cursor.getString(2),
+                    title = cursor.getString(3),
+                    summary = cursor.getString(4),
+                    sourceUrl = cursor.getString(5),
+                    revision = if (cursor.isNull(6)) null else cursor.getLong(6),
+                )
+            }
+        }
+        return terms
     }
 
     private fun readEmergencyNumbers(db: SQLiteDatabase): List<EmergencyNumbersEntity> {
@@ -234,6 +261,7 @@ class GuidesImporter @Inject constructor(
         internal const val GUIDE_SECTIONS_QUERY = "SELECT regionId, category, title, body, sourceUrl FROM guide_sections"
         internal const val GUIDE_SECTIONS_WITH_TRANSLATED_QUERY =
             "SELECT regionId, category, title, body, sourceUrl, translated FROM guide_sections"
+        internal const val GUIDE_TERMS_QUERY = "SELECT regionId, term, aliases, title, summary, sourceUrl, revision FROM guide_terms"
         internal const val EMERGENCY_NUMBERS_QUERY = "SELECT regionId, general, police, ambulance, fire FROM emergency_numbers"
         internal const val NO_CENTRAL_NUMBER_TABLE_QUERY =
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'emergency_numbers_none'"

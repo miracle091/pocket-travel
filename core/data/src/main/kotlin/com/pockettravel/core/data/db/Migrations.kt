@@ -8,7 +8,7 @@ import java.io.File
 
 /** Tutte le migrazioni, per Room.databaseBuilder e per i test. */
 val ALL_MIGRATIONS: Array<Migration>
-    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27)
+    get() = arrayOf(MIGRATION_3_5, MIGRATION_5_6, MIGRATION_6_9, MIGRATION_9_11, MIGRATION_11_15, MIGRATION_15_17, MIGRATION_17_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28)
 
 /** Versioni del database mai uscite in una versione pubblicata dell'app (solo sviluppo). */
 val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16, 18, 19, 20, 21, 22, 23)
@@ -404,8 +404,7 @@ val MIGRATION_25_26 = object : Migration(25, 26) {
     }
 }
 
-// Da 26 a 27: clima mensile delle citta' (city_climate), vuoto finche' la regione non riscarica il pacchetto citta'. E' la
-// migrazione piu' recente: resta separata.
+// Da 26 a 27 (v0.14.0): clima mensile delle citta' (city_climate), vuoto finche' la regione non riscarica il pacchetto citta'.
 val MIGRATION_26_27 = object : Migration(26, 27) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
@@ -413,6 +412,19 @@ val MIGRATION_26_27 = object : Migration(26, 27) {
                 "`tempMax` REAL, `tempMin` REAL, `precipMm` REAL, `rainDays` REAL, `sourceUrl` TEXT NOT NULL, " +
                 "PRIMARY KEY(`regionId`, `city`, `month`))",
         )
+    }
+}
+
+// Da 27 a 28: termini locali delle guide (guide_terms), vuoti fino al prossimo aggiornamento delle guide. E' la migrazione piu'
+// recente: resta separata.
+val MIGRATION_27_28 = object : Migration(27, 28) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `guide_terms` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `regionId` TEXT NOT NULL, " +
+                "`term` TEXT NOT NULL, `aliases` TEXT NOT NULL, `title` TEXT NOT NULL, `summary` TEXT NOT NULL, `sourceUrl` TEXT NOT NULL, " +
+                "`revision` INTEGER)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_guide_terms_regionId` ON `guide_terms` (`regionId`)")
     }
 }
 

@@ -1003,6 +1003,11 @@ def build_db(guides_db, region, city_rows):
         # righe in piu' (quelle della guida generale). La ricerca resta su [region] e sulla guida generale (guide_candidates).
         for row in guides.execute("SELECT regionId, category, title, body, sourceUrl FROM guide_sections"):
             db.execute("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES (?,?,?,?,?)", row)
+        # Termini locali (GuideTermRepository), assenti nei guides.db pubblicati prima della tabella.
+        db.execute("CREATE TABLE guide_terms (regionId TEXT, term TEXT, aliases TEXT, title TEXT, summary TEXT)")
+        if guides.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'guide_terms'").fetchone():
+            db.executemany("INSERT INTO guide_terms VALUES (?,?,?,?,?)",
+                           guides.execute("SELECT regionId, term, aliases, title, summary FROM guide_terms"))
     for row in city_rows:
         db.execute("INSERT INTO city_sections (regionId, city, category, title, body, sourceUrl) VALUES (?,?,?,?,?,?)", (region, *row))
     # Paragrafi delle sezioni (solo per --paragraphs): una riga per paragrafo non vuoto, con il titolo della sezione.
@@ -1015,6 +1020,27 @@ def build_db(guides_db, region, city_rows):
     for t in ("guide_sections", "city_sections", "guide_paragraphs", "city_paragraphs"):
         db.execute(f"INSERT INTO {t}_fts({t}_fts) VALUES('rebuild')")
     return db
+
+
+def named_term(question, terms):
+    """namedTerm: il termine di [terms] ({"term", "aliases", ...}) nominato in [question] come parole intere, senza accenti
+    ne' maiuscole; col nome piu' lungo se sono piu' d'uno."""
+    words = normalized_words(question)
+    found = [(len(name), i) for i, t in enumerate(terms) for name in map(normalized_words, [t["term"], *t["aliases"]])
+             if name.strip() and name in words]
+    # A parita' di lunghezza il primo, come maxByOrNull.
+    return terms[min(found, key=lambda f: (-f[0], f[1]))[1]] if found else None
+
+
+def term_section(db, regions, question):
+    """La sezione del termine locale nominato in [question] (searchSections), o None."""
+    marks = ",".join("?" * len(regions))
+    terms = [{"region": r, "term": t, "aliases": [a for a in a_.split("\n") if a], "title": ti, "summary": s}
+             for r, t, a_, ti, s in db.execute(f"SELECT regionId, term, aliases, title, summary FROM guide_terms WHERE regionId IN ({marks}) "
+                                               "ORDER BY rowid", regions)]
+    term = named_term(question, terms)
+    return term and {"city": None, "region": term["region"], "category": "DA_SAPERE", "title": term["title"],
+                     "body": term["summary"], "general_guide": False}
 
 
 def city_candidates(db, region, fts, named):
@@ -1056,8 +1082,9 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
     base = fts_query(question, region, city or (country and country[1]),
                      keep_city_words=not (groups or model))
     fts = with_words(base)
+    term = [s for s in [term_section(db, country[2] if country else [region], question)] if s]
     if not fts:
-        return [], set()
+        return term, set()
     city_rows = [] if country else city_candidates(db, region, fts, named)
     if city and not city_rows:
         # Nessuna sezione della citta' con le parole della domanda: si cerca anche il suo nome.
@@ -1093,8 +1120,8 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
         within = paragraphs_within(today, ranked_paragraphs)
         rank = lambda limit=None, general_extra=0: within[:limit]  # le sezioni di oggi, anche la quarta della guida generale
     if pool:
-        return rank(limit=pool), focus_stems(base, city)
-    sections, stems = climate_first(groups | model, rank(limit=limit)), focus_stems(base, city)
+        return (term + rank(limit=pool))[:pool], focus_stems(base, city)
+    sections, stems = (term + climate_first(groups | model, rank(limit=limit)))[:limit], focus_stems(base, city)
     if RERANK["scorer"]:
         sections = reranked(question, sections, rank(limit=RERANK["candidates"], general_extra=RERANK["general"]), stems, lang)
     return (sections if ONLINE["on"] else general_guide_share(sections, stems)), stems

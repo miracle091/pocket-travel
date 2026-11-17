@@ -9,6 +9,7 @@ import com.pockettravel.core.data.CityRepository
 import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideRepository
+import com.pockettravel.core.data.GuideTermRepository
 import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.LastOpenedCityGuide
 import com.pockettravel.core.data.NationalityPreferences
@@ -118,6 +119,7 @@ class OnlineConsentDeviceTest {
         val models = OnlineModelList(mapOf("CHATGPT" to listOf(OnlineModelEntry("modello-di-prova", "auto", true, 0.0, 0.0))))
         assistant = TravelAssistant(
             guideRepository = GuideRepository(db.guideDao()),
+            guideTermRepository = GuideTermRepository(db.guideTermDao()),
             cityRepository = cities,
             noteRepository = NoteRepository(db.noteDao(), Dispatchers.IO),
             engine = UnusedEngine,

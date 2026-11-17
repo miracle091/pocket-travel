@@ -8,6 +8,7 @@ import androidx.room.TypeConverters
     entities = [
         GuideSectionEntity::class,
         GuideSectionFts::class,
+        GuideTermEntity::class,
         PoiRow::class,
         PoiRegionEntity::class,
         PoiCodeEntity::class,
@@ -31,12 +32,14 @@ import androidx.room.TypeConverters
         ConversationEntity::class,
         ConversationTurnEntity::class,
     ],
-    version = 27,
+    version = 28,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
+@Suppress("TooManyFunctions") // un accessor per DAO, come vuole Room
 abstract class RegionDatabase : RoomDatabase() {
     abstract fun guideDao(): GuideDao
+    abstract fun guideTermDao(): GuideTermDao
     abstract fun poiDao(): PoiDao
     abstract fun poiCodeDao(): PoiCodeDao
     abstract fun installedRegionDao(): InstalledRegionDao

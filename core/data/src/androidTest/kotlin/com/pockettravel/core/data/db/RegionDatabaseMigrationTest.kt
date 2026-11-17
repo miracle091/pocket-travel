@@ -14,8 +14,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17, 24, 25, 26) e quella corrente (27),
- * sugli schemi esportati in core/data/schemas, piu' la catena completa da 3 a 27.
+ * Migrazioni tra i database delle versioni pubblicate (3, 5, 6, 9, 11, 15, 17, 24, 25, 26, 27) e quella corrente
+ * (28), sugli schemi esportati in core/data/schemas, piu' la catena completa da 3 a 28.
  */
 @RunWith(AndroidJUnit4::class)
 class RegionDatabaseMigrationTest {
@@ -413,6 +413,17 @@ class RegionDatabaseMigrationTest {
         }
         helper.runMigrationsAndValidate(DB_NAME, 27, true, MIGRATION_26_27).use { db ->
             assertEquals(0, scalar(db, "SELECT COUNT(*) FROM city_climate"))
+            assertEquals(1, scalar(db, "SELECT COUNT(*) FROM passport_vault"))
+        }
+    }
+
+    @Test
+    fun migrazione27a28CreaITerminiVuotiSenzaToccareIDati() {
+        helper.createDatabase(DB_NAME, 27).use { db ->
+            db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
+        }
+        helper.runMigrationsAndValidate(DB_NAME, 28, true, MIGRATION_27_28).use { db ->
+            assertEquals(0, scalar(db, "SELECT COUNT(*) FROM guide_terms"))
             assertEquals(1, scalar(db, "SELECT COUNT(*) FROM passport_vault"))
         }
     }
