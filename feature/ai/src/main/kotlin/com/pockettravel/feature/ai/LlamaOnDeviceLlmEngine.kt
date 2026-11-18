@@ -116,7 +116,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
 
     override suspend fun generate(prompt: String): String = generateStream(prompt).toList().joinToString(separator = "")
 
-    override fun generateStream(prompt: String): Flow<String> = flow {
+    override fun generateStream(prompt: String, image: OnDeviceLlmEngine.ImageInput?): Flow<String> = flow {
         idleReleaser.withModelUse {
             mutex.withLock {
                 loadModelIfNeeded()
@@ -124,8 +124,11 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
                 // un turno "system", solo user+assistant — senza reset, sendUserPrompt
                 // accumulerebbe la history tra una domanda e l'altra invece di restare un turno
                 // singolo.
+                // Alla prima foto, o dopo un rilascio del modello: l'mmproj pesa centinaia di MB, si tiene solo se serve.
+                if (image != null) engine.loadMmproj(image.mmprojPath)
                 engine.resetConversation()
-                _stats.collectTimed(engine.sendUserPrompt(prompt), { engine.contextUsage.value }) { emit(it) }
+                val tokens = if (image == null) engine.sendUserPrompt(prompt) else engine.sendUserPrompt(prompt, image.bytes)
+                _stats.collectTimed(tokens, { engine.contextUsage.value }) { emit(it) }
             }
         }
     }.flowOn(ioDispatcher)

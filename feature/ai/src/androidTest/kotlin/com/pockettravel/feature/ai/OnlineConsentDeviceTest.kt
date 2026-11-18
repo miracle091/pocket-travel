@@ -315,7 +315,7 @@ class OnlineConsentDeviceTest {
         override suspend fun ensureLoaded(): Long = unused()
         override suspend fun generateAll(prompts: List<String>): OnDeviceLlmEngine.GenerationBatch = unused()
         override suspend fun generate(prompt: String): String = unused()
-        override fun generateStream(prompt: String): Flow<String> = unused()
+        override fun generateStream(prompt: String, image: OnDeviceLlmEngine.ImageInput?): Flow<String> = unused()
         override suspend fun generateWithGrammar(prompt: String, grammar: String, maxTokens: Int): String = unused()
         override suspend fun release() = unused()
         override suspend fun releaseAndDelete(): Boolean = unused()

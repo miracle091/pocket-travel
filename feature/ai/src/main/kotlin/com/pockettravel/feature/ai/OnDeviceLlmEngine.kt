@@ -61,11 +61,18 @@ interface OnDeviceLlmEngine {
 
     suspend fun generate(prompt: String): String
 
+    /** Foto ([bytes]: JPEG o PNG) per un prompt e mmproj ([mmprojPath]) del modello che la legge. */
+    class ImageInput(val bytes: ByteArray, val mmprojPath: String)
+
     /**
      * I token della risposta man mano che il modello li produce. Il lock del modello resta preso finche' il
      * flusso e' in corso: cancellare il collector interrompe la generazione e lo rilascia.
+     *
+     * Con [image] la foto va nel turno dell'utente. L'mmproj si carica alla prima foto e resta in memoria finche' resta
+     * il modello: il rilascio del modello (inattivita', app nascosta, memoria scarsa: [ModelIdleReleaser]) libera anche
+     * lui. Lancia [UnsupportedOperationException] se il motore non legge immagini.
      */
-    fun generateStream(prompt: String): Flow<String>
+    fun generateStream(prompt: String, image: ImageInput? = null): Flow<String>
 
     /**
      * Come [generate], ma con l'output vincolato alla grammatica GBNF [grammar] e al massimo [maxTokens]

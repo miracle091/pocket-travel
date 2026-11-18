@@ -73,6 +73,23 @@ interface InferenceEngine {
     fun sendUserPrompt(message: String, predictLength: Int = DEFAULT_PREDICT_LENGTH): Flow<String>
 
     /**
+     * Carica l'mmproj [pathToMmproj] (encoder delle immagini) per il modello caricato; non fa niente se e' gia' quello
+     * in memoria. Si libera da solo con [cleanUp]. Un errore qui non toglie il modello: resta pronto per i prompt di testo.
+     *
+     * @throws java.io.IOException se il file non e' un mmproj valido per questo modello o manca la memoria
+     * @throws IllegalArgumentException se il file non esiste
+     * @throws IllegalStateException se il modello non e' pronto
+     */
+    suspend fun loadMmproj(pathToMmproj: String): Unit = throw UnsupportedOperationException("immagini non disponibili")
+
+    /**
+     * Come [sendUserPrompt], con una foto ([image]: byte di un JPEG o PNG) nel turno dell'utente; serve [loadMmproj] prima.
+     * Il flusso parte dopo la codifica della foto (secondi sulla CPU).
+     */
+    fun sendUserPrompt(message: String, image: ByteArray, predictLength: Int = DEFAULT_PREDICT_LENGTH): Flow<String> =
+        throw UnsupportedOperationException("immagini non disponibili")
+
+    /**
      * Unloads the currently loaded model.
      */
     suspend fun cleanUp()

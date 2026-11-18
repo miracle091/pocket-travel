@@ -108,6 +108,13 @@ internal class InferenceEngineImpl private constructor(
 
     private external fun generateNextToken(): String?
 
+    // Immagini (mmproj): 0 ok, 1 file non valido, 2 nessun modello, 3 niente encoder di immagini.
+    private external fun loadMmprojNative(mmprojPath: String): Int
+
+    // Come processUserPrompt, con i byte di un JPEG o PNG nel turno; in piu' 5 mmproj non caricato, 6 foto non leggibile,
+    // 7 tokenizzazione rifiutata.
+    private external fun processImagePrompt(userPrompt: String, image: ByteArray, predictLength: Int): Int
+
     @FastNative
     private external fun resetConversationNative()
 
@@ -156,6 +163,10 @@ internal class InferenceEngineImpl private constructor(
 
     @Volatile
     private var _cancelGeneration = false
+
+    // mmproj in memoria (null se nessuno): lo toglie unload() insieme al modello.
+    @Volatile
+    private var loadedMmproj: String? = null
 
     // Valorizzato se System.loadLibrary/init() falliscono: e' un errore definitivo (ABI non
     // supportata, backend .so mancante), a differenza di un Error dopo un loadModel/generazione, da
@@ -306,8 +317,42 @@ internal class InferenceEngineImpl private constructor(
     override fun sendUserPrompt(
         message: String,
         predictLength: Int,
-    ): Flow<String> = flow {
+    ): Flow<String> = promptFlow({ require(message.isNotEmpty()) { "User prompt discarded due to being empty!" } }) {
+        processUserPrompt(message, predictLength)
+    }
+
+    override suspend fun loadMmproj(pathToMmproj: String) =
+        withContext(llamaDispatcher) {
+            check(_state.value is InferenceEngine.State.ModelReady) {
+                "Cannot load mmproj in ${_state.value.javaClass.simpleName}!"
+            }
+            if (loadedMmproj == pathToMmproj) return@withContext
+            require(File(pathToMmproj).isFile) { "mmproj not found" }
+            Log.i(TAG, "Loading mmproj... " + pathToMmproj)
+            loadedMmproj = null
+            val result = loadMmprojNative(pathToMmproj)
+            if (result != 0) throw IOException("Failed to load mmproj: $result")
+            loadedMmproj = pathToMmproj
+        }
+
+    override fun sendUserPrompt(
+        message: String,
+        image: ByteArray,
+        predictLength: Int,
+    ): Flow<String> = promptFlow({
         require(message.isNotEmpty()) { "User prompt discarded due to being empty!" }
+        require(image.isNotEmpty()) { "Image discarded due to being empty!" }
+        check(loadedMmproj != null) { "No mmproj loaded" }
+    }) {
+        processImagePrompt(message, image, predictLength)
+    }
+
+    /**
+     * Flusso di una generazione: [validate] controlla gli argomenti, [process] decodifica il prompt (0 se riuscito) e poi
+     * si campionano i token. Comune ai prompt di solo testo e a quelli con la foto.
+     */
+    private fun promptFlow(validate: () -> Unit, process: () -> Int): Flow<String> = flow {
+        validate()
         check(_state.value is InferenceEngine.State.ModelReady) {
             "User prompt discarded due to: ${_state.value.javaClass.simpleName}"
         }
@@ -323,7 +368,7 @@ internal class InferenceEngineImpl private constructor(
         // Anche se la chiamata nativa lancia (es. OutOfMemoryError da GetStringChars) lo stato torna a ModelReady.
         var result = -1
         try {
-            result = processUserPrompt(message, predictLength)
+            result = process()
         } finally {
             if (result != 0) _state.value = InferenceEngine.State.ModelReady
         }
@@ -388,6 +433,7 @@ internal class InferenceEngineImpl private constructor(
                     _state.value = InferenceEngine.State.UnloadingModel
 
                     unload()
+                    loadedMmproj = null
 
                     _state.value = InferenceEngine.State.Initialized
                     Log.i(TAG, "Model unloaded!")
@@ -404,6 +450,7 @@ internal class InferenceEngineImpl private constructor(
                     // sicura anche se il modello non e' mai stato caricato (vedi ai_chat.cpp).
                     Log.i(TAG, "Resetting error states...")
                     unload()
+                    loadedMmproj = null
                     _state.value = InferenceEngine.State.Initialized
                     Log.i(TAG, "States reset!")
                     Unit
@@ -423,9 +470,9 @@ internal class InferenceEngineImpl private constructor(
             when(_state.value) {
                 is InferenceEngine.State.Uninitialized -> {}
                 // Dopo un errore di init non ci sono chiamate native possibili.
-                is InferenceEngine.State.Error -> if (nativeInitError == null) { unload(); shutdown() } else Unit
+                is InferenceEngine.State.Error -> if (nativeInitError == null) { unload(); loadedMmproj = null; shutdown() } else Unit
                 is InferenceEngine.State.Initialized -> shutdown()
-                else -> { unload(); shutdown() }
+                else -> { unload(); loadedMmproj = null; shutdown() }
             }
         }
         llamaScope.cancel()

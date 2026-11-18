@@ -79,10 +79,10 @@ endif()
 if(NOT LLAMA_STAMP STREQUAL LLAMA_STAMP_OLD)
     file(REMOVE ${LLAMA_SRC}.stamp)
     file(REMOVE_RECURSE ${LLAMA_SRC})
-    # Solo cio' che serve alle librerie llama e llama-common: docs, models, tools, tests ed examples non si
-    # compilano qui, e tools/ui ha percorsi oltre i 260 caratteri di Windows. Senza conversioni dei fine riga.
+    # Solo cio' che serve alle librerie llama, llama-common e mtmd: docs, models, altri tools, tests ed examples non
+    # si compilano qui, e tools/ui ha percorsi oltre i 260 caratteri di Windows. Senza conversioni dei fine riga.
     execute_process(COMMAND ${GIT_EXECUTABLE} -c core.autocrlf=false -c core.eol=lf archive --format=tar
-            -o ${LLAMA_SRC}.tar HEAD CMakeLists.txt LICENSE cmake common ggml include licenses src vendor
+            -o ${LLAMA_SRC}.tar HEAD CMakeLists.txt LICENSE cmake common ggml include licenses src tools/mtmd vendor
             WORKING_DIRECTORY ${LLAMA_UPSTREAM} COMMAND_ERROR_IS_FATAL ANY)
     # TOUCH: i file prendono la data di adesso, non quella del commit, piu' vecchia degli oggetti gia' compilati:
     # senza, ninja non ricompilerebbe i file cambiati (o non piu' patchati). Dopo una copia nuova si ricompila
@@ -132,6 +132,8 @@ execute_process(COMMAND ${GIT_EXECUTABLE} tag --points-at HEAD --list "b[0-9]*" 
 if(NOT LLAMA_TAG_FAILED AND LLAMA_TAG MATCHES "^b([0-9]+)")
     set(LLAMA_BUILD_NUMBER ${CMAKE_MATCH_1})
 endif()
+# mtmd (immagini per i modelli vision): senza tools/ la libreria si compila da sola con questa opzione.
+set(LLAMA_BUILD_MTMD ON)
 add_subdirectory(${LLAMA_SRC} build-llama)
 
 # ggml/src aggiunge -Wdouble-promotion a livello di cartella, che arriva anche ai sorgenti KleidiAI
@@ -152,6 +154,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_link_libraries(${CMAKE_PROJECT_NAME}
         llama
         llama-common
+        mtmd
         android
         log)
 # I simboli delle librerie statiche restano interni a libllm-engine.so: esportati, il linker li terrebbe tutti.

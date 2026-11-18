@@ -55,9 +55,13 @@ class FakeOnDeviceLlmEngine : OnDeviceLlmEngine {
         return answer(prompt)
     }
 
-    override fun generateStream(prompt: String): Flow<String> {
+    /** Foto ricevute da [generateStream]. */
+    val images = mutableListOf<OnDeviceLlmEngine.ImageInput>()
+
+    override fun generateStream(prompt: String, image: OnDeviceLlmEngine.ImageInput?): Flow<String> {
         failure?.let { throw it }
         generatedPrompts += prompt
+        if (image != null) images += image
         return flowOf(answer(prompt))
     }
 

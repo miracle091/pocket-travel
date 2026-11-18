@@ -21,6 +21,8 @@
 #include "chat.h"
 #include "common.h"
 #include "llama.h"
+#include "mtmd.h"
+#include "mtmd-helper.h"
 #include "ngram-map.h"
 
 /**
@@ -46,6 +48,9 @@ constexpr float DEFAULT_SAMPLER_TEMP    = 0.3f;
 // resta sotto il 13%, quindi la decide il chiamante (prepare).
 constexpr uint16_t NGRAM_SIZE_N         = 4;
 constexpr uint16_t NGRAM_SIZE_M         = 8;
+// Tetto ai token di una foto (mtmd ridimensiona l'immagine per restarci): senza, l'mmproj ne darebbe fino a migliaia e
+// riempirebbe il contesto da 4096. L'app manda foto da 768 px di lato lungo (circa 600-800 token con Qwen3.5).
+constexpr int   IMAGE_MAX_TOKENS        = 1024;
 
 static llama_model                      * g_model;
 static llama_context                    * g_context;
@@ -59,6 +64,10 @@ static ChatFormat                         g_chat_format;
 // Ripiego se jinja fallisce: BUILTIN se llama.cpp riconosce il template, altrimenti CHATML.
 static ChatFormat                         g_fallback_format;
 static common_sampler                   * g_sampler;
+// Encoder delle immagini (mmproj) del modello caricato, null finche' non arriva la prima foto (loadMmprojNative).
+static mtmd_context                     * g_mtmd;
+// Thread del prompt di prepare(), usati anche dall'encoder delle immagini.
+static int                                g_n_threads_batch = DEFAULT_N_THREADS;
 
 // Copiata e rilasciata subito: se dopo qualcosa lancia, la stringa JNI non resta trattenuta. Vuota se manca la memoria
 // (GetStringUTFChars da' null con un OutOfMemoryError in sospeso, che arriva al chiamante Kotlin).
@@ -117,6 +126,8 @@ static bool load_preferred_cpu_backend(const std::string &backend_dir) {
 static void init_impl(JNIEnv *env, jstring nativeLibDir, jstring forcedCpuBackend) {
     // Set llama log handler to Android
     llama_log_set(aichat_android_log_callback, nullptr);
+    mtmd_log_set(aichat_android_log_callback, nullptr);
+    mtmd_helper_log_set(aichat_android_log_callback, nullptr);
 
     // Di norma ggml carica la variante CPU (libggml-cpu-*.so) con il punteggio piu' alto per le
     // estensioni della CPU, salvo la preferenza di load_preferred_cpu_backend. forcedCpuBackend
@@ -370,6 +381,7 @@ static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads, jint n_thread
                                  n_threads_batch > 0 ? n_threads_batch : DEFAULT_N_THREADS);
     if (!context) { return 1; }
     g_context = context;
+    g_n_threads_batch = n_threads_batch > 0 ? n_threads_batch : DEFAULT_N_THREADS;
     g_batch = common_batch(context);
     // common_context_can_seq_rm decodifica due token di prova e svuota la cache: qui, prima di ogni prompt.
     const common_context_seq_rm_type seq_rm_type = speculative ? common_context_can_seq_rm(context) : COMMON_CONTEXT_SEQ_RM_TYPE_NO;
@@ -424,10 +436,16 @@ static llama_pos current_position;
 // Stato del turno in corso (vedi sotto), dichiarato qui perche' shift_context lo sposta con le posizioni.
 static llama_pos stop_generation_position;
 
+// Nella KV cache c'e' una foto: con M-RoPE i suoi token occupano piu' celle che posizioni, e i limiti del contesto contati
+// su current_position non varrebbero piu'. Dopo un turno con una foto il prompt successivo va dato su una conversazione
+// azzerata (LlamaOnDeviceLlmEngine azzera prima di ogni risposta); altrimenti si rifiuta con il codice 3.
+static bool image_in_cache = false;
+
 static void reset_long_term_states(const bool clear_kv_cache = true) {
     chat_msgs.clear();
     system_prompt_position = 0;
     current_position = 0;
+    image_in_cache = false;
 
     if (clear_kv_cache)
         llama_memory_clear(llama_get_memory(g_context), false);
@@ -668,10 +686,35 @@ static jint reject_user_prompt(const jint error) {
     return error;
 }
 
+// Apertura del turno utente (prima del contenuto) e posizione del suffisso del template (dopo: chiusura del turno utente e
+// apertura del turno assistente, think vuoto compreso), cercati attorno al contenuto: valgono per ChatML e per
+// gli altri template. Molti template tolgono gli spazi ai bordi del contenuto (trim): fuori da CHATML lo si cerca
+// prima cosi', altrimenti un a capo iniziale del prompt verrebbe trovato nell'apertura e tagliato con il contenuto.
+// suffix_pos resta npos se il contenuto non si ritrova nel testo formattato.
+static void split_user_turn(const std::string &user_prompt, const std::string &formatted_user_prompt,
+                            std::string &user_open, size_t &suffix_pos) {
+    const size_t first = user_prompt.find_first_not_of(" \t\r\n");
+    const size_t last = user_prompt.find_last_not_of(" \t\r\n");
+    const std::string trimmed = first == std::string::npos ? user_prompt : user_prompt.substr(first, last - first + 1);
+    const bool trim_first = g_chat_format != ChatFormat::CHATML;
+    for (const std::string &content : {trim_first ? trimmed : user_prompt, trim_first ? user_prompt : trimmed}) {
+        const size_t pos = content.empty() ? std::string::npos : formatted_user_prompt.rfind(content);
+        if (pos != std::string::npos) {
+            user_open = formatted_user_prompt.substr(0, pos);
+            suffix_pos = pos + content.size();
+            break;
+        }
+    }
+}
+
 static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_predict) {
     if (!g_context || !g_sampler) {
         LOGe("%s: model not prepared", __func__);
         return 4;
+    }
+    if (image_in_cache) {
+        LOGe("%s: prompt after an image turn without a conversation reset", __func__);
+        return reject_user_prompt(3);
     }
     // Reset short-term states
     reset_short_term_states();
@@ -689,25 +732,10 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     }
 
     // Apertura del turno utente (prima del contenuto) e suffisso del template (dopo: chiusura del turno utente e
-    // apertura del turno assistente, think vuoto compreso), cercati attorno al contenuto: valgono per ChatML e per
-    // gli altri template. Molti template tolgono gli spazi ai bordi del contenuto (trim): fuori da CHATML lo si cerca
-    // prima cosi', altrimenti un a capo iniziale del prompt verrebbe trovato nell'apertura e tagliato con il contenuto.
+    // apertura del turno assistente, think vuoto compreso): vedi split_user_turn.
     std::string user_open;
     size_t suffix_pos = std::string::npos;
-    if (has_chat_template) {
-        const size_t first = user_prompt.find_first_not_of(" \t\r\n");
-        const size_t last = user_prompt.find_last_not_of(" \t\r\n");
-        const std::string trimmed = first == std::string::npos ? user_prompt : user_prompt.substr(first, last - first + 1);
-        const bool trim_first = g_chat_format != ChatFormat::CHATML;
-        for (const std::string &content : {trim_first ? trimmed : user_prompt, trim_first ? user_prompt : trimmed}) {
-            const size_t pos = content.empty() ? std::string::npos : formatted_user_prompt.rfind(content);
-            if (pos != std::string::npos) {
-                user_open = formatted_user_prompt.substr(0, pos);
-                suffix_pos = pos + content.size();
-                break;
-            }
-        }
-    }
+    if (has_chat_template) split_user_turn(user_prompt, formatted_user_prompt, user_open, suffix_pos);
 
     // Il contenuto del turno utente (guide, note, testo selezionato: testo che chiunque puo' scrivere) si tokenizza
     // senza token speciali, cosi' un "<|im_end|>" scritto in una guida resta testo e non chiude il turno; i token di
@@ -792,6 +820,159 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     last_generated_tokens = 0;
     stop_generation_position = current_position + n_predict;
     turn_tokens = std::move(user_tokens);
+    assistant_turn_open = true;
+    return 0;
+}
+
+// Carica l'mmproj (encoder delle immagini) per il modello gia' caricato. 0 ok, 1 file non valido o memoria insufficiente,
+// 2 nessun modello, 3 l'mmproj non legge immagini. Un mmproj gia' caricato viene sostituito.
+static jint load_mmproj_impl(JNIEnv *env, jstring jmmproj_path) {
+    const std::string path = jstring_to_path(env, jmmproj_path);
+    if (env->ExceptionCheck()) return -100;
+    if (!g_model) {
+        LOGe("%s: model not loaded", __func__);
+        return 2;
+    }
+    mtmd_free(g_mtmd);
+    g_mtmd = nullptr;
+    mtmd_context_params params = mtmd_context_params_default();
+    params.use_gpu = false;
+    // Il passaggio di prova costerebbe secondi in piu' al caricamento: l'encoder si prepara alla prima foto.
+    params.warmup = false;
+    params.n_threads = g_n_threads_batch;
+    params.image_max_tokens = IMAGE_MAX_TOKENS;
+    const auto start = std::chrono::steady_clock::now();
+    g_mtmd = mtmd_init_from_file(path.c_str(), g_model, params);
+    if (!g_mtmd) {
+        LOGe("%s: cannot load the mmproj", __func__);
+        return 1;
+    }
+    if (!mtmd_support_vision(g_mtmd)) {
+        LOGe("%s: the mmproj has no vision encoder", __func__);
+        mtmd_free(g_mtmd);
+        g_mtmd = nullptr;
+        return 3;
+    }
+    LOGi("%s: mmproj loaded in %lld ms", __func__,
+         (long long) std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
+    return 0;
+}
+
+struct BitmapDeleter { void operator()(mtmd_bitmap *bitmap) const { mtmd_bitmap_free(bitmap); } };
+struct ChunksDeleter { void operator()(mtmd_input_chunks *chunks) const { mtmd_input_chunks_free(chunks); } };
+
+// Come process_user_prompt_impl, ma il turno utente contiene una foto (JPEG o PNG) prima del testo. Le parti del turno
+// (apertura del template, foto, testo, suffisso) le tokenizza mtmd, che mette i token di inizio e fine immagine del
+// modello; la foto la codifica e la decodifica mtmd_helper_eval_chunks nel contesto di sempre. Il testo dell'utente resta
+// senza token speciali come nel prompt solo testo. Codici come processUserPrompt, piu': 5 mmproj non caricato, 6 foto non
+// leggibile, 7 tokenizzazione rifiutata. Nella history entra solo il testo.
+// Non si interrompe a meta' della codifica: la cancellazione vale dal primo token della risposta.
+static jint process_image_prompt_impl(JNIEnv *env, jstring juser_prompt, jbyteArray jimage, jint n_predict) {
+    if (!g_context || !g_sampler) {
+        LOGe("%s: model not prepared", __func__);
+        return 4;
+    }
+    if (!g_mtmd) {
+        LOGe("%s: mmproj not loaded", __func__);
+        return 5;
+    }
+    if (image_in_cache) {
+        LOGe("%s: prompt after an image turn without a conversation reset", __func__);
+        return reject_user_prompt(3);
+    }
+    reset_short_term_states();
+
+    const std::string user_prompt = jstring_to_utf8(env, juser_prompt);
+    if (env->ExceptionCheck()) return -100;  // OutOfMemoryError da GetStringChars
+    const jsize image_size = env->GetArrayLength(jimage);
+    std::vector<unsigned char> image((size_t) image_size);
+    env->GetByteArrayRegion(jimage, 0, image_size, reinterpret_cast<jbyte *>(image.data()));
+    if (env->ExceptionCheck()) return -100;
+
+    mtmd_helper_bitmap_wrapper decoded = mtmd_helper_bitmap_init_from_buf(
+            g_mtmd, image.data(), image.size(), false, mtmd_helper_init_opt_default());
+    std::unique_ptr<mtmd_bitmap, BitmapDeleter> bitmap(decoded.bitmap);
+    const bool is_video = decoded.video_ctx != nullptr;
+    if (is_video) mtmd_helper_video_free(decoded.video_ctx);
+    // Un mmproj anche audio riconoscerebbe un file audio come "foto": qui solo immagini.
+    if (!bitmap || is_video || mtmd_bitmap_is_audio(bitmap.get())) {
+        LOGe("%s: the image cannot be decoded (%d bytes)", __func__, (int) image_size);
+        return 6;
+    }
+
+    const bool has_chat_template = common_chat_templates_was_explicit(g_chat_templates.get());
+    const std::string formatted = has_chat_template ? chat_add_and_format(ROLE_USER, user_prompt) : user_prompt;
+    std::string user_open;
+    size_t suffix_pos = std::string::npos;
+    if (has_chat_template) split_user_turn(user_prompt, formatted, user_open, suffix_pos);
+    if (has_chat_template && suffix_pos == std::string::npos) {
+        LOGw("%s: user content not found in the formatted prompt, image placed before it", __func__);
+    }
+
+    // Parti nell'ordine del turno; gli mtmd_input_text puntano a queste stringhe, che vivono fino alla fine.
+    const std::string content = suffix_pos == std::string::npos ? formatted : formatted.substr(user_open.size(), suffix_pos - user_open.size());
+    const std::string suffix = suffix_pos == std::string::npos ? std::string() : formatted.substr(suffix_pos);
+    std::vector<mtmd_input_text> texts;
+    texts.reserve(3);
+    std::vector<const mtmd_input_text *> text_slots;  // nullptr al posto della foto
+    const auto add_text = [&](const std::string &text, const bool parse_special) {
+        if (text.empty()) return;
+        texts.push_back({text.c_str(), text.size(), false, parse_special});
+        text_slots.push_back(&texts.back());
+    };
+    if (suffix_pos == std::string::npos) {
+        text_slots.push_back(nullptr);
+        add_text(content, has_chat_template);
+    } else {
+        add_text(user_open, true);
+        text_slots.push_back(nullptr);
+        add_text(content, false);
+        add_text(suffix, true);
+    }
+    std::vector<mtmd_input_part> parts;
+    for (const mtmd_input_text *slot : text_slots) parts.push_back({slot, slot ? nullptr : bitmap.get()});
+    std::vector<const mtmd_input_part *> part_pointers;
+    for (const auto &part : parts) part_pointers.push_back(&part);
+
+    std::unique_ptr<mtmd_input_chunks, ChunksDeleter> chunks(mtmd_input_chunks_init());
+    if (mtmd_tokenize_from_parts(g_mtmd, chunks.get(), part_pointers.data(), part_pointers.size(), has_chat_template) != 0) {
+        LOGe("%s: mtmd_tokenize_from_parts() failed", __func__);
+        return reject_user_prompt(7);
+    }
+
+    // Le posizioni della foto possono essere meno dei suoi token (M-RoPE), ma la KV cache ne occupa una per token: il
+    // limite si conta sui token, e la risposta ha lo spazio che resta.
+    const int prompt_tokens = (int) mtmd_helper_get_n_tokens(chunks.get());
+    const int spare = DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM - current_position - prompt_tokens;
+    if (spare <= 0) {
+        LOGe("%s: prompt with image too long (%d tokens)", __func__, prompt_tokens);
+        return reject_user_prompt(3);
+    }
+    llama_tokens text_tokens;
+    for (size_t i = 0; i < mtmd_input_chunks_size(chunks.get()); i++) {
+        const mtmd_input_chunk *chunk = mtmd_input_chunks_get(chunks.get(), i);
+        if (mtmd_input_chunk_get_type(chunk) != MTMD_INPUT_CHUNK_TYPE_TEXT) continue;
+        size_t count = 0;
+        const llama_token *tokens = mtmd_input_chunk_get_tokens_text(chunk, &count);
+        text_tokens.insert(text_tokens.end(), tokens, tokens + count);
+    }
+
+    const auto start = std::chrono::steady_clock::now();
+    llama_pos new_position = current_position;
+    if (mtmd_helper_eval_chunks(g_mtmd, g_context, chunks.get(), current_position, 0, BATCH_SIZE, true, &new_position) != 0) {
+        LOGe("%s: mtmd_helper_eval_chunks() failed!", __func__);
+        return reject_user_prompt(2);
+    }
+    LOGi("%s: image prompt of %d tokens (%d positions) encoded and decoded in %lld ms", __func__, prompt_tokens,
+         (int) (new_position - current_position),
+         (long long) std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
+
+    current_position = new_position;
+    image_in_cache = true;
+    last_prompt_tokens = prompt_tokens;
+    last_generated_tokens = 0;
+    stop_generation_position = current_position + std::min((int) n_predict, spare);
+    turn_tokens = std::move(text_tokens);
     assistant_turn_open = true;
     return 0;
 }
@@ -1089,6 +1270,40 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processUs
 }
 
 extern "C"
+JNIEXPORT jint JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_loadMmprojNative(JNIEnv *env, jobject /*unused*/, jstring jmmproj_path) {
+    try {
+        return load_mmproj_impl(env, jmmproj_path);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        return -100;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
+        return -100;
+    }
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processImagePrompt(
+        JNIEnv *env,
+        jobject /*unused*/,
+        jstring juser_prompt,
+        jbyteArray jimage,
+        jint n_predict
+) {
+    try {
+        return process_image_prompt_impl(env, juser_prompt, jimage, n_predict);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        return g_context ? reject_user_prompt(-100) : -100;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
+        return g_context ? reject_user_prompt(-100) : -100;
+    }
+}
+
+extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_generateNextToken(
         JNIEnv *env,
@@ -1161,6 +1376,9 @@ static void unload_impl() {
     // dove il modello puo' essere caricato del tutto, a meta' (prepare() fallita) o per niente —
     // tutte le funzioni di free qui sotto accettano null, quindi resta sicura in ogni caso e non
     // fa double free se chiamata due volte.
+    // L'encoder delle immagini prima del modello a cui e' legato.
+    mtmd_free(g_mtmd);
+    g_mtmd = nullptr;
     common_sampler_free(g_sampler);
     g_sampler = nullptr;
     std::vector<uint8_t>().swap(g_checkpoint);
