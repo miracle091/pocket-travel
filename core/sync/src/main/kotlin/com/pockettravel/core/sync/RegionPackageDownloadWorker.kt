@@ -13,127 +13,97 @@ import androidx.work.WorkInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.pockettravel.core.data.PackageKind
-import com.pockettravel.core.data.RegionZonePreferences
-import com.pockettravel.core.data.RoutingVariantPreferences
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.json.Json
 import java.io.File
-import java.io.IOException
 
 /** Download dei pacchetti di una regione richiesti dall'utente — mai automatico. */
 @HiltWorker
-class RegionPackageDownloadWorker @AssistedInject constructor(
+class RegionPackageDownloadWorker @AssistedInject internal constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
-    private val installer: RegionPackageInstaller,
-    private val regionZonePreferences: RegionZonePreferences,
-    private val routingVariantPreferences: RoutingVariantPreferences,
-    private val json: Json,
+    private val download: RegionPackageDownload,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        var regionId: String? = null
-        var stagingVersion: String? = null
         val requestFile = inputData.getString(KEY_MANIFEST_ENTRY_FILE)
-        val result = try {
-            val entryJson = entryJson(requestFile) ?: return finish(Result.failure(), requestFile)
-            val requestedKinds = inputData.getNullableStringArray(KEY_PACKAGE_KINDS)?.filterNotNull()?.map(PackageKind::valueOf)?.toSet()
-                ?: return finish(Result.failure(), requestFile)
-            val manifestEntry = json.decodeFromString(RegionManifestEntry.serializer(), entryJson)
-            manifestEntry.validate()
-            regionId = manifestEntry.regionId
-            // Qui e non da chi accoda: qualunque schermata avvii il download, mappa, rete stradale e civici restano nella zona
-            // scelta. Una zona senza celle dei civici toglie i civici dai pacchetti da scaricare.
-            // Rete stradale "solo auto" al posto di quella completa, se scelti e offerti dal catalogo.
-            val carOnly = routingVariantPreferences.choices.value.isCarOnly(manifestEntry.regionId) && manifestEntry.routingCar != null
-            val entry = manifestEntry.withRoutingVariant(carOnly).restrictedTo(regionZonePreferences.zone(manifestEntry.regionId))
-            val kinds = requestedKinds.filterTo(mutableSetOf()) { it in entry.availableKinds }
-            if (kinds.isEmpty()) return finish(Result.success(), requestFile)
-            var lastMapPercent = -1L
-            // Download in primo piano (tipo dataSync): notifica con avanzamento e "Annulla", e il sistema non lo
-            // ferma a schermo spento. Gli aggiornamenti dopo il primo sono asincroni e al massimo uno al secondo.
-            val notification = RegionDownloadNotification(applicationContext)
-            val throttle = UpdateThrottle()
-            // Il tipo del servizio esiste da Android 10: WorkManager lo ignora sulle versioni precedenti.
-            @SuppressLint("InlinedApi")
-            fun foregroundInfo(phase: DownloadPhase) = ForegroundInfo(
-                downloadNotificationId(id),
-                notification.build(id, entry.displayName, kinds, phase),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
-            )
-            if (!startForegroundOrContinue(foregroundInfo(DownloadPhase.Files(0, 0)), kinds)) return finish(Result.failure(), requestFile)
-            installer.install(
-                entry,
-                kinds,
-                onProgress = { bytesDownloaded, totalBytes ->
-                    setProgress(workDataOf(KEY_BYTES_DOWNLOADED to bytesDownloaded, KEY_TOTAL_BYTES to totalBytes))
-                    if (throttle.tryAcquire(SystemClock.elapsedRealtime())) setForegroundAsync(foregroundInfo(DownloadPhase.Files(bytesDownloaded, totalBytes)))
-                },
-                onMapProgress = { bytesDone, bytesTotal ->
-                    // Chiamato dal thread bloccante dell'estrazione: setProgressAsync, e solo quando cambia la percentuale.
-                    val percent = if (bytesTotal > 0) bytesDone * 100 / bytesTotal else 100
-                    if (percent != lastMapPercent) {
-                        lastMapPercent = percent
-                        setProgressAsync(workDataOf(KEY_MAP_BYTES_DONE to bytesDone, KEY_MAP_BYTES_TOTAL to bytesTotal))
-                        if (throttle.tryAcquire(SystemClock.elapsedRealtime())) setForegroundAsync(foregroundInfo(DownloadPhase.ExtractingMap(bytesDone, bytesTotal)))
-                    }
-                },
-                onInstalling = {
-                    // Sempre, senza throttle: e' un cambio di fase, non un avanzamento.
-                    setProgressAsync(workDataOf(KEY_INSTALLING to true))
-                    setForegroundAsync(foregroundInfo(DownloadPhase.Installing))
-                },
-                onStagingVersion = { stagingVersion = it },
-            )
-            // Il Navigatore lo legge per avvisare che a piedi o in bici questa rete stradale non basta.
-            if (PackageKind.ROUTING in kinds) routingVariantPreferences.setInstalledCarOnly(entry.regionId, entry.hasCarOnlyRouting)
-            Result.success()
+        val entryJson = entryJson(requestFile)
+        val kinds = inputData.getNullableStringArray(KEY_PACKAGE_KINDS)?.filterNotNull()?.map(PackageKind::valueOf)?.toSet()
+        if (entryJson == null || kinds == null) return finish(Result.failure(), requestFile)
+        val outcome = try {
+            download.run(entryJson, kinds, runAttemptCount, Callbacks(), ::cancelledByUser)
         } catch (error: CancellationException) {
-            // "Annulla" della notifica: il download non riparte, lo staging e il file della richiesta si ripuliscono
-            // subito (senza il motivo, prima di Android 12, al prossimo avvio: RegionStartupRecovery). Altre cause
-            // (vincoli persi, processo fermato dal sistema) lasciano lo staging per la ripresa.
-            if (cancelledByUser()) cleanUp(regionId, stagingVersion, requestFile)
+            // "Annulla" della notifica: anche il file della richiesta non serve piu'.
+            if (cancelledByUser()) deleteRequest(requestFile)
             throw error
         } catch (error: OutOfMemoryError) {
-            // Non si ingoia, ma lo staging e il file della richiesta non restano: il lavoro non viene ritentato.
-            cleanUp(regionId, stagingVersion, requestFile)
+            deleteRequest(requestFile)
             throw error
-        } catch (_: PermanentRegionPackageException) {
-            Result.failure()
-        } catch (_: IOException) {
-            // Errore di rete: si riprova, ma non all'infinito.
-            if (runAttemptCount < MAX_RETRIES) Result.retry() else Result.failure()
-        } catch (error: Exception) {
-            Log.w(TAG, "Download pacchetto regione fallito", error)
-            Result.failure()
         }
-        // Installazione finita (i file sono gia' stati spostati, restava una cartella vuota) o
-        // fallimento definitivo: lo staging (file .part compresi) non serve piu'. Solo un nuovo
-        // tentativo lo riusa. Confronto con Result.retry() (Retry.equals vale per ogni Retry): la
-        // classe Result.Retry e' API riservata a WorkManager e il lint (RestrictedApi) la rifiuta.
-        if (result != Result.retry()) cleanUp(regionId, stagingVersion, requestFile)
-        return result
+        // Solo un nuovo tentativo rilegge il file della richiesta.
+        if (outcome != DownloadOutcome.RETRY) deleteRequest(requestFile)
+        return when (outcome) {
+            DownloadOutcome.SUCCESS -> Result.success()
+            DownloadOutcome.RETRY -> Result.retry()
+            DownloadOutcome.FAILURE -> Result.failure()
+        }
     }
 
-    // Da Android 12 un nuovo tentativo partito da sfondo non puo' avviare il servizio: si scarica comunque, senza notifica.
-    // Senza notifica pero' il lavoro ha il limite di 10 minuti e l'estrazione della mappa riparte da zero a ogni stop, che
-    // non conta in MAX_RETRIES: dopo qualche tentativo ci si arrende (false).
-    // L'estrazione della mappa e' l'unico passo che riparte da zero a ogni stop: senza mappa tra i pacchetti non c'e' motivo di arrendersi.
-    private suspend fun startForegroundOrContinue(info: ForegroundInfo, kinds: Set<PackageKind>): Boolean = try {
-        setForeground(info)
-        true
-    } catch (error: CancellationException) {
-        throw error
-    } catch (error: Exception) {
-        Log.w(TAG, "Notifica di download non mostrata", error)
-        !givesUpWithoutForeground(runAttemptCount, kinds)
+    // Download in primo piano (tipo dataSync): notifica con avanzamento e "Annulla", e il sistema non lo
+    // ferma a schermo spento. Gli aggiornamenti dopo il primo sono asincroni e al massimo uno al secondo.
+    private inner class Callbacks : DownloadCallbacks {
+        private val notification = RegionDownloadNotification(applicationContext)
+        private val throttle = UpdateThrottle()
+        private var displayName = ""
+        private var kinds = emptySet<PackageKind>()
+
+        // Il tipo del servizio esiste da Android 10: WorkManager lo ignora sulle versioni precedenti.
+        @SuppressLint("InlinedApi")
+        private fun foregroundInfo(phase: DownloadPhase) = ForegroundInfo(
+            downloadNotificationId(id),
+            notification.build(id, displayName, kinds, phase),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+        )
+
+        override suspend fun start(displayName: String, kinds: Set<PackageKind>): Boolean {
+            this.displayName = displayName
+            this.kinds = kinds
+            // Da Android 12 il servizio in primo piano non parte da sfondo (ForegroundServiceStartNotAllowedException):
+            // si scarica comunque, senza notifica.
+            @Suppress("TooGenericExceptionCaught")
+            val shown = try {
+                setForeground(foregroundInfo(DownloadPhase.Files(0, 0)))
+                true
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Log.w(TAG, "Notifica di download non mostrata", error)
+                false
+            }
+            return shown
+        }
+
+        override suspend fun onFiles(bytesDownloaded: Long, totalBytes: Long) {
+            setProgress(workDataOf(KEY_BYTES_DOWNLOADED to bytesDownloaded, KEY_TOTAL_BYTES to totalBytes))
+            if (throttle.tryAcquire(SystemClock.elapsedRealtime())) setForegroundAsync(foregroundInfo(DownloadPhase.Files(bytesDownloaded, totalBytes)))
+        }
+
+        override fun onMap(bytesDone: Long, bytesTotal: Long) {
+            setProgressAsync(workDataOf(KEY_MAP_BYTES_DONE to bytesDone, KEY_MAP_BYTES_TOTAL to bytesTotal))
+            if (throttle.tryAcquire(SystemClock.elapsedRealtime())) setForegroundAsync(foregroundInfo(DownloadPhase.ExtractingMap(bytesDone, bytesTotal)))
+        }
+
+        override fun onInstalling() {
+            // Sempre, senza throttle: e' un cambio di fase, non un avanzamento.
+            setProgressAsync(workDataOf(KEY_INSTALLING to true))
+            setForegroundAsync(foregroundInfo(DownloadPhase.Installing))
+        }
     }
 
-    // Uscite anticipate di doWork: anche loro lasciano il file della richiesta (e lo staging) a posto.
+    // Uscite anticipate di doWork: anche loro tolgono il file della richiesta.
     private fun finish(result: Result, requestFile: String?): Result {
-        cleanUp(null, null, requestFile)
+        deleteRequest(requestFile)
         return result
     }
 
@@ -141,9 +111,7 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
     private fun cancelledByUser(): Boolean =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && stopReason == WorkInfo.STOP_REASON_CANCELLED_BY_APP
 
-    private fun cleanUp(regionId: String?, stagingVersion: String?, requestFile: String?) {
-        // Solo la cartella di questa richiesta, e mai sotto i piedi di un altro download della stessa regione.
-        if (regionId != null && stagingVersion != null) installer.deleteStagingIfIdle(regionId, stagingVersion)
+    private fun deleteRequest(requestFile: String?) {
         requestFile?.let { requestFiles(applicationContext).delete(it) }
     }
 
@@ -161,13 +129,6 @@ class RegionPackageDownloadWorker @AssistedInject constructor(
         const val KEY_TOTAL_BYTES = "total_bytes"
         const val KEY_MAP_BYTES_DONE = "map_bytes_done"
         const val KEY_MAP_BYTES_TOTAL = "map_bytes_total"
-        // Tentativi ripetuti dopo il primo per errori di rete, poi il download si arrende.
-        private const val MAX_RETRIES = 5
-        // Tentativi (dopo il primo) consentiti senza la notifica in primo piano.
-        private const val MAX_RETRIES_WITHOUT_FOREGROUND = 2
-
-        internal fun givesUpWithoutForeground(runAttemptCount: Int, kinds: Set<PackageKind>) =
-            PackageKind.MAP in kinds && runAttemptCount >= MAX_RETRIES_WITHOUT_FOREGROUND
         private val TAG = RegionPackageDownloadWorker::class.java.simpleName
 
         internal fun requestFiles(context: Context) = DownloadRequestFiles(File(context.noBackupFilesDir, "download-requests"))

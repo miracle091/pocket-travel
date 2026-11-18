@@ -31,6 +31,11 @@ android {
     buildFeatures {
         buildConfig = true
     }
+
+    // Robolectric legge le stringhe del modulo (la notifica del worker della coda).
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -67,8 +72,12 @@ dependencies {
     // Solo per verificare a livello di schema che le query di GuidesImporter e
     // PoiImporter corrispondano alle colonne prodotte dalla pipeline dati (tools/data-pipeline) — non
     // esercita android.database.sqlite.SQLiteDatabase stesso, che richiede un device/
-    // emulatore reale (nessun Robolectric aggiunto qui: il progetto non lo usa altrove).
+    // emulatore reale.
     testImplementation(libs.sqlite.jdbc)
+    // Il worker della coda dei download su JVM: TestListenableWorkerBuilder e WorkManager di prova, su un Context di Robolectric.
+    testImplementation(libs.work.testing)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.ext.junit)
 
     // Test strumentati (androidTest): eseguono GuidesImporter/PoiImporter
     // con android.database.sqlite reale su device/emulatore, colmando il limite dei test JVM sopra.
@@ -82,6 +91,18 @@ dependencies {
 
 // I test JVM usano sqlite-jdbc, che carica una libreria nativa con System::load: dal JDK 24 e' un "restricted method"
 // che stampa un warning (e sara' bloccato in una release futura) senza l'accesso nativo dichiarato.
+// Robolectric sul JDK 17+ usa classi interne del JDK (elenco della sua guida di avvio, lo stesso di :app).
 tasks.withType<Test>().configureEach {
-    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    jvmArgs(
+        "--enable-native-access=ALL-UNNAMED",
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+        "--add-opens=java.base/java.util=ALL-UNNAMED",
+        "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+        "--add-opens=java.base/java.io=ALL-UNNAMED",
+        "--add-opens=java.base/java.net=ALL-UNNAMED",
+        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/java.text=ALL-UNNAMED",
+        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+        "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
+    )
 }

@@ -5,7 +5,6 @@
     <ID>CyclomaticComplexMethod:PmtilesExtractor.kt:PmtilesExtractor$fun extract: PmtilesExtractionStats</ID>
     <ID>CyclomaticComplexMethod:PmtilesExtractor.kt:PmtilesExtractor$private fun fetchTiles: PmtilesExtractionStats</ID>
     <ID>CyclomaticComplexMethod:RegionManifest.kt:fun RegionManifestEntry.validate</ID>
-    <ID>CyclomaticComplexMethod:RegionPackageDownloadWorker.kt:RegionPackageDownloadWorker$override suspend fun doWork: Result</ID>
     <ID>CyclomaticComplexMethod:RegionPackageDownloader.kt:RegionPackageDownloader$internal suspend fun downloadAndVerify</ID>
     <ID>CyclomaticComplexMethod:RegionPackageInstaller.kt:RegionPackageInstaller$suspend fun install</ID>
     <ID>DestructuringDeclarationWithTooManyEntries:RegionZoneRestriction.kt:val (ew, lon, ns, lat) = match.destructured</ID>
@@ -55,14 +54,12 @@
     <ID>ReturnCount:AddressGridSelection.kt:internal fun parseCellId: CellId?</ID>
     <ID>ReturnCount:HttpManifestClient.kt:fun &lt;T&gt; optional: T?</ID>
     <ID>ReturnCount:PmtilesExtractorTest.kt:RangeFileDispatcher$override fun dispatch: MockResponse</ID>
-    <ID>ReturnCount:RegionPackageDownloadWorker.kt:RegionPackageDownloadWorker$override suspend fun doWork: Result</ID>
     <ID>ReturnCount:RegionPackageDownloader.kt:RegionPackageDownloader$private fun reuseLocalCopy: Boolean</ID>
     <ID>ReturnCount:RegionZoneRestriction.kt:fun RegionManifestEntry.restrictedTo: RegionManifestEntry</ID>
     <ID>SpacingAroundOperators:PmtilesWriterTest.kt:PmtilesWriterTest$=</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:HttpManifestClient.kt:RecentFetch$@Volatile private var value: T? = null</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:LanguageChangeReload.kt:LanguageChangeReload$@Suppress("TooGenericExceptionCaught") val saved = try { manifestClient.savedManifest()?.citiesToReload(installed, language).orEmpty() } catch (error: CancellationException) { throw error } catch (error: Exception) { Log.w(TAG, "Catalogo salvato non letto", error) return }</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:LanguageChangeReload.kt:LanguageChangeReload$@Suppress("TooGenericExceptionCaught") val toReload = if (saved.isEmpty()) { saved } else { try { manifestClient.fetchManifest().citiesToReload(installed, language) } catch (error: CancellationException) { throw error } catch (error: Exception) { Log.w(TAG, "Catalogo non scaricato, si usa quello salvato", error) saved } }</ID>
-    <ID>SpacingBetweenDeclarationsWithAnnotations:RegionPackageDownloadWorker.kt:RegionPackageDownloadWorker$@SuppressLint("InlinedApi") fun foregroundInfo</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:RoutingSegmentsInstallerTest.kt:RoutingSegmentsInstallerTest$@Test fun `non tocca gli altri file del pacchetto`</ID>
     <ID>SpacingBetweenDeclarationsWithComments:AddressGridClient.kt:AddressGridClient.Companion$// Cartella di staging dell'indice, accanto a quelle per regione (RegionStorage) e alle guide</ID>
     <ID>SpacingBetweenDeclarationsWithComments:AppUpdateCheckScheduler.kt:AppUpdateCheckScheduler$/** Controllo periodico di app-status.json, qualunque rete — mai un download automatico. */</ID>
@@ -74,9 +71,6 @@
     <ID>SpacingBetweenDeclarationsWithComments:PmtilesExtractor.kt:PmtilesExtractor.Companion$// Tra due byte consecutivi della risposta: una connessione ferma scade e la richiesta si ritenta.</ID>
     <ID>SpacingBetweenDeclarationsWithComments:PmtilesWriter.kt:PmtilesTileSpool.Companion$// Ogni quante voci di directory si controlla l'annullamento.</ID>
     <ID>SpacingBetweenDeclarationsWithComments:RegionDownloadNotification.kt:DownloadPhase.Installing$// Senza percentuale (barra indeterminata): l'import dei POI non sa quanto manca.</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:RegionPackageDownloadWorker.kt:RegionPackageDownloadWorker$// Il tipo del servizio esiste da Android 10: WorkManager lo ignora sulle versioni precedenti.</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:RegionPackageDownloadWorker.kt:RegionPackageDownloadWorker.Companion$// Tentativi (dopo il primo) consentiti senza la notifica in primo piano.</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:RegionPackageDownloadWorker.kt:RegionPackageDownloadWorker.Companion$// Tentativi ripetuti dopo il primo per errori di rete, poi il download si arrende.</ID>
     <ID>SpacingBetweenDeclarationsWithComments:RegionPackageDownloadWorker.kt:RegionPackageDownloadWorker.Companion$// true dopo download ed estrazione: la riga della regione mostra "Installazione…" senza percentuale.</ID>
     <ID>SpacingBetweenDeclarationsWithComments:RegionPackageDownloader.kt:RegionPackageDownloader$// internal (non private) cosi' un test puo' esercitare direttamente il download/verifica</ID>
     <ID>SpacingBetweenDeclarationsWithComments:TransitClient.kt:TransitClient.Companion$// Come AddressGridClient.STAGING_ID: accanto alle cartelle per regione, fa anche da cache per versione.</ID>
@@ -90,7 +84,6 @@
     <ID>TooGenericExceptionCaught:PmtilesExtractor.kt:PmtilesExtractor$error: Exception</ID>
     <ID>TooGenericExceptionCaught:PmtilesExtractor.kt:PmtilesExtractor$error: Throwable</ID>
     <ID>TooGenericExceptionCaught:RegionManifestSyncWorker.kt:RegionManifestSyncWorker$error: Exception</ID>
-    <ID>TooGenericExceptionCaught:RegionPackageDownloadWorker.kt:RegionPackageDownloadWorker$error: Exception</ID>
     <ID>TooGenericExceptionCaught:RegionPackageInstaller.kt:RegionPackageInstaller$error: Exception</ID>
     <ID>TrailingCommaOnCallSite:PackageImporterSchemaTest.kt:PackageImporterSchemaTest$( """ CREATE TABLE city_sections ( city TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, sourceUrl TEXT NOT NULL ) """.trimIndent() )</ID>
     <ID>TrailingCommaOnCallSite:PackageImporterSchemaTest.kt:PackageImporterSchemaTest$( """ CREATE TABLE emergency_numbers ( regionId TEXT NOT NULL, general TEXT, police TEXT NOT NULL, ambulance TEXT NOT NULL, fire TEXT NOT NULL ) """.trimIndent() )</ID>
