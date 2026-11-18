@@ -110,7 +110,7 @@ I modelli proposti per ogni servizio, con il costo stimato di 100 domande, vengo
 | [ChatGPT (OpenAI)](https://platform.openai.com/api-keys) | `gpt-6-luna` | `gpt-5.6-terra` |
 | [Mistral AI](https://console.mistral.ai/api-keys) | `mistral-small-latest` | `mistral-large-latest` |
 | [Gemini (Google)](https://aistudio.google.com/apikey) | `gemini-3.6-flash` | `gemini-4-argon` |
-| [Claude (Anthropic)](https://console.anthropic.com/settings/keys) | `claude-haiku-5-5` | `claude-sonnet-5-5` |
+| [Claude (Anthropic)](https://platform.claude.com/settings/keys) | `claude-haiku-5-5` | `claude-sonnet-5-5` |
 | [Regolo.ai](https://dashboard.regolo.ai/) | `mistral-small-4-119b` | `qwen3.8-27b` |
 | [Scaleway](https://console.scaleway.com/iam/api-keys) | `mistral-small-3.2-24b-instruct-2506` | `mistral-medium-3.5-128b` |
 | [Inceptron](https://console.inceptron.io/dashboard/account) | `zai-org/GLM-5.3-Flash` | `zai-org/GLM-5.3` |

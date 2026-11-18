@@ -21,7 +21,7 @@ enum class OnlineProvider(
         "https://api.openai.com/v1",
         "https://platform.openai.com/api-keys",
         "sk-",
-        "https://platform.openai.com/docs/models",
+        "https://developers.openai.com/api/docs/models",
         OnlineTerms(OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS, "https://developers.openai.com/api/docs/guides/your-data"),
     ),
     MISTRAL(
@@ -37,15 +37,15 @@ enum class OnlineProvider(
         "https://generativelanguage.googleapis.com/v1beta/openai",
         "https://aistudio.google.com/apikey",
         "AIza",
-        "https://ai.google.dev/gemini-api/docs/models",
+        "https://aistudio.google.com/docs/models",
         OnlineTerms(OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS, "https://aistudio.google.com/docs/terms", retentionDays = 55),
     ),
     CLAUDE(
         "Claude (Anthropic)",
         "https://api.anthropic.com/v1",
-        "https://console.anthropic.com/settings/keys",
+        "https://platform.claude.com/settings/keys",
         "sk-ant-",
-        "https://docs.anthropic.com/en/docs/about-claude/models",
+        "https://platform.claude.com/docs/en/about-claude/models",
         OnlineTerms(OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS, "https://privacy.claude.com/en/articles/7996866", api = OnlineApi.ANTHROPIC_MESSAGES),
     ),
     REGOLO(
