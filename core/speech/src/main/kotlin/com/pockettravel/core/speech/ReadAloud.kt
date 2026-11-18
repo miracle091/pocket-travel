@@ -6,6 +6,7 @@ import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
@@ -71,24 +72,39 @@ class SystemReadAloud @Inject constructor(@ApplicationContext private val contex
                         if (utteranceId == lastId) finish(ReadAloudResult.FINISHED)
                     }
 
+                    // Nel logcat il motivo di una lettura non riuscita: nella CI (emulatore API 34) a volte arriva un errore
+                    // o uno stop alla fine di una frase letta per intero, al posto di onDone.
                     @Deprecated("Sostituito da onError(String, Int), chiamato ancora dai motori vecchi")
-                    override fun onError(utteranceId: String) = finish(ReadAloudResult.FAILED)
+                    override fun onError(utteranceId: String) {
+                        Log.w(TAG, "onError: frase $utteranceId di $lastId")
+                        finish(ReadAloudResult.FAILED)
+                    }
 
-                    override fun onError(utteranceId: String, errorCode: Int) = finish(ReadAloudResult.FAILED)
+                    override fun onError(utteranceId: String, errorCode: Int) {
+                        Log.w(TAG, "onError: frase $utteranceId di $lastId, codice $errorCode")
+                        finish(ReadAloudResult.FAILED)
+                    }
 
                     // Il motore ha scartato la frase senza leggerla (per esempio perche' e' stato fermato da fuori).
-                    override fun onStop(utteranceId: String, interrupted: Boolean) = finish(ReadAloudResult.FAILED)
+                    override fun onStop(utteranceId: String, interrupted: Boolean) {
+                        Log.w(TAG, "onStop: frase $utteranceId di $lastId, interrotta $interrupted")
+                        finish(ReadAloudResult.FAILED)
+                    }
                 })
                 val queued = chunks.withIndex().all { (i, chunk) ->
                     tts.speak(chunk, TextToSpeech.QUEUE_ADD, null, "$i") == TextToSpeech.SUCCESS
                 }
-                if (!queued) finish(ReadAloudResult.FAILED)
+                if (!queued) {
+                    Log.w(TAG, "speak: frasi non accodate")
+                    finish(ReadAloudResult.FAILED)
+                }
             }
             // Senza motori installati TextToSpeech chiama onInit con ERROR gia' dentro il costruttore.
             engine.set(
                 TextToSpeech(context) { status ->
                     val tts = engine.get()
                     if (status != TextToSpeech.SUCCESS || tts == null) {
+                        Log.w(TAG, "onInit: stato $status")
                         finish(ReadAloudResult.FAILED)
                         return@TextToSpeech
                     }
@@ -97,7 +113,10 @@ class SystemReadAloud @Inject constructor(@ApplicationContext private val contex
                     }
                 },
             )
-            handler.postDelayed({ finish(ReadAloudResult.FAILED) }, readTimeoutMillis(text.length))
+            handler.postDelayed({
+                Log.w(TAG, "tempo massimo scaduto")
+                finish(ReadAloudResult.FAILED)
+            }, readTimeoutMillis(text.length))
             if (done.get()) engine.getAndSet(null)?.shutdown()
             continuation.invokeOnCancellation {
                 if (done.compareAndSet(false, true)) {
@@ -156,6 +175,8 @@ private fun probeVoice(tts: TextToSpeech, probe: File, onResult: (Boolean) -> Un
 }
 
 private const val PROBE_TEXT = "a"
+
+private const val TAG = "SystemReadAloud"
 
 /** File della prova della voce, nella cache dell'app: si cancella a prova finita. */
 internal const val PROBE_FILE = "voice-probe.wav"
