@@ -197,6 +197,7 @@ fun NavigationPlannerScreen(
             reminder = planner.reminder,
             toCatch = planner.toCatch,
             oldRoutingDate = planner.oldRoutingDate,
+            transit = planner.transit,
             missingRegions = missingRegions,
             downloadProgress = downloadProgress,
             downloadFailed = downloadFailed,
@@ -224,6 +225,7 @@ fun NavigationPlannerScreen(
             onRemoveWaypoint = viewModel::removeWaypoint,
             onMoveWaypoint = viewModel::moveWaypoint,
             onRouteProfileChange = viewModel::setRouteProfile,
+            onTransit = viewModel::setTransit,
             onArriveByChange = viewModel::setArriveBy,
             onSetReminder = viewModel::setReminder,
             onRetry = viewModel::refreshPreview,
@@ -278,6 +280,8 @@ internal data class NavigationPlannerState(
     val toCatch: TripToCatch? = null,
     // La rete stradale piu' vecchia del percorso, se ha piu' di tre mesi.
     val oldRoutingDate: LocalDate? = null,
+    // Modo «Mezzi»: l'anteprima e' PlannerPreview.Transit.
+    val transit: Boolean = false,
     // Le regioni del catalogo senza rete stradale tra partenza e arrivo, in ordine (vuota se non si sono trovate).
     val missingRegions: List<MissingRegion> = emptyList(),
     val downloadProgress: Float? = null,
@@ -300,6 +304,8 @@ internal class NavigationPlannerActions(
     val onRemoveWaypoint: (Int) -> Unit = {},
     val onMoveWaypoint: (index: Int, earlier: Boolean) -> Unit = { _, _ -> },
     val onRouteProfileChange: (RouteProfile) -> Unit = {},
+    // Modo «Mezzi»; null nasconde il chip.
+    val onTransit: (() -> Unit)? = null,
     val onArriveByChange: (LocalDateTime?) -> Unit = {},
     val onSetReminder: (LocalDateTime) -> Unit = {},
     val onRetry: () -> Unit = {},
@@ -422,6 +428,8 @@ internal fun NavigationPlannerContent(
                         onRouteProfileChange = actions.onRouteProfileChange,
                         avoid = state.avoid,
                         onAvoidChange = actions.onAvoidChange,
+                        transit = state.transit,
+                        onTransit = actions.onTransit,
                     )
                 }
             }

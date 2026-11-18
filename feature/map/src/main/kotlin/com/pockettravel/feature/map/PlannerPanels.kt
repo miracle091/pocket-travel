@@ -61,6 +61,27 @@ internal fun SearchPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 // Partenza e arrivo su due righe basse, il pulsante per scambiarli e i modi in chip piccole: un
+// Un modo dell'anteprima: scelto con icona e nome, gli altri solo con l'icona (il nome per TalkBack).
+@Composable
+private fun ModeChip(icon: Int, name: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            if (selected) {
+                Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            } else {
+                Icon(ImageVector.vectorResource(icon), contentDescription = name, modifier = Modifier.size(18.dp))
+            }
+        },
+        leadingIcon = if (selected) {
+            { Icon(ImageVector.vectorResource(icon), contentDescription = null, modifier = Modifier.size(18.dp)) }
+        } else {
+            null
+        },
+    )
+}
+
 // pannello agganciato al bordo in alto, come le indicazioni di Google Maps, che lascia libera la mappa.
 @Composable
 internal fun RoutePanel(
@@ -77,6 +98,9 @@ internal fun RoutePanel(
     onRouteProfileChange: (RouteProfile) -> Unit,
     avoid: Set<RouteAvoid> = emptySet(),
     onAvoidChange: (RouteAvoid, Boolean) -> Unit = { _, _ -> },
+    // Modo «Mezzi» (itinerari con i mezzi pubblici) scelto; [onTransit] null nasconde il chip.
+    transit: Boolean = false,
+    onTransit: (() -> Unit)? = null,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(start = Spacing.m, top = Spacing.s, bottom = Spacing.s)) {
@@ -112,7 +136,7 @@ internal fun RoutePanel(
                     Text(stringResource(R.string.planner_add_waypoint))
                 }
             }
-            // Solo il modo scelto ha anche il nome: tre chip con l'icona stanno in una riga stretta.
+            // Solo il modo scelto ha anche il nome: i chip con l'icona stanno in una riga stretta.
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(top = Spacing.xs)) {
                 RouteProfile.entries.forEach { mode ->
                     val (icon, text) = when (mode) {
@@ -120,26 +144,11 @@ internal fun RoutePanel(
                         RouteProfile.BIKE -> UiR.drawable.ms_directions_bike to R.string.usage_mode_bike
                         RouteProfile.CAR -> UiR.drawable.ms_directions_car to R.string.usage_mode_car
                     }
-                    val selected = mode == routeProfile
-                    val name = stringResource(text)
-                    FilterChip(
-                        selected = selected,
-                        onClick = { onRouteProfileChange(mode) },
-                        label = {
-                            if (selected) {
-                                Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            } else {
-                                Icon(ImageVector.vectorResource(icon), contentDescription = name, modifier = Modifier.size(18.dp))
-                            }
-                        },
-                        leadingIcon = if (selected) {
-                            { Icon(ImageVector.vectorResource(icon), contentDescription = null, modifier = Modifier.size(18.dp)) }
-                        } else {
-                            null
-                        },
-                    )
+                    ModeChip(icon, stringResource(text), selected = mode == routeProfile && !transit) { onRouteProfileChange(mode) }
                 }
-                RouteOptionsChip(routeProfile, avoid, onAvoidChange)
+                onTransit?.let { ModeChip(UiR.drawable.ms_directions_bus, stringResource(R.string.usage_mode_transit), selected = transit, onClick = it) }
+                // Le opzioni («Evita», scale) valgono per i percorsi di BRouter, non per i mezzi pubblici.
+                if (!transit) RouteOptionsChip(routeProfile, avoid, onAvoidChange)
             }
         }
     }

@@ -7,6 +7,7 @@ import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.data.testing.FakeAddressSearchRepository
 import com.pockettravel.core.data.testing.FakeRegionRepository
+import com.pockettravel.core.data.testing.FakeTransitRepository
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
 import com.pockettravel.feature.map.testing.FakeDepartureReminderScheduler
 import com.pockettravel.feature.map.testing.FakeGpsLocationSource
@@ -44,6 +45,7 @@ abstract class NavigationPlannerTestBase {
     protected val addresses = FakeAddressSearchRepository()
     protected val regions = FakeRegionRepository(listOf(installedRegion("r1", "Italia"), installedRegion("r2", "Francia")))
     protected val engines = ScriptedRouteEngineFactory()
+    protected val transit = FakeTransitRepository()
     protected val gps = FakeGpsLocationSource()
     protected val reminders = FakeDepartureReminderScheduler()
     protected val recents = RecentDestinations(files)
@@ -79,7 +81,7 @@ abstract class NavigationPlannerTestBase {
     protected fun TestScope.viewModel(): NavigationPlannerViewModel {
         val created = ViewModelHost(NavigationPlannerViewModel::class.java) {
             NavigationPlannerViewModel(
-                handle, reminders, main.dispatcher, main.dispatcher, PoiRepository(dao), addresses, regions, engines, gps, recents, usageModes, navigationPreferences, variants, tileSource,
+                handle, reminders, main.dispatcher, main.dispatcher, PoiRepository(dao), addresses, regions, engines, transit, gps, recents, usageModes, navigationPreferences, variants, tileSource,
             )
         }
         host = created

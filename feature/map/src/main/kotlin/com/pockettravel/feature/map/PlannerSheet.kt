@@ -118,6 +118,7 @@ internal fun PlannerSheet(
             }
             preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData ->
                 SheetMessage(stringResource(R.string.navigation_outside_routing))
+            preview is PlannerPreview.Transit -> TransitJourneys(preview.journeys)
             preview is PlannerPreview.Calculating -> Calculating(preview.progress, routeProfile)
             preview is PlannerPreview.NeedsPermission ->
                 SheetMessage(stringResource(R.string.planner_permission), stringResource(R.string.navigation_permission_grant), onRequestPermission)

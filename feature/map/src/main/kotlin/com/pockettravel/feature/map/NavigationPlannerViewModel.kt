@@ -12,6 +12,8 @@ import com.pockettravel.core.data.Poi
 import com.pockettravel.core.data.PoiRepository
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RoutingVariantPreferences
+import com.pockettravel.core.data.TransitJourney
+import com.pockettravel.core.data.TransitRepository
 import com.pockettravel.core.data.displayName
 import com.pockettravel.core.data.parseAddressQuery
 import com.pockettravel.core.data.poiCategory
@@ -145,6 +147,9 @@ sealed interface PlannerPreview {
     data class Ready(val route: Route, val regionIds: List<String>, val others: OtherRoutes = OtherRoutes.NotAsked) : PlannerPreview
 
     data class Unavailable(val result: RouteResult) : PlannerPreview
+
+    /** Modo «Mezzi»: gli itinerari con i mezzi pubblici (RAPTOR), dal meno cambi al piu' veloce; vuoto se non ce ne sono. */
+    data class Transit(val journeys: List<TransitJourney>) : PlannerPreview
 }
 
 /**
@@ -178,6 +183,8 @@ data class PlannerUiState(
     val reminder: LocalDateTime? = null,
     val toCatch: TripToCatch? = null,
     val oldRoutingDate: LocalDate? = null,
+    // Modo «Mezzi» scelto al posto di [routeProfile]: l'anteprima e' PlannerPreview.Transit.
+    val transit: Boolean = false,
 )
 
 /**
@@ -197,6 +204,7 @@ class NavigationPlannerViewModel @Inject constructor(
     private val addressSearchRepository: AddressSearchRepository,
     private val regionRepository: RegionRepository,
     private val routeEngineFactory: RouteEngineFactory,
+    private val transitRepository: TransitRepository,
     private val gps: GpsLocationSource,
     private val recentDestinations: RecentDestinations,
     private val usageModePreferences: UsageModePreferences,
@@ -230,6 +238,7 @@ class NavigationPlannerViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value, routeAvoid.value))
 
     private val _preview = MutableStateFlow<PlannerPreview>(PlannerPreview.Idle)
+    private val transitMode = MutableStateFlow(savedStateHandle.get<Boolean>(KEY_TRANSIT) ?: false)
     private var previewJob: Job? = null
     private var alternativesJob: Job? = null
 
@@ -335,11 +344,11 @@ class NavigationPlannerViewModel @Inject constructor(
     /** Tutto quello che la scheda Navigatore legge del percorso, in un solo stato. */
     val uiState: StateFlow<PlannerUiState> = combine(
         mapState, routingRegionIds, combine(usageModePreferences.allowSteps, routeAvoid, ::Pair), combine(_arriveBy, toCatch, ::Pair),
-        combine(_reminder, oldRoutingDate, waypointList, ::Triple),
-    ) { state, routingRegionIds, (allowSteps, avoid), (arriveBy, trip), (reminder, oldRouting, waypoints) ->
+        combine(combine(_reminder, oldRoutingDate, ::Pair), combine(waypointList, transitMode, ::Pair), ::Pair),
+    ) { state, routingRegionIds, (allowSteps, avoid), (arriveBy, trip), (reminderAndRouting, waypointsAndTransit) ->
         state.copy(
-            routingRegionIds = routingRegionIds, allowSteps = allowSteps, avoid = avoid, arriveBy = arriveBy, reminder = reminder, toCatch = trip,
-            oldRoutingDate = oldRouting, waypoints = waypoints,
+            routingRegionIds = routingRegionIds, allowSteps = allowSteps, avoid = avoid, arriveBy = arriveBy, reminder = reminderAndRouting.first,
+            toCatch = trip, oldRoutingDate = reminderAndRouting.second, waypoints = waypointsAndTransit.first, transit = waypointsAndTransit.second,
         )
     }.stateIn(
         viewModelScope,
@@ -574,10 +583,24 @@ class NavigationPlannerViewModel @Inject constructor(
     fun clearRecents() = recentDestinations.clear()
 
     fun setRouteProfile(mode: RouteProfile) {
-        if (mode == _routeProfile.value) return
+        if (mode == _routeProfile.value && !transitMode.value) return
         cancelReminder()
         _routeProfile.value = mode
+        setTransitValue(false)
         refreshPreview()
+    }
+
+    /** Modo «Mezzi»: al posto del percorso, gli itinerari con i mezzi pubblici della regione. */
+    fun setTransit() {
+        if (transitMode.value) return
+        cancelReminder()
+        setTransitValue(true)
+        refreshPreview()
+    }
+
+    private fun setTransitValue(on: Boolean) {
+        transitMode.value = on
+        savedStateHandle[KEY_TRANSIT] = on
     }
 
     fun setAllowSteps(allow: Boolean) {
@@ -633,6 +656,13 @@ class NavigationPlannerViewModel @Inject constructor(
             }
             previewStart = start
             _preview.value = PlannerPreview.Calculating(0.0)
+            // Mezzi pubblici: una rete della regione, senza tappe (RAPTOR va dalla partenza all'arrivo).
+            if (transitMode.value) {
+                _preview.value = PlannerPreview.Transit(
+                    transitRepository.journeys(current, start.latitude, start.longitude, destination.point.latitude, destination.point.longitude),
+                )
+                return@launch
+            }
             val candidates = routingRegions()
             val regionIds = navigationRegionIds(current, candidates, start, destination.point, via)
             // Nazioni in mezzo senza rete stradale: "manca la rete stradale" subito, invece di un errore generico dopo il calcolo.
@@ -726,6 +756,7 @@ class NavigationPlannerViewModel @Inject constructor(
         const val KEY_ARRIVE_BY = "arriveBy"
         const val KEY_REMINDER = "reminder"
         const val KEY_AVOID = "avoid"
+        const val KEY_TRANSIT = "transit"
         const val SEARCH_DEBOUNCE_MILLIS = 300L
         const val SEARCH_LIMIT = 200
         // Abbastanza per trovare il nome a parole intere tra quelli che contengono la destinazione solo come parte

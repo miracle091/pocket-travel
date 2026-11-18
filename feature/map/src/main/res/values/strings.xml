@@ -429,4 +429,18 @@
     <string name="maplibre_attributionsIconContentDescription" tools:ignore="PrivateResource">Crediti della mappa. Attiva per vederli</string>
     <string name="maplibre_compassContentDescription" tools:ignore="PrivateResource">Bussola della mappa. Attiva per riportare il nord in alto</string>
     <string name="maplibre_myLocationViewContentDescription" tools:ignore="PrivateResource">La tua posizione sulla mappa</string>
+    <string name="planner_transit_none">Nessun viaggio con i mezzi pubblici nelle prossime tre ore: la rete potrebbe non arrivare alla partenza o alla destinazione</string>
+    <string name="planner_transit_direct">Senza cambi</string>
+    <plurals name="planner_transit_transfers">
+        <item quantity="one">%d cambio</item>
+        <item quantity="other">%d cambi</item>
+    </plurals>
+    <plurals name="planner_transit_stops">
+        <item quantity="one">%d fermata</item>
+        <item quantity="other">%d fermate</item>
+    </plurals>
+    <string name="planner_transit_walk_to">A piedi %1$d min fino a %2$s</string>
+    <string name="planner_transit_walk_arrival">A piedi %1$d min fino alla destinazione</string>
+    <string name="planner_transit_towards">%1$s verso %2$s</string>
+    <string name="planner_transit_ride">%1$s: sali a %2$s alle %3$s, scendi a %4$s alle %5$s (%6$s)</string>
 </resources>

@@ -1,13 +1,18 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.JourneyLeg
+import com.pockettravel.core.data.TransitJourney
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -129,5 +134,29 @@ class NavigationPlannerProfileTest : NavigationPlannerTestBase() {
         viewModel.findAlternatives()
         advanceUntilIdle()
         assertEquals(OtherRoutes.Found(listOf(route)), (viewModel.uiState.value.preview as PlannerPreview.Ready).others)
+    }
+
+    @Test
+    fun `il modo Mezzi mostra gli itinerari dei mezzi pubblici e un modo normale lo spegne`() = runTest(main.dispatcher) {
+        val leg = JourneyLeg.Walk(null, null, 45.46, 9.19, 41.89, 12.49, Instant.EPOCH, Instant.EPOCH.plusSeconds(600), 700)
+        transit.journeys = listOf(TransitJourney(listOf(leg), "mdb-1"))
+        val viewModel = viewModel()
+        viewModel.plan(colosseo)
+        advanceUntilIdle()
+        val requestsBefore = engines.requests.size
+
+        viewModel.setTransit()
+        advanceUntilIdle()
+
+        assertEquals(PlannerPreview.Transit(transit.journeys), viewModel.uiState.value.preview)
+        assertTrue(viewModel.uiState.value.transit)
+        assertEquals(true, handle.get<Boolean>("transit"))
+        assertEquals("con i mezzi BRouter non calcola", requestsBefore, engines.requests.size)
+
+        viewModel.setRouteProfile(viewModel.uiState.value.routeProfile)
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.transit)
+        assertTrue(viewModel.uiState.value.preview !is PlannerPreview.Transit)
     }
 }

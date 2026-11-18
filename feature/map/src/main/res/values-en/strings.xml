@@ -415,4 +415,18 @@
     <string name="maplibre_attributionsIconContentDescription" tools:ignore="PrivateResource">Map credits. Activate to show them</string>
     <string name="maplibre_compassContentDescription" tools:ignore="PrivateResource">Map compass. Activate to put north back at the top</string>
     <string name="maplibre_myLocationViewContentDescription" tools:ignore="PrivateResource">Your location on the map</string>
+    <string name="planner_transit_none">No public transport trip in the next three hours: the network may not reach the start or the destination</string>
+    <string name="planner_transit_direct">No changes</string>
+    <plurals name="planner_transit_transfers">
+        <item quantity="one">%d change</item>
+        <item quantity="other">%d changes</item>
+    </plurals>
+    <plurals name="planner_transit_stops">
+        <item quantity="one">%d stop</item>
+        <item quantity="other">%d stops</item>
+    </plurals>
+    <string name="planner_transit_walk_to">Walk %1$d min to %2$s</string>
+    <string name="planner_transit_walk_arrival">Walk %1$d min to the destination</string>
+    <string name="planner_transit_towards">%1$s towards %2$s</string>
+    <string name="planner_transit_ride">%1$s: board at %2$s at %3$s, get off at %4$s at %5$s (%6$s)</string>
 </resources>
