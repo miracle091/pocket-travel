@@ -688,12 +688,6 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
         formatted_user_prompt = chat_add_and_format(ROLE_USER, user_prompt);
     }
 
-    // Decode formatted user prompts
-    auto user_tokens = common_tokenize(g_context, formatted_user_prompt, has_chat_template, has_chat_template);
-    for (auto id: user_tokens) {
-        LOGv("token: `%s`\t -> `%d`", common_token_to_piece(g_context, id).c_str(), id);
-    }
-
     // Apertura del turno utente (prima del contenuto) e suffisso del template (dopo: chiusura del turno utente e
     // apertura del turno assistente, think vuoto compreso), cercati attorno al contenuto: valgono per ChatML e per
     // gli altri template. Molti template tolgono gli spazi ai bordi del contenuto (trim): fuori da CHATML lo si cerca
@@ -715,6 +709,32 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
         }
     }
 
+    // Il contenuto del turno utente (guide, note, testo selezionato: testo che chiunque puo' scrivere) si tokenizza
+    // senza token speciali, cosi' un "<|im_end|>" scritto in una guida resta testo e non chiude il turno; i token di
+    // controllo (apertura e fine del turno) valgono solo nell'apertura e nel suffisso del template. I token aggiunti
+    // non di controllo (es. <think> di Qwen) llama.cpp li riconosce comunque. Il BOS va con l'apertura, o con il
+    // contenuto se l'apertura e' vuota. Senza contenuto riconoscibile si tokenizza il testo intero come prima.
+    llama_tokens open_tokens;
+    llama_tokens content_tokens;
+    llama_tokens suffix_tokens;
+    llama_tokens user_tokens;
+    if (suffix_pos != std::string::npos) {
+        if (!user_open.empty()) open_tokens = common_tokenize(g_context, user_open, true, true);
+        content_tokens = common_tokenize(g_context,
+                                         formatted_user_prompt.substr(user_open.size(), suffix_pos - user_open.size()),
+                                         user_open.empty(), false);
+        suffix_tokens = common_tokenize(g_context, formatted_user_prompt.substr(suffix_pos), false, true);
+        user_tokens = open_tokens;
+        user_tokens.insert(user_tokens.end(), content_tokens.begin(), content_tokens.end());
+        user_tokens.insert(user_tokens.end(), suffix_tokens.begin(), suffix_tokens.end());
+    } else {
+        if (has_chat_template) LOGw("%s: user content not found in the formatted prompt, special tokens parsed in it", __func__);
+        user_tokens = common_tokenize(g_context, formatted_user_prompt, has_chat_template, has_chat_template);
+    }
+    for (auto id: user_tokens) {
+        LOGv("token: `%s`\t -> `%d`", common_token_to_piece(g_context, id).c_str(), id);
+    }
+
     // Il prompt utente non deve superare il contesto rimasto: se serve si tronca. Il budget
     // tiene conto dei token gia' occupati da current_position (system prompt/turni precedenti),
     // non solo della dimensione assoluta del contesto.
@@ -722,37 +742,25 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     if ((int) user_tokens.size() > max_new_tokens) {
         // Tagliare in coda butterebbe l'apertura del turno assistente e il modello risponderebbe in modo
         // incoerente. Si taglia invece l'inizio del contenuto utente, tenendo l'apertura del turno utente e il
-        // suffisso del template, tokenizzati a parte: i token speciali fanno da confine, quindi la tokenizzazione
-        // separata coincide con quella del prompt intero. Senza contenuto riconoscibile nel testo: errore.
+        // suffisso del template, gia' tokenizzati a parte. Senza contenuto riconoscibile nel testo: errore.
         if (suffix_pos == std::string::npos) {
             LOGe("%s: User prompt too long and no assistant-turn marker to preserve!", __func__);
             return reject_user_prompt(3);
         }
-        const bool has_open = !user_open.empty();
-        auto head_tokens = common_tokenize(g_context, formatted_user_prompt.substr(0, suffix_pos), true, true);
-        auto suffix_tokens = common_tokenize(g_context, formatted_user_prompt.substr(suffix_pos), false, true);
-        llama_tokens open_tokens;
-        if (has_open) {
-            open_tokens = common_tokenize(g_context, user_open, true, true);
-            // Il contenuto parte dopo l'apertura: se la tokenizzazione non la ricalca, niente apertura.
-            if (open_tokens.size() > head_tokens.size() ||
-                !std::equal(open_tokens.begin(), open_tokens.end(), head_tokens.begin())) {
-                open_tokens.clear();
-            }
-        }
-        // Senza apertura riconosciuta il BOS di head_tokens resterebbe tra i token scartati: lo si tiene.
-        if (open_tokens.empty() && llama_vocab_get_add_bos(llama_model_get_vocab(g_model)) && !head_tokens.empty() &&
-            head_tokens.front() == llama_vocab_bos(llama_model_get_vocab(g_model))) {
-            open_tokens.push_back(head_tokens.front());
+        // Senza apertura il BOS e' in testa al contenuto e resterebbe tra i token scartati: lo si tiene.
+        if (open_tokens.empty() && llama_vocab_get_add_bos(llama_model_get_vocab(g_model)) && !content_tokens.empty() &&
+            content_tokens.front() == llama_vocab_bos(llama_model_get_vocab(g_model))) {
+            open_tokens.push_back(content_tokens.front());
+            content_tokens.erase(content_tokens.begin());
         }
         const int fixed_tokens = (int) (open_tokens.size() + suffix_tokens.size());
         if (fixed_tokens >= max_new_tokens) {
             LOGe("%s: User prompt too long, even the template alone does not fit (%d >= %d)!", __func__, fixed_tokens, max_new_tokens);
             return reject_user_prompt(3);
         }
-        const int keep_content = std::min((int) head_tokens.size() - (int) open_tokens.size(), max_new_tokens - fixed_tokens);
+        const int keep_content = std::min((int) content_tokens.size(), max_new_tokens - fixed_tokens);
         llama_tokens truncated(open_tokens);
-        truncated.insert(truncated.end(), head_tokens.end() - keep_content, head_tokens.end());
+        truncated.insert(truncated.end(), content_tokens.end() - keep_content, content_tokens.end());
         truncated.insert(truncated.end(), suffix_tokens.begin(), suffix_tokens.end());
         LOGw("%s: User prompt too long! Skipped %d tokens!", __func__, (int) user_tokens.size() - (int) truncated.size());
         user_tokens = std::move(truncated);
@@ -766,7 +774,6 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     // token del prompt la ricalcano. Non si protegge l'intero prompt: riempie quasi tutto il
     // contesto e allo shift non resterebbe nulla da scartare.
     if (!user_open.empty() && current_position == 0) {
-        const auto open_tokens = common_tokenize(g_context, user_open, true, true);
         if (!open_tokens.empty() && open_tokens.size() < user_tokens.size() &&
             std::equal(open_tokens.begin(), open_tokens.end(), user_tokens.begin())) {
             system_prompt_position = (llama_pos) open_tokens.size();

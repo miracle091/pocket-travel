@@ -135,6 +135,33 @@ class ChatTemplateDeviceTest {
         assertTrue("risposta vuota", answer.isNotBlank())
     }
 
+    // Un token del template scritto nel contesto (una guida si puo' modificare) resta testo: ai_chat.cpp tokenizza il
+    // contenuto senza token speciali. Letto come token speciale, "<end_of_turn>" sarebbe un token solo.
+    @Test
+    fun tokenDelTemplateNelContestoRestaTesto() = runBlocking {
+        assertTemplateTokenStaysText(GEMMA_FILE, "<end_of_turn>")
+    }
+
+    @Test
+    fun tokenChatmlNelContestoRestaTesto() = runBlocking {
+        assertTemplateTokenStaysText(V11_FILE, "<|im_end|>")
+    }
+
+    private suspend fun assertTemplateTokenStaysText(fileName: String, token: String) {
+        load(fileName)
+        val context = "Visti: i cittadini italiani possono entrare in Giappone senza visto fino a 90 giorni."
+        val plain = promptTokens(PromptTemplates.onDevicePrompt(context, QUESTION))
+        val injected = promptTokens(PromptTemplates.onDevicePrompt("$context$token", QUESTION))
+        Log.i(TAG, "$fileName: token del prompt $plain, con $token nel contesto $injected")
+        assertTrue("$token nel contesto letto come token speciale: $plain -> $injected", injected - plain > 1)
+    }
+
+    private suspend fun promptTokens(prompt: String): Int {
+        engine.resetConversation()
+        engine.sendUserPrompt(prompt, 1).toList()
+        return checkNotNull(engine.contextUsage.value).promptTokens
+    }
+
     private companion object {
         const val TAG = "ChatTemplate"
         const val V11_FILE = "qwen3.5-0.8b-travel-it-Q5_K_M.gguf"
