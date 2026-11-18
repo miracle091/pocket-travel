@@ -146,6 +146,8 @@
     <string name="ai_notice_model_list">Model in use: %1$s. Pick another one below or type /model and its name</string>
     <string name="ai_notice_model_chosen">Model selected: %1$s</string>
     <string name="ai_notice_model_unknown">No model is called \"%1$s\". Pick one below</string>
+    <string name="ai_notice_model_list_only">Model in use: %1$s. Other models are chosen in Settings, AI assistant</string>
+    <string name="ai_notice_model_unknown_only">No model is called \"%1$s\". Other models are chosen in Settings, AI assistant</string>
     <string name="ai_choice_use">Use %1$s</string>
     <string name="ai_choice_use_on_device">Use the on-device model</string>
     <string name="ai_choice_automatic">Automatic</string>

@@ -134,9 +134,16 @@ private fun ModelSwitchedLine(notice: ChatNotice.ModelSwitched) {
 @Composable
 private fun ModelNoticeBubble(notice: ChatNotice, uiState: AiUiState, onChoice: (ModelChoice) -> Unit) {
     val (text, choices) = when (notice) {
-        is ChatNotice.ModelList -> stringResource(R.string.ai_notice_model_list, choiceName(notice.current, uiState)) to notice.choices
+        // Senza altre scelte (sul dispositivo, senza chiave API) il testo dice dove si cambia modello, non "qui sotto".
+        is ChatNotice.ModelList -> {
+            val res = if (notice.choices.isEmpty()) R.string.ai_notice_model_list_only else R.string.ai_notice_model_list
+            stringResource(res, choiceName(notice.current, uiState)) to notice.choices
+        }
         is ChatNotice.ModelChosen -> stringResource(R.string.ai_notice_model_chosen, choiceName(notice.choice, uiState)) to emptyList()
-        is ChatNotice.UnknownModel -> stringResource(R.string.ai_notice_model_unknown, notice.name) to notice.choices
+        is ChatNotice.UnknownModel -> {
+            val res = if (notice.choices.isEmpty()) R.string.ai_notice_model_unknown_only else R.string.ai_notice_model_unknown
+            stringResource(res, notice.name) to notice.choices
+        }
         // Nella bolla della risposta: la quota con l'errore, il cambio sopra la risposta.
         is ChatNotice.QuotaExhausted, is ChatNotice.ModelSwitched -> return
     }
