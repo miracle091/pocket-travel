@@ -7,6 +7,7 @@ import com.pockettravel.core.data.db.ConversationDao
 import com.pockettravel.core.data.db.DiplomaticMissionDao
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.GuideDao
+import com.pockettravel.core.data.db.GuideTermDao
 import com.pockettravel.core.data.db.InstalledRegionDao
 import com.pockettravel.core.data.db.NoteDao
 import com.pockettravel.core.data.db.PassportDao
@@ -57,6 +58,7 @@ class DatabaseCompactorTest {
 
         override val openHelper: SupportSQLiteOpenHelper get() = helper
         override fun guideDao(): GuideDao = throw UnsupportedOperationException()
+        override fun guideTermDao(): GuideTermDao = throw UnsupportedOperationException()
         override fun poiDao(): PoiDao = throw UnsupportedOperationException()
         override fun poiCodeDao(): PoiCodeDao = throw UnsupportedOperationException()
         override fun installedRegionDao(): InstalledRegionDao = throw UnsupportedOperationException()
@@ -183,6 +185,7 @@ class DatabaseCompactorTest {
         val broken = object : RegionDatabase() {
             override val openHelper: SupportSQLiteOpenHelper get() = throw IllegalStateException("database non aperto")
             override fun guideDao(): GuideDao = throw UnsupportedOperationException()
+            override fun guideTermDao(): GuideTermDao = throw UnsupportedOperationException()
             override fun poiDao(): PoiDao = throw UnsupportedOperationException()
             override fun poiCodeDao(): PoiCodeDao = throw UnsupportedOperationException()
             override fun installedRegionDao(): InstalledRegionDao = throw UnsupportedOperationException()

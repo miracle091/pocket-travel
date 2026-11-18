@@ -1,16 +1,18 @@
 package com.pockettravel.core.data
 
 import androidx.room.InvalidationTracker
+import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.db.CityClimateEntity
 import com.pockettravel.core.data.db.CityDao
-import com.pockettravel.core.data.db.ConversationDao
 import com.pockettravel.core.data.db.CitySectionEntity
 import com.pockettravel.core.data.db.CitySectionMatch
+import com.pockettravel.core.data.db.ConversationDao
 import com.pockettravel.core.data.db.DiplomaticMissionDao
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.GuideDao
 import com.pockettravel.core.data.db.GuideSectionEntity
 import com.pockettravel.core.data.db.GuideSectionMatch
+import com.pockettravel.core.data.db.GuideTermDao
 import com.pockettravel.core.data.db.InstalledGuidesEntity
 import com.pockettravel.core.data.db.InstalledRegionDao
 import com.pockettravel.core.data.db.InstalledRegionEntity
@@ -21,7 +23,6 @@ import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiEntity
 import com.pockettravel.core.data.db.PoiRow
 import com.pockettravel.core.data.db.RegionDatabase
-import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.db.TransportCount
 import com.pockettravel.core.data.db.VaccinationDao
 import kotlinx.coroutines.Dispatchers
@@ -114,6 +115,7 @@ class RegionRepositoryEdgeCasesTest {
 
     private class NeverOpenedDatabase(private val regions: InstalledRegionDao) : RegionDatabase() {
         override fun guideDao() = NoGuides
+        override fun guideTermDao(): GuideTermDao = throw UnsupportedOperationException()
         override fun poiDao() = NoPois
         override fun poiCodeDao(): PoiCodeDao = throw UnsupportedOperationException()
         override fun installedRegionDao() = regions
