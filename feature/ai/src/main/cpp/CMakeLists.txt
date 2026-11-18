@@ -1,4 +1,4 @@
-# JNI bridge per llama.cpp (submodule git in third-party/llama-cpp, sul tag v0.8.0; attribuzione in
+# JNI bridge per llama.cpp (submodule git in third-party/llama-cpp, sul tag v1.0.0; attribuzione in
 # third-party/LICENSE-LLAMA-CPP.txt): non esiste un AAR Maven ufficiale per Android,
 # ne' un wrapper di terze parti affidabile (verificato su ai.google.dev, GitHub, JitPack a
 # settembre 2026), quindi si compila da sorgente con NDK/CMake. Struttura e flag adattati da
@@ -126,7 +126,7 @@ set(BUILD_SHARED_LIBS OFF)
 # cloni del submodule sono superficiali).
 string(SUBSTRING ${LLAMA_COMMIT} 0 7 LLAMA_BUILD_COMMIT)
 set(LLAMA_BUILD_NUMBER 0)
-# Sullo stesso commit possono stare piu' tag (b11960 e v0.8.0): si leggono solo i bNNNN.
+# Sullo stesso commit possono stare piu' tag (b12359 e v1.0.0): si leggono solo i bNNNN.
 execute_process(COMMAND ${GIT_EXECUTABLE} tag --points-at HEAD --list "b[0-9]*" WORKING_DIRECTORY ${LLAMA_UPSTREAM}
         OUTPUT_VARIABLE LLAMA_TAG OUTPUT_STRIP_TRAILING_WHITESPACE RESULT_VARIABLE LLAMA_TAG_FAILED ERROR_QUIET)
 if(NOT LLAMA_TAG_FAILED AND LLAMA_TAG MATCHES "^b([0-9]+)")

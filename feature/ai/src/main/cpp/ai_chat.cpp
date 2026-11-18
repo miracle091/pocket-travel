@@ -1,4 +1,4 @@
-// Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.8.0:
+// Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v1.0.0:
 // i simboli JNI sono rinominati per il package com.pockettravel.feature.ai.llamacpp.internal, e la logica e' cambiata
 // (troncamento e scorrimento del contesto, UTF-16, grammatica, varianti della CPU).
 #include <android/log.h>
