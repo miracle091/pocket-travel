@@ -14,6 +14,20 @@ Da dove vengono (piano dei termini locali, 2026-11-12):
 4. un termine resta se uno dei suoi nomi compare come parola intera nel testo della guida (senza accenti ne' maiuscole).
    Un nome ricavato togliendo la parentesi ("Chupe (food)" -> "Chupe") vale solo se non e' il titolo di un'altra voce.
 
+Seconda fonte (grassetti e corsivi, dopo la prima, stessa riga del JSONL):
+5. candidati: testi in grassetto o corsivo del wikitext nelle sezioni di SECTION_STARTS (mangiare, bere, eventi e feste,
+   acquisti, usanze), tolti prima template, commenti e note e saltate le sottosezioni di soldi (MONEY_HEADING). Rumore
+   scartato senza rete: testi con due punti, punto, "!?;", barra o cifre (frasi, avvertenze come "Buyer beware:", importi),
+   sigle in maiuscolo fino a 5 lettere (valute: PEN), meno di 4 lettere o piu' di 40 caratteri o 4 parole;
+6. voce: titolo esatto o redirect su Wikipedia della lingua, senza disambiguazioni ed elenchi;
+7. paese: su Wikidata la voce ha come paese d'origine (P495) il paese della regione o, senza P495, come paese (P17) e non e'
+   un luogo (senza coordinate P625 ne' P131); mai il paese stesso, la cucina nazionale o i tipi di EXCLUDED_TYPES. Se ha tipi
+   (P31), almeno uno e' sottoclasse di un argomento di TOPICS (scarta valute, sport, fumetti, epoche, scritture); senza tipo
+   resta (Khink'ali, Tequila);
+8. unione: stesso titolo = stesso termine, vince la prima fonte; il nome e' quello della guida e il titolo e' un alias.
+   La seconda fonte smette quando resta il FIRST_SOURCE_RESERVE del tempo, e se fallisce o non finisce la regione esce con
+   i soli termini della prima.
+
 Wikipedia e' CC BY-SA 4.0 come Wikivoyage, Wikidata CC0: titolo, indirizzo e revisione della voce bastano per citarla.
 
 Uso: local_terms.py <it|en> <regioni.tsv> <output.jsonl> [--published <guides.db pubblicato>]
@@ -58,7 +72,16 @@ EXCLUDED_TYPES = {
 NATIONAL_CUISINE = "Q1968435"
 LIST_TITLE = re.compile(r"^(list of|lists of|lista d|elenco d|glossar)", re.I)
 PARENTHESIS = re.compile(r"\s*\([^)]*\)\s*$")
+NAMESPACE_LINK = re.compile(r"\[\[[A-Za-z]+:[^\]]*\]\]")
 MIN_NAME = 4
+# Sezioni di Wikivoyage (titolo senza accenti ne' maiuscole, inizio) da cui la seconda fonte prende grassetti e corsivi:
+# mangiare, bere, eventi e feste, acquisti, usanze (EN e IT).
+SECTION_STARTS = ("eat", "drink", "events", "festivals", "buy", "respect", "a tavola", "bevande", "eventi", "valuta e acquisti",
+                  "acquisti", "comprare", "rispettare")
+# Sottosezioni di soldi, mance e prezzi dentro quelle: valute e importi, nessun termine locale.
+MONEY_HEADING = re.compile(r"^(money|tipping|costs?|currency|moneta|valuta|mance|costi|prezzi)\b")
+# Quota del tempo (MAX_SECONDS) riservata alla prima fonte: la seconda smette di cercare quando ne resta questa.
+FIRST_SOURCE_RESERVE = 0.25
 SUMMARY_CHARS = 600
 EXTRACT_BATCH = 20
 MAX_SECONDS = 20 * 60
@@ -236,7 +259,8 @@ def summaries(titles, lang, deadline):
             data = _api(lang, params)
             for page in data.get("query", {}).get("pages", []):
                 if extract := page.get("extract", "").strip():
-                    out[page["title"]] = cut_summary(strip_markup(extract))
+                    # wikitext rimasto nell'estratto (categorie di una voce rotta): "[[Categoria:Cucina ...]]"
+                    out[page["title"]] = cut_summary(strip_markup(NAMESPACE_LINK.sub("", extract)).strip())
             if "continue" not in data:
                 break
             params.update(data["continue"])
@@ -256,6 +280,137 @@ def country_terms(country, lang, deadline):
     return [(t, names_of(t, i["redirects"], existing), i["revision"]) for t, i in sorted(info.items()) if i["item"] not in excluded]
 
 
+def markup_candidates(wikitext):
+    """Candidati della seconda fonte: testi in grassetto ('''x''') o corsivo (''x'') del wikitext nelle sezioni
+    SECTION_STARTS (e nelle loro sottosezioni, tranne quelle di MONEY_HEADING), prima della pulizia. Template (elenchi di
+    negozi e locali), commenti e note sono tolti prima di cercare i segni. Scartati senza rete (NOISE nel docstring del
+    modulo): frasi, avvertenze ("Buyer beware:"), cifre e valute, sigle, testi troppo corti o lunghi."""
+    out, active, skip = [], None, None
+    text = re.sub(r"<!--.*?-->|<ref[^>]*?/>|<ref\b.*?</ref>", "", wikitext, flags=re.S)
+    while (flat := re.sub(r"\{\{[^{}]*\}\}", "", text)) != text:
+        text = flat
+    for line in text.splitlines():
+        if heading := re.match(r"^(={2,6})\s*(.*?)\s*\1\s*$", line):
+            level, title = len(heading.group(1)), fold(re.sub(r"'{2,}", "", heading.group(2))).strip()
+            if skip is not None and level <= skip:
+                skip = None
+            if active is not None and level <= active:
+                active = None
+            if active is None and title.startswith(SECTION_STARTS):
+                active = level
+            elif active is not None and skip is None and MONEY_HEADING.match(title):
+                skip = level
+            continue
+        if active is None or skip is not None:
+            continue
+        line = re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]*)\]\]", r"\1", line)
+        out += re.findall(r"'''(?!')(.+?)'''", line)
+        out += re.findall(r"''(.+?)''", line.replace("'''", ""))
+    cleaned, seen = [], set()
+    for span in out:
+        span = " ".join(re.sub(r"'+|<[^>]*>", "", span).split()).strip(" .,;()\"«»")
+        key = fold(span).strip()
+        if key in seen or not MIN_NAME <= len(key) <= 40 or len(key.split()) > 4:
+            continue
+        if re.search(r"[:.!?;/\d]", span) or (span.isupper() and len(span) <= 5):
+            continue
+        seen.add(key)
+        cleaned.append(span)
+    return cleaned
+
+
+def _claims_of(items, deadline, cache):
+    """{elemento: {"types", "origin", "country", "place"}} da Wikidata: tipi (P31), paesi d'origine (P495), paesi (P17) e
+    se l'elemento e' un luogo (coordinate P625 o ente territoriale P131). [cache] tiene quelli gia' letti."""
+    todo = sorted(set(items) - set(cache))
+    for i in range(0, len(todo), city_population.BATCH):
+        if _expired(deadline):
+            break
+        url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims&format=json&ids="
+               + "|".join(todo[i:i + city_population.BATCH]))
+        for q, entity in city_population._get(url).get("entities", {}).items():
+            claims = entity.get("claims", {})
+            ids = lambda prop: {c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") for c in claims.get(prop, [])}
+            cache[q] = {"types": ids("P31"), "origin": ids("P495"), "country": ids("P17"), "place": "P625" in claims or "P131" in claims}
+        time.sleep(0.2)
+    return cache
+
+
+def tied_to(claims, item, country):
+    """La voce e' del paese: paese d'origine (P495) uguale al paese oppure, se la voce non ha un paese d'origine, paese
+    (P17) uguale e non un luogo (feste e usanze hanno P17; citta', siti e regioni si riconoscono dalle coordinate o da
+    P131; con un P17 su piu' paesi, come "fish and chips", senza origine non si sa). Mai il paese stesso, la sua cucina
+    nazionale ne' un tipo di EXCLUDED_TYPES (persone, aziende, locali, opere)."""
+    if item == country or claims["types"] & (EXCLUDED_TYPES | {NATIONAL_CUISINE}):
+        return False
+    return country in claims["origin"] or (not claims["origin"] and country in claims["country"] and not claims["place"])
+
+
+def topic_types(types, cache):
+    """Quali tipi (P31) di [types] sono sottoclasse (P279*) di un argomento di TOPICS: cibo, bevande, feste, abiti, strumenti.
+    Valute, sport, fumetti, epoche e scritture non lo sono. [cache]: {tipo: bool} dei tipi gia' chiesti."""
+    todo = sorted(set(types) - set(cache))
+    if todo:
+        topics = " ".join(f"wd:{q}" for q in TOPICS)
+        rows = _sparql(f"SELECT DISTINCT ?t WHERE {{ VALUES ?t {{ {' '.join('wd:' + q for q in todo)} }} VALUES ?topic {{ {topics} }} ?t wdt:P279* ?topic }}")
+        under = {r["t"]["value"].rsplit("/", 1)[-1] for r in rows}
+        cache.update({q: q in under for q in todo})
+    return {q for q in types if cache[q]}
+
+
+def resolve(candidates, lang, deadline, cache):
+    """{candidato: (titolo della voce, elemento Wikidata, revisione)} per i candidati che sono voci di Wikipedia [lang]
+    (titolo esatto o redirect), senza le pagine di disambiguazione e gli elenchi. [cache]: candidati gia' cercati."""
+    todo = sorted(set(candidates) - set(cache))
+    for i in range(0, len(todo), city_population.BATCH):
+        if _expired(deadline):
+            break
+        chunk = todo[i:i + city_population.BATCH]
+        params = {"action": "query", "titles": "|".join(chunk), "redirects": "1", "prop": "pageprops|info",
+                  "ppprop": "wikibase_item|disambiguation"}
+        alias, pages = {}, {}
+        while True:
+            data = _api(lang, params)
+            query = data.get("query", {})
+            for kind in ("normalized", "redirects"):
+                alias.update({n["from"]: n["to"] for n in query.get(kind, [])})
+            for page in query.get("pages", []):
+                info = pages.setdefault(page["title"], {"ok": not page.get("missing") and page.get("ns") == 0, "item": None,
+                                                        "revision": page.get("lastrevid"), "disambiguation": False})
+                props = page.get("pageprops", {})
+                info["item"] = info["item"] or props.get("wikibase_item")
+                info["disambiguation"] = info["disambiguation"] or "disambiguation" in props
+            if "continue" not in data:
+                break
+            params.update(data["continue"])
+        for candidate in chunk:
+            title = candidate
+            for _ in range(3):
+                title = alias.get(title, title)
+            info = pages.get(title)
+            usable = info and info["ok"] and info["item"] and not info["disambiguation"] and not LIST_TITLE.match(title)
+            cache[candidate] = (title, info["item"], info["revision"]) if usable else None
+        time.sleep(0.1)
+    return {c: cache[c] for c in candidates if cache.get(c)}
+
+
+def second_terms(wikitext, country, lang, deadline, cache):
+    """[(titolo, nomi, revisione)] della seconda fonte: voci di Wikipedia dei grassetti e corsivi della guida legate al
+    paese. Il nome e' quello della guida, il titolo della voce e' un alias. Vuoto se [deadline] scade prima di finire."""
+    found = resolve(markup_candidates(wikitext), lang, deadline, cache["pages"])
+    claims = _claims_of({item for _, item, _ in found.values()}, deadline, cache["claims"])
+    if _expired(deadline):
+        return []
+    tied = {item for _, item, _ in found.values() if item in claims and tied_to(claims[item], item, country)}
+    topics = topic_types({q for item in tied for q in claims[item]["types"]}, cache["types"])
+    out = []
+    for candidate, (title, item, revision) in sorted(found.items()):
+        # senza tipo (P31) la voce resta (Khink'ali, Tequila); con tipi, almeno uno deve essere di un argomento di TOPICS
+        if item in tied and (not claims[item]["types"] or claims[item]["types"] & topics):
+            out.append((title, [candidate] + ([title] if fold(title) != fold(candidate) else []), revision))
+    return out
+
+
 def reading_order(region_ids, published):
     """[region_ids] nell'ordine di lettura: prima le regioni mai lette senza termini pubblicati, poi quelle con termini ma
     senza data (pubblicate prima di guide_terms_read), poi dalla lettura piu' vecchia. Il tempo di una run (MAX_SECONDS)
@@ -271,10 +426,20 @@ def reading_order(region_ids, published):
     return sorted(region_ids, key=lambda region: (key.get(region, ""), region))
 
 
-def collect(regions, lang, max_seconds=MAX_SECONDS, order=None):
+def merge(first, second):
+    """Termini della prima fonte e, dopo, quelli della seconda la cui voce non c'e' gia' (stesso titolo = stesso termine)."""
+    seen = {title for title, _, _ in first}
+    return first + [t for t in second if t[0] not in seen and not seen.add(t[0])]
+
+
+def collect(regions, lang, max_seconds=MAX_SECONDS, order=None, second_source=True):
     """Righe del JSONL per le regioni [regions] ({regionId: (titolo Wikivoyage EN, testo della guida)}), lette
-    nell'ordine [order] (reading_order; di default alfabetico) finche' c'e' tempo."""
+    nell'ordine [order] (reading_order; di default alfabetico) finche' c'e' tempo. La seconda fonte (se [second_source])
+    gira dopo la prima, finche' resta piu' del FIRST_SOURCE_RESERVE del tempo; se non finisce o fallisce, la regione
+    esce con i soli termini della prima."""
     deadline = time.monotonic() + max_seconds
+    second_deadline = deadline - max_seconds * FIRST_SOURCE_RESERVE
+    second_cache = {"pages": {}, "claims": {}, "types": {}}
     item_of = city_population.wikibase_items({title for title, _ in regions.values()}, "en", deadline)
     country_of = countries(item_of.values()) if item_of else {}
     candidates = {}
@@ -296,6 +461,11 @@ def collect(regions, lang, max_seconds=MAX_SECONDS, order=None):
         # prima i nomi che la guida usa: il termine e' il primo, non il titolo (spesso il nome scientifico)
         found = [(t, hit + [n for n in names if n not in hit], rev)
                  for t, names, rev in candidates[country] if (hit := matched(folded, names))]
+        if second_source and not _expired(second_deadline):
+            try:
+                found = merge(found, second_terms(text, country, lang, second_deadline, second_cache))
+            except Exception as e:
+                print(f"-- termini locali: grassetti e corsivi di {region_id} saltati ({e})", file=sys.stderr)
         texts = summaries({t for t, _, _ in found}, lang, deadline)
         if _expired(deadline):
             continue

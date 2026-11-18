@@ -451,7 +451,11 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   voci (piatti, bevande, feste, usanze, abiti, strumenti) con i redirect come nomi. Tiene quelle che la pagina di
   Wikivoyage della regione nomina come parola intera, senza accenti né maiuscole, e scarta elenchi, disambigue, persone
   e luoghi, e i nomi che sono il titolo di un'altra voce. Per ogni termine scrive il nome usato dalla guida, gli altri
-  nomi, l'introduzione della voce (fino a 600 caratteri, per frase intera), URL e revisione. `generateGuides
+  nomi, l'introduzione della voce (fino a 600 caratteri, per frase intera), URL e revisione. Una seconda fonte aggiunge
+  i testi in grassetto o corsivo delle sezioni su mangiare, bere, eventi, acquisti e usanze che sono voci di Wikipedia
+  legate al paese su Wikidata (paese d'origine P495, o paese P17 se non sono un luogo) e di un tipo da cibo, feste,
+  abiti o strumenti; la prima fonte vince sui doppioni e, se il tempo non basta, la regione esce con la sola prima.
+  `generateGuides
   --local-terms` (`LocalTermRow.kt`) li scrive nella tabella `guide_terms`; le regioni non lette tengono i termini del
   `guides.db` pubblicato. Mai fatale, 20 minuti per lingua (`MAX_SECONDS`), che non bastano per tutte le regioni: la
   tabella `guide_terms_read` di `guides.db` tiene la data dell'ultima lettura di ogni regione, e con `--published` lo
