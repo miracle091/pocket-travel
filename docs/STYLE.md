@@ -194,6 +194,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Le fermate di una corsa in ordine, aperte dal tocco su una partenza | corsa (Mostra la corsa) | trip (Show the trip) |
 | Pulsante della corsa che apre il Navigatore a piedi verso la fermata, per prendere quella corsa | Raggiungi la fermata | Walk to the stop |
 | Cosa evitare in un percorso: chip dell'anteprima del percorso e voce delle Impostazioni con i valori di partenza | Opzioni, Opzioni di percorso; «Evita i pedaggi», «Evita le autostrade», «Evita le strade sterrate», «Evita le strade trafficate», «Evita i traghetti» | Options, Route options; "Avoid tolls", "Avoid motorways", "Avoid unpaved roads", "Avoid busy roads", "Avoid ferries" |
+| Punto tra partenza e arrivo da cui il percorso passa, nell'anteprima del percorso e durante la navigazione | tappa; «Aggiungi tappa», «Salta la tappa», «Tappa raggiunta» | waypoint; "Add waypoint", "Skip waypoint", "Waypoint reached" |
 | Ora dell'ultimo download del tempo reale | Aggiornato alle 14:05 | Updated at 14:05 |
 | Pulsante che scarica di nuovo il tempo reale | Aggiorna i ritardi | Refresh delays |
 | Impostazioni di Android che possono limitare la rete dell'app (i nomi di Android; minuscoli dentro una frase) | Risparmio dati; Risparmio energetico | Data Saver; Battery Saver |
