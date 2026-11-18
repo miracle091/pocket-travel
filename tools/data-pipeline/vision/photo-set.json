@@ -1,5 +1,5 @@
 {
- "description": "Set di foto etichettate per la vision dei modelli (piano evoluzione-assistente.md, Obiettivo 2, passo 6): foto di Wikimedia Commons con licenza libera, mai documenti reali. Una risposta e' giusta se contiene almeno una delle varianti di ogni gruppo di expected (senza accenti ne' maiuscole). Le immagini si scaricano da Commons con vision_eval.py, qui solo titolo, autore e licenza.",
+ "description": "Set di foto etichettate per misurare la vision dei modelli online e sul dispositivo: foto di Wikimedia Commons con licenza libera, mai documenti reali. Una risposta e' giusta se contiene almeno una delle varianti di ogni gruppo di expected (senza accenti ne' maiuscole). Le immagini si scaricano da Commons con scripts/vision_eval.py: qui solo titolo, autore e licenza.",
  "photos": [
   {
    "id": "cartelli-01",
@@ -113,7 +113,7 @@
    "group": "luoghi",
    "file": "File:Pont Du Gard From River.JPG",
    "license": "CC BY-SA 3.0",
-   "author": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Chris0693&action=edit&redlink=1\" class=\"new\"",
+   "author": "Chris0693",
    "question": {
     "it": "Che monumento è questo?",
     "en": "Which monument is this?"
@@ -164,7 +164,7 @@
    "group": "menu",
    "file": "File:Pizarra de sugerencias en el Mercado Municipal de Sao Paulo.jpg",
    "license": "CC0",
-   "author": "<span title=\"developer analys",
+   "author": "Wilfredor",
    "question": {
     "it": "Quanto costa il Bacalhau à Zé do Pipo?",
     "en": "How much is the Bacalhau à Zé do Pipo?"
@@ -288,7 +288,7 @@
    "group": "musei",
    "file": "File:Francisco de Santiago 3.jpg",
    "license": "CC BY-SA 3.0",
-   "author": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:A00369211&action=edit&redlink=1\" class=\"new\"",
+   "author": "A00369211",
    "question": {
     "it": "Come si chiama l'opera e di che anno è?",
     "en": "What is the work called and from which year?"
@@ -359,7 +359,7 @@
    "group": "orari",
    "file": "File:Autonomes Fahrzeug Bad Birnbach - Fahrplan.JPG",
    "license": "CC BY-SA 2.0",
-   "author": "Maximilian Dörrbecker (<a h",
+   "author": "Maximilian Dörrbecker ( Chumwa )",
    "question": {
     "it": "Quale linea è e che tipo di autobus?",
     "en": "Which line is it and what kind of bus?"
@@ -381,7 +381,7 @@
    "group": "orari",
    "file": "File:Batumi botanical garden.jpg",
    "license": "CC BY-SA 3.0",
-   "author": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Ephraim_Stillberg&action=edit&redlink=1\" cla",
+   "author": "Ephraim Stillberg",
    "question": {
     "it": "Che orari ha il giardino?",
     "en": "What are the garden's opening hours?"
@@ -401,7 +401,7 @@
    "group": "orari",
    "file": "File:Beograd, Serbia (3801782795).jpg",
    "license": "CC BY-SA 2.0",
-   "author": "Peretz Partensky from San",
+   "author": "Peretz Partensky from San Francisco, USA",
    "question": {
     "it": "Quali sono gli orari di apertura?",
     "en": "What are the opening hours?"
