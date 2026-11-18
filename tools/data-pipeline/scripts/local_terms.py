@@ -126,7 +126,7 @@ def cut_summary(text, limit=SUMMARY_CHARS):
 
 
 def _expired(deadline):
-    return time.monotonic() > deadline
+    return time.monotonic() >= deadline
 
 
 def _sparql(query):
