@@ -1,0 +1,477 @@
+{
+ "description": "Set di foto etichettate per la vision dei modelli (piano evoluzione-assistente.md, Obiettivo 2, passo 6): foto di Wikimedia Commons con licenza libera, mai documenti reali. Una risposta e' giusta se contiene almeno una delle varianti di ogni gruppo di expected (senza accenti ne' maiuscole). Le immagini si scaricano da Commons con vision_eval.py, qui solo titolo, autore e licenza.",
+ "photos": [
+  {
+   "id": "cartelli-01",
+   "group": "cartelli",
+   "file": "File:Arezzo - divieto di sosta permanente.jpg",
+   "license": "CC BY-SA 2.5",
+   "author": "Gerolsteiner91",
+   "question": {
+    "it": "Posso parcheggiare qui, e quando?",
+    "en": "Can I park here, and when?"
+   },
+   "expected": [
+    [
+     "divieto",
+     "vietat",
+     "non ",
+     "not",
+     "no parking",
+     "prohibited",
+     "forbidden"
+    ],
+    [
+     "24",
+     "sempre",
+     "always",
+     "all day",
+     "any time",
+     "tutto il giorno"
+    ]
+   ]
+  },
+  {
+   "id": "cartelli-02",
+   "group": "cartelli",
+   "file": "File:Paris 3e Musée Carnavalet Rue des Boucheries 625.jpg",
+   "license": "CC BY-SA 4.0",
+   "author": "GFreihalter",
+   "question": {
+    "it": "Che indirizzo c'è scritto?",
+    "en": "What address is written here?"
+   },
+   "expected": [
+    [
+     "boucheries"
+    ],
+    [
+     "19"
+    ]
+   ]
+  },
+  {
+   "id": "cartelli-03",
+   "group": "cartelli",
+   "file": "File:Electricity warning sign in Spain.jpg",
+   "license": "CC BY 2.0",
+   "author": "Lali Masriera",
+   "question": {
+    "it": "Cosa indica questo cartello?",
+    "en": "What does this sign mean?"
+   },
+   "expected": [
+    [
+     "elettric",
+     "electric",
+     "tensione",
+     "voltage",
+     "shock"
+    ]
+   ]
+  },
+  {
+   "id": "cartelli-04",
+   "group": "cartelli",
+   "file": "File:La Palma - Brena Baja - Los Cancajos - Punta de la Arena - Playa de Los Cancajos 27 ies.jpg",
+   "license": "CC BY-SA 3.0",
+   "author": "Frank Vincentz",
+   "question": {
+    "it": "Cosa dice il cartello giallo?",
+    "en": "What does the yellow sign say?"
+   },
+   "expected": [
+    [
+     "scivol",
+     "slipp",
+     "bagnat",
+     "wet"
+    ]
+   ]
+  },
+  {
+   "id": "cartelli-05",
+   "group": "cartelli",
+   "file": "File:Atención. Abejas trabajando (291696213).jpg",
+   "license": "CC BY-SA 2.0",
+   "author": "manuel from Madrid, España",
+   "question": {
+    "it": "Di cosa avvisano i cartelli sull'albero?",
+    "en": "What do the signs on the tree warn about?"
+   },
+   "expected": [
+    [
+     "api",
+     "ape ",
+     "bee",
+     "abejas"
+    ]
+   ]
+  },
+  {
+   "id": "luoghi-06",
+   "group": "luoghi",
+   "file": "File:Pont Du Gard From River.JPG",
+   "license": "CC BY-SA 3.0",
+   "author": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Chris0693&action=edit&redlink=1\" class=\"new\"",
+   "question": {
+    "it": "Che monumento è questo?",
+    "en": "Which monument is this?"
+   },
+   "expected": [
+    [
+     "pont du gard"
+    ]
+   ]
+  },
+  {
+   "id": "luoghi-07",
+   "group": "luoghi",
+   "file": "File:\"Ein architektonisches Meisterwerk der Römer\". 03.jpg",
+   "license": "CC BY-SA 4.0",
+   "author": "Holger Uwe Schmitt",
+   "question": {
+    "it": "Che monumento è questo?",
+    "en": "Which monument is this?"
+   },
+   "expected": [
+    [
+     "pont du gard"
+    ]
+   ]
+  },
+  {
+   "id": "luoghi-08",
+   "group": "luoghi",
+   "file": "File:Caldera El Golfo 02a.jpg",
+   "license": "CC BY-SA 3.0",
+   "author": "H. Zell",
+   "question": {
+    "it": "Che posto è questo?",
+    "en": "What place is this?"
+   },
+   "expected": [
+    [
+     "el golfo",
+     "charco",
+     "lanzarote",
+     "clicos"
+    ]
+   ]
+  },
+  {
+   "id": "menu-09",
+   "group": "menu",
+   "file": "File:Pizarra de sugerencias en el Mercado Municipal de Sao Paulo.jpg",
+   "license": "CC0",
+   "author": "<span title=\"developer analys",
+   "question": {
+    "it": "Quanto costa il Bacalhau à Zé do Pipo?",
+    "en": "How much is the Bacalhau à Zé do Pipo?"
+   },
+   "expected": [
+    [
+     "72"
+    ]
+   ]
+  },
+  {
+   "id": "menu-10",
+   "group": "menu",
+   "file": "File:Menukaart Brouwerij Jooris - LEDE-021.jpg",
+   "license": "CC BY-SA 4.0",
+   "author": "Erfgoedcel Denderland",
+   "question": {
+    "it": "Quanto costano la Kriek e la Stout?",
+    "en": "How much are the Kriek and the Stout?"
+   },
+   "expected": [
+    [
+     "5"
+    ],
+    [
+     "10"
+    ]
+   ]
+  },
+  {
+   "id": "menu-11",
+   "group": "menu",
+   "file": "File:Tierra Garat menu, Roma Norte, Guanajuato and Insurgentes, November 2026.jpg",
+   "license": "CC BY-SA 4.0",
+   "author": "Keizers",
+   "question": {
+    "it": "Quanto costa il Criollo (cacao naturale) nella misura G?",
+    "en": "How much is the Criollo (natural cocoa) in size G?"
+   },
+   "expected": [
+    [
+     "79"
+    ]
+   ]
+  },
+  {
+   "id": "musei-12",
+   "group": "musei",
+   "file": "File:Alicante Ficus 2020 2.jpg",
+   "license": "CC BY-SA 4.0",
+   "author": "Smiley.toerist",
+   "question": {
+    "it": "Di quale albero parla il pannello?",
+    "en": "Which tree is the board about?"
+   },
+   "expected": [
+    [
+     "ficus"
+    ]
+   ]
+  },
+  {
+   "id": "musei-13",
+   "group": "musei",
+   "file": "File:Catedral de Santiago de Compostela, agosto 2018 21.jpg",
+   "license": "CC BY-SA 4.0",
+   "author": "Simon Burchell",
+   "question": {
+    "it": "Di quale chiesa parla il pannello?",
+    "en": "Which church is the board about?"
+   },
+   "expected": [
+    [
+     "corticela"
+    ]
+   ]
+  },
+  {
+   "id": "musei-14",
+   "group": "musei",
+   "file": "File:Hunter Museum Label.jpg",
+   "license": "CC BY-SA 3.0",
+   "author": "Erin Noseworthy, Hunter Museum of American Art",
+   "question": {
+    "it": "Chi ha dipinto il quadro e in che anno?",
+    "en": "Who painted the picture and when?"
+   },
+   "expected": [
+    [
+     "luks"
+    ],
+    [
+     "1905"
+    ]
+   ]
+  },
+  {
+   "id": "musei-15",
+   "group": "musei",
+   "file": "File:Apoxyomenos Pio-Clementino plate.jpg",
+   "license": "CC BY-SA 3.0",
+   "author": "Wknight94",
+   "question": {
+    "it": "Quale statua è e di chi era l'originale?",
+    "en": "Which statue is it and whose was the original?"
+   },
+   "expected": [
+    [
+     "apoxyomenos",
+     "apossiomeno",
+     "apoxiomeno"
+    ],
+    [
+     "lisipp",
+     "lysipp"
+    ]
+   ]
+  },
+  {
+   "id": "musei-16",
+   "group": "musei",
+   "file": "File:Francisco de Santiago 3.jpg",
+   "license": "CC BY-SA 3.0",
+   "author": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:A00369211&action=edit&redlink=1\" class=\"new\"",
+   "question": {
+    "it": "Come si chiama l'opera e di che anno è?",
+    "en": "What is the work called and from which year?"
+   },
+   "expected": [
+    [
+     "ventana al cielo",
+     "window to the sky"
+    ],
+    [
+     "1998"
+    ]
+   ]
+  },
+  {
+   "id": "orari-17",
+   "group": "orari",
+   "file": "File:Bastei Kraxler Fahrplan.jpg",
+   "license": "CC BY-SA 3.0",
+   "author": "cs:ŠJů",
+   "question": {
+    "it": "Tra quali luoghi va questo servizio?",
+    "en": "Between which places does this service run?"
+   },
+   "expected": [
+    [
+     "wehlen"
+    ],
+    [
+     "bastei"
+    ]
+   ]
+  },
+  {
+   "id": "orari-18",
+   "group": "orari",
+   "file": "File:Elektronischer Aushangfahrplan DVB Hp. Strehlen S.jpg",
+   "license": "CC BY-SA 3.0",
+   "author": "Derbrauni",
+   "question": {
+    "it": "Quale linea passa da questa fermata?",
+    "en": "Which line stops here?"
+   },
+   "expected": [
+    [
+     "61"
+    ]
+   ]
+  },
+  {
+   "id": "orari-19",
+   "group": "orari",
+   "file": "File:Buskursbuch-91-92.png",
+   "license": "Public domain",
+   "author": "Deutsche Bundesbahn, ZENTRALE, Mainz 1991",
+   "question": {
+    "it": "Fino a quando vale questo orario?",
+    "en": "Until when is this timetable valid?"
+   },
+   "expected": [
+    [
+     "1992"
+    ]
+   ]
+  },
+  {
+   "id": "orari-20",
+   "group": "orari",
+   "file": "File:Autonomes Fahrzeug Bad Birnbach - Fahrplan.JPG",
+   "license": "CC BY-SA 2.0",
+   "author": "Maximilian Dörrbecker (<a h",
+   "question": {
+    "it": "Quale linea è e che tipo di autobus?",
+    "en": "Which line is it and what kind of bus?"
+   },
+   "expected": [
+    [
+     "7015"
+    ],
+    [
+     "autonom",
+     "senza conducente",
+     "driverless",
+     "self-driving"
+    ]
+   ]
+  },
+  {
+   "id": "orari-21",
+   "group": "orari",
+   "file": "File:Batumi botanical garden.jpg",
+   "license": "CC BY-SA 3.0",
+   "author": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Ephraim_Stillberg&action=edit&redlink=1\" cla",
+   "question": {
+    "it": "Che orari ha il giardino?",
+    "en": "What are the garden's opening hours?"
+   },
+   "expected": [
+    [
+     "9",
+     "09"
+    ],
+    [
+     "20"
+    ]
+   ]
+  },
+  {
+   "id": "orari-22",
+   "group": "orari",
+   "file": "File:Beograd, Serbia (3801782795).jpg",
+   "license": "CC BY-SA 2.0",
+   "author": "Peretz Partensky from San",
+   "question": {
+    "it": "Quali sono gli orari di apertura?",
+    "en": "What are the opening hours?"
+   },
+   "expected": [
+    [
+     "19"
+    ],
+    [
+     "14"
+    ]
+   ]
+  },
+  {
+   "id": "orari-23",
+   "group": "orari",
+   "file": "File:Archeological Museum Shkodra (3939980454).jpg",
+   "license": "CC BY 2.0",
+   "author": "Dave Proffer",
+   "question": {
+    "it": "Quali sono gli orari delle visite?",
+    "en": "What are the visiting hours?"
+   },
+   "expected": [
+    [
+     "9",
+     "09"
+    ],
+    [
+     "13"
+    ]
+   ]
+  },
+  {
+   "id": "orari-24",
+   "group": "orari",
+   "file": "File:2014-11-23 003 Kruger National Park Entrance anagoria.JPG",
+   "license": "CC BY 3.0",
+   "author": "Anagoria",
+   "question": {
+    "it": "A che ora chiude il cancello a gennaio?",
+    "en": "What time does the gate close in January?"
+   },
+   "expected": [
+    [
+     "18"
+    ],
+    [
+     "30"
+    ]
+   ]
+  },
+  {
+   "id": "orari-25",
+   "group": "orari",
+   "file": "File:Castellanza staz ferr tabellone.JPG",
+   "license": "CC BY-SA 3.0",
+   "author": "Arbalete",
+   "question": {
+    "it": "A che ora parte il treno per Novara Nord?",
+    "en": "What time does the train to Novara Nord leave?"
+   },
+   "expected": [
+    [
+     "19:15",
+     "19.15",
+     "19 15",
+     "7:15"
+    ]
+   ]
+  }
+ ]
+}
