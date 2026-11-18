@@ -183,6 +183,10 @@ add_compile_definitions(EIGEN_MPL2_ONLY)
 # I git che marian e bergamot lanciano dalla copia (versione, revisione) non devono trovare il repository del
 # progetto sopra la copia: ne leggerebbero il commit nei file generati, che cambierebbe a ogni commit del progetto.
 set(ENV{GIT_CEILING_DIRECTORIES} ${BERGAMOT_CACHE})
+# Eigen (blas, lapack) prova il Fortran in un progetto a parte, senza la toolchain dell'NDK: se sul PC c'e' un
+# gfortran (i runner Ubuntu di GitHub) lo trova funzionante e poi enable_language(Fortran) fallisce con i flag di
+# clang. Con FC su un compilatore inesistente la prova fallisce e Eigen salta le parti in Fortran, che non servono.
+set(ENV{FC} pocket-travel-no-fortran)
 add_subdirectory(${BERGAMOT_SRC} build-bergamot EXCLUDE_FROM_ALL)
 
 add_library(${CMAKE_PROJECT_NAME} SHARED
