@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import androidx.lifecycle.SavedStateHandle
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.runCurrent
@@ -31,6 +32,7 @@ class QuestionLimitTest {
     }
 
     @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun `ogni cambio della domanda finisce nello stato salvato`() = runTest {
         val handle = SavedStateHandle()
         val state = MutableStateFlow(

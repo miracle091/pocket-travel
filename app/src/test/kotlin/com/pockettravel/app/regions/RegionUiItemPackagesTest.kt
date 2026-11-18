@@ -199,7 +199,7 @@ class RegionUiItemPackagesTest {
 
     @Test
     fun `solo la rete stradale installata mostra il giorno dei dati`() {
-        val item = regionUiItem(remote.copy(routing = RoutingPackageEntry("2026.11.05.3.1", remote.routing?.files.orEmpty())), local(routing = "2026.11.05.3.1"), noBytes)
+        val item = regionUiItem(remote.copy(routing = RoutingPackageEntry("2026.11.05.3.1", remote.routing.files)), local(routing = "2026.11.05.3.1"), noBytes)
 
         assertEquals(LocalDate.of(2026, 11, 5), item.packages.single { it.kind == PackageKind.ROUTING }.dataDate)
         assertNull(item.packages.single { it.kind == PackageKind.MAP }.dataDate)
