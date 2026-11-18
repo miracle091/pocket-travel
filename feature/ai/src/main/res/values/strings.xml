@@ -148,8 +148,8 @@
     <string name="ai_notice_model_list">Modello in uso: %1$s. Scegline un altro qui sotto o scrivi /model e il nome</string>
     <string name="ai_notice_model_chosen">Modello scelto: %1$s</string>
     <string name="ai_notice_model_unknown">Nessun modello si chiama «%1$s». Scegline uno qui sotto</string>
-    <string name="ai_notice_model_list_only">Modello in uso: %1$s. Gli altri modelli si scelgono in Impostazioni, Assistente IA</string>
-    <string name="ai_notice_model_unknown_only">Nessun modello si chiama «%1$s». Gli altri modelli si scelgono in Impostazioni, Assistente IA</string>
+    <string name="ai_notice_model_list_only">Modello in uso: %1$s. Gli altri modelli si scelgono in Altro, Impostazioni, Assistente IA</string>
+    <string name="ai_notice_model_unknown_only">Nessun modello si chiama «%1$s». Gli altri modelli si scelgono in Altro, Impostazioni, Assistente IA</string>
     <string name="ai_choice_use">Usa %1$s</string>
     <string name="ai_choice_use_on_device">Usa il modello sul dispositivo</string>
     <string name="ai_choice_automatic">Automatico</string>
