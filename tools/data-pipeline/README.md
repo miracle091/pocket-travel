@@ -453,7 +453,11 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   e luoghi, e i nomi che sono il titolo di un'altra voce. Per ogni termine scrive il nome usato dalla guida, gli altri
   nomi, l'introduzione della voce (fino a 600 caratteri, per frase intera), URL e revisione. `generateGuides
   --local-terms` (`LocalTermRow.kt`) li scrive nella tabella `guide_terms`; le regioni non lette tengono i termini del
-  `guides.db` pubblicato. Mai fatale, 20 minuti per lingua (`MAX_SECONDS`). Su dieci nazioni di prova escono circa 190
+  `guides.db` pubblicato. Mai fatale, 20 minuti per lingua (`MAX_SECONDS`), che non bastano per tutte le regioni: la
+  tabella `guide_terms_read` di `guides.db` tiene la data dell'ultima lettura di ogni regione, e con `--published` lo
+  script legge prima le regioni mai lette, poi quelle lette meno di recente. Date nuove senza altri cambi pubblicano un
+  `guides.db` solo se la lettura più vecchia pubblicata ha più di 28 giorni (`TERMS_READ_MAX_AGE_DAYS`): al più un
+  download in più ogni quattro settimane. Su dieci nazioni di prova escono circa 190
   termini in italiano e 400 in inglese (100 e 300 KB), con una precisione del 96-98% controllata a mano; l'inglese
   richiede 11-14 minuti per le risposte 429 di Wikimedia.
 - **Misura della scelta del contesto**: `scripts/eval_retrieval.py` replica in Python la scelta del contesto di

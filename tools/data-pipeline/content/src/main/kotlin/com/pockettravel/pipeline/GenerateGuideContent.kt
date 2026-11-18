@@ -720,6 +720,8 @@ fun main(rawArgs: Array<String>) {
         val fresh = file.takeIf { it.exists() }?.let { parseLocalTerms(it.readText()) }.orEmpty()
         val terms = localTermsOf(guides.map { it.regionId }, fresh) { regionId -> publishedDb?.let { readLocalTerms(it, regionId) }.orEmpty() }
         writeLocalTermsTable(terms, outputDb)
+        val publishedReadDates = publishedDb?.let(::readLocalTermsReadDates).orEmpty()
+        writeLocalTermsReadTable(localTermsReadDates(guides.map { it.regionId }, fresh, LocalDate.now(ZoneOffset.UTC), publishedReadDates::get), outputDb)
         println("guide: ${terms.values.sumOf { it.size }} termini locali di ${terms.count { it.value.isNotEmpty() }} regioni")
     }
     if (advice != null) {

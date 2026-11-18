@@ -3,6 +3,7 @@ package com.pockettravel.pipeline
 import org.json.JSONObject
 import java.io.File
 import java.sql.DriverManager
+import java.time.LocalDate
 
 /**
  * Termine locale di una guida (piatto, bevanda, festa, usanza, abito, strumento): voce di Wikipedia del paese che la guida
@@ -82,3 +83,59 @@ fun localTermsOf(
     fresh: Map<String, List<LocalTermRow>>,
     published: (String) -> List<LocalTermRow>,
 ): Map<String, List<LocalTermRow>> = regionIds.associateWith { fresh[it] ?: published(it) }
+
+/**
+ * Data dell'ultima lettura (AAAA-MM-GG) delle regioni [regionIds]: [today] per quelle di [fresh], lette in questa run,
+ * quella pubblicata ([published] della regione) per le altre; nessuna per le regioni mai lette. local_terms.py legge
+ * per prime le regioni lette meno di recente (reading_order).
+ */
+fun localTermsReadDates(
+    regionIds: List<String>,
+    fresh: Map<String, List<LocalTermRow>>,
+    today: LocalDate,
+    published: (String) -> String?,
+): Map<String, String> = regionIds.mapNotNull { id -> (if (id in fresh) today.toString() else published(id))?.let { id to it } }.toMap()
+
+/**
+ * Tabella guide_terms_read di guides.db, con le date di [dates]. L'app non la legge e sameGuidesContent non la confronta:
+ * una data nuova da sola pubblica un guides.db solo se le date pubblicate sono vecchie (staleLocalTermsReadDates).
+ */
+fun writeLocalTermsReadTable(dates: Map<String, String>, outputDb: File) {
+    writeSqliteTable(
+        outputDb = outputDb,
+        tableName = "guide_terms_read",
+        createTableSql = "CREATE TABLE guide_terms_read (regionId TEXT NOT NULL PRIMARY KEY, readAt TEXT NOT NULL)",
+        insertSql = "INSERT INTO guide_terms_read (regionId, readAt) VALUES (?, ?)",
+        rows = dates.entries.sortedBy { it.key },
+    ) { insert, (regionId, readAt) ->
+        insert.setString(1, regionId)
+        insert.setString(2, readAt)
+    }
+}
+
+/** Date di lettura dei termini in un guides.db; nessuna se il file non ha la tabella. */
+fun readLocalTermsReadDates(db: File): Map<String, String> =
+    DriverManager.getConnection("jdbc:sqlite:${db.path}").use { conn ->
+        val hasTable = conn.prepareStatement("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'guide_terms_read'").use { it.executeQuery().next() }
+        if (!hasTable) return@use emptyMap()
+        conn.prepareStatement("SELECT regionId, readAt FROM guide_terms_read").use {
+            val rs = it.executeQuery()
+            buildMap { while (rs.next()) put(rs.getString("regionId"), rs.getString("readAt")) }
+        }
+    }
+
+// Oltre questa eta' della lettura piu' vecchia, date di lettura cambiate pubblicano un guides.db anche senza altri cambi.
+const val TERMS_READ_MAX_AGE_DAYS = 28L
+
+/**
+ * True se le date di lettura di [outputDb] vanno pubblicate anche senza altri cambi: sono diverse da quelle di
+ * [publishedDb], e quelle pubblicate mancano o la piu' vecchia ha piu' di TERMS_READ_MAX_AGE_DAYS. Senza, nelle settimane
+ * in cui il guides.db pubblicato resta, le date nuove si perdono e la run dopo rilegge le stesse regioni: al piu' un
+ * guides.db in piu' ogni quattro settimane.
+ */
+fun staleLocalTermsReadDates(outputDb: File, publishedDb: File, today: LocalDate): Boolean {
+    val fresh = readLocalTermsReadDates(outputDb)
+    val published = readLocalTermsReadDates(publishedDb)
+    if (fresh == published) return false
+    return published.isEmpty() || published.values.minOf(LocalDate::parse).isBefore(today.minusDays(TERMS_READ_MAX_AGE_DAYS))
+}

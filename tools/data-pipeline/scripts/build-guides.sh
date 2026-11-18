@@ -364,7 +364,8 @@ python3 "$SCRIPT_DIR/country_wikipedia.py" "$LANG_CODE" "$WIKIPEDIA_REGIONS_TSV"
 # --- 2e. Termini locali ---------------------------------------------------------------------------
 # Voci di Wikipedia del paese (piatti, bevande, feste, usanze, abiti, strumenti) che la pagina di Wikivoyage della regione
 # nomina, con l'introduzione della voce (local_terms.py). Mai fatale: le regioni senza pagina in questa run o non lette
-# tengono i termini pubblicati (LocalTermRow.kt).
+# tengono i termini pubblicati (LocalTermRow.kt). Con le guide pubblicate le regioni si leggono dalla lettura piu' vecchia
+# (tabella guide_terms_read): il tempo di una run non basta per tutte.
 TERMS_REGIONS_TSV="$WORKDIR/terms-regions.tsv"
 TERMS_JSONL="$WORKDIR/local-terms.jsonl"
 : > "$TERMS_REGIONS_TSV"
@@ -374,7 +375,9 @@ for spec in "${ALL_REGIONS[@]}"; do
     printf '%s\t%s\t%s\n' "$regionId" "${wikiTitle//_/ }" "$(winpath "$WORKDIR/$regionId.txt")" >> "$TERMS_REGIONS_TSV"
   fi
 done
-python3 "$SCRIPT_DIR/local_terms.py" "$LANG_CODE" "$TERMS_REGIONS_TSV" "$TERMS_JSONL" \
+TERMS_PUBLISHED=()
+[ -n "$PUBLISHED_DB" ] && TERMS_PUBLISHED=(--published "$(winpath "$PUBLISHED_DB")")
+python3 "$SCRIPT_DIR/local_terms.py" "$LANG_CODE" "$TERMS_REGIONS_TSV" "$TERMS_JSONL" "${TERMS_PUBLISHED[@]}" \
   || echo "::warning::termini locali non scaricati, restano quelli pubblicati" >&2
 
 # --- 3. guides.db ---------------------------------------------------------------------------------

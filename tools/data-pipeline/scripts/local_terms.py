@@ -16,19 +16,23 @@ Da dove vengono (piano dei termini locali, 2026-11-12):
 
 Wikipedia e' CC BY-SA 4.0 come Wikivoyage, Wikidata CC0: titolo, indirizzo e revisione della voce bastano per citarla.
 
-Uso: local_terms.py <it|en> <regioni.tsv> <output.jsonl>
+Uso: local_terms.py <it|en> <regioni.tsv> <output.jsonl> [--published <guides.db pubblicato>]
   regioni.tsv: "regionId<TAB>titolo della pagina di Wikivoyage EN<TAB>file con il testo della guida" per riga.
   output.jsonl: una riga per regione letta, {"regionId", "terms": [{"term", "aliases", "title", "summary", "url",
   "revision"}]}, anche con "terms" vuoto.
+  --published: le regioni si leggono nell'ordine di reading_order, dalla tabella guide_terms_read del guides.db
+  pubblicato (data dell'ultima lettura di ogni regione, scritta da generateGuides).
 Mai fatale: le regioni non lette (errore di rete, tempo esaurito, paese non trovato) mancano dal file e generateGuides
 tiene i loro termini pubblicati.
 """
 import json
 import re
+import sqlite3
 import sys
 import time
 import unicodedata
 import urllib.parse
+from contextlib import closing
 from pathlib import Path
 
 import city_population
@@ -252,14 +256,31 @@ def country_terms(country, lang, deadline):
     return [(t, names_of(t, i["redirects"], existing), i["revision"]) for t, i in sorted(info.items()) if i["item"] not in excluded]
 
 
-def collect(regions, lang, max_seconds=MAX_SECONDS):
-    """Righe del JSONL per le regioni [regions] ({regionId: (titolo Wikivoyage EN, testo della guida)})."""
+def reading_order(region_ids, published):
+    """[region_ids] nell'ordine di lettura: prima le regioni mai lette senza termini pubblicati, poi quelle con termini ma
+    senza data (pubblicate prima di guide_terms_read), poi dalla lettura piu' vecchia. Il tempo di una run (MAX_SECONDS)
+    non basta per tutte: in ordine alfabetico le ultime non sarebbero mai lette."""
+    key = {}
+    if published and Path(published).is_file():
+        with closing(sqlite3.connect(Path(published).resolve().as_uri() + "?mode=ro", uri=True)) as db:
+            tables = {name for (name,) in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+            if "guide_terms" in tables:
+                key.update((region, "0") for (region,) in db.execute("SELECT DISTINCT regionId FROM guide_terms"))
+            if "guide_terms_read" in tables:
+                key.update(db.execute("SELECT regionId, readAt FROM guide_terms_read"))
+    return sorted(region_ids, key=lambda region: (key.get(region, ""), region))
+
+
+def collect(regions, lang, max_seconds=MAX_SECONDS, order=None):
+    """Righe del JSONL per le regioni [regions] ({regionId: (titolo Wikivoyage EN, testo della guida)}), lette
+    nell'ordine [order] (reading_order; di default alfabetico) finche' c'e' tempo."""
     deadline = time.monotonic() + max_seconds
     item_of = city_population.wikibase_items({title for title, _ in regions.values()}, "en", deadline)
     country_of = countries(item_of.values()) if item_of else {}
     candidates = {}
     rows = []
-    for region_id, (voyage_title, text) in sorted(regions.items()):
+    for region_id in order or sorted(regions):
+        voyage_title, text = regions[region_id]
         country = country_of.get(item_of.get(voyage_title))
         if not country or _expired(deadline):
             continue
@@ -286,6 +307,9 @@ def collect(regions, lang, max_seconds=MAX_SECONDS):
 
 
 def main(argv):
+    published = None
+    if len(argv) == 5 and argv[3] == "--published":
+        published, argv = argv[4], argv[:3]
     if len(argv) != 3 or argv[0] not in ("it", "en"):
         print(__doc__, file=sys.stderr)
         return 2
@@ -296,7 +320,7 @@ def main(argv):
         if len(parts) >= 3 and parts[2] and Path(parts[2]).is_file():
             regions[parts[0]] = (parts[1], Path(parts[2]).read_text(encoding="utf-8"))
     try:
-        rows = collect(regions, lang)
+        rows = collect(regions, lang, order=reading_order(regions, published))
     except Exception as e:
         print(f"-- termini locali non disponibili ({e}): le guide restano senza", file=sys.stderr)
         rows = []

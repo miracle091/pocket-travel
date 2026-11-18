@@ -7,6 +7,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.time.LocalDate
 
 class LocalTermsTest {
 
@@ -70,5 +71,39 @@ class LocalTermsTest {
         assertTrue(sameGuidesContent(base, newRevision))
         assertFalse(sameGuidesContent(base, otherSummary))
         assertFalse(sameGuidesContent(withoutTerms, base))
+    }
+
+    @Test
+    fun `data di lettura oggi per le regioni lette, quella pubblicata per le altre, nessuna per le mai lette`() {
+        val today = LocalDate.of(2026, 11, 18)
+        val dates = localTermsReadDates(listOf("peru", "malta", "gozo", "zambia"), mapOf("peru" to listOf(ceviche), "malta" to emptyList()), today) {
+            mapOf("peru" to "2026-11-03", "gozo" to "2026-11-10")[it]
+        }
+
+        assertEquals(mapOf("peru" to "2026-11-18", "malta" to "2026-11-18", "gozo" to "2026-11-10"), dates)
+    }
+
+    @Test
+    fun `guide_terms_read si rilegge uguale e non conta nel confronto con le guide pubblicate`() {
+        val base = guidesDb("base.db", mapOf("peru" to listOf(ceviche)))
+        val read = guidesDb("read.db", mapOf("peru" to listOf(ceviche))).also { writeLocalTermsReadTable(mapOf("peru" to "2026-11-18"), it) }
+
+        assertEquals(mapOf("peru" to "2026-11-18"), readLocalTermsReadDates(read))
+        assertEquals(emptyMap<String, String>(), readLocalTermsReadDates(base))
+        assertTrue(sameGuidesContent(base, read))
+    }
+
+    @Test
+    fun `date di lettura cambiate pubblicano solo se quelle pubblicate mancano o sono vecchie di piu' di 28 giorni`() {
+        val today = LocalDate.of(2026, 12, 1)
+        fun db(name: String, dates: Map<String, String>?) = guidesDb(name, mapOf("peru" to listOf(ceviche))).also { file ->
+            dates?.let { writeLocalTermsReadTable(it, file) }
+        }
+        val fresh = db("fresh.db", mapOf("peru" to "2026-12-01", "malta" to "2026-11-20"))
+
+        assertTrue(keepPublishedGuides(fresh, db("same.db", mapOf("peru" to "2026-12-01", "malta" to "2026-11-20")), today))
+        assertTrue(keepPublishedGuides(fresh, db("recent.db", mapOf("peru" to "2026-11-10", "malta" to "2026-11-20")), today))
+        assertFalse(keepPublishedGuides(fresh, db("old.db", mapOf("peru" to "2026-11-02", "malta" to "2026-11-20")), today))
+        assertFalse(keepPublishedGuides(fresh, db("none.db", null), today))
     }
 }

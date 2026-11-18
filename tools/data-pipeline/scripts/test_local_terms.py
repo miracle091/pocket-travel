@@ -6,10 +6,11 @@ Uso: python test_local_terms.py
 """
 import io
 import json
+import sqlite3
 import tempfile
 import time
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -131,6 +132,35 @@ class CollectTest(unittest.TestCase):
         self.assertIn("Q419 saltato", err.getvalue())
 
 
+class ReadingOrderTest(unittest.TestCase):
+    def test_prima_le_mai_lette_poi_quelle_con_termini_senza_data_poi_dalla_lettura_piu_vecchia(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            published = Path(tmp, "guides.db")
+            with closing(sqlite3.connect(published)) as db, db:
+                db.execute("CREATE TABLE guide_terms (regionId TEXT, term TEXT)")
+                db.executemany("INSERT INTO guide_terms VALUES (?, ?)", [("malta", "Pastizz"), ("peru", "Ceviche"), ("andorra", "Trinxat")])
+                db.execute("CREATE TABLE guide_terms_read (regionId TEXT PRIMARY KEY, readAt TEXT NOT NULL)")
+                db.executemany("INSERT INTO guide_terms_read VALUES (?, ?)", [("peru", "2026-11-10"), ("andorra", "2026-11-17"), ("gozo", "2026-11-03")])
+            self.assertEqual(["zambia", "malta", "gozo", "peru", "andorra"],
+                             local_terms.reading_order(["andorra", "gozo", "malta", "peru", "zambia"], published))
+
+    def test_senza_guides_db_pubblicato_o_senza_tabelle_in_ordine_alfabetico(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            empty = Path(tmp, "vuoto.db")
+            sqlite3.connect(empty).close()
+            for published in (None, Path(tmp, "manca.db"), empty):
+                self.assertEqual(["gozo", "malta"], local_terms.reading_order(["malta", "gozo"], published))
+
+    def test_collect_legge_le_regioni_nell_ordine_dato(self):
+        regions = {"gozo": ("Gozo", "Pastizzi."), "malta": ("Malta", "Pastizzi.")}
+        with mock.patch("local_terms.city_population.wikibase_items", return_value={"Gozo": "Q9", "Malta": "Q233"}), \
+                mock.patch("local_terms.countries", return_value={"Q9": "Q233", "Q233": "Q233"}), \
+                mock.patch("local_terms.country_terms", return_value=[("Pastizz", ["Pastizzi"], 3)]), \
+                mock.patch("local_terms.summaries", return_value={"Pastizz": "Sfoglia ripiena."}):
+            rows = local_terms.collect(regions, "it", order=["malta", "gozo"])
+        self.assertEqual(["malta", "gozo"], [r["regionId"] for r in rows])
+
+
 class MainTest(unittest.TestCase):
     def test_errore_mai_fatale_scrive_un_file_vuoto(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -145,6 +175,22 @@ class MainTest(unittest.TestCase):
             self.assertEqual({"peru": ("Peru", "Ceviche.")}, collect.call_args.args[0])
             self.assertEqual("", out.read_text(encoding="utf-8"))
             self.assertIn("0 termini locali it, 0/1 regioni lette", stdout.getvalue())
+
+    def test_published_sceglie_l_ordine_di_lettura(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tsv = Path(tmp, "regioni.tsv")
+            lines = []
+            for region in ("malta", "zambia"):
+                Path(tmp, f"{region}.txt").write_text("Testo.", encoding="utf-8")
+                lines.append(f"{region}\t{region.title()}\t{Path(tmp, region + '.txt')}")
+            tsv.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            published = Path(tmp, "guides.db")
+            with closing(sqlite3.connect(published)) as db, db:
+                db.execute("CREATE TABLE guide_terms_read (regionId TEXT PRIMARY KEY, readAt TEXT NOT NULL)")
+                db.execute("INSERT INTO guide_terms_read VALUES ('malta', '2026-11-17')")
+            with mock.patch("local_terms.collect", return_value=[]) as collect, redirect_stdout(io.StringIO()):
+                local_terms.main(["en", str(tsv), str(Path(tmp, "terms.jsonl")), "--published", str(published)])
+            self.assertEqual(["zambia", "malta"], collect.call_args.kwargs["order"])
 
     def test_righe_jsonl(self):
         row = {"regionId": "peru", "terms": [{"term": "Ají", "aliases": [], "title": "Ají", "summary": "Peperoncino.", "url": "u", "revision": 1}]}
