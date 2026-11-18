@@ -1,6 +1,5 @@
 package com.pockettravel.feature.guide
 
-import com.pockettravel.core.data.LastKnownPosition
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,6 +12,9 @@ import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.GuideRepository
 import com.pockettravel.core.data.GuideSection
+import com.pockettravel.core.data.GuideTerm
+import com.pockettravel.core.data.GuideTermRepository
+import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.LastOpenedCityGuide
 import com.pockettravel.core.data.MainCity
 import com.pockettravel.core.data.NationalityPreferences
@@ -27,8 +29,8 @@ import com.pockettravel.core.data.advice.newerThanPackage
 import com.pockettravel.core.data.alerts.AlertsRepository
 import com.pockettravel.core.data.alerts.RegionAlerts
 import com.pockettravel.core.data.isGuideSectionFor
-import com.pockettravel.core.ui.PlaceWeather
 import com.pockettravel.core.poi.PoiCategory
+import com.pockettravel.core.ui.PlaceWeather
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -45,6 +47,8 @@ import javax.inject.Inject
 
 data class GuideUiState(
     val sections: List<GuideSection> = emptyList(),
+    // Termini locali della regione (GuideTermRepository), toccabili nel testo delle sezioni.
+    val terms: List<GuideTerm> = emptyList(),
     val emergencyNumbers: EmergencyNumbers? = null,
     // Per i fatti rapidi: valuta e lingua dalla nazione, mezzi di trasporto dai POI della regione.
     val countryCode: String? = null,
@@ -86,6 +90,7 @@ data class CityGuideUiState(
 @HiltViewModel
 class GuideViewModel @Inject constructor(
     private val guideRepository: GuideRepository,
+    private val guideTermRepository: GuideTermRepository,
     private val emergencyNumbersRepository: EmergencyNumbersRepository,
     private val cityRepository: CityRepository,
     private val regionRepository: RegionRepository,
@@ -224,9 +229,11 @@ class GuideViewModel @Inject constructor(
             val noCentralEmergencyNumber = emergencyNumbers == null && emergencyNumbersRepository.hasNoCentralNumber(regionId)
             val countryCode = regionRepository.installed(regionId)?.countryCode
             val transportCounts = poiRepository.transportCounts(regionId)
+            val terms = guideTermRepository.termsFor(listOf(regionId))
             _uiState.update {
                 it.copy(
                     sections = sections,
+                    terms = terms,
                     emergencyNumbers = emergencyNumbers,
                     countryCode = countryCode,
                     transportCounts = transportCounts,

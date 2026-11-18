@@ -3,9 +3,10 @@ package com.pockettravel.feature.guide
 import com.pockettravel.core.data.CityRepository
 import com.pockettravel.core.data.DiplomaticMissionRepository
 import com.pockettravel.core.data.EmergencyNumbersRepository
+import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideRepository
 import com.pockettravel.core.data.GuideSourceTarget
-import com.pockettravel.core.data.GuideCategory
+import com.pockettravel.core.data.GuideTermRepository
 import com.pockettravel.core.data.LastOpenedCityGuide
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.PoiRepository
@@ -16,6 +17,7 @@ import com.pockettravel.core.data.alerts.RegionAlerts
 import com.pockettravel.core.data.db.DiplomaticMissionDao
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.GuideDao
+import com.pockettravel.core.data.db.GuideTermDao
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.testing.FakeLastKnownPosition
 import com.pockettravel.core.data.testing.FakeRegionRepository
@@ -63,6 +65,7 @@ class GuideViewModelLoadTest {
 
     private fun viewModel() = GuideViewModel(
         guideRepository = GuideRepository(recording<GuideDao>(calls)),
+        guideTermRepository = GuideTermRepository(recording<GuideTermDao>(calls)),
         emergencyNumbersRepository = EmergencyNumbersRepository(
             recording<EmergencyNumbersDao>(calls, "forRegion" to null, "hasNoCentralNumber" to false),
         ),

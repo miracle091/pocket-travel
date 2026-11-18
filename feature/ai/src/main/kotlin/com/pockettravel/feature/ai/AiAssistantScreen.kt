@@ -47,8 +47,17 @@ fun AiAssistantScreen(
     onNavigationRequest: (NavigationRequest) -> Unit = {},
     // Tocco su una fonte che risale a una sezione della guida della regione.
     onOpenGuideSource: (GuideSourceTarget) -> Unit = {},
+    // Domanda già scritta da un'altra scheda ("Chiedi all'assistente" di un termine della Guida): va nel campo, non parte da sola.
+    pendingQuestion: String? = null,
+    onPendingQuestionConsumed: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingQuestion) {
+        if (pendingQuestion != null) {
+            viewModel.onQuestionChanged(pendingQuestion)
+            onPendingQuestionConsumed()
+        }
+    }
     val voiceState by voiceViewModel.uiState.collectAsStateWithLifecycle()
     val readAloudState by readAloudViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(viewModel) { viewModel.navigationRequests.collect(onNavigationRequest) }

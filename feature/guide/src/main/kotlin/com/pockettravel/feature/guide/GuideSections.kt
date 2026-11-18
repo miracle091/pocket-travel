@@ -32,8 +32,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,18 +42,22 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.data.CitySection
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.data.GuideSourceTarget
+import com.pockettravel.core.data.GuideTerm
 import com.pockettravel.core.data.guideSourceUrlWithoutAudience
 import com.pockettravel.core.ui.InfoCardDefaults
 import com.pockettravel.core.ui.InfoCardHeader
-import com.pockettravel.core.ui.R as UiR
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.R as UiR
 
 // Filtri per categoria + elenco delle sezioni: stessa vista sia per la guida della nazione sia per il
 // dettaglio di una citta' (GuideSectionCard e' l'unico posto che disegna una sezione).
@@ -69,6 +73,9 @@ internal fun SectionsWithFilters(
     focus: FocusRequest? = null,
     // Contenuto in più mostrato quando è scelta la categoria associata (con "Tutti" c'è già in [extraContent]).
     categoryExtras: Map<GuideCategory, CategoryExtra> = emptyMap(),
+    // Termini locali della regione: toccabili nel testo delle sezioni (solo nella guida della nazione).
+    terms: List<GuideTerm> = emptyList(),
+    onTermClick: (GuideTerm) -> Unit = {},
 ) {
     val categories = sections.map { it.category }.distinct()
     val visibleSections = sections.filter { selectedCategory == null || it.category == selectedCategory }
@@ -132,6 +139,8 @@ internal fun SectionsWithFilters(
                     section,
                     answer = focus?.target?.answer.takeIf { section.isFocus(focus?.target) },
                     highlightShown = highlightShown,
+                    terms = terms,
+                    onTermClick = onTermClick,
                     modifier = Modifier.padding(horizontal = Spacing.l),
                 )
             }
@@ -212,6 +221,8 @@ private fun GuideSectionCard(
     section: SectionUi,
     answer: String?,
     highlightShown: MutableState<Boolean>,
+    terms: List<GuideTerm>,
+    onTermClick: (GuideTerm) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
@@ -236,7 +247,7 @@ private fun GuideSectionCard(
                 )
             }
             Spacer(modifier = Modifier.height(Spacing.m))
-            GuideBody(section.body, answer, highlightShown)
+            GuideBody(section.body, answer, highlightShown, terms, onTermClick)
         }
     }
 }
@@ -270,9 +281,18 @@ internal fun guideBodyBlocks(body: String): List<GuideBodyBlock> {
 }
 
 @Composable
-private fun GuideBody(body: String, answer: String? = null, highlightShown: MutableState<Boolean>? = null) {
+private fun GuideBody(
+    body: String,
+    answer: String?,
+    highlightShown: MutableState<Boolean>,
+    terms: List<GuideTerm>,
+    onTermClick: (GuideTerm) -> Unit,
+) {
     val highlight = SpanStyle(background = MaterialTheme.colorScheme.tertiaryContainer, color = MaterialTheme.colorScheme.onTertiaryContainer)
+    // Sottolineato e non solo colorato: il colore da solo non basta a dire che la parola si tocca.
+    val termStyle = TextLinkStyles(SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline))
     val blocks = remember(body) { guideBodyBlocks(body) }
+    val links = remember(blocks, terms) { termLinks(blocks.map { if (it.isSubheading) "" else it.text }, terms) }
     // Le frasi della risposta si cercano in ogni paragrafo: gli intervalli sono nel testo del paragrafo.
     val highlights = remember(body, answer) {
         blocks.map { block -> if (answer == null || block.isSubheading) emptyList() else answerHighlights(block.text, answer) }
@@ -281,8 +301,8 @@ private fun GuideBody(body: String, answer: String? = null, highlightShown: Muta
     val firstHighlighted = highlights.indexOfFirst { it.isNotEmpty() }
     val firstHighlightRequester = remember { BringIntoViewRequester() }
     LaunchedEffect(firstHighlighted) {
-        if (firstHighlighted >= 0 && highlightShown?.value != true) {
-            highlightShown?.value = true
+        if (firstHighlighted >= 0 && !highlightShown.value) {
+            highlightShown.value = true
             firstHighlightRequester.bringIntoView()
         }
     }
@@ -294,10 +314,13 @@ private fun GuideBody(body: String, answer: String? = null, highlightShown: Muta
                 modifier = Modifier.padding(top = Spacing.l, bottom = Spacing.xs).semantics { heading() },
             )
         } else {
-            val text = remember(block.text, highlights[index], highlight) {
+            val text = remember(block.text, highlights[index], highlight, links[index], termStyle) {
                 buildAnnotatedString {
                     append(block.text)
                     highlights[index].forEach { addStyle(highlight, it.first, it.last + 1) }
+                    links[index].forEach { (range, term) ->
+                        addLink(LinkAnnotation.Clickable(term.term, termStyle) { onTermClick(term) }, range.first, range.last + 1)
+                    }
                 }
             }
             Text(

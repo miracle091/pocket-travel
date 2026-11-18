@@ -4,6 +4,7 @@ import com.pockettravel.core.data.CityRepository
 import com.pockettravel.core.data.DiplomaticMissionRepository
 import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.GuideRepository
+import com.pockettravel.core.data.GuideTermRepository
 import com.pockettravel.core.data.LastOpenedCityGuide
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.PoiRepository
@@ -20,6 +21,7 @@ import com.pockettravel.core.data.db.CitySectionMatch
 import com.pockettravel.core.data.db.DiplomaticMissionDao
 import com.pockettravel.core.data.db.EmergencyNumbersDao
 import com.pockettravel.core.data.db.GuideDao
+import com.pockettravel.core.data.db.GuideTermDao
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.testing.FakeLastKnownPosition
 import com.pockettravel.core.data.testing.FakeRegionRepository
@@ -115,6 +117,7 @@ class GuideViewModelClimateTest {
 
     private fun viewModel() = GuideViewModel(
         guideRepository = GuideRepository(unused<GuideDao>()),
+        guideTermRepository = GuideTermRepository(unused<GuideTermDao>()),
         emergencyNumbersRepository = EmergencyNumbersRepository(unused<EmergencyNumbersDao>()),
         cityRepository = CityRepository(dao),
         regionRepository = FakeRegionRepository(),

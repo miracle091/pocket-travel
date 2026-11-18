@@ -88,6 +88,8 @@ fun RegionHubScreen(
     }
     // Sezione della guida richiesta da una fonte dell'assistente, finche' la Guida non la prende.
     var guideTarget by remember { mutableStateOf<GuideSourceTarget?>(null) }
+    // Domanda scritta dal foglio di un termine della Guida, da mettere nel campo dell'assistente.
+    var assistantQuestion by remember { mutableStateOf<String?>(null) }
     val hubState by viewModel.uiState.collectAsStateWithLifecycle()
     val displayName = hubState.displayName
     val splitCountry = hubState.splitCountry
@@ -173,6 +175,14 @@ fun RegionHubScreen(
                             onBack = onBackTap,
                             target = guideTarget,
                             onTargetConsumed = { guideTarget = null },
+                            onAskAssistant = if (aiAvailable) {
+                                { question ->
+                                    assistantQuestion = question
+                                    selectedTab = RegionTab.AI
+                                }
+                            } else {
+                                null
+                            },
                         )
                     }
                     RegionTab.MAP -> {
@@ -264,6 +274,8 @@ fun RegionHubScreen(
                                     guideTarget = target
                                     selectedTab = RegionTab.GUIDE
                                 },
+                                pendingQuestion = assistantQuestion,
+                                onPendingQuestionConsumed = { assistantQuestion = null },
                             )
                         }
                     }

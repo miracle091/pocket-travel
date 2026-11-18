@@ -33,6 +33,7 @@ import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.data.GuideSourceTarget
+import com.pockettravel.core.data.GuideTerm
 import com.pockettravel.core.data.IndicativeRate
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.AlertsCard
@@ -56,6 +57,8 @@ fun GuideScreen(
     // Sezione citata da una risposta dell'assistente: la guida la apre e ne evidenzia le frasi; poi chiama onTargetConsumed.
     target: GuideSourceTarget? = null,
     onTargetConsumed: () -> Unit = {},
+    // "Chiedi all'assistente" nel foglio di un termine locale, con la domanda già scritta; null senza assistente.
+    onAskAssistant: ((question: String) -> Unit)? = null,
     viewModel: GuideViewModel = hiltViewModel(),
     vaccinationViewModel: VaccinationViewModel = hiltViewModel(),
     exchangeRateViewModel: ExchangeRateViewModel = hiltViewModel(),
@@ -96,6 +99,7 @@ fun GuideScreen(
         focus = focus?.takeIf { it.target.city == null },
         onRetry = { viewModel.load(regionId, catalogCountry, reload = true) },
         exchangeRate = exchangeRates?.rateTo(uiState.countryCode),
+        onAskAssistant = onAskAssistant,
     )
 
     if (showVaccinations && vaccinationState.available) {
@@ -131,6 +135,7 @@ internal fun GuideContent(
     focus: FocusRequest? = null,
     onRetry: () -> Unit = {},
     exchangeRate: IndicativeRate? = null,
+    onAskAssistant: ((question: String) -> Unit)? = null,
 ) {
     when {
         uiState.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -157,7 +162,9 @@ internal fun GuideContent(
             )
         }
 
-        else -> GuideSectionsList(uiState, onOpenSource, onOpenCities, vaccination, onOpenVaccination, excludedTransit, onBack, onRefreshWeather, focus, exchangeRate)
+        else -> GuideSectionsList(
+            uiState, onOpenSource, onOpenCities, vaccination, onOpenVaccination, excludedTransit, onBack, onRefreshWeather, focus, exchangeRate, onAskAssistant,
+        )
     }
 }
 
@@ -182,8 +189,11 @@ private fun GuideSectionsList(
     onRefreshWeather: () -> Unit,
     focus: FocusRequest?,
     exchangeRate: IndicativeRate?,
+    onAskAssistant: ((question: String) -> Unit)?,
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
+    var openTerm by remember { mutableStateOf<GuideTerm?>(null) }
+    GuideTermSheet(term = openTerm, onDismiss = { openTerm = null }, onOpenSource = onOpenSource, onAskAssistant = onAskAssistant)
     val transport = transportSummary(uiState.transportCounts)
     val uiLanguage = LocalLocale.current.platformLocale.language
     val orderedSections = remember(uiState.sections, uiState.countryCode, transport, uiLanguage, exchangeRate) {
@@ -210,6 +220,8 @@ private fun GuideSectionsList(
         onOpenSource = onOpenSource,
         onBack = onBack,
         focus = focus,
+        terms = uiState.terms,
+        onTermClick = { openTerm = it },
         extraContent = {
             uiState.weather?.let { weather ->
                 item(key = "weather") {
