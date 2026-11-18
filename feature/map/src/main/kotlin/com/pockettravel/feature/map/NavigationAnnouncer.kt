@@ -46,6 +46,12 @@ class NavigationAnnouncer @Inject constructor(
         }
     }
 
+    /** Tappa [name] raggiunta: la guida prosegue verso la successiva o la destinazione. A piedi vibra come l'arrivo. */
+    fun onWaypointReached(name: String) {
+        if (preferences.voiceGuidance.value) voice.say(texts.string(R.string.voice_waypoint_reached, name))
+        if (profile == RouteProfile.WALK && preferences.walkingHaptics.value) vibration.arrived()
+    }
+
     /** "Raggiungi la fermata": la corsa delle [missed] non si prende piu', la prossima parte alle [next]. */
     fun onMissedDeparture(missed: LocalDateTime, next: LocalDateTime) {
         if (!preferences.voiceGuidance.value) return

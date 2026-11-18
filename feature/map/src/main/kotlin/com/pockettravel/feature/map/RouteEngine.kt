@@ -35,6 +35,7 @@ data class TurnInstruction(
  * percorso, quando [IslandRetryRouteEngine] le ha spostate sulla strada raggiungibile piu' vicina; 0 altrimenti.
  * [pointSeconds]: secondi dalla partenza a ogni punto di [points], secondo BRouter (velocita' della strada, pendenza,
  * svolte; non il traffico); vuota se il motore non li da', e il tempo restante va in proporzione ai metri.
+ * [viaPointIndexes]: indice in [points] di ogni tappa chiesta con `route(via = ...)`, nello stesso ordine.
  */
 data class Route(
     val points: List<RoutePoint>,
@@ -44,7 +45,16 @@ data class Route(
     val startOffsetMeters: Double = 0.0,
     val endOffsetMeters: Double = 0.0,
     val pointSeconds: List<Double> = emptyList(),
+    val viaPointIndexes: List<Int> = emptyList(),
 )
+
+/** Per ogni tappa di [via], in ordine, il punto di [points] piu' vicino dopo quello della tappa precedente. */
+internal fun viaPointIndexes(points: List<RoutePoint>, via: List<RoutePoint>): List<Int> {
+    var from = 0
+    return via.map { stop ->
+        (from..points.lastIndex).minBy { NavigationTracker.distanceMeters(stop, points[it]) }.also { from = it }
+    }
+}
 
 sealed interface RouteResult {
     /** [alternatives]: i percorsi alternativi chiesti con `route(alternatives = n)`, diversi da [route] e tra loro; possono essere meno di n. */
@@ -79,6 +89,7 @@ interface RouteEngine {
      * motore, cioe' del modo quando e' stato creato. [profileParams]: variabili del
      * profilo (in BRouter "profile:<nome>=<valore>"), per esempio allow_steps del profilo wheelchair.
      * [alternatives]: quanti percorsi alternativi calcolare oltre al principale (0-3, in [RouteResult.Found.alternatives]).
+     * [via]: tappe fra [from] e [to], in ordine (indici in [Route.viaPointIndexes]).
      * [onProgress]: stima 0..1 dell'avanzamento, chiamata piu' volte al secondo durante il calcolo
      * (da un altro thread).
      */
@@ -88,6 +99,7 @@ interface RouteEngine {
         profile: String? = null,
         profileParams: Map<String, String> = emptyMap(),
         alternatives: Int = 0,
+        via: List<RoutePoint> = emptyList(),
         onProgress: (Double) -> Unit = {},
     ): RouteResult
 }

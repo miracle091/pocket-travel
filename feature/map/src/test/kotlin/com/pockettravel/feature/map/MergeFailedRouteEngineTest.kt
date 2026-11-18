@@ -16,6 +16,7 @@ class MergeFailedRouteEngineTest {
             profile: String?,
             profileParams: Map<String, String>,
             alternatives: Int,
+            via: List<RoutePoint>,
             onProgress: (Double) -> Unit,
         ): RouteResult = result
     }

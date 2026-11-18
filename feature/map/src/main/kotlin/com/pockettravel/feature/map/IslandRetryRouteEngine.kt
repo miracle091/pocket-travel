@@ -21,15 +21,18 @@ class IslandRetryRouteEngine(private val inner: RouteEngine) : RouteEngine {
         profile: String?,
         profileParams: Map<String, String>,
         alternatives: Int,
+        via: List<RoutePoint>,
         onProgress: (Double) -> Unit,
     ): RouteResult {
         // Ogni tentativo riparte da 0: la barra mostra solo il valore piu' alto.
         var shown = 0.0
         val progress: (Double) -> Unit = { value -> if (value > shown) shown = value.also(onProgress) }
-        val route: suspend (RoutePoint, RoutePoint) -> RouteResult = { start, end -> inner.route(start, end, profile, profileParams, alternatives, progress) }
+        val route: suspend (RoutePoint, RoutePoint) -> RouteResult = { start, end -> inner.route(start, end, profile, profileParams, alternatives, via, progress) }
         var attempt = Attempt(from, to, route(from, to))
         // Spostata la destinazione puo' risultare isolata la partenza (BRouter controlla prima la destinazione).
-        repeat(2) { attempt = moveOffIsland(attempt, route) }
+        // Con le tappe l'isola puo' essere attorno a una tappa ("target island detected for section N"), e
+        // spostare la destinazione non servirebbe: niente nuovi tentativi.
+        if (via.isEmpty()) repeat(2) { attempt = moveOffIsland(attempt, route) }
         return attempt.finish(from, to)
     }
 

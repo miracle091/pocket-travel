@@ -96,6 +96,26 @@ class BRouterRouteEngineTest {
         assertEquals("l'ultima indicazione e' l'arrivo, sull'ultimo punto", TurnInstruction(TurnType.ARRIVE, 0.0, route.points.lastIndex), route.instructions.last().copy(distanceToNextMeters = 0.0))
     }
 
+    // Tappa oltre la destinazione, sull'unica via della fixture: il percorso va fino alla tappa e torna indietro,
+    // piu' lungo di quello diretto, e dice in quale punto raggiunge la tappa.
+    @Test
+    fun `con una tappa il percorso passa dalla tappa e ne da' l'indice`() = runBlocking {
+        val engine = BRouterRouteEngine(twoTileSegments(), profileDir(), ioDispatcher = Dispatchers.IO, defaultDispatcher = Dispatchers.Default)
+        val from = RoutePoint(45.5000, 9.9970)
+        val to = RoutePoint(45.5000, 9.9990)
+        val stop = RoutePoint(45.5000, 10.0030)
+
+        val direct = (engine.route(from, to) as RouteResult.Found).route
+        val result = engine.route(from, to, via = listOf(stop))
+
+        assertTrue("percorso con la tappa: $result", result is RouteResult.Found)
+        val route = (result as RouteResult.Found).route
+        assertTrue("va fino alla tappa e torna: ${route.distanceMeters} m contro ${direct.distanceMeters}", route.distanceMeters > direct.distanceMeters * 2)
+        val index = route.viaPointIndexes.single()
+        assertTrue("la tappa sta fra partenza e arrivo: $index su ${route.points.lastIndex}", index in 1 until route.points.lastIndex)
+        assertTrue("il punto della tappa e' vicino alla tappa chiesta", NavigationTracker.distanceMeters(stop, route.points[index]) < 50.0)
+    }
+
     // Due "regioni" che hanno ognuna meta' del dato: la A ha E5_N45 con la sua via e E10_N45 svuotata, la B
     // il contrario (stesso formato di un ritaglio che non tocca la tile). Da sole non instradano; con i
     // segmenti uniti (Rd5Merger) BRouter li legge e attraversa il confine fra le due parti, con lo

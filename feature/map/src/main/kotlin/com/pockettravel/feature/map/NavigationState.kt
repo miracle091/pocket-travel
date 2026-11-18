@@ -182,13 +182,14 @@ private const val NAVIGATION_MARGIN_DEGREES = 0.05
  * Le regioni della navigazione: quelle con la rete stradale installata il cui rettangolo tocca il rettangolo di
  * partenza e arrivo, allargato di qualche km. Con una sola non si uniscono segmenti. La regione da cui
  * si e' partiti ([regionId]) viene per prima, e resta l'unica se nessun rettangolo tocca: cosi' la
- * mancanza dei dati si vede come "Scarica la rete stradale".
+ * mancanza dei dati si vede come "Scarica la rete stradale". Con le tappe ([via]) il rettangolo comprende anche loro.
  */
-fun navigationRegionIds(regionId: String, candidates: List<RoutingRegion>, from: RoutePoint, to: RoutePoint): List<String> {
-    val minLon = minOf(from.longitude, to.longitude) - NAVIGATION_MARGIN_DEGREES
-    val maxLon = maxOf(from.longitude, to.longitude) + NAVIGATION_MARGIN_DEGREES
-    val minLat = minOf(from.latitude, to.latitude) - NAVIGATION_MARGIN_DEGREES
-    val maxLat = maxOf(from.latitude, to.latitude) + NAVIGATION_MARGIN_DEGREES
+fun navigationRegionIds(regionId: String, candidates: List<RoutingRegion>, from: RoutePoint, to: RoutePoint, via: List<RoutePoint> = emptyList()): List<String> {
+    val points = listOf(from, to) + via
+    val minLon = points.minOf { it.longitude } - NAVIGATION_MARGIN_DEGREES
+    val maxLon = points.maxOf { it.longitude } + NAVIGATION_MARGIN_DEGREES
+    val minLat = points.minOf { it.latitude } - NAVIGATION_MARGIN_DEGREES
+    val maxLat = points.maxOf { it.latitude } + NAVIGATION_MARGIN_DEGREES
     val touching = candidates
         .filter { region -> region.bounds?.let { it.minLon <= maxLon && it.maxLon >= minLon && it.minLat <= maxLat && it.maxLat >= minLat } == true }
         .map { it.regionId }
@@ -213,11 +214,12 @@ fun straightLinePoints(from: RoutePoint, to: RoutePoint): List<RoutePoint> {
 /**
  * La linea da partenza ad arrivo esce dai rettangoli delle regioni con la rete stradale ([candidates], allargati del
  * margine): manca la rete stradale delle nazioni in mezzo, e BRouter fallirebbe dopo un lungo calcolo con un errore
- * generico. Con una regione senza rettangolo non si giudica (false) e decide BRouter.
+ * generico. Con una regione senza rettangolo non si giudica (false) e decide BRouter. Con le tappe ([via]) si
+ * guarda la linea che passa da ognuna.
  */
-fun leavesRoutingRegions(candidates: List<RoutingRegion>, from: RoutePoint, to: RoutePoint): Boolean {
+fun leavesRoutingRegions(candidates: List<RoutingRegion>, from: RoutePoint, to: RoutePoint, via: List<RoutePoint> = emptyList()): Boolean {
     val bounds = candidates.map { it.bounds ?: return false }
-    return straightLinePoints(from, to).any { point ->
+    return (listOf(from) + via + to).zipWithNext().flatMap { (a, b) -> straightLinePoints(a, b) }.any { point ->
         bounds.none {
             point.longitude in it.minLon - NAVIGATION_MARGIN_DEGREES..it.maxLon + NAVIGATION_MARGIN_DEGREES &&
                 point.latitude in it.minLat - NAVIGATION_MARGIN_DEGREES..it.maxLat + NAVIGATION_MARGIN_DEGREES

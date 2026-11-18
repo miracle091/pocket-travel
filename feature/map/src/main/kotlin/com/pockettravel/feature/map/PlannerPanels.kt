@@ -20,6 +20,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +69,10 @@ internal fun RoutePanel(
     onEditFrom: () -> Unit,
     onEditTo: () -> Unit,
     onSwap: () -> Unit,
+    waypoints: List<NavigationPlace>,
+    onAddWaypoint: () -> Unit,
+    onRemoveWaypoint: (Int) -> Unit,
+    onMoveWaypoint: (index: Int, earlier: Boolean) -> Unit,
     routeProfile: RouteProfile,
     onRouteProfileChange: (RouteProfile) -> Unit,
     avoid: Set<RouteAvoid> = emptySet(),
@@ -84,6 +89,9 @@ internal fun RoutePanel(
                         text = from?.name ?: stringResource(R.string.planner_my_position),
                         onClick = onEditFrom,
                     )
+                    waypoints.forEachIndexed { index, waypoint ->
+                        WaypointField(index, waypoint, last = index == waypoints.lastIndex, onRemoveWaypoint, onMoveWaypoint)
+                    }
                     PlaceField(
                         icon = AppIcons.Place,
                         iconTint = MaterialTheme.colorScheme.error,
@@ -95,6 +103,13 @@ internal fun RoutePanel(
                 // Con la propria posizione come partenza non si scambia: l'arrivo resterebbe senza destinazione.
                 IconButton(onClick = onSwap, enabled = from != null) {
                     Icon(ImageVector.vectorResource(UiR.drawable.ms_swap_vert), contentDescription = stringResource(R.string.planner_swap))
+                }
+            }
+            if (waypoints.size < MAX_WAYPOINTS) {
+                TextButton(onClick = onAddWaypoint) {
+                    Icon(ImageVector.vectorResource(UiR.drawable.ms_add), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(Spacing.s))
+                    Text(stringResource(R.string.planner_add_waypoint))
                 }
             }
             // Solo il modo scelto ha anche il nome: tre chip con l'icona stanno in una riga stretta.
@@ -209,6 +224,42 @@ private fun RouteAvoid.label(): Int = when (this) {
 }
 
 // Riga bassa come un campo di testo, senza etichetta visibile (la dice l'icona): TalkBack la legge.
+// Una tappa: il nome, le frecce per spostarla (solo con piu' tappe) e «togli». Si cambia togliendola e aggiungendone un'altra.
+@Composable
+private fun WaypointField(
+    index: Int,
+    waypoint: NavigationPlace,
+    last: Boolean,
+    onRemove: (Int) -> Unit,
+    onMove: (index: Int, earlier: Boolean) -> Unit,
+) {
+    val description = stringResource(R.string.planner_place_field, stringResource(R.string.planner_waypoint_number, index + 1), waypoint.name)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.weight(1f).heightIn(min = 44.dp).clearAndSetSemantics { contentDescription = description },
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = Spacing.m)) {
+                Icon(ImageVector.vectorResource(UiR.drawable.ms_location_on), contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(Spacing.m))
+                Text(waypoint.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        if (index > 0 || !last) {
+            IconButton(onClick = { onMove(index, true) }, enabled = index > 0) {
+                Icon(ImageVector.vectorResource(UiR.drawable.ms_arrow_upward), contentDescription = stringResource(R.string.planner_waypoint_earlier, waypoint.name))
+            }
+            IconButton(onClick = { onMove(index, false) }, enabled = !last) {
+                Icon(ImageVector.vectorResource(UiR.drawable.ms_arrow_downward), contentDescription = stringResource(R.string.planner_waypoint_later, waypoint.name))
+            }
+        }
+        IconButton(onClick = { onRemove(index) }) {
+            Icon(ImageVector.vectorResource(UiR.drawable.ms_close), contentDescription = stringResource(R.string.planner_remove_waypoint, waypoint.name))
+        }
+    }
+}
+
 @Composable
 private fun PlaceField(icon: ImageVector, iconTint: Color, label: String, text: String, onClick: () -> Unit) {
     val description = stringResource(R.string.planner_place_field, label, text)

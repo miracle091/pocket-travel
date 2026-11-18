@@ -85,6 +85,9 @@ fun NavigationInstructions(
     downloadProgress: Float? = null,
     downloadFailed: Boolean = false,
     onDownloadRouting: () -> Unit = {},
+    // La prossima tappa non ancora raggiunta (null senza tappe) e «Salta la tappa».
+    nextWaypoint: String? = null,
+    onSkipWaypoint: () -> Unit = {},
 ) {
     val context = LocalContext.current
     // Il GPS vuole la posizione precisa: con la sola approssimativa si resta senza navigazione.
@@ -106,7 +109,7 @@ fun NavigationInstructions(
     }
 
     if (state is NavigationStatus.Navigating) {
-        ActiveNavigationContent(state, destinationName, routeProfile, arriveBy, tileSource, regionIds, onClose, onStreetNames, drivingSide, voice, toCatch)
+        ActiveNavigationContent(state, destinationName, routeProfile, arriveBy, tileSource, regionIds, onClose, onStreetNames, drivingSide, voice, toCatch, nextWaypoint, onSkipWaypoint)
         return
     }
     // Senza percorso da seguire: un messaggio al centro, con la destinazione in cima e sempre "Termina".

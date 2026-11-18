@@ -45,6 +45,7 @@ class BRouterRouteEngine(
         profile: String?,
         profileParams: Map<String, String>,
         alternatives: Int,
+        via: List<RoutePoint>,
         onProgress: (Double) -> Unit,
     ): RouteResult {
         // Con la cartella dei segmenti uniti (Rd5Merger) le tile possono stare solo nella cartella secondaria.
@@ -72,7 +73,7 @@ class BRouterRouteEngine(
             }
             try {
                 // Calcolo bloccante di minuti (anche in auto): su IO, per non occupare i thread di Default.
-                runInterruptible(ioDispatcher) { compute(from, to, profile ?: profileName, profileParams, alternatives, running) }
+                runInterruptible(ioDispatcher) { compute(listOf(from) + via + to, profile ?: profileName, profileParams, alternatives, running) }
             } catch (error: IllegalArgumentException) {
                 // BRouter la lancia, fuori da doRun, per un profilo .brf mancante o una variabile del profilo non valida:
                 // diventa un errore del motore invece di arrivare fino al ViewModel.
@@ -86,9 +87,9 @@ class BRouterRouteEngine(
         }
     }
 
+    // [points]: partenza, tappe e arrivo.
     private fun compute(
-        from: RoutePoint,
-        to: RoutePoint,
+        points: List<RoutePoint>,
         profile: String,
         profileParams: Map<String, String>,
         alternatives: Int,
@@ -101,7 +102,7 @@ class BRouterRouteEngine(
         System.setProperty("segmentBaseDir", segmentDir.path)
         System.setProperty("profileBaseDir", profileDir.path)
 
-        val lonlats = "${from.longitude},${from.latitude}|${to.longitude},${to.latitude}"
+        val lonlats = points.joinToString("|") { "${it.longitude},${it.latitude}" }
         val routingContext = RoutingContext()
         val paramCollector = RoutingParamCollector()
         val waypoints = paramCollector.getWayPointList(lonlats)
@@ -142,9 +143,10 @@ class BRouterRouteEngine(
         }
         val track = engine.foundTrack ?: return RouteResult.NotFound
         if (track.nodes.isEmpty()) return RouteResult.NotFound
-        val main = track.toRoute()
+        val via = points.subList(1, points.lastIndex)
+        val main = track.toRoute(via)
         // Senza un'alternativa vera BRouter ridà lo stesso percorso: si tengono solo quelli diversi.
-        val others = engine.foundTracks.drop(1).filter { it.nodes.isNotEmpty() }.map { it.toRoute() }
+        val others = engine.foundTracks.drop(1).filter { it.nodes.isNotEmpty() }.map { it.toRoute(via) }
         RouteResult.Found(main, others.distinctBy { it.points }.filter { it.points != main.points })
     }
 
@@ -166,7 +168,7 @@ class BRouterRouteEngine(
         fun ilatToLat(ilat: Int) = ilat / FIXED_POINT_SCALE - LAT_OFFSET_DEGREES
         fun ilonToLon(ilon: Int) = ilon / FIXED_POINT_SCALE - LON_OFFSET_DEGREES
 
-        fun OsmTrack.toRoute(): Route {
+        fun OsmTrack.toRoute(via: List<RoutePoint>): Route {
             val turns = TurnInstructions.of(this).mapNotNull { turn ->
                 turnType(turn.command)?.let { type ->
                     // Uscita negativa per le rotonde percorse a sinistra (VoiceHintProcessor: -roundaboutExit).
@@ -178,12 +180,14 @@ class BRouterRouteEngine(
             val arrive = TurnInstruction(TurnType.ARRIVE, 0.0, nodes.lastIndex)
             // getTime(): secondi dalla partenza al nodo, cumulati da BRouter (OsmTrack.getTotalSeconds usa gli stessi).
             val startTime = nodes.firstOrNull()?.time ?: 0f
+            val points = nodes.map { RoutePoint(ilatToLat(it.getILat()), ilonToLon(it.getILon())) }
             return Route(
-                points = nodes.map { RoutePoint(ilatToLat(it.getILat()), ilonToLon(it.getILon())) },
+                points = points,
                 distanceMeters = distance.toDouble(),
                 durationSeconds = getTotalSeconds().toDouble(),
                 instructions = if (turns.lastOrNull()?.type == TurnType.ARRIVE) turns else turns + arrive,
                 pointSeconds = nodes.map { (it.time - startTime).toDouble() },
+                viaPointIndexes = viaPointIndexes(points, via),
             )
         }
 

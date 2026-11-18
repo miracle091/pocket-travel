@@ -57,6 +57,8 @@ internal fun PlannerMap(
     onSelectRoute: (Route) -> Unit,
     from: RoutePoint?,
     to: RoutePoint?,
+    // Le tappe fra partenza e arrivo, in ordine.
+    waypoints: List<RoutePoint>,
     // Senza destinazione: la propria posizione e i POI attorno (null = niente), inquadrati sul raggio della ricerca.
     position: RoutePoint?,
     nearby: NearbyPois?,
@@ -93,6 +95,7 @@ internal fun PlannerMap(
                 val otherSource = GeoJsonSource(PLANNER_OTHER_ROUTES_SOURCE).also(style::addSource)
                 val startSource = GeoJsonSource(PLANNER_START_SOURCE).also(style::addSource)
                 val endSource = GeoJsonSource(PLANNER_END_SOURCE).also(style::addSource)
+                val waypointsSource = GeoJsonSource(PLANNER_WAYPOINTS_SOURCE).also(style::addSource)
                 val poiSource = GeoJsonSource(PLANNER_POI_SOURCE).also(style::addSource)
                 val positionSource = GeoJsonSource(PLANNER_POSITION_SOURCE).also(style::addSource)
                 // POI vicini sotto percorso e segnalini: icone come nella scheda Mappa, una per categoria presente.
@@ -134,6 +137,13 @@ internal fun PlannerMap(
                         PropertyFactory.circleColor(routeColor), PropertyFactory.circleRadius(START_DOT_RADIUS),
                     ),
                 )
+                // Tappe: punto pieno nel colore del percorso con il bordo chiaro, sotto la bandiera dell'arrivo.
+                style.addLayer(
+                    CircleLayer(PLANNER_WAYPOINTS_SOURCE, PLANNER_WAYPOINTS_SOURCE).withProperties(
+                        PropertyFactory.circleColor(routeColor), PropertyFactory.circleRadius(WAYPOINT_DOT_RADIUS),
+                        PropertyFactory.circleStrokeColor(startColor), PropertyFactory.circleStrokeWidth(POSITION_STROKE_WIDTH),
+                    ),
+                )
                 // Arrivo: segnalino rosso con la bandiera, piu' grande di quelli dei POI, punta sul punto.
                 style.addImage(DESTINATION_PIN_IMAGE, pinBitmap(context, endColor, UiR.drawable.ms_flag, scale = DESTINATION_PIN_SCALE))
                 style.addLayer(destinationPinLayer(PLANNER_END_SOURCE))
@@ -144,7 +154,7 @@ internal fun PlannerMap(
                         PropertyFactory.circleStrokeColor(positionStroke), PropertyFactory.circleStrokeWidth(POSITION_STROKE_WIDTH),
                     ),
                 )
-                sources = PlannerSources(routeSource, otherSource, startSource, endSource, poiSource, positionSource)
+                sources = PlannerSources(routeSource, otherSource, startSource, endSource, waypointsSource, poiSource, positionSource)
             }
         }
     }
@@ -187,7 +197,7 @@ internal fun PlannerMap(
         }
     }
     // I dati del percorso non dipendono dall'altezza del pannello: cambiarla non li riscrive.
-    LaunchedEffect(sources, route, others, from, to) {
+    LaunchedEffect(sources, route, others, from, to, waypoints) {
         val current = sources ?: return@LaunchedEffect
         val points = route?.points.orEmpty()
         current.others.setGeoJson(
@@ -200,8 +210,9 @@ internal fun PlannerMap(
         current.route.setGeoJson(FeatureCollection.fromFeatures(listOfNotNull(points.takeIf { it.size >= 2 }?.let { Feature.fromGeometry(lineString(it)) })))
         current.start.setGeoJson(pointCollection(points.firstOrNull() ?: from))
         current.end.setGeoJson(pointCollection(to))
+        current.waypoints.setGeoJson(FeatureCollection.fromFeatures(waypoints.map { Feature.fromGeometry(Point.fromLngLat(it.longitude, it.latitude)) }))
     }
-    LaunchedEffect(sources, route, others, from, to, topPaddingPx, nearby, regionBounds) {
+    LaunchedEffect(sources, route, others, from, to, waypoints, topPaddingPx, nearby, regionBounds) {
         if (sources == null) return@LaunchedEffect
         val area = regionBounds
         val points = route?.points.orEmpty()
@@ -209,7 +220,7 @@ internal fun PlannerMap(
         val end = to
         mapView.getMapAsync { map ->
             // Con gli altri percorsi si inquadrano tutti, perche' si possano toccare.
-            val framed = (points.ifEmpty { listOfNotNull(start, end) }) + others.flatMap { it.points }
+            val framed = (points.ifEmpty { listOfNotNull(start, end) + waypoints }) + others.flatMap { it.points }
             when {
                 framed.size >= 2 -> {
                     val bounds = LatLngBounds.Builder().apply { framed.forEach { include(LatLng(it.latitude, it.longitude)) } }.build()
@@ -245,7 +256,8 @@ internal fun PlannerMap(
 }
 
 private class PlannerSources(
-    val route: GeoJsonSource, val others: GeoJsonSource, val start: GeoJsonSource, val end: GeoJsonSource, val pois: GeoJsonSource, val position: GeoJsonSource,
+    val route: GeoJsonSource, val others: GeoJsonSource, val start: GeoJsonSource, val end: GeoJsonSource, val waypoints: GeoJsonSource,
+    val pois: GeoJsonSource, val position: GeoJsonSource,
 )
 
 private fun pointCollection(point: RoutePoint?): FeatureCollection =
@@ -260,6 +272,7 @@ private const val PLANNER_ROUTE_INDEX = "index"
 
 private const val PLANNER_START_SOURCE = "planner-start"
 private const val PLANNER_END_SOURCE = "planner-end"
+private const val PLANNER_WAYPOINTS_SOURCE = "planner-waypoints"
 private const val PLANNER_POI_SOURCE = "planner-poi"
 private const val PLANNER_POSITION_SOURCE = "planner-position"
 private const val PLANNER_POI_ICON = "icon"
@@ -276,6 +289,7 @@ private const val START_RING_RADIUS = 11f
 private const val START_RING_STROKE_WIDTH = 5f
 private const val START_DOT_RADIUS = 4f
 private const val POSITION_DOT_RADIUS = 8f
+private const val WAYPOINT_DOT_RADIUS = 7f
 private const val POSITION_STROKE_WIDTH = 3f
 
 // Margine (dp) attorno al dito per toccare un percorso grigio.

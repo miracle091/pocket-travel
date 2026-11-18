@@ -171,6 +171,8 @@ fun NavigationPlannerScreen(
             downloadFailed = downloadFailed,
             downloadProgress = downloadProgress,
             onDownloadRouting = { onDownloadRouting(navigationMissing.map { it.regionId }, navigationMode == RouteProfile.CAR) },
+            nextWaypoint = navigation.waypoints.firstOrNull()?.name,
+            onSkipWaypoint = navigationViewModel::skipWaypoint,
         )
         return
     }
@@ -179,6 +181,7 @@ fun NavigationPlannerScreen(
         state = NavigationPlannerState(
             from = from,
             to = to,
+            waypoints = planner.waypoints,
             searching = searching,
             query = planner.query,
             results = planner.results,
@@ -215,9 +218,11 @@ fun NavigationPlannerScreen(
                     notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
                 // Il percorso gia' calcolato per l'anteprima del percorso non si ricalcola da zero (se la posizione e' sul percorso).
-                to?.let { navigationViewModel.start(regionId ?: it.regionId, it, routeProfile, arriveBy, preview as? PlannerPreview.Ready, planner.toCatch, planner.avoid) }
+                to?.let { navigationViewModel.start(regionId ?: it.regionId, it, routeProfile, arriveBy, preview as? PlannerPreview.Ready, planner.toCatch, planner.avoid, planner.waypoints) }
             },
             onSwap = viewModel::swap,
+            onRemoveWaypoint = viewModel::removeWaypoint,
+            onMoveWaypoint = viewModel::moveWaypoint,
             onRouteProfileChange = viewModel::setRouteProfile,
             onArriveByChange = viewModel::setArriveBy,
             onSetReminder = viewModel::setReminder,
@@ -240,6 +245,7 @@ fun NavigationPlannerScreen(
                 onSelectRoute = viewModel::selectRoute,
                 from = from?.point,
                 to = to?.point,
+                waypoints = planner.waypoints.map { it.point },
                 position = planner.idlePosition,
                 nearby = planner.nearbyPois,
                 topPaddingPx = topPaddingPx,
@@ -254,6 +260,7 @@ fun NavigationPlannerScreen(
 internal data class NavigationPlannerState(
     val from: NavigationPlace? = null,
     val to: NavigationPlace? = null,
+    val waypoints: List<NavigationPlace> = emptyList(),
     val searching: PlannerField? = null,
     val query: String = "",
     val results: List<PlannerResult> = emptyList(),
@@ -290,6 +297,8 @@ internal class NavigationPlannerActions(
     val onClearRecents: () -> Unit = {},
     val onStart: () -> Unit = {},
     val onSwap: () -> Unit = {},
+    val onRemoveWaypoint: (Int) -> Unit = {},
+    val onMoveWaypoint: (index: Int, earlier: Boolean) -> Unit = { _, _ -> },
     val onRouteProfileChange: (RouteProfile) -> Unit = {},
     val onArriveByChange: (LocalDateTime?) -> Unit = {},
     val onSetReminder: (LocalDateTime) -> Unit = {},
@@ -405,6 +414,10 @@ internal fun NavigationPlannerContent(
                         onEditFrom = { actions.onStartSearch(PlannerField.FROM) },
                         onEditTo = { actions.onStartSearch(PlannerField.TO) },
                         onSwap = actions.onSwap,
+                        waypoints = state.waypoints,
+                        onAddWaypoint = { actions.onStartSearch(PlannerField.WAYPOINT) },
+                        onRemoveWaypoint = actions.onRemoveWaypoint,
+                        onMoveWaypoint = actions.onMoveWaypoint,
                         routeProfile = state.routeProfile,
                         onRouteProfileChange = actions.onRouteProfileChange,
                         avoid = state.avoid,

@@ -25,12 +25,13 @@ class FallbackRouteEngine(
         profile: String?,
         profileParams: Map<String, String>,
         alternatives: Int,
+        via: List<RoutePoint>,
         onProgress: (Double) -> Unit,
     ): RouteResult {
-        val result = merged.route(from, to, profile, profileParams, alternatives, onProgress)
+        val result = merged.route(from, to, profile, profileParams, alternatives, via, onProgress)
         if (result is RouteResult.Failed && ISLAND in result.message) {
             for (engine in single) {
-                val retry = engine.route(from, to, profile, profileParams, alternatives, onProgress)
+                val retry = engine.route(from, to, profile, profileParams, alternatives, via, onProgress)
                 if (retry is RouteResult.Found) return retry
             }
         }

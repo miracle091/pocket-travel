@@ -220,6 +220,9 @@
     <string name="voice_missed_departure">Non fai in tempo per la corsa delle %1$s: la prossima parte alle %2$s</string>
     <string name="voice_arrive_ahead">arrivi a destinazione</string>
     <string name="voice_arrived">Destinazione raggiunta</string>
+    <string name="voice_waypoint_reached">Tappa raggiunta: %1$s</string>
+    <string name="navigation_next_waypoint">Prossima tappa: %1$s</string>
+    <string name="navigation_skip_waypoint">Salta la tappa</string>
     <plurals name="voice_meters">
         <item quantity="one">%1$d metro</item>
         <item quantity="many">%1$d metri</item>
@@ -365,6 +368,12 @@
     <string name="planner_preview_only" tools:ignore="Typos">Partenza da un luogo scelto: si vede solo il percorso. La navigazione passo passo parte dalla tua posizione</string>
     <string name="planner_steps">Svolte</string>
     <string name="planner_search_start">Scegli la partenza</string>
+    <string name="planner_add_waypoint">Aggiungi tappa</string>
+    <string name="planner_waypoint_number">Tappa %1$d</string>
+    <string name="planner_search_waypoint">Scegli la tappa</string>
+    <string name="planner_remove_waypoint">Togli la tappa %1$s</string>
+    <string name="planner_waypoint_earlier">Sposta prima la tappa %1$s</string>
+    <string name="planner_waypoint_later">Sposta dopo la tappa %1$s</string>
     <string name="planner_back">Indietro</string>
     <string name="planner_clear">Cancella</string>
     <string name="planner_no_results">Nessun posto con questo nome nelle regioni scaricate</string>

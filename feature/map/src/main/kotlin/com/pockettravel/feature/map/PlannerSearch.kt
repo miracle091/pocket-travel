@@ -56,7 +56,15 @@ internal fun PlannerSearch(
                 value = query,
                 onValueChange = onQueryChange,
                 placeholder = {
-                    Text(stringResource(if (field == PlannerField.FROM) R.string.planner_search_start else R.string.planner_where_to))
+                    Text(
+                        stringResource(
+                            when (field) {
+                                PlannerField.FROM -> R.string.planner_search_start
+                                PlannerField.TO -> R.string.planner_where_to
+                                PlannerField.WAYPOINT -> R.string.planner_search_waypoint
+                            },
+                        ),
+                    )
                 },
                 leadingIcon = {
                     IconButton(onClick = onBack) {

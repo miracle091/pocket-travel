@@ -30,7 +30,7 @@ class CreateOrFailedTest {
     fun `se la creazione riesce il motore e' quello creato`() = runTest {
         val created = object : RouteEngine {
             override suspend fun route(
-                from: RoutePoint, to: RoutePoint, profile: String?, profileParams: Map<String, String>, alternatives: Int, onProgress: (Double) -> Unit,
+                from: RoutePoint, to: RoutePoint, profile: String?, profileParams: Map<String, String>, alternatives: Int, via: List<RoutePoint>, onProgress: (Double) -> Unit,
             ): RouteResult = RouteResult.NotFound
         }
 

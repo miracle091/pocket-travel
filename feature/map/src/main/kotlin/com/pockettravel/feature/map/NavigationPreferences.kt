@@ -70,6 +70,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
             putLong(KEY_NAVIGATION_STARTED, navigation.startedAtMillis)
             putString(KEY_NAVIGATION_TRIP, navigation.toCatch?.let(TripToCatch::encode))
             putString(KEY_NAVIGATION_AVOID, RouteAvoid.encode(navigation.avoid))
+            putString(KEY_NAVIGATION_WAYPOINTS, RecentDestinations.encode(navigation.waypoints))
         }
     }
 
@@ -89,6 +90,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
             startedAtMillis = started,
             toCatch = TripToCatch.decode(prefs.getString(KEY_NAVIGATION_TRIP, null)),
             avoid = RouteAvoid.decode(prefs.getString(KEY_NAVIGATION_AVOID, null)),
+            waypoints = RecentDestinations.decode(prefs.getString(KEY_NAVIGATION_WAYPOINTS, null)),
         )
     }
 
@@ -100,6 +102,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
         remove(KEY_NAVIGATION_STARTED)
         remove(KEY_NAVIGATION_TRIP)
         remove(KEY_NAVIGATION_AVOID)
+        remove(KEY_NAVIGATION_WAYPOINTS)
     }
 
     private companion object {
@@ -110,6 +113,7 @@ class NavigationPreferences @Inject constructor(preferences: PreferencesFactory)
         const val KEY_NAVIGATION_STARTED = "guidance_started"
         const val KEY_NAVIGATION_TRIP = "guidance_trip"
         const val KEY_NAVIGATION_AVOID = "guidance_avoid"
+        const val KEY_NAVIGATION_WAYPOINTS = "guidance_waypoints"
         const val ACTIVE_NAVIGATION_MAX_AGE_MILLIS = 12 * 60 * 60 * 1000L
         const val KEY_STOP_GPS_ON_ARRIVAL = "stop_gps_on_arrival"
         const val KEY_WALKING_HAPTICS = "walking_haptics"
@@ -130,4 +134,6 @@ data class ActiveNavigation(
     val toCatch: TripToCatch? = null,
     // Cosa evitare, scelto nell'anteprima: vale anche per i ricalcoli.
     val avoid: Set<RouteAvoid> = emptySet(),
+    // Le tappe non ancora raggiunte, in ordine.
+    val waypoints: List<NavigationPlace> = emptyList(),
 )

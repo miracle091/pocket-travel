@@ -98,9 +98,12 @@ class NavigationViewModel @Inject constructor(
     val uiState: StateFlow<NavigationUiState> = combine(
         combine(
             navigationStatus, controller.destination, resumeOffer, controller.routeProfile,
-            combine(navigationPreferences.voiceGuidance, controller.voiceUnavailable, ::Pair),
-        ) { status, target, offer, mode, (voice, noVoice) ->
-            NavigationUiState(status = status, target = target, resumeOffer = offer, routeProfile = if (offer != null) savedMode ?: mode else mode, voiceGuidance = voice, voiceUnavailable = noVoice)
+            combine(navigationPreferences.voiceGuidance, controller.voiceUnavailable, controller.waypoints, ::Triple),
+        ) { status, target, offer, mode, (voice, noVoice, waypoints) ->
+            NavigationUiState(
+                status = status, target = target, resumeOffer = offer, routeProfile = if (offer != null) savedMode ?: mode else mode, voiceGuidance = voice,
+                voiceUnavailable = noVoice, waypoints = waypoints,
+            )
         },
         combine(controller.arrival, controller.destination, savedArrival, controller.toCatch) { arriveBy, target, saved, toCatch ->
             (if (target != null) arriveBy else saved) to toCatch
@@ -145,8 +148,12 @@ class NavigationViewModel @Inject constructor(
             arriveBy = fromDisk?.arriveByEpochMinute?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) } ?: savedArrival.value,
             toCatch = savedNavigation?.toCatch,
             avoid = savedNavigation?.avoid.orEmpty(),
+            waypoints = savedNavigation?.waypoints.orEmpty(),
         )
     }
+
+    /** «Salta la tappa»: si va verso la tappa dopo, o la destinazione. */
+    fun skipWaypoint() = controller.remainingWaypoints.skip()
 
     /** "No": la navigazione interrotta si dimentica. */
     fun dismissResume() {
@@ -166,7 +173,8 @@ class NavigationViewModel @Inject constructor(
     /**
      * Parte la navigazione verso [place] con il modo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
      * Con [preview] (il percorso gia' calcolato nell'anteprima del percorso) si riparte da quello, se la prima posizione e' sul percorso.
-     * [toCatch]: la corsa da prendere alla fermata ("Raggiungi la fermata"); [avoid]: cosa evitare, dall'anteprima.
+     * [toCatch]: la corsa da prendere alla fermata ("Raggiungi la fermata"); [avoid]: cosa evitare, dall'anteprima;
+     * [waypoints]: le tappe, in ordine.
      */
     fun start(
         regionId: String,
@@ -176,9 +184,10 @@ class NavigationViewModel @Inject constructor(
         preview: PlannerPreview.Ready? = null,
         toCatch: TripToCatch? = null,
         avoid: Set<RouteAvoid> = emptySet(),
+        waypoints: List<NavigationPlace> = emptyList(),
     ) {
         resumeOffer.value = null
-        controller.start(regionId, place, mode, arriveBy, preview, toCatch, avoid)
+        controller.start(regionId, place, mode, arriveBy, preview, toCatch, avoid, waypoints)
         savedStateHandle[KEY_REGION] = regionId
         savedStateHandle[KEY_MODE] = mode.name
         savedStateHandle[KEY_ARRIVE_BY] = arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }
@@ -215,7 +224,7 @@ class NavigationViewModel @Inject constructor(
  * [voiceGuidance] la guida vocale accesa e [voiceUnavailable] senza una voce installata nella lingua dell'app; [arriveBy] l'ora a cui si vuole
  * arrivare, per mostrare il ritardo, e [toCatch] la corsa da prendere se si va a una fermata; [regionIds] le regioni del percorso, una sorgente di mappa per ognuna;
  * [drivingSideWarning] il lato di guida da ricordare in auto; [arrivedAtMillis] quando e' stata raggiunta la destinazione, per
- * distinguere un arrivo appena avvenuto da uno di cui nessuno si e' accorto.
+ * distinguere un arrivo appena avvenuto da uno di cui nessuno si e' accorto; [waypoints] le tappe non ancora raggiunte.
  */
 data class NavigationUiState(
     val status: NavigationStatus,
@@ -229,6 +238,7 @@ data class NavigationUiState(
     val regionIds: List<String> = emptyList(),
     val drivingSideWarning: DrivingSide? = null,
     val arrivedAtMillis: Long? = null,
+    val waypoints: List<NavigationPlace> = emptyList(),
 )
 
 /**

@@ -48,8 +48,11 @@ import javax.inject.Inject
 import kotlin.math.cos
 import kotlin.math.sqrt
 
-/** Quale dei due campi della scheda si sta scegliendo con la ricerca. */
-enum class PlannerField { FROM, TO }
+/** Quale campo della scheda si sta scegliendo con la ricerca; [STOP] e' una tappa nuova («Aggiungi tappa»). */
+enum class PlannerField { FROM, TO, WAYPOINT }
+
+/** Tappe al massimo fra partenza e destinazione (utente, 2026-11-17). */
+const val MAX_WAYPOINTS = 3
 
 /**
  * Un risultato della ricerca: il posto, il suo tipo (stringa di PoiTypes) e la regione se non e' quella aperta.
@@ -151,10 +154,12 @@ sealed interface PlannerPreview {
  * [routingInstalled] dice se la regione aperta ha la rete stradale e [routingRegionIds] quali regioni ce l'hanno utile
  * al modo; [arriveBy] e' l'ora a cui si vuole arrivare (null = si parte subito) e [reminder] l'ora di partenza con un
  * avviso programmato. [toCatch]: la corsa da prendere con "Raggiungi la fermata", alla cui partenza [arriveBy] e' fissata.
+ * [waypoints]: le tappe fra partenza e destinazione, in ordine.
  */
 data class PlannerUiState(
     val from: NavigationPlace? = null,
     val to: NavigationPlace? = null,
+    val waypoints: List<NavigationPlace> = emptyList(),
     val searching: PlannerField? = null,
     val query: String = "",
     val results: List<PlannerResult> = emptyList(),
@@ -210,6 +215,7 @@ class NavigationPlannerViewModel @Inject constructor(
     // null = la propria posizione.
     private val _from = MutableStateFlow(savedStateHandle.savedPlace(KEY_FROM))
     private val _to = MutableStateFlow(savedStateHandle.savedPlace(KEY_TO))
+    private val waypointList = MutableStateFlow(RecentDestinations.decode(savedStateHandle.get<String>(KEY_WAYPOINTS)))
 
     private val _searching = MutableStateFlow<PlannerField?>(null)
     private val _query = MutableStateFlow("")
@@ -238,8 +244,8 @@ class NavigationPlannerViewModel @Inject constructor(
      * a Riga dalla pagina della regione di San Marino mostra Riga). Senza nessuna delle tre (Navigatore della barra, nessuna
      * destinazione) tutte quelle installate.
      */
-    private val mapRegionIds: StateFlow<List<String>> = combine(regionId, _from, _to, installed) { id, from, to, regions ->
-        listOfNotNull(id, from?.regionId, to?.regionId).filter { it in regions }.distinct().ifEmpty { regions.keys.toList() }
+    private val mapRegionIds: StateFlow<List<String>> = combine(regionId, _from, _to, waypointList, installed) { id, from, to, waypoints, regions ->
+        (listOfNotNull(id, from?.regionId, to?.regionId) + waypoints.map { it.regionId }).filter { it in regions }.distinct().ifEmpty { regions.keys.toList() }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // Permesso di posizione, riletto quando l'utente risponde (onPermissionResult).
@@ -328,11 +334,12 @@ class NavigationPlannerViewModel @Inject constructor(
 
     /** Tutto quello che la scheda Navigatore legge del percorso, in un solo stato. */
     val uiState: StateFlow<PlannerUiState> = combine(
-        mapState, routingRegionIds, combine(usageModePreferences.allowSteps, routeAvoid, ::Pair), combine(_arriveBy, toCatch, ::Pair), combine(_reminder, oldRoutingDate, ::Pair),
-    ) { state, routingRegionIds, (allowSteps, avoid), (arriveBy, trip), (reminder, oldRouting) ->
+        mapState, routingRegionIds, combine(usageModePreferences.allowSteps, routeAvoid, ::Pair), combine(_arriveBy, toCatch, ::Pair),
+        combine(_reminder, oldRoutingDate, waypointList, ::Triple),
+    ) { state, routingRegionIds, (allowSteps, avoid), (arriveBy, trip), (reminder, oldRouting, waypoints) ->
         state.copy(
             routingRegionIds = routingRegionIds, allowSteps = allowSteps, avoid = avoid, arriveBy = arriveBy, reminder = reminder, toCatch = trip,
-            oldRoutingDate = oldRouting,
+            oldRoutingDate = oldRouting, waypoints = waypoints,
         )
     }.stateIn(
         viewModelScope,
@@ -340,6 +347,7 @@ class NavigationPlannerViewModel @Inject constructor(
         PlannerUiState(
             from = _from.value,
             to = _to.value,
+            waypoints = waypointList.value,
             preview = _preview.value,
             routeProfile = _routeProfile.value,
             routing = routing.value,
@@ -355,6 +363,7 @@ class NavigationPlannerViewModel @Inject constructor(
     init {
         _from.onEach { savedStateHandle[KEY_FROM] = it?.toSavedState() }.launchIn(viewModelScope)
         _to.onEach { savedStateHandle[KEY_TO] = it?.toSavedState() }.launchIn(viewModelScope)
+        waypointList.onEach { savedStateHandle[KEY_WAYPOINTS] = RecentDestinations.encode(it) }.launchIn(viewModelScope)
         _routeProfile.onEach { savedStateHandle[KEY_MODE] = it.name }.launchIn(viewModelScope)
         _arriveBy.onEach { savedStateHandle[KEY_ARRIVE_BY] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
         _reminder.onEach { savedStateHandle[KEY_REMINDER] = it?.let(::dateTimeToMinute) }.launchIn(viewModelScope)
@@ -391,6 +400,7 @@ class NavigationPlannerViewModel @Inject constructor(
         cancelReminder()
         setTo(null)
         setFrom(null)
+        waypointList.value = emptyList()
         _arriveBy.value = null
         refreshPreview()
     }
@@ -440,10 +450,11 @@ class NavigationPlannerViewModel @Inject constructor(
         _reminder.value = null
     }
 
-    /** "Percorso" dal riquadro di un punto della mappa: destinazione pronta, partenza dalla propria posizione. */
+    /** "Percorso" dal riquadro di un punto della mappa: destinazione pronta, partenza dalla propria posizione, nessuna tappa. */
     fun setDestination(place: NavigationPlace) {
         setTo(place)
         setFrom(null)
+        waypointList.value = emptyList()
         closeSearch()
         recentDestinations.add(place)
         refreshPreview()
@@ -511,9 +522,35 @@ class NavigationPlannerViewModel @Inject constructor(
                 setTo(place)
                 recentDestinations.add(place)
             }
+            PlannerField.WAYPOINT -> {
+                if (waypointList.value.size < MAX_WAYPOINTS) setWaypoints(waypointList.value + place)
+                recentDestinations.add(place)
+            }
         }
         closeSearch()
         refreshPreview()
+    }
+
+    /** Toglie la tappa in posizione [index]. */
+    fun removeWaypoint(index: Int) {
+        if (index !in waypointList.value.indices) return
+        setWaypoints(waypointList.value.filterIndexed { i, _ -> i != index })
+        refreshPreview()
+    }
+
+    /** Sposta la tappa [index] di un posto prima ([earlier]) o dopo. */
+    fun moveWaypoint(index: Int, earlier: Boolean) {
+        val target = if (earlier) index - 1 else index + 1
+        val waypoints = waypointList.value
+        if (index !in waypoints.indices || target !in waypoints.indices) return
+        setWaypoints(waypoints.toMutableList().apply { add(target, removeAt(index)) })
+        refreshPreview()
+    }
+
+    // Le tappe cambiano la durata del percorso, e con lei l'ora di partenza.
+    private fun setWaypoints(waypoints: List<NavigationPlace>) {
+        if (waypoints != waypointList.value) cancelReminder()
+        waypointList.value = waypoints
     }
 
     /** "La mia posizione" come partenza. */
@@ -528,6 +565,7 @@ class NavigationPlannerViewModel @Inject constructor(
         val from = _from.value ?: return
         setFrom(_to.value)
         setTo(from)
+        setWaypoints(waypointList.value.reversed())
         refreshPreview()
     }
 
@@ -576,6 +614,7 @@ class NavigationPlannerViewModel @Inject constructor(
         alternativesJob?.cancel()
         val destination = _to.value ?: run { _preview.value = PlannerPreview.Idle; return }
         val origin = _from.value
+        val via = waypointList.value.map { it.point }
         val current = regionId.value ?: destination.regionId
         // Dai valori di partenza, non da [routing]: quello si aggiorna solo al giro successivo della sua coroutine, e
         // dopo un cambio fatto da dentro una coroutine l'anteprima del percorso userebbe il modo di prima.
@@ -595,12 +634,12 @@ class NavigationPlannerViewModel @Inject constructor(
             previewStart = start
             _preview.value = PlannerPreview.Calculating(0.0)
             val candidates = routingRegions()
-            val regionIds = navigationRegionIds(current, candidates, start, destination.point)
+            val regionIds = navigationRegionIds(current, candidates, start, destination.point, via)
             // Nazioni in mezzo senza rete stradale: "manca la rete stradale" subito, invece di un errore generico dopo il calcolo.
-            val result = if (leavesRoutingRegions(candidates, start, destination.point)) {
+            val result = if (leavesRoutingRegions(candidates, start, destination.point, via)) {
                 RouteResult.NoRoutingData
             } else {
-                routeEngineFactory.create(regionIds).route(start, destination.point, choice.profile, choice.params) { progress ->
+                routeEngineFactory.create(regionIds).route(start, destination.point, choice.profile, choice.params, via = via) { progress ->
                     // Un avanzamento in ritardo di un calcolo annullato non sovrascrive l'anteprima di quello nuovo.
                     if (previewJob === self && self?.isActive == true) _preview.value = PlannerPreview.Calculating(progress)
                 }
@@ -622,7 +661,7 @@ class NavigationPlannerViewModel @Inject constructor(
         _preview.value = ready.copy(others = OtherRoutes.Calculating)
         alternativesJob = viewModelScope.launch {
             val result = routeEngineFactory.create(ready.regionIds)
-                .route(start, destination.point, choice.profile, choice.params, alternatives = ALTERNATIVE_ROUTES)
+                .route(start, destination.point, choice.profile, choice.params, alternatives = ALTERNATIVE_ROUTES, via = waypointList.value.map { it.point })
             val alternatives = (result as? RouteResult.Found)?.alternatives.orEmpty().filter { it.points != ready.route.points }
             _preview.value = ready.copy(others = OtherRoutes.Found(listOf(ready.route) + alternatives))
         }
@@ -682,6 +721,7 @@ class NavigationPlannerViewModel @Inject constructor(
     private companion object {
         const val KEY_FROM = "from"
         const val KEY_TO = "to"
+        const val KEY_WAYPOINTS = "waypoints"
         const val KEY_MODE = "mode"
         const val KEY_ARRIVE_BY = "arriveBy"
         const val KEY_REMINDER = "reminder"

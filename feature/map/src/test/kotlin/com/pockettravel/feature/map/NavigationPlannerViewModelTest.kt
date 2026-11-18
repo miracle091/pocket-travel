@@ -115,6 +115,54 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
         assertEquals(duomo, settled(viewModel.uiState).to)
     }
 
+    // --- Tappe ---
+
+    @Test
+    fun `le tappe si aggiungono fino a tre e vanno al motore in ordine`() = runTest {
+        gps.permission = false
+        engines.defaultResult = RouteResult.Found(route)
+        val viewModel = viewModel()
+        viewModel.setDestination(colosseo)
+        viewModel.startSearch(PlannerField.FROM)
+        viewModel.choose(duomo)
+        val extra = NavigationPlace("Quarta", 41.0, 12.0, "r1")
+
+        listOf(louvre, colosseo, duomo, extra).forEach { stop ->
+            viewModel.startSearch(PlannerField.WAYPOINT)
+            viewModel.choose(stop)
+        }
+        runCurrent()
+
+        assertEquals(listOf(louvre, colosseo, duomo), settled(viewModel.uiState).waypoints)
+        assertEquals(listOf(louvre.point, colosseo.point, duomo.point), engines.requests.last().via)
+        assertEquals("la tappa scelta va nei recenti", louvre, recents.places.value.firstOrNull { it == louvre })
+    }
+
+    @Test
+    fun `le tappe si spostano, si tolgono, si invertono con lo scambio e spariscono con una meta dalla mappa`() = runTest {
+        gps.permission = false
+        val viewModel = viewModel()
+        viewModel.setDestination(colosseo)
+        viewModel.startSearch(PlannerField.FROM)
+        viewModel.choose(duomo)
+        listOf(louvre, colosseo).forEach { stop ->
+            viewModel.startSearch(PlannerField.WAYPOINT)
+            viewModel.choose(stop)
+        }
+
+        viewModel.moveWaypoint(1, earlier = true)
+        assertEquals(listOf(colosseo, louvre), settled(viewModel.uiState).waypoints)
+        viewModel.moveWaypoint(0, earlier = true)
+        assertEquals("la prima non sale oltre", listOf(colosseo, louvre), settled(viewModel.uiState).waypoints)
+        viewModel.swap()
+        assertEquals(listOf(louvre, colosseo), settled(viewModel.uiState).waypoints)
+        viewModel.removeWaypoint(0)
+        assertEquals(listOf(colosseo), settled(viewModel.uiState).waypoints)
+
+        viewModel.setDestination(louvre)
+        assertEquals(emptyList<NavigationPlace>(), settled(viewModel.uiState).waypoints)
+    }
+
     @Test
     fun `i recenti sono quelli delle regioni installate e si tolgono uno alla volta o tutti`() = runTest {
         recents.add(colosseo)

@@ -25,6 +25,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +47,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.ui.AppIcons
@@ -87,6 +89,9 @@ internal fun ActiveNavigationContent(
     drivingSide: DrivingSide?,
     voice: VoiceControl,
     toCatch: TripToCatch? = null,
+    // La prossima tappa non ancora raggiunta (null senza tappe) e «Salta la tappa».
+    nextWaypoint: String? = null,
+    onSkipWaypoint: () -> Unit = {},
 ) {
     val progress = state.progress
     val route = state.route
@@ -196,6 +201,18 @@ internal fun ActiveNavigationContent(
                         modifier = Modifier.size(56.dp),
                     ) {
                         Icon(AppIcons.Close, contentDescription = stringResource(R.string.navigation_close))
+                    }
+                }
+                if (nextWaypoint != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            stringResource(R.string.navigation_next_waypoint, nextWaypoint),
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = onSkipWaypoint) { Text(stringResource(R.string.navigation_skip_waypoint)) }
                     }
                 }
                 if (arriveBy != null && toCatch != null) TripToCatchLine(toCatch, arriveBy)

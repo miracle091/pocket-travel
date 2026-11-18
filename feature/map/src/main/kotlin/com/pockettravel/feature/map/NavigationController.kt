@@ -75,6 +75,21 @@ class NavigationController @Inject constructor(
     // "Raggiungi la fermata": la corsa da prendere; [arrival] e' la sua prima partenza che si fa ancora in tempo a prendere.
     private val _toCatch = MutableStateFlow<TripToCatch?>(null)
     val toCatch: StateFlow<TripToCatch?> = _toCatch.asStateFlow()
+
+    // Le tappe rimaste si salvano con la navigazione attiva, per la ripresa; «Salta la tappa» ricalcola dall'ultima
+    // posizione verso le altre, anche durante un calcolo.
+    internal val remainingWaypoints = NavigationWaypoints(
+        onChange = { left ->
+            navigationPreferences.activeNavigation(clock.millis())?.let { navigationPreferences.saveActiveNavigation(it.copy(waypoints = left)) }
+        },
+        onSkip = {
+            calculationJob?.cancel()
+            _calculating.value = false
+            _lastFix.value?.let { calculate(it) }
+        },
+    )
+    val waypoints: StateFlow<List<NavigationPlace>> = remainingWaypoints.remaining
+
     private val _routeProfile = MutableStateFlow(RouteProfile.from(usageModePreferences.modes.value))
     val routeProfile: StateFlow<RouteProfile> = _routeProfile.asStateFlow()
 
@@ -161,7 +176,7 @@ class NavigationController @Inject constructor(
      * Parte la navigazione verso [place] con il modo scelto nel Navigatore: il percorso si ricalcola dalla posizione GPS.
      * Con [preview] (il percorso gia' calcolato nell'anteprima del percorso) si riparte da quello, se la prima posizione e' sul percorso.
      * Con [toCatch] l'ora di arrivo segue le partenze della corsa: persa una, passa alla successiva. [avoid]: le opzioni
-     * dell'anteprima, anche per i ricalcoli.
+     * dell'anteprima, anche per i ricalcoli. [waypoints]: le tappe, in ordine.
      */
     fun start(
         regionId: String,
@@ -171,9 +186,11 @@ class NavigationController @Inject constructor(
         preview: PlannerPreview.Ready?,
         toCatch: TripToCatch? = null,
         avoid: Set<RouteAvoid> = emptySet(),
+        waypoints: List<NavigationPlace> = emptyList(),
     ) {
         this.regionId = regionId
         this.avoid = avoid
+        remainingWaypoints.reset(waypoints)
         _regionIds.value = preview?.regionIds ?: listOf(regionId)
         previewToUse = preview
         // Anche la stessa anteprima del percorso riavviata riparte da capo: il tracker ricorda quanto si e' avanzati.
@@ -195,7 +212,7 @@ class NavigationController @Inject constructor(
         announcer.begin(mode)
         beginSession(place)
         navigationPreferences.saveActiveNavigation(
-            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }, clock.millis(), toCatch, avoid),
+            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }, clock.millis(), toCatch, avoid, waypoints),
         )
     }
 
@@ -207,6 +224,7 @@ class NavigationController @Inject constructor(
         _destination.value = null
         _arrival.value = null
         _toCatch.value = null
+        remainingWaypoints.reset(emptyList())
         _routeResult.value = null
         _arrived.value = false
         _arrivedAtMillis.value = null
@@ -287,7 +305,11 @@ class NavigationController @Inject constructor(
                 }
             }
             is RouteResult.Found -> {
-                val progress = trackerFor(result.route).progress(RoutePoint(fix.latitude, fix.longitude), fix.timeMillis)
+                val position = RoutePoint(fix.latitude, fix.longitude)
+                val progress = trackerFor(result.route).progress(position, fix.timeMillis)
+                if (!progress.offRoute) {
+                    remainingWaypoints.reached(result.route, position, progress, _routeProfile.value.arrivalMeters)?.let { announcer.onWaypointReached(it.name) }
+                }
                 announcer.onProgress(result.route, progress, streetNames[progress.nextInstruction.pointIndex], fix.timeMillis)
                 if (progress.arrived && navigationPreferences.stopGpsOnArrival.value) {
                     _arrivedAtMillis.value = clock.millis()
@@ -321,19 +343,20 @@ class NavigationController @Inject constructor(
         // Prima posizione arrivata: la notifica passa da "In attesa del segnale GPS…" a "Calcolo del percorso".
         if (_routeResult.value !is RouteResult.Found) session.update(NavigationSnapshot(target.name, null, 0.0, 0.0, 0.0))
         val choice = brouterProfile(_routeProfile.value, usageModePreferences.accessible.value, usageModePreferences.allowSteps.value, avoid)
+        val via = remainingWaypoints.remaining.value.map { it.point }
         val job = scope.launch(start = CoroutineStart.LAZY) {
             val self = coroutineContext[Job]
             try {
                 val start = RoutePoint(from.latitude, from.longitude)
                 val candidates = routingRegions()
-                val regionIds = navigationRegionIds(regionId, candidates, start, target.point)
+                val regionIds = navigationRegionIds(regionId, candidates, start, target.point, via)
                 _regionIds.value = regionIds
                 // Fuori dalle regioni con la rete stradale (un ricalcolo dopo una deviazione oltre il confine) BRouter
                 // cercherebbe fino al tempo massimo: "manca la rete stradale" subito, come nell'anteprima.
-                val result = if (leavesRoutingRegions(candidates, start, target.point)) {
+                val result = if (leavesRoutingRegions(candidates, start, target.point, via)) {
                     RouteResult.NoRoutingData
                 } else {
-                    routeEngineFactory.create(regionIds).route(start, target.point, choice.profile, choice.params) { progress ->
+                    routeEngineFactory.create(regionIds).route(start, target.point, choice.profile, choice.params, via = via) { progress ->
                         // Annullato ma non ancora sostituito: un avanzamento in ritardo non sporca quello del calcolo nuovo.
                         if (calculationJob === self && self?.isActive == true) _calculationProgress.value = progress
                     }

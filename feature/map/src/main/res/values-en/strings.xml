@@ -217,6 +217,9 @@
     <string name="voice_missed_departure">You won\'t make the %1$s departure: the next one leaves at %2$s</string>
     <string name="voice_arrive_ahead">you\'ll arrive at your destination</string>
     <string name="voice_arrived">You have arrived at your destination</string>
+    <string name="voice_waypoint_reached">Waypoint reached: %1$s</string>
+    <string name="navigation_next_waypoint">Next waypoint: %1$s</string>
+    <string name="navigation_skip_waypoint">Skip waypoint</string>
     <plurals name="voice_meters">
         <item quantity="one">%1$d meter</item>
         <item quantity="other">%1$d meters</item>
@@ -354,6 +357,12 @@
     <string name="planner_preview_only">Starting from a chosen place: route only. Turn-by-turn navigation starts from your location</string>
     <string name="planner_steps">Turns</string>
     <string name="planner_search_start">Choose the starting point</string>
+    <string name="planner_add_waypoint">Add waypoint</string>
+    <string name="planner_waypoint_number">Waypoint %1$d</string>
+    <string name="planner_search_waypoint">Choose the waypoint</string>
+    <string name="planner_remove_waypoint">Remove waypoint %1$s</string>
+    <string name="planner_waypoint_earlier">Move waypoint %1$s earlier</string>
+    <string name="planner_waypoint_later">Move waypoint %1$s later</string>
     <string name="planner_back">Back</string>
     <string name="planner_clear">Clear</string>
     <string name="planner_no_results">No place with this name in the downloaded regions</string>

@@ -162,6 +162,21 @@ class NavigationUiStateTransitionsTest {
         assertTrue(leavesRoutingRegions(listOf(italia), RoutePoint(47.1, 18.5), RoutePoint(47.2, 18.7)))
     }
 
+    // Da Cesenatico a Rimini con una tappa a San Marino: la regione della tappa entra, e la linea passa dalla tappa.
+    @Test
+    fun `con una tappa contano anche la sua regione e la linea che passa da lei`() {
+        val italia = RoutingRegion("italia", MapBounds(12.30, 44.00, 12.70, 44.30))
+        val marino = RoutingRegion("san-marino", MapBounds(12.40, 43.89, 12.52, 43.99))
+        val cesenatico = RoutePoint(44.20, 12.40)
+        val rimini = RoutePoint(44.06, 12.57)
+        val stop = RoutePoint(43.93, 12.45)
+
+        assertEquals(listOf("italia"), navigationRegionIds("italia", listOf(italia, marino), cesenatico, rimini))
+        assertEquals(listOf("italia", "san-marino"), navigationRegionIds("italia", listOf(italia, marino), cesenatico, rimini, listOf(stop)))
+        assertFalse(leavesRoutingRegions(listOf(italia, marino), cesenatico, rimini, listOf(stop)))
+        assertTrue("senza San Marino la tappa e' fuori", leavesRoutingRegions(listOf(italia), cesenatico, rimini, listOf(stop)))
+    }
+
     @Test
     fun `i modi di navigazione usano i profili BRouter attesi`() {
         assertEquals(listOf("shortest", "trekking", "car-vario"), RouteProfile.entries.map { it.routingProfile })

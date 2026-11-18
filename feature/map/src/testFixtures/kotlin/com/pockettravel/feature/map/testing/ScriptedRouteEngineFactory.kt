@@ -13,7 +13,7 @@ import kotlinx.coroutines.withContext
  * Registra le regioni di ogni motore creato e le richieste di percorso. Con [gate] il calcolo aspetta lo sblocco.
  */
 class ScriptedRouteEngineFactory(var defaultResult: RouteResult = RouteResult.NotFound) : RouteEngineFactory {
-    class Request(val from: RoutePoint, val to: RoutePoint, val profile: String?, val params: Map<String, String>, val alternatives: Int = 0)
+    class Request(val from: RoutePoint, val to: RoutePoint, val profile: String?, val params: Map<String, String>, val alternatives: Int = 0, val via: List<RoutePoint> = emptyList())
 
     val results = ArrayDeque<RouteResult>()
     val created = mutableListOf<List<String>>()
@@ -30,9 +30,9 @@ class ScriptedRouteEngineFactory(var defaultResult: RouteResult = RouteResult.No
         created += regionIds
         return object : RouteEngine {
             override suspend fun route(
-                from: RoutePoint, to: RoutePoint, profile: String?, profileParams: Map<String, String>, alternatives: Int, onProgress: (Double) -> Unit,
+                from: RoutePoint, to: RoutePoint, profile: String?, profileParams: Map<String, String>, alternatives: Int, via: List<RoutePoint>, onProgress: (Double) -> Unit,
             ): RouteResult {
-                requests += Request(from, to, profile, profileParams, alternatives)
+                requests += Request(from, to, profile, profileParams, alternatives, via)
                 progressSteps.forEach(onProgress)
                 try {
                     gate?.await()

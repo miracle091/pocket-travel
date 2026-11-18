@@ -13,8 +13,9 @@ class MergeFailedRouteEngine(private val firstRegion: RouteEngine) : RouteEngine
         profile: String?,
         profileParams: Map<String, String>,
         alternatives: Int,
+        via: List<RoutePoint>,
         onProgress: (Double) -> Unit,
-    ): RouteResult = when (val result = firstRegion.route(from, to, profile, profileParams, alternatives, onProgress)) {
+    ): RouteResult = when (val result = firstRegion.route(from, to, profile, profileParams, alternatives, via, onProgress)) {
         RouteResult.NoRoutingData -> RouteResult.MergeFailed
         else -> result
     }

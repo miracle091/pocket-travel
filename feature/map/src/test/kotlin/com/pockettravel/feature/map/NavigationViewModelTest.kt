@@ -45,7 +45,7 @@ import java.util.Locale
 
 /** Orologio che parte da un'ora fissa e avanza con il tempo virtuale di [scheduler]. */
 @OptIn(ExperimentalCoroutinesApi::class)
-private class SchedulerClock(private val scheduler: TestCoroutineScheduler) : Clock() {
+internal class SchedulerClock(private val scheduler: TestCoroutineScheduler) : Clock() {
     override fun getZone(): ZoneId = ZoneOffset.UTC
 
     override fun withZone(zone: ZoneId): Clock = this

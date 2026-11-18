@@ -51,6 +51,16 @@ class NavigationPreferencesTest {
     }
 
     @Test
+    fun `la navigazione salvata torna con le tappe rimaste, in ordine`() {
+        val files = InMemoryPreferencesFactory()
+        val waypoints = listOf(NavigationPlace("Torre degli Asinelli", 44.4943, 11.3467, "emilia-romagna"), NavigationPlace("San Luca", 44.4791, 11.2981, "emilia-romagna"))
+        val saved = navigation().copy(waypoints = waypoints)
+        NavigationPreferences(files).saveActiveNavigation(saved)
+
+        assertEquals(waypoints, NavigationPreferences(files).activeNavigation(now = 2_000L)?.waypoints)
+    }
+
+    @Test
     fun `la corsa da prendere torna uguale, anche con tabulazioni nei nomi e senza colori`() {
         val files = InMemoryPreferencesFactory()
         val departures = listOf(LocalDateTime.of(2026, 11, 14, 14, 7), LocalDateTime.of(2026, 11, 14, 14, 27))
