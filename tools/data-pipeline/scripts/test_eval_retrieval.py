@@ -253,6 +253,14 @@ class SearchTest(unittest.TestCase):
             top, _ = ev.search(db, "peru", "Cos'è il cebiche?", [])
         self.assertEqual([(s["category"], s["body"]) for s in top][:2],
                          [("DA_SAPERE", "Piatto di pesce crudo."), ("CIBO_BEVANDE", "Il cebiche si mangia a pranzo.")])
+        # Serie terms: la voce trovata, al primo posto e con la sezione della guida; con --no-terms non c'e'.
+        results = {}
+        with contextlib.redirect_stdout(io.StringIO()):
+            ev.local_terms(guides, ["peru"], "it", results=results)
+        self.assertEqual(results["termini locali"], {"n": 1, "trovata": 1, "prima": 1, "con la guida": 1})
+        with mock.patch.dict(ev.TERMS, on=False), contextlib.closing(ev.build_db(guides, "peru", [])) as db:
+            top, _ = ev.search(db, "peru", "Cos'è il cebiche?", [])
+        self.assertEqual([s["category"] for s in top], ["CIBO_BEVANDE"])
 
     def test_parole_di_storia_e_clima(self):
         self.assertTrue(ev.HISTORY_CLIMATE_WORDS.search("Does it rain a lot in Porto?"))

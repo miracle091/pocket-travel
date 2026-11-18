@@ -467,7 +467,9 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   `--questions control` le domande di controllo (mai usate per costruire le liste di parole), `--questions dev` e `dev2`
   i controlli di prima, diventati serie di sviluppo, `--questions other-country` le domande che nominano un'altra nazione (cercate nella sua guida, `CountryGuides.kt`),
   `--questions unanswerable` 60 domande per lingua a cui le guide non rispondono (parcheggio in aeroporto, veterinari,
-  dentisti, colonnine di ricarica: il modello deve rifiutare),
+  dentisti, colonnine di ricarica: il modello deve rifiutare), `--questions terms` le domande sui termini locali di
+  `guide_terms` («Cos'è …?», fino a 20 termini per regione: attesa la voce di Wikipedia del termine al primo posto),
+  `--no-terms` la ricerca senza i termini locali (per confrontare le altre serie),
   `--guides-db` un `guides.db` locale al posto di quello pubblicato, `--keep-data` i file già nella cache
   senza riscaricarli (una misura lunga resta sugli stessi dati se nel frattempo esce un catalogo nuovo), `--word-lists` la ricerca con le liste di parole
   che l'app usa (`word_lists.txt` in `feature/ai/src/main/resources/pockettravel/`, letto da `scripts/word_lists.py`;

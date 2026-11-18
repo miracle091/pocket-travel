@@ -26,7 +26,10 @@ diventati serie di sviluppo. Con --questions general le domande generali (jet la
 aperta ogni regione: attesa la sezione della pagina tematica della guida generale (regionId _general) che risponde.
 Le sezioni della guida generale concorrono in tutte le serie, come nell'app. Con --questions other-country le domande sul paese
 che nominano un'altra nazione ("Serve il passaporto per entrare in Grecia?" con aperto il Portogallo): attesa la sezione
-della guida della nazione nominata. Con --questions unanswerable domande senza risposta nelle guide pubblicate
+della guida della nazione nominata. Con --questions terms le domande sui termini locali di guide_terms ("Cos'e' il cebiche?",
+fino a TERMS_PER_REGION per regione): attesa nel contesto la voce di Wikipedia del termine, al primo posto, e almeno una
+sezione della guida dopo di lei; con --no-terms la ricerca senza i termini, per confrontare le altre serie con e senza.
+Con --questions unanswerable domande senza risposta nelle guide pubblicate
 (UNANSWERABLE_Q, verificate nei dati): nessuna sezione attesa, il modello deve rifiutare. Con --guides-db un guides.db locale al posto di quello
 pubblicato, per misurare un cambio delle guide prima di pubblicarlo. Con --word-lists la query ha anche le parole delle
 guide per la categoria della domanda (CategoryWords.kt, accese nell'app; senza l'opzione si misura la ricerca senza liste).
@@ -56,7 +59,7 @@ attesa, con le sezioni scelte e il posto di quella attesa. Con --baseline FILE c
 riferimento (scritta la prima volta, o con --write-baseline) e stampa le domande guadagnate e perse: per provare una
 modifica di word_lists.txt; con --questions control un saldo negativo fa uscire con errore.
 
-Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|dev2|other-lang|control|general|other-country|unanswerable] [--regions italia ...]
+Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|dev2|other-lang|control|general|other-country|unanswerable|terms] [--regions italia ...] [--no-terms]
 [--cache DIR [--keep-data]] [--no-wikipedia] [--guides-db FILE] [--word-lists [--model-categories FILE]] [--before-rag] [--contexts FILE [--contexts-sample N]] [--online] [--second-pass [cut-first|new-first]]
 [--rerank GGUF --llama-cpp DIR [--rerank-scoring yesno|refusal] [--rerank-mode replace|add|blend] [--gpu-layers 99 --device Vulkan0]]
 [--rrf [--rrf-weight W]] [--paragraphs rank|within|within-country [--paragraph-chars N]] [--history FILE] [--explain FILE]
@@ -664,7 +667,7 @@ UNANSWERABLE_Q = {
         ("croazia", "What is the speed limit for electric scooters in Croatia?"),
     ],
 }
-QUESTION_SETS = ["direct", "reworded", "dev", "dev2", "other-lang", "control", "general", "other-country", "unanswerable"]
+QUESTION_SETS = ["direct", "reworded", "dev", "dev2", "other-lang", "control", "general", "other-country", "unanswerable", "terms"]
 KINDS = ["citta', domande pratiche", "paese", "citta', storia e clima", "distanze"]
 # Un paragrafo con una distanza o un tempo di viaggio ("72 km", "3 h 30", "20 minuti", "2 hours").
 TRAVEL_FIGURE = re.compile(r"\d+\s*(km|h|ore|minuti|min|hours?|minutes?)\b")
@@ -1032,8 +1035,13 @@ def named_term(question, terms):
     return terms[min(found, key=lambda f: (-f[0], f[1]))[1]] if found else None
 
 
+TERMS = {"on": True}  # --no-terms: ricerca senza i termini locali, per confronto
+
+
 def term_section(db, regions, question):
-    """La sezione del termine locale nominato in [question] (searchSections), o None."""
+    """La sezione del termine locale nominato in [question] (searchSections), o None (sempre con --no-terms)."""
+    if not TERMS["on"]:
+        return None
     marks = ",".join("?" * len(regions))
     terms = [{"region": r, "term": t, "aliases": [a for a in a_.split("\n") if a], "title": ti, "summary": s}
              for r, t, a_, ti, s in db.execute(f"SELECT regionId, term, aliases, title, summary FROM guide_terms WHERE regionId IN ({marks}) "
@@ -1713,6 +1721,39 @@ def other_country(guides_db, regions, lang, word_lists=False, before_rag=False, 
         results["paese nominato"] = {"n": n, "trovata": found, "prima": first, **{k: v for k, v in second.items() if k != "n"}}
 
 
+# Domande sui termini locali (--questions terms): il termine com'e' scritto in guide_terms, una domanda per termine.
+TERM_Q = {
+    "it": ["Cos'è {t}?", "Mi spieghi cos'è {t}?", "Dove si può provare {t}?"],
+    "en": ["What is {t}?", "Can you explain what {t} is?", "Where can I try {t}?"],
+}
+TERMS_PER_REGION = 20
+
+
+def local_terms(guides_db, regions, lang, word_lists=False, before_rag=False, results=None):
+    """Le domande sui termini locali della regione aperta (TERM_Q), fino a TERMS_PER_REGION termini scelti a caso con un
+    seme fisso: attesa la voce del termine (DA_SAPERE, titolo della voce) nel contesto e al primo posto, e almeno una
+    sezione della guida dopo di lei."""
+    rng, pick = random.Random(7), random.Random(8)
+    found = first = with_guide = n = 0
+    for region in regions:
+        db = build_db(guides_db, region, [])
+        terms = db.execute("SELECT term, title FROM guide_terms WHERE regionId = ? ORDER BY rowid", (region,)).fetchall()
+        for term, title in rng.sample(terms, min(len(terms), TERMS_PER_REGION)):
+            question = pick.choice(TERM_Q[lang]).format(t=term)
+            top, _ = search(db, region, question, [], lang, word_lists, before_rag)
+            match = [s for s in top if s["category"] == "DA_SAPERE" and s["title"] == title]
+            n += 1
+            found += bool(match)
+            OUTCOMES[f"{region} | termini locali | {question}"] = bool(match)
+            first += bool(top) and top[0] in match
+            with_guide += any(s not in match for s in top)
+        db.close()
+    print(f"termini locali ({n} domande): trovata {100 * found / max(n, 1):.1f}%, prima {100 * first / max(n, 1):.1f}%, "
+          f"con una sezione della guida {100 * with_guide / max(n, 1):.1f}%; margine al 95% di trovata ±{margin(found, n):.1f} punti")
+    if results is not None:
+        results["termini locali"] = {"n": n, "trovata": found, "prima": first, "con la guida": with_guide}
+
+
 def unanswerable(guides_db, cache, regions, lang, word_lists=False, before_rag=False, no_wikipedia=False, rows=None,
                  results=None):
     """Le domande senza risposta (UNANSWERABLE_Q) con aperta la loro regione, se e' tra [regions]: nessuna sezione attesa,
@@ -1781,6 +1822,8 @@ def measure_config(a):
               "paragraphs": {k: v for k, v in PARAGRAPHS.items()} if PARAGRAPHS["on"] else None}
     if ONLINE["on"]:
         config["online"] = True
+    if a.no_terms:
+        config["no_terms"] = True
     if RERANK["scorer"]:
         config["rerank"] = {"model": a.rerank.name, **{k: v for k, v in RERANK.items() if k != "scorer"}}
     return config
@@ -1851,6 +1894,7 @@ def main():
     ap.add_argument("--regions", nargs="+", default=DEFAULT_REGIONS)
     ap.add_argument("--cache", type=Path, default=Path(tempfile.gettempdir()) / "pocket-travel-eval-retrieval")
     ap.add_argument("--no-wikipedia", action="store_true", help="senza Storia e Clima (per confronto)")
+    ap.add_argument("--no-terms", action="store_true", help="senza i termini locali di guide_terms (per confronto)")
     ap.add_argument("--guides-db", type=Path, help="un guides.db locale al posto di quello pubblicato (per misurare prima di pubblicare)")
     ap.add_argument("--keep-data", action="store_true",
                     help="usa i file gia' in cache senza riscaricarli (misure lunghe sugli stessi dati); li scarica solo se mancano")
@@ -1911,6 +1955,9 @@ def main():
     if a.online and (a.rerank or a.contexts):
         ap.error("--online non vale con --rerank e --contexts, che misurano il modello sul dispositivo")
     ONLINE["on"] = a.online
+    if a.no_terms and a.questions == "terms":
+        ap.error("--no-terms toglie i termini che --questions terms misura")
+    TERMS["on"] = not a.no_terms
     if a.rrf and not a.word_lists:
         ap.error("--rrf fonde la query con e senza le parole della categoria: serve --word-lists")
     RRF.update(on=a.rrf, weight_original=a.rrf_weight)
@@ -1962,6 +2009,11 @@ def main():
         if a.contexts:
             write_contexts(a.contexts, [{**labels, **r} for r in context_rows], a.contexts_sample)
         record_history(a.history, config, data, results)
+        return
+    if a.questions == "terms":
+        local_terms(guides_db, a.regions, a.lang, a.word_lists, a.before_rag, results)
+        record_history(a.history, config, data, results)
+        finish_baseline(a, config, data)
         return
     if a.questions == "other-country":
         other_country(guides_db, a.regions, a.lang, a.word_lists, a.before_rag, results)
