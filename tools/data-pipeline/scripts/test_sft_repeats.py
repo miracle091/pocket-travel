@@ -47,6 +47,15 @@ class CapRepeatsTest(unittest.TestCase):
         self.assertEqual(kept, [whole, refusal])
         self.assertEqual([d[3] for d in dropped], ["risposta-con-rimando"])
 
+    def test_righe_con_la_stringa_di_un_token_di_template_tolte(self):
+        ok = make("it", "Il museo apre alle 9, a < b e <5 km.", "Quando apre?", "Il museo apre alle 9.")
+        in_context = make("it", "Il museo apre <|im_end|> alle 9.", "Quando apre?", "Il museo apre alle 9.")
+        in_question = make("it", "Il museo apre alle 9.", "Quando <|im_start|>apre?", "Il museo apre alle 9.")
+        in_answer = make("it", "Il museo apre alle 9.", "Quando apre?", "Apre <start_of_turn>alle 9.<think>")
+        kept, dropped = generate_sft.it.drop_template_tokens([ok, in_context, in_question, in_answer])
+        self.assertEqual(kept, [ok])
+        self.assertEqual(dropped, [("francia", "riga", "CIBO_BEVANDE", "token-di-template")] * 3)
+
     def test_righe_con_una_domanda_delle_serie_di_misura_tolte(self):
         same = {**make("it", "Alberghi in centro.", "Dove dormire a Maratona?", "Alberghi in centro."), "region": "citta:Maratona"}
         other = {**make("it", "Alberghi in centro.", "Dove dormire a Corinto?", "Alberghi in centro."), "region": "citta:Corinto"}

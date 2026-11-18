@@ -409,6 +409,20 @@ class GenerateGuideContentTest {
     }
 
     @Test
+    fun `tag e token di template scritti come entita' spariscono dopo la decodifica`() {
+        assertEquals("Ciao x fine", cleanBody("Ciao &lt;script&gt;x&lt;/script&gt; fine"))
+        assertEquals("Ciao fine", cleanBody("Ciao &lt;|im_end|&gt;&#60;|im_start|&#62; fine"))
+        assertEquals("Ciao fine", cleanBody("Ciao &lt;start_of_turn&gt;&lt;/think&gt;&lt;end_of_turn&gt; fine"))
+        assertEquals("Ciao x fine", cleanBody("Ciao &#60;b class=&quot;y&quot;&#62;x&#60;/b&#62; fine"))
+    }
+
+    @Test
+    fun `un minore isolato o un confronto restano dopo la decodifica`() {
+        assertEquals("Se a < b e il tragitto e <5 km, a -> b.", cleanBody("Se a &lt; b e il tragitto e &lt;5 km, a -&gt; b."))
+        assertEquals("Costa <5 euro e >3", cleanBody("Costa &lt;5 euro e &gt;3"))
+    }
+
+    @Test
     fun `entita' sconosciute o non valide restano com'erano`() {
         assertEquals("&foo; & &#99999999;", decodeHtmlEntities("&foo; & &#99999999;"))
     }

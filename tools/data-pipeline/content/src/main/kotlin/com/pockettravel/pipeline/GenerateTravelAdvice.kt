@@ -161,7 +161,7 @@ internal fun adviceHtmlToText(
     }
     for (raw in marked.lines()) {
         // \s di Java non comprende lo spazio non separabile (&nbsp;, frequente nei testi di travel.gc.ca)
-        val line = decodeHtmlEntities(raw).replace(' ', ' ').replace(spacesRegex, " ").trim()
+        val line = stripDecodedMarkup(decodeHtmlEntities(raw)).replace(' ', ' ').replace(spacesRegex, " ").trim()
         if (line.isEmpty()) continue
         if (line[0] == HEADING_MARK) {
             closeDisease()
@@ -412,7 +412,7 @@ private val fcdoBritishParts = listOf(
 private val officeDetailsRegex = Regex("""<details\b.*?</details>""", htmlOptions)
 
 private fun plainField(obj: JSONObject, key: String): String =
-    if (obj.isNull(key)) "" else decodeHtmlEntities(obj.optString(key).replace(anyTagRegex, " ")).replace(' ', ' ').replace(spacesRegex, " ").trim()
+    if (obj.isNull(key)) "" else stripDecodedMarkup(decodeHtmlEntities(obj.optString(key).replace(anyTagRegex, " "))).replace(' ', ' ').replace(spacesRegex, " ").trim()
 
 /**
  * Le sezioni per i cittadini britannici da una pagina FCDO: Entry requirements e Getting help, per intero, con l'url che

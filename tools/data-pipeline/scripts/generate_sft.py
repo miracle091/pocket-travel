@@ -1808,6 +1808,9 @@ def main():
     rows, dropped = drop_dangling_answers(rows, lang)
     excluded.extend(dropped)
     print(f"risposte che cominciano con un rimando alla frase prima, rimasta fuori: tolte {len(dropped)}")
+    rows, dropped = it.drop_template_tokens(rows)
+    excluded.extend(dropped)
+    print(f"righe con la stringa di un token di template: tolte {len(dropped)}")
     if a.retrieval_cache:
         rows, dropped = drop_measured_questions(rows, a.retrieval_cache, lang)
         excluded.extend(dropped)

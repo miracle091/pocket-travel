@@ -97,6 +97,16 @@ private fun expandListing(params: String): String {
 // "</>" (tag chiuso senza nome, refuso di alcune pagine) compreso.
 private val htmlTagRegex = Regex("""<[^>]+>|</>""")
 
+// Dopo la decodifica delle entita': "&lt;script&gt;" o "&lt;|im_end|&gt;" diventano "<script>" e "<|im_end|>", che il
+// modello potrebbe leggere come tag o token di template. Si tolgono i token "<|...|>", i marcatori di turno di Gemma, i
+// tag <think> e i tag HTML veri (nome di tag subito dopo "<"): "a < b", "<5 km" e "<-" restano.
+private val decodedMarkupRegex = Regex(
+    """<\|[^|<>\n]{0,64}\|>|</?(?:start_of_turn|end_of_turn|think)\b[^<>\n]*>|</?[A-Za-z][A-Za-z0-9]*(?:\s[^<>\n]*)?/?>|</>""",
+    RegexOption.IGNORE_CASE,
+)
+
+internal fun stripDecodedMarkup(text: String): String = decodedMarkupRegex.replace(text, "")
+
 // Gallerie e tabelle: le righe "File:Pizza.jpg|Pizza" di <gallery> e il markup {| ... |} resterebbero nel
 // testo. Si tolgono intere (le tabelle anche annidate, dall'interno).
 private val galleryRegex = Regex("""(?is)<gallery\b[^>]*>.*?</gallery>""")
@@ -408,6 +418,7 @@ internal fun cleanBody(raw: String): String {
         .replace(templateRegex, "")
         .replace(htmlTagRegex, "")
         .let(::decodeHtmlEntities)
+        .let(::stripDecodedMarkup)
         .replace(invisibleCharsRegex, "")
         .replace(emptyParenthesesRegex, "")
         .replace(repeatedSpacesRegex) { if ('\u00A0' in it.value || '\u202F' in it.value) "\u00A0" else " " }
@@ -508,6 +519,7 @@ private fun cleanQuickFactValue(raw: String): String =
         .replace(templateRegex, "")
         .replace(htmlTagRegex, "")
         .let(::decodeHtmlEntities)
+        .let(::stripDecodedMarkup)
         .replace(repeatedSpacesRegex, " ")
         .lineSequence()
         .map { listMarkerRegex.replace(it.trim(), "").trim() }

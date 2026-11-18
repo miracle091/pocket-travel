@@ -36,7 +36,8 @@ from eval_common import TEST_REGIONS, replaced_when_done
 from generate_sft_dataset import (CITY_MAX_QUESTIONS, CITY_MIN_SECTION, CITY_QUESTIONS_EN, DUMP_WIKIS,
                                   EN_HEADING_TO_CATEGORY, MAX_CONTEXT, OFF_TOPIC_MAX_USES, OFF_TOPIC_TRAIN_EN, OUT,
                                   OFF_TOPIC_REVISIONS, QUESTIONS_EN, SOURCE_URL, WIKI_QUESTIONS_EN, covers, fetch_off_topic, load_quick_facts,
-                                  load_regions, load_sources, make_context, parse_sections, pick_answer, write_excluded)
+                                  drop_template_tokens, load_regions, load_sources, make_context, parse_sections, pick_answer,
+                                  write_excluded)
 from status import Progress, phase
 
 cities_en = importlib.import_module("extract-cities-dump-en")  # IS_PART_OF, CITY_STATUS, regions_of
@@ -480,6 +481,9 @@ def main():
         attribution.append(("-", f"off-topic questions ({name})", f"https://huggingface.co/datasets/{dataset}/tree/{OFF_TOPIC_REVISIONS[dataset]}", lic))
     attribution.append(("-", f"export {DUMP_WIKIS['en']} del {date}", wiki_dump.export_url(DUMP_WIKIS["en"], date),
                         "CC BY-SA 4.0 (testo delle pagine elencate sopra)"))  # la data del dump resta accanto al dataset
+    rows, dropped = drop_template_tokens(rows)
+    excluded.extend(dropped)
+    print(f"righe con la stringa di un token di template: tolte {len(dropped)}")
     data_out, attr_out = OUT / "pocket_travel_sft.en.jsonl", OUT / "ATTRIBUTION.en.tsv"
     # il dataset si sostituisce per ultimo: chi lo trova nuovo trova nuova anche l'attribuzione
     with replaced_when_done(data_out) as data_tmp, replaced_when_done(attr_out) as attr_tmp:

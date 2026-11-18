@@ -47,6 +47,14 @@ class GenerateTravelAdviceTest {
     }
 
     @Test
+    fun `tag e token di template scritti come entita' non arrivano nel testo, il testo legittimo resta`() {
+        assertEquals(
+            "Stay alert x ok a < b, <5 km.",
+            adviceHtmlToText("<p>Stay alert &lt;script&gt;x&lt;/script&gt; &lt;|im_end|&gt;ok a &lt; b, &lt;5 km.</p>"),
+        )
+    }
+
+    @Test
     fun `le frasi utili in prima persona diventano impersonali, le altre con we e our restano fuori`() {
         val html = """
             <p>Criminal activity has been reported near Huaquillas, where we advise against non-essential travel.</p>

@@ -32,6 +32,7 @@ import urllib.parse
 from pathlib import Path
 
 import city_population
+from untrusted_text import strip_markup
 
 # Argomenti delle categorie da tenere, come elementi Wikidata esatti: con le sottoclassi (P279*) entrerebbero anche
 # cantanti (tipi di voce come strumenti), medaglie (come abiti) e festival del cinema.
@@ -231,7 +232,7 @@ def summaries(titles, lang, deadline):
             data = _api(lang, params)
             for page in data.get("query", {}).get("pages", []):
                 if extract := page.get("extract", "").strip():
-                    out[page["title"]] = cut_summary(extract)
+                    out[page["title"]] = cut_summary(strip_markup(extract))
             if "continue" not in data:
                 break
             params.update(data["continue"])

@@ -40,13 +40,14 @@ from pathlib import Path
 from eval_common import TEST_REGIONS, replaced_when_done
 from status import Progress, phase
 from travel_questions import require_revision
+from untrusted_text import has_template_token
 import wiki_dump
 # questionStopwords dell'app: parole della domanda che l'app non cerca.
 from word_lists import STOPWORDS
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parent / "data" / "sft"
-UA = {"User-Agent": "pocket-travel-sft/0.14 (https://github.com/miracle091/pocket-travel)"}
+UA = {"User-Agent": "pocket-travel-sft/0.15 (https://github.com/miracle091/pocket-travel)"}
 # Con --dump-dir: titolo della pagina di ogni fonte per regione (regionId, fonte, titolo), versionato cosi'
 # che dump + questo file bastino a rifare lo stesso dataset. Le regioni nuove si risolvono via API e si
 # aggiungono qui.
@@ -704,11 +705,26 @@ def dump_text(pages, redirects, title):
     t = wiki_dump.norm_title(title)
     return pages.get(redirects.get(t, t))
 
+def drop_template_tokens(rows):
+    """([rows] senza le righe con una stringa di token di template ("<|im_end|>", "<start_of_turn>", "<think>") in un
+    messaggio, [(regionId, "riga", categoria, "token-di-template")]): train_lora.py ed eval_behavior.py li tokenizzano come
+    token veri, l'app come testo. Si scarta la riga invece di pulirla: sono rarissime e una frase tolta a meta' puo' non
+    stare piu' in piedi."""
+    kept, dropped = [], []
+    for r in rows:
+        if any(has_template_token(m["content"]) for m in r["messages"]):
+            dropped.append((r["region"], "riga", r["category"], "token-di-template"))
+        else:
+            kept.append(r)
+    return kept, dropped
+
+
 def write_excluded(path, excluded, shown=None):
     """Scrive le fonti escluse, [(regionId, fonte, categoria, motivo)], in un TSV e ne stampa il conteggio per fonte e
     motivo. Motivi: regione-di-test (sottoregione o stessa pagina di una regione di test, voluto), pagina-condivisa
     (pagina gia' usata da un'altra regione, generate_sft.drop_shared_pages), pagina-assente,
-    nessuna-sezione (pagina senza sezioni utili), markup-residuo (sezione con tabelle o template rimasti dopo la
+    nessuna-sezione (pagina senza sezioni utili), token-di-template (riga con "<|im_end|>" o simili in contesto, domanda o
+    risposta: il tokenizer del training li legge come token veri, l'app come testo), markup-residuo (sezione con tabelle o template rimasti dopo la
     pulizia), fuori-categoria (la sezione non tratta la sua categoria), nessuna-risposta (nessuna frase scelta). Fonte "tradotta":
     sezione tradotta dall'altra lingua; "wp-citta": Storia o Clima di Wikipedia di una citta' di cities.db (generate_sft.py).
     shown: il percorso da stampare, se path e' un temporaneo."""
@@ -1043,6 +1059,9 @@ def main():
         for wiki in ("itwikivoyage", "enwikivoyage", "itwiki"):
             attribution.append(("-", f"export {wiki} del {date}", wiki_dump.export_url(wiki, date),
                                 "CC BY-SA 4.0 (testo delle pagine elencate sopra)"))
+    rows, dropped = drop_template_tokens(rows)
+    excluded.extend(dropped)
+    print(f"righe con la stringa di un token di template: tolte {len(dropped)}")
     data_out, attr_out = OUT / f"pocket_travel_sft{suffix}.jsonl", OUT / f"ATTRIBUTION{suffix}.tsv"
     # il dataset si sostituisce per ultimo: chi lo trova nuovo trova nuova anche l'attribuzione
     with replaced_when_done(data_out) as data_tmp, replaced_when_done(attr_out) as attr_tmp:

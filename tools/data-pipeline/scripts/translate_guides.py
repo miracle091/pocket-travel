@@ -65,6 +65,7 @@ import city_population
 import translate_dataset as ts
 from eval_common import Synced, drop_partial_line
 from status import Progress
+from untrusted_text import strip_markup
 
 # Dai fatti rapidi in inglese non si traduce: li costruisce la pipeline dai Fatti rapidi italiani. Le frasi utili inglesi
 # (Talk) si traducono solo quando sono prosa su lingue e dialetti: un elenco di frasi ("Hello - Talofa (tah-low-fah)",
@@ -466,9 +467,10 @@ def start_llama_server(gguf, llama_cpp, device, log_path, parallel=1):
 
 
 def llama_chat(url):
-    """chat(testo, temperatura=0, seme=0) -> risposta del modello, con LLAMA_PROMPT davanti al testo."""
+    """chat(testo, temperatura=0, seme=0) -> risposta del modello, con LLAMA_PROMPT davanti al testo, senza tag HTML
+    ne' token di template (il testo delle guide non e' fidato: vedi untrusted_text.py)."""
     def chat(text, temperature=0, seed=0):
-        body = {"messages": [{"role": "user", "content": f"{LLAMA_PROMPT}\n\n{text}"}], "temperature": temperature,
+        body = {"messages": [{"role": "user", "content": f"{LLAMA_PROMPT}\n\n{strip_markup(text)}"}], "temperature": temperature,
                 "seed": seed, "max_tokens": 2048, "chat_template_kwargs": {"enable_thinking": False}}
         request = urllib.request.Request(f"{url}/v1/chat/completions", json.dumps(body).encode("utf-8"),
                                          {"Content-Type": "application/json"})
