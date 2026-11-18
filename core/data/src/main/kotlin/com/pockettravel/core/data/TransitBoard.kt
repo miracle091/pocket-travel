@@ -1,5 +1,6 @@
 package com.pockettravel.core.data
 
+import com.pockettravel.core.transitrouting.isServiceActive
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.builtins.ListSerializer
@@ -359,15 +360,6 @@ internal fun wheelchairOf(value: String?): Boolean? = when (value) {
     else -> null
 }
 
-/**
- * Il servizio c'e' il giorno [dayIndex] (giorni da window_start) se il bit e' acceso: byte i/8, bit i%8
- * dal meno significativo. Fuori dalla finestra ([windowDays] o la lunghezza della maschera) mai.
- */
-internal fun isServiceActive(days: ByteArray, dayIndex: Int, windowDays: Int? = null): Boolean {
-    if (dayIndex < 0 || dayIndex >= (windowDays ?: (days.size * BITS_PER_BYTE)) || dayIndex / BITS_PER_BYTE >= days.size) return false
-    return (days[dayIndex / BITS_PER_BYTE].toInt() shr (dayIndex % BITS_PER_BYTE)) and 1 == 1
-}
-
 /** "RRGGBB" (con o senza #) in ARGB opaco, null se vuoto o non valido. */
 internal fun parseGtfsColor(value: String?): Int? {
     val hex = value?.trim()?.removePrefix("#") ?: return null
@@ -380,7 +372,6 @@ private val HEX_DIGITS_ONLY = Regex("[0-9a-fA-F]+")
 
 private const val HEX_COLOR_LENGTH = 6
 private const val HEX_RADIX = 16
-private const val BITS_PER_BYTE = 8
 private const val RED_SHIFT = 16
 private const val GREEN_SHIFT = 8
 private const val CHANNEL_MASK = 0xFF

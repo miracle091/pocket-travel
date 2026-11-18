@@ -42,6 +42,7 @@ dependencies {
     implementation(project(":core:routing-engine"))
 
     testImplementation(libs.junit)
+    testImplementation(project(":core:transit-routing"))
     // Usato anche da MergeManifests.kt (parsing/merge di manifest.json reali), non solo dai
     // test — senza tirare dentro il plugin kotlinx.serialization solo per questo.
     implementation(libs.org.json)

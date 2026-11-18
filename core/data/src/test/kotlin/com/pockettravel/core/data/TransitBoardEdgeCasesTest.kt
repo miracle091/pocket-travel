@@ -1,5 +1,6 @@
 package com.pockettravel.core.data
 
+import com.pockettravel.core.transitrouting.isServiceActive
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

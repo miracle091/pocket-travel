@@ -1,5 +1,7 @@
 package com.pockettravel.core.data
 
+import com.pockettravel.core.transitrouting.RawTripStop
+import com.pockettravel.core.transitrouting.decodeTripStops
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -50,57 +52,6 @@ data class TripStopTime(
     val isBoardStop: Boolean,
     val realtime: DepartureRealtime?,
 )
-
-/** Una fermata del blob di trip_stop: [seq] e' lo stop_sequence GTFS, [stop] l'id di transit.db, [offset] i minuti dalla partenza (trip.start). */
-internal class RawTripStop(val seq: Int, val stop: Int, val offset: Int, val flags: Int) {
-    val pickup: Boolean get() = flags and FLAG_NO_PICKUP == 0
-    val dropOff: Boolean get() = flags and FLAG_NO_DROP_OFF == 0
-}
-
-private const val FLAG_NO_PICKUP = 1
-private const val FLAG_NO_DROP_OFF = 2
-private const val VARINT_PAYLOAD_BITS = 7
-private const val VARINT_PAYLOAD_MASK = 0x7F
-private const val VARINT_CONTINUE = 0x80
-private const val VARINT_MAX_SHIFT = 28
-private const val BYTE_MASK = 0xFF
-
-/**
- * Le fermate del blob di trip_stop: per ogni fermata varint(stop_sequence meno il precedente), varint(zigzag(stop meno il
- * precedente)), varint(zigzag(offset meno il precedente)) e un byte di flag (bit 0 senza salita, bit 1 senza discesa); il
- * primo campo di ogni tipo e' relativo a 0. Null se il blob e' troncato o malformato.
- */
-internal fun decodeTripStops(blob: ByteArray): List<RawTripStop>? {
-    var pos = 0
-    var broken = false
-    fun varint(): Int {
-        var result = 0
-        var shift = 0
-        while (true) {
-            if (pos >= blob.size || shift > VARINT_MAX_SHIFT) {
-                broken = true
-                return 0
-            }
-            val b = blob[pos++].toInt() and BYTE_MASK
-            result = result or ((b and VARINT_PAYLOAD_MASK) shl shift)
-            if (b and VARINT_CONTINUE == 0) return result
-            shift += VARINT_PAYLOAD_BITS
-        }
-    }
-    fun zigzag(): Int = varint().let { (it ushr 1) xor -(it and 1) }
-    val stops = mutableListOf<RawTripStop>()
-    var seq = 0
-    var stop = 0
-    var offset = 0
-    while (pos < blob.size) {
-        seq += varint()
-        stop += zigzag()
-        offset += zigzag()
-        if (broken || pos >= blob.size) return null
-        stops += RawTripStop(seq, stop, offset, blob[pos++].toInt() and BYTE_MASK)
-    }
-    return stops
-}
 
 private class TripHead(
     val fullPattern: Int?,
