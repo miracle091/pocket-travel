@@ -31,6 +31,7 @@ include(
     ":core:poi",
     ":core:tiles",
     ":core:routing-engine",
+    ":core:transit-routing",
     ":core:speech",
     ":core:translate",
     ":feature:guide",

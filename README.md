@@ -193,7 +193,7 @@ llama.cpp, BRouter e bergamot-translator sono submodule git in `third-party/`. D
 | Comando | Cosa fa |
 |---|---|
 | `./gradlew :app:installDebug` | Installa la build di debug |
-| `./gradlew assembleDebug :app:assembleRelease lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :tools:data-pipeline:content:test` | Esegue i controlli della CI |
+| `./gradlew assembleDebug :app:assembleRelease lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :core:transit-routing:test :tools:data-pipeline:content:test` | Esegue i controlli della CI |
 | `./gradlew :app:installDebug -PpocketTravel.manifestUrl=http://10.0.2.2:8000/manifest.json` | Usa un catalogo di debug, senza controllo delle firme |
 | `./gradlew :app:assembleDebug -PpocketTravel.manifestUrl=http://10.0.2.2:8000/manifest.json -PpocketTravel.appStatusUrl=http://10.0.2.2:8000/app-status.json -PpocketTravel.versionCode=16` | Costruisce una build di debug che cerca gli aggiornamenti dell'app nello stesso server: `app-status.json` e, accanto, `app-release.apk`; `versionCode` cambia il numero di versione della build, per provare l'aggiornamento da una build all'altra |
 | `bun tools/dev/simulate-route.js 12` | Muove il GPS dell'emulatore lungo il percorso del Navigatore, a 12 m/s; senza bun funziona anche con `node` |

@@ -104,7 +104,7 @@ jobs:
 
       # Anche la release (non firmata senza RELEASE_KEYSTORE_PATH): R8, lintVital e il codice solo di release si
       # compilano a ogni push, non per la prima volta in publish-apk.yml al rilascio.
-      - run: ./gradlew assembleDebug :app:assembleRelease lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :tools:data-pipeline:content:test --no-daemon
+      - run: ./gradlew assembleDebug :app:assembleRelease lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :core:transit-routing:test :tools:data-pipeline:content:test --no-daemon
 
       # Vincolo del progetto: niente Google Play Services. Si cerca nelle classi dei classes*.dex (dexdump dei
       # build-tools dell'SDK, senza rete) il package di Play Services (gms), di Firebase, delle librerie Play (core,
