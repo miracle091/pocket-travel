@@ -1031,12 +1031,15 @@ internal fun namedCities(question: String, cities: List<String>, language: Strin
     }
 }
 
-/** Il termine di [terms] nominato in [question] come parole intere, senza accenti né maiuscole; col nome più lungo se sono più d'uno. */
+/**
+ * Il termine di [terms] nominato in [question] come parole intere, senza accenti né maiuscole; col nome più lungo se sono
+ * più d'uno, a parità di lunghezza il nome di un termine prima di un alias ("Ruisleipä" prima dell'alias di "Finnish rye bread").
+ */
 internal fun namedTerm(question: String, terms: List<GuideTerm>): GuideTerm? {
     val words = normalizedWords(question)
-    return terms.flatMap { term -> (listOf(term.term) + term.aliases).map { term to normalizedWords(it) } }
-        .filter { (_, name) -> name.isNotBlank() && name in words }
-        .maxByOrNull { (_, name) -> name.length }?.first
+    return terms.flatMap { term -> (listOf(term.term) + term.aliases).mapIndexed { i, name -> Triple(term, normalizedWords(name), i == 0) } }
+        .filter { (_, name, _) -> name.isNotBlank() && name in words }
+        .maxWithOrNull(compareBy({ it.second.length }, { it.third }))?.first
 }
 
 // Parole con cui comincia il seguito di una domanda ("E per quanto tempo?", "Ma a Lisbona?", "And in winter?").

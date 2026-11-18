@@ -1027,12 +1027,12 @@ def build_db(guides_db, region, city_rows):
 
 def named_term(question, terms):
     """namedTerm: il termine di [terms] ({"term", "aliases", ...}) nominato in [question] come parole intere, senza accenti
-    ne' maiuscole; col nome piu' lungo se sono piu' d'uno."""
+    ne' maiuscole; col nome piu' lungo se sono piu' d'uno, a parita' di lunghezza il nome di un termine prima di un alias."""
     words = normalized_words(question)
-    found = [(len(name), i) for i, t in enumerate(terms) for name in map(normalized_words, [t["term"], *t["aliases"]])
-             if name.strip() and name in words]
-    # A parita' di lunghezza il primo, come maxByOrNull.
-    return terms[min(found, key=lambda f: (-f[0], f[1]))[1]] if found else None
+    found = [(len(name), j == 0, i) for i, t in enumerate(terms)
+             for j, name in enumerate(map(normalized_words, [t["term"], *t["aliases"]])) if name.strip() and name in words]
+    # Poi il primo, come maxWithOrNull.
+    return terms[min(found, key=lambda f: (-f[0], not f[1], f[2]))[2]] if found else None
 
 
 TERMS = {"on": True}  # --no-terms: ricerca senza i termini locali, per confronto

@@ -20,4 +20,13 @@ class NamedTermTest {
         assertNull(namedTerm("Dove trovo una cevicheria?", terms))
         assertNull(namedTerm("Serve il visto?", terms))
     }
+
+    @Test
+    fun `namedTerm a parita' di lunghezza preferisce il nome del termine a un alias`() {
+        fun term(name: String, vararg aliases: String) = GuideTerm("finland", name, aliases.toList(), name, "Spiegazione.", "https://en.wikipedia.org/wiki/$name")
+        val ryeBread = term("Finnish rye bread", "Ruisleipä")
+        val ruisleipa = term("Ruisleipä")
+
+        assertEquals(ruisleipa, namedTerm("Where can I try Ruisleipä?", listOf(ryeBread, ruisleipa)))
+    }
 }

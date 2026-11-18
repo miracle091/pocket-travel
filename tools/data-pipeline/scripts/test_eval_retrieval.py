@@ -116,6 +116,12 @@ class ReplicaTest(unittest.TestCase):
         self.assertIsNone(ev.named_term("Dove trovo una cevicheria?", terms))
         self.assertIsNone(ev.named_term("Serve il visto?", terms))
 
+    def test_named_term_a_parita_di_lunghezza_il_nome_vince_su_un_alias(self):
+        # Come in NamedTermTest.kt: "Ruisleipa" e' alias di "Finnish rye bread", che viene prima, e nome di un altro termine.
+        rye_bread = {"term": "Finnish rye bread", "aliases": ["Ruisleipä"]}
+        ruisleipa = {"term": "Ruisleipä", "aliases": []}
+        self.assertIs(ev.named_term("Where can I try Ruisleipä?", [rye_bread, ruisleipa]), ruisleipa)
+
     def test_named_cities_con_l_articolo_dopo_una_preposizione_articolata(self):
         cities = ["La Valletta", "L'Aquila", "La Spezia", "Sliema"]
         self.assertEqual(ev.named_cities("Storia della Valletta?", cities), ["La Valletta"])
