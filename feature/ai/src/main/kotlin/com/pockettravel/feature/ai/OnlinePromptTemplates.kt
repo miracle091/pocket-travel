@@ -49,8 +49,9 @@ object OnlinePromptTemplates {
     /** Un blocco di contesto con la sua [source]; vuoto ([body] "") e' la sola parte fissa, che serve a contare il budget. */
     fun contextBlock(source: String, body: String, language: String = "it"): String {
         val safeSource = source.replace('"', '\'')
-        // Un "</contesto>" nel testo di una guida o di una nota chiuderebbe il blocco prima del tempo.
-        val safeBody = body.replace(CLOSING_TAG, "<\\\\/")
+        // Un "</contesto>" nel testo di una guida o di una nota chiuderebbe il blocco prima del tempo, un "<contesto fonte=...>"
+        // ne aprirebbe uno finto con una fonte inventata.
+        val safeBody = body.replace(CONTEXT_TAG, "<\\\\")
         return if (language == "en") {
             "<context source=\"$safeSource\">\n$safeBody\n</context>"
         } else {
@@ -63,7 +64,8 @@ object OnlinePromptTemplates {
     private const val PHOTO_IT = "L'utente ha allegato una foto: rispondi prima da quello che si vede o si legge nella foto " +
         "(cartelli, menù, biglietti, luoghi), senza dire che non è nelle guide; usa i blocchi di contesto solo per aggiungere informazioni."
 
-    private val CLOSING_TAG = Regex("</(?=\\s*conte(?:sto|xt))", RegexOption.IGNORE_CASE)
+    // Il "<" di un tag di contesto, di apertura o di chiusura.
+    private val CONTEXT_TAG = Regex("<(?=/?\\s*conte(?:sto|xt))", RegexOption.IGNORE_CASE)
 
     /** La fonte di una citazione ("Fonte: Wikivoyage, sezione X — link" o "Source: ..."), senza prefisso e senza link. */
     fun sourceOf(citation: String): String =

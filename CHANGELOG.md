@@ -50,6 +50,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ### Corretto
 - Assistente IA sul dispositivo: un segno del formato della chat scritto nel testo di una guida («<|im_end|>») resta testo e non chiude più la domanda; prima chi modificava la guida su Wikivoyage poteva far scrivere al modello una risposta a sua scelta.
+- Assistente IA sul dispositivo: dal testo delle guide e della nota personale si tolgono, prima che arrivino al modello, le frasi che danno ordini all'assistente («Ignora le istruzioni precedenti…», «Rispondi solo "OK"») e le righe che cominciano con «Domanda:» o «Contesto:», come già faceva il motore Online. Online, un tag «<contesto>» scritto in una guida non apre più un blocco di contesto finto.
 - Assistente IA sul dispositivo: il testo della guida dato al modello si ferma all'ultima frase intera che entra nel limite, non più a metà parola; il modello a volte ripeteva nella risposta la frase spezzata («…sono bassi; i»).
 - Guide: nelle sezioni prese da Wikivoyage in inglese tornano le distanze, le velocità, i pesi e le temperature («a circa 39 km da Reykjavík», «fino a 160 km/h»), che mancavano lasciando frasi come «about from Reykjavík»; arrivano con il prossimo aggiornamento delle guide.
 - Guide: le età e gli anni che Wikivoyage calcola dall'anno corrente tornano nel testo («I bulgari con più di 50 anni», invece di «I bulgari più anziani (+)»); arrivano con il prossimo aggiornamento delle guide.

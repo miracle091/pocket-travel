@@ -1163,9 +1163,13 @@ internal fun buildOnDeviceContext(
 ): String {
     // Etichetta nella lingua del prompt: i modelli inglesi la vedono cosi' nel training (generate_sft_dataset_en.py).
     val label = if (language == "en") "Personal note" else "Nota personale"
-    val noteText = note?.let { truncateContext("$label: ${it.title}\n${it.body}", NOTE_MAX_CHARS) }
+    // Il testo delle guide e delle note non e' fidato: niente ordini all'assistente ne' etichette del template.
+    val noteText = note?.let {
+        truncateContext(withoutInjectedInstructionsAndLabels("$label: ${it.title}\n${it.body}"), NOTE_MAX_CHARS)
+    }
     val sectionsBudget = (maxChars - (noteText?.let { it.length + 2 } ?: 0)).coerceAtLeast(0)
-    val shared = withGeneralGuideShare(sections, focusStems, sectionsBudget)
+    val clean = sections.map { it.copy(body = withoutInjectedInstructionsAndLabels(it.body)) }
+    val shared = withGeneralGuideShare(clean, focusStems, sectionsBudget)
     val parts = contextParts(shared.map { it.body }, focusStems, sectionsBudget).map { (index, part) -> shared[index] to part }
     val sectionsText = truncateContext(withGeneralGuideAfterFirstSection(parts).joinToString("\n\n") { it.second }, sectionsBudget)
     return listOfNotNull(sectionsText.takeIf { it.isNotBlank() }, noteText).joinToString("\n\n")
