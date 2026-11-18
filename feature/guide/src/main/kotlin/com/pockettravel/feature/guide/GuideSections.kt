@@ -54,6 +54,7 @@ import com.pockettravel.core.data.GuideSection
 import com.pockettravel.core.data.GuideSourceTarget
 import com.pockettravel.core.data.GuideTerm
 import com.pockettravel.core.data.guideSourceUrlWithoutAudience
+import com.pockettravel.core.data.termLinks
 import com.pockettravel.core.ui.InfoCardDefaults
 import com.pockettravel.core.ui.InfoCardHeader
 import com.pockettravel.core.ui.Spacing

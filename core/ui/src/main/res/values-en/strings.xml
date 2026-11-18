@@ -206,4 +206,7 @@
     <string name="alerts_source_eccc">Data Source: Environment and Climate Change Canada</string>
     <string name="alerts_source_geonet">Source: GeoNet (Earth Sciences New Zealand), CC BY 3.0 NZ, text modified</string>
     <string name="alerts_source_jma">Source: Japan Meteorological Agency website (edited)</string>
+    <string name="guide_term_source">From Wikipedia: %1$s</string>
+    <string name="guide_term_question">What is %1$s?</string>
+    <string name="guide_term_ask">Ask the assistant</string>
 </resources>

@@ -263,6 +263,7 @@ fun RegionHubScreen(
                                 regionId = regionId,
                                 splitCountry = splitCountry,
                                 onOpenOfficialSource = onOpenOfficialSource,
+                                onOpenSource = onOpenSource,
                                 // "Portami a ...": il Navigatore cerca la destinazione (tutte le regioni installate) col modo chiesto.
                                 onNavigationRequest = { request ->
                                     request.profile?.let { plannerViewModel.setRouteProfile(it.toRouteProfile()) }

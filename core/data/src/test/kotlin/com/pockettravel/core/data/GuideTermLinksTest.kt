@@ -1,6 +1,5 @@
-package com.pockettravel.feature.guide
+package com.pockettravel.core.data
 
-import com.pockettravel.core.data.GuideTerm
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

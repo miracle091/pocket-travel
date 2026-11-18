@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.data.GuideSourceTarget
+import com.pockettravel.core.data.termLinks
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
@@ -218,7 +219,18 @@ private fun AiGeneratedLabel(credit: ModelCredit?, onOpenOfficialSource: (url: S
 // Risposta completa: testo, riquadro meteo delle previsioni usate, fonti e, sui temi regolati, il link alla fonte ufficiale.
 @Composable
 internal fun FinishedAnswer(answer: AssistantAnswer, credit: ModelCredit?, onOpenOfficialSource: (url: String) -> Unit, actions: AiActions) {
-    Text(remember(answer.text) { markdownToDisplayText(answer.text) }, style = MaterialTheme.typography.bodyLarge)
+    // I termini locali delle sezioni citate: toccabili alla prima occorrenza nel testo, come nella Guida.
+    val termStyle = TextLinkStyles(SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline))
+    val text = remember(answer.text, answer.terms, termStyle) {
+        val display = markdownToDisplayText(answer.text)
+        buildAnnotatedString {
+            append(display)
+            termLinks(listOf(display.text), answer.terms).single().forEach { (range, term) ->
+                addLink(LinkAnnotation.Clickable(term.term, termStyle) { actions.onTermClick(term) }, range.first, range.last + 1)
+            }
+        }
+    }
+    Text(text, style = MaterialTheme.typography.bodyLarge)
     AiGeneratedLabel(credit, onOpenOfficialSource)
     // I numeri delle previsioni si leggono nel riquadro, non nel testo del modello.
     answer.forecast?.let { forecast ->

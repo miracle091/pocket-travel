@@ -12,7 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,7 +25,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.GuideSourceTarget
+import com.pockettravel.core.data.GuideTerm
 import com.pockettravel.core.data.currentGuidesLanguage
+import com.pockettravel.core.ui.GuideTermSaver
+import com.pockettravel.core.ui.GuideTermSheet
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.isDebugBuild
@@ -44,6 +49,8 @@ fun AiAssistantScreen(
     voiceViewModel: VoiceInputViewModel = hiltViewModel(),
     readAloudViewModel: ReadAloudViewModel = hiltViewModel(),
     onOpenOfficialSource: (url: String) -> Unit = {},
+    // La voce di Wikipedia di un termine locale, dal suo foglio.
+    onOpenSource: (url: String, title: String) -> Unit = { _, _ -> },
     onNavigationRequest: (NavigationRequest) -> Unit = {},
     // Tocco su una fonte che risale a una sezione della guida della regione.
     onOpenGuideSource: (GuideSourceTarget) -> Unit = {},
@@ -92,6 +99,9 @@ fun AiAssistantScreen(
         }
     }
     SecureWindow(enabled = uiState.showsSavedContent)
+    var openTerm by rememberSaveable(stateSaver = GuideTermSaver) { mutableStateOf<GuideTerm?>(null) }
+    // "Chiedi all'assistente" dal foglio: siamo già nella scheda IA, la domanda va nel campo.
+    GuideTermSheet(term = openTerm, onDismiss = { openTerm = null }, onOpenSource = onOpenSource, onAskAssistant = viewModel::onQuestionChanged)
     val actions = viewModel.toActions(regionId).copy(
         onQuestionChanged = { text ->
             voiceViewModel.clearMessage()
@@ -110,6 +120,7 @@ fun AiAssistantScreen(
         onVoicePermissionDenied = voiceViewModel::onPermissionDenied,
         onReadAloud = readAloudViewModel::toggle,
         onOpenGuideSource = onOpenGuideSource,
+        onTermClick = { openTerm = it },
     )
     AiAssistantContent(
         uiState = uiState,
@@ -192,6 +203,8 @@ data class AiActions(
     // Fonte di una sezione della guida sotto una risposta (con il testo della risposta): la sezione, se c'è, e la sua apertura.
     val resolveGuideSources: suspend (citations: List<String>, answer: String) -> Map<String, GuideSourceTarget> = { _, _ -> emptyMap() },
     val onOpenGuideSource: (GuideSourceTarget) -> Unit = {},
+    // Tocco su un termine locale nel testo di una risposta: apre il suo foglio.
+    val onTermClick: (GuideTerm) -> Unit = {},
 )
 
 /** Le azioni della cronologia, dal ViewModel. */

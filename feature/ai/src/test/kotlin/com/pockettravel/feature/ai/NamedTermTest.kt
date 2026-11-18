@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.GuideTerm
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -28,5 +29,18 @@ class NamedTermTest {
         val ruisleipa = term("Ruisleipä")
 
         assertEquals(ruisleipa, namedTerm("Where can I try Ruisleipä?", listOf(ryeBread, ruisleipa)))
+    }
+
+    @Test
+    fun `citedTerms prende solo i termini nominati nelle sezioni citate, una volta sola`() {
+        fun term(name: String, vararg aliases: String) = GuideTerm("peru", name, aliases.toList(), name, "Spiegazione.", "https://it.wikipedia.org/wiki/$name")
+        fun section(body: String) = AssistantSection(body, GuideCategory.CIBO_BEVANDE, "Fonte: $body")
+        val ceviche = term("Ceviche", "Cebiche")
+        val pisco = term("Pisco")
+        val chicha = term("Chicha morada")
+        val sections = listOf(section("Il cebiche si mangia a pranzo."), section("Il ceviche e il pisco sour."))
+
+        assertEquals(listOf(ceviche, pisco), citedTerms(sections, listOf(ceviche, pisco, chicha)))
+        assertEquals(emptyList<GuideTerm>(), citedTerms(emptyList(), listOf(ceviche, pisco, chicha)))
     }
 }

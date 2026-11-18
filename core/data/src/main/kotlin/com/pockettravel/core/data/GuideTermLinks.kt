@@ -1,6 +1,5 @@
-package com.pockettravel.feature.guide
+package com.pockettravel.core.data
 
-import com.pockettravel.core.data.GuideTerm
 import java.text.Normalizer
 
 private val combiningMarks = Regex("""\p{Mn}+""")
@@ -30,7 +29,7 @@ private class FoldedText(text: String) {
  * senza badare ad accenti e maiuscole: per ogni paragrafo, intervallo nel suo testo e termine. Ogni termine solo alla prima
  * occorrenza nella sezione, per non riempire il testo di collegamenti; tra nomi sovrapposti vince il più lungo.
  */
-internal fun termLinks(paragraphs: List<String>, terms: List<GuideTerm>): List<List<Pair<IntRange, GuideTerm>>> {
+fun termLinks(paragraphs: List<String>, terms: List<GuideTerm>): List<List<Pair<IntRange, GuideTerm>>> {
     val names = terms.flatMap { term -> (listOf(term.term) + term.aliases).map { term to it } }
         .map { (term, name) -> term to name.map(::foldedChar).joinToString("") }
         .filter { (_, name) -> name.isNotBlank() }

@@ -40,6 +40,8 @@ import com.pockettravel.core.ui.AlertsCard
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CardDescription
 import com.pockettravel.core.ui.EmptyState
+import com.pockettravel.core.ui.GuideTermSaver
+import com.pockettravel.core.ui.GuideTermSheet
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
@@ -192,7 +194,7 @@ private fun GuideSectionsList(
     onAskAssistant: ((question: String) -> Unit)?,
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf<GuideCategory?>(null) }
-    var openTerm by remember { mutableStateOf<GuideTerm?>(null) }
+    var openTerm by rememberSaveable(stateSaver = GuideTermSaver) { mutableStateOf<GuideTerm?>(null) }
     GuideTermSheet(term = openTerm, onDismiss = { openTerm = null }, onOpenSource = onOpenSource, onAskAssistant = onAskAssistant)
     val transport = transportSummary(uiState.transportCounts)
     val uiLanguage = LocalLocale.current.platformLocale.language

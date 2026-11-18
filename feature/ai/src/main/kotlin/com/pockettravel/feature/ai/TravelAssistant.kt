@@ -38,6 +38,7 @@ import com.pockettravel.core.data.guideSourceUrlWithoutAudience
 import com.pockettravel.core.data.isGuideSectionFor
 import com.pockettravel.core.data.officialSourceFor
 import com.pockettravel.core.data.poiCategory
+import com.pockettravel.core.data.termLinks
 import com.pockettravel.core.data.urlFor
 import com.pockettravel.core.data.vaccination.Trip
 import com.pockettravel.core.data.vaccination.TripPurpose
@@ -74,6 +75,8 @@ data class AssistantAnswer(
     val destination: String? = null,
     // Le previsioni nel contesto, mostrate nel riquadro meteo sotto la risposta; null senza. Non si salvano nella cronologia.
     val forecast: PlaceWeather? = null,
+    // I termini locali delle sezioni citate, toccabili nel testo della risposta. Non si salvano nella cronologia.
+    val terms: List<GuideTerm> = emptyList(),
 )
 
 /** Avanzamento di una risposta: il testo scritto finora, poi la risposta definitiva. */
@@ -180,6 +183,7 @@ class TravelAssistant @Inject constructor(
             Triple(forecastJob.await(), alertsJob.await(), distanceJob.await())
         }
 
+        val contextSections = contextSections(regionId, searched, language, search, listOfNotNull(forecast?.section, alerts), distance, personalSections(sharePersonal, selectedText))
         val withSource = { answer: AssistantAnswer ->
             answer.copy(
                 question = question,
@@ -188,9 +192,9 @@ class TravelAssistant @Inject constructor(
                 showOfficialSourceBanner = regulatedMatch != null,
                 officialSourceUrl = regulatedMatch?.let { officialSourceFor(it.category, nationalityPreferences.nationality.value)?.urlFor(destination) },
                 forecast = forecast?.weather,
+                terms = citedTerms(contextSections.filter { it.citation in answer.sourceCitations }, search.terms),
             )
         }
-        val contextSections = contextSections(regionId, searched, language, search, listOfNotNull(forecast?.section, alerts), distance, personalSections(sharePersonal, selectedText))
         val focus = focusStems(search.baseQuery, city)
         when (mode) {
             AiEngineMode.ON_DEVICE -> {
@@ -286,8 +290,9 @@ class TravelAssistant @Inject constructor(
         val withCityName = city != null && topicQuery.isNotBlank() && topicMatches.isEmpty()
         val baseQuery = if (withCityName) buildFtsQuery(question, regionId) else topicBase
         val ftsQuery = withCategoryWords(baseQuery, question, language, wordLists, modelGroups)
-        val term = namedTerm(question, guideTermRepository.termsFor(country?.regionIds ?: listOf(regionId)))?.toAssistantSection(language)
-        if (ftsQuery.isBlank()) return SectionSearch(listOfNotNull(term), baseQuery, country)
+        val terms = guideTermRepository.termsFor(country?.regionIds ?: listOf(regionId))
+        val term = namedTerm(question, terms)?.toAssistantSection(language)
+        if (ftsQuery.isBlank()) return SectionSearch(listOfNotNull(term), baseQuery, country, terms)
         val sections = rankSections(
             guideRepository.searchCandidates(country?.regionIds ?: listOf(regionId), ftsQuery).filter { isGuideSectionFor(it.first.sourceUrl, nationality) },
             if (withCityName) cityRepository.candidates(regionId, ftsQuery, cities) else topicMatches,
@@ -301,10 +306,11 @@ class TravelAssistant @Inject constructor(
         )
         val groups = (questionGroups(question) + modelGroups).takeIf { wordLists }.orEmpty()
         val found = cityRepository.withClimateFirst(regionId, sections, cities.firstOrNull() ?: country?.name, groups, language, maxSections)
-        return SectionSearch((listOfNotNull(term) + found).take(maxSections), baseQuery, country)
+        return SectionSearch((listOfNotNull(term) + found).take(maxSections), baseQuery, country, terms)
     }
 
-    private class SectionSearch(val sections: List<AssistantSection>, val baseQuery: String, val country: NamedPlace?)
+    // [terms]: i termini locali della regione o della nazione, da cercare nelle sezioni citate dalla risposta.
+    private class SectionSearch(val sections: List<AssistantSection>, val baseQuery: String, val country: NamedPlace?, val terms: List<GuideTerm>)
 
     /** Prompt per il modello sul dispositivo e fonti da citare: calcolati dal contesto, non dalla risposta. */
     private class OnDevicePlan(val prompt: String, val citations: List<String>)
@@ -620,6 +626,10 @@ internal fun citedSections(sections: List<AssistantSection>, context: String): L
     sections.filter { section -> section.body.lines().any { it.isNotBlank() && it.take(CITATION_PROBE_CHARS) in context } }
 
 private const val CITATION_PROBE_CHARS = 60
+
+/** I termini di [terms] nominati nel testo di [sections] (le sezioni citate dalla risposta), per nome o alias. */
+internal fun citedTerms(sections: List<AssistantSection>, terms: List<GuideTerm>): List<GuideTerm> =
+    termLinks(sections.map { it.body }, terms).flatten().map { it.second }.distinct()
 
 /**
  * Testo dei POI vicini per il contesto: un'intestazione col raggio di ricerca, poi una riga per categoria ([label], al
