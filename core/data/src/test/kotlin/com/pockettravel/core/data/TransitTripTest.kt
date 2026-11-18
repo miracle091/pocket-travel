@@ -89,6 +89,28 @@ class TransitTripTest {
         }
     }
 
+    @Test
+    fun `itinerario con RAPTOR da Prima al Capolinea sulla corsa delle 9 e 10`() {
+        // Alle 9.00 la corsa delle 8.50 e' gia' passata da Prima (8.40): si prende quella che ci passa alle 9.10.
+        val journey = checkNotNull(readFeedJourneys(query, 56.96, 24.2, 56.97, 24.3, now, "mdb-1")).single()
+
+        val ride = journey.legs.filterIsInstance<JourneyLeg.Ride>().single()
+        assertEquals("22", ride.line)
+        assertEquals("Centrs", ride.headsign)
+        assertEquals("Prima" to "Capolinea", ride.fromName to ride.toName)
+        assertEquals(Instant.parse("2026-10-01T06:10:00Z") to Instant.parse("2026-10-01T06:35:00Z"), ride.departure to ride.arrival)
+        assertEquals(2, ride.stops)
+        assertEquals(0, journey.transfers)
+        assertEquals("mdb-1", journey.network)
+    }
+
+    @Test
+    fun `senza le fermate delle corse nessun itinerario`() {
+        exec("UPDATE meta SET value = '0' WHERE key = 'trip_stops'")
+
+        assertNull(readFeedJourneys(query, 56.96, 24.2, 56.97, 24.3, now))
+    }
+
     // Il blob di trip_stop come lo scrive la pipeline; ogni fermata: stop_sequence, id fermata, offset, flag.
     private fun blob(vararg stops: IntArray): ByteArray {
         val out = ByteArrayOutputStream()

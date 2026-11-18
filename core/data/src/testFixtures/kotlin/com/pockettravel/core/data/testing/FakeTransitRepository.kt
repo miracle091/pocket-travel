@@ -3,6 +3,7 @@ package com.pockettravel.core.data.testing
 import com.pockettravel.core.data.NearbyStop
 import com.pockettravel.core.data.RealtimeFeed
 import com.pockettravel.core.data.TransitBoard
+import com.pockettravel.core.data.TransitJourney
 import com.pockettravel.core.data.TransitMode
 import com.pockettravel.core.data.TransitRepository
 import com.pockettravel.core.data.TripRef
@@ -70,4 +71,10 @@ class FakeTransitRepository : TransitRepository {
         failure?.let { throw it }
         return tripViews[ref]
     }
+
+    /** Gli itinerari che [journeys] restituisce. */
+    var journeys: List<TransitJourney> = emptyList()
+
+    override suspend fun journeys(regionId: String, fromLat: Double, fromLon: Double, toLat: Double, toLon: Double, now: Instant): List<TransitJourney> =
+        journeys
 }

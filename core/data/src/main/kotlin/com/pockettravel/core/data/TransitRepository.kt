@@ -38,4 +38,17 @@ interface TransitRepository {
         now: Instant = Instant.now(),
         realtime: Map<String, RealtimeFeed> = emptyMap(),
     ): TripView?
+
+    /**
+     * Itinerari con i mezzi pubblici (RAPTOR) da un punto a un altro partendo a [now], su una rete sola: quella della
+     * regione con la fermata piu' vicina alla partenza. Vuoto senza reti con le fermate delle corse o senza itinerari.
+     */
+    suspend fun journeys(
+        regionId: String,
+        fromLat: Double,
+        fromLon: Double,
+        toLat: Double,
+        toLon: Double,
+        now: Instant = Instant.now(),
+    ): List<TransitJourney>
 }

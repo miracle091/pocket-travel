@@ -58,6 +58,14 @@ class SqliteTransitRepository @Inject constructor(
             readFeeds(regionId, onlyNetwork = ref.network) { query, _, id -> readTripView(query, ref, now, realtime[id]) }.firstOrNull()
         }
 
+    override suspend fun journeys(regionId: String, fromLat: Double, fromLon: Double, toLat: Double, toLon: Double, now: Instant): List<TransitJourney> =
+        withContext(ioDispatcher) {
+            // Una rete alla volta (scelta dell'utente del 2026-11-18): quella con la fermata piu' vicina alla partenza.
+            val network = readFeeds(regionId) { query, _, id -> nearestStopMeters(query, fromLat, fromLon)?.let { id to it } }.minByOrNull { it.second }?.first
+                ?: return@withContext emptyList()
+            readFeeds(regionId, onlyNetwork = network) { query, _, id -> readFeedJourneys(query, fromLat, fromLon, toLat, toLon, now, id) }.firstOrNull().orEmpty()
+        }
+
     // Apre ogni rete installata della regione (o la sola [onlyNetwork]); una illeggibile o senza esito (null) si salta.
     private fun <T> readFeeds(regionId: String, onlyNetwork: String? = null, read: (TransitQuery, TransitFeedInfo?, String) -> T?): List<T> {
         val dir = File(regionStorage.directoryFor(regionId), RegionStorage.TRANSIT_DIR)
