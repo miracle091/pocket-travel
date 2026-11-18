@@ -25,6 +25,19 @@ data class LlmModelDefinition(
     val language: String? = null,
     // Pagina del modello dell'autore, aperta dal nome sotto le risposte; null: il repository del file GGUF (`url`).
     val pageUrl: String? = null,
+    // Il file che fa leggere le foto al modello; null per i modelli che non le leggono. Si scarica solo su richiesta.
+    val mmproj: MmprojDefinition? = null,
+)
+
+/**
+ * Il file mmproj di un modello (il "proiettore" che trasforma la foto nei token del modello), in un GGUF a parte.
+ * Piu' modelli possono condividerlo (stesso [fileName]): sul disco ce n'e' uno solo.
+ */
+data class MmprojDefinition(
+    val url: String,
+    val fileName: String,
+    val sha256: String,
+    val sizeBytes: Long,
 )
 
 /** Da dove viene il modello: la lista dei modelli li mostra in due gruppi separati. */
@@ -37,6 +50,15 @@ enum class ModelOrigin {
 }
 
 object LlmModelCatalog {
+    // mmproj del Qwen3.5 2B ufficiale (Apache 2.0, come i modelli): vale anche per i due addestrati sulle guide, che ne
+    // hanno la stessa architettura (misurato con VisionDeviceTest). sha256 letto dal puntatore Git LFS.
+    private val MMPROJ_QWEN35_2B = MmprojDefinition(
+        url = "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf",
+        fileName = "mmproj-qwen3.5-2b-F16.gguf",
+        sha256 = "7035e9cb8d7c6a9681d07eef9a364783e86ea4cd73faab2eabb4f43a101830c7",
+        sizeBytes = 668_227_264L,
+    )
+
     // Fasce MINIMO/CONFORTEVOLE/AMPIA: vedi DeviceAiCapability.RamTier. Un modello ufficiale per fascia,
     // della stessa famiglia del modello addestrato sulle guide nella stessa fascia (confronto diretto).
     // Solo modelli non gated (ufficiali Apache 2.0/MIT, addestrati sulle guide CC BY-SA 4.0): niente modelli Gemma o altri repo che richiedono
@@ -67,6 +89,7 @@ object LlmModelCatalog {
             sizeBytes = 1_339_752_704L,
             minRamTier = RamTier.CONFORTEVOLE,
             pageUrl = "https://huggingface.co/Qwen/Qwen3.5-2B",
+            mmproj = MMPROJ_QWEN35_2B,
         ),
         LlmModelDefinition(
             id = "qwen3-4b-instruct-2507",
@@ -102,6 +125,7 @@ object LlmModelCatalog {
             minRamTier = RamTier.CONFORTEVOLE,
             origin = ModelOrigin.ADDESTRATO,
             language = "it",
+            mmproj = MMPROJ_QWEN35_2B,
         ),
         LlmModelDefinition(
             id = "pt-qwen3-4b-2507",
@@ -135,6 +159,7 @@ object LlmModelCatalog {
             minRamTier = RamTier.CONFORTEVOLE,
             origin = ModelOrigin.ADDESTRATO,
             language = "en",
+            mmproj = MMPROJ_QWEN35_2B,
         ),
         LlmModelDefinition(
             id = "pt-qwen3-4b-2507-en",

@@ -4,12 +4,14 @@ import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.text.format.Formatter
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,6 +22,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,7 +57,7 @@ import java.io.File
  * fotocamera si chiede al primo scatto: dichiarato nel manifest, senza permesso l'app della fotocamera non parte.
  */
 @Composable
-internal fun PhotoAttachButton(actions: AiActions) {
+internal fun PhotoAttachButton(actions: AiActions, needsMmproj: Boolean) {
     val context = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
     // La cartella si crea allo scatto, non nella composizione; il resolver dell'app, non dell'Activity: la lettura
@@ -81,7 +84,8 @@ internal fun PhotoAttachButton(actions: AiActions) {
         if (granted) takePicture() else Toast.makeText(context, R.string.ai_photo_camera_denied, Toast.LENGTH_LONG).show()
     }
     Box {
-        IconButton(onClick = { menuOpen = true }) {
+        // Sul dispositivo, senza l'mmproj il tocco offre il download prima di scegliere la foto.
+        IconButton(onClick = { if (needsMmproj) actions.onMmprojOffer() else menuOpen = true }) {
             Icon(AppIcons.Image, contentDescription = stringResource(R.string.ai_photo_attach))
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -106,15 +110,15 @@ internal fun PhotoAttachButton(actions: AiActions) {
     }
 }
 
-// Foto solo online, con un modello che la legge, e non nel foglio del testo selezionato.
-private val AiUiState.canAttach: Boolean get() = mode == AiEngineMode.ONLINE && canAttachPhoto && selectedText == null
+// Foto con un modello che la legge, e non nel foglio del testo selezionato.
+private val AiUiState.canAttach: Boolean get() = photoSupported && selectedText == null
 
 /** Una foto allegata che partira' con la domanda: basta da sola, con la domanda di ai_photo_question. */
 internal val AiUiState.hasPhotoToSend: Boolean get() = canAttach && attachedPhoto != null
 
 /** "Allega una foto" a sinistra del campo della domanda, o null dove una foto non si puo' allegare. */
 internal fun photoAttachIcon(uiState: AiUiState, actions: AiActions): (@Composable () -> Unit)? =
-    if (uiState.canAttach) ({ PhotoAttachButton(actions) }) else null
+    if (uiState.canAttach) ({ PhotoAttachButton(actions, uiState.needsMmproj) }) else null
 
 /** La foto allegata sopra il campo della domanda, con il pulsante per toglierla. */
 @Composable
@@ -178,3 +182,26 @@ internal fun PhotoConsentDialog(provider: OnlineProvider, onAnswer: (Boolean) ->
         dismissButton = { TextButton(onClick = { onAnswer(false) }) { Text(stringResource(R.string.ai_photo_consent_cancel)) } },
     )
 }
+
+/** Prima foto sul dispositivo: offre il download dell'mmproj ([sizeBytes]) e, scaricando, ne mostra l'avanzamento. */
+@Composable
+internal fun MmprojDownloadDialog(sizeBytes: Long, progress: Float?, onDownload: () -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ai_photo_local_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.ai_photo_local_text, Formatter.formatShortFileSize(context, sizeBytes)))
+                if (progress != null) {
+                    Text(stringResource(R.string.ai_model_downloading, (progress * PERCENT).toInt()), modifier = Modifier.padding(top = Spacing.m))
+                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(top = Spacing.s))
+                }
+            }
+        },
+        confirmButton = { if (progress == null) TextButton(onClick = onDownload) { Text(stringResource(R.string.ai_photo_local_download)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ai_photo_consent_cancel)) } },
+    )
+}
+
+private const val PERCENT = 100

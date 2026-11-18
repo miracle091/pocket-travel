@@ -320,4 +320,7 @@
     <string name="ai_photo_consent_text">The photo leaves your phone and goes to %1$s, which handles it under its own terms. Location and photo details are removed first. You can change this in Settings</string>
     <string name="ai_photo_consent_send">Send</string>
     <string name="ai_photo_consent_cancel">Cancel</string>
+    <string name="ai_photo_local_title">Download the photo file?</string>
+    <string name="ai_photo_local_text">To read photos, the on-device model needs one more file, %1$s. It downloads once and the photo stays on the phone</string>
+    <string name="ai_photo_local_download">Download</string>
 </resources>

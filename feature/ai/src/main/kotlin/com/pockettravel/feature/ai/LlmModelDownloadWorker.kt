@@ -28,15 +28,27 @@ class LlmModelDownloadWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            val definition = downloadDefinition(inputData.getString(KEY_MODEL_ID), aiSettingsStore.selectedModelDefinition())
-                .withPublishedFingerprint(publishedModels())
+            val requested = downloadDefinition(inputData.getString(KEY_MODEL_ID), aiSettingsStore.selectedModelDefinition())
+            // Solo quando cambia la percentuale: ogni setProgress e' una scrittura nel database di WorkManager.
+            var lastPercent = -1L
+            val onProgress: suspend (Long, Long) -> Unit = { downloaded, total ->
+                val percent = if (total > 0) downloaded * PERCENT / total else PERCENT
+                if (percent != lastPercent) {
+                    lastPercent = percent
+                    setProgress(workDataOf(KEY_BYTES_DOWNLOADED to downloaded, KEY_TOTAL_BYTES to total))
+                }
+            }
+            if (inputData.getBoolean(KEY_MMPROJ, false)) {
+                // Il modello e' gia' sul dispositivo: si scarica solo il file per le foto.
+                modelManager.downloadMmproj(requested, onProgress)
+                return Result.success()
+            }
+            val definition = requested.withPublishedFingerprint(publishedModels())
             // Un solo modello installato alla volta (vedi LlmModelManager.selectAndDownload):
             // se un altro modello e' gia' su disco resta finche' questo non e' scaricato e verificato, poi si elimina.
             val currentlyInstalled = LlmModelCatalog.ALL.firstOrNull {
                 it.id != definition.id && modelManager.isDownloaded(it)
             }
-            // Solo quando cambia la percentuale: ogni setProgress e' una scrittura nel database di WorkManager.
-            var lastPercent = -1L
             modelManager.selectAndDownload(
                 newDefinition = definition,
                 currentlyInstalled = currentlyInstalled,
@@ -44,13 +56,8 @@ class LlmModelDownloadWorker @AssistedInject constructor(
                 onInstalled = {
                     if (definition.id != aiSettingsStore.selectedModelId()) aiSettingsStore.setSelectedModelId(definition.id)
                 },
-            ) { downloaded, total ->
-                val percent = if (total > 0) downloaded * PERCENT / total else PERCENT
-                if (percent != lastPercent) {
-                    lastPercent = percent
-                    setProgress(workDataOf(KEY_BYTES_DOWNLOADED to downloaded, KEY_TOTAL_BYTES to total))
-                }
-            }
+                onProgress = onProgress,
+            )
             Result.success()
         } catch (error: CancellationException) {
             throw error
@@ -88,6 +95,12 @@ class LlmModelDownloadWorker @AssistedInject constructor(
 
         /** Id del modello da scaricare: il lavoro resta legato a quello richiesto, anche se poi se ne sceglie un altro. */
         const val KEY_MODEL_ID = "model_id"
+
+        /** true: si scarica solo l'mmproj del modello [KEY_MODEL_ID] (le foto), non il modello. */
+        const val KEY_MMPROJ = "mmproj"
+
+        /** Etichetta del lavoro dell'mmproj, per distinguerlo da quello del modello nello stesso avanzamento. */
+        const val TAG_MMPROJ = "mmproj"
 
         /** Tentativi totali (con attesa crescente tra l'uno e l'altro) prima di dichiarare il download fallito. */
         internal const val MAX_ATTEMPTS = 5

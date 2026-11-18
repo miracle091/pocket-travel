@@ -58,6 +58,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 import java.text.Normalizer
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -131,7 +132,8 @@ class TravelAssistant @Inject constructor(
      * del collector ferma la generazione. Se [askedQuestion] e' il seguito di [previousQuestion] (resolveQuestion), ricerca e
      * prompt usano le due unite (followUpQuestion): i modelli sono addestrati su un turno solo. Il [selectedText] di un'altra
      * app e' il contesto sul dispositivo; online va in testa al contesto e sostituisce la domanda nella ricerca delle sezioni.
-     * [photo]: un JPEG gia' pulito (preparePhoto), solo online e solo ai modelli che accettano foto.
+     * [photo]: un JPEG gia' pulito (preparePhoto), solo ai modelli che accettano foto; sul dispositivo va al modello con
+     * il suo [mmproj].
      */
     fun ask(
         regionId: String,
@@ -140,6 +142,7 @@ class TravelAssistant @Inject constructor(
         previousQuestion: String? = null,
         selectedText: String? = null,
         photo: ByteArray? = null,
+        mmproj: File? = null,
     ): Flow<AssistantProgress> = flow {
         // Lingua dell'interfaccia: prompt, testo di ripiego e citazioni (le guide installate la seguono).
         val language = currentGuidesLanguage()
@@ -198,15 +201,16 @@ class TravelAssistant @Inject constructor(
         val focus = focusStems(search.baseQuery, city)
         when (mode) {
             AiEngineMode.ON_DEVICE -> {
-                val plan = planOnDevice(question, contextSections, language, focus, selectedText)
+                val input = photoInput(photo, mmproj)
+                val plan = planOnDevice(question, contextSections, language, focus, selectedText, withPhoto = input != null)
                 var text = ""
-                engine.generateStream(plan.prompt).accumulated(PARTIAL_INTERVAL_MS).collect {
+                engine.generateStream(plan.prompt, input).accumulated(PARTIAL_INTERVAL_MS).collect {
                     text = it
                     emit(AssistantProgress.Partial(it))
                 }
                 // Come online: una risposta vuota e' un errore, non va mostrata ne' salvata in cronologia.
                 if (text.isBlank()) error("Il modello sul dispositivo non ha generato una risposta")
-                emit(AssistantProgress.Done(withSource(AssistantAnswer(text, plan.citations, showOfficialSourceBanner = false))))
+                emit(AssistantProgress.Done(withSource(AssistantAnswer(text, plan.citations, showOfficialSourceBanner = false)).forPhoto(input != null)))
             }
             AiEngineMode.ONLINE -> emitAll(askOnline(question, language, contextSections, focus, sharePersonal, selectedText, photo).progress(withSource))
         }
@@ -321,7 +325,11 @@ class TravelAssistant @Inject constructor(
         language: String,
         focusStems: Set<String>,
         selectedText: String?,
+        withPhoto: Boolean = false,
     ): OnDevicePlan {
+        // Con una foto la domanda va sola, come nel test sul dispositivo: col contesto delle guide il modello cercava la
+        // risposta li' e rifiutava ("il contesto non contiene..."), senza guardare la foto.
+        if (withPhoto) return OnDevicePlan(question, emptyList())
         val note = noteRepository.relevantNote(question)
         // Con un testo selezionato il contesto e' solo il testo: con le sezioni della guida lo 0.8B le scambiava per il testo e
         // inventava (il messaggio di un host sull'arrivo diventava una descrizione della Provenza); senza, lo spiega.
@@ -530,6 +538,10 @@ class TravelAssistant @Inject constructor(
         // Posizione per le previsioni "dove sono": come il riquadro meteo della guida (3 ore, POI entro ~5 km).
     }
 }
+
+/** Con una foto la risposta non viene dalle guide: niente avviso della fonte ufficiale ne' previsioni. */
+private fun AssistantAnswer.forPhoto(withPhoto: Boolean) =
+    if (withPhoto) copy(showOfficialSourceBanner = false, officialSourceUrl = null, forecast = null) else this
 
 private fun distanceSection(from: String, to: String, a: CityCoordinates, b: CityCoordinates, car: CarRoute?, language: String): AssistantSection {
     val straight = FloatArray(1)

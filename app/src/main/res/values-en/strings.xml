@@ -256,7 +256,7 @@
     <string name="licenses_component_openmp">LLVM OpenMP (parallel computation of the assistant\'s models)</string>
     <string name="licenses_component_public_suffix">Public Suffix List (Mozilla, included in OkHttp)</string>
     <string name="licenses_component_qwen">Qwen3.5 and Qwen3 models (Alibaba Cloud, Qwen team)</string>
-    <string name="licenses_note_qwen">Models of the on-device assistant, downloaded on request from Hugging Face in the GGUF versions quantized by Unsloth</string>
+    <string name="licenses_note_qwen">Models of the on-device assistant, downloaded on request from Hugging Face in the GGUF versions quantized by Unsloth, plus the Qwen3.5 2B mmproj file to read photos</string>
     <string name="licenses_component_trained_models">Models trained by Pocket Travel (pockettravel/*-travel-it-GGUF and *-travel-en-GGUF)</string>
     <string name="licenses_note_trained_models">Fine-tunes of the Qwen models, trained on Wikivoyage and Wikipedia texts; downloaded on request from Hugging Face</string>
     <string name="licenses_component_protomaps">Map: Protomaps build</string>

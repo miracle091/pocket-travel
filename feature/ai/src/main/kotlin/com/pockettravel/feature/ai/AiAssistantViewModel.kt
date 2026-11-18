@@ -32,10 +32,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import java.io.File
-import java.io.IOException
 import java.io.InputStream
 import javax.crypto.Cipher
 import javax.inject.Inject
@@ -75,6 +73,14 @@ data class AiUiState(
     val sendsPhotos: Boolean = false,
     // Il modello online in uso accetta foto (OnlineModelCatalog.supportsVision): la barra mostra "Allega una foto".
     val canAttachPhoto: Boolean = false,
+    // Il modello sul dispositivo scelto legge le foto (ha un mmproj e il telefono ha la RAM della sua fascia): vedi canReadPhotos.
+    val canAttachLocalPhoto: Boolean = false,
+    // L'mmproj del modello sul dispositivo scelto e' su disco: senza, la foto offre prima il suo download.
+    val isMmprojDownloaded: Boolean = false,
+    // Avanzamento (0-1) del download dell'mmproj; null se non e' in corso.
+    val mmprojProgress: Float? = null,
+    // La finestra "Scaricare il file per le foto?" e' aperta.
+    val offersMmproj: Boolean = false,
     // Foto allegata alla prossima domanda, gia' pronta per il servizio (preparePhoto); null senza.
     val attachedPhoto: AttachedPhoto? = null,
     // L'ultima foto mandata nella conversazione, con la sua domanda (AttachedPhoto.question): si rimanda con i seguiti
@@ -234,8 +240,12 @@ class AiAssistantViewModel @Inject constructor(
     )
     val uiState: StateFlow<AiUiState> = _uiState.asStateFlow()
 
+    // Le foto sul dispositivo: l'offerta e il download dell'mmproj.
+    internal val mmprojDownload = MmprojDownload(_uiState, aiSettingsStore, modelManager, modelDownloadScheduler, deviceAiCapability)
+
     init {
         savedStateHandle.keepQuestion(viewModelScope, _uiState)
+        mmprojDownload.refresh()
         addCloseable(savedStateHandle.keepPhoto(viewModelScope, _uiState, photosDir, ioDispatcher))
         // "Ferma" della notifica della risposta in corso (AnswerService).
         viewModelScope.launch {
@@ -264,6 +274,7 @@ class AiAssistantViewModel @Inject constructor(
         viewModelScope.launch {
             modelManager.downloadedModelIds.collect { ids ->
                 _uiState.update { it.copy(downloadedModelIds = ids, isModelDownloaded = aiSettingsStore.selectedModelId() in ids) }
+                mmprojDownload.refresh()
             }
         }
         // La chiave puo' cambiare anche fuori da questa schermata (es. Impostazioni).
@@ -311,6 +322,11 @@ class AiAssistantViewModel @Inject constructor(
             val failureGate = DownloadFailureGate()
             modelDownloadScheduler.observeDownload().collect { workInfo ->
                 if (workInfo == null) return@collect
+                // Lo stesso lavoro scarica anche l'mmproj: il suo avanzamento non e' quello del modello.
+                if (LlmModelDownloadWorker.TAG_MMPROJ in workInfo.tags) {
+                    mmprojDownload.onWork(workInfo)
+                    return@collect
+                }
                 val reportsFailure = failureGate.reportsFailure(workInfo.state)
                 when (workInfo.state) {
                     WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED -> _uiState.update { it.copy(downloadProgress = workInfo.downloadFraction()) }
@@ -480,6 +496,7 @@ class AiAssistantViewModel @Inject constructor(
                 errorMessage = null,
             )
         }
+        mmprojDownload.refresh()
     }
 
     /** Solo per il modello sul dispositivo attualmente scaricato: non ha senso misurare un modello
@@ -539,20 +556,7 @@ class AiAssistantViewModel @Inject constructor(
         cancelAsk()
         _uiState.update { it.copy(isImportingModel = true, importError = null) }
         viewModelScope.launch {
-            try {
-                // Un provider cloud puo' scaricare il file all'apertura: fuori dal main thread.
-                val input = withContext(ioDispatcher) { open() } ?: throw IOException("File non leggibile")
-                val candidates = LlmModelCatalog.ALL + _uiState.value.availableModels
-                val definition = modelManager.importModel(input, displayName, sizeBytes, candidates)
-                // Solo con un file valido: un file sbagliato non deve scaricare il modello in uso.
-                engine.release()
-                onModelSelected(definition.id)
-                _uiState.update { it.copy(isImportingModel = false) }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                _uiState.update { it.copy(isImportingModel = false, importError = importFailureMessage(error)) }
-            }
+            _uiState.importFrom(modelManager, engine, ioDispatcher, displayName, sizeBytes, open) { onModelSelected(it.id) }
         }
     }
 
@@ -588,7 +592,7 @@ class AiAssistantViewModel @Inject constructor(
         forecastJob?.cancel()
         // Con un testo selezionato ogni domanda sta da sola: un seguito si unirebbe a quella prima, senza il suo testo.
         val previous = if (state.selectedText != null) null else conversation.previousQuestion(state.mode)
-        val photo = state.photoForQuestion(followUp = previous != null, consented = aiSettingsStore.sendsPhotos())
+        val photo = state.photoForQuestion(followUp = previous != null, consented = state.photoConsented(aiSettingsStore.sendsPhotos()))
         val attached = state.photoToSend(state.attachedPhoto)
         // Una conversazione ripresa resta nella sua regione, anche aperta dalla scheda IA di un'altra.
         val region = conversation.regionId ?: regionId
@@ -628,7 +632,7 @@ class AiAssistantViewModel @Inject constructor(
                 it.copy(isThinking = true, errorMessage = null, canRefreshForecast = false, answer = null, answerCredit = it.currentModelCredit(), streamingText = "")
             }
             // La domanda gia' unita a quella prima se era un seguito (followUpQuestion): non c'e' un seguito da risolvere.
-            collectAnswer(region, answer.question ?: asked, state.mode, previous = null, photo = state.photoToSend(state.askedPhoto)?.takeIf { aiSettingsStore.sendsPhotos() }) { refreshed ->
+            collectAnswer(region, answer.question ?: asked, state.mode, previous = null, photo = state.photoToSend(state.askedPhoto)?.takeIf { state.photoConsented(aiSettingsStore.sendsPhotos()) }) { refreshed ->
                 conversation.onReplaced(region, state.selectedModelId, asked, refreshed)
             }
         }
@@ -638,7 +642,7 @@ class AiAssistantViewModel @Inject constructor(
     private suspend fun collectAnswer(region: String, question: String, mode: AiEngineMode, previous: String?, photo: AttachedPhoto?, onDone: (AssistantAnswer) -> Unit): Boolean =
         try {
             answerKeepAlive.during {
-                travelAssistant.ask(region, question, mode, previous, _uiState.value.selectedText?.text, photo?.jpeg).collect { progress ->
+                travelAssistant.ask(region, question, mode, previous, _uiState.value.selectedText?.text, photo?.jpeg, modelManager.mmprojFile(aiSettingsStore.selectedModelDefinition())).collect { progress ->
                     when (progress) {
                         is AssistantProgress.Partial -> _uiState.update { it.copy(streamingText = progress.text) }
                         is AssistantProgress.ModelSwitched -> _uiState.update { it.switchedModel(progress) }

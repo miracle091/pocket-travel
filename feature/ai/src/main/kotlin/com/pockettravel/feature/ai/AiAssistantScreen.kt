@@ -131,6 +131,10 @@ fun AiAssistantScreen(
         readAloud = readAloudState,
     )
     if (uiState.confirmsPhoto) PhotoConsentDialog(uiState.onlineProvider, actions.onPhotoConsent)
+    if (uiState.offersMmproj) {
+        val size = LlmModelCatalog.ALL.firstOrNull { it.id == uiState.selectedModelId }?.mmproj?.sizeBytes ?: 0L
+        MmprojDownloadDialog(size, uiState.mmprojProgress, actions.onMmprojDownload, actions.onMmprojDismiss)
+    }
     uiState.history?.let { history ->
         ConversationHistoryDialog(
             history = history,
@@ -184,6 +188,10 @@ data class AiActions(
     // Foto dalla galleria o dalla fotocamera: come la apre, e come cancellare la copia dell'app dopo la lettura.
     val onPhotoChosen: (open: () -> InputStream?, discard: () -> Unit) -> Unit = { _, _ -> },
     val onPhotoRemoved: () -> Unit = {},
+    // Foto sul dispositivo senza l'mmproj: offre il download, lo avvia o chiude la finestra.
+    val onMmprojOffer: () -> Unit = {},
+    val onMmprojDownload: () -> Unit = {},
+    val onMmprojDismiss: () -> Unit = {},
     // Avviso alla prima foto: true = Invia, false = Annulla.
     val onPhotoConsent: (Boolean) -> Unit = {},
     val onVoiceStart: () -> Unit = {},
@@ -231,6 +239,9 @@ internal fun AiAssistantViewModel.toActions(regionId: String) = AiActions(
     onSendsPhotosChanged = ::onSendsPhotosChanged,
     onPhotoChosen = ::onPhotoChosen,
     onPhotoRemoved = ::onPhotoRemoved,
+    onMmprojOffer = mmprojDownload::offer,
+    onMmprojDownload = mmprojDownload::start,
+    onMmprojDismiss = mmprojDownload::dismiss,
     onPhotoConsent = { onPhotoConsent(it, regionId) },
     onQuestionChanged = ::onQuestionChanged,
     onAsk = { ask(regionId) },

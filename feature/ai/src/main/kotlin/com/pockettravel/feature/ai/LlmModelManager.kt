@@ -13,6 +13,24 @@ class ModelDownloadFailedException(message: String) : Exception(message)
 /** definition.sha256 == null: modello non ancora disponibile per il download (vedi LlmModelDefinition). */
 class ModelNotAvailableException(message: String) : Exception(message)
 
+/** Il file mmproj dei modelli che leggono le foto: un GGUF a parte, scaricato solo su richiesta. */
+interface MmprojManager {
+    /** File mmproj di [definition], null per un modello che non legge le foto; puo' non esistere ancora. */
+    fun mmprojFile(definition: LlmModelDefinition): File?
+
+    /** true se [definition] legge le foto e il suo mmproj e' su disco. */
+    fun isMmprojDownloaded(definition: LlmModelDefinition): Boolean
+
+    /**
+     * Scarica l'mmproj di [definition], verificato per sha256, accanto ai modelli. Senza mmproj lancia
+     * [IllegalArgumentException].
+     */
+    suspend fun downloadMmproj(
+        definition: LlmModelDefinition,
+        onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
+    )
+}
+
 /**
  * Modello IA sul dispositivo: scaricato solo su richiesta, liberabile dall'utente in un tocco
  * (quantizzato, consigliato sotto 1,5 GB).
@@ -21,7 +39,7 @@ class ModelNotAvailableException(message: String) : Exception(message)
  * chiamante (risolto da AiSettingsStore.selectedModelId) resta l'unica fonte di verita' su
  * quale modello e' "quello attivo" — nessuno stato duplicato qui dentro.
  */
-interface LlmModelManager {
+interface LlmModelManager : MmprojManager {
     fun modelFile(definition: LlmModelDefinition): File
 
     fun isDownloaded(definition: LlmModelDefinition): Boolean
@@ -68,7 +86,10 @@ interface LlmModelManager {
 
     suspend fun delete(definition: LlmModelDefinition): Boolean
 
-    /** Come [delete], da chiamare solo con il lock del modello gia' preso. */
+    /**
+     * Come [delete], da chiamare solo con il lock del modello gia' preso. Elimina anche il suo mmproj, a meno che lo usi un
+     * altro modello installato.
+     */
     fun deleteWithoutLock(definition: LlmModelDefinition): Boolean
 
     /** Elimina da disco ogni file che non e' una voce del catalogo dei modelli ne' il parziale del modello [selected]. */

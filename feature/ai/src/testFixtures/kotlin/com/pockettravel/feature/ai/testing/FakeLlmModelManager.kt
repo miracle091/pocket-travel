@@ -27,6 +27,20 @@ class FakeLlmModelManager(initial: Set<String> = emptySet()) : LlmModelManager {
 
     override fun isDownloaded(definition: LlmModelDefinition): Boolean = definition.id in downloadedModelIds.value
 
+    /** File mmproj presenti, per nome di file. */
+    val mmprojFiles = mutableSetOf<String>()
+
+    override fun mmprojFile(definition: LlmModelDefinition): File? = definition.mmproj?.let { File("fake-models", it.fileName) }
+
+    override fun isMmprojDownloaded(definition: LlmModelDefinition): Boolean = definition.mmproj?.fileName in mmprojFiles
+
+    override suspend fun downloadMmproj(definition: LlmModelDefinition, onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit) {
+        val mmproj = requireNotNull(definition.mmproj)
+        downloadFailure?.let { throw it }
+        onProgress(mmproj.sizeBytes, mmproj.sizeBytes)
+        mmprojFiles += mmproj.fileName
+    }
+
     override fun sizeOnDisk(definition: LlmModelDefinition): Long =
         if (isDownloaded(definition)) sizes[definition.id] ?: definition.sizeBytes else 0L
 

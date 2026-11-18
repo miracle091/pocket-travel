@@ -44,8 +44,8 @@ internal fun sampleSize(width: Int, height: Int, maxSide: Int): Int {
  */
 val AiUiState.lastQuestionPhoto: AttachedPhoto? get() = askedPhoto?.takeIf { it.question == askedQuestion }
 
-/** [photo] se si puo' mandare: solo online e con un modello che legge le foto. */
-fun AiUiState.photoToSend(photo: AttachedPhoto?): AttachedPhoto? = photo?.takeIf { mode == AiEngineMode.ONLINE && canAttachPhoto }
+/** [photo] se si puo' mandare: con un modello che legge le foto e, sul dispositivo, con il suo mmproj scaricato. */
+fun AiUiState.photoToSend(photo: AttachedPhoto?): AttachedPhoto? = photo?.takeIf { photoSupported && !needsMmproj }
 
 /**
  * La foto che parte con la domanda: quella allegata o, in un seguito ([followUp]), l'ultima della conversazione. Mai senza
@@ -84,7 +84,7 @@ internal fun preparePhoto(open: () -> InputStream?, maxSide: Int): ByteArray {
 
 /** True se la foto allegata aspetta il consenso ([consented] falso): si apre l'avviso alla prima foto (onPhotoConsent). */
 internal fun MutableStateFlow<AiUiState>.awaitsPhotoConsent(consented: Boolean): Boolean {
-    if (consented || value.photoToSend(value.attachedPhoto) == null) return false
+    if (consented || value.mode != AiEngineMode.ONLINE || value.photoToSend(value.attachedPhoto) == null) return false
     update { it.copy(confirmsPhoto = true, sendsPhotos = false) }
     return true
 }
@@ -94,7 +94,7 @@ internal fun MutableStateFlow<AiUiState>.awaitsPhotoConsent(consented: Boolean):
  * domanda; una foto illeggibile mostra un errore. [discard] gira sempre alla fine: cancella lo scatto della fotocamera.
  */
 internal suspend fun MutableStateFlow<AiUiState>.attachPhoto(open: () -> InputStream?, discard: () -> Unit, dispatcher: CoroutineDispatcher) {
-    val maxSide = photoLongSide(value.onlineProvider)
+    val maxSide = if (value.mode == AiEngineMode.ON_DEVICE) LOCAL_PHOTO_LONG_SIDE else photoLongSide(value.onlineProvider)
     update { it.copy(isPreparingPhoto = true) }
     val photo = try {
         withContext(dispatcher) { preparePhoto(open, maxSide) }

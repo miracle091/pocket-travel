@@ -62,6 +62,10 @@ class FileLlmModelManager @Inject constructor(
 
     override fun isDownloaded(definition: LlmModelDefinition): Boolean = modelFile(definition).exists()
 
+    override fun mmprojFile(definition: LlmModelDefinition): File? = definition.mmproj?.let { File(modelsDir, it.fileName) }
+
+    override fun isMmprojDownloaded(definition: LlmModelDefinition): Boolean = mmprojFile(definition)?.exists() == true
+
     // Id delle voci del catalogo dei modelli presenti su disco, aggiornato a ogni installazione/eliminazione
     // (per questo la classe e' un singleton: una sola copia dello stato).
     private val _downloadedModelIds = MutableStateFlow(scanDownloadedModelIds())
@@ -106,6 +110,22 @@ class FileLlmModelManager @Inject constructor(
         install(verified, definition, requireNotNull(definition.sha256).lowercase(), replaces = replaces, onInstalled = onInstalled)
     }
 
+    override suspend fun downloadMmproj(
+        definition: LlmModelDefinition,
+        onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
+    ) {
+        val mmproj = requireNotNull(definition.mmproj) { "Il modello «${definition.displayName}» non legge le foto" }
+        // Stesso scarico del modello: Range, .part e verifica sha256; il file ha il suo nome e non entra nel catalogo.
+        val file = mmproj.asDownload()
+        val verified = withContext(ioDispatcher) { downloadAndVerify(file, onProgress) }
+        install(verified, file, mmproj.sha256.lowercase())
+    }
+
+    private fun MmprojDefinition.asDownload() = LlmModelDefinition(
+        id = fileName, displayName = fileName, url = url, fileName = fileName, sha256 = sha256, sizeBytes = sizeBytes,
+        minRamTier = RamTier.CONFORTEVOLE,
+    )
+
     // Passaggio finale comune a download e importazione: sostituisce il file del modello con quello verificato.
     // [onInstalled] gira nel lock, col nuovo file gia' al suo posto e prima di eliminare [replaces]: chi sceglie il
     // modello in uso non vede mai un modello senza file.
@@ -119,7 +139,7 @@ class FileLlmModelManager @Inject constructor(
     ) {
         coordinator.withModelLock {
             if (deleteOthers) {
-                LlmModelCatalog.ALL.filter { it.id != definition.id && isDownloaded(it) }.forEach { deleteWithoutLock(it) }
+                LlmModelCatalog.ALL.filter { it.id != definition.id && isDownloaded(it) }.forEach { deleteFiles(it, keepMmprojOf = definition) }
             }
             withContext(ioDispatcher) {
                 // Prima del nuovo file: uno sha vecchio accanto a un modello nuovo farebbe credere installata la versione sbagliata.
@@ -374,11 +394,24 @@ class FileLlmModelManager @Inject constructor(
 
     override suspend fun delete(definition: LlmModelDefinition): Boolean = coordinator.withModelLock { deleteWithoutLock(definition) }
 
-    override fun deleteWithoutLock(definition: LlmModelDefinition): Boolean =
+    override fun deleteWithoutLock(definition: LlmModelDefinition): Boolean = deleteFiles(definition, keepMmprojOf = null)
+
+    // [keepMmprojOf]: il modello in arrivo, che puo' usare lo stesso mmproj di [definition] senza essere ancora su disco.
+    private fun deleteFiles(definition: LlmModelDefinition, keepMmprojOf: LlmModelDefinition?): Boolean =
         modelFile(definition).delete().also {
             shaFile(definition).delete()
+            definition.mmproj?.let { mmproj ->
+                val shared = LlmModelCatalog.ALL.any {
+                    it.id != definition.id && it.mmproj?.fileName == mmproj.fileName && (isDownloaded(it) || it.id == keepMmprojOf?.id)
+                }
+                if (!shared) deleteMmprojFiles(mmproj)
+            }
             _downloadedModelIds.value = scanDownloadedModelIds()
         }
+
+    private fun deleteMmprojFiles(mmproj: MmprojDefinition) {
+        listOf("", ".sha256", ".part", ".part.sha256").forEach { File(modelsDir, mmproj.fileName + it).delete() }
+    }
 
     /**
      * Elimina da [modelsDir] ogni file che non e' una voce del catalogo dei modelli attuale (col suo sha256 salvato)
@@ -388,8 +421,11 @@ class FileLlmModelManager @Inject constructor(
      * (quello del modello scelto) non vengono mai toccati, quindi non c'e' corsa con download().
      */
     override fun deleteOrphanedFiles(selected: LlmModelDefinition) {
+        // Gli mmproj restano su disco anche se il modello e' un altro: costano centinaia di MB da riscaricare.
         val keep = LlmModelCatalog.ALL.flatMap { listOf(it.fileName, "${it.fileName}.sha256") }.toSet() +
-            partFile(selected).name + partShaFile(selected).name
+            LlmModelCatalog.ALL.mapNotNull { it.mmproj }.flatMap { listOf(it.fileName, "${it.fileName}.sha256") } +
+            partFile(selected).name + partShaFile(selected).name +
+            listOfNotNull(selected.mmproj).flatMap { listOf("${it.fileName}.part", "${it.fileName}.part.sha256") }
         modelsDir.listFiles()?.filter { it.isFile && it.name !in keep }?.forEach { it.delete() }
         _downloadedModelIds.value = scanDownloadedModelIds()
     }

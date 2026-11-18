@@ -35,6 +35,17 @@ class LlmModelDownloadScheduler @Inject constructor(
         workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request)
     }
 
+    /** Scarica l'mmproj (le foto) del modello [modelId], gia' sul dispositivo. */
+    fun enqueueMmprojDownload(modelId: String) {
+        val request = OneTimeWorkRequestBuilder<LlmModelDownloadWorker>()
+            .setInputData(workDataOf(LlmModelDownloadWorker.KEY_MODEL_ID to modelId, LlmModelDownloadWorker.KEY_MMPROJ to true))
+            .addTag(LlmModelDownloadWorker.TAG_MMPROJ)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .build()
+        workManager.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request)
+    }
+
     fun observeDownload(): Flow<WorkInfo?> =
         workManager.getWorkInfosForUniqueWorkFlow(WORK_NAME).map { it.firstOrNull() }
 
