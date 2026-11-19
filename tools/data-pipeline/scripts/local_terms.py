@@ -14,6 +14,10 @@ Da dove vengono (piano dei termini locali, 2026-11-12):
    ad altre lingue o piu' e nessun paese su Wikidata (P495 e P17: Natale, Capodanno, Ginger);
 4. un termine resta se uno dei suoi nomi compare come parola intera nel testo della guida (senza accenti ne' maiuscole).
    Un nome ricavato togliendo la parentesi ("Chupe (food)" -> "Chupe") vale solo se non e' il titolo di un'altra voce.
+   Scartate anche, in tutte e due le fonti: la cucina di un paese o di una regione (CUISINE_TITLE); luoghi, enti, leggi,
+   popoli e religioni (NOT_A_TERM_TYPES, salvo un tipo di TOPICS); festival di musica e di cinema (FESTIVAL, prima frase
+   dell'introduzione). Una voce della prima fonte che su Wikidata non ha un paese d'origine ne' il paese della regione come
+   P17 resta solo se la sua introduzione nomina il paese (mentions).
 
 Seconda fonte (grassetti e corsivi, dopo la prima, stessa riga del JSONL):
 5. candidati: testi in grassetto o corsivo del wikitext nelle sezioni di SECTION_STARTS (mangiare, bere, eventi e feste,
@@ -72,8 +76,25 @@ EXCLUDED_TYPES = {
     "Q515", "Q486972", "Q3624078", "Q6256", "Q167270", "Q431289", "Q215380", "Q1656682", "Q2416217",
     "Q13406463",
 }
+# Tipi (P31) di voci che non sono un termine: luoghi e parchi, musei, imprese e enti, leggi e guerre, popoli e religioni, fiere,
+# "aspetto in una regione" ("Beer in Denmark", "Greek wine"). Una voce con uno di questi tipi resta solo se ne ha anche uno
+# degli argomenti di TOPICS (Carnevale di Barranquilla: aspetto in una regione, ma anche carnevale).
+NOT_A_TERM_TYPES = {
+    "Q74817647", "Q194195", "Q2416723", "Q3844310", "Q44613", "Q3957", "Q11881845", "Q707813", "Q1402592", "Q34763", "Q756102",
+    "Q57305", "Q1738761", "Q1875610", "Q1070669", "Q18509232", "Q270791", "Q891723", "Q163740", "Q21980538", "Q2085381",
+    "Q1251750", "Q142073241", "Q5189488", "Q204310", "Q1666019", "Q7168296", "Q41710", "Q103817", "Q9174", "Q1189816",
+    "Q108704490", "Q7748", "Q49371", "Q2647483", "Q21994376", "Q1006311", "Q1464916", "Q3771738", "Q1572600", "Q49773", "Q7257",
+    "Q51404", "Q3001412",
+}
 NATIONAL_CUISINE = "Q1968435"
 LIST_TITLE = re.compile(r"^(list of|lists of|lista d|elenco d|glossar)", re.I)
+# La cucina di un paese o di una regione ("Sichuan cuisine", "Cuisine of Quebec", "Cucina cantonese") spiega un insieme di
+# piatti, non un termine.
+CUISINE_TITLE = re.compile(r"\bcuisine\b|^cucina\b", re.I)
+# Festival di musica e di cinema (Smukfest, Rock in Japan, Tomorrowland): eventi, non feste o usanze del paese. Si riconoscono
+# dalla prima frase dell'introduzione.
+FESTIVAL = re.compile(r"\b(?:music\w*|jazz|rock|metal|pop|film|opera|cinematograf\w*)\b[^.]{0,40}?\bfestival\b"
+                      r"|\bfestival\b[^.]{0,30}\b(?:music\w*|jazz|rock|cinematograf\w*|di (?:musica|cinema|jazz))\b", re.I)
 PARENTHESIS = re.compile(r"\s*\([^)]*\)\s*$")
 NAMESPACE_LINK = re.compile(r"\[\[[A-Za-z]+:[^\]]*\]\]")
 MIN_NAME = 4
@@ -240,9 +261,12 @@ def existing_articles(titles, lang, deadline):
     return out
 
 
-def excluded_items(items, deadline):
-    """Elementi Wikidata con un tipo (P31) di EXCLUDED_TYPES, o generici: noti in molte lingue e senza un paese (GENERIC_LINKS)."""
-    out, items = set(), sorted(items)
+def excluded_items(items, deadline, country=None, topic_cache=None):
+    """(elementi Wikidata con un tipo (P31) di EXCLUDED_TYPES, o di NOT_A_TERM_TYPES senza un tipo di TOPICS ([topic_cache]:
+    topic_types), o generici, cioe' noti in molte lingue e senza un paese (GENERIC_LINKS); elementi non legati a [country]:
+    senza paese d'origine (P495) e con un paese (P17) diverso o nessuno). I secondi restano candidati, ma solo se la loro
+    introduzione nomina il paese (mentions)."""
+    out, untied, items, maybe = set(), set(), sorted(items), {}
     for i in range(0, len(items), city_population.BATCH):
         if _expired(deadline):
             break
@@ -250,12 +274,44 @@ def excluded_items(items, deadline):
                + "|".join(items[i:i + city_population.BATCH]))
         for q, entity in city_population._get(url).get("entities", {}).items():
             claims = entity.get("claims", {})
-            types = {c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") for c in claims.get("P31", [])}
+            ids = lambda prop: {c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") for c in claims.get(prop, [])}
+            types = ids("P31")
             countryless = not claims.get("P495") and not claims.get("P17")
             if types & EXCLUDED_TYPES or (countryless and len(entity.get("sitelinks", {})) >= GENERIC_LINKS):
                 out.add(q)
+            else:
+                if types & NOT_A_TERM_TYPES:
+                    maybe[q] = types
+                if not claims.get("P495") and country not in ids("P17"):
+                    untied.add(q)
         time.sleep(0.2)
-    return out
+    if maybe:
+        topics = topic_types({t for types in maybe.values() for t in types}, {} if topic_cache is None else topic_cache)
+        out |= {q for q, types in maybe.items() if not types & topics}
+    return out, untied - out
+
+
+def country_names(country, lang):
+    """Nomi con cui l'introduzione di una voce nomina il paese: nome e alias in [lang] e aggettivi (P1549) dell'elemento Wikidata."""
+    url = (f"https://www.wikidata.org/w/api.php?action=wbgetentities&props=labels|aliases|claims&languages={lang}&format=json&ids={country}")
+    entity = city_population._get(url).get("entities", {}).get(country, {})
+    names = [entity.get("labels", {}).get(lang, {}).get("value")] + [a["value"] for a in entity.get("aliases", {}).get(lang, [])]
+    demonyms = [c["mainsnak"].get("datavalue", {}).get("value", {}).get("text") for c in entity.get("claims", {}).get("P1549", [])
+                if c["mainsnak"].get("datavalue", {}).get("value", {}).get("language") == lang]
+    return [n for n in names + demonyms if n]
+
+
+def mentions(text, names):
+    """Il testo nomina uno dei [names] come parola intera, o per i nomi di una parola sola (Finlandia) l'inizio di una parola
+    (finlandese): la radice e' fatta dalle prime 5 lettere se il nome ne ha 6 o piu'."""
+    folded = fold(text)
+    for name in names:
+        plain = fold(name).strip()
+        if len(plain) >= 3 and f" {plain} " in folded:
+            return True
+        if " " not in plain and len(plain) >= 6 and f" {plain[:5]}" in folded:
+            return True
+    return False
 
 
 def summaries(titles, lang, deadline):
@@ -279,16 +335,18 @@ def summaries(titles, lang, deadline):
     return out
 
 
-def country_terms(country, lang, deadline):
-    """[(titolo, nomi, revisione)] dei termini candidati del paese, prima del confronto con le guide."""
+def country_terms(country, lang, deadline, topic_cache=None):
+    """([(titolo, nomi, revisione)] dei termini candidati del paese, prima del confronto con le guide; titoli dei candidati non
+    legati al paese su Wikidata, che restano solo se la loro introduzione nomina il paese)."""
     cats, mains = categories(country, lang)
-    titles = {t for t in members(cats, lang, deadline) if not LIST_TITLE.match(t) and t not in mains}
+    titles = {t for t in members(cats, lang, deadline) if not LIST_TITLE.match(t) and not CUISINE_TITLE.search(t) and t not in mains}
     info = page_info(titles, lang, deadline)
     info = {t: i for t, i in info.items() if not i["disambiguation"] and t not in mains}
-    excluded = excluded_items({i["item"] for i in info.values() if i["item"]}, deadline)
+    excluded, untied = excluded_items({i["item"] for i in info.values() if i["item"]}, deadline, country, topic_cache)
     bare = {PARENTHESIS.sub("", n) for t, i in info.items() for n in [t, *i["redirects"]]}
     existing = existing_articles({b for b in bare if b not in info}, lang, deadline) | set(info)
-    return [(t, names_of(t, i["redirects"], existing), i["revision"]) for t, i in sorted(info.items()) if i["item"] not in excluded]
+    terms = [(t, names_of(t, i["redirects"], existing), i["revision"]) for t, i in sorted(info.items()) if i["item"] not in excluded]
+    return terms, {t for t, i in info.items() if i["item"] in untied}
 
 
 def markup_candidates(wikitext):
@@ -406,7 +464,8 @@ def resolve(candidates, lang, deadline, cache):
             for _ in range(3):
                 title = alias.get(title, title)
             info = pages.get(title)
-            usable = info and info["ok"] and info["item"] and not info["disambiguation"] and not LIST_TITLE.match(title)
+            usable = (info and info["ok"] and info["item"] and not info["disambiguation"]
+                      and not LIST_TITLE.match(title) and not CUISINE_TITLE.search(title))
             cache[candidate] = (title, info["item"], info["revision"]) if usable else None
         time.sleep(0.1)
     return {c: cache[c] for c in candidates if cache.get(c)}
@@ -444,6 +503,14 @@ def reading_order(region_ids, published):
     return sorted(region_ids, key=lambda region: (key.get(region, ""), region))
 
 
+def is_local(summary, untied, names):
+    """La spiegazione di una voce e' di un termine del paese: non e' un festival di musica o di cinema e, se la voce non e' legata
+    al paese su Wikidata ([untied]), nomina il paese ([names]: country_names; senza, tenuta)."""
+    if FESTIVAL.search(re.split(r"(?<=[.!?])\s", summary, maxsplit=1)[0]):
+        return False
+    return not untied or names is None or mentions(summary, names)
+
+
 def merge(first, second):
     """Termini della prima fonte e, dopo, quelli della seconda la cui voce non c'e' gia' (stesso titolo = stesso termine)."""
     seen = {title for title, _, _ in first}
@@ -460,7 +527,7 @@ def collect(regions, lang, max_seconds=MAX_SECONDS, order=None, second_source=Tr
     second_cache = {"pages": {}, "claims": {}, "types": {}}
     item_of = city_population.wikibase_items({title for title, _ in regions.values()}, "en", deadline)
     country_of = countries(item_of.values()) if item_of else {}
-    candidates = {}
+    candidates, country_name_cache = {}, {}
     rows = []
     for region_id in order or sorted(regions):
         voyage_title, text = regions[region_id]
@@ -469,16 +536,17 @@ def collect(regions, lang, max_seconds=MAX_SECONDS, order=None, second_source=Tr
             continue
         if country not in candidates:
             try:
-                candidates[country] = country_terms(country, lang, deadline)
+                candidates[country] = country_terms(country, lang, deadline, second_cache["types"])
             except Exception as e:
                 print(f"-- termini locali: paese {country} saltato ({e})", file=sys.stderr)
                 candidates[country] = None
         if candidates[country] is None:
             continue
+        terms, untied = candidates[country]
         folded = fold(text)
         # prima i nomi che la guida usa: il termine e' il primo, non il titolo (spesso il nome scientifico)
         found = [(t, hit + [n for n in names if n not in hit], rev)
-                 for t, names, rev in candidates[country] if (hit := matched(folded, names))]
+                 for t, names, rev in terms if (hit := matched(folded, names))]
         if second_source and not _expired(second_deadline):
             try:
                 found = merge(found, second_terms(text, country, lang, second_deadline, second_cache))
@@ -487,10 +555,19 @@ def collect(regions, lang, max_seconds=MAX_SECONDS, order=None, second_source=Tr
         texts = summaries({t for t, _, _ in found}, lang, deadline)
         if _expired(deadline):
             continue
+        if untied & {t for t, _, _ in found} and country not in country_name_cache:
+            try:
+                country_name_cache[country] = country_names(country, lang)
+            except Exception as e:
+                print(f"-- termini locali: nomi del paese {country} non letti ({e}), voci non legate al paese tenute", file=sys.stderr)
+                country_name_cache[country] = None
+        # il paese e la regione stessa (la guida del Quebec e' del Canada): l'introduzione di "Ice cider" nomina il Quebec
+        region_names = None if country_name_cache.get(country) is None else country_name_cache[country] + [voyage_title]
         rows.append({"regionId": region_id, "terms": [
             {"term": names[0], "aliases": names[1:], "title": title, "summary": texts[title],
              "url": f"https://{lang}.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_")), "revision": revision}
-            for title, names, revision in found if title in texts]})
+            for title, names, revision in found
+            if title in texts and is_local(texts[title], title in untied, region_names)]})
     return rows
 
 
