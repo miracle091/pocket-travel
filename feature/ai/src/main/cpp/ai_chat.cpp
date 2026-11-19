@@ -7,6 +7,7 @@
 #include <sys/auxv.h>
 #include <sys/prctl.h>
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <deque>
@@ -68,6 +69,16 @@ static common_sampler                   * g_sampler;
 static mtmd_context                     * g_mtmd;
 // Thread del prompt di prepare(), usati anche dall'encoder delle immagini.
 static int                                g_n_threads_batch = DEFAULT_N_THREADS;
+// Stop durante la lettura del prompt: requestAbort (un altro thread, senza passare dal thread del motore che e' occupato
+// a leggere) alza g_abort_requested, clearAbort lo azzera prima di ogni lettura. llama.cpp lo legge tra un nodo e
+// l'altro del grafo (abort_callback, solo mentre g_reading_prompt e' vero: PromptReading) e decode_tokens_in_batches tra
+// un batch e l'altro (chiamata solo dentro PromptReading). Fuori dalla lettura il flag puo' restare alzato, ma inerte.
+static std::atomic<bool>                  g_reading_prompt{false};
+static std::atomic<bool>                  g_abort_requested{false};
+// Valore di ritorno di processUserPrompt per una lettura interrotta da requestAbort (non e' un errore).
+constexpr jint  PROMPT_INTERRUPTED      = 8;
+// Valore di decode_tokens_in_batches e di llama_decode (GGML_STATUS_ABORTED) per la decodifica interrotta.
+constexpr int   DECODE_ABORTED          = 2;
 
 // Copiata e rilasciata subito: se dopo qualcosa lancia, la stringa JNI non resta trattenuta. Vuota se manca la memoria
 // (GetStringUTFChars da' null con un OutOfMemoryError in sospeso, che arriva al chiamante Kotlin).
@@ -381,6 +392,10 @@ static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads, jint n_thread
                                  n_threads_batch > 0 ? n_threads_batch : DEFAULT_N_THREADS);
     if (!context) { return 1; }
     g_context = context;
+    // Vale solo durante la lettura del prompt (g_reading_prompt): generazione, chiusura del turno e foto non lo sentono.
+    llama_set_abort_callback(context, [](void *) {
+        return g_reading_prompt.load(std::memory_order_relaxed) && g_abort_requested.load(std::memory_order_relaxed);
+    }, nullptr);
     g_n_threads_batch = n_threads_batch > 0 ? n_threads_batch : DEFAULT_N_THREADS;
     g_batch = common_batch(context);
     // common_context_can_seq_rm decodifica due token di prova e svuota la cache: qui, prima di ogni prompt.
@@ -590,6 +605,7 @@ static int decode_tokens_in_batches(
     // Process tokens in batches using the global batch
     LOGd("%s: Decode %d tokens starting at position %d", __func__, (int) tokens.size(), start_pos);
     for (int i = 0; i < (int) tokens.size(); i += BATCH_SIZE) {
+        if (g_abort_requested.load(std::memory_order_relaxed)) return DECODE_ABORTED;
         const int cur_batch_size = std::min((int) tokens.size() - i, BATCH_SIZE);
         batch.clear();
         LOGv("%s: Preparing a batch size of %d starting at: %d", __func__, cur_batch_size, i);
@@ -623,6 +639,7 @@ static int decode_tokens_in_batches(
 
         // Decode this batch
         const int decode_result = llama_process(context, LLAMA_PROCESS_TYPE_DECODE, batch.get());
+        if (decode_result == DECODE_ABORTED) return DECODE_ABORTED;
         if (decode_result) {
             LOGe("%s: llama_decode failed w/ %d", __func__, decode_result);
             return 1;
@@ -707,6 +724,13 @@ static void split_user_turn(const std::string &user_prompt, const std::string &f
     }
 }
 
+// Dall'inizio della lettura del prompt alla fine di process_user_prompt_impl (ogni uscita) requestAbort e' ascoltata.
+// Il flag non si azzera qui ma da Kotlin (clearAbort) prima della chiamata: uno Stop arrivato nel frattempo vale.
+struct PromptReading {
+    PromptReading() { g_reading_prompt.store(true); }
+    ~PromptReading() { g_reading_prompt.store(false); }
+};
+
 static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_predict) {
     if (!g_context || !g_sampler) {
         LOGe("%s: model not prepared", __func__);
@@ -718,6 +742,7 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     }
     // Reset short-term states
     reset_short_term_states();
+    PromptReading reading;
 
     // Obtain and tokenize user prompt
     std::string user_prompt = jstring_to_utf8(env, juser_prompt);
@@ -809,7 +834,14 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     }
 
     // Decode user tokens in batches
-    if (decode_tokens_in_batches(g_context, g_batch, user_tokens, current_position, true)) {
+    const int decoded = decode_tokens_in_batches(g_context, g_batch, user_tokens, current_position, true);
+    if (decoded == DECODE_ABORTED) {
+        // Lettura a meta': la sequenza non si riporta indietro con llama_memory_seq_rm (fallisce con la memoria
+        // ricorrente dei Qwen3.5), si azzera la conversazione. Non e' un errore: Kotlin lo tratta come uno Stop.
+        LOGi("%s: prompt reading interrupted", __func__);
+        return reject_user_prompt(PROMPT_INTERRUPTED);
+    }
+    if (decoded) {
         LOGe("%s: llama_decode() failed!", __func__);
         return reject_user_prompt(2);
     }
@@ -1000,6 +1032,22 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_cancelGen
         }
     }
     reset_short_term_states();
+}
+
+// Stop durante la lettura del prompt di processUserPrompt (non delle foto, che mtmd non interrompe): da chiamare da un
+// altro thread, non dal thread del motore, che e' occupato a leggere. Senza lettura in corso il flag resta inerte fino al
+// prossimo clearAbort.
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_requestAbort(JNIEnv * /*env*/, jobject /*unused*/) {
+    g_abort_requested.store(true);
+}
+
+// Prima di ogni lettura del prompt, dal thread del motore.
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_clearAbort(JNIEnv * /*env*/, jobject /*unused*/) {
+    g_abort_requested.store(false);
 }
 
 // env->NewStringUTF() richiede Modified UTF-8 (CESU-8): le sequenze UTF-8 standard a 4 byte (emoji,

@@ -6,9 +6,13 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine
 import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl
 import com.pockettravel.feature.ai.llamacpp.isModelLoaded
+import android.util.Log
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.After
@@ -30,6 +34,10 @@ import java.io.File
  */
 @RunWith(AndroidJUnit4::class)
 class LlamaEngineDeviceTest {
+
+    private companion object {
+        const val TAG = "LlamaEngineDeviceTest"
+    }
 
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
     private val definition = LlmModelCatalog.ALL.first { it.id == "qwen3.5-0.8b" }
@@ -73,6 +81,41 @@ class LlamaEngineDeviceTest {
 
         assertTrue("risposta vuota", answer.isNotBlank())
         assertEquals(InferenceEngine.State.ModelReady, engine.state.value)
+    }
+
+    // Lo Stop durante la lettura del prompt ferma la decodifica entro un batch (512 token), non alla fine dei ~3000 token;
+    // la domanda successiva riceve una risposta normale.
+    @Test
+    fun stopDuranteLaLetturaDelPromptRitornaEntroUnBatch() = runBlocking<Unit> {
+        engine.loadModel(modelPath)
+        val longPrompt = (1..220).joinToString("\n") { "Il monumento numero $it di Roma e' molto antico e famoso." }
+
+        // Prima lettura a vuoto: quella a freddo (pesi non ancora in memoria) e' piu' lenta e falserebbe il confronto.
+        engine.resetConversation()
+        engine.sendUserPrompt(longPrompt, predictLength = 1).toList()
+        engine.resetConversation()
+        val fullStart = System.nanoTime()
+        engine.sendUserPrompt(longPrompt, predictLength = 1).toList()
+        val fullMs = (System.nanoTime() - fullStart) / 1_000_000
+        Log.i(TAG, "lettura completa: $fullMs ms (${engine.contextUsage.value?.promptTokens} token)")
+        assumeTrue("lettura troppo veloce per misurare lo Stop: $fullMs ms", fullMs > 2_000)
+
+        engine.resetConversation()
+        val job = launch(Dispatchers.Default) { engine.sendUserPrompt(longPrompt, predictLength = 32).toList() }
+        // Lo Stop deve arrivare a lettura cominciata, non prima.
+        engine.state.first { it is InferenceEngine.State.ProcessingUserPrompt }
+        delay(200)
+        val stopStart = System.nanoTime()
+        job.cancelAndJoin()
+        val stopMs = (System.nanoTime() - stopStart) / 1_000_000
+        Log.i(TAG, "ritorno dopo lo Stop: $stopMs ms")
+        assertEquals(InferenceEngine.State.ModelReady, engine.state.value)
+        assertTrue("Stop dopo $stopMs ms, lettura completa $fullMs ms", stopMs < fullMs / 3)
+
+        val answerStart = System.nanoTime()
+        val answer = ask("What is the capital of Italy?")
+        Log.i(TAG, "risposta dopo lo Stop: ${(System.nanoTime() - answerStart) / 1_000_000} ms")
+        assertTrue("risposta vuota dopo lo Stop", answer.isNotBlank())
     }
 
     @Test

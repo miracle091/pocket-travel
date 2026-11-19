@@ -16,21 +16,26 @@ import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl.Compani
 import dalvik.annotation.optimization.FastNative
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * JNI wrapper for the llama.cpp library providing Android-friendly access to large language models.
@@ -120,6 +125,15 @@ internal class InferenceEngineImpl private constructor(
 
     // Non @FastNative: chiude il turno interrotto decodificando il token di fine turno.
     private external fun cancelGeneration()
+
+    // Ferma la lettura del prompt in corso (processUserPrompt risponde PROMPT_INTERRUPTED). Va chiamata da un thread
+    // diverso da quello del motore, che e' occupato nella lettura; istantanea.
+    @FastNative
+    private external fun requestAbort()
+
+    // Azzera la richiesta di stop prima di ogni lettura del prompt; istantanea.
+    @FastNative
+    private external fun clearAbort()
 
     // {token del prompt, token generati, posizione nella KV cache, dimensione del contesto}
     private external fun contextUsageNative(): IntArray?
@@ -368,7 +382,17 @@ internal class InferenceEngineImpl private constructor(
         // Anche se la chiamata nativa lancia (es. OutOfMemoryError da GetStringChars) lo stato torna a ModelReady.
         var result = -1
         try {
-            result = process()
+            readPrompt { process().also { result = it } }
+        } catch (e: CancellationException) {
+            // Stop durante la lettura (codice PROMPT_INTERRUPTED di ai_chat.cpp): la conversazione nativa e' gia' azzerata.
+            // Stop arrivato a lettura finita, o durante una foto, che non si interrompe (codice 0): il turno e' aperto in
+            // cache e si chiude come per uno Stop durante la risposta.
+            if (result == 0) {
+                publishContextUsage()
+                cancelGeneration()
+            }
+            _state.value = InferenceEngine.State.ModelReady
+            throw e
         } finally {
             if (result != 0) _state.value = InferenceEngine.State.ModelReady
         }
@@ -410,6 +434,33 @@ internal class InferenceEngineImpl private constructor(
             throw e
         }
     }.flowOn(llamaDispatcher)
+
+    /**
+     * Esegue [process], la lettura del prompt: una sola chiamata nativa bloccante sul thread del motore, che la
+     * cancellazione della coroutine non interrompe. Un osservatore su un altro thread chiama [requestAbort] appena la
+     * coroutine viene cancellata (Stop), senza passare da [llamaDispatcher], dove finirebbe dietro la lettura stessa.
+     * Cancellata la coroutine, lancia [CancellationException] anche se la lettura e' finita.
+     */
+    private suspend fun readPrompt(process: () -> Int) = coroutineScope {
+        // Qui e non nel nativo: uno Stop arrivato tra l'avvio dell'osservatore e l'inizio della lettura non si perde.
+        clearAbort()
+        val finished = AtomicBoolean(false)
+        // UNDISPATCHED: l'osservatore e' in ascolto prima della lettura, anche con i thread di Default occupati.
+        val watcher = launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
+            try {
+                awaitCancellation()
+            } finally {
+                if (!finished.get()) requestAbort()
+            }
+        }
+        try {
+            ensureActive()
+            process()
+        } finally {
+            finished.set(true)
+            watcher.cancel()
+        }
+    }
 
     private fun publishContextUsage() {
         val values = contextUsageNative() ?: return
