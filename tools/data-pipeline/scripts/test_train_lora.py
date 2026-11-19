@@ -171,6 +171,15 @@ class LoraTargetsTest(unittest.TestCase):
             ns["stop_on_missing_lora_targets"](model)
         self.assertIn("['o_proj']", str(stop.exception.code))
 
+    def test_linear_attn_con_nomi_foglia(self):
+        # Unsloth scarta in silenzio un nome con il punto (2026-11-19: smoke con 6,39M parametri, gli stessi di prima)
+        node = next(n for n in ast.parse(SOURCE).body if isinstance(n, ast.Assign)
+                    and getattr(n.targets[0], "id", None) == "LINEAR_ATTN_TARGETS")
+        targets = ast.literal_eval(node.value)
+        self.assertEqual(["in_proj_qkv", "in_proj_z", "out_proj"], targets)
+        missing_lora_targets = extract("missing_lora_targets")["missing_lora_targets"]
+        self.assertEqual(["in_proj_z", "out_proj"], missing_lora_targets(self.NAMES, targets))
+
 
 class ThroughputTest(unittest.TestCase):
     def test_dal_primo_passo_misurato_all_ultimo(self):

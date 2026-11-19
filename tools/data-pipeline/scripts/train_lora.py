@@ -74,6 +74,9 @@ def non_finite_metric(logs):
 
 LORA = dict(r=16, lora_alpha=32, lora_dropout=0.0,
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"])
+# Nomi foglia: per i Qwen3.5 Unsloth passa la lista a get_peft_regex, che scarta in silenzio un nome con il punto
+# (linear_attn.in_proj_qkv). out_proj e' solo in linear_attn nella copia solo testo.
+LINEAR_ATTN_TARGETS = ["in_proj_qkv", "in_proj_z", "out_proj"]
 
 
 def missing_lora_targets(module_names, targets):
@@ -108,6 +111,9 @@ ap.add_argument("--max-len", type=int, default=1024)
 ap.add_argument("--lr", type=float, default=2e-4, help="learning rate (schedule cosine, 5 passi di warmup)")
 ap.add_argument("--lora-r", type=int, default=LORA["r"], help="rango della LoRA")
 ap.add_argument("--lora-alpha", type=int, default=LORA["lora_alpha"], help="alpha della LoRA")
+ap.add_argument("--lora-linear-attn", action="store_true",
+                help="LoRA anche sull'attenzione lineare dei Qwen3.5 (linear_attn.in_proj_qkv, in_proj_z, out_proj): "
+                     "senza, nei layer Gated DeltaNet l'attenzione resta senza LoRA")
 ap.add_argument("--batch", type=int, default=4, help="esempi per passo sulla GPU (16 effettivi: cala se manca VRAM)")
 ap.add_argument("--no-group-by-length", action="store_true",
                 help="batch in ordine casuale invece che per lunghezza (come i training fino al 4B del 2026-09-26)")
@@ -140,6 +146,8 @@ BF16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported() and torch.cu
 if a.four_bit and not a.unsloth:
     ap.error("--4bit richiede --unsloth")
 LORA.update(r=a.lora_r, lora_alpha=a.lora_alpha)
+if a.lora_linear_attn:
+    LORA["target_modules"] = LORA["target_modules"] + LINEAR_ATTN_TARGETS
 # GTX 16xx (Turing senza tensor core): con Unsloth fp32 e' piu' veloce di fp16
 # (misurato su GTX 1660 SUPER, Qwen3-0.6B: 52-55 s/passo in fp32 contro 98-100 in fp16, stessa VRAM di picco).
 # Solo con Unsloth senza --4bit: fp32 con --4bit o col backend peft non e' stato misurato, li' resta fp16
@@ -329,7 +337,8 @@ trainer = WeightedTrainer(
 # iperparametri il Trainer riprenderebbe lo stato (passi, scheduler) del training vecchio.
 run_key = {"model": a.model, "dataset": a.dataset, "dataset_sha256": hashlib.sha256(dataset_path.read_bytes()).hexdigest(),
            "max_len": a.max_len, "batch": a.batch, "group_by_length": not a.no_group_by_length, "epochs": a.epochs, "max_steps": a.max_steps, "four_bit": a.four_bit,
-           "lr": a.lr, "lora_r": a.lora_r, "lora_alpha": a.lora_alpha, "text_only_chatml": True}
+           "lr": a.lr, "lora_r": a.lora_r, "lora_alpha": a.lora_alpha, "text_only_chatml": True,
+           **({"lora_linear_attn": True} if a.lora_linear_attn else {})}
 run_key_path = Path(a.out) / "run.json"
 last_checkpoint = last_complete_checkpoint(a.out)
 if last_checkpoint:
@@ -350,6 +359,7 @@ def last_logged(key):
     "backend": "rocm" if torch.version.hip else "cuda", "torch": torch.__version__, "gpu": torch.cuda.get_device_name(),
     "trainer": "unsloth" if a.unsloth else "peft", "precision": "bf16" if BF16 else "fp32" if FP32 else "fp16",
     **{k: run_key[k] for k in ("model", "dataset", "max_len", "batch", "four_bit", "lora_r", "lora_alpha")},
+    "lora_linear_attn": a.lora_linear_attn,
     "gradient_accumulation": 16 // a.batch, "resumed_from": last_checkpoint and Path(last_checkpoint).name,
     "steps": trainer.state.global_step, "train_runtime_s": round(train_result.metrics["train_runtime"], 1),
     **throughput(benchmark.first, benchmark.last), "peak_vram_gib": round(torch.cuda.max_memory_allocated() / 2**30, 2),
