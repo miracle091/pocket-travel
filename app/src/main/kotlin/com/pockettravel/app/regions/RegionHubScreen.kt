@@ -220,6 +220,11 @@ fun RegionHubScreen(
                                             plannerViewModel.setDestination(NavigationPlace(name, pin.latitude, pin.longitude, regionId))
                                             selectedTab = RegionTab.NAVIGATION
                                         },
+                                        // Pressione lunga sulla mappa: lo stesso percorso, verso il punto scelto.
+                                        onNavigateToPoint = { place ->
+                                            plannerViewModel.setDestination(place)
+                                            selectedTab = RegionTab.NAVIGATION
+                                        },
                                         transitPackage = hubState.transitState,
                                         transitBoard = mapScreen.transitBoard,
                                         transitBoardTime = mapScreen.transitBoardTime,

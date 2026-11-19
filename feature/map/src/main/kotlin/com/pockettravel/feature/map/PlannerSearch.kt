@@ -43,10 +43,12 @@ internal fun PlannerSearch(
     query: String,
     results: List<PlannerResult>,
     recents: List<NavigationPlace>,
+    favorites: List<NavigationPlace>,
     onQueryChange: (String) -> Unit,
     onBack: () -> Unit,
     onUseMyPosition: () -> Unit,
     onChoose: (NavigationPlace) -> Unit,
+    onRemoveFavorite: (NavigationPlace) -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
@@ -97,7 +99,20 @@ internal fun PlannerSearch(
                     }
                 }
                 if (query.trim().length < 2) {
-                    items(recents) { place ->
+                    items(favorites) { place ->
+                        ListItem(
+                            content = { Text(place.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            leadingContent = { Icon(ImageVector.vectorResource(UiR.drawable.ms_star_fill), contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            trailingContent = {
+                                IconButton(onClick = { onRemoveFavorite(place) }) {
+                                    Icon(AppIcons.Close, contentDescription = stringResource(R.string.planner_favorite_remove_named, place.name))
+                                }
+                            },
+                            modifier = Modifier.clickable { onChoose(place) },
+                        )
+                    }
+                    // Un recente gia' tra i preferiti non si ripete.
+                    items(recents.filter { recent -> favorites.none { it.isSamePoint(recent) } }) { place ->
                         ListItem(
                             content = { Text(place.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             leadingContent = { Icon(ImageVector.vectorResource(UiR.drawable.ms_history), contentDescription = null) },
@@ -107,7 +122,8 @@ internal fun PlannerSearch(
                 } else if (results.isEmpty()) {
                     item {
                         Text(
-                            stringResource(R.string.planner_no_results),
+                            // Un link abbreviato non si legge senza rete: il messaggio dice cosa fare, non "nessun posto".
+                            stringResource(if (readPlace(query) == PlaceReading.ShortLink) R.string.planner_short_link else R.string.planner_no_results),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(Spacing.l),

@@ -31,17 +31,44 @@
         tools:targetApi="33">
 
         <!-- locale|layoutDirection: il cambio di lingua (da Android 13 via LocaleManager) non ricrea l'activity, Compose
-             ridisegna i testi con la nuova configurazione; ricrearla lasciava circa un secondo di schermo nero. -->
+             ridisegna i testi con la nuova configurazione; ricrearla lasciava circa un secondo di schermo nero.
+             singleTop: un `geo:` o una condivisione con l'app già in cima al suo task arrivano all'istanza aperta (onNewIntent)
+             invece di aggiungerne un'altra, con la sua mappa (circa 46 MB ciascuna sull'emulatore). -->
         <activity
             android:name=".MainActivity"
             android:theme="@style/Theme.PocketTravel.Splash"
             android:configChanges="locale|layoutDirection"
+            android:launchMode="singleTop"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Posizione `geo:` da un'altra app (rubrica, browser, app di chat): il Navigatore la legge e mostra l'anteprima del
+                 percorso, senza avviare niente. Il testo dell'URI è input non fidato: MainActivity lo accorcia e readPlace
+                 ne accetta solo le forme note. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="geo" />
+            </intent-filter>
         </activity>
+
+        <!-- «Navigatore» nel menu Condividi: testo con coordinate o un link di Google Maps o OpenStreetMap, da un'altra app. Alias di
+             MainActivity, perché ACTION_SEND text/plain va già a «Chiedi all'assistente» (ProcessTextActivity), che resta. Stessi
+             controlli del filtro geo: sopra. -->
+        <activity-alias
+            android:name=".SharePlaceAlias"
+            android:targetActivity=".MainActivity"
+            android:label="@string/share_to_navigator"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
 
         <!-- "Chiedi all'assistente": testo selezionato in un'altra app (menu di selezione) o condiviso. Tema trasparente,
              fuori dai recenti: il foglio si chiude e l'app sotto resta com'era. -->

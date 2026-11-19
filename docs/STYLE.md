@@ -210,6 +210,10 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Accessibilità dal tag OSM `wheelchair`, nel riquadro di treno, metro, autobus e traghetto | stazione | station |
 | Accessibilità dal GTFS della rete (`wheelchair_boarding`) | fermata dei mezzi | public transport stop |
 | Fermata segnata con la stella, in cima a «Fermate vicine» | fermata preferita | favorite stop |
+| Destinazione salvata con la stella nel Navigatore, con un nome libero | preferito (Salva tra i preferiti) | favorite (Save to favorites) |
+| Destinazione scelta tenendo premuto sulla mappa, e il pulsante che apre il Navigatore | Punto sulla mappa, Naviga qui | Point on the map, Navigate here |
+| Voce del menù Condividi che manda coordinate o un link di mappe al Navigatore | Navigatore | Navigator |
+| Link di mappe accorciato (maps.app.goo.gl), che senza rete non si legge | link abbreviato | shortened link |
 | Categoria della guida con i dati essenziali | Fatti rapidi | Quick facts |
 | Mappa a bassa risoluzione installata da sola | mappa d'insieme | overview map |
 | Mappa per scegliere la nazione | mappa delle nazioni | country map |

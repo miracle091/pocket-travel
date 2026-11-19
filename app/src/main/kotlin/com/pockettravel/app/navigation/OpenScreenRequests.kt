@@ -12,6 +12,12 @@ internal object OpenScreenRequests {
     /** Scheda chiesta per la pagina della regione gia' aperta (RegionTab.key): RegionHubScreen la seleziona e la azzera. */
     val regionTab = MutableStateFlow<String?>(null)
 
+    /**
+     * Testo di un `geo:` o di una condivisione da un'altra app (input non fidato, gia' accorciato da MainActivity): il Navigatore lo legge
+     * (`readPlace`) e ne fa la destinazione; PocketTravelNavHost lo azzera.
+     */
+    val place = MutableStateFlow<String?>(null)
+
     /** Valore di `EXTRA_OPEN_SCREEN` che apre le Impostazioni ("Chiedi all'assistente" senza motore disponibile). */
     const val OPEN_SETTINGS = "settings"
 }

@@ -51,6 +51,7 @@ class MainActivity : FragmentActivity() {
         super.onNewIntent(intent)
         if (intent.getBooleanExtra(NavigationService.EXTRA_OPEN_NAVIGATOR, false)) navigationSession.requestOpen()
         intent.requestOpenScreen()
+        intent.requestOpenPlace()
     }
 
     // Lingua cambiata senza ricreare l'activity (configChanges nel manifest): Compose segue da solo la nuova
@@ -88,7 +89,10 @@ class MainActivity : FragmentActivity() {
         // chiusura dalle app recenti: onNewIntent non scatta, il NavHost porta al Navigatore.
         val openNavigator = savedInstanceState == null &&
             (intent.getBooleanExtra(NavigationService.EXTRA_OPEN_NAVIGATOR, false) || navigationSession.snapshot.value != null)
-        if (savedInstanceState == null) intent.requestOpenScreen()
+        if (savedInstanceState == null) {
+            intent.requestOpenScreen()
+            intent.requestOpenPlace()
+        }
         reloadForLanguage()
         setContent {
             val useDynamicColor by themePreferences.useDynamicColor.collectAsStateWithLifecycle()
@@ -126,6 +130,20 @@ private fun Intent.requestOpenScreen() {
     removeExtra(UpdateAvailableNotifier.EXTRA_OPEN_SCREEN)
     if (openScreenTarget(screen) != null) OpenScreenRequests.screen.value = screen
 }
+
+// `geo:` aperto da un'altra app o testo condiviso con la voce «Navigatore» (alias nel manifest): il testo passa al NavHost, che lo
+// fa leggere al Navigatore. Input non fidato: si accetta solo lo schema geo e il tipo text/plain, il resto si ignora, e il testo
+// si accorcia (readPlace ne legge solo l'inizio).
+private fun Intent.requestOpenPlace() {
+    val text = when (action) {
+        Intent.ACTION_VIEW -> dataString?.takeIf { data?.scheme.equals("geo", ignoreCase = true) }
+        Intent.ACTION_SEND -> getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.takeIf { type == "text/plain" }
+        else -> null
+    }
+    if (!text.isNullOrBlank()) OpenScreenRequests.place.value = text.take(MAX_PLACE_TEXT)
+}
+
+private const val MAX_PLACE_TEXT = 2_000
 
 // Navigation Compose legge dall'intent degli extra "android-support-nav:*" come deep link impliciti: l'app non ha
 // deep link, ma un'altra app potrebbe cosi' aprire una rotta (es. il browser interno) con argomenti a piacere.

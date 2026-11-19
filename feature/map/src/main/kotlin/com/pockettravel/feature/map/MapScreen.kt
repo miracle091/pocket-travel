@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLocale
@@ -94,6 +95,7 @@ private const val PINS_SOURCE = "pocket-travel-pins"
 private const val PINS_LAYER = "pocket-travel-pins"
 private const val PIN_ID = "id"
 private const val PIN_ICON = "icon"
+private const val POINT_SOURCE = "pocket-travel-point"
 
 // I parcheggi sono tanti e fitti (a Rimini oltre 800): solo da vicino, per non coprire il resto.
 private const val PARKING_MIN_ZOOM = 15.0
@@ -130,6 +132,8 @@ fun MapScreen(
     onOnlyAccessibleChange: (Boolean) -> Unit = {},
     // Apre la navigazione verso il punto scelto; null = niente pulsante "Percorso".
     onNavigate: ((MapPin) -> Unit)? = null,
+    // Pressione lunga sulla mappa: segnaposto con "Naviga qui", che apre la navigazione verso quel punto; null = nessun segnaposto.
+    onNavigateToPoint: ((NavigationPlace) -> Unit)? = null,
     // Orari dei mezzi pubblici nel riquadro di treni, metro, autobus e traghetti: pacchetto della regione,
     // tabellone del POI aperto (null finche' si legge), esito dell'ultimo "Aggiorna", download e il POI di cui leggere le partenze.
     transitPackage: TransitPackageState = TransitPackageState.UNKNOWN,
@@ -190,6 +194,11 @@ fun MapScreen(
         currentOnTransitStopChange(selectedPin?.takeIf { it.category in TRANSIT_CATEGORIES && transitPackage == TransitPackageState.INSTALLED })
         onStopOrDispose { currentOnTransitStopChange(null) }
     }
+    // Punto della pressione lunga (lat, lon): il segnaposto e il foglio "Naviga qui" restano finche' il foglio non si chiude.
+    var droppedPoint by rememberSaveable { mutableStateOf<DoubleArray?>(null) }
+    var pointSource by remember { mutableStateOf<GeoJsonSource?>(null) }
+    val pointColor = MaterialTheme.colorScheme.error.toArgb()
+    val currentOnNavigateToPoint by rememberUpdatedState(onNavigateToPoint)
     var cameraFitted by remember { mutableStateOf(false) }
     // Centro e zoom (lat, lon, zoom) dell'ultima vista: una rotazione ricrea la mappa, e senza
     // si tornerebbe all'inquadratura iniziale su tutti i segnalini.
@@ -216,6 +225,11 @@ fun MapScreen(
                     .firstNotNullOfOrNull { it.getStringProperty(PIN_ID) }
                 if (id != null) selectedPinId = id
                 id != null
+            }
+            map.addOnMapLongClickListener { latLng ->
+                val enabled = currentOnNavigateToPoint != null
+                if (enabled) droppedPoint = doubleArrayOf(latLng.latitude, latLng.longitude)
+                enabled
             }
         }
     }
@@ -273,6 +287,7 @@ fun MapScreen(
             // La sorgente dei segnalini appartiene allo stile corrente: non va piu' usata
             // dopo setStyle, che ne crea una nuova nel callback.
             pinsSource = null
+            pointSource = null
             map.setStyle(Style.Builder().fromJson(json)) { style ->
                 PoiCategory.entries.forEach { category ->
                     style.addImage(iconIdFor(category), poiPinBitmap(context, category))
@@ -289,8 +304,18 @@ fun MapScreen(
                     ),
                 )
                 pinsSource = source
+                // Segnaposto della pressione lunga: lo stesso della destinazione nel Navigatore, sopra i POI.
+                style.addImage(DESTINATION_PIN_IMAGE, pinBitmap(context, pointColor, UiR.drawable.ms_flag, scale = DESTINATION_PIN_SCALE))
+                val point = GeoJsonSource(POINT_SOURCE)
+                style.addSource(point)
+                style.addLayer(destinationPinLayer(POINT_SOURCE))
+                pointSource = point
             }
         }
+    }
+    LaunchedEffect(pointSource, droppedPoint) {
+        val point = droppedPoint
+        pointSource?.setGeoJson(FeatureCollection.fromFeatures(listOfNotNull(point?.let { Feature.fromGeometry(Point.fromLngLat(it[1], it[0])) })))
     }
 
     // PmtilesExtractor scarica solo le tile che intersecano il bounding box della regione (vedi
@@ -399,6 +424,33 @@ fun MapScreen(
             },
             onDismiss = nearbyViewModel::close,
         )
+    }
+
+    droppedPoint?.let { point ->
+        val pointName = stringResource(R.string.map_point_title)
+        ModalBottomSheet(onDismissRequest = { droppedPoint = null }) {
+            Column(modifier = Modifier.fillMaxWidth().padding(start = Spacing.xl, end = Spacing.xl, bottom = Spacing.xxl)) {
+                Text(pointName, style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+                Text(
+                    coordinatesText(point[0], point[1]),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                onNavigateToPoint?.let { navigate ->
+                    Spacer(modifier = Modifier.padding(top = Spacing.l))
+                    Button(
+                        onClick = {
+                            droppedPoint = null
+                            navigate(NavigationPlace(pointName, point[0], point[1], regionId))
+                        },
+                    ) {
+                        Icon(AppIcons.Route, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(Spacing.s))
+                        Text(stringResource(R.string.map_point_navigate))
+                    }
+                }
+            }
+        }
     }
 
     selectedPin?.let { pin ->

@@ -101,6 +101,10 @@ internal fun RoutePanel(
     // Modo «Mezzi» (itinerari con i mezzi pubblici) scelto; [onTransit] null nasconde il chip.
     transit: Boolean = false,
     onTransit: (() -> Unit)? = null,
+    // La stella della destinazione: [favorite] se e' tra i preferiti.
+    favorite: Boolean = false,
+    onSaveFavorite: (name: String) -> Unit = {},
+    onRemoveFavorite: () -> Unit = {},
 ) {
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(start = Spacing.m, top = Spacing.s, bottom = Spacing.s)) {
@@ -116,13 +120,17 @@ internal fun RoutePanel(
                     waypoints.forEachIndexed { index, waypoint ->
                         WaypointField(index, waypoint, last = index == waypoints.lastIndex, onRemoveWaypoint, onMoveWaypoint)
                     }
-                    PlaceField(
-                        icon = AppIcons.Place,
-                        iconTint = MaterialTheme.colorScheme.error,
-                        label = stringResource(R.string.planner_to),
-                        text = to.name,
-                        onClick = onEditTo,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PlaceField(
+                            icon = AppIcons.Place,
+                            iconTint = MaterialTheme.colorScheme.error,
+                            label = stringResource(R.string.planner_to),
+                            text = to.name,
+                            onClick = onEditTo,
+                            modifier = Modifier.weight(1f),
+                        )
+                        FavoriteToggle(to, favorite, onSaveFavorite, onRemoveFavorite)
+                    }
                 }
                 // Con la propria posizione come partenza non si scambia: l'arrivo resterebbe senza destinazione.
                 IconButton(onClick = onSwap, enabled = from != null) {
@@ -270,13 +278,13 @@ private fun WaypointField(
 }
 
 @Composable
-private fun PlaceField(icon: ImageVector, iconTint: Color, label: String, text: String, onClick: () -> Unit) {
+private fun PlaceField(icon: ImageVector, iconTint: Color, label: String, text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val description = stringResource(R.string.planner_place_field, label, text)
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).semantics { contentDescription = description },
+        modifier = modifier.fillMaxWidth().heightIn(min = 44.dp).semantics { contentDescription = description },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = Spacing.m)) {
             Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))

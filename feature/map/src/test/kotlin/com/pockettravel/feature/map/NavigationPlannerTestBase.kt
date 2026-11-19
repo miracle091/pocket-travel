@@ -49,6 +49,7 @@ abstract class NavigationPlannerTestBase {
     protected val gps = FakeGpsLocationSource()
     protected val reminders = FakeDepartureReminderScheduler()
     protected val recents = RecentDestinations(files)
+    protected val favorites = FavoriteDestinations(files)
     protected val filters = MapFilterPreferences(files)
     protected val variants = RoutingVariantPreferences(files)
     protected val usageModes = UsageModePreferences(files, filters, variants)
@@ -81,7 +82,7 @@ abstract class NavigationPlannerTestBase {
     protected fun TestScope.viewModel(): NavigationPlannerViewModel {
         val created = ViewModelHost(NavigationPlannerViewModel::class.java) {
             NavigationPlannerViewModel(
-                handle, reminders, main.dispatcher, main.dispatcher, PoiRepository(dao), addresses, regions, engines, transit, gps, recents, usageModes, navigationPreferences, variants, tileSource,
+                handle, reminders, main.dispatcher, main.dispatcher, PoiRepository(dao), addresses, regions, engines, transit, gps, recents, favorites, usageModes, navigationPreferences, variants, tileSource,
             )
         }
         host = created

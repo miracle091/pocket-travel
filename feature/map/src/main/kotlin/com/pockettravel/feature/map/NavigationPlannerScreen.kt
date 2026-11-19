@@ -191,6 +191,7 @@ fun NavigationPlannerScreen(
             allowSteps = planner.allowSteps,
             avoid = planner.avoid,
             recents = planner.recents,
+            favorites = planner.favorites,
             mapRegionIds = mapRegionIds,
             routingInstalled = planner.routingInstalled,
             arriveBy = arriveBy,
@@ -212,6 +213,8 @@ fun NavigationPlannerScreen(
             onRecent = viewModel::setDestination,
             onRemoveRecent = viewModel::removeRecent,
             onClearRecents = viewModel::clearRecents,
+            onSaveFavorite = viewModel::saveFavorite,
+            onRemoveFavorite = viewModel::removeFavorite,
             onStart = {
                 // Si parte adesso: l'avviso "e' ora di partire" non serve piu'.
                 viewModel.cancelReminder()
@@ -273,6 +276,7 @@ internal data class NavigationPlannerState(
     val allowSteps: Boolean = false,
     val avoid: Set<RouteAvoid> = emptySet(),
     val recents: List<NavigationPlace> = emptyList(),
+    val favorites: List<NavigationPlace> = emptyList(),
     val mapRegionIds: List<String> = emptyList(),
     val routingInstalled: Boolean = true,
     val arriveBy: LocalDateTime? = null,
@@ -299,6 +303,8 @@ internal class NavigationPlannerActions(
     val onRecent: (NavigationPlace) -> Unit = {},
     val onRemoveRecent: (NavigationPlace) -> Unit = {},
     val onClearRecents: () -> Unit = {},
+    val onSaveFavorite: (NavigationPlace, String) -> Unit = { _, _ -> },
+    val onRemoveFavorite: (NavigationPlace) -> Unit = {},
     val onStart: () -> Unit = {},
     val onSwap: () -> Unit = {},
     val onRemoveWaypoint: (Int) -> Unit = {},
@@ -338,10 +344,12 @@ internal fun NavigationPlannerContent(
             query = state.query,
             results = state.results,
             recents = state.recents,
+            favorites = state.favorites,
             onQueryChange = actions.onSetQuery,
             onBack = actions.onCancelSearch,
             onUseMyPosition = actions.onUseMyPosition,
             onChoose = actions.onChoose,
+            onRemoveFavorite = actions.onRemoveFavorite,
         )
         return
     }
@@ -430,6 +438,9 @@ internal fun NavigationPlannerContent(
                         onAvoidChange = actions.onAvoidChange,
                         transit = state.transit,
                         onTransit = actions.onTransit,
+                        favorite = state.favorites.any { it.isSamePoint(to) },
+                        onSaveFavorite = { name -> actions.onSaveFavorite(to, name) },
+                        onRemoveFavorite = { actions.onRemoveFavorite(to) },
                     )
                 }
             }

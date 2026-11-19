@@ -174,6 +174,7 @@ data class PlannerUiState(
     val allowSteps: Boolean = false,
     val avoid: Set<RouteAvoid> = emptySet(),
     val recents: List<NavigationPlace> = emptyList(),
+    val favorites: List<NavigationPlace> = emptyList(),
     val mapRegionIds: List<String> = emptyList(),
     val idlePosition: RoutePoint? = null,
     val nearbyPois: NearbyPois? = null,
@@ -207,6 +208,7 @@ class NavigationPlannerViewModel @Inject constructor(
     private val transitRepository: TransitRepository,
     private val gps: GpsLocationSource,
     private val recentDestinations: RecentDestinations,
+    private val favoriteDestinations: FavoriteDestinations,
     private val usageModePreferences: UsageModePreferences,
     private val navigationPreferences: NavigationPreferences,
     private val routingVariantPreferences: RoutingVariantPreferences,
@@ -285,6 +287,11 @@ class NavigationPlannerViewModel @Inject constructor(
         places.filter { it.regionId in regions }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Preferiti delle regioni installate. */
+    private val favorites: StateFlow<List<NavigationPlace>> = combine(favoriteDestinations.places, installed) { places, regions ->
+        places.filter { it.regionId in regions }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     @OptIn(FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private val results: StateFlow<List<PlannerResult>> = combine(_query.debounce(SEARCH_DEBOUNCE_MILLIS), regionId, installed, searchPosition()) { text, current, regions, _ ->
         SearchInput(text, current, regions)
@@ -334,8 +341,8 @@ class NavigationPlannerViewModel @Inject constructor(
     private val routeState = combine(_from, _to, _routeProfile, routing, _preview) { from, to, mode, profile, preview ->
         PlannerUiState(from = from, to = to, routeProfile = mode, routing = profile, preview = preview)
     }
-    private val searchState = combine(routeState, _searching, _query, results, recents) { state, searching, query, results, recents ->
-        state.copy(searching = searching, query = query, results = results, recents = recents)
+    private val searchState = combine(routeState, _searching, _query, results, combine(recents, favorites, ::Pair)) { state, searching, query, results, (recents, favorites) ->
+        state.copy(searching = searching, query = query, results = results, recents = recents, favorites = favorites)
     }
     private val mapState = combine(searchState, mapRegionIds, idlePosition, nearbyPois, routingInstalled) { state, regionIds, position, nearby, installed ->
         state.copy(mapRegionIds = regionIds, idlePosition = position, nearbyPois = nearby, routingInstalled = installed)
@@ -582,6 +589,39 @@ class NavigationPlannerViewModel @Inject constructor(
 
     fun clearRecents() = recentDestinations.clear()
 
+    /** Salva [place] tra i preferiti col nome [name] (libero: "Alloggio", "Da Marco"); la destinazione prende quel nome. */
+    fun saveFavorite(place: NavigationPlace, name: String) {
+        favoriteDestinations.save(place, name)
+        val saved = favoriteDestinations.places.value.firstOrNull { it.isSamePoint(place) } ?: return
+        // Solo il nome: stesso punto, percorso e promemoria restano.
+        _to.value?.takeIf { it.isSamePoint(place) }?.let { _to.value = it.copy(name = saved.name) }
+    }
+
+    fun removeFavorite(place: NavigationPlace) = favoriteDestinations.remove(place)
+
+    /**
+     * Un posto da un'altra app (URI `geo:` o testo condiviso): se si legge diventa la destinazione e torna null; altrimenti
+     * torna la stringa del messaggio da mostrare. Un `geo:0,0?q=testo` apre la ricerca con quel testo.
+     */
+    suspend fun openSharedPlace(text: String): Int? {
+        val ids = regionRepository.observeInstalled().first().map { it.regionId }
+        return when (val reading = readPlace(text)) {
+            is PlaceReading.Coordinates -> if (ids.isEmpty()) {
+                R.string.shared_place_no_regions
+            } else {
+                val name = reading.name ?: coordinatesText(reading.latitude, reading.longitude)
+                setDestination(NavigationPlace(name, reading.latitude, reading.longitude, regionFor(reading.point, regionId.value, ids)))
+                null
+            }
+            is PlaceReading.Search -> {
+                searchDestination(reading.text)
+                null
+            }
+            PlaceReading.ShortLink -> R.string.shared_place_short_link
+            PlaceReading.Unreadable -> R.string.shared_place_unreadable
+        }
+    }
+
     fun setRouteProfile(mode: RouteProfile) {
         if (mode == _routeProfile.value && !transitMode.value) return
         cancelReminder()
@@ -703,7 +743,39 @@ class NavigationPlannerViewModel @Inject constructor(
         if (route in (ready.others as? OtherRoutes.Found)?.routes.orEmpty()) _preview.value = ready.copy(route = route)
     }
 
+    // Un testo che si legge come coordinate o link da' solo la riga del punto, subito: la ricerca per nome non parte.
     private suspend fun search(text: String, current: String?, regions: Map<String, String>): List<PlannerResult> {
+        if (text.trim().length < 2 || regions.isEmpty()) return emptyList()
+        val reading = readPlace(text)
+        return when {
+            reading is PlaceReading.Coordinates -> listOf(reading.toResult(current, regions))
+            looksLikeLink(text) -> emptyList()
+            else -> searchPlaces(text, current, regions)
+        }
+    }
+
+    private suspend fun PlaceReading.Coordinates.toResult(current: String?, regions: Map<String, String>): PlannerResult {
+        val regionId = regionFor(point, current, regions.keys)
+        return PlannerResult(
+            place = NavigationPlace(name ?: coordinatesText(latitude, longitude), latitude, longitude, regionId),
+            typeLabel = R.string.planner_type_coordinates,
+            otherRegionName = regions[regionId]?.takeIf { regionId != current },
+            distanceMeters = (lastPosition.value ?: _from.value?.point)?.let { approximateDistance(it, point) },
+        )
+    }
+
+    // La regione installata il cui rettangolo contiene il punto (la aperta per prima), altrimenti la aperta o la prima installata.
+    private suspend fun regionFor(point: RoutePoint, current: String?, ids: Collection<String>): String {
+        val ordered = listOfNotNull(current?.takeIf { it in ids }) + (ids - setOfNotNull(current))
+        val containing = withContext(ioDispatcher) {
+            ordered.firstOrNull { id ->
+                tileSource.regionBounds(id)?.let { point.longitude in it.minLon..it.maxLon && point.latitude in it.minLat..it.maxLat } == true
+            }
+        }
+        return containing ?: ordered.first()
+    }
+
+    private suspend fun searchPlaces(text: String, current: String?, regions: Map<String, String>): List<PlannerResult> {
         if (text.trim().length < 2 || regions.isEmpty()) return emptyList()
         // La regione aperta per prima: con il limite, i suoi risultati non restano fuori per quelli delle altre.
         val ids = listOfNotNull(current?.takeIf { it in regions }) + (regions.keys - setOfNotNull(current))

@@ -378,6 +378,23 @@
     <string name="planner_clear">Cancella</string>
     <string name="planner_no_results">Nessun posto con questo nome nelle regioni scaricate</string>
     <string name="planner_type_address">Indirizzo</string>
+    <string name="planner_type_coordinates">Coordinate</string>
+    <string name="planner_short_link">Il link è abbreviato e per leggerlo serve la rete. Apri il link e incolla qui il link completo o le coordinate</string>
+    <string name="planner_favorites">Preferiti</string>
+    <string name="planner_favorite_add">Salva tra i preferiti</string>
+    <string name="planner_favorite_remove">Togli dai preferiti</string>
+    <string name="planner_favorite_remove_named">Togli dai preferiti (%1$s)</string>
+    <string name="planner_favorite_name">Nome</string>
+    <string name="planner_favorite_save">Salva</string>
+    <string name="planner_favorite_lodging">Alloggio</string>
+    <string name="shared_place_no_regions">Nessuna regione installata. Scarica la regione del posto per calcolare il percorso</string>
+    <string name="shared_place_short_link">Il link è abbreviato e per leggerlo serve la rete. Apri il link e condividi il link completo o le coordinate</string>
+    <string name="shared_place_unreadable">Nel testo non ci sono coordinate né link di mappe leggibili</string>
+    <string name="shared_place_navigating">Navigazione in corso. Terminala per scegliere un\'altra destinazione</string>
+    <!-- Voce del menù Condividi di Android per un testo con coordinate o un link di mappe. -->
+    <string name="share_to_navigator">Navigatore</string>
+    <string name="map_point_title">Punto sulla mappa</string>
+    <string name="map_point_navigate">Naviga qui</string>
     <string name="planner_routing_progress">Rete stradale della regione · %1$d%%</string>
     <string name="planner_calculating">Calcolo del percorso migliore</string>
     <string name="planner_calculating_progress">%1$s · %2$d%%</string>

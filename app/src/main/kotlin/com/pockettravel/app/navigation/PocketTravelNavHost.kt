@@ -1,6 +1,7 @@
 package com.pockettravel.app.navigation
 
 import android.content.res.Resources
+import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
@@ -28,10 +29,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -64,7 +69,9 @@ import com.pockettravel.app.regions.NavigatorViewModels
 import com.pockettravel.app.updates.UpdateRequiredMessages
 import com.pockettravel.core.data.officialSourcesRegistry
 import com.pockettravel.core.ui.AppIcons
+import kotlinx.coroutines.flow.filterNotNull
 import com.pockettravel.core.ui.R as UiR
+import com.pockettravel.feature.map.R as MapR
 
 // Le destinazioni principali della barra/rail di navigazione (M3: il menu laterale modale e'
 // sconsigliato, sostituito dalla navigation suite). La barra compare solo su queste: le
@@ -133,6 +140,7 @@ fun PocketTravelNavHost(
     }
 
     OpenScreenRequestsEffect(navController, currentDestination)
+    SharedPlaceEffect(navController, currentDestination, navigatorViewModels)
 
     val navigationSuiteType = if (currentTopLevel != null) {
         NavigationSuiteScaffoldDefaults.navigationSuiteType(adaptiveInfo)
@@ -264,6 +272,33 @@ private fun OpenScreenRequestsEffect(navController: NavHostController, currentDe
                 launchSingleTop = true
             }
             else -> navController.navigate(target.route) { launchSingleTop = true }
+        }
+    }
+}
+
+// Posto da un'altra app (`geo:` o testo condiviso, OpenScreenRequests.place): diventa la destinazione e si apre il Navigatore, che
+// mostra l'anteprima del percorso senza avviare niente. Senza un posto leggibile, o con una navigazione in corso, un avviso.
+// Non riparte a ogni cambio di schermata: la lettura sospende, e un effetto con la richiesta come chiave la perderebbe.
+// Gia' sul Navigatore non si naviga: navigateTopLevel toglie e rimette la sua voce, e la mappa a schermo restava ferma sul
+// posto di prima.
+@Composable
+private fun SharedPlaceEffect(navController: NavHostController, currentDestination: NavDestination?, navigator: NavigatorViewModels) {
+    val context = LocalContext.current
+    val ready = currentDestination != null && !currentDestination.hasRoute<OnboardingRoute>()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(ready) {
+        if (!ready) return@LaunchedEffect
+        // Solo l'istanza visibile: un `geo:` da un'altra app apre una seconda MainActivity nel task di quell'app, e quella rimasta
+        // in background non deve prendersi la richiesta.
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            OpenScreenRequests.place.filterNotNull().collect { text ->
+                OpenScreenRequests.place.value = null
+                val message = if (navigator.navigation.isNavigating) MapR.string.shared_place_navigating else navigator.planner.openSharedPlace(text)
+                when {
+                    message != null -> Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                    navController.currentDestination?.hasRoute<NavigatorRoute>() != true -> navController.navigateTopLevel(NavigatorRoute)
+                }
+            }
         }
     }
 }
