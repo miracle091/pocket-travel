@@ -4,7 +4,10 @@
 Uso: python test_vision_eval.py
 """
 import base64
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
 import vision_eval
 
@@ -42,6 +45,19 @@ class SummaryTest(unittest.TestCase):
         rows = [{"group": "menu", "lang": "it", "correct": True}, {"group": "menu", "lang": "it", "correct": False},
                 {"group": "luoghi", "lang": "en", "correct": True}]
         self.assertEqual({("menu", "it"): (1, 2), ("tutte", "it"): (1, 2), ("luoghi", "en"): (1, 1), ("tutte", "en"): (1, 1)},
+                         vision_eval.summary(rows))
+
+
+class ScoreAnswersTest(unittest.TestCase):
+    def test_risposte_salvate_con_gruppo_ed_esito_dal_set(self):
+        photos = [{"id": "a", "group": "menu", "expected": [["pizza"]]}, {"id": "b", "group": "luoghi", "expected": [["roma"]]}]
+        saved = [{"id": "a", "lang": "it", "answer": "Una Pizza.", "seconds": 3.5}, {"id": "b", "lang": "en", "answer": "Paris."}]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "answers.jsonl"
+            path.write_text("".join(json.dumps(r) + "\n" for r in saved) + "\n", encoding="utf-8")
+            rows = vision_eval.score_answers(path, photos)
+        self.assertEqual([("a", "menu", True), ("b", "luoghi", False)], [(r["id"], r["group"], r["correct"]) for r in rows])
+        self.assertEqual({("menu", "it"): (1, 1), ("tutte", "it"): (1, 1), ("luoghi", "en"): (0, 1), ("tutte", "en"): (0, 1)},
                          vision_eval.summary(rows))
 
 

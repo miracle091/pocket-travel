@@ -8,6 +8,8 @@ di "expected". Le immagini vengono da Wikimedia Commons (miniatura larga IMAGE_W
 Uso: vision_eval.py --base-url URL --model MODELLO --key-env NOME_VARIABILE [--lang it|en|both] [--limit N]
                     [--cache CARTELLA] [--out risultati.jsonl] [--set photo-set.json]
 La chiave si legge dalla variabile d'ambiente --key-env (con .claude/scripts/with-env.mjs, mai sulla riga di comando).
+Con --score-answers risposte.jsonl (righe con id, lang e answer, come le scrive VisionSetDeviceTest sul dispositivo) non
+chiede niente a nessun servizio: valuta le risposte salvate e stampa lo stesso riepilogo.
 Esempio: bun .claude/scripts/with-env.mjs -- python vision_eval.py --base-url https://api.mistral.ai/v1
          --model mistral-small-latest --key-env MISTRAL_API_KEY
 """
@@ -68,6 +70,18 @@ def summary(rows):
     return {k: tuple(v) for k, v in out.items()}
 
 
+def score_answers(path, photos):
+    """Le righe di summary per le risposte salvate in [path] (JSONL con id, lang, answer), con le parole attese di [photos]."""
+    by_id = {p["id"]: p for p in photos}
+    rows = []
+    with open(path, encoding="utf-8") as f:
+        for line in filter(str.strip, f):
+            saved = json.loads(line)
+            photo = by_id[saved["id"]]
+            rows.append({**saved, "group": photo["group"], "correct": is_correct(saved["answer"], photo["expected"])})
+    return rows
+
+
 def _get(url, data=None, headers=None, timeout=120):
     req = urllib.request.Request(url, data=data, headers={"User-Agent": USER_AGENT, **(headers or {})})
     with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -111,15 +125,26 @@ def ask(base_url, key, body):
 
 def main(argv):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base-url", required=True)
-    ap.add_argument("--model", required=True)
-    ap.add_argument("--key-env", required=True)
+    ap.add_argument("--base-url")
+    ap.add_argument("--model")
+    ap.add_argument("--key-env")
+    ap.add_argument("--score-answers", type=Path)
     ap.add_argument("--lang", choices=["it", "en", "both"], default="both")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--cache", type=Path, default=Path("vision-cache"))
     ap.add_argument("--out", type=Path)
     ap.add_argument("--set", type=Path, default=SET_FILE)
     args = ap.parse_args(argv)
+    # Le risposte hanno caratteri che la console di Windows (cp1252) non sa scrivere: al posto del crash un "?".
+    sys.stdout.reconfigure(errors="replace")
+    if args.score_answers:
+        rows = score_answers(args.score_answers, load_set(args.set))
+        for row in rows:
+            print(f"{'OK ' if row['correct'] else 'NO '} {row['id']} {row['lang']}: {row['answer'][:120]!r}")
+        print_summary(rows)
+        return 0
+    if not (args.base_url and args.model and args.key_env):
+        ap.error("servono --base-url, --model e --key-env (o --score-answers)")
     key = os.environ.get(args.key_env)
     if not key:
         print(f"Variabile {args.key_env} assente", file=sys.stderr)
@@ -137,9 +162,13 @@ def main(argv):
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
             f.writelines(json.dumps(r, ensure_ascii=False) + "\n" for r in rows)
+    print_summary(rows)
+    return 0
+
+
+def print_summary(rows):
     for (group, lang), (right, total) in sorted(summary(rows).items()):
         print(f"{group:10} {lang}: {right}/{total} ({100 * right / total:.0f}%)")
-    return 0
 
 
 if __name__ == "__main__":
