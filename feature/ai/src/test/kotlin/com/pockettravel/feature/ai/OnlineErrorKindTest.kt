@@ -77,6 +77,9 @@ class OnlineErrorKindTest {
             403 to """{"code":"AllocationQuota.FreeTierOnly","message":"The free tier of the model has been exhausted."}""",
             400 to """{"error":{"message":"Budget has been exceeded","type":"budget_exceeded"}}""",
             429 to """{"success":false,"errors":[{"code":3036,"message":"You have used up your daily free allocation of 10,000 neurons"}]}""",
+            // OpenRouter, chiave del piano gratuito con tetto di spesa a 0 $ e un modello a pagamento (2026-11-19).
+            403 to """{"error":{"message":"Key limit exceeded (total limit). Manage it using https://openrouter.ai/workspaces/default/keys/x """ +
+                """$0.00 of $0.00 used; does not reset.","code":403,"metadata":{"limit_source":"openrouter_key_limit"}}}""",
         )
         credit.forEach { (code, body) -> assertEquals("$code $body", OnlineErrorKind.CREDIT, onlineErrorKind(code, body)) }
         // Il sovraccarico di Z.ai (1305) e il limite di Cloudflare (3040) restano temporanei.

@@ -345,11 +345,12 @@ internal enum class OnlineErrorKind { CREDIT, TEMPORARY, PERMANENT }
 // Retry-After). Servizi aggiunti (documentazione letta il 2026-11-04): Z.ai 429 "Insufficient balance" (codice 1113),
 // Groq 400 blocked_api_access (tetto di spesa), Alibaba 403 Arrearage e AllocationQuota.FreeTierOnly, Regolo (proxy
 // LiteLLM) 400 budget_exceeded, Cloudflare 429 "daily free allocation" (codice 3036, la quota gratuita del giorno).
-// Fireworks e OpenRouter usano il 402.
+// Fireworks e OpenRouter usano il 402; OpenRouter da' 403 "Key limit exceeded" quando la chiave ha raggiunto il suo tetto
+// di spesa (a 0 $ nel piano gratuito, provato il 2026-11-19 con un modello a pagamento).
 private val CREDIT_MARKERS = listOf(
     "insufficient_quota", "credit_balance", "credit balance", "spend_limit", "usage_limit", "specified api usage limits",
     "billing_error", "enable billing", "outstanding balance",
-    "insufficient balance", "blocked_api_access", "arrearage", "freetieronly", "budget_exceeded", "daily free allocation",
+    "insufficient balance", "blocked_api_access", "arrearage", "freetieronly", "budget_exceeded", "daily free allocation", "key limit exceeded",
 )
 private val CREDIT_MARKER_CODES = setOf(HTTP_BAD_REQUEST, HTTP_FORBIDDEN, HTTP_TOO_MANY_REQUESTS)
 private val TEMPORARY_CODES = setOf(408, 409, 425, 429, 500, 502, 503, 504, 529)

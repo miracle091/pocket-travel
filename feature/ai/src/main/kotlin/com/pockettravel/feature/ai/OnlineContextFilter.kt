@@ -35,6 +35,9 @@ internal fun withoutInjectedInstructionsAndLabels(text: String): String =
 // Mistral Small ha ricopiato una volta nella risposta il tag del blocco ("<contesto fonte=...>"): nella chat non va mostrato.
 private val CONTEXT_TAG = Regex("""</?(?:contesto|context)(?:\s[^>]*)?>\n?""", RegexOption.IGNORE_CASE)
 
-/** La risposta del servizio online senza i tag dei blocchi di contesto ricopiati dal modello. */
+/**
+ * La risposta del servizio online senza i tag dei blocchi di contesto ricopiati dal modello e senza le righe vuote iniziali
+ * (Qwen 3.8 su Cloudflare comincia con "\n\n"). Lo spazio in fondo resta: durante lo streaming separa dal pezzo dopo.
+ */
 internal fun withoutContextTags(answer: String): String =
-    if (CONTEXT_TAG.containsMatchIn(answer)) answer.replace(CONTEXT_TAG, "").trim() else answer
+    if (CONTEXT_TAG.containsMatchIn(answer)) answer.replace(CONTEXT_TAG, "").trim() else answer.trimStart()
