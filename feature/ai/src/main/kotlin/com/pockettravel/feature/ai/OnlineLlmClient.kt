@@ -66,12 +66,13 @@ class OnlineLlmClient @Inject constructor(
         system: String? = null,
         api: OnlineApi = OnlineApi.CHAT_COMPLETIONS,
         zeroDataRetention: Boolean = false,
+        withoutThinking: Boolean = false,
         photo: ByteArray? = null,
         onRequestsExhausted: (resetAtMillis: Long) -> Unit = {},
     ): Flow<String> = flow {
         val request = when (api) {
             OnlineApi.CHAT_COMPLETIONS ->
-                chatCompletionsRequest(baseUrl, apiKey, model, chatCompletionsContent(prompt, photo), sendTemperature, system, zeroDataRetention)
+                chatCompletionsRequest(baseUrl, apiKey, model, chatCompletionsContent(prompt, photo), sendTemperature, system, zeroDataRetention, withoutThinking)
             OnlineApi.ANTHROPIC_MESSAGES -> anthropicMessagesRequest(baseUrl, apiKey, model, anthropicContent(prompt, photo), system)
         }
         var emitted = false
@@ -99,6 +100,7 @@ class OnlineLlmClient @Inject constructor(
         sendTemperature: Boolean,
         system: String?,
         zeroDataRetention: Boolean,
+        withoutThinking: Boolean,
     ): Request {
         val requestBody = OpenAiChatRequest(
             model = model,
@@ -107,6 +109,7 @@ class OnlineLlmClient @Inject constructor(
             temperature = TEMPERATURE.takeIf { sendTemperature },
             stream = true,
             provider = OpenRouterRouting(zdr = true).takeIf { zeroDataRetention },
+            chatTemplateKwargs = ChatTemplateKwargs(enableThinking = false).takeIf { withoutThinking },
         )
         return Request.Builder()
             .url("${baseUrl.trimEnd('/')}/chat/completions")

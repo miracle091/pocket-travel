@@ -21,7 +21,13 @@ data class OpenAiChatRequest(
     val stream: Boolean = false,
     // Solo per OpenRouter: la domanda va soltanto ai fornitori che non la conservano.
     val provider: OpenRouterRouting? = null,
+    // Solo per Cloudflare: Qwen e Gemma rispondono senza il ragionamento nascosto.
+    @SerialName("chat_template_kwargs") val chatTemplateKwargs: ChatTemplateKwargs? = null,
 )
+
+/** Opzioni del template di chat (vLLM, Cloudflare Workers AI): `enable_thinking` false spegne il ragionamento. */
+@Serializable
+data class ChatTemplateKwargs(@SerialName("enable_thinking") val enableThinking: Boolean)
 
 /** Filtro di instradamento di OpenRouter: `zdr` = solo fornitori senza conservazione dei dati. */
 @Serializable

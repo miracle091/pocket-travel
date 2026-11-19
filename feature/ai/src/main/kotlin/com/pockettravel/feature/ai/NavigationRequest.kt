@@ -28,11 +28,11 @@ fun parseNavigationRequest(text: String): NavigationRequest? {
     val withoutTime = withTime.replace(TRAILING_TIME, "")
     // "Voglio andare in Giappone, serve il visto?": una domanda dopo la virgola, non una destinazione. Senza "?" la
     // virgola puo' stare nell'indirizzo ("Via Roma, 12").
-    val questionAfterComma = ',' in withoutTime && text.trimEnd().endsWith('?')
+    val questionAfterDestination = (',' in withoutTime && text.trimEnd().endsWith('?')) || CONDITION.containsMatchIn(withoutTime)
     // "Percorso consigliato di 3 giorni a Roma?", "Route 66 è bella?": questi trigger sono anche parole comuni, e
     // valgono solo con una preposizione di destinazione dopo ("percorso per", "route to"), anche dopo il modo.
     // "Indicazioni per ottenere il visto", "percorso per 3 giorni": dopo la preposizione non c'e' un luogo.
-    val destination = withoutLeadingWords(withoutTime).takeUnless { questionAfterComma || trigger.groupValues[1].isNotEmpty() && !isDestination(withTime) }
+    val destination = withoutLeadingWords(withoutTime).takeUnless { questionAfterDestination || trigger.groupValues[1].isNotEmpty() && !isDestination(withTime) }
     return destination?.takeIf { it.isNotEmpty() }
         ?.let { NavigationRequest(it, profileMatch?.second, withoutLeadingWords(withTime).takeIf { withoutTime != withTime }) }
 }
@@ -84,6 +84,10 @@ private val MODES = listOf(
     Regex("$MODE_VERB\\b(?:(?:in|con la) bici(?:cletta)?|by (?:bike|bicycle)|cycling)\\b", RegexOption.IGNORE_CASE) to NavigationRequestProfile.BIKE,
     Regex("$MODE_VERB\\b(?:in (?:auto|macchina|automobile)|con (?:la macchina|l'auto|l’auto)|by car|driving)\\b", RegexOption.IGNORE_CASE) to NavigationRequestProfile.CAR,
 )
+
+// "Come arrivo in centro se parcheggio al P1": una condizione dopo la destinazione fa della frase una domanda per l'assistente.
+// Solo in minuscolo, come i momenti del giorno.
+private val CONDITION = Regex("""\s(?:se|quando|perch[eé]|mentre|if|when|because|while)\s""")
 
 private val POLITENESS = Regex(",?\\s*\\b(?:per favore|please)\\b", RegexOption.IGNORE_CASE)
 

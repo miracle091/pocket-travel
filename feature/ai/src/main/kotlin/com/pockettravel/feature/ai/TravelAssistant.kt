@@ -520,6 +520,7 @@ class TravelAssistant @Inject constructor(
                 sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
                 api = provider.terms.api,
                 zeroDataRetention = provider.terms.zeroDataRetention,
+                withoutThinking = provider.terms.withoutThinking,
                 photo = photo,
                 onRequestsExhausted = { resetAt -> onlineQuota.markExhausted(provider, model, System.currentTimeMillis(), resetAt, daily = false) },
             )

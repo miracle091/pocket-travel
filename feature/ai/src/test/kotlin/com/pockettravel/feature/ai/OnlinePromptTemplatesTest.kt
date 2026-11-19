@@ -51,6 +51,18 @@ class OnlinePromptTemplatesTest {
     }
 
     @Test
+    fun `system prompt asks for a short answer without lists, before the context, in both languages`() {
+        // Prova del 2026-11-19: senza la regola Mistral Small risponde con elenchi di circa 330 caratteri e ricopia il tag del
+        // contesto; con la regola nel messaggio system, 90-190 caratteri e nessun tag.
+        val italian = OnlinePromptTemplates.systemPrompt(OnlinePromptTemplates.contextBlock("Wikivoyage", "x"))
+        val english = OnlinePromptTemplates.systemPrompt(OnlinePromptTemplates.contextBlock("Wikivoyage", "x", "en"), "en")
+
+        assertTrue(italian.indexOf("Rispondi in poche frasi, al massimo 3, senza elenchi puntati e senza titoli.") in 0 until italian.indexOf("<contesto"))
+        assertTrue(english.indexOf("Answer in a few sentences, at most 3, without bullet lists or headings.") in 0 until english.indexOf("<context"))
+        assertTrue(OnlinePromptTemplates.systemPrompt("").contains("al massimo 3"))
+    }
+
+    @Test
     fun `the source of a citation has no prefix and no link, and no quotes in the attribute`() {
         assertEquals("Wikivoyage, sezione Cosa vedere", OnlinePromptTemplates.sourceOf("Fonte: Wikivoyage, sezione Cosa vedere — https://it.wikivoyage.org/wiki/Roma"))
         assertEquals("Wikipedia, section History (Rome)", OnlinePromptTemplates.sourceOf("Source: Wikipedia, section History (Rome) — https://en.wikipedia.org/wiki/Rome"))

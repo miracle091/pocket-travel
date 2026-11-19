@@ -108,4 +108,25 @@ class OnlineProviderTest {
             server.shutdown()
         }
     }
+
+    @Test
+    fun `Cloudflare turns off the hidden reasoning, the other services do not send it`() {
+        assertTrue(OnlineProvider.CLOUDFLARE.terms.withoutThinking)
+        assertFalse(OnlineProvider.GROQ.terms.withoutThinking)
+        val server = MockWebServer()
+        server.start()
+        try {
+            val client = OnlineLlmClient(OkHttpClient(), Json { ignoreUnknownKeys = true }, Dispatchers.IO)
+            repeat(2) { server.enqueue(sseResponse("ok")) }
+            runBlocking {
+                client.stream(server.url("/v1").toString(), "k", "m", "ciao", sendTemperature = false, withoutThinking = true).toList()
+                client.stream(server.url("/v1").toString(), "k", "m", "ciao", sendTemperature = false).toList()
+            }
+            val without = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+            assertFalse(without.getValue("chat_template_kwargs").jsonObject.getValue("enable_thinking").jsonPrimitive.boolean)
+            assertFalse("chat_template_kwargs" in Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject)
+        } finally {
+            server.shutdown()
+        }
+    }
 }

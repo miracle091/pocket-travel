@@ -131,6 +131,7 @@ enum class OnlineProvider(
             "https://developers.cloudflare.com/workers-ai/platform/data-usage/",
             idField = OnlineIdField.ACCOUNT_ID,
             hasModelList = false,
+            withoutThinking = true,
         ),
     ),
     INFOMANIAK(
@@ -183,7 +184,9 @@ private val ACCOUNT_ID = Regex("[A-Za-z0-9-]{1,64}")
  * (`provider.zdr` in ogni richiesta); con le impostazioni normali di un account self-serve ammette anche quelli che la
  * conservano solo contro gli abusi ("Safety Retention"), esclusi solo con «ZDR only» nell'account. [hasModelList]:
  * false se il servizio non ha `GET /models` (Cloudflare). [retentionDays]: per quanti giorni il servizio conserva le
- * domande, solo per [OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS].
+ * domande, solo per [OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS]. [withoutThinking]: `chat_template_kwargs.enable_thinking` false
+ * in ogni richiesta (Cloudflare: provato il 2026-11-19, Qwen 3.8 da 2-4 s a 0,3-0,5 s per la prima parola e Gemma 4 da
+ * 6-17 s a 0,7-4 s, con circa un decimo dei token; `reasoning_effort` non serve, Qwen rifiuta "none" e Gemma lo ignora).
  */
 data class OnlineTerms(
     val privacy: OnlinePrivacy,
@@ -193,6 +196,7 @@ data class OnlineTerms(
     val zeroDataRetention: Boolean = false,
     val hasModelList: Boolean = true,
     val retentionDays: Int = 30,
+    val withoutThinking: Boolean = false,
 )
 
 /**

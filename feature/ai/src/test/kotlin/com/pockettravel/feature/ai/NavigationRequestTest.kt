@@ -75,6 +75,14 @@ class NavigationRequestTest {
     }
 
     @Test
+    fun `una condizione dopo la destinazione fa della frase una domanda per l'assistente`() {
+        assertNull(parseNavigationRequest("Come arrivo in centro se parcheggio al P1"))
+        assertNull(parseNavigationRequest("Come arrivo al Duomo quando chiude la metro?"))
+        assertNull(parseNavigationRequest("How do I get to the old town if I park at P1?"))
+        assertEquals(NavigationRequest("Porta Romana", null), parseNavigationRequest("Portami a Porta Romana"))
+    }
+
+    @Test
     fun `domande sulla guida non sono richieste di navigazione`() {
         assertNull(parseNavigationRequest("Come arrivare a Roma dall'Italia?"))
         assertNull(parseNavigationRequest("Come si arriva in centro?"))
