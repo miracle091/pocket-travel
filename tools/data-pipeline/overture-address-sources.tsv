@@ -16,6 +16,8 @@
 # Colorado (solo un disclaimer), Estonia e Messico.
 # Uruguay: una sola fonte (IDE, Licencia de Datos Abiertos), divisa da Overture nei 19 dipartimenti
 # (uy/<dipartimento>/regionwide, rilascio 2026-10-21.0); le righe hanno la stessa attribuzione.
+# Stati Uniti: la NAD si chiama "National Address Database" dal rilascio 2026-11-18.0 (prima "NAD"),
+# con la stessa licenza.
 #
 # attribuzione: testo per la schermata Licenze; {anno} e {data} li riempie il workflow con la data
 # del rilascio Overture usato.
@@ -287,7 +289,7 @@ TW	tw/tpe/regionwide	CC-BY-4.0	allow	Taipei City Government Civil Affairs Bureau
 TW	tw/ttt/regionwide	CC-BY-4.0	allow	Taitung County Government (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 TW	tw/txg/regionwide	CC-BY-4.0	allow	Taichung City Government Civil Affairs Bureau (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
 TW	tw/yun/regionwide	CC-BY-4.0	allow	Yunlin County Government (Open Government Data License, version 1.0); CC BY 4.0 (creativecommons.org/licenses/by/4.0); modificato
-US	NAD	LicenseRef-Public-Domain-US	allow	U.S. Department of Transportation, National Address Database (NAD); pubblico dominio (usa.gov/publicdomain/label/1.0); cortesia: DOT, U.S. Census Bureau Geography Division e partner statali e locali; non usare come mailing list
+US	National Address Database	LicenseRef-Public-Domain-US	allow	U.S. Department of Transportation, National Address Database (NAD); pubblico dominio (usa.gov/publicdomain/label/1.0); cortesia: DOT, U.S. Census Bureau Geography Division e partner statali e locali; non usare come mailing list
 US	us/ca/alameda	LicenseRef-Public-Domain-US-CA-Law	allow	Alameda County, California (cortesia; pubblico dominio per il California Public Records Act)
 US	us/ca/alpine	LicenseRef-Public-Domain-US-CA-Law	allow	Alpine County, California (cortesia; pubblico dominio per il California Public Records Act)
 US	us/ca/amador	LicenseRef-Public-Domain-US-CA-Law	allow	Amador County, California (cortesia; pubblico dominio per il California Public Records Act)

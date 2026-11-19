@@ -19,7 +19,7 @@ import com.pockettravel.core.data.TripView
 import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.hasName
 import com.pockettravel.core.data.isHiddenOnMap
-import com.pockettravel.core.data.isItalianSpeakingRegion
+import com.pockettravel.core.data.isItalianSpeakingPlace
 import com.pockettravel.core.data.poiCategory
 import com.pockettravel.core.poi.PoiCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -293,7 +293,7 @@ private fun toPins(inArea: AreaPois?): List<MapPin> =
             openingHours = poi.openingHours, address = poi.address, website = poi.website, email = poi.email,
             nameEn = poi.nameEn, nameIt = poi.nameIt,
             toiletsWheelchair = poi.toiletsWheelchair, capacityDisabled = poi.capacityDisabled,
-            localNameIsItalian = isItalianSpeakingRegion(poi.regionId),
+            localNameIsItalian = isItalianSpeakingPlace(poi.regionId, poi.latitude, poi.longitude),
         )
     }
 

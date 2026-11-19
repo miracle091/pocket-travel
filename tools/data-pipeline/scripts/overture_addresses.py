@@ -8,7 +8,7 @@ vuote.
 
 La lista bianca elenca coppie esatte (sources[1].dataset, sources[1].license), una per dataset
 letto a mano: i nomi dei dataset non seguono sempre il
-codice del paese ("NAD" per gli Stati Uniti, "BAG Light" per i Paesi Bassi...), e un dataset nuovo
+codice del paese ("National Address Database" per gli Stati Uniti, "BAG Light" per i Paesi Bassi...), e un dataset nuovo
 o con una licenza cambiata in un rilascio successivo resta fuori finche' non viene rivisto. Il
 filtro su "country" (colonna semplice, con statistiche per row group) va prima, per scartare i row
 group fuori lista senza scaricarli.

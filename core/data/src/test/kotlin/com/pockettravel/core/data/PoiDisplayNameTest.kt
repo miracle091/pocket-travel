@@ -23,6 +23,22 @@ class PoiDisplayNameTest {
     }
 
     @Test
+    fun `in Svizzera vale il nome locale solo nella parte di lingua italiana`() {
+        val italian = mapOf(
+            "Lugano" to (46.005 to 8.952), "Bellinzona" to (46.195 to 9.024), "Locarno" to (46.170 to 8.800), "Airolo" to (46.528 to 8.610),
+            "Olivone" to (46.530 to 8.940), "Roveredo" to (46.236 to 9.126), "San Bernardino" to (46.460 to 9.190),
+            "Soglio" to (46.341 to 9.538), "Poschiavo" to (46.325 to 10.060), "Brusio" to (46.259 to 10.124),
+        )
+        val other = mapOf(
+            "Zurigo" to (47.370 to 8.540), "Andermatt" to (46.635 to 8.594), "Hinterrhein" to (46.522 to 9.200),
+            "Sils" to (46.429 to 9.760), "Pontresina" to (46.492 to 9.900), "Brig" to (46.316 to 7.988), "Vals" to (46.616 to 9.180),
+        )
+        italian.forEach { (town, at) -> assertEquals(town, true, isItalianSpeakingPlace("svizzera", at.first, at.second)) }
+        other.forEach { (town, at) -> assertEquals(town, false, isItalianSpeakingPlace("svizzera", at.first, at.second)) }
+        assertEquals(false, isItalianSpeakingPlace("francia", 46.005, 8.952))
+    }
+
+    @Test
     fun `name it vince sempre`() {
         assertEquals("Fontana", poi("italia", nameIt = "Fontana").displayName("it"))
         assertEquals("Fontana", poi("giappone", nameIt = "Fontana").displayName("it"))

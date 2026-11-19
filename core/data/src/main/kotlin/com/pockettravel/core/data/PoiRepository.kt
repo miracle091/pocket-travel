@@ -135,8 +135,33 @@ private fun PoiEntity.toDomain() =
 
 private val ITALIAN_SPEAKING_REGIONS = setOf("italia", "san-marino", "citta-del-vaticano")
 
-/** True per le regioni in cui il nome locale dei luoghi e' gia' italiano (la pipeline salva name:it solo se diverso da name). */
-fun isItalianSpeakingRegion(regionId: String): Boolean = regionId in ITALIAN_SPEAKING_REGIONS
+// La Svizzera italiana, a grandi linee (lat, lon): Ticino con Mesolcina e Calanca, Bregaglia, Valposchiavo. Vicino ai
+// confini con le valli tedesche e romance sbaglia di qualche centinaio di metri.
+private val ITALIAN_SWITZERLAND = listOf(
+    listOf(
+        45.82 to 9.02, 45.85 to 8.90, 45.97 to 8.86, 46.10 to 8.72, 46.15 to 8.61, 46.22 to 8.45, 46.31 to 8.43, 46.41 to 8.47,
+        46.48 to 8.39, 46.56 to 8.57, 46.57 to 8.80, 46.63 to 8.95, 46.56 to 9.08, 46.50 to 9.15, 46.50 to 9.28, 46.37 to 9.28,
+        46.13 to 9.17, 46.07 to 9.10, 45.93 to 9.02,
+    ),
+    listOf(46.325 to 9.50, 46.40 to 9.47, 46.43 to 9.60, 46.415 to 9.70, 46.38 to 9.74, 46.30 to 9.62, 46.30 to 9.53),
+    listOf(46.425 to 9.98, 46.43 to 10.05, 46.35 to 10.13, 46.23 to 10.17, 46.22 to 10.12, 46.30 to 10.03, 46.38 to 9.97),
+)
+
+/**
+ * True dove il nome locale dei luoghi e' gia' italiano (la pipeline salva name:it solo se diverso da name): Italia,
+ * San Marino, Citta' del Vaticano e, in Svizzera, la parte di lingua italiana.
+ */
+fun isItalianSpeakingPlace(regionId: String, latitude: Double, longitude: Double): Boolean =
+    regionId in ITALIAN_SPEAKING_REGIONS ||
+        (regionId == "svizzera" && ITALIAN_SWITZERLAND.any { it.contains(latitude, longitude) })
+
+// Ray casting: un raggio verso est dal punto attraversa i lati del poligono un numero dispari di volte se il punto e' dentro.
+private fun List<Pair<Double, Double>>.contains(latitude: Double, longitude: Double): Boolean =
+    indices.count { i ->
+        val (lat1, lon1) = this[i]
+        val (lat2, lon2) = this[(i + 1) % size]
+        (lat1 > latitude) != (lat2 > latitude) && longitude < lon1 + (latitude - lat1) * (lon2 - lon1) / (lat2 - lat1)
+    } % 2 == 1
 
 /**
  * Nome nella lingua dell'interfaccia ("en"/"it") se OSM lo ha, altrimenti quello locale. In italiano, dove
@@ -145,7 +170,7 @@ fun isItalianSpeakingRegion(regionId: String): Boolean = regionId in ITALIAN_SPE
 fun displayName(language: String, name: String, nameEn: String?, nameIt: String?, localNameIsItalian: Boolean): String =
     if (language == "en") nameEn ?: name else nameIt ?: nameEn.takeUnless { localNameIsItalian } ?: name
 
-fun Poi.displayName(language: String): String = displayName(language, name, nameEn, nameIt, isItalianSpeakingRegion(regionId))
+fun Poi.displayName(language: String): String = displayName(language, name, nameEn, nameIt, isItalianSpeakingPlace(regionId, latitude, longitude))
 
 /** I POI attorno alla posizione e il raggio in cui sono stati cercati (metri). */
 data class NearbyPois(val pois: List<Poi>, val radiusMeters: Int)
