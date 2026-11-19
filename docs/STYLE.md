@@ -120,6 +120,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Gruppi della lista dei modelli: come li pubblicano gli autori, addestrati dal progetto | Ufficiali, Addestrati sulle guide | Official, Trained on the guides |
 | Chiave personale per il motore Online | chiave API | API key |
 | Fornitore del motore Online (ChatGPT, Mistral...) | servizio | service |
+| File in più che serve al modello sul dispositivo per leggere le foto (mmproj) | file per le foto | photo file |
 | Interruttore che lascia mandare le foto al motore Online | Invia le foto al servizio | Send photos to the service |
 | Pulsante e voci per aggiungere o togliere la foto della domanda al motore Online | Allega una foto; Scegli dalla galleria; Scatta una foto; Togli la foto | Attach a photo; Choose from gallery; Take a photo; Remove the photo |
 | Interruttore che lascia mandare al motore Online nota, posizione, partenza e nazionalità | Invia dati personali al servizio | Send personal data to the service |

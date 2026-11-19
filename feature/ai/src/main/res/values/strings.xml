@@ -329,6 +329,6 @@
     <string name="ai_photo_consent_send">Invia</string>
     <string name="ai_photo_consent_cancel">Annulla</string>
     <string name="ai_photo_local_title">Scaricare il file per le foto?</string>
-    <string name="ai_photo_local_text">Per leggere le foto il modello sul telefono ha bisogno di un file in più, di %1$s. Si scarica una volta sola e la foto resta sul telefono</string>
+    <string name="ai_photo_local_text">Per leggere le foto il modello sul dispositivo ha bisogno di un file in più, di %1$s. Si scarica una volta sola e la foto resta sul telefono</string>
     <string name="ai_photo_local_download">Scarica</string>
 </resources>
