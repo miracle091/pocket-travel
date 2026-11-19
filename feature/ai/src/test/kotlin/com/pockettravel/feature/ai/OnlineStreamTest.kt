@@ -122,6 +122,18 @@ class OnlineStreamTest {
     }
 
     @Test
+    fun `a model outside the free plan of Mistral is not a rejected key`() {
+        // Risposta vera di Mistral (2026-11-19) a mistral-large-latest con la chiave del piano gratuito.
+        val body = "{\"object\":\"error\",\"message\":\"This model is not available in your subscription tier\"," +
+            "\"type\":\"tier_not_allowed\",\"param\":null,\"code\":\"1910\",\"raw_status_code\":403}"
+        server.enqueue(MockResponse().setResponseCode(403).setBody(body))
+        val error = errorOf()
+        assertTrue((error as OnlineDailyQuotaException).notInFreePlan)
+        assertEquals("m", error.model)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
     fun `a transport error after some text is an interrupted answer, not a busy service`() {
         val first = "data: {\"choices\":[{\"delta\":{\"content\":\"Inizio\"},\"index\":0}]}\n\n"
         // Il corpo si interrompe a meta': il primo pezzo e' arrivato, il resto e' riempitivo.

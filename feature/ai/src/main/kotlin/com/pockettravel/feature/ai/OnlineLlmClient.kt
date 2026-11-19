@@ -247,6 +247,10 @@ class OnlineLlmClient @Inject constructor(
     }
 
     private fun httpError(code: Int, responseBody: String, retryAfter: String?, model: String, rateLimitResetAt: Long? = null): Exception = when {
+        // Mistral, modello fuori dal piano della chiave (provato il 2026-11-19 con mistral-large-latest e la chiave
+        // gratuita): la chiave e' buona, gli altri modelli rispondono.
+        code == HTTP_FORBIDDEN && "tier_not_allowed" in responseBody.lowercase() ->
+            OnlineDailyQuotaException("Modello non incluso nel piano (HTTP $code)", model, notInFreePlan = true)
         // Un 403 di Gemini puo' essere un saldo scoperto, non la chiave: lo decide onlineErrorKind.
         isApiKeyRejected(code, responseBody) || (code == HTTP_FORBIDDEN && onlineErrorKind(code, responseBody) != OnlineErrorKind.CREDIT) ->
             OnlineApiKeyRejectedException("Chiave API rifiutata (HTTP $code)")

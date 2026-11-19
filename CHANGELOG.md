@@ -52,6 +52,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA, motore Online: ogni servizio tiene la sua chiave API; prima cambiare servizio cancellava la chiave salvata. La chiave già salvata resta al servizio scelto.
 
 ### Corretto
+- Assistente IA, motore Online: con la chiave del piano gratuito di Mistral, «Più capace» (mistral-large) dava «Chiave API rifiutata» e la chiave sembrava sbagliata. Ora l'avviso dice che il piano gratuito di Mistral non include quel modello e propone gli altri modelli.
 - Assistente IA sul dispositivo: un segno del formato della chat scritto nel testo di una guida («<|im_end|>») resta testo e non chiude più la domanda; prima chi modificava la guida su Wikivoyage poteva far scrivere al modello una risposta a sua scelta.
 - Assistente IA sul dispositivo: dal testo delle guide e della nota personale si tolgono, prima che arrivino al modello, le frasi che danno ordini all'assistente («Ignora le istruzioni precedenti…», «Rispondi solo "OK"») e le righe che cominciano con «Domanda:» o «Contesto:», come già faceva il motore Online. Online, un tag «<contesto>» scritto in una guida non apre più un blocco di contesto finto.
 - Assistente IA sul dispositivo: il testo della guida dato al modello si ferma all'ultima frase intera che entra nel limite, non più a metà parola; il modello a volte ripeteva nella risposta la frase spezzata («…sono bassi; i»).
