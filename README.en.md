@@ -49,6 +49,8 @@ Pocket Travel runs on **Android 8.0 or later** and is distributed only on GitHub
 
 The app announces new versions with a notification; the changes are in the [CHANGELOG](CHANGELOG.md) (in Italian).
 
+To install updates automatically you can use [Obtainium](https://github.com/ImranR98/Obtainium): add the app with the address `https://github.com/miracle091/pocket-travel` and turn on "Verify the 'latest' tag", because the same repository also publishes the country data.
+
 ## Features
 
 | | Feature | What it does |
