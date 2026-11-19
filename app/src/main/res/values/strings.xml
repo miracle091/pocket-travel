@@ -225,6 +225,7 @@
     <string name="storage_guides_download">Scarica le guide</string>
     <string name="storage_model">Modello IA sul dispositivo</string>
     <string name="storage_no_model">Nessun modello IA scaricato</string>
+    <string name="storage_photo_file">Il file per le foto</string>
     <string name="storage_delete">Elimina (%1$s)</string>
     <string name="storage_delete_title">%1$s: eliminare i dati?</string>
     <string name="storage_delete_message">I dati salvati sul dispositivo verranno rimossi per liberare questo spazio</string>

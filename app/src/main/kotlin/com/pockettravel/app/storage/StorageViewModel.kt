@@ -51,12 +51,14 @@ data class StorageUiState(
     val regionsSizeBytes: Long = 0L,
     val isModelDownloaded: Boolean = false,
     val modelSizeBytes: Long = 0L,
+    // Il file per le foto del modello scelto (mmproj), 0 se non e' su disco.
+    val photoFileSizeBytes: Long = 0L,
     val availableBytes: Long = 0L,
     // Messaggio una tantum (es. eliminazione fallita): Snackbar, poi onMessageShown().
     @StringRes val message: Int? = null,
 )
 
-private data class ModelState(val isDownloaded: Boolean, val sizeBytes: Long)
+private data class ModelState(val isDownloaded: Boolean, val sizeBytes: Long, val photoFileSizeBytes: Long)
 
 /**
  * Vista unica dello spazio occupato da guide, pacchetti delle regioni e modello IA locale, con
@@ -114,6 +116,7 @@ class StorageViewModel @Inject constructor(
             regionsSizeBytes = installedRegions.sumOf { it.sizeBytes } + (guides?.sizeBytes ?: 0L),
             isModelDownloaded = model.isDownloaded,
             modelSizeBytes = model.sizeBytes,
+            photoFileSizeBytes = model.photoFileSizeBytes,
             availableBytes = available,
             message = currentMessage,
         )
@@ -156,6 +159,15 @@ class StorageViewModel @Inject constructor(
         }
     }
 
+    fun deletePhotoFile() {
+        viewModelScope.launch {
+            // Prima fuori dalla memoria: il modello lo tiene caricato dopo la prima foto.
+            engine.release()
+            modelManager.deleteMmproj(aiSettingsStore.selectedModelDefinition())
+            refreshDeviceState()
+        }
+    }
+
     fun onMessageShown() {
         message.value = null
     }
@@ -182,6 +194,8 @@ class StorageViewModel @Inject constructor(
 
     private fun currentModelState(): ModelState {
         val definition = aiSettingsStore.selectedModelDefinition()
-        return ModelState(modelManager.isDownloaded(definition), modelManager.sizeOnDisk(definition))
+        // Il file e' verificato con lo sha256 del catalogo: la sua dimensione e' quella dichiarata.
+        val photoFileSize = if (modelManager.isMmprojDownloaded(definition)) definition.mmproj?.sizeBytes ?: 0L else 0L
+        return ModelState(modelManager.isDownloaded(definition), modelManager.sizeOnDisk(definition), photoFileSize)
     }
 }

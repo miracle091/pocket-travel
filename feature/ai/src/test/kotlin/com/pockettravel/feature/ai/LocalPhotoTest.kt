@@ -70,6 +70,14 @@ class LocalPhotoTest {
     }
 
     @Test
+    fun `il file per le foto eliminato da fuori si riconosce solo sul dispositivo`() {
+        assertTrue(state().lostMmproj(onDisk = false))
+        assertFalse(state().lostMmproj(onDisk = true))
+        assertFalse(state(isMmprojDownloaded = false).lostMmproj(onDisk = false))
+        assertFalse(state(mode = AiEngineMode.ONLINE).lostMmproj(onDisk = false))
+    }
+
+    @Test
     fun `online non cambia, il modello del dispositivo non conta e il consenso resta quello del servizio`() {
         val online = state(canAttachLocalPhoto = true, isMmprojDownloaded = false, mode = AiEngineMode.ONLINE)
 

@@ -21,7 +21,7 @@ import java.io.File
  * PC con vision_eval.py --score-answers. Legge vision-set/questions.jsonl (id, lang, question, image) in
  * getExternalFilesDir(null) dell'app di test (/sdcard/Android/data/com.pockettravel.feature.ai.test/files/) e aggiunge una
  * riga per risposta a vision-set/answers.jsonl (id, lang, model, answer, seconds), saltando le domande gia' risposte. Come
- * l'app: foto ridotta da preparePhoto a LOCAL_PHOTO_LONG_SIDE, la domanda da sola nel prompt, una conversazione nuova per
+ * l'app: foto ridotta da preparePhoto a LOCAL_PHOTO_LONG_SIDE, la domanda in PromptTemplates.photoPrompt, una conversazione nuova per
  * foto, i parametri di campionamento di LlamaOnDeviceLlmEngine. Ogni lingua usa il suo modello
  * (qwen3.5-2b-travel-<lang>-v11.gguf) o, se manca, quello inglese. Senza i file il test si salta.
  */
@@ -65,7 +65,8 @@ class VisionSetDeviceTest {
                 engine.resetConversation()
                 val start = System.nanoTime()
                 val answer = StringBuilder()
-                engine.sendUserPrompt(item.getString("question"), photo).collect { answer.append(it) }
+                val prompt = PromptTemplates.photoPrompt(item.getString("question"), item.getString("lang"))
+                engine.sendUserPrompt(prompt, photo).collect { answer.append(it) }
                 val seconds = (System.nanoTime() - start) / NANOS_PER_S
                 val row = JSONObject().put("id", item.getString("id")).put("lang", item.getString("lang"))
                     .put("model", model.name).put("answer", answer.toString()).put("seconds", seconds)

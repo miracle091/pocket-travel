@@ -222,6 +222,7 @@
     <string name="storage_guides_download">Download the guides</string>
     <string name="storage_model">On-device AI model</string>
     <string name="storage_no_model">No AI model downloaded</string>
+    <string name="storage_photo_file">The photo file</string>
     <string name="storage_delete">Delete %1$s</string>
     <string name="storage_delete_title">%1$s: delete the data?</string>
     <string name="storage_delete_message">The data saved on the device will be removed to free up this space</string>

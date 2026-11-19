@@ -41,6 +41,10 @@ class FakeLlmModelManager(initial: Set<String> = emptySet()) : LlmModelManager {
         mmprojFiles += mmproj.fileName
     }
 
+    override suspend fun deleteMmproj(definition: LlmModelDefinition) {
+        definition.mmproj?.let { mmprojFiles -= it.fileName }
+    }
+
     override fun sizeOnDisk(definition: LlmModelDefinition): Long =
         if (isDownloaded(definition)) sizes[definition.id] ?: definition.sizeBytes else 0L
 

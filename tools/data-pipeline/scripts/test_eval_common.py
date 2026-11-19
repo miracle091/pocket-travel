@@ -26,7 +26,8 @@ AI_CHAT = (REPO / "feature/ai/src/main/cpp/ai_chat.cpp").read_text(encoding="utf
 
 def kotlin_prompt(branch, context, question):
     """Il testo di onDevicePrompt in PromptTemplates.kt per un ramo ("en" o "it"), con contesto e domanda."""
-    body = PROMPT_TEMPLATES.split("fun onDevicePrompt(")[1].split('if (language == "en") {')[1].split("fun emptyContext(")[0]
+    # Fino alla dichiarazione dopo (il suo commento o la sua fun): dopo onDevicePrompt vengono altri prompt.
+    body = re.split(r"\n    (?:/\*\*|fun )", PROMPT_TEMPLATES.split("fun onDevicePrompt(")[1].split('if (language == "en") {')[1])[0]
     en, it = body.split("} else {")
     literals = re.findall(r'"((?:[^"\\]|\\.)*)"', en if branch == "en" else it)
     return "".join(literals).replace("\\n", "\n").replace("$context", context).replace("$question", question)

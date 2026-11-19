@@ -327,9 +327,9 @@ class TravelAssistant @Inject constructor(
         selectedText: String?,
         withPhoto: Boolean = false,
     ): OnDevicePlan {
-        // Con una foto la domanda va sola, come nel test sul dispositivo: col contesto delle guide il modello cercava la
+        // Con una foto niente contesto, come nel test sul dispositivo: col contesto delle guide il modello cercava la
         // risposta li' e rifiutava ("il contesto non contiene..."), senza guardare la foto.
-        if (withPhoto) return OnDevicePlan(question, emptyList())
+        if (withPhoto) return OnDevicePlan(PromptTemplates.photoPrompt(question, language), emptyList())
         val note = noteRepository.relevantNote(question)
         // Con un testo selezionato il contesto e' solo il testo: con le sezioni della guida lo 0.8B le scambiava per il testo e
         // inventava (il messaggio di un host sull'arrivo diventava una descrizione della Provenza); senza, lo spiega.

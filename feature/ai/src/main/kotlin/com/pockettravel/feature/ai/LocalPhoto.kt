@@ -18,6 +18,9 @@ internal fun canReadPhotos(model: LlmModelDefinition, tier: RamTier): Boolean = 
 internal fun photoInput(photo: ByteArray?, mmproj: File?): OnDeviceLlmEngine.ImageInput? =
     if (photo != null && mmproj != null) OnDeviceLlmEngine.ImageInput(photo, mmproj.absolutePath) else null
 
+/** Il file per le foto eliminato da Spazio di archiviazione con la schermata aperta: lo stato lo crede ancora su disco. */
+internal fun AiUiState.lostMmproj(onDisk: Boolean): Boolean = mode == AiEngineMode.ON_DEVICE && isMmprojDownloaded && !onDisk
+
 /** Il modello in uso accetta foto: online quello del servizio, sul dispositivo quello scelto con la RAM giusta. */
 internal val AiUiState.photoSupported: Boolean
     get() = when (mode) {

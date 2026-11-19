@@ -24,6 +24,19 @@ object PromptTemplates {
                 "DOMANDA: $question"
         }
 
+    /**
+     * Prompt con una foto per il modello sul dispositivo: la domanda e un'istruzione a guardare la foto, senza contesto.
+     * Sul set di foto (VisionSetDeviceTest) il 2B IT v11 passa da 12 a 15 risposte giuste su 25. In inglese niente «Answer in
+     * English, in at most 3 sentences»: ricalca il prompt dell'addestramento e il 2B EN rifiutava di piu' (12 contro 15).
+     */
+    fun photoPrompt(question: String, language: String = "it"): String =
+        if (language == "en") {
+            "$question\n\nRead what is written in the photo (signs, timetables, menus, tickets, captions) and describe what can be seen."
+        } else {
+            "$question\n\nRispondi in italiano, in massimo 3 frasi, guardando la foto: leggi quello che c'è scritto " +
+                "(cartelli, orari, menù, biglietti, didascalie) e descrivi quello che si vede."
+        }
+
     /** Contesto quando la guida non ha nulla sulla domanda. */
     fun emptyContext(language: String = "it"): String =
         if (language == "en") "No information available for this region." else "Nessuna informazione disponibile per questa regione."

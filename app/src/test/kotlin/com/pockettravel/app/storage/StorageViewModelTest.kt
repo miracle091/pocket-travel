@@ -166,6 +166,26 @@ class StorageViewModelTest {
     }
 
     @Test
+    fun `il file per le foto compare con la sua dimensione e si elimina dopo aver liberato il modello`() = runTest {
+        settings.setSelectedModelId("qwen3.5-2b")
+        val definition = settings.selectedModelDefinition()
+        val mmproj = checkNotNull(definition.mmproj)
+        models.downloadedModelIds.value = setOf(definition.id)
+        models.mmprojFiles += mmproj.fileName
+        val viewModel = viewModel()
+        observe(viewModel)
+        assertEquals(mmproj.sizeBytes, viewModel.uiState.value.photoFileSizeBytes)
+
+        viewModel.deletePhotoFile()
+        advanceUntilIdle()
+
+        assertEquals(1, engine.releaseCalls)
+        assertTrue(models.mmprojFiles.isEmpty())
+        assertEquals(0L, viewModel.uiState.value.photoFileSizeBytes)
+        assertTrue("il modello resta", viewModel.uiState.value.isModelDownloaded)
+    }
+
+    @Test
     fun `eliminare una regione annulla il suo download, la toglie e rilegge lo spazio libero`() = runTest {
         repository.installedRegions.value = listOf(region("italia"), region("francia", "Francia", "fr"))
         repository.availableBytes = 1_000L

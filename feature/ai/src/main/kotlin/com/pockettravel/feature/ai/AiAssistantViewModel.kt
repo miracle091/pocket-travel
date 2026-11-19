@@ -581,6 +581,15 @@ class AiAssistantViewModel @Inject constructor(
     val navigationRequests: Flow<NavigationRequest> = _navigationRequests.receiveAsFlow()
 
     fun ask(regionId: String) {
+        // Con una foto allegata si offre di nuovo il download; senza, la domanda parte con lo stato riletto.
+        if (_uiState.value.lostMmproj(modelManager.isMmprojDownloaded(aiSettingsStore.selectedModelDefinition()))) {
+            mmprojDownload.refresh()
+            if (_uiState.value.attachedPhoto != null) return mmprojDownload.offer()
+        }
+        askNow(regionId)
+    }
+
+    private fun askNow(regionId: String) {
         val state = _uiState.value
         val question = state.question.trim()
         if (state.isPreparingPhoto || state.startingTurn(question) == null || handledOnDevice(question, regionId)) return

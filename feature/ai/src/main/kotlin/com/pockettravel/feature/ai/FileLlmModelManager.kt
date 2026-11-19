@@ -409,6 +409,10 @@ class FileLlmModelManager @Inject constructor(
             _downloadedModelIds.value = scanDownloadedModelIds()
         }
 
+    override suspend fun deleteMmproj(definition: LlmModelDefinition) = coordinator.withModelLock {
+        definition.mmproj?.let(::deleteMmprojFiles) ?: Unit
+    }
+
     private fun deleteMmprojFiles(mmproj: MmprojDefinition) {
         listOf("", ".sha256", ".part", ".part.sha256").forEach { File(modelsDir, mmproj.fileName + it).delete() }
     }

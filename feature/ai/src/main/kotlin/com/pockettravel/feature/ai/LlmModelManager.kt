@@ -29,6 +29,9 @@ interface MmprojManager {
         definition: LlmModelDefinition,
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     )
+
+    /** Elimina l'mmproj di [definition], anche se lo usano altri modelli: si riscarica dal pulsante delle foto. */
+    suspend fun deleteMmproj(definition: LlmModelDefinition)
 }
 
 /**

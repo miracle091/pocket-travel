@@ -27,6 +27,16 @@ class PromptTemplatesTest {
         assertTrue(prompt.contains("in English"))
     }
 
+    @Test
+    fun `photo prompt asks to read the photo, in Italian only for the Italian prompt`() {
+        val it = PromptTemplates.photoPrompt("Cosa dice questo cartello?")
+        assertTrue(it.startsWith("Cosa dice questo cartello?\n\n"))
+        assertTrue(it.contains("in italiano, in massimo 3 frasi, guardando la foto"))
+        val en = PromptTemplates.photoPrompt("What does this sign say?", language = "en")
+        assertTrue(en.startsWith("What does this sign say?\n\n"))
+        assertTrue(en.contains("Read what is written in the photo"))
+    }
+
     // Il prompt italiano e' quello dei dati di addestramento dei modelli addestrati sulle guide: deve restare identico.
     @Test
     fun `italian prompt is exactly the training one`() {

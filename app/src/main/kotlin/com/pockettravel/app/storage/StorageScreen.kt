@@ -66,7 +66,7 @@ import com.pockettravel.core.ui.R as UiR
 fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val usedBytes = uiState.regionsSizeBytes + uiState.modelSizeBytes
+    val usedBytes = uiState.regionsSizeBytes + uiState.modelSizeBytes + uiState.photoFileSizeBytes
     val totalBytes = usedBytes + uiState.availableBytes
     val usedFraction = if (totalBytes > 0) usedBytes / totalBytes.toFloat() else 0f
 
@@ -184,6 +184,20 @@ fun StorageScreen(onBack: () -> Unit, viewModel: StorageViewModel = hiltViewMode
                         supporting = Formatter.formatShortFileSize(context, uiState.modelSizeBytes),
                         onDelete = { viewModel.deleteModel() },
                     )
+                }
+                if (uiState.photoFileSizeBytes > 0) {
+                    Surface(
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        modifier = Modifier.padding(top = Spacing.s),
+                    ) {
+                        StorageRow(
+                            icon = AppIcons.Image,
+                            title = stringResource(R.string.storage_photo_file),
+                            supporting = Formatter.formatShortFileSize(context, uiState.photoFileSizeBytes),
+                            onDelete = { viewModel.deletePhotoFile() },
+                        )
+                    }
                 }
             } else {
                 EmptyLine(stringResource(R.string.storage_no_model))
