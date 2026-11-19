@@ -529,6 +529,18 @@ class GeneratePoiTest {
     }
 
     @Test
+    fun `il nome italiano uguale al nome resta solo se c'e' un nome inglese diverso`() {
+        val pois = readOsm(
+            node(1, mapOf("tourism" to "attraction", "name" to "Fontana di Trevi", "name:it" to "Fontana di Trevi", "name:en" to "Trevi Fountain")) +
+                node(2, mapOf("tourism" to "attraction", "name" to "Fontana di Trevi", "name:it" to "Fontana di Trevi")) +
+                node(3, mapOf("tourism" to "attraction", "name" to "Trevi Fountain", "name:it" to "Fontana di Trevi", "name:en" to "Trevi Fountain")),
+        )
+
+        assertEquals(listOf("Fontana di Trevi", null, "Fontana di Trevi"), pois.map { it.nameIt })
+        assertEquals(listOf("Trevi Fountain", null, null), pois.map { it.nameEn })
+    }
+
+    @Test
     fun `il paese di un'ambasciata e' un codice a due lettere maiuscolo, il primo se ce ne sono piu'`() {
         fun countryOf(value: String?): String? {
             val tags = mutableMapOf("office" to "diplomatic", "name" to "Rappresentanza")

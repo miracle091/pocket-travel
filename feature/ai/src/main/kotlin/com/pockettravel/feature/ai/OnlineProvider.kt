@@ -185,8 +185,10 @@ private val ACCOUNT_ID = Regex("[A-Za-z0-9-]{1,64}")
  * conservano solo contro gli abusi ("Safety Retention"), esclusi solo con «ZDR only» nell'account. [hasModelList]:
  * false se il servizio non ha `GET /models` (Cloudflare). [retentionDays]: per quanti giorni il servizio conserva le
  * domande, solo per [OnlinePrivacy.KEPT_FOR_ABUSE_CHECKS]. [withoutThinking]: `chat_template_kwargs.enable_thinking` false
- * in ogni richiesta (Cloudflare: provato il 2026-11-19, Qwen 3.8 da 2-4 s a 0,3-0,5 s per la prima parola e Gemma 4 da
- * 6-17 s a 0,7-4 s, con circa un decimo dei token; `reasoning_effort` non serve, Qwen rifiuta "none" e Gemma lo ignora).
+ * nelle richieste al modello di Automatico (OnlineModelCatalog.withoutThinking). Cloudflare, provato il 2026-11-19: Qwen 3.8
+ * da 2-4 s a 0,3-0,5 s per la prima parola e Gemma 4 da 6-17 s a 0,7-4 s, con circa un decimo dei token, ma su 10 domande
+ * difficili senza ragionamento Qwen ne sbaglia 4 e Gemma 2 (con il ragionamento 0): "Piu' capace" ragiona. `reasoning_effort`
+ * non serve, Qwen rifiuta "none" e Gemma lo ignora.
  */
 data class OnlineTerms(
     val privacy: OnlinePrivacy,

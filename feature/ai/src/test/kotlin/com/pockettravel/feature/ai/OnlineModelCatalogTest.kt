@@ -94,6 +94,17 @@ class OnlineModelCatalogTest {
     }
 
     @Test
+    fun `su Cloudflare ragiona solo il modello scelto fuori da Automatico`() = runTest {
+        // Prova del 2026-11-19 su 10 domande difficili: senza ragionamento Qwen ("Piu' capace") ne sbaglia 4, con 0;
+        // Gemma (Automatico) 2, alla pari di mistral-small, ma ragionando risponde in 13-33 secondi.
+        val catalog = catalog(FakeClient { error("non chiamato") }, dispatcher = StandardTestDispatcher(testScheduler))
+        assertTrue(catalog.withoutThinking(OnlineProvider.CLOUDFLARE, "@cf/google/gemma-4-26b-a4b-it"))
+        assertFalse(catalog.withoutThinking(OnlineProvider.CLOUDFLARE, "@cf/qwen/qwen3.8-27b"))
+        assertFalse(catalog.withoutThinking(OnlineProvider.CLOUDFLARE, "@cf/altro/modello"))
+        assertFalse(catalog.withoutThinking(OnlineProvider.GROQ, catalog.autoModel(OnlineProvider.GROQ)))
+    }
+
+    @Test
     fun `la temperatura viene dall'elenco, per gli altri nomi dalla regola`() = runTest {
         val catalog = catalog(FakeClient { error("non chiamato") }, dispatcher = StandardTestDispatcher(testScheduler))
         assertTrue(catalog.sendsTemperature(OnlineProvider.MISTRAL, "mistral-small-latest"))

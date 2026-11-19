@@ -137,7 +137,8 @@ data class Poi(
     // Ambasciate e consolati: paese che rappresentano (tag OSM "country", ISO 3166-1 alpha-2), per
     // mostrare a chi viaggia quelle del proprio paese.
     val country: String? = null,
-    // Nome in inglese e in italiano (tag OSM name:en, name:it), solo se diverso da name: l'app mostra
+    // Nome in inglese e in italiano (tag OSM name:en, name:it), solo se diverso da name; nameIt resta anche
+    // se uguale a name quando c'e' un nameEn (senza, l'app mostrerebbe l'inglese a chi usa l'italiano). L'app mostra
     // quello della lingua dell'interfaccia, utile soprattutto con alfabeti diversi ("清水寺" -> "Kiyomizu-dera").
     val nameEn: String? = null,
     val nameIt: String? = null,
@@ -188,6 +189,7 @@ private fun poiFromKey(tags: Map<String, String>, lat: Double, lon: Double, tagK
     val osmTag = "$tagKey=$tagValue"
     val details = poiHasDetails(category, osmTag)
     val contacts = poiHasContacts(category, osmTag)
+    val nameEn = translatedName(tags, "name:en")?.nfc()
     return Poi(
         // Farmacie, supermercati e catene spesso hanno solo il marchio ("Conad", "Lloyds"): meglio del tipo.
         name = (tags["name"] ?: tags["brand"]?.takeIf { details } ?: tagValue).nfc(),
@@ -205,8 +207,9 @@ private fun poiFromKey(tags: Map<String, String>, lat: Double, lon: Double, tagK
         website = (tags["website"] ?: tags["contact:website"]).takeIf { contacts },
         email = (tags["email"] ?: tags["contact:email"]).takeIf { contacts },
         country = if (category == "embassy") representedCountry(tags["country"]) else null,
-        nameEn = translatedName(tags, "name:en")?.nfc(),
-        nameIt = translatedName(tags, "name:it")?.nfc(),
+        nameEn = nameEn,
+        // Uguale a name resta se c'e' un nameEn: senza, l'italiano cadrebbe sull'inglese ("Fontana di Trevi" -> "Trevi Fountain").
+        nameIt = translatedName(tags, "name:it", keepSameAsName = nameEn != null)?.nfc(),
         toiletsWheelchair = tags["toilets:wheelchair"],
         capacityDisabled = tags["capacity:disabled"]?.trim()?.toIntOrNull()?.takeIf { it > 0 },
         wikidata = wikidataNumber(tags["wikidata"]),
@@ -221,8 +224,8 @@ private fun wikidataNumber(raw: String?): Long? =
 // Nomi in forma precomposta (NFC): la ricerca per nome dell'app confronta i caratteri precomposti.
 private fun String.nfc(): String = Normalizer.normalize(this, Normalizer.Form.NFC)
 
-private fun translatedName(tags: Map<String, String>, key: String): String? =
-    tags[key]?.trim()?.takeIf { it.isNotEmpty() && tags["name"] != null && it != tags["name"] }
+private fun translatedName(tags: Map<String, String>, key: String, keepSameAsName: Boolean = false): String? =
+    tags[key]?.trim()?.takeIf { it.isNotEmpty() && tags["name"] != null && (keepSameAsName || it != tags["name"]) }
 
 // "IT", anche da "it" o "IT;SM" (piu' paesi: il primo). null se non e' un codice a due lettere.
 private fun representedCountry(raw: String?): String? =

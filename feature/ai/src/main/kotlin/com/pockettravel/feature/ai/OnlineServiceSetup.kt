@@ -355,10 +355,10 @@ private fun costText(model: OnlineModelEntry): String {
         currency = Currency.getInstance("USD")
         maximumFractionDigits = 2
     }
-    return if (usd < MIN_SHOWN_COST) {
-        stringResource(R.string.ai_online_model_cost_below, format.format(MIN_SHOWN_COST))
-    } else {
-        stringResource(R.string.ai_online_model_cost, format.format(usd))
+    return when {
+        usd == 0.0 -> stringResource(R.string.ai_online_model_cost_free)
+        usd < MIN_SHOWN_COST -> stringResource(R.string.ai_online_model_cost_below, format.format(MIN_SHOWN_COST))
+        else -> stringResource(R.string.ai_online_model_cost, format.format(usd))
     }
 }
 

@@ -131,6 +131,7 @@
     <string name="ai_online_model_lighter_desc">Faster and cheaper, less accurate on complex questions. Automatic uses it when its own model runs out of daily quota</string>
     <string name="ai_online_model_cost">About %1$s per 100 questions</string>
     <string name="ai_online_model_cost_below">Less than %1$s per 100 questions</string>
+    <string name="ai_online_model_cost_free">Free</string>
     <string name="ai_online_model_other">Other model</string>
     <string name="ai_online_model_other_desc">Enter the exact name of another model offered by the service</string>
     <string name="ai_online_model_label">Model name</string>

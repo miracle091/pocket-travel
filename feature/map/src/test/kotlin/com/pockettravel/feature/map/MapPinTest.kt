@@ -21,6 +21,19 @@ class MapPinTest {
     }
 
     @Test
+    fun `in una regione di lingua italiana, senza name it, in italiano vale il nome locale`() {
+        val trevi = MapPin(
+            "1", "Fontana di Trevi", 0.0, 0.0, PoiCategory.ATTRAZIONI, "tourism=attraction", null,
+            nameEn = "Trevi Fountain", localNameIsItalian = true,
+        )
+        assertEquals("Fontana di Trevi", trevi.displayName("it"))
+        assertEquals("Trevi Fountain", trevi.displayName("en"))
+        assertEquals("Fontana", trevi.copy(nameIt = "Fontana").displayName("it"))
+        // Altrove l'inglese resta il ripiego.
+        assertEquals("Trevi Fountain", trevi.copy(localNameIsItalian = false).displayName("it"))
+    }
+
+    @Test
     fun `distintivo pieno per i posti accessibili, vuoto per quelli in parte, nessuno altrimenti`() {
         assertEquals(AccessibilityBadge.YES, accessibilityBadgeOf("yes"))
         assertEquals(AccessibilityBadge.YES, accessibilityBadgeOf("designated"))

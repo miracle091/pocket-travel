@@ -133,8 +133,19 @@ private fun PoiEntity.toDomain() =
         toiletsWheelchair, capacityDisabled,
     )
 
-/** Nome nella lingua dell'interfaccia ("en"/"it") se OSM lo ha, altrimenti quello locale. */
-fun Poi.displayName(language: String): String = (if (language == "en") nameEn else nameIt ?: nameEn) ?: name
+private val ITALIAN_SPEAKING_REGIONS = setOf("italia", "san-marino", "citta-del-vaticano")
+
+/** True per le regioni in cui il nome locale dei luoghi e' gia' italiano (la pipeline salva name:it solo se diverso da name). */
+fun isItalianSpeakingRegion(regionId: String): Boolean = regionId in ITALIAN_SPEAKING_REGIONS
+
+/**
+ * Nome nella lingua dell'interfaccia ("en"/"it") se OSM lo ha, altrimenti quello locale. In italiano, dove
+ * il nome locale e' italiano ([localNameIsItalian]), vale al posto di quello inglese.
+ */
+fun displayName(language: String, name: String, nameEn: String?, nameIt: String?, localNameIsItalian: Boolean): String =
+    if (language == "en") nameEn ?: name else nameIt ?: nameEn.takeUnless { localNameIsItalian } ?: name
+
+fun Poi.displayName(language: String): String = displayName(language, name, nameEn, nameIt, isItalianSpeakingRegion(regionId))
 
 /** I POI attorno alla posizione e il raggio in cui sono stati cercati (metri). */
 data class NearbyPois(val pois: List<Poi>, val radiusMeters: Int)

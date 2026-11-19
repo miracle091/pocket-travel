@@ -132,6 +132,7 @@
     <string name="ai_online_model_lighter_desc">Più rapido ed economico, meno accurato sulle domande complesse. Automatico lo usa quando finisce la quota giornaliera del suo modello</string>
     <string name="ai_online_model_cost">Circa %1$s ogni 100 domande</string>
     <string name="ai_online_model_cost_below">Meno di %1$s ogni 100 domande</string>
+    <string name="ai_online_model_cost_free">Gratuito</string>
     <string name="ai_online_model_other">Altro modello</string>
     <string name="ai_online_model_other_desc">Inserisci il nome esatto di un altro modello del servizio</string>
     <string name="ai_online_model_label">Nome del modello</string>

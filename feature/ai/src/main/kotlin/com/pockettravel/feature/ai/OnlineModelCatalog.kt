@@ -68,6 +68,10 @@ class OnlineModelCatalog(
     fun sendsTemperature(provider: OnlineProvider, model: String): Boolean =
         (models(provider) + otherModels(provider)).firstOrNull { it.id == model }?.temperature ?: supportsTemperature(model)
 
+    /** Se spegnere il ragionamento di [model]: dove il servizio lo permette ([OnlineTerms.withoutThinking]), solo per Automatico. */
+    fun withoutThinking(provider: OnlineProvider, model: String): Boolean =
+        provider.terms.withoutThinking && model == autoModel(provider)
+
     /** Se [model] accetta foto: dall'elenco; un modello che l'elenco non conosce si tratta come solo testo. */
     fun supportsVision(provider: OnlineProvider, model: String): Boolean =
         (models(provider) + otherModels(provider)).firstOrNull { it.id == model }?.vision == true

@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.displayName
 import com.pockettravel.core.poi.PoiCategory
 
 data class MapPin(
@@ -26,7 +27,9 @@ data class MapPin(
     // Bagni accessibili (OSM "toilets:wheelchair": yes, limited, no...) e posti auto per disabili, se indicati.
     val toiletsWheelchair: String? = null,
     val capacityDisabled: Int? = null,
+    // Regione in cui [name] e' gia' italiano (Italia, San Marino, Vaticano): in italiano vale al posto di [nameEn].
+    val localNameIsItalian: Boolean = false,
 ) {
     /** Nome nella lingua dell'interfaccia se OSM lo ha, altrimenti [name] (null senza nome). */
-    fun displayName(language: String): String? = name?.let { (if (language == "en") nameEn else nameIt ?: nameEn) ?: it }
+    fun displayName(language: String): String? = name?.let { displayName(language, it, nameEn, nameIt, localNameIsItalian) }
 }
