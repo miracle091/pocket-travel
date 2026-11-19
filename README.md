@@ -16,9 +16,9 @@
     <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/contributi-benvenuti-brightgreen?style=flat-square" alt="Contributi benvenuti" /></a>
   </p>
   <p>
-    <img src="docs/images/guide.png" width="200" alt="Guida di San Marino con i filtri per argomento, il meteo, i numeri di emergenza e l'ambasciata del proprio paese" />
+    <img src="docs/images/guide.png" width="200" alt="Guida di San Marino con i filtri per argomento, il meteo vicino a te, i numeri di emergenza e l'ambasciata del proprio paese più vicina" />
     <img src="docs/images/map.png" width="200" alt="Mappa offline di San Marino con i punti di interesse e il pulsante dei filtri" />
-    <img src="docs/images/route.png" width="200" alt="Navigatore con il percorso a piedi fino a un bar di San Marino: tempo, distanza e il pulsante per partire" />
+    <img src="docs/images/route.png" width="200" alt="Navigatore con il percorso a piedi fino al Palazzo Pubblico di San Marino: la stella dei preferiti, Aggiungi tappa, i modi fino ai mezzi pubblici, tempo, distanza, Altri percorsi e il pulsante per partire" />
   </p>
 </div>
 
@@ -131,9 +131,9 @@ Per Gemini c'è anche `gemini-3.5-flash-lite` (**Più leggero**). Quando finisce
 
 <div align="center">
   <img src="docs/images/regions.png" width="200" alt="Nazioni scaricate e le altre divise per continente, con la ricerca in cima e il pulsante per la mappa delle nazioni" />
-  <img src="docs/images/guide.png" width="200" alt="Guida di San Marino con i filtri per argomento, il meteo, i numeri di emergenza e l'ambasciata del proprio paese" />
+  <img src="docs/images/guide.png" width="200" alt="Guida di San Marino con i filtri per argomento, il meteo vicino a te, i numeri di emergenza e l'ambasciata del proprio paese più vicina" />
   <img src="docs/images/map.png" width="200" alt="Mappa offline di San Marino con i punti di interesse e il pulsante dei filtri" />
-  <img src="docs/images/route.png" width="200" alt="Navigatore con il percorso a piedi fino a un bar di San Marino: tempo, distanza e il pulsante per partire" />
+  <img src="docs/images/route.png" width="200" alt="Navigatore con il percorso a piedi fino al Palazzo Pubblico di San Marino: la stella dei preferiti, Aggiungi tappa, i modi fino ai mezzi pubblici, tempo, distanza, Altri percorsi e il pulsante per partire" />
 </div>
 
 <details>
@@ -146,7 +146,7 @@ Per Gemini c'è anche `gemini-3.5-flash-lite` (**Più leggero**). Quando finisce
   <br/>
   <sub>Filtri della mappa e Navigatore senza destinazione</sub>
   <br/><br/>
-  <img src="docs/images/missing-routes.png" width="260" alt="Navigatore da San Marino alla Lettonia: l'elenco delle nazioni di cui manca la rete stradale, in ordine lungo la strada, con il peso di ciascuna e il pulsante per scaricarle tutte" />
+  <img src="docs/images/missing-routes.png" width="260" alt="Navigatore da San Marino al Monumento alla Libertà di Riga: l'elenco delle nazioni di cui manca la rete stradale, in ordine lungo la strada, con il peso di ciascuna e il pulsante per scaricarle tutte" />
   <img src="docs/images/packages.png" width="260" alt="Contenuti scaricabili per San Marino" />
   <br/>
   <sub>Percorso tra nazioni con la rete stradale mancante e Contenuti di una nazione</sub>
