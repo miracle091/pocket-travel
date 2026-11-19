@@ -10,7 +10,8 @@ Da dove vengono (piano dei termini locali, 2026-11-12):
    elenco a mano;
 3. le voci delle categorie e delle loro sottocategorie dirette, con i redirect come altri nomi; si scartano le pagine
    di disambiguazione, gli elenchi, le voci su persone, aziende, locali e opere (P31 in EXCLUDED_TYPES) e la voce
-   principale della categoria (la cucina nazionale stessa);
+   principale della categoria (la cucina nazionale stessa) e le voci generiche: elenchi (P31) e voci con 80 collegamenti
+   ad altre lingue o piu' e nessun paese su Wikidata (P495 e P17: Natale, Capodanno, Ginger);
 4. un termine resta se uno dei suoi nomi compare come parola intera nel testo della guida (senza accenti ne' maiuscole).
    Un nome ricavato togliendo la parentesi ("Chupe (food)" -> "Chupe") vale solo se non e' il titolo di un'altra voce.
 
@@ -23,7 +24,8 @@ Seconda fonte (grassetti e corsivi, dopo la prima, stessa riga del JSONL):
 7. paese: su Wikidata la voce ha come paese d'origine (P495) il paese della regione o, senza P495, come paese (P17) e non e'
    un luogo (senza coordinate P625 ne' P131); mai il paese stesso, la cucina nazionale o i tipi di EXCLUDED_TYPES. Se ha tipi
    (P31), almeno uno e' sottoclasse di un argomento di TOPICS (scarta valute, sport, fumetti, epoche, scritture); senza tipo
-   resta (Khink'ali, Tequila);
+   resta (Khink'ali, Tequila). Scartate le voci generiche: P495 su 2 paesi o piu' e 80 collegamenti ad altre lingue o piu'
+   (Caffe', Sidro; Knodel, Poire', Tequila restano);
 8. unione: stesso titolo = stesso termine, vince la prima fonte; il nome e' quello della guida e il titolo e' un alias.
    La seconda fonte smette quando resta il FIRST_SOURCE_RESERVE del tempo, e se fallisce o non finisce la regione esce con
    i soli termini della prima.
@@ -64,10 +66,11 @@ TOPICS = {
     "Q16023945": "feria", "Q4618": "carnevale", "Q82821": "tradizione", "Q3742928": "cultura popolare",
     "Q11460": "abbigliamento", "Q3172759": "costume tradizionale", "Q80151": "copricapo", "Q34379": "strumento musicale",
 }
-# Tipi (P31) delle voci da scartare: persone, aziende, locali, opere, luoghi.
+# Tipi (P31) delle voci da scartare: persone, aziende, locali, opere, luoghi, elenchi (Public holidays in India).
 EXCLUDED_TYPES = {
     "Q5", "Q4830453", "Q6881511", "Q783794", "Q43229", "Q11707", "Q11424", "Q571", "Q47461344", "Q7725634", "Q482994",
     "Q515", "Q486972", "Q3624078", "Q6256", "Q167270", "Q431289", "Q215380", "Q1656682", "Q2416217",
+    "Q13406463",
 }
 NATIONAL_CUISINE = "Q1968435"
 LIST_TITLE = re.compile(r"^(list of|lists of|lista d|elenco d|glossar)", re.I)
@@ -80,6 +83,12 @@ SECTION_STARTS = ("eat", "drink", "events", "festivals", "buy", "respect", "a ta
                   "acquisti", "comprare", "rispettare")
 # Sottosezioni di soldi, mance e prezzi dentro quelle: valute e importi, nessun termine locale.
 MONEY_HEADING = re.compile(r"^(money|tipping|costs?|currency|moneta|valuta|mance|costi|prezzi)\b")
+# Voci generiche, che spiegano la cosa in generale e non quella del paese, riconosciute da Wikidata: note in molte lingue
+# (collegamenti, GENERIC_LINKS) e, nella prima fonte, senza alcun paese (P495 e P17: Natale, Capodanno, Ginger, Black pepper),
+# nella seconda con un P495 su GENERIC_ORIGINS paesi o piu' (Caffe', Sidro). Wasabi, Teff, Knodel, Poire' hanno meno collegamenti
+# e restano, Tequila e Pizza hanno un solo paese.
+GENERIC_LINKS = 80
+GENERIC_ORIGINS = 2
 # Quota del tempo (MAX_SECONDS) riservata alla prima fonte: la seconda smette di cercare quando ne resta questa.
 FIRST_SOURCE_RESERVE = 0.25
 SUMMARY_CHARS = 600
@@ -232,16 +241,18 @@ def existing_articles(titles, lang, deadline):
 
 
 def excluded_items(items, deadline):
-    """Elementi Wikidata con un tipo (P31) di EXCLUDED_TYPES."""
+    """Elementi Wikidata con un tipo (P31) di EXCLUDED_TYPES, o generici: noti in molte lingue e senza un paese (GENERIC_LINKS)."""
     out, items = set(), sorted(items)
     for i in range(0, len(items), city_population.BATCH):
         if _expired(deadline):
             break
-        url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims&format=json&ids="
+        url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims|sitelinks&format=json&ids="
                + "|".join(items[i:i + city_population.BATCH]))
         for q, entity in city_population._get(url).get("entities", {}).items():
-            types = {c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") for c in entity.get("claims", {}).get("P31", [])}
-            if types & EXCLUDED_TYPES:
+            claims = entity.get("claims", {})
+            types = {c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") for c in claims.get("P31", [])}
+            countryless = not claims.get("P495") and not claims.get("P17")
+            if types & EXCLUDED_TYPES or (countryless and len(entity.get("sitelinks", {})) >= GENERIC_LINKS):
                 out.add(q)
         time.sleep(0.2)
     return out
@@ -326,12 +337,13 @@ def _claims_of(items, deadline, cache):
     for i in range(0, len(todo), city_population.BATCH):
         if _expired(deadline):
             break
-        url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims&format=json&ids="
+        url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims|sitelinks&format=json&ids="
                + "|".join(todo[i:i + city_population.BATCH]))
         for q, entity in city_population._get(url).get("entities", {}).items():
             claims = entity.get("claims", {})
             ids = lambda prop: {c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") for c in claims.get(prop, [])}
-            cache[q] = {"types": ids("P31"), "origin": ids("P495"), "country": ids("P17"), "place": "P625" in claims or "P131" in claims}
+            cache[q] = {"types": ids("P31"), "origin": ids("P495"), "country": ids("P17"), "place": "P625" in claims or "P131" in claims,
+                        "links": len(entity.get("sitelinks", {}))}
         time.sleep(0.2)
     return cache
 
@@ -344,6 +356,12 @@ def tied_to(claims, item, country):
     if item == country or claims["types"] & (EXCLUDED_TYPES | {NATIONAL_CUISINE}):
         return False
     return country in claims["origin"] or (not claims["origin"] and country in claims["country"] and not claims["place"])
+
+
+def generic(claims):
+    """Voce della seconda fonte che spiega la cosa in generale: piu' paesi d'origine (P495) e collegata a molte lingue. Non vale
+    per la prima, che ha le categorie di Wikipedia del paese (Pilaf, Nowruz restano). Senza paese non arrivano qui: tied_to."""
+    return len(claims["origin"]) >= GENERIC_ORIGINS and claims["links"] >= GENERIC_LINKS
 
 
 def topic_types(types, cache):
@@ -406,7 +424,7 @@ def second_terms(wikitext, country, lang, deadline, cache):
     out = []
     for candidate, (title, item, revision) in sorted(found.items()):
         # senza tipo (P31) la voce resta (Khink'ali, Tequila); con tipi, almeno uno deve essere di un argomento di TOPICS
-        if item in tied and (not claims[item]["types"] or claims[item]["types"] & topics):
+        if item in tied and not generic(claims[item]) and (not claims[item]["types"] or claims[item]["types"] & topics):
             out.append((title, [candidate] + ([title] if fold(title) != fold(candidate) else []), revision))
     return out
 

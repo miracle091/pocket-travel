@@ -89,6 +89,20 @@ class CategoriesTest(unittest.TestCase):
         self.assertEqual(2, sparql.call_count)
 
 
+class ExcludedItemsTest(unittest.TestCase):
+    def test_elenchi_persone_e_voci_senza_paese_note_in_molte_lingue_scartati_gli_altri_no(self):
+        def entity(links, types=(), **props):
+            ids = lambda *qs: [{"mainsnak": {"datavalue": {"value": {"id": q}}}} for q in qs]
+            return {"claims": {"P31": ids(*types), **{p: ids(*qs) for p, qs in props.items()}},
+                    "sitelinks": {f"l{i}wiki": {} for i in range(links)}}
+        entities = {"Q35625": entity(162, ["Q16521"]), "Q209663": entity(58, ["Q1197685"]), "Q49855": entity(61, ["Q16521"]),
+                    "Q927083": entity(18, ["Q13406463"]), "Q1": entity(5, ["Q5"]), "Q2": {"claims": {}},
+                    "Q746": entity(300, ["Q746549"], P495=["Q38"]), "Q10": entity(140, ["Q1197685"], P17=["Q38"]),
+                    "Q11": entity(120, [])}
+        with mock.patch("local_terms.city_population._get", return_value={"entities": entities}), mock.patch("time.sleep"):
+            self.assertEqual({"Q35625", "Q927083", "Q1", "Q11"}, local_terms.excluded_items(set(entities), float("inf")))
+
+
 class CountryTermsTest(unittest.TestCase):
     def test_scarta_elenchi_voce_principale_disambigue_tipi_esclusi_e_nomi_di_altre_voci(self):
         info = {"Ceviche": {"redirects": ["Cebiche"], "item": "Q1", "revision": 7, "disambiguation": False},
@@ -228,8 +242,8 @@ class ResolveTest(unittest.TestCase):
 class SecondTermsTest(unittest.TestCase):
     def test_tiene_solo_le_voci_legate_al_paese_con_il_nome_della_guida(self):
         found = {"cebiche": ("Ceviche", "Q1", 7), "Medina": ("Medina (città)", "Q2", 8)}
-        claims = {"Q1": {"types": set(), "origin": {"Q419"}, "country": set(), "place": False},
-                  "Q2": {"types": set(), "origin": set(), "country": {"Q851"}, "place": True}}
+        claims = {"Q1": {"types": set(), "origin": {"Q419"}, "country": set(), "place": False, "links": 40},
+                  "Q2": {"types": set(), "origin": set(), "country": {"Q851"}, "place": True, "links": 40}}
         with mock.patch("local_terms.markup_candidates", return_value=["cebiche", "Medina"]), \
                 mock.patch("local_terms.resolve", return_value=found), mock.patch("local_terms._claims_of", return_value=claims):
             terms = local_terms.second_terms("testo", "Q419", "it", float("inf"), {"pages": {}, "claims": {}, "types": {}})
@@ -237,14 +251,25 @@ class SecondTermsTest(unittest.TestCase):
 
     def test_voce_con_tipi_fuori_dagli_argomenti_scartata_senza_tipo_tenuta(self):
         found = {"baht": ("Baht", "Q1", 1), "tequila": ("Tequila", "Q2", 2), "pad thai": ("Pad thai", "Q3", 3)}
-        claims = {"Q1": {"types": {"Q8142"}, "origin": {"Q869"}, "country": set(), "place": False},
-                  "Q2": {"types": set(), "origin": {"Q869"}, "country": set(), "place": False},
-                  "Q3": {"types": {"Q746549"}, "origin": {"Q869"}, "country": set(), "place": False}}
+        claims = {"Q1": {"types": {"Q8142"}, "origin": {"Q869"}, "country": set(), "place": False, "links": 40},
+                  "Q2": {"types": set(), "origin": {"Q869"}, "country": set(), "place": False, "links": 40},
+                  "Q3": {"types": {"Q746549"}, "origin": {"Q869"}, "country": set(), "place": False, "links": 40}}
         with mock.patch("local_terms.markup_candidates", return_value=list(found)), \
                 mock.patch("local_terms.resolve", return_value=found), mock.patch("local_terms._claims_of", return_value=claims), \
                 mock.patch("local_terms.topic_types", return_value={"Q746549"}):
             terms = local_terms.second_terms("testo", "Q869", "en", float("inf"), {"pages": {}, "claims": {}, "types": {}})
         self.assertEqual(["Pad thai", "Tequila"], [t for t, _, _ in terms])
+
+    def test_voce_generica_nota_in_molte_lingue_e_con_piu_paesi_d_origine_scartata(self):
+        found = {"caffe": ("Caffè", "Q1", 1), "sidro": ("Sidro", "Q2", 2), "Knödel": ("Knödel", "Q3", 3),
+                 "tequila": ("Tequila", "Q4", 4)}
+        # (collegamenti ad altre lingue, paesi d'origine): il paese della regione, Q9, c'e' sempre
+        shape = {"Q1": (259, {"Q9", "Q805"}), "Q2": (84, {"Q9", "Q142", "Q183", "Q25"}), "Q3": (42, {"Q9", "Q40", "Q38"}),
+                 "Q4": (83, {"Q9"})}
+        claims = {q: {"types": set(), "origin": origin, "country": set(), "place": False, "links": n} for q, (n, origin) in shape.items()}
+        with mock.patch("local_terms.markup_candidates", return_value=list(found)),                 mock.patch("local_terms.resolve", return_value=found), mock.patch("local_terms._claims_of", return_value=claims):
+            terms = local_terms.second_terms("testo", "Q9", "it", float("inf"), {"pages": {}, "claims": {}, "types": {}})
+        self.assertEqual(["Knödel", "Tequila"], [t for t, _, _ in terms])
 
     def test_tempo_scaduto_nessun_termine(self):
         with mock.patch("local_terms.markup_candidates", return_value=["cebiche"]), \
