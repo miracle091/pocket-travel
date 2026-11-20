@@ -65,6 +65,7 @@ import city_population
 import translate_dataset as ts
 from eval_common import Synced, drop_partial_line
 from status import Progress
+import vram
 from untrusted_text import strip_markup
 
 # Dai fatti rapidi in inglese non si traduce: li costruisce la pipeline dai Fatti rapidi italiani. Le frasi utili inglesi
@@ -429,16 +430,15 @@ def fix_register(chat, english, italian, second_person):
     return best, False
 
 
-def start_llama_server(gguf, llama_cpp, device, log_path, parallel=1):
+def start_llama_server(gguf, llama_cpp, device, log_path, parallel=1, max_vram_held=vram.DEFAULT_MAX_HELD_PCT):
     """llama-server su una porta libera di localhost, tutto sulla GPU [device], con [parallel] richieste insieme in una
     cache KV comune da 4096 token ciascuna, stderr in [log_path]; (processo, url) a modello carico."""
-    import vram
     from eval_common import find_llama_bin, llama_env
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
     exe = find_llama_bin("llama-server", llama_cpp)
-    vram.check_llama(exe, llama_env(exe), device, vram.DEFAULT_MAX_HELD_PCT)
+    vram.check_llama(exe, llama_env(exe), device, max_vram_held)
     cmd = [exe, "-m", str(gguf), "--host", "127.0.0.1", "--port", str(port), "-c", str(4096 * parallel),
            "-np", str(parallel), "--kv-unified", "-fa", "on", "-b", "2048", "-ub", "512", "--load-mode", "none", "--jinja",
            "--no-webui", "-ngl", "99", "--device", device]
@@ -749,6 +749,7 @@ def main(argv=None):
     ap.add_argument("--morphit", type=Path, help="llama: lessico Morph-it m.utf8 (register_check.py)")
     ap.add_argument("--from", dest="source_lang", choices=["en", "it"], default="en")
     ap.add_argument("--parallel", type=int, default=1, help="llama: blocchi tradotti insieme")
+    ap.add_argument("--max-vram-held", type=float, default=vram.DEFAULT_MAX_HELD_PCT, help="llama: " + vram.HELP)
     ap.add_argument("--max-seconds", type=float, help="default 3600; con llama nessun tetto (giro sul PC)")
     ap.add_argument("--deadline", type=float, default=float("inf"))
     args = ap.parse_args(argv)
@@ -803,7 +804,7 @@ def main(argv=None):
             register_check.load(args.morphit)
             gpu_lock.gpu_job("translate_guides.py")
             server_log = args.translations.with_suffix(".server.log")
-            server, url = start_llama_server(args.gguf, args.llama_cpp, args.device, server_log, args.parallel)
+            server, url = start_llama_server(args.gguf, args.llama_cpp, args.device, server_log, args.parallel, args.max_vram_held)
             # l'attesa del lucchetto e il caricamento del modello non consumano il tempo della traduzione
             deadline = min(time.time() + args.max_seconds, args.deadline)
             try:
