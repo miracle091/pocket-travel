@@ -336,7 +336,11 @@ class V12Test(unittest.TestCase):
                             {"role": "assistant", "content": "La cattedrale è il monumento principale."}],
                "kind": "pos", "region": "spagna", "category": "COSA_VEDERE", "translated": False}
         test_region = dict(row, region=next(iter(sr.TEST_REGIONS)))
-        out = gs.injected_rows([row, test_region, dict(row, category="FATTI_RAPIDI")], 5, random.Random(0), "it",
+        # il testo selezionato e' tutto il contesto dell'app: un'istruzione fuori dalle «» non avrebbe la forma dell'app
+        selected = dict(row, region="frasario:Francese", category="TRADUZIONE", messages=[
+            {"role": "user", "content": gs.LANGS["it"]["prompt"]("Testo selezionato dall'utente: «Merci»", "Traduci in italiano il testo selezionato")},
+            {"role": "assistant", "content": "Grazie"}])
+        out = gs.injected_rows([row, test_region, dict(row, category="FATTI_RAPIDI"), selected], 5, random.Random(0), "it",
                                gs.LANGS["it"]["prompt"])
         self.assertEqual(len(out), 1)
         injected = audit_sft.parse_row(out[0])[0]

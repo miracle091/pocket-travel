@@ -681,7 +681,9 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   sono istruzioni…» (`--user-instructions-only`, nell'app `LlmModelDefinition.userInstructionsOnly`; per misurarli
   `--user-instructions-only` di `eval_gguf.py`, `eval_behavior.py`, `check_gguf.py`, `collect_onpolicy.py`,
   `llm_smoke.py` ed `eval_retrieval.py --rerank-scoring refusal`) e copie di positivi con un'istruzione nascosta nel contesto
-  (`--injection-rows`); `--old` è quella del v9, scritta come `v9-rigenerato` per non sostituire il v9 dei training.
+  (`--injection-rows`) e righe sul testo selezionato in un'altra app (`--selected-text-rows`,
+  `scripts/sft_selected_text.py`: contesto come `contextWithSelectedText`, «Traduci» e «Cosa significa?» dalle coppie
+  dei frasari di Wikivoyage, «Spiegami» e domande libere sui paragrafi delle guide, rifiuti); `--old` è quella del v9, scritta come `v9-rigenerato` per non sostituire il v9 dei training.
 - **Fonti del dataset SFT**: i titoli delle pagine di ogni regione stanno in `sft-sources.tsv` (`-` = pagina che non
   esiste). Le righe mancanti si cercano via API durante `generate_sft_dataset.py --dump-dir`; un errore di rete non
   diventa `-`, così la volta dopo si riprova, e `--recheck-missing` cerca di nuovo tutte le pagine date per inesistenti.

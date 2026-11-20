@@ -13,7 +13,8 @@ Errori (con --strict il codice di uscita e' 1 se ce n'e' almeno uno):
 - risposta positiva con frasi che non sono nel contesto (spazi normalizzati). Le categorie con risposte non copiate dalle
   guide si verificano a modo loro: VACCINAZIONI senza punteggiatura e trattini (il riassunto e' riscritto in frasi), VICINO e
   PARTENZE (sft_nearby.py) solo sui numeri, che devono stare tutti nel blocco di contesto. DISTANZE (il blocco calcolato e'
-  nel contesto), FATTI_RAPIDI, NOTE e le guide sono copiate parola per parola; i rifiuti non si controllano;
+  nel contesto), FATTI_RAPIDI, NOTE e le guide sono copiate parola per parola; i rifiuti e TRADUZIONE (la traduzione del
+  testo selezionato, presa da un frasario di Wikivoyage) non si controllano;
 - U+FFFD o markup residuo ({{, }}, [[, ]], <ref, &amp;, &nbsp;, "()") nel contesto o nella risposta;
 - regione che e' una sottoregione di una regione di test (le righe delle regioni di test vere restano nel file: train_lora.py
   le separa nel test);
@@ -65,6 +66,9 @@ MARKUP = ("{{", "}}", "[[", "]]", "<ref", "&amp;", "&nbsp;", "()")
 # Categorie con risposta sintetica: VICINO e PARTENZE si confrontano sui numeri, VACCINAZIONI senza punteggiatura
 NUMBERS_ONLY = {"VICINO", "PARTENZE"}
 LOOSE = {"VACCINAZIONI"}
+# Traduzioni del testo selezionato (sft_selected_text.py): la risposta e' la frase del frasario di Wikivoyage, non una
+# frase del contesto
+FROM_PHRASEBOOK = {"TRADUZIONE"}
 # Parole funzione senza equivalente nell'altra lingua (niente "a", "e", "in", "no", "me", "per"): la risposta e' nella
 # lingua sbagliata solo con almeno WRONG_MIN parole dell'altra e piu' del doppio di quelle della sua
 STOP = {"it": set("il lo gli di del della dei delle che con non sono una nel nella nelle anche più come ma si un al "
@@ -206,7 +210,7 @@ def hard_errors(row, lang):
             errors.append("risposta-vuota")
         elif len(answer) > it.MAX_ANSWER:
             errors.append("risposta-lunga")
-        elif kind == "pos" and not is_refusal(answer) and not is_extractive(category, context, answer):
+        elif kind == "pos" and not is_refusal(answer) and category not in FROM_PHRASEBOOK and not is_extractive(category, context, answer):
             errors.append("non-estrattiva")
     if "�" in context + answer:
         errors.append("fffd")

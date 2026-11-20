@@ -11,7 +11,8 @@
 #   --v12   la ricetta nuova piu' le sezioni di Wikipedia delle guide pubblicate (cucina, tradizioni e feste, media,
 #           telecomunicazioni: --guide-wikipedia), i contesti della ricerca vera nell'ordine dell'app (--app-context-order),
 #           le righe del riordino e delle parole di ricerca (--rerank-rows, --search-word-rows), il prompt dei modelli v12
-#           (--user-instructions-only) e le istruzioni nascoste nel contesto (--injection-rows)
+#           (--user-instructions-only), le istruzioni nascoste nel contesto (--injection-rows) e le righe sul testo
+#           selezionato in un'altra app (--selected-text-rows)
 #   --old   la ricetta vecchia (v9): citta', fatti rapidi, note e vaccinazioni, senza le opzioni nuove. Le fonti sono
 #           cambiate da allora, quindi il file non e' identico al v9 dei training: si chiama v9-rigenerato e non
 #           sostituisce pocket_travel_sft.v9.*.jsonl (per farlo, --version v9 --overwrite)
@@ -85,7 +86,7 @@ for lang in $LANGS; do
     args+=(--nearby 0.045 --distances 0.02 --emergency 0.01 --cities-db "${cities[@]}" --retrieval-rows 600
            --retrieval-cache "$DATA/retrieval-cache")
     [ "$RECIPE" = new ] || args+=(--guide-wikipedia --app-context-order --rerank-rows 3000 --search-word-rows 800
-                                     --user-instructions-only --injection-rows 400)
+                                     --user-instructions-only --injection-rows 400 --selected-text-rows 600)
   else
     args+=(--user-style-questions 0 --no-city-daily-life --no-balanced-negatives --no-clear-questions --no-guide-sections)
   fi
