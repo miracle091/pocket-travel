@@ -208,6 +208,7 @@
     <string name="ai_taskmgr_conversation_not_saved">In memory only</string>
     <string name="ai_taskmgr_conversation_turns">Turns (in the model context)</string>
     <string name="ai_taskmgr_conversation_tokens">Tokens read and written by the model</string>
+    <string name="ai_taskmgr_conversation_history_tokens">Tokens of the earlier turns in the context</string>
     <string name="ai_taskmgr_conversation_threshold">Compaction threshold</string>
     <plurals name="ai_taskmgr_conversation_threshold_value">
         <item quantity="one">%1$d tokens, %2$d to go</item>

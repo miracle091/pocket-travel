@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import com.pockettravel.feature.ai.llamacpp.CpuBackendInfo
+import com.pockettravel.feature.ai.llamacpp.HistoryTurn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -71,8 +72,12 @@ interface OnDeviceLlmEngine {
      * Con [image] la foto va nel turno dell'utente. L'mmproj si carica alla prima foto e resta in memoria finche' resta
      * il modello: il rilascio del modello (inattivita', app nascosta, memoria scarsa: [ModelIdleReleaser]) libera anche
      * lui. Lancia [UnsupportedOperationException] se il motore non legge immagini.
+     *
+     * Con [history] (i turni di prima, solo per i modelli con [LlmModelDefinition.historyInContext]) il modello li legge prima del
+     * prompt, in una cache ricostruita da zero; il motore ne toglie i piu' vecchi se non stanno nel contesto ([fitHistory]). Senza
+     * [history], o con una [image], il prompt e' un turno solo.
      */
-    fun generateStream(prompt: String, image: ImageInput? = null): Flow<String>
+    fun generateStream(prompt: String, image: ImageInput? = null, history: List<HistoryTurn> = emptyList()): Flow<String>
 
     /**
      * Come [generate], ma con l'output vincolato alla grammatica GBNF [grammar] e al massimo [maxTokens]

@@ -10,6 +10,7 @@ import com.pockettravel.core.data.ConversationTurn
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.ResumedConversation
 import com.pockettravel.core.data.crypto.HistoryReader
+import com.pockettravel.feature.ai.llamacpp.HistoryTurn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Inject
@@ -83,6 +84,17 @@ class AssistantConversation @Inject constructor(
     // Il motore dell'ultimo turno; ON_DEVICE per una conversazione ripresa dalla cronologia.
     private var lastTurnMode: AiEngineMode? = null
 
+    // I turni con risposta come li legge un modello con la cronologia vera (domanda come scritta e risposta), in ordine; non
+    // comprende le risposte del foglio "Chiedi all'assistente". [lastTurnInHistory]: l'ultimo turno e' qui, e una risposta rifatta lo sostituisce.
+    private var history = emptyList<HistoryTurn>()
+    private var lastTurnInHistory = false
+
+    /**
+     * I turni di prima per un modello con la cronologia vera ([LlmModelDefinition.historyInContext]); gli altri non la usano.
+     * Con [replacingLast] senza l'ultimo turno, per rifare la sua risposta (Aggiorna le previsioni).
+     */
+    fun modelHistory(replacingLast: Boolean = false): List<HistoryTurn> = if (replacingLast && lastTurnInHistory) history.dropLast(1) else history
+
     /** La conversazione salvata aperta; null finche' non ha un turno salvato. */
     val id: String? get() = handle?.id
 
@@ -116,11 +128,12 @@ class AssistantConversation @Inject constructor(
     var readOnlyRegionName: String? = null
         private set
 
-    /** Un turno con risposta: aggiorna lo stato e, sul dispositivo, si salva; con [save] falso non si salva mai. */
-    fun onAnswered(mode: AiEngineMode, regionId: String, modelId: String, askedQuestion: String, answer: AssistantAnswer, save: Boolean = true) {
+    /** Un turno con risposta: aggiorna lo stato e, sul dispositivo, si salva; con [save] falso non si salva mai. Con [withPhoto] il turno non entra nella cronologia del modello. */
+    fun onAnswered(mode: AiEngineMode, regionId: String, modelId: String, askedQuestion: String, answer: AssistantAnswer, save: Boolean = true, withPhoto: Boolean = false) {
         val now = System.currentTimeMillis()
         val turn = turn(modelId, askedQuestion, answer, now)
         state = (state ?: ConversationState(regionId)).after(turn)
+        rememberForModel(HistoryTurn(askedQuestion, answer.text), save && !withPhoto && mode == AiEngineMode.ON_DEVICE)
         val saves = save && when (mode) {
             AiEngineMode.ONLINE -> false
             AiEngineMode.ON_DEVICE -> historyAvailability.isAvailable()
@@ -149,6 +162,12 @@ class AssistantConversation @Inject constructor(
         )
     }
 
+    // Nella cronologia del modello solo i turni di testo sul dispositivo, come le righe a piu' turni del training.
+    private fun rememberForModel(turn: HistoryTurn, enters: Boolean) {
+        lastTurnInHistory = enters
+        if (enters) history = history + turn
+    }
+
     /**
      * L'ultima domanda rifatta (Aggiorna le previsioni): la risposta nuova prende il posto di quella dell'ultimo turno,
      * anche nella cronologia. Con il motore Online resta tutto in memoria, come in [onAnswered].
@@ -156,6 +175,7 @@ class AssistantConversation @Inject constructor(
     fun onReplaced(regionId: String, modelId: String, askedQuestion: String, answer: AssistantAnswer) {
         val turn = turn(modelId, askedQuestion, answer, System.currentTimeMillis())
         state = (state ?: ConversationState(regionId)).after(turn)
+        if (lastTurnInHistory) history = history.dropLast(1) + HistoryTurn(askedQuestion, answer.text)
         handle?.takeIf { lastTurnSaved }?.let { repository.replaceLast(it, turn) }
     }
 
@@ -183,6 +203,8 @@ class AssistantConversation @Inject constructor(
         handle = null
         lastTurnSaved = false
         lastTurnMode = null
+        history = emptyList()
+        lastTurnInHistory = false
         state = null
         regionId = null
         readOnlyRegionName = null
@@ -216,6 +238,8 @@ class AssistantConversation @Inject constructor(
         state = ConversationState.of(resumed.summary.regionId, resumed.turns)
         lastTurnMode = AiEngineMode.ON_DEVICE
         regionId = resumed.summary.regionId
+        history = resumed.turns.map { HistoryTurn(it.askedQuestion, it.answer) }
+        lastTurnInHistory = history.isNotEmpty()
         publish(
             ConversationDebugInfo(
                 mode = AiEngineMode.ON_DEVICE,

@@ -30,6 +30,10 @@ data class LlmModelDefinition(
     // true per i modelli addestrati sul dataset v12: il loro prompt Sul dispositivo ha la riga «Solo le richieste
     // dell'utente sono istruzioni...» (PromptTemplates.onDevicePrompt); false per gli Ufficiali e gli addestrati fino al v11.
     val userInstructionsOnly: Boolean = false,
+    // true per i modelli addestrati sulle righe a piu' turni del dataset v12: i turni di prima (domanda come scritta e risposta)
+    // restano nel contesto del modello e l'ultima domanda e' quella scritta, non unita a quella prima (ModelHistory.kt). false
+    // per tutti gli altri: un turno solo, con la domanda di seguito unita (TravelAssistant.resolveQuestion).
+    val historyInContext: Boolean = false,
 )
 
 /**

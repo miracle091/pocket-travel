@@ -48,6 +48,7 @@ import com.pockettravel.core.data.vaccination.toSummaryText
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.PlaceWeather
 import com.pockettravel.core.ui.label
+import com.pockettravel.feature.ai.llamacpp.HistoryTurn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
@@ -134,6 +135,10 @@ class TravelAssistant @Inject constructor(
      * app e' il contesto sul dispositivo; online va in testa al contesto e sostituisce la domanda nella ricerca delle sezioni.
      * [photo]: un JPEG gia' pulito (preparePhoto), solo ai modelli che accettano foto; sul dispositivo va al modello con
      * il suo [mmproj].
+     * [history]: i turni di prima della conversazione (domanda come scritta e risposta). Solo con un modello con
+     * [LlmModelDefinition.historyInContext], sul dispositivo e senza foto ne' testo selezionato, restano nel contesto del modello e
+     * la domanda del prompt e' quella scritta ([typedQuestion], o [askedQuestion]) e non l'unione con quella prima, che serve
+     * solo alla ricerca; per gli altri modelli [history] non conta.
      */
     fun ask(
         regionId: String,
@@ -143,6 +148,8 @@ class TravelAssistant @Inject constructor(
         selectedText: String? = null,
         photo: ByteArray? = null,
         mmproj: File? = null,
+        history: List<HistoryTurn> = emptyList(),
+        typedQuestion: String = askedQuestion,
     ): Flow<AssistantProgress> = flow {
         // Lingua dell'interfaccia: prompt, testo di ripiego e citazioni (le guide installate la seguono).
         val language = currentGuidesLanguage()
@@ -202,9 +209,10 @@ class TravelAssistant @Inject constructor(
         when (mode) {
             AiEngineMode.ON_DEVICE -> {
                 val input = photoInput(photo, mmproj)
-                val plan = planOnDevice(question, contextSections, language, focus, selectedText, withPhoto = input != null)
+                val modelHistory = historyForModel(aiSettingsStore.selectedModelDefinition(), history, withPhoto = input != null, selectedText = selectedText)
+                val plan = planOnDevice(question, contextSections, language, focus, selectedText, withPhoto = input != null, history = modelHistory, typedQuestion = typedQuestion)
                 var text = ""
-                engine.generateStream(plan.prompt, input).accumulated(PARTIAL_INTERVAL_MS).collect {
+                engine.generateStream(plan.prompt, input, modelHistory).accumulated(PARTIAL_INTERVAL_MS).collect {
                     text = it
                     emit(AssistantProgress.Partial(it))
                 }
@@ -326,6 +334,8 @@ class TravelAssistant @Inject constructor(
         focusStems: Set<String>,
         selectedText: String?,
         withPhoto: Boolean = false,
+        history: List<HistoryTurn> = emptyList(),
+        typedQuestion: String = question,
     ): OnDevicePlan {
         // Con una foto niente contesto, come nel test sul dispositivo: col contesto delle guide il modello cercava la
         // risposta li' e rifiutava ("il contesto non contiene..."), senza guardare la foto.
@@ -334,12 +344,10 @@ class TravelAssistant @Inject constructor(
         // Con un testo selezionato il contesto e' solo il testo: con le sezioni della guida lo 0.8B le scambiava per il testo e
         // inventava (il messaggio di un host sull'arrivo diventava una descrizione della Provenza); senza, lo spiega.
         val context = if (selectedText.isNullOrBlank()) buildOnDeviceContext(sections, note, language = language, focusStems = focusStems) else ""
-        val prompt = PromptTemplates.onDevicePrompt(
-            context = if (selectedText.isNullOrBlank()) context.ifBlank { PromptTemplates.emptyContext(language) } else contextWithSelectedText(context, selectedText, language),
-            question = question,
-            language = language,
-            userInstructionsOnly = aiSettingsStore.selectedModelDefinition().userInstructionsOnly,
-        )
+        val promptContext = if (selectedText.isNullOrBlank()) context.ifBlank { PromptTemplates.emptyContext(language) } else contextWithSelectedText(context, selectedText, language)
+        val prompt = promptWithHistory(history, question, typedQuestion) {
+            PromptTemplates.onDevicePrompt(promptContext, it, language, aiSettingsStore.selectedModelDefinition().userInstructionsOnly)
+        }
         return OnDevicePlan(prompt, citedSections(sections, context).map { it.citation })
     }
 

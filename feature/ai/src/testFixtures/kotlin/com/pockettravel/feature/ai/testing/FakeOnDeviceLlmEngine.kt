@@ -3,6 +3,7 @@ package com.pockettravel.feature.ai.testing
 import com.pockettravel.feature.ai.LlmRuntimeStats
 import com.pockettravel.feature.ai.OnDeviceLlmEngine
 import com.pockettravel.feature.ai.llamacpp.CpuBackendInfo
+import com.pockettravel.feature.ai.llamacpp.HistoryTurn
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,9 +59,13 @@ class FakeOnDeviceLlmEngine : OnDeviceLlmEngine {
     /** Foto ricevute da [generateStream]. */
     val images = mutableListOf<OnDeviceLlmEngine.ImageInput>()
 
-    override fun generateStream(prompt: String, image: OnDeviceLlmEngine.ImageInput?): Flow<String> {
+    /** Cronologia ricevuta da ogni [generateStream], vuota per un turno solo. */
+    val histories = mutableListOf<List<HistoryTurn>>()
+
+    override fun generateStream(prompt: String, image: OnDeviceLlmEngine.ImageInput?, history: List<HistoryTurn>): Flow<String> {
         failure?.let { throw it }
         generatedPrompts += prompt
+        histories += history
         if (image != null) images += image
         return flowOf(answer(prompt))
     }

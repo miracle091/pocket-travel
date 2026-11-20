@@ -9,8 +9,9 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
 
-// La conversazione aperta: turni, token, soglia di compattazione, durata, archiviazioni e riprese, stato. I modelli di oggi
-// sono a turno singolo: nel contesto c'e' sempre solo l'ultimo turno, e la compattazione non avviene.
+// La conversazione aperta: turni, token, soglia di compattazione, durata, archiviazioni e riprese, stato. I modelli a turno
+// singolo hanno nel contesto solo l'ultimo turno e non compattano; quelli con la cronologia vera (historyInContext) anche i
+// turni di prima, che il motore accorcia se non entrano.
 @Composable
 internal fun ConversationSection(info: ConversationDebugInfo?, runtime: LlmRuntimeStats) {
     SectionTitle(R.string.ai_taskmgr_conversation)
@@ -23,19 +24,20 @@ internal fun ConversationSection(info: ConversationDebugInfo?, runtime: LlmRunti
         stringResource(R.string.ai_taskmgr_conversation_saving),
         stringResource(if (info.saved) R.string.ai_taskmgr_conversation_saved else R.string.ai_taskmgr_conversation_not_saved),
     )
-    MetricRow(stringResource(R.string.ai_taskmgr_conversation_turns), "${info.turns} (${minOf(info.turns, 1)})")
+    val last = runtime.lastGeneration?.context
+    MetricRow(stringResource(R.string.ai_taskmgr_conversation_turns), "${info.turns} (${minOf(info.turns, 1) + (last?.historyTurns ?: 0)})")
+    MetricRow(stringResource(R.string.ai_taskmgr_conversation_history_tokens), (last?.historyTokens ?: 0).toString())
     // Da questa apertura: le generazioni di prima della ripresa non sono piu' in memoria.
     MetricRow(stringResource(R.string.ai_taskmgr_conversation_tokens), conversationTokens(runtime.history, info.lastResumedAtMs ?: info.startedAtMs).toString())
-    val context = runtime.lastGeneration?.context
     MetricRow(
         stringResource(R.string.ai_taskmgr_conversation_threshold),
-        context?.let {
+        last?.let {
             val threshold = compactionThreshold(it.contextSize)
             val remaining = maxOf(0, threshold - it.usedTokens)
             pluralStringResource(R.plurals.ai_taskmgr_conversation_threshold_value, remaining, threshold, remaining)
         } ?: NOT_AVAILABLE,
     )
-    MetricRow(stringResource(R.string.ai_taskmgr_conversation_compactions), "0")
+    MetricRow(stringResource(R.string.ai_taskmgr_conversation_compactions), runtime.compactions.toString())
     MetricRow(stringResource(R.string.ai_taskmgr_conversation_duration), elapsed(now - info.startedAtMs))
     MetricRow(stringResource(R.string.ai_taskmgr_conversation_since_last), elapsed(now - info.lastTurnAtMs))
     MetricRow(stringResource(R.string.ai_taskmgr_conversation_archives), info.archiveCount.toString())

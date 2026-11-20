@@ -49,6 +49,16 @@ interface InferenceEngine {
     suspend fun resetConversation()
 
     /**
+     * Come [resetConversation], ma il prossimo [sendUserPrompt] viene dopo i turni di [history] (modelli addestrati su righe a
+     * piu' turni, dal v12): la cache si ricostruisce da zero, il modello legge i turni di prima e poi il prompt. I turni sono
+     * gia' compattati (domanda come scritta e risposta, mai contesto ne' istruzioni) e devono entrare nel contesto con il prompt:
+     * lo decide il chiamante. Con [history] vuota e' come [resetConversation].
+     *
+     * @throws IllegalArgumentException se il modello non ha un chat template
+     */
+    suspend fun resetConversation(history: List<HistoryTurn>)
+
+    /**
      * Vincola le risposte successive a una grammatica GBNF (regola "root"); "" torna al campionamento
      * libero. Resta attiva finche' non la si cambia.
      *
@@ -140,11 +150,22 @@ val State.isModelLoaded: Boolean
 
 class UnsupportedArchitectureException : Exception()
 
+/** Un turno di prima nel contesto del modello: la domanda come l'ha scritta l'utente e la risposta data. */
+data class HistoryTurn(val question: String, val answer: String)
+
 /**
  * Token del prompt e generati nell'ultimo turno, posizione occupata nella KV cache (turni precedenti
- * compresi) e dimensione del contesto, letti dal codice nativo.
+ * compresi) e dimensione del contesto, letti dal codice nativo. [historyTokens] e [historyTurns]: la parte di
+ * [usedTokens] che e' cronologia di [InferenceEngine.resetConversation] (0 senza), non compresa in [promptTokens].
  */
-data class ContextUsage(val promptTokens: Int, val generatedTokens: Int, val usedTokens: Int, val contextSize: Int)
+data class ContextUsage(
+    val promptTokens: Int,
+    val generatedTokens: Int,
+    val usedTokens: Int,
+    val contextSize: Int,
+    val historyTokens: Int = 0,
+    val historyTurns: Int = 0,
+)
 
 /**
  * Variante CPU di ggml caricata nel processo ([loadedFile], per esempio `libggml-cpu-android_armv8.6_1.so`,

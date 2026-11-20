@@ -301,15 +301,18 @@ static std::string format_messages(const std::vector<common_chat_msg> &msgs, con
 
 // Il nuovo messaggio formattato in coda a quelli di past, come common_chat_format_single (che pero' non passa
 // enable_thinking al template): la differenza tra la conversazione con e senza il messaggio.
+// Con open_assistant falso (messaggi della cronologia, che hanno gia' la loro risposta) il turno utente non apre quello assistente.
+// Con keep_newline falso il messaggio dopo la cronologia non ripete l'a capo che chiude il turno prima: nella cache della cronologia
+// c'e' gia' (tokenize_history_message), mentre dopo una risposta generata il token di fine turno non ha il suo a capo.
 static std::string format_new_message_as(const std::vector<common_chat_msg> &past, const common_chat_msg &new_msg,
-                                         const ChatFormat format) {
-    const bool add_ass = new_msg.role == ROLE_USER;
+                                         const ChatFormat format, const bool open_assistant = true, const bool keep_newline = true) {
+    const bool add_ass = open_assistant && new_msg.role == ROLE_USER;
     const std::string past_text = past.empty() ? "" : format_messages(past, false, format);
     std::vector<common_chat_msg> msgs(past);
     msgs.push_back(new_msg);
     const std::string text = format_messages(msgs, add_ass, format);
     // Come common_chat_format_single: se il testo prima finisce con un a capo, lo si conserva.
-    std::string formatted = add_ass && !past_text.empty() && past_text.back() == '\n' ? "\n" : "";
+    std::string formatted = keep_newline && add_ass && !past_text.empty() && past_text.back() == '\n' ? "\n" : "";
     formatted += text.substr(std::min(past_text.size(), text.size()));
     return formatted;
 }
@@ -317,16 +320,17 @@ static std::string format_new_message_as(const std::vector<common_chat_msg> &pas
 // Se il template jinja, che ha formattato la conversazione di prova, fallisce su un messaggio vero (un ramo del
 // template che la prova non tocca), si passa al ripiego per il resto della vita del modello: il messaggio va al modello
 // invece di far fallire la domanda.
-static std::string format_new_message(const std::vector<common_chat_msg> &past, const common_chat_msg &new_msg) {
+static std::string format_new_message(const std::vector<common_chat_msg> &past, const common_chat_msg &new_msg,
+                                      const bool open_assistant = true, const bool keep_newline = true) {
     if (g_chat_format == ChatFormat::JINJA) {
         try {
-            return format_new_message_as(past, new_msg, ChatFormat::JINJA);
+            return format_new_message_as(past, new_msg, ChatFormat::JINJA, open_assistant, keep_newline);
         } catch (const std::exception &e) {
             LOGw("Chat format: jinja failed on a message (%s), switching to the fallback", e.what());
             g_chat_format = g_fallback_format;
         }
     }
-    return format_new_message_as(past, new_msg, g_chat_format);
+    return format_new_message_as(past, new_msg, g_chat_format, open_assistant, keep_newline);
 }
 
 static std::string without_empty_think(std::string text) {
@@ -456,8 +460,15 @@ static llama_pos stop_generation_position;
 // azzerata (LlamaOnDeviceLlmEngine azzera prima di ogni risposta); altrimenti si rifiuta con il codice 3.
 static bool image_in_cache = false;
 
+// Cronologia data da setHistory (turni di prima, compattati): tokenizzata ma non ancora nella cache, che la legge il
+// prossimo processUserPrompt prima del prompt. I messaggi sono gia' in chat_msgs.
+static llama_tokens pending_history_tokens;
+static int pending_history_turns = 0;
+
 static void reset_long_term_states(const bool clear_kv_cache = true) {
     chat_msgs.clear();
+    pending_history_tokens.clear();
+    pending_history_turns = 0;
     system_prompt_position = 0;
     current_position = 0;
     image_in_cache = false;
@@ -496,11 +507,11 @@ static bool shift_context() {
     return true;
 }
 
-static std::string chat_add_and_format(const std::string &role, const std::string &content) {
+static std::string chat_add_and_format(const std::string &role, const std::string &content, const bool keep_newline = true) {
     common_chat_msg new_msg;
     new_msg.role = role;
     new_msg.content = content;
-    auto formatted = format_new_message(chat_msgs, new_msg);
+    auto formatted = format_new_message(chat_msgs, new_msg, true, keep_newline);
     chat_msgs.push_back(new_msg);
     // Solo in verbose: il testo contiene domanda, contesto e note dell'utente, da non lasciare nel logcat.
     LOGv("%s: Formatted and added %s message: \n%s\n", __func__, role.c_str(), formatted.c_str());
@@ -534,6 +545,9 @@ static int accepted_tokens = 0;
 // nell'ultimo turno. Non le azzerano i reset, cosi' si leggono anche a turno finito.
 static int last_prompt_tokens = 0;
 static int last_generated_tokens = 0;
+// Token e turni della cronologia letti con l'ultimo prompt (0 per un prompt senza cronologia).
+static int last_history_tokens = 0;
+static int last_history_turns = 0;
 
 static void reset_short_term_states() {
     stop_generation_position = 0;
@@ -731,6 +745,81 @@ struct PromptReading {
     ~PromptReading() { g_reading_prompt.store(false); }
 };
 
+// Un messaggio della cronologia (domanda dell'utente o risposta) formattato come nel training delle righe a piu' turni
+// (ChatML senza apertura del turno assistente dopo la domanda: la risposta segue) e aggiunto a chat_msgs. Come il prompt
+// utente, apertura e suffisso del template si tokenizzano con i token di controllo e il contenuto senza.
+static llama_tokens tokenize_history_message(const std::string &role, const std::string &content, const bool first) {
+    common_chat_msg msg;
+    msg.role = role;
+    msg.content = content;
+    const std::vector<common_chat_msg> past(chat_msgs);
+    const std::string formatted = format_new_message(past, msg, false);
+    chat_msgs.push_back(msg);
+    // Apertura e suffisso dal messaggio con un contenuto segnaposto: cercare il contenuto vero nel testo formattato (rfind)
+    // troverebbe "end" o "e" dentro <|im_end|>. Il contenuto vero sta tra i due.
+    std::string open;
+    size_t suffix_pos = std::string::npos;
+    const std::string sentinel = "@@SENTINEL@@";
+    common_chat_msg probe = msg;
+    probe.content = sentinel;
+    const std::string probed = format_new_message(past, probe, false);
+    const size_t sentinel_pos = probed.find(sentinel);
+    if (sentinel_pos != std::string::npos) {
+        const std::string probe_open = probed.substr(0, sentinel_pos);
+        const std::string probe_suffix = probed.substr(sentinel_pos + sentinel.size());
+        if (formatted.size() >= probe_open.size() + probe_suffix.size() && formatted.compare(0, probe_open.size(), probe_open) == 0 &&
+            formatted.compare(formatted.size() - probe_suffix.size(), probe_suffix.size(), probe_suffix) == 0) {
+            open = probe_open;
+            suffix_pos = formatted.size() - probe_suffix.size();
+        }
+    }
+    if (suffix_pos == std::string::npos) {
+        LOGw("%s: content not found in the formatted message, special tokens parsed in it", __func__);
+        return common_tokenize(g_context, formatted, first, true);
+    }
+    llama_tokens tokens;
+    if (!open.empty()) tokens = common_tokenize(g_context, open, first, true);
+    const llama_tokens content_tokens = common_tokenize(g_context, formatted.substr(open.size(), suffix_pos - open.size()),
+                                                        first && open.empty(), false);
+    const llama_tokens suffix_tokens = common_tokenize(g_context, formatted.substr(suffix_pos), false, true);
+    tokens.insert(tokens.end(), content_tokens.begin(), content_tokens.end());
+    tokens.insert(tokens.end(), suffix_tokens.begin(), suffix_tokens.end());
+    return tokens;
+}
+
+// Azzera la conversazione e imposta la cronologia: [jmessages] sono domanda e risposta alternate, a partire dalla domanda.
+// Non decodifica niente: il prossimo processUserPrompt legge la cronologia e il prompt insieme. 0 ok, 3 messaggi non validi
+// o modello senza template, 4 modello non pronto.
+static jint set_history_impl(JNIEnv *env, jobjectArray jmessages) {
+    if (!g_context || !g_sampler) {
+        LOGe("%s: model not prepared", __func__);
+        return 4;
+    }
+    reset_long_term_states();
+    reset_short_term_states();
+    const jsize count = env->GetArrayLength(jmessages);
+    // Solo ChatML: l'assunto che ogni messaggio sia apertura + contenuto + suffisso non vale per i template jinja che tolgono
+    // i blocchi <think> o gli spazi.
+    if (count % 2 != 0 || g_chat_format != ChatFormat::CHATML || !common_chat_templates_was_explicit(g_chat_templates.get())) {
+        LOGe("%s: invalid history (%d messages, template %d)", __func__, (int) count,
+             (int) common_chat_templates_was_explicit(g_chat_templates.get()));
+        return 3;
+    }
+    llama_tokens tokens;
+    for (jsize i = 0; i < count; ++i) {
+        jstring jmessage = (jstring) env->GetObjectArrayElement(jmessages, i);
+        if (env->ExceptionCheck()) { reset_long_term_states(); return -100; }
+        const std::string content = jstring_to_utf8(env, jmessage);
+        env->DeleteLocalRef(jmessage);
+        if (env->ExceptionCheck()) { reset_long_term_states(); return -100; }
+        const llama_tokens message_tokens = tokenize_history_message(i % 2 == 0 ? ROLE_USER : ROLE_ASSISTANT, content, i == 0);
+        tokens.insert(tokens.end(), message_tokens.begin(), message_tokens.end());
+    }
+    pending_history_tokens = std::move(tokens);
+    pending_history_turns = (int) (count / 2);
+    return 0;
+}
+
 static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_predict) {
     if (!g_context || !g_sampler) {
         LOGe("%s: model not prepared", __func__);
@@ -744,6 +833,30 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     reset_short_term_states();
     PromptReading reading;
 
+    // La cronologia di setHistory si legge prima del prompt: stesso Stop, stessa cache. Il prompt che segue conta i token
+    // rimasti dal contesto che resta (max_new_tokens), quindi una cronologia troppo lunga lo taglia, non lo fa sforare.
+    int history_tokens = 0;
+    const int history_turns = pending_history_turns;
+    pending_history_turns = 0;
+    if (!pending_history_tokens.empty()) {
+        history_tokens = (int) pending_history_tokens.size();
+        if (history_tokens >= DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM) {
+            LOGe("%s: history too long (%d tokens)", __func__, history_tokens);
+            return reject_user_prompt(3);
+        }
+        const int history_decoded = decode_tokens_in_batches(g_context, g_batch, pending_history_tokens, current_position);
+        pending_history_tokens.clear();
+        if (history_decoded == DECODE_ABORTED) {
+            LOGi("%s: history reading interrupted", __func__);
+            return reject_user_prompt(PROMPT_INTERRUPTED);
+        }
+        if (history_decoded) {
+            LOGe("%s: llama_decode() failed on the history!", __func__);
+            return reject_user_prompt(2);
+        }
+        current_position += history_tokens;
+    }
+
     // Obtain and tokenize user prompt
     std::string user_prompt = jstring_to_utf8(env, juser_prompt);
     if (env->ExceptionCheck()) return -100;  // OutOfMemoryError da GetStringChars
@@ -753,7 +866,7 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     // Format user prompt if applicable
     const bool has_chat_template = common_chat_templates_was_explicit(g_chat_templates.get());
     if (has_chat_template) {
-        formatted_user_prompt = chat_add_and_format(ROLE_USER, user_prompt);
+        formatted_user_prompt = chat_add_and_format(ROLE_USER, user_prompt, history_tokens == 0);
     }
 
     // Apertura del turno utente (prima del contenuto) e suffisso del template (dopo: chiusura del turno utente e
@@ -793,6 +906,12 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     // non solo della dimensione assoluta del contesto.
     const int max_new_tokens = std::max(0, DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM - current_position);
     if ((int) user_tokens.size() > max_new_tokens) {
+        // Con la cronologia il prompt non si taglia: i turni di prima e un contesto troncato darebbero una risposta sbagliata
+        // senza che nessuno se ne accorga; il chiamante rifa' il turno con meno cronologia o da solo.
+        if (history_tokens > 0) {
+            LOGe("%s: history (%d tokens) and prompt (%d) do not fit", __func__, history_tokens, (int) user_tokens.size());
+            return reject_user_prompt(3);
+        }
         // Tagliare in coda butterebbe l'apertura del turno assistente e il modello risponderebbe in modo
         // incoerente. Si taglia invece l'inizio del contenuto utente, tenendo l'apertura del turno utente e il
         // suffisso del template, gia' tokenizzati a parte. Senza contenuto riconoscibile nel testo: errore.
@@ -849,6 +968,8 @@ static jint process_user_prompt_impl(JNIEnv *env, jstring juser_prompt, jint n_p
     // Update position
     current_position += user_prompt_size;
     last_prompt_tokens = user_prompt_size;
+    last_history_tokens = history_tokens;
+    last_history_turns = history_turns;
     last_generated_tokens = 0;
     stop_generation_position = current_position + n_predict;
     turn_tokens = std::move(user_tokens);
@@ -910,6 +1031,10 @@ static jint process_image_prompt_impl(JNIEnv *env, jstring juser_prompt, jbyteAr
     }
     if (image_in_cache) {
         LOGe("%s: prompt after an image turn without a conversation reset", __func__);
+        return reject_user_prompt(3);
+    }
+    if (!pending_history_tokens.empty()) {
+        LOGe("%s: history set for a prompt with an image", __func__);
         return reject_user_prompt(3);
     }
     reset_short_term_states();
@@ -1002,6 +1127,8 @@ static jint process_image_prompt_impl(JNIEnv *env, jstring juser_prompt, jbyteAr
     current_position = new_position;
     image_in_cache = true;
     last_prompt_tokens = prompt_tokens;
+    last_history_tokens = 0;
+    last_history_turns = 0;
     last_generated_tokens = 0;
     stop_generation_position = current_position + std::min((int) n_predict, spare);
     turn_tokens = std::move(text_tokens);
@@ -1297,6 +1424,23 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_prepare(J
     }
 }
 
+// Azzera la conversazione e mette davanti al prossimo prompt la cronologia [messages] (domanda, risposta, domanda...).
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_setHistoryNative(JNIEnv *env, jobject /*unused*/, jobjectArray messages) {
+    try {
+        return set_history_impl(env, messages);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        if (g_context) reset_long_term_states();
+        return -100;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
+        if (g_context) reset_long_term_states();
+        return -100;
+    }
+}
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_processUserPrompt(
@@ -1457,11 +1601,13 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_shutdown(
 }
 
 // Uso del contesto per il task manager di debug (contextUsageNative): {token del prompt, token generati, posizione nella KV
-// cache, dimensione del contesto}. Da chiamare sul thread del motore, come le altre funzioni.
+// cache, dimensione del contesto, token della cronologia, turni della cronologia}. Da chiamare sul thread del motore, come
+// le altre funzioni.
 extern "C"
 JNIEXPORT jintArray JNICALL
 Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_contextUsageNative(JNIEnv *env, jobject /*unused*/) {
-    const jint values[] = {last_prompt_tokens, last_generated_tokens, (jint) current_position, DEFAULT_CONTEXT_SIZE};
+    const jint values[] = {last_prompt_tokens, last_generated_tokens, (jint) current_position, DEFAULT_CONTEXT_SIZE,
+                           last_history_tokens, last_history_turns};
     constexpr jsize count = sizeof(values) / sizeof(values[0]);
     jintArray result = env->NewIntArray(count);
     if (result == nullptr) return nullptr;  // OutOfMemoryError gia' pendente in Java
@@ -1514,6 +1660,49 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_formatPro
     }
 }
 
+// Come formatPromptNative, con la cronologia [jmessages] (domanda, risposta, domanda...) davanti: il testo che il modello
+// legge (cronologia + prompt) con setHistory e processUserPrompt, messaggio per messaggio con le stesse funzioni, senza
+// toccare conversazione e cache.
+static jstring format_prompt_with_history_impl(JNIEnv *env, jstring juser_prompt, jobjectArray jmessages) {
+    if (!common_chat_templates_was_explicit(g_chat_templates.get())) return nullptr;
+    std::vector<common_chat_msg> past;
+    std::string text;
+    const jsize count = env->GetArrayLength(jmessages);
+    for (jsize i = 0; i < count; ++i) {
+        jstring jmessage = (jstring) env->GetObjectArrayElement(jmessages, i);
+        if (env->ExceptionCheck()) return nullptr;
+        common_chat_msg msg;
+        msg.role = i % 2 == 0 ? ROLE_USER : ROLE_ASSISTANT;
+        msg.content = jstring_to_utf8(env, jmessage);
+        env->DeleteLocalRef(jmessage);
+        if (env->ExceptionCheck()) return nullptr;
+        text += format_new_message(past, msg, false);
+        past.push_back(msg);
+    }
+    common_chat_msg user;
+    user.role = ROLE_USER;
+    user.content = jstring_to_utf8(env, juser_prompt);
+    if (env->ExceptionCheck()) return nullptr;
+    text += format_new_message(past, user, true, false);
+    std::vector<jchar> utf16;
+    utf8_to_utf16(text, utf16, true);
+    return env->NewString(utf16.data(), (jsize) utf16.size());
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_formatPromptWithHistoryNative(JNIEnv *env, jobject /*unused*/, jstring juser_prompt, jobjectArray messages) {
+    try {
+        return format_prompt_with_history_impl(env, juser_prompt, messages);
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        return nullptr;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
+        return nullptr;
+    }
+}
+
 // Per le prove sul dispositivo (Utf8DeviceTest): il testo convertito come un prompt (jstring_to_utf8), tokenizzato senza
 // token speciali (common_tokenize) e ritrasformato in testo come una risposta, un token alla volta con take_complete_chars. Con max_tokens sotto i token
 // del testo si ferma li', come una generazione interrotta (cancelGeneration scarta il carattere spezzato in cache);
@@ -1530,6 +1719,24 @@ static jstring stream_tokens_impl(JNIEnv *env, jstring jtext, jint max_tokens) {
     }
     if (count == tokens.size()) utf8_to_utf16(cache, utf16, true);
     return env->NewString(utf16.data(), (jsize) utf16.size());
+}
+
+// Per le prove sul dispositivo (HistoryDeviceTest): quanti token ha il testo, con i token di controllo del template letti come
+// tali (parse_special) o come testo. -1 se la tokenizzazione lancia. Non tocca conversazione e cache.
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_countTokensNative(JNIEnv *env, jobject /*unused*/, jstring jtext, jboolean parse_special) {
+    try {
+        const std::string text = jstring_to_utf8(env, jtext);
+        if (env->ExceptionCheck()) return -1;  // OutOfMemoryError da GetStringChars
+        return (jint) common_tokenize(g_context, text, false, parse_special).size();
+    } catch (const std::exception &e) {
+        LOGe("%s: %s", __func__, e.what());
+        return -1;
+    } catch (...) {
+        LOGe("%s: unknown exception", __func__);
+        return -1;
+    }
 }
 
 extern "C"

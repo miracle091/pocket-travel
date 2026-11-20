@@ -42,6 +42,8 @@ data class LlmRuntimeStats(
     val isGenerating: Boolean = false,
     val lastGeneration: GenerationStats? = null,
     val history: List<GenerationStats> = emptyList(),
+    // Volte che la cronologia nel contesto e' stata accorciata perche' non entrava (ModelHistory.kt), dall'avvio dell'app.
+    val compactions: Int = 0,
 )
 
 /**
@@ -127,6 +129,6 @@ private const val COMPACTION_THRESHOLD_PERCENT = 75
 /** Token del contesto oltre i quali la conversazione si compatta. */
 internal fun compactionThreshold(contextSize: Int): Int = contextSize * COMPACTION_THRESHOLD_PERCENT / PERCENT.toInt()
 
-/** Token letti (prompt) e scritti dal modello nelle generazioni finite da [sinceMs], tra quelle tenute nello storico. */
+/** Token letti (prompt e cronologia riletta ogni volta) e scritti dal modello nelle generazioni finite da [sinceMs], tra quelle tenute nello storico. */
 internal fun conversationTokens(history: List<GenerationStats>, sinceMs: Long): Int =
-    history.filter { it.endedAtMs >= sinceMs }.sumOf { (it.context?.promptTokens ?: 0) + (it.context?.generatedTokens ?: 0) }
+    history.filter { it.endedAtMs >= sinceMs }.sumOf { (it.context?.promptTokens ?: 0) + (it.context?.historyTokens ?: 0) + (it.context?.generatedTokens ?: 0) }

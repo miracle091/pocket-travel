@@ -620,7 +620,7 @@ class AiAssistantViewModel @Inject constructor(
             launch { _uiState.showEmergencyCard(emergencyCards, region, question) }
             val answered = collectAnswer(region, question, state.mode, previous, photo) { answer ->
                 // Dal foglio "Chiedi all'assistente" niente cronologia: domanda e risposta restano nel foglio.
-                conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer, save = state.selectedText == null)
+                conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer, save = state.selectedText == null, withPhoto = photo != null)
             }
             // Senza risposta la foto torna allegata: un turno fallito non e' un seguito, e la domanda dopo la perderebbe.
             if (!answered && attached != null) _uiState.update { if (it.attachedPhoto == null) it.copy(attachedPhoto = attached) else it }
@@ -641,17 +641,18 @@ class AiAssistantViewModel @Inject constructor(
                 it.copy(isThinking = true, errorMessage = null, canRefreshForecast = false, answer = null, answerCredit = it.currentModelCredit(), streamingText = "")
             }
             // La domanda gia' unita a quella prima se era un seguito (followUpQuestion): non c'e' un seguito da risolvere.
-            collectAnswer(region, answer.question ?: asked, state.mode, previous = null, photo = state.photoToSend(state.askedPhoto)?.takeIf { state.photoConsented(aiSettingsStore.sendsPhotos()) }) { refreshed ->
+            // Con un modello con la cronologia vera il prompt ha la domanda scritta (refreshOf) e i turni prima di questo, che e' sostituito.
+            collectAnswer(region, answer.question ?: asked, state.mode, previous = null, photo = state.photoToSend(state.askedPhoto)?.takeIf { state.photoConsented(aiSettingsStore.sendsPhotos()) }, refreshOf = asked) { refreshed ->
                 conversation.onReplaced(region, state.selectedModelId, asked, refreshed)
             }
         }
     }
 
     // La risposta in arrivo nella schermata; [onDone] la registra nella conversazione. Falso se la risposta non e' arrivata.
-    private suspend fun collectAnswer(region: String, question: String, mode: AiEngineMode, previous: String?, photo: AttachedPhoto?, onDone: (AssistantAnswer) -> Unit): Boolean =
+    private suspend fun collectAnswer(region: String, question: String, mode: AiEngineMode, previous: String?, photo: AttachedPhoto?, refreshOf: String? = null, onDone: (AssistantAnswer) -> Unit): Boolean =
         try {
             answerKeepAlive.during {
-                travelAssistant.ask(region, question, mode, previous, _uiState.value.selectedText?.text, photo?.jpeg, modelManager.mmprojFile(aiSettingsStore.selectedModelDefinition())).collect { progress ->
+                travelAssistant.ask(region, question, mode, previous, _uiState.value.selectedText?.text, photo?.jpeg, modelManager.mmprojFile(aiSettingsStore.selectedModelDefinition()), conversation.modelHistory(replacingLast = refreshOf != null), refreshOf ?: question).collect { progress ->
                     when (progress) {
                         is AssistantProgress.Partial -> _uiState.update { it.copy(streamingText = progress.text) }
                         is AssistantProgress.ModelSwitched -> _uiState.update { it.switchedModel(progress) }

@@ -211,6 +211,7 @@
     <string name="ai_taskmgr_conversation_not_saved">Solo in memoria</string>
     <string name="ai_taskmgr_conversation_turns">Turni (nel contesto del modello)</string>
     <string name="ai_taskmgr_conversation_tokens">Token letti e scritti dal modello</string>
+    <string name="ai_taskmgr_conversation_history_tokens">Token dei turni di prima nel contesto</string>
     <string name="ai_taskmgr_conversation_threshold">Soglia di compattazione</string>
     <plurals name="ai_taskmgr_conversation_threshold_value">
         <item quantity="one">%1$d token, ne manca %2$d</item>

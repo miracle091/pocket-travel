@@ -3,6 +3,7 @@ package com.pockettravel.feature.ai
 import android.content.Context
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.feature.ai.llamacpp.CpuBackendInfo
+import com.pockettravel.feature.ai.llamacpp.HistoryTurn
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine
 import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl
 import com.pockettravel.feature.ai.llamacpp.isModelLoaded
@@ -116,7 +117,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
 
     override suspend fun generate(prompt: String): String = generateStream(prompt).toList().joinToString(separator = "")
 
-    override fun generateStream(prompt: String, image: OnDeviceLlmEngine.ImageInput?): Flow<String> = flow {
+    override fun generateStream(prompt: String, image: OnDeviceLlmEngine.ImageInput?, history: List<HistoryTurn>): Flow<String> = flow {
         idleReleaser.withModelUse {
             mutex.withLock {
                 loadModelIfNeeded()
@@ -126,7 +127,11 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
                 // singolo.
                 // Alla prima foto, o dopo un rilascio del modello: l'mmproj pesa centinaia di MB, si tiene solo se serve.
                 if (image != null) engine.loadMmproj(image.mmprojPath)
-                engine.resetConversation()
+                // Con la cronologia (modelli v12) la cache riparte da zero e rilegge i turni di prima ogni volta: dopo un
+                // Aggiorna le previsioni, un modello ricaricato o una conversazione ripresa non c'e' niente da riallineare.
+                val kept = if (image == null) fitHistory(history, prompt) else emptyList()
+                if (kept.size < history.usable().size) _stats.update { it.copy(compactions = it.compactions + 1) }
+                if (kept.isEmpty()) engine.resetConversation() else engine.resetConversation(kept)
                 val tokens = if (image == null) engine.sendUserPrompt(prompt) else engine.sendUserPrompt(prompt, image.bytes)
                 _stats.collectTimed(tokens, { engine.contextUsage.value }) { emit(it) }
             }

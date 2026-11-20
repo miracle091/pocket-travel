@@ -10,6 +10,7 @@ import android.util.Log
 import com.pockettravel.feature.ai.llamacpp.ContextUsage
 import com.pockettravel.feature.ai.llamacpp.CpuBackendInfo
 import com.pockettravel.feature.ai.llamacpp.CpuBackendOverride
+import com.pockettravel.feature.ai.llamacpp.HistoryTurn
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine
 import com.pockettravel.feature.ai.llamacpp.UnsupportedArchitectureException
 import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl.Companion.getInstance
@@ -68,6 +69,8 @@ internal class InferenceEngineImpl private constructor(
     companion object {
         private val TAG = InferenceEngineImpl::class.java.simpleName
         private const val CONTEXT_SIZE_INDEX = 3
+        private const val HISTORY_TOKENS_INDEX = 4
+        private const val HISTORY_TURNS_INDEX = 5
 
         @Volatile
         private var instance: InferenceEngine? = null
@@ -123,6 +126,9 @@ internal class InferenceEngineImpl private constructor(
     @FastNative
     private external fun resetConversationNative()
 
+    // 0 ok, 3 messaggi non validi o modello senza template, 4 modello non pronto. Domanda, risposta, domanda...
+    private external fun setHistoryNative(messages: Array<String>): Int
+
     // Non @FastNative: chiude il turno interrotto decodificando il token di fine turno.
     private external fun cancelGeneration()
 
@@ -152,9 +158,14 @@ internal class InferenceEngineImpl private constructor(
 
     private external fun formatPromptNative(userPrompt: String): String?
 
+    private external fun formatPromptWithHistoryNative(userPrompt: String, messages: Array<String>): String?
+
     // Solo per le prove sul dispositivo (Utf8DeviceTest): il testo tokenizzato come un prompt e ritrasformato in testo
     // come una risposta, fermandosi dopo maxTokens token.
     private external fun streamTokensNative(text: String, maxTokens: Int): String?
+
+    // Solo per le prove sul dispositivo (HistoryDeviceTest): token del testo, con i token del template letti come tali o no.
+    private external fun countTokensNative(text: String, parseSpecial: Boolean): Int
 
     /** {ns di pp, ns di tg} di un'esecuzione del benchmark nativo, null se fallisce (ai_chat.cpp, bench_impl). */
     private external fun benchNative(nPrompt: Int, nGen: Int, nThreads: Int, seed: Int): LongArray?
@@ -289,6 +300,18 @@ internal class InferenceEngineImpl private constructor(
             resetConversationNative()
         }
 
+    override suspend fun resetConversation(history: List<HistoryTurn>) =
+        withContext(llamaDispatcher) {
+            check(_state.value is InferenceEngine.State.ModelReady) {
+                "Cannot reset conversation in ${_state.value.javaClass.simpleName}!"
+            }
+            resetConversationNative()
+            if (history.isNotEmpty()) {
+                val result = setHistoryNative(history.flatMap { listOf(it.question, it.answer) }.toTypedArray())
+                require(result == 0) { "Invalid history: $result" }
+            }
+        }
+
     /** "none", "jinja", "chatml" o "builtin", gli ultimi due anche con "-think" (chatFormatNative in ai_chat.cpp). */
     internal suspend fun chatFormat(): String =
         withContext(llamaDispatcher) {
@@ -300,6 +323,20 @@ internal class InferenceEngineImpl private constructor(
         withContext(llamaDispatcher) {
             check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
             checkNotNull(formatPromptNative(message)) { "Chat template failed" }
+        }
+
+    /** Il testo che il modello legge per [message] dopo i turni di [history] (come [formatPrompt]), senza toccare la conversazione. */
+    internal suspend fun formatPrompt(message: String, history: List<HistoryTurn>): String =
+        withContext(llamaDispatcher) {
+            check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
+            val messages = history.flatMap { listOf(it.question, it.answer) }.toTypedArray()
+            checkNotNull(formatPromptWithHistoryNative(message, messages)) { "Chat template failed" }
+        }
+
+    internal suspend fun countTokens(text: String, parseSpecial: Boolean): Int =
+        withContext(llamaDispatcher) {
+            check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
+            countTokensNative(text, parseSpecial).also { check(it >= 0) { "Tokenization failed" } }
         }
 
     internal suspend fun streamTokens(text: String, maxTokens: Int): String =
@@ -469,6 +506,8 @@ internal class InferenceEngineImpl private constructor(
             generatedTokens = values[1],
             usedTokens = values[2],
             contextSize = values[CONTEXT_SIZE_INDEX],
+            historyTokens = values.getOrElse(HISTORY_TOKENS_INDEX) { 0 },
+            historyTurns = values.getOrElse(HISTORY_TURNS_INDEX) { 0 },
         )
     }
 

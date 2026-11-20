@@ -8,6 +8,7 @@ import com.pockettravel.core.data.testing.FakeConversationDao
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.InMemorySharedPreferences
 import com.pockettravel.core.data.testing.SoftwareHistoryMasterKey
+import com.pockettravel.feature.ai.llamacpp.HistoryTurn
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -286,5 +287,67 @@ class AssistantConversationTest {
         assertEquals(false, monitor.current.value?.saved)
         live.end()
         assertNull(monitor.current.value)
+    }
+
+    @Test
+    fun `la cronologia del modello ha domanda scritta e risposta, e una risposta rifatta sostituisce l'ultima`() = runTest {
+        val conversation = conversation(repository())
+        conversation.onAnswered(AiEngineMode.ON_DEVICE, "portogallo", "qwen", "Come arrivo a Lisbona?", answer("Come arrivo a Lisbona?").copy(text = "In treno."))
+        conversation.onAnswered(AiEngineMode.ON_DEVICE, "portogallo", "qwen", "E quanto costa?", answer("Quanto costa arrivare a Lisbona?").copy(text = "Circa 20 euro."))
+
+        // Domanda come scritta, non quella unita; niente fonti ne' contesto.
+        assertEquals(listOf(HistoryTurn("Come arrivo a Lisbona?", "In treno."), HistoryTurn("E quanto costa?", "Circa 20 euro.")), conversation.modelHistory())
+        assertEquals(listOf(HistoryTurn("Come arrivo a Lisbona?", "In treno.")), conversation.modelHistory(replacingLast = true))
+
+        conversation.onReplaced("portogallo", "qwen", "E quanto costa?", answer("Quanto costa arrivare a Lisbona?").copy(text = "Circa 25 euro."))
+        assertEquals(listOf(HistoryTurn("Come arrivo a Lisbona?", "In treno."), HistoryTurn("E quanto costa?", "Circa 25 euro.")), conversation.modelHistory())
+
+        conversation.end()
+        assertTrue(conversation.modelHistory().isEmpty())
+    }
+
+    @Test
+    fun `il foglio del testo selezionato non entra nella cronologia del modello`() = runTest {
+        val conversation = conversation(repository())
+        conversation.onAnswered(AiEngineMode.ON_DEVICE, "portogallo", "qwen", "Come arrivo a Lisbona?", answer("Come arrivo a Lisbona?"))
+        conversation.onAnswered(AiEngineMode.ON_DEVICE, "portogallo", "qwen", "Traduci", answer("Traduci"), save = false)
+
+        assertEquals(listOf("Come arrivo a Lisbona?"), conversation.modelHistory().map { it.question })
+        // Rifare la risposta del foglio non toglie un turno vero.
+        conversation.onReplaced("portogallo", "qwen", "Traduci", answer("Traduci"))
+        assertEquals(listOf("Come arrivo a Lisbona?"), conversation.modelHistory().map { it.question })
+    }
+
+    @Test
+    fun `una conversazione ripresa ha la cronologia del modello dai turni salvati`() = runTest {
+        val repository = repository()
+        val live = conversation(repository)
+        live.ask(AiEngineMode.ON_DEVICE, "Come arrivo a Lisbona?")
+        live.ask(AiEngineMode.ON_DEVICE, "E a Porto?", resolved = "Come arrivo a Porto?")
+        live.end()
+        testScheduler.advanceUntilIdle()
+
+        val resumed = conversation(repository)
+        checkNotNull(resumed.resume(repository.unlock(), repository.list(repository.unlock()).single().id))
+
+        assertEquals(listOf("Come arrivo a Lisbona?", "E a Porto?"), resumed.modelHistory().map { it.question })
+        assertEquals(listOf("Risposta", "Risposta"), resumed.modelHistory().map { it.answer })
+        assertEquals(1, resumed.modelHistory(replacingLast = true).size)
+    }
+
+    @Test
+    fun `i turni Online e quelli con una foto non entrano nella cronologia del modello`() = runTest {
+        val conversation = conversation(repository())
+        conversation.onAnswered(AiEngineMode.ON_DEVICE, "portogallo", "qwen", "Come arrivo a Lisbona?", answer("Come arrivo a Lisbona?"))
+        conversation.onAnswered(AiEngineMode.ONLINE, "portogallo", "gpt", "Serve il visto?", answer("Serve il visto?"))
+        conversation.onAnswered(AiEngineMode.ON_DEVICE, "portogallo", "qwen", "Cos'e' questo?", answer("Cos'e' questo?"), withPhoto = true)
+
+        assertEquals(listOf("Come arrivo a Lisbona?"), conversation.modelHistory().map { it.question })
+        // Rifare una risposta che non e' nella cronologia non toglie il turno di prima.
+        conversation.onReplaced("portogallo", "qwen", "Cos'e' questo?", answer("Cos'e' questo?"))
+        assertEquals(listOf("Come arrivo a Lisbona?"), conversation.modelHistory(replacingLast = true).map { it.question })
+
+        conversation.onAnswered(AiEngineMode.ON_DEVICE, "portogallo", "qwen", "E a Porto?", answer("Come arrivo a Porto?"))
+        assertEquals(listOf("Come arrivo a Lisbona?", "E a Porto?"), conversation.modelHistory().map { it.question })
     }
 }

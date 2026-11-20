@@ -77,4 +77,11 @@ class LlmTaskMetricsTest {
         assertEquals(1370, conversationTokens(history, sinceMs = 200))
         assertEquals(0, conversationTokens(history, sinceMs = 400))
     }
+
+    @Test
+    fun `i token della conversazione contano anche la cronologia riletta ogni volta`() {
+        val usage = ContextUsage(promptTokens = 700, generatedTokens = 40, usedTokens = 1240, contextSize = 4096, historyTokens = 500, historyTurns = 3)
+
+        assertEquals(1240, conversationTokens(listOf(GenerationStats("m", usage, null, 10, endedAtMs = 100)), sinceMs = 0))
+    }
 }
