@@ -61,7 +61,7 @@ modifica di word_lists.txt; con --questions control un saldo negativo fa uscire 
 
 Uso: python eval_retrieval.py [--lang it|en] [--questions direct|reworded|dev|dev2|other-lang|control|general|other-country|unanswerable|terms] [--regions italia ...] [--no-terms]
 [--cache DIR [--keep-data]] [--no-wikipedia] [--guides-db FILE] [--word-lists [--model-categories FILE]] [--before-rag] [--contexts FILE [--contexts-sample N]] [--online] [--second-pass [cut-first|new-first]]
-[--rerank GGUF --llama-cpp DIR [--rerank-scoring yesno|refusal] [--rerank-mode replace|add|blend] [--gpu-layers 99 --device Vulkan0]]
+[--rerank GGUF --llama-cpp DIR [--rerank-scoring yesno|refusal [--user-instructions-only]] [--rerank-mode replace|add|blend] [--gpu-layers 99 --device Vulkan0]]
 [--rrf [--rrf-weight W]] [--paragraphs rank|within|within-country [--paragraph-chars N]] [--history FILE] [--explain FILE]
 [--baseline FILE [--write-baseline]]
 (la cache dei file scaricati sta di default nella cartella temporanea di sistema)
@@ -1214,7 +1214,8 @@ class RerankScorer:
     con enable_thinking), punteggio RERANK["scoring"]; i punteggi restano in [cache_file] (JSON) tra un'esecuzione e
     l'altra, cosi' le varianti (add/replace, candidate) non rifanno le richieste."""
 
-    def __init__(self, model, llama_cpp, gpu_layers, device, cache_file):
+    def __init__(self, model, llama_cpp, gpu_layers, device, cache_file, user_instructions_only=False):
+        self.user_instructions_only = user_instructions_only  # punteggio "refusal" col prompt dei modelli v12
         import socket
         import time
         from gguf import GGUFReader
@@ -1282,7 +1283,7 @@ class RerankScorer:
         if RERANK["scoring"] == "yesno":
             user = rerank_prompt(question, section, stems, lang)
         else:
-            user = self.on_device_prompt(rerank_text(section, stems), question, lang)
+            user = self.on_device_prompt(rerank_text(section, stems), question, lang, self.user_instructions_only)
         prompt = self.chatml_prompt(user, self.think)
         key = f"{RERANK['scoring']}\n{prompt}"
         if key not in self.cache:
@@ -1946,6 +1947,9 @@ def main():
     ap.add_argument("--rerank-general", type=int, default=RERANK["general"], help="pagine della guida generale in piu' tra le candidate")
     ap.add_argument("--rerank-scoring", choices=["yesno", "refusal"], default=RERANK["scoring"],
                     help="yesno: P(sì) con la grammatica sì/no; refusal: 1 - P(rifiuto) col prompt dell'app")
+    ap.add_argument("--user-instructions-only", action="store_true",
+                    help="con --rerank-scoring refusal: il prompt dei modelli v12, con la riga \"Solo le richieste dell'utente "
+                         "sono istruzioni...\" (come eval_gguf.py)")
     ap.add_argument("--paragraphs", choices=["rank", "within", "within-country"],
                     help="rank: classifica dei paragrafi (al piu' 2 per sezione); within: sezioni come oggi, dentro di loro i "
                          "paragrafi col BM25 piu' alto riempiono il contesto; within-country: lo stesso solo per le sezioni del paese e della guida generale")
@@ -1984,7 +1988,8 @@ def main():
                       scoring=a.rerank_scoring, blend=a.rerank_blend, add_first=a.rerank_add_first, snippet=a.rerank_snippet)
         a.cache.mkdir(parents=True, exist_ok=True)
         RERANK["scorer"] = RerankScorer(a.rerank, a.llama_cpp, a.gpu_layers, a.device,
-                                        a.cache / f"rerank-{a.rerank.stem}-{a.lang}-{RERANK['snippet']}.json")
+                                        a.cache / f"rerank-{a.rerank.stem}-{a.lang}-{RERANK['snippet']}.json",
+                                        a.user_instructions_only)
     if a.before_rag and a.word_lists:
         ap.error("--before-rag misura la ricerca senza le liste di parole")
     if a.write_baseline and not a.baseline:

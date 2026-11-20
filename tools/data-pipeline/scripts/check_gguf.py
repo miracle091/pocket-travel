@@ -8,7 +8,7 @@ chatml_prompt, con il blocco <think> vuoto quando il template ha enable_thinking
 una domanda di prova nella lingua scelta.
 
 Uso: python check_gguf.py <file .gguf> --tokenizer <tokenizer.json o cartella del modello HF> --llama-cpp <cartella>
-                          [--lang it|en]
+                          [--lang it|en] [--user-instructions-only]
 Esce con errore se ne' l'EOS ne' l'EOT e' <|im_end|>, se manca il template o se i token sono diversi.
 """
 import argparse
@@ -73,6 +73,7 @@ def main():
     ap.add_argument("--tokenizer", type=Path, required=True, help="tokenizer.json del modello base, o la sua cartella HF")
     ap.add_argument("--llama-cpp", type=Path, required=True, help="cartella dei binari di llama.cpp (get_llama_tools.py) o clone con build/bin")
     ap.add_argument("--lang", choices=sorted(SAMPLE), default="it", help="lingua del prompt di prova")
+    ap.add_argument("--user-instructions-only", action="store_true", help="il prompt dei modelli v12, con la riga \"Solo le richieste dell'utente sono istruzioni...\" (come eval_gguf.py)")
     a = ap.parse_args()
 
     from gguf import GGUFReader
@@ -98,7 +99,8 @@ def main():
         print(f"  template: {len(template)} caratteri, enable_thinking: {uses_empty_think(template)}")
 
     context, question = SAMPLE[a.lang]
-    prompt = chatml_prompt(on_device_prompt(context, question, a.lang), empty_think=uses_empty_think(template))
+    prompt = chatml_prompt(on_device_prompt(context, question, a.lang, a.user_instructions_only),
+                          empty_think=uses_empty_think(template))
     hf = Tokenizer.from_file(str(hf_tokenizer_file(a.tokenizer))).encode(prompt, add_special_tokens=False).ids
     ids = llama_ids(find_llama_bin("llama-tokenize", a.llama_cpp), a.model, prompt)
     print(f"  token del prompt: llama.cpp {len(ids)}, Hugging Face {len(hf)}, uguali: {ids == hf}")

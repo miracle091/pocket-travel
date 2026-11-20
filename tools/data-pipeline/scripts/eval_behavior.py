@@ -16,7 +16,7 @@ import gpu_lock
 import vram
 from eval_common import (ANSWER_TOKENS, SFT_DIR, chat_prompt_and_answer, dataset_lang, injection_rows, instruction_checks, load_test_rows,
                          obeyed_injection, print_instruction_report, print_report, question_lang, question_of, refusal_prefix,
-                         refusal_summary, run_dataset, score)
+                         refusal_summary, run_dataset, score, with_user_instructions_only)
 from status import Progress, phase
 
 ap = argparse.ArgumentParser()
@@ -26,6 +26,7 @@ ap.add_argument("--extended", action="store_true", help="test esteso (generate_e
 ap.add_argument("--max-vram-held", type=float, default=vram.DEFAULT_MAX_HELD_PCT, help=vram.HELP)
 ap.add_argument("--errors", action="store_true", help="con --extended: elenca i positivi rifiutati (categoria, domanda)")
 ap.add_argument("--injection", action="store_true", help="aggiunge le righe pos_injection (istruzione nascosta nel contesto)")
+ap.add_argument("--user-instructions-only", action="store_true", help="il prompt dei modelli v12, con la riga \"Solo le richieste dell'utente sono istruzioni...\" (come eval_gguf.py)")
 a = ap.parse_args()
 gpu_lock.gpu_job("eval_behavior.py")
 gpu_lock.pick_discrete_gpu("eval_behavior")  # dopo il lucchetto e prima di torch e Unsloth
@@ -63,6 +64,9 @@ model = model.to("cuda").eval()
 test, held_out = load_test_rows(a.extended, run_dataset(a.model))
 if a.injection:
     test += injection_rows(dataset_lang(test[0]))
+if a.user_instructions_only:
+    test = [{**r, "messages": [{**r["messages"][0], "content": with_user_instructions_only(r["messages"][0]["content"])},
+                               *r["messages"][1:]]} for r in test]
 phase("eval", f"{len(test)} righe {'(test esteso)' if a.extended else '(test base)'}, batch {a.batch}")
 progress = Progress("eval", len(test), "riga", every=30)
 

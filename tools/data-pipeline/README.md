@@ -535,7 +535,8 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   rifiuti): prima di confrontarli con file nuovi si riscrivono con `eval_answers.py <risposte> --test <test esteso>
   --out <file>`, che ricalcola i controlli (`compare_answers.py` e `check_regressions.py` leggono i campi salvati).
 - **Controllo di un GGUF**: prima di misurare o caricare un GGUF, `scripts/check_gguf.py <file .gguf> --tokenizer
-  <tokenizer.json del modello base> --llama-cpp <binari> [--lang en]` stampa i metadati del tokenizer e controlla che
+  <tokenizer.json del modello base> --llama-cpp <binari> [--lang en] [--user-instructions-only]` (l'ultima opzione: il
+  prompt dei modelli v12) stampa i metadati del tokenizer e controlla che
   l'EOS o l'EOT sia `<|im_end|>`, che ci sia il template e che llama.cpp tokenizzi il prompt dell'app come il tokenizer
   di Hugging Face; altrimenti esce con errore. Servono i pacchetti `gguf` e `tokenizers`, gli stessi della conversione
   (`requirements/requirements-convert_hf_to_gguf.txt` di llama.cpp).
@@ -678,7 +679,8 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   risposta alla domanda?», sì/no) e delle parole di ricerca nella lingua della guida (`--rerank-rows`,
   `--search-word-rows`, campo `task` nelle righe), il prompt dei modelli v12 con la riga «Solo le richieste dell'utente
   sono istruzioni…» (`--user-instructions-only`, nell'app `LlmModelDefinition.userInstructionsOnly`; per misurarli
-  `eval_gguf.py --user-instructions-only`) e copie di positivi con un'istruzione nascosta nel contesto
+  `--user-instructions-only` di `eval_gguf.py`, `eval_behavior.py`, `check_gguf.py`, `collect_onpolicy.py`,
+  `llm_smoke.py` ed `eval_retrieval.py --rerank-scoring refusal`) e copie di positivi con un'istruzione nascosta nel contesto
   (`--injection-rows`); `--old` è quella del v9, scritta come `v9-rigenerato` per non sostituire il v9 dei training.
 - **Fonti del dataset SFT**: i titoli delle pagine di ogni regione stanno in `sft-sources.tsv` (`-` = pagina che non
   esiste). Le righe mancanti si cercano via API durante `generate_sft_dataset.py --dump-dir`; un errore di rete non

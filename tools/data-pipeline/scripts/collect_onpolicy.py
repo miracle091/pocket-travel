@@ -31,7 +31,7 @@ import gpu_lock
 import vram
 from eval_common import (Synced, ANSWER_TOKENS, MAX_ANSWER_CHARS, SFT_DIR, TEST_REGIONS, chatml_prompt, drop_partial_line,
                          extended_file, find_llama_bin, instruction_checks, dataset_lang, llama_env,
-                         read_jsonl_lenient, refusal_prefix)
+                         read_jsonl_lenient, refusal_prefix, with_user_instructions_only)
 
 # Prompt al piu' per gruppo, su --prompts 5000: i gruppi deboli del test esteso del v11 per intero, gli altri a campione.
 QUOTAS = {"pos_near": 1.0, "neg_near": 1.0, "pos_dep": 1.0, "neg_dep": 1.0,
@@ -82,8 +82,10 @@ def label(row, got):
     return "unsure"
 
 
-def prompt_key(row):
-    return row["messages"][0]["content"]
+def prompt_key(row, user_instructions_only=False):
+    """Il turno utente della riga; con [user_instructions_only] col prompt dei modelli v12 (with_user_instructions_only)."""
+    content = row["messages"][0]["content"]
+    return with_user_instructions_only(content) if user_instructions_only else content
 
 
 def main():
@@ -99,7 +101,9 @@ def main():
     ap.add_argument("--gpu-layers", type=int, default=0)
     ap.add_argument("--device", help="come in eval_gguf.py (es. Vulkan0)")
     ap.add_argument("--max-vram-held", type=float, default=vram.DEFAULT_MAX_HELD_PCT, help=vram.HELP)
+    ap.add_argument("--user-instructions-only", action="store_true", help="il prompt dei modelli v12, con la riga \"Solo le richieste dell'utente sono istruzioni...\" (come eval_gguf.py)")
     a = ap.parse_args()
+    key = lambda row: prompt_key(row, a.user_instructions_only)  # noqa: E731
 
     from status import Progress, phase
     gpu_lock.gpu_job("collect_onpolicy.py", gpu=a.gpu_layers > 0)
@@ -109,7 +113,7 @@ def main():
     if a.limit:
         picked = picked[:a.limit]
     done = {r["prompt"] for r in read_jsonl_lenient(a.out)} if a.out.exists() else set()
-    todo = [r for r in picked if prompt_key(r) not in done]
+    todo = [r for r in picked if key(r) not in done]
     phase("raccolta on-policy", f"{a.model.name}: {len(picked)} prompt, {len(done)} gia' fatti, "
                                 f"{a.samples} campioni + greedy, temperatura {a.temperature}")
 
@@ -149,12 +153,12 @@ def main():
 
         def collect(row):
             # stesso prompt ChatML grezzo di eval_gguf.py: i modelli v11 non hanno il blocco <think> (text_only.py)
-            prompt = chatml_prompt(prompt_key(row))
+            prompt = chatml_prompt(key(row))
             samples = []
             for seed in [None, *range(a.samples)]:
                 got = complete(prompt, seed)
                 samples.append({"seed": seed, "got": got, "label": label(row, got)})
-            return {"prompt": prompt_key(row), "want": row["messages"][1]["content"], "kind": row["kind"],
+            return {"prompt": key(row), "want": row["messages"][1]["content"], "kind": row["kind"],
                     "group": group_of(row), "region": row["region"], "category": row["category"],
                     "lang": dataset_lang(row), "samples": samples}
 
