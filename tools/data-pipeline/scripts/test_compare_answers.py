@@ -58,6 +58,21 @@ class CompareTest(unittest.TestCase):
         self.assertTrue(ca.correct(row("neg_city", "q", True, refusal_topic_ok=None)))
         self.assertTrue(ca.correct(row("neg_city", "q", True)))
 
+    def test_tema_del_rifiuto_solo_se_tutti_e_due_i_file_hanno_il_campo(self):
+        # file vecchio senza refusal_topic_ok contro file nuovo con il tema sbagliato (il "want" del test esteso che i v11
+        # non hanno): stesso rifiuto, nessuna regressione falsa, e un avviso nel rapporto
+        old = [row("neg_off", "q1", True), row("neg_off", "q2", True)]
+        new = [row("neg_off", "q1", True, refusal_topic_ok=False), row("neg_off", "q2", True, refusal_topic_ok=True)]
+        r = ca.compare(old, new)
+        self.assertEqual((r["neg_off"]["a"], r["neg_off"]["b"]), ((2, 2), (2, 2)))
+        self.assertEqual((r["tutti i neg"]["worse"], r["tutti i neg"]["better"]), (0, 0))
+        self.assertIsNotNone(ca.topic_note(old, new))
+        self.assertIn("refusal_topic_ok solo in uno dei due file", ca.report(old, new, ["v11", "v12"]))
+        # con il campo in tutti e due il tema conta
+        r = ca.compare(new, [row("neg_off", "q1", True, refusal_topic_ok=True), row("neg_off", "q2", True, refusal_topic_ok=True)])
+        self.assertEqual((r["neg_off"]["a"], r["neg_off"]["b"]), ((1, 2), (2, 2)))
+        self.assertIsNone(ca.topic_note(new, new))
+
     def test_domande_ripetute_restano_distinte(self):
         a = [row("neg_off", "ciao", True), row("neg_off", "ciao", False)]
         b = [row("neg_off", "ciao", False), row("neg_off", "ciao", False)]

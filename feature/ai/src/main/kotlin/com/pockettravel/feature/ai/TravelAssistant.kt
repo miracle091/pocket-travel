@@ -338,6 +338,7 @@ class TravelAssistant @Inject constructor(
             context = if (selectedText.isNullOrBlank()) context.ifBlank { PromptTemplates.emptyContext(language) } else contextWithSelectedText(context, selectedText, language),
             question = question,
             language = language,
+            userInstructionsOnly = aiSettingsStore.selectedModelDefinition().userInstructionsOnly,
         )
         return OnDevicePlan(prompt, citedSections(sections, context).map { it.citation })
     }

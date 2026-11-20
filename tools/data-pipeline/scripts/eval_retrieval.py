@@ -1068,12 +1068,13 @@ def city_candidates(db, region, fts, named):
         (fts, region, name, name, CITY_CANDIDATE_CAP if name else CANDIDATE_CAP))]
 
 
-def search(db, region, question, cities, lang="it", word_lists=False, before_rag=False, pool=None, limit=None):
+def search(db, region, question, cities, lang="it", word_lists=False, before_rag=False, pool=None, limit=None, general_extra=0):
     """TravelAssistant.searchSections: (sezioni, radici della domanda). Con [word_lists] la query ha anche le parole delle
     guide per la categoria della domanda; le radici restano quelle della domanda. Una nazione diversa da quella di
     [region] nominata senza citta' (named_place) fa cercare nelle sue regioni, senza il suo nome nella query. Con
     [before_rag] la ricerca di prima della guida generale e della nazione nominata: solo la regione aperta e le sue citta'.
-    Con [pool] le prime [pool] sezioni della classifica invece del contesto, senza riordino (Hit@5 e MRR@10); altrimenti
+    Con [pool] le prime [pool] sezioni della classifica invece del contesto, senza riordino (Hit@5 e MRR@10), e in coda le
+    [general_extra] pagine della guida generale col BM25 piu' alto che non ci sono gia' (candidate del dataset v12); altrimenti
     la prima pagina della guida generale ha gia' la sua quota del contesto sul dispositivo (general_guide_share, che
     nell'app si applica in buildOnDeviceContext). Con --online (ONLINE) le ONLINE_MAX_SECTIONS sezioni della ricerca
     online, senza quota: la applica online_context. Con [limit] quel numero di sezioni (--second-pass)."""
@@ -1128,7 +1129,11 @@ def search(db, region, question, cities, lang="it", word_lists=False, before_rag
         within = paragraphs_within(today, ranked_paragraphs)
         rank = lambda limit=None, general_extra=0: within[:limit]  # le sezioni di oggi, anche la quarta della guida generale
     if pool:
-        return (term + rank(limit=pool))[:pool], focus_stems(base, city)
+        ranked = (term + rank(limit=pool))[:pool]
+        keys = {section_key(s) for s in ranked}
+        extra = [s for s in (rank(limit=pool, general_extra=general_extra) if general_extra else [])
+                 if s.get("general_guide") and section_key(s) not in keys][:general_extra]
+        return ranked + extra, focus_stems(base, city)
     sections, stems = (term + climate_first(groups | model, rank(limit=limit)))[:limit], focus_stems(base, city)
     if RERANK["scorer"]:
         sections = reranked(question, sections, rank(limit=RERANK["candidates"], general_extra=RERANK["general"]), stems, lang)
@@ -1152,6 +1157,14 @@ RERANK_PROMPT = {
           "Does the section contain the answer to the question? Answer only yes or no.",
 }
 RERANK_ANSWERS = {"it": ("sì", "no"), "en": ("yes", "no")}
+# Parole di ricerca nella lingua della guida per una domanda nell'altra lingua (dataset v12, sft_retrieval.task_rows; non
+# ancora nell'app ne' nella misura): da 3 a 5 parole separate da virgole, aggiunte alla query come quelle della categoria.
+SEARCH_WORDS_PROMPT = {
+    "it": "Scrivi da 3 a 5 parole di ricerca in italiano per trovare nella guida la risposta alla domanda di un viaggiatore, "
+          "separate da virgole.\nDomanda: {q}\nParole:",
+    "en": "Write 3 to 5 search words in English to find the answer to a traveller's question in the guide, separated by "
+          "commas.\nQuestion: {q}\nWords:",
+}
 RERANK_SLOTS = 4  # richieste in parallelo a llama-server (-np), contesto di 4096 token ciascuna
 REFUSAL_START = {"it": "Il contesto", "en": "The context"}  # inizio di REFUSAL e REFUSAL_EN di eval_common.py
 

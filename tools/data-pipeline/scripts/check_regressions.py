@@ -25,7 +25,7 @@ import json
 import sys
 from pathlib import Path
 
-from compare_answers import compare, instruction_counts, load
+from compare_answers import compare, instruction_counts, load, topic_note
 
 DEFAULT_POINTS = 3.0
 DEFAULT_TG_PERCENT = 10.0
@@ -41,7 +41,7 @@ def only_variant(rows, variant):
 def answer_regressions(base_rows, new_rows, points):
     """Righe del rapporto e regressioni per "tutti i neg" e "tutti i pos": quota di giuste prima e dopo."""
     results = compare(base_rows, new_rows)
-    lines, regressions = [], []
+    lines, regressions = [line for line in [topic_note(base_rows, new_rows)] if line], []
     for group in ("tutti i neg", "tutti i pos"):
         if group not in results:
             continue

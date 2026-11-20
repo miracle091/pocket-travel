@@ -9,6 +9,7 @@ import io
 import json
 import random
 import re
+import shutil
 import sqlite3
 import tempfile
 import unittest
@@ -62,6 +63,14 @@ class QuestionsTest(unittest.TestCase):
                 self.assertTrue(6 <= len(set(templates)) <= 10, (lang, cat))
                 self.assertTrue(all("{c}" in t for t in templates), (lang, cat))
 
+    def test_schemi_nell_altra_lingua_allo_stesso_posto(self):
+        # le parole di ricerca vengono dallo schema allo stesso posto nella lingua della guida (task_question)
+        for cat in sr.CATEGORIES:
+            self.assertEqual(len(sr.QUESTIONS["it"][cat]), len(sr.QUESTIONS["en"][cat]), cat)
+        for lang, stop in sr.SEARCH_STOPWORDS.items():  # parole delle domande, scritte giuste
+            words = {w for ts in sr.QUESTIONS[lang].values() for t in ts for w in sr.SEARCH_WORD.findall(t.lower())}
+            self.assertLessEqual(stop, words, lang)
+
     def test_parole_richieste_solo_per_domande_del_modulo(self):
         templates = {t for qs in sr.QUESTIONS.values() for ts in qs.values() for t in ts}
         self.assertLessEqual(set(sr.ANSWER_NEEDS), templates)
@@ -94,7 +103,14 @@ class RegionsAndLicensesTest(unittest.TestCase):
         self.assertEqual(sr.section_license("https://it.wikivoyage.org/wiki/Siviglia", False, "it"), "CC BY-SA 4.0")
         self.assertEqual(sr.section_license("https://en.wikipedia.org/wiki/Seville", False, "en"), gs.WIKI_LICENSE)
         self.assertEqual(sr.section_license("https://travel.gc.ca/destinations/spain", False, "en"), gs.GUIDE_LICENSES["travel.gc.ca"])
-        self.assertIn("tradotta automaticamente", sr.section_license("https://en.wikivoyage.org/wiki/Spain", True, "it"))
+        opus = "Helsinki-NLP/opus-mt-tc-big-en-it"
+        self.assertEqual(sr.section_license("https://en.wikivoyage.org/wiki/Spain", opus, "it"),
+                         f"CC BY-SA 4.0 (tradotta automaticamente dall'inglese, {opus}, {gs.translation_license(opus)})")
+        self.assertIn("index-translate-9b-q4_k_m, Apache 2.0",
+                      sr.section_license("https://en.wikivoyage.org/wiki/Spain", "index-translate-9b-q4_k_m", "it"))
+        # senza modello o con un modello senza licenza verificata la sezione non entra
+        self.assertIsNone(sr.section_license("https://en.wikivoyage.org/wiki/Spain", "", "it"))
+        self.assertIsNone(sr.section_license("https://en.wikivoyage.org/wiki/Spain", "translategemma-4b", "it"))
         self.assertIsNone(sr.section_license("https://example.com/x", False, "it"))
 
 
@@ -176,6 +192,163 @@ class RowsTest(unittest.TestCase):
         with mock.patch.object(er, "search", return_value=([hotel], set())):
             rows, _ = self.rows(refusal=refusal, negatives=5)
         self.assertEqual([r for r in rows if r["category"] == "ALLOGGIO"], [])
+
+
+GENERAL = [("_general", "ALLOGGIO", "Dormire", "Passare la notte in ostello costa poco in quasi tutte le città.",
+            "https://it.wikivoyage.org/wiki/Dormire"),
+           ("_general", "TRASPORTI", "Spostarsi in treno",
+            "Spostarsi in treno è comodo. Per spostarsi i biglietti si comprano in stazione o online prima di partire.",
+            "https://it.wikivoyage.org/wiki/Spostarsi_in_treno")]
+SPAIN_TRANSPORT = "Il treno collega le principali città del paese, l'autobus arriva anche nei villaggi."
+CORDOBA = [("Cordova", "ALLOGGIO", "Dove alloggiare", "La pensione del quartiere ebraico ha camere semplici a 30 euro.",
+            "https://it.wikivoyage.org/wiki/Cordova")]
+
+
+def context_of(row):
+    """Il contesto del prompt della chat di una riga (italiano)."""
+    return row["messages"][0]["content"].split("CONTESTO: ", 1)[1].rsplit("\n\nDOMANDA: ", 1)[0]
+
+
+class V12Test(unittest.TestCase):
+    """Righe del v12: ordine dei contesti dell'app con domande sul paese, pagina generale in testa, riordino, parole di
+    ricerca e istruzioni nascoste."""
+
+    def setUp(self):
+        RowsTest.setUp(self)
+        with contextlib.closing(sqlite3.connect(self.cache / "guides.db")) as db:
+            db.executemany("INSERT INTO guide_sections VALUES (?,?,?,?,?)", GENERAL)
+            db.execute("UPDATE guide_sections SET title = 'Trasporti', body = ? WHERE regionId = 'spagna'", (SPAIN_TRANSPORT,))
+            db.commit()
+        with contextlib.closing(sqlite3.connect(self.cache / "spagna.cities.db")) as db:
+            db.executemany("INSERT INTO city_sections VALUES (?,?,?,?,?,0)", CORDOBA)
+            db.commit()
+        for patch in (mock.patch.dict(gs.LANGS["it"]["questions"], {"TRASPORTI": ["Come mi sposto in {r}?"]}),
+                      mock.patch.dict(sr.QUESTIONS["en"], {"ALLOGGIO": ["Where can I sleep cheaply in {c}?"],
+                                                           "STORIA": ["Does {c} have Roman origins?"],
+                                                           "COSA_VEDERE": ["What to do in {c} with only a few hours?"]})):
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def search(self, q, city_rows=SEVILLE + CORDOBA, **kw):
+        with contextlib.closing(er.build_db(self.cache / "guides.db", "spagna", city_rows)) as db:
+            return er.search(db, "spagna", q, ["Cordova", "Siviglia"], "it", True, **kw)
+
+    def rows(self, general_first):
+        with contextlib.redirect_stdout(io.StringIO()):
+            return sr.retrieval_rows("it", 9, random.Random(1), self.cache, regions=["spagna"], general_first=general_first,
+                                     country_names={"spagna": "Spagna"})[0]
+
+    def test_ordine_dell_app_con_le_domande_sul_paese(self):
+        rows = self.rows(0.0)
+        country = [r for r in rows if r["region"] == "spagna"]
+        self.assertEqual([r["category"] for r in country], ["TRASPORTI"])
+        q = "Come mi sposto in Spagna?"
+        top, stems = self.search(q)
+        self.assertTrue(top[0]["general_guide"])  # la ricerca mette la guida generale in testa
+        self.assertEqual(context_of(country[0]), er.on_device_context(top, stems))
+        self.assertTrue(context_of(country[0]).startswith("Il treno collega"))
+        self.assertIn("Spostarsi in treno è comodo", context_of(country[0]))
+        self.assertIn("Il treno collega", country[0]["messages"][1]["content"])
+        # Le domande sulle citta' non portano la guida generale: contesto come prima
+        city = next(r for r in rows if r["category"] == "ALLOGGIO" and r["region"] == "citta:Siviglia")
+        top, stems = self.search("Dove passo la notte a Siviglia?")
+        self.assertEqual(context_of(city), er.select_context([s["body"] for s in top], stems))
+
+    def test_domande_sul_paese_col_nome_della_lingua_del_dataset(self):
+        # i nomi dei paesi vengono da generate_sft.py (country_names), non dal displayName italiano del manifest: in
+        # inglese "Spain", e per la regione principale di una nazione con le isole il nome della nazione, non la parte
+        # dopo " - "
+        shutil.copy(self.cache / "guides.db", self.cache / "guides-en.db")
+        shutil.copy(self.cache / "spagna.cities.db", self.cache / "spagna.cities-en.db")
+        manifest = {"guides": {"fileXz": {"url": "g"}}, "guidesEn": {"fileXz": {"url": "g"}},
+                    "regions": [{"regionId": "spagna", "displayName": "Spagna - Penisola", "cities": {"fileXz": {"url": "c"}},
+                                 "citiesEn": {"fileXz": {"url": "c"}}}]}
+        for lang, name in (("en", "Spain"), ("it", "Spagna")):
+            with mock.patch.object(er, "fetch", return_value=json.dumps(manifest).encode()), \
+                    mock.patch.object(sr, "city_examples", return_value=[]) as examples, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                sr.retrieval_rows(lang, 9, random.Random(1), self.cache, regions=["spagna"], general_first=0.0,
+                                  country_names={"spagna": name})
+            self.assertEqual([c.kwargs["country"] for c in examples.call_args_list if c.kwargs.get("country")], [name], lang)
+
+    def test_pagina_generale_in_testa_e_risposta_dalla_sezione(self):
+        by_cat = {r["category"]: r for r in self.rows(1.0) if r["region"] in ("spagna", "citta:Siviglia")}
+        for cat, start in (("TRASPORTI", "Spostarsi in treno"), ("ALLOGGIO", "Passare la notte in ostello")):
+            self.assertTrue(context_of(by_cat[cat]).startswith(start), cat)
+        self.assertIn("L'ostello del centro", context_of(by_cat["ALLOGGIO"]))
+        self.assertTrue(by_cat["ALLOGGIO"]["messages"][1]["content"] in SEVILLE[0][3])
+        # Senza pagine della guida generale con le parole della domanda, l'ordine dell'app
+        self.assertFalse(context_of(by_cat["STORIA"]).startswith("Passare"))
+
+    def task_rows(self, kind, n_rerank, n_words):
+        with mock.patch.object(sr, "QUESTION_KINDS", (kind,)), contextlib.redirect_stdout(io.StringIO()):
+            return sr.task_rows("it", n_rerank, n_words, random.Random(1), self.cache, regions=["spagna"])
+
+    def test_righe_del_riordino(self):
+        rows, attribution = self.task_rows("riformulata", 100, 0)
+        self.assertTrue(rows)
+        import audit_sft
+        for r in rows:
+            self.assertEqual((r["task"], r["category"]), ("riordino", "RIORDINO"))
+            self.assertEqual(r["messages"][1]["content"], "sì" if r["kind"] == "pos" else "no")
+            self.assertEqual(audit_sft.hard_errors(r, "it"), [])
+        by_q = {}
+        for r in rows:
+            q = audit_sft.parse_row(r)[1]
+            place = r["messages"][0]["content"].split("Sezione della guida (", 1)[1].split("):", 1)[0]
+            by_q.setdefault(q, {})[place] = r["messages"][1]["content"]
+        self.assertEqual(by_q["Dove passo la notte a Siviglia?"],
+                         {"Siviglia, Dove alloggiare": "sì", "Cordova, Dove alloggiare": "no", "guida generale, Dormire": "no"})
+        self.assertEqual(by_q["Siviglia ha origini romane?"]["Siviglia, Storia"], "sì")
+        self.assertIn(("citta:Cordova", "Cordova", "https://it.wikivoyage.org/wiki/Cordova", "CC BY-SA 4.0"), attribution)
+
+    def test_parole_di_ricerca_nella_lingua_della_guida(self):
+        rows, _ = self.task_rows("altra-lingua", 0, 10)
+        row = next(r for r in rows if "sleep" in r["messages"][0]["content"])
+        self.assertEqual(row["messages"][0]["content"], er.SEARCH_WORDS_PROMPT["it"].format(q="Where can I sleep cheaply in Siviglia?"))
+        self.assertEqual((row["task"], row["category"], row["kind"]), ("parole-di-ricerca", "PAROLE_DI_RICERCA", "pos"))
+        self.assertEqual(set(row["messages"][1]["content"].split(", ")), {"hotel", "camere", "ostello"})
+        self.assertTrue(all(r["task"] == "parole-di-ricerca" for r in rows))
+
+    def test_parole_dalla_domanda_equivalente_e_dalla_sezione(self):
+        body = "Gli alberghi del centro hanno camere doppie. Un albergo economico e due ostelli."
+        words = sr.search_words("Dove trovo una camera economica a {c}?", body, ["albergh", "ostell", "camere"], gs.IT_STOPWORDS, "Siviglia")
+        self.assertEqual(words, ["camera", "economica", "alberghi", "ostelli"])
+        self.assertEqual(sr.search_words("Dove dormire a {c}?", "Solo un albergo.", ["albergh"], gs.IT_STOPWORDS, "Siviglia"), [])
+
+    def test_etichette_delle_candidate(self):
+        keywords = [gs.all_keywords(gs.LANGS["it"])]
+        section = lambda **kw: {"city": None, "region": "spagna", "category": "ALLOGGIO", "body": "x", **kw}
+        self.assertEqual(sr.candidate_label(section(general_guide=True), "Siviglia", "ALLOGGIO", keywords), "guida-generale")
+        self.assertEqual(sr.candidate_label(section(city="Siviglia", category="COSA_VEDERE", body="La cattedrale."),
+                                            "Siviglia", "ALLOGGIO", keywords), "stesso-luogo")
+        self.assertIsNone(sr.candidate_label(section(city="Siviglia", category="COSA_VEDERE", body="Un hotel in piazza."),
+                                             "Siviglia", "ALLOGGIO", keywords))
+        self.assertEqual(sr.candidate_label(section(city="Cordova"), "Siviglia", "ALLOGGIO", keywords), "altra-citta")
+        self.assertIsNone(sr.candidate_label(section(city="Cordova", category="STORIA"), "Siviglia", "ALLOGGIO", keywords))
+        self.assertIsNone(sr.candidate_label(section(), "Siviglia", "ALLOGGIO", keywords))
+
+    def test_istruzioni_nascoste_con_la_stessa_risposta(self):
+        import audit_sft
+        import eval_common
+        context = "▸ Cosa vedere\nLa cattedrale è il monumento principale.\nIl palazzo dell'Alcázar ha giardini."
+        row = {"messages": [{"role": "user", "content": gs.LANGS["it"]["prompt"](context, "Cosa vedere a Siviglia?")},
+                            {"role": "assistant", "content": "La cattedrale è il monumento principale."}],
+               "kind": "pos", "region": "spagna", "category": "COSA_VEDERE", "translated": False}
+        test_region = dict(row, region=next(iter(sr.TEST_REGIONS)))
+        out = gs.injected_rows([row, test_region, dict(row, category="FATTI_RAPIDI")], 5, random.Random(0), "it",
+                               gs.LANGS["it"]["prompt"])
+        self.assertEqual(len(out), 1)
+        injected = audit_sft.parse_row(out[0])[0]
+        self.assertTrue(out[0]["injected"])
+        self.assertEqual(out[0]["messages"][1], row["messages"][1])
+        self.assertTrue(any(text in injected for texts in gs.INJECTIONS.values() for text in texts))
+        self.assertIn("La cattedrale è il monumento principale.\n", injected)
+        self.assertEqual(audit_sft.hard_errors(out[0], "it"), [])
+        # Diverse dalle righe del test pos_injection, che misurano il modello addestrato
+        for lang in ("it", "en"):
+            tests = [r["messages"][0]["content"] for r in eval_common.injection_rows(lang)]
+            self.assertFalse(any(text in t for t in tests for texts in gs.INJECTIONS.values() for text in texts))
 
 
 if __name__ == "__main__":

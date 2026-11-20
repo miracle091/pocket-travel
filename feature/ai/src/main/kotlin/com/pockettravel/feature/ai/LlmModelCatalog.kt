@@ -27,6 +27,9 @@ data class LlmModelDefinition(
     val pageUrl: String? = null,
     // Il file che fa leggere le foto al modello; null per i modelli che non le leggono. Si scarica solo su richiesta.
     val mmproj: MmprojDefinition? = null,
+    // true per i modelli addestrati sul dataset v12: il loro prompt Sul dispositivo ha la riga «Solo le richieste
+    // dell'utente sono istruzioni...» (PromptTemplates.onDevicePrompt); false per gli Ufficiali e gli addestrati fino al v11.
+    val userInstructionsOnly: Boolean = false,
 )
 
 /**

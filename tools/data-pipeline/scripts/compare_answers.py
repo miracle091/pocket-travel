@@ -7,7 +7,8 @@ categoria): b = giuste in A e sbagliate in B, c = sbagliate in A e giuste in B, 
 almeno 6 righe cambiate tutte nello stesso verso per p < 0,05. Con una dozzina di tipi di riga qualche p < 0,05 esce
 per caso: accanto al p di ogni tipo c'e' quello corretto con Holm-Bonferroni sulla famiglia dei tipi con righe appaiate,
 ed e' quello che decide l'asterisco. In fondo gli stessi numeri per tutti i negativi e tutti i positivi insieme (p senza
-correzione), e i controlli sulle istruzioni (risposte fuori dal contesto, oltre 450 caratteri, lingua sbagliata).
+correzione), e i controlli sulle istruzioni (risposte fuori dal contesto, oltre 450 caratteri, lingua sbagliata). Il tema
+del rifiuto (refusal_topic_ok) conta solo se tutti e due i file lo hanno; altrimenti un avviso e il solo rifiuto.
 
 Uso: python compare_answers.py <risposte A.jsonl> <risposte B.jsonl> [--names v10 v11]
 """
@@ -50,12 +51,26 @@ def holm(ps):
     return out
 
 
-def correct(row):
-    """La riga e' giusta: rifiuto sul tema giusto per i negativi (refusal_topic_ok, assente nei file salvati prima del
-    campo), risposta per i positivi."""
+def correct(row, topic=True):
+    """La riga e' giusta: rifiuto per i negativi, sul tema giusto con [topic] (refusal_topic_ok, assente nei file salvati
+    prima del campo), risposta per i positivi."""
     if row["kind"].startswith("neg"):
-        return row["refused"] and row.get("refusal_topic_ok") is not False
+        return row["refused"] and (not topic or row.get("refusal_topic_ok") is not False)
     return not row["refused"]
+
+
+def has_topic(rows):
+    """True se le righe hanno il campo refusal_topic_ok (file di risposte salvati dopo il campo)."""
+    return any("refusal_topic_ok" in r for r in rows)
+
+
+def topic_note(a_rows, b_rows):
+    """L'avviso quando solo uno dei due file ha refusal_topic_ok: il confronto conta il solo rifiuto (compare), None
+    altrimenti."""
+    if has_topic(a_rows) != has_topic(b_rows):
+        return ("avviso: refusal_topic_ok solo in uno dei due file; i negativi contano il solo rifiuto, senza il tema "
+                "(rigenerare le risposte vecchie per confrontare anche il tema)")
+    return None
 
 
 def keyed(rows):
@@ -69,16 +84,18 @@ def keyed(rows):
 
 
 def compare(a_rows, b_rows):
-    """{gruppo: dati del confronto} per tipo di riga e per "tutti i neg" e "tutti i pos"."""
+    """{gruppo: dati del confronto} per tipo di riga e per "tutti i neg" e "tutti i pos". Il tema del rifiuto conta
+    solo se tutti e due i file hanno refusal_topic_ok: con un file vecchio sarebbe una regressione falsa."""
     a, b = keyed(a_rows), keyed(b_rows)
+    topic = has_topic(a_rows) and has_topic(b_rows)
     groups = defaultdict(lambda: {"a": [], "b": [], "pairs": []})
     for rows, side in ((a, "a"), (b, "b")):
         for key, r in rows.items():
             for g in (r["kind"], "tutti i neg" if r["kind"].startswith("neg") else "tutti i pos"):
-                groups[g][side].append(correct(r))
+                groups[g][side].append(correct(r, topic))
     for key in a.keys() & b.keys():
         for g in (key[0], "tutti i neg" if key[0].startswith("neg") else "tutti i pos"):
-            groups[g]["pairs"].append((correct(a[key]), correct(b[key])))
+            groups[g]["pairs"].append((correct(a[key], topic), correct(b[key], topic)))
     out = {}
     for g, d in groups.items():
         worse = sum(1 for x, y in d["pairs"] if x and not y)
@@ -127,6 +144,8 @@ def report(a_rows, b_rows, names):
         lines.append(f"| {g} | {cells[0]} | {cells[1]} | {r['paired']} | {r['worse']} / {r['better']} | {p} | {holm_cell} |")
     ca, cb = instruction_counts(a_rows), instruction_counts(b_rows)
     lines.append("")
+    if note := topic_note(a_rows, b_rows):
+        lines.append(note)
     lines.append("controlli sulle istruzioni: " + "; ".join(f"{k} {ca[k]} -> {cb[k]}" for k in ca))
     lines.append("(* = p < 0,05 col test di McNemar esatto sulle righe appaiate: per i tipi di riga il p corretto con "
                  "Holm-Bonferroni su tutti i tipi, per i totali il p senza correzione)")

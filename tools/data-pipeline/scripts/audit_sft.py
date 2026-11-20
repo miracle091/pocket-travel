@@ -2,7 +2,10 @@
 """Controlla un dataset SFT (generate_sft.py) prima del training e, con --out, ne scrive una copia pulita.
 
 Ogni riga e' {"messages": [prompt dell'app, risposta], "kind": "pos"|"neg", "region", "category", "translated"}; il
-prompt e' quello di on_device_prompt (it o en), da cui si ricavano contesto e domanda.
+prompt e' quello di on_device_prompt (it o en, anche con la riga dei modelli v12), da cui si ricavano contesto e domanda.
+Le righe dei compiti del v12 (campo "task": "riordino" e "parole-di-ricerca", sft_retrieval.task_rows) hanno il prompt
+del compito (RERANK_PROMPT e SEARCH_WORDS_PROMPT di eval_retrieval.py): si controllano la forma del prompt e della
+risposta ("sì"/"no" secondo kind, da 3 a 5 parole), e restano fuori dalle statistiche della chat.
 
 Errori (con --strict il codice di uscita e' 1 se ce n'e' almeno uno):
 - riga malformata, o prompt in una lingua diversa da quella del dataset;
@@ -45,9 +48,17 @@ import generate_sft_dataset as it
 import generate_sft_dataset_en as en
 from eval_common import REFUSAL, REFUSAL_EN, TEST_REGIONS
 
-# (inizio del prompt fino a "CONTESTO: ", separatore prima della domanda): ricavati dalle funzioni vere dell'app
-PROMPTS = {"it": (it.on_device_prompt("", "").split("CONTESTO: ")[0] + "CONTESTO: ", "\n\nDOMANDA: "),
-           "en": (en.on_device_prompt("", "").split("CONTEXT: ")[0] + "CONTEXT: ", "\n\nQUESTION: ")}
+# ((inizi del prompt fino a "CONTESTO: ", senza e con la riga dei modelli v12), separatore prima della domanda):
+# ricavati dalle funzioni vere dell'app
+PROMPTS = {"it": (tuple(it.on_device_prompt("", "", v12).split("CONTESTO: ")[0] + "CONTESTO: " for v12 in (False, True)),
+                  "\n\nDOMANDA: "),
+           "en": (tuple(en.on_device_prompt("", "", v12).split("CONTEXT: ")[0] + "CONTEXT: " for v12 in (False, True)),
+                  "\n\nQUESTION: ")}
+# Righe dei compiti del v12 (campo "task", sft_retrieval.task_rows), con un prompt loro invece di quello della chat:
+# compito -> nome del modello di prompt in eval_retrieval.py ({lingua: testo con {q}, {place}, {text}})
+TASKS = {"riordino": "RERANK_PROMPT", "parole-di-ricerca": "SEARCH_WORDS_PROMPT"}
+SEARCH_WORDS = (3, 5)  # parole al minimo e al massimo nella risposta delle parole di ricerca
+_task_patterns = {}
 SPLIT = {"it": it.SENTENCE_END, "en": en.SENTENCE_END}
 FALLBACKS = {it.FALLBACK_CONTEXT, en.FALLBACK_CONTEXT}
 MARKUP = ("{{", "}}", "[[", "]]", "<ref", "&amp;", "&nbsp;", "()")
@@ -68,24 +79,63 @@ TOP = 5
 
 def prompt_lang(content):
     """"it" o "en" secondo l'inizio del prompt, None se non e' un prompt dell'app."""
-    return next((l for l, (head, _) in PROMPTS.items() if content.startswith(head)), None)
+    return next((l for l, (heads, _) in PROMPTS.items() if content.startswith(heads)), None)
+
+
+def task_parts(task, content):
+    """(lingua, {"q": domanda, "place": ..., "text": ...}) del prompt di un compito del v12, None se non ne ha la forma."""
+    if task not in _task_patterns:
+        import eval_retrieval
+        _task_patterns[task] = [(lang, re.compile(re.sub(r"\\\{(\w+)\\\}", r"(?P<\1>.*)", re.escape(template)), re.S))
+                                for lang, template in getattr(eval_retrieval, TASKS[task]).items()]
+    return next(((lang, m.groupdict()) for lang, rx in _task_patterns[task] if (m := rx.fullmatch(content))), None)
+
+
+def row_lang(row):
+    """La lingua del prompt di una riga (chat o compito del v12), None se non e' riconosciuto."""
+    content = row["messages"][0]["content"]
+    if row.get("task") in TASKS:
+        return (task_parts(row["task"], content) or (None,))[0]
+    return prompt_lang(content)
 
 
 def parse_row(row):
-    """(contesto, domanda, risposta) di una riga; ValueError se non e' nel formato del dataset."""
+    """(contesto, domanda, risposta) di una riga; ValueError se non e' nel formato del dataset. Nelle righe dei compiti
+    del v12 il contesto e' il testo della sezione candidata (vuoto per le parole di ricerca)."""
     try:
         user, assistant = row["messages"]
         if user["role"] != "user" or assistant["role"] != "assistant":
             raise ValueError("ruoli")
         content, answer = user["content"], assistant["content"]
+        if not isinstance(answer, str):
+            raise ValueError("risposta")
+        if "task" in row:
+            parts = task_parts(row["task"], content) if row["task"] in TASKS else None
+            if parts is None:
+                raise ValueError("prompt del compito")
+            return parts[1].get("text", ""), parts[1]["q"], answer
         lang = prompt_lang(content)
-        if lang is None or not isinstance(answer, str):
+        if lang is None:
             raise ValueError("prompt")
-        head, sep = PROMPTS[lang]
+        heads, sep = PROMPTS[lang]
+        head = next(h for h in heads if content.startswith(h))
         context, question = content[len(head):].rsplit(sep, 1)
         return context, question, answer
     except (KeyError, TypeError, ValueError, AttributeError) as e:
         raise ValueError(f"riga malformata: {e}") from e
+
+
+def task_errors(row, lang, answer):
+    """Motivi per cui la risposta di una riga di un compito del v12 e' sbagliata: per il riordino "sì"/"no" ("yes"/"no")
+    secondo kind pos/neg, per le parole di ricerca da 3 a 5 parole separate da virgole (kind pos)."""
+    import eval_retrieval
+    if row["task"] == "riordino":
+        yes, no = eval_retrieval.RERANK_ANSWERS[lang]
+        return [] if answer == (yes if row["kind"] == "pos" else no) else ["risposta-riordino"]
+    words = [w.strip() for w in answer.split(",")]
+    ok = (row["kind"] == "pos" and SEARCH_WORDS[0] <= len(words) <= SEARCH_WORDS[1]
+          and all(re.fullmatch(r"[^\W\d_]+", w) for w in words))
+    return [] if ok else ["risposta-parole-di-ricerca"]
 
 
 def is_refusal(answer):
@@ -145,16 +195,19 @@ def hard_errors(row, lang):
     if kind not in ("pos", "neg") or not isinstance(region, str) or not region or not isinstance(category, str):
         return ["malformata"]
     errors = []
-    if lang and prompt_lang(row["messages"][0]["content"]) != lang:
+    if lang and row_lang(row) != lang:
         errors.append("prompt-lingua")
-    if len(context) > it.MAX_CONTEXT:
-        errors.append("contesto-lungo")
-    if not answer.strip():
-        errors.append("risposta-vuota")
-    elif len(answer) > it.MAX_ANSWER:
-        errors.append("risposta-lunga")
-    elif kind == "pos" and not is_refusal(answer) and not is_extractive(category, context, answer):
-        errors.append("non-estrattiva")
+    if "task" in row:
+        errors += task_errors(row, row_lang(row), answer)
+    else:
+        if len(context) > it.MAX_CONTEXT:
+            errors.append("contesto-lungo")
+        if not answer.strip():
+            errors.append("risposta-vuota")
+        elif len(answer) > it.MAX_ANSWER:
+            errors.append("risposta-lunga")
+        elif kind == "pos" and not is_refusal(answer) and not is_extractive(category, context, answer):
+            errors.append("non-estrattiva")
     if "�" in context + answer:
         errors.append("fffd")
     if any(m in context or m in answer for m in MARKUP):
@@ -179,10 +232,10 @@ def find_drops(entries, lang, max_repeats=None):
             context, question, _ = parse_row(row)
             if raw in seen_raw:
                 errs = ["riga-duplicata"]
-            elif (context, question) in seen_pair:
+            elif (row.get("task"), context, question) in seen_pair:  # un compito del v12 non ripete la chat
                 errs = ["contesto-domanda-duplicati"]
             seen_raw.add(raw)
-            seen_pair.add((context, question))
+            seen_pair.add((row.get("task"), context, question))
         errors.append(errs)
         if errs:
             drops.append(errs[0])
@@ -322,10 +375,16 @@ def lines_of(indexes, n=3):
 def report(path, entries, lang, max_repeats, eval_rows=None, measured=None):
     """Stampa il rapporto; ritorna (numero di righe con errori, righe da togliere per motivo)."""
     errors, drops = find_drops(entries, lang, max_repeats)
-    rows = [(i, row) for i, (_, row) in enumerate(entries) if row is not None and "malformata" not in errors[i]]
+    all_rows = [(i, row) for i, (_, row) in enumerate(entries) if row is not None and "malformata" not in errors[i]]
+    # Le statistiche della chat (rifiuti, frasi, lingua, domande) senza le righe dei compiti del v12, contate a parte
+    rows = [(i, row) for i, row in all_rows if "task" not in row]
     parsed = [(i, row, *parse_row(row)) for i, row in rows]
     kinds = Counter(row["kind"] for _, row in rows)
-    print(f"audit di {path} (lingua {lang}): {len(entries)} righe, pos {kinds['pos']} neg {kinds['neg']}")
+    print(f"audit di {path} (lingua {lang}): {len(entries)} righe, chat pos {kinds['pos']} neg {kinds['neg']}")
+    tasks = Counter((row["task"], row["kind"]) for _, row in all_rows if "task" in row)
+    if tasks:
+        print("compiti del v12: " + ", ".join(f"{t} {tasks[t, 'pos'] + tasks[t, 'neg']} (pos {tasks[t, 'pos']}, neg {tasks[t, 'neg']})"
+                                              for t in TASKS))
 
     bad = [i for i, e in enumerate(errors) if e]
     print(f"errori: {len(bad)} righe" if bad else "errori: nessuno")
@@ -378,11 +437,11 @@ def report(path, entries, lang, max_repeats, eval_rows=None, measured=None):
           + (f" (righe {lines_of(mixed)})" if mixed else ""))
 
     if eval_rows is not None:
-        same_q, same_ctx = leakage([row for _, row in rows], eval_rows)
+        same_q, same_ctx = leakage([row for _, row in all_rows], eval_rows)
         print(f"test esteso: {len(eval_rows)} righe | training con stessa domanda e regione: {same_q}, stesso contesto: {same_ctx}")
 
     if measured is not None:
-        near = near_measured(rows, measured)
+        near = near_measured(all_rows, measured)
         print(f"domande quasi uguali a quelle delle serie di eval_retrieval.py (stessa regione): {len(near)}"
               + (" | " + "; ".join(f"riga {i + 1}: {short(q, 40)} ~ {short(o, 40)}" for i, q, o in near[:3]) if near else ""))
 

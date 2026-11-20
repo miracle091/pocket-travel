@@ -42,6 +42,15 @@ class AnswersTest(unittest.TestCase):
         self.assertTrue(regressions[0].startswith("tutti i pos: 90.0% -> 80.0%"))
         self.assertTrue(regressions[1].startswith("pos_para: peggio in 10 righe"))
 
+    def test_file_vecchio_senza_tema_del_rifiuto_non_da_regressioni_false(self):
+        # il nuovo rifiuta come il vecchio, ma col tema sbagliato secondo il campo che il file vecchio non ha
+        new = [dict(r, refusal_topic_ok=False if r["kind"] == "neg_city" else None) for r in rows(95, 90)]
+        lines, regressions = answer_regressions(rows(95, 90), new, 3.0)
+        self.assertEqual([], regressions)
+        self.assertTrue(lines[0].startswith("avviso: refusal_topic_ok solo in uno dei due file"))
+        # con il campo nei due file il tema conta
+        self.assertEqual(2, len(answer_regressions([dict(r, refusal_topic_ok=True) for r in rows(95, 90)], new, 3.0)[1]))
+
     def test_un_miglioramento_non_e_una_regressione(self):
         self.assertEqual([], answer_regressions(rows(80, 80), rows(99, 99), 3.0)[1])
 

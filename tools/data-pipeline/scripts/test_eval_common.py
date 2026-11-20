@@ -24,12 +24,15 @@ LLAMA_CHAT = (REPO / "third-party/llama-cpp/src/llama-chat.cpp").read_text(encod
 AI_CHAT = (REPO / "feature/ai/src/main/cpp/ai_chat.cpp").read_text(encoding="utf-8")
 
 
-def kotlin_prompt(branch, context, question):
-    """Il testo di onDevicePrompt in PromptTemplates.kt per un ramo ("en" o "it"), con contesto e domanda."""
+def kotlin_prompt(branch, context, question, user_instructions_only=False):
+    """Il testo di onDevicePrompt in PromptTemplates.kt per un ramo ("en" o "it"), con contesto e domanda; la riga
+    `(if (userInstructionsOnly) "..." else "")` solo con [user_instructions_only]."""
     # Fino alla dichiarazione dopo (il suo commento o la sua fun): dopo onDevicePrompt vengono altri prompt.
     body = re.split(r"\n    (?:/\*\*|fun )", PROMPT_TEMPLATES.split("fun onDevicePrompt(")[1].split('if (language == "en") {')[1])[0]
     en, it = body.split("} else {")
-    literals = re.findall(r'"((?:[^"\\]|\\.)*)"', en if branch == "en" else it)
+    branch_body = re.sub(r'\(if \(userInstructionsOnly\) ("(?:[^"\\]|\\.)*") else ""\)',
+                         lambda m: m.group(1) if user_instructions_only else "", en if branch == "en" else it)
+    literals = re.findall(r'"((?:[^"\\]|\\.)*)"', branch_body)
     return "".join(literals).replace("\\n", "\n").replace("$context", context).replace("$question", question)
 
 
@@ -38,6 +41,20 @@ class PromptTest(unittest.TestCase):
         for lang in ("it", "en"):
             self.assertEqual(on_device_prompt("Il treno arriva.", "Come arrivo?", lang),
                              kotlin_prompt(lang, "Il treno arriva.", "Come arrivo?"))
+
+    def test_prompt_v12_come_l_app(self):
+        import generate_sft_dataset
+        import generate_sft_dataset_en
+        generators = {"it": generate_sft_dataset.on_device_prompt, "en": generate_sft_dataset_en.on_device_prompt}
+        for lang in ("it", "en"):
+            app = kotlin_prompt(lang, "Il treno arriva.", "Come arrivo?", user_instructions_only=True)
+            self.assertIn(eval_common.USER_INSTRUCTIONS_ONLY[lang], app)
+            self.assertEqual(on_device_prompt("Il treno arriva.", "Come arrivo?", lang, user_instructions_only=True), app)
+            self.assertEqual(generators[lang]("Il treno arriva.", "Come arrivo?", user_instructions_only=True), app)
+            self.assertEqual(generators[lang]("Il treno arriva.", "Come arrivo?"), kotlin_prompt(lang, "Il treno arriva.", "Come arrivo?"))
+            # Le righe di test scritte col prompt di prima ricevono la stessa riga (eval_gguf.py --user-instructions-only)
+            self.assertEqual(eval_common.with_user_instructions_only(on_device_prompt("Il treno arriva.", "Come arrivo?", lang)), app)
+            self.assertEqual(eval_common.with_user_instructions_only(app), app)
 
     def test_contesto_vuoto_come_l_app(self):
         en, it = re.search(r'emptyContext.*?"en"\) "([^"]*)" else "([^"]*)"', PROMPT_TEMPLATES, re.S).groups()

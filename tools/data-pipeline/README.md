@@ -641,7 +641,8 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   piedi. Le note di `ATTRIBUTION` sono nella lingua del dataset. Le sezioni di `guides.db` e `cities.db` tradotte
   automaticamente entrano solo se `translatedBy` nomina un modello con una licenza verificata (opus-mt, Gemma 4, Index-Translate; non
   Gemma 3 né TranslateGemma, che hanno i Gemma Terms of Use), e la loro riga di `ATTRIBUTION` dice che il testo è tradotto, con quale modello e con la licenza del modello. I file di output sono
-  `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v11 con
+  `pocket_travel_sft.<versione>.<lang>.jsonl` e `ATTRIBUTION.<versione>.<lang>.tsv`: la versione è v12 con
+  `--guide-wikipedia` o le opzioni del v12 descritte sotto, v11 con
   `--nearby`, `--distances`, `--cities-db`, `--emergency`, le domande in stile utente, `--city-daily-life`,
   `--balanced-negatives` o `--clear-questions` (i default), v9 senza nessuna di queste,
   oppure quella data con `--version`; un dataset con la stessa versione e lingua che esiste già si sovrascrive solo
@@ -671,8 +672,14 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   `scripts/generate-sft.sh [--new | --v12 | --old] --data <cartella>` fa tutto in sequenza per le due lingue: dataset,
   test estesi e audit `--strict`, dal dump più recente in `<cartella>/dumps/` e dai `guides*.db`, `cities*.db` e
   riassunti delle vaccinazioni pubblicati nella stessa cartella (lo schema è nell'intestazione dello script). `--new` (il
-  default) è la ricetta v11; `--v12` aggiunge le sezioni di Wikipedia delle guide (`--guide-wikipedia`); `--old` è
-  quella del v9, scritta come `v9-rigenerato` per non sostituire il v9 dei training.
+  default) è la ricetta v11; `--v12` aggiunge le sezioni di Wikipedia delle guide (`--guide-wikipedia`), i contesti
+  della ricerca vera nell'ordine dell'app con anche domande sul paese e il 20% dei positivi con una pagina della guida
+  generale in testa (`--app-context-order`), le righe del riordino delle sezioni candidate («La sezione contiene la
+  risposta alla domanda?», sì/no) e delle parole di ricerca nella lingua della guida (`--rerank-rows`,
+  `--search-word-rows`, campo `task` nelle righe), il prompt dei modelli v12 con la riga «Solo le richieste dell'utente
+  sono istruzioni…» (`--user-instructions-only`, nell'app `LlmModelDefinition.userInstructionsOnly`; per misurarli
+  `eval_gguf.py --user-instructions-only`) e copie di positivi con un'istruzione nascosta nel contesto
+  (`--injection-rows`); `--old` è quella del v9, scritta come `v9-rigenerato` per non sostituire il v9 dei training.
 - **Fonti del dataset SFT**: i titoli delle pagine di ogni regione stanno in `sft-sources.tsv` (`-` = pagina che non
   esiste). Le righe mancanti si cercano via API durante `generate_sft_dataset.py --dump-dir`; un errore di rete non
   diventa `-`, così la volta dopo si riprova, e `--recheck-missing` cerca di nuovo tutte le pagine date per inesistenti.

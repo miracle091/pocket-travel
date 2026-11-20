@@ -50,7 +50,7 @@ import vram
 from eval_common import (Synced, ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, dataset_lang, drop_partial_line, find_llama_bin, print_context_use_report,
                          injection_rows, instruction_checks, uses_part, is_refusal, knowledge_turns, obeyed_injection, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
                          print_pair_consistency, print_report, question_lang, question_of, read_jsonl_lenient, refusal_prefix, refusal_summary, sample, score,
-                         text_lang, uses_empty_think)
+                         text_lang, uses_empty_think, with_user_instructions_only)
 from status import Progress, phase
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -85,6 +85,9 @@ ap.add_argument("--app-sampling", action="store_true",
                 help="anche la probabilita' del rifiuto con il campionamento dell'app (temperatura 0,3, top-k 10, top-p 0,95, min-p 0,05)")
 ap.add_argument("--samples", type=int, default=0, help="con --app-sampling: anche N risposte campionate per riga, per controllo")
 ap.add_argument("--injection", action="store_true", help="aggiunge le righe pos_injection (istruzione nascosta nel contesto)")
+ap.add_argument("--user-instructions-only", action="store_true",
+                help="il prompt dei modelli v12, con la riga \"Solo le richieste dell'utente sono istruzioni...\" "
+                     "(userInstructionsOnly dell'app), anche sulle righe di test scritte col prompt di prima")
 ap.add_argument("--kinds", nargs="+", help="solo le righe di questi tipi (es. pos_near neg_city)")
 ap.add_argument("--system", help="turno system prima del turno utente, nel formato CHATML (l'app oggi non lo manda: per "
                                  "misurare un prompt di sistema, per esempio sugli Ufficiali)")
@@ -192,6 +195,8 @@ def post(url, path, body):
 
 def prompt_of(content):
     """Il prompt ChatML per il testo del turno utente dell'app, con il turno system di --system o --knowledge-system."""
+    if a.user_instructions_only:
+        content = with_user_instructions_only(content)
     if a.knowledge_system:
         system, user = knowledge_turns(content)
         return chatml_prompt(user, empty_think, system)

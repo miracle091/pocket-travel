@@ -67,6 +67,60 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(errors(row, "en"), [])
 
 
+class V12Test(unittest.TestCase):
+    """Prompt dei modelli v12 e righe dei compiti del v12 (riordino e parole di ricerca, campo "task")."""
+
+    def task(self, task, content, answer, kind="pos", lang="it"):
+        return {"messages": [{"role": "user", "content": content}, {"role": "assistant", "content": answer}],
+                "kind": kind, "region": "citta:Siviglia", "category": "RIORDINO", "task": task, "translated": False}
+
+    def test_prompt_con_la_riga_sulle_istruzioni(self):
+        for lang in ("it", "en"):
+            row = make(GUIDE[lang], QUESTION[lang], GUIDE[lang].split(". ")[0] + ".", lang=lang)
+            row["messages"][0]["content"] = PROMPT[lang](GUIDE[lang], QUESTION[lang], user_instructions_only=True)
+            self.assertEqual(parse_row(row)[:2], (GUIDE[lang], QUESTION[lang]))
+            self.assertEqual(errors(row, lang), [])
+
+    def test_riordino(self):
+        import eval_retrieval as er
+        for lang in ("it", "en"):
+            yes, no = er.RERANK_ANSWERS[lang]
+            content = er.RERANK_PROMPT[lang].format(q=QUESTION[lang], place="Siviglia, Dove alloggiare", text=GUIDE[lang])
+            self.assertEqual(parse_row(self.task("riordino", content, yes)), (GUIDE[lang], QUESTION[lang], yes))
+            self.assertEqual(errors(self.task("riordino", content, yes, lang=lang), lang), [])
+            self.assertEqual(errors(self.task("riordino", content, no, "neg", lang), lang), [])
+            self.assertEqual(errors(self.task("riordino", content, no, lang=lang), lang), ["risposta-riordino"])
+            self.assertEqual(errors(self.task("riordino", content, "forse", "neg", lang), lang), ["risposta-riordino"])
+        content = er.RERANK_PROMPT["en"].format(q="q", place="p", text="t")
+        self.assertEqual(errors(self.task("riordino", content, "yes"), "it"), ["prompt-lingua"])
+        self.assertEqual(errors(self.task("riordino", "Domanda: q", "sì"), "it"), ["malformata"])
+
+    def test_parole_di_ricerca(self):
+        import eval_retrieval as er
+        content = er.SEARCH_WORDS_PROMPT["it"].format(q="Where can I sleep cheaply in Seville?")
+        self.assertEqual(parse_row(self.task("parole-di-ricerca", content, "x"))[:2], ("", "Where can I sleep cheaply in Seville?"))
+        self.assertEqual(errors(self.task("parole-di-ricerca", content, "hotel, camere, ostello")), [])
+        for answer in ("hotel, camere", "a, b, c, d, e, f", "hotel camere ostello", "hotel, 40 euro, ostello"):
+            self.assertEqual(errors(self.task("parole-di-ricerca", content, answer)), ["risposta-parole-di-ricerca"], answer)
+        self.assertEqual(errors(self.task("parole-di-ricerca", content, "hotel, camere, ostello", "neg")),
+                         ["risposta-parole-di-ricerca"])
+
+    def test_statistiche_della_chat_senza_i_compiti(self):
+        import eval_retrieval as er
+        chat = make(GUIDE["it"], QUESTION["it"], "Il museo apre alle 9.")
+        task = self.task("riordino", er.RERANK_PROMPT["it"].format(q="q", place="p", text="t"), "no", "neg")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "d.it.jsonl"
+            path.write_text(json.dumps(chat) + "\n" + json.dumps(task) + "\n", encoding="utf-8")
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                n_bad, _ = audit_sft.report(path, load(path), "it", None)
+        self.assertEqual(n_bad, 0)
+        self.assertIn("chat pos 1 neg 0", out.getvalue())
+        self.assertIn("riordino 1 (pos 0, neg 1)", out.getvalue())
+        self.assertIn("rifiuti: 0.0%", out.getvalue())
+
+
 class LimitsTest(unittest.TestCase):
     def test_contesto_lungo(self):
         ctx = ("Il museo apre alle 9. " * 200)[:it.MAX_CONTEXT + 1]
