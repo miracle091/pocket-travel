@@ -64,6 +64,18 @@ def clean(text):
     return " ".join(text.replace("'''", "").replace("''", "").split()).rstrip("*").rstrip()
 
 
+def en_phrasebooks(pages):
+    """{titolo: testo} dei frasari "… phrasebook" in [pages] di load_en_dump, col titolo della pagina e non dei redirect:
+    load_en_dump mette prima le pagine e poi i redirect, con lo stesso oggetto testo della pagina di arrivo."""
+    seen, books = set(), {}
+    for title, text in pages.items():
+        if id(text) not in seen:
+            seen.add(id(text))
+            if title.endswith(" phrasebook"):
+                books[title] = text
+    return books
+
+
 def phrasebook_pairs(text, lang):
     """[(frase nella lingua del frasario, traduzione)] di un frasario di Wikivoyage: {{Traduzione|italiano|straniero|...}}
     nei frasari italiani, `; english : straniero (''pronuncia'')` dopo il titolo "Phrase list" in quelli inglesi. Fuori

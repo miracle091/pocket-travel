@@ -1921,8 +1921,7 @@ def main():
         if lang == "it":
             books = {t: x for t, x in texts_it.items() if "{{Frasario" in x}
         else:
-            # pages_en ha anche i titoli dei redirect con il testo della pagina: un frasario una volta sola
-            books = {t: x for x, t in {x: t for t, x in sorted(pages_en.items(), reverse=True) if t.endswith(" phrasebook")}.items()}
+            books = sft_selected_text.en_phrasebooks(pages_en)
         site = "it" if lang == "it" else "en"
         pairs = [(f"frasario:{t}", f"https://{site}.wikivoyage.org/wiki/{urllib.parse.quote(t.replace(' ', '_'))}", mine, theirs)
                  for t, x in sorted(books.items()) for mine, theirs in sft_selected_text.phrasebook_pairs(x, lang)]

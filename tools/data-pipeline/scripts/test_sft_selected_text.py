@@ -81,6 +81,13 @@ class PhrasebookTest(unittest.TestCase):
         self.assertEqual([p[2] for p in st.drop_reversed(pairs) if p[0] == "frasario:Japanese"], ["Exit"])
         self.assertEqual(len(st.drop_reversed(pairs[1:])), 21)  # 19 frasari non bastano
 
+    def test_frasari_inglesi_col_titolo_della_pagina_non_del_redirect(self):
+        # come load_en_dump: prima le pagine, poi i redirect con lo stesso testo della pagina di arrivo
+        indonesian, hokkaido = "== Phrase list ==\n; Thank you : Terima kasih", "Hokkaido is an island."
+        pages = {"Indonesian phrasebook": indonesian, "Hokkaido": hokkaido}
+        pages.update({"Bahasa Indonesia phrasebook": indonesian, "Ainu phrasebook": hokkaido})
+        self.assertEqual(st.en_phrasebooks(pages), {"Indonesian phrasebook": indonesian})
+
 
 GUIDE = ("Gli autobus urbani costano 1,50 euro e il biglietto si compra dal tabaccaio prima di salire.\n"
          "Il museo civico apre alle 9 e chiude alle 18, il lunedi' e' chiuso.")
