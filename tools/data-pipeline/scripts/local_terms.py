@@ -86,6 +86,10 @@ NOT_A_TERM_TYPES = {
     "Q108704490", "Q7748", "Q49371", "Q2647483", "Q21994376", "Q1006311", "Q1464916", "Q3771738", "Q1572600", "Q49773", "Q7257",
     "Q51404", "Q3001412",
 }
+# Stesso scarto per i tipi sottoclasse (P279*) di impresa, edificio e programma televisivo: birrifici, catene di pizzerie,
+# mercati chiusi, serie TV (Gubernija, Telepizza, Satay Club, "Food and Drink") hanno tipi che l'elenco sopra non ha.
+# Non "organizzazione": su Wikidata ne e' sottoclasse anche la parata (Chingay, Singapore).
+NOT_A_TERM_CLASSES = {"Q4830453", "Q41176", "Q15416"}
 NATIONAL_CUISINE = "Q1968435"
 LIST_TITLE = re.compile(r"^(list of|lists of|lista d|elenco d|glossar)", re.I)
 # La cucina di un paese o di una regione ("Sichuan cuisine", "Cuisine of Quebec", "Cucina cantonese") spiega un insieme di
@@ -161,6 +165,18 @@ def _expired(deadline):
 
 def _sparql(query):
     return city_population._get(SPARQL + urllib.parse.quote(query))["results"]["bindings"]
+
+
+def subclasses(types, roots, deadline):
+    """Quali tipi di [types] sono sottoclasse (P279*) di uno di [roots], a blocchi per la lunghezza dell'URL."""
+    todo, out = sorted(types), set()
+    for i in range(0, len(todo), 200):
+        if _expired(deadline):
+            break
+        rows = _sparql(f"SELECT DISTINCT ?t WHERE {{ VALUES ?t {{ {' '.join('wd:' + q for q in todo[i:i + 200])} }} "
+                       f"VALUES ?r {{ {' '.join('wd:' + q for q in sorted(roots))} }} ?t wdt:P279* ?r }}")
+        out |= {r["t"]["value"].rsplit("/", 1)[-1] for r in rows}
+    return out
 
 
 def countries(items):
@@ -263,10 +279,10 @@ def existing_articles(titles, lang, deadline):
 
 def excluded_items(items, deadline, country=None, topic_cache=None):
     """(elementi Wikidata con un tipo (P31) di EXCLUDED_TYPES, o di NOT_A_TERM_TYPES senza un tipo di TOPICS ([topic_cache]:
-    topic_types), o generici, cioe' noti in molte lingue e senza un paese (GENERIC_LINKS); elementi non legati a [country]:
-    senza paese d'origine (P495) e con un paese (P17) diverso o nessuno). I secondi restano candidati, ma solo se la loro
-    introduzione nomina il paese (mentions)."""
-    out, untied, items, maybe = set(), set(), sorted(items), {}
+    topic_types) o di NOT_A_TERM_CLASSES, o generici, cioe' noti in molte lingue e senza un paese (GENERIC_LINKS); elementi non
+    legati a [country]: senza paese d'origine (P495) e con un paese (P17) diverso o nessuno). I secondi restano candidati, ma
+    solo se la loro introduzione nomina il paese (mentions)."""
+    out, untied, items, typed = set(), set(), sorted(items), {}
     for i in range(0, len(items), city_population.BATCH):
         if _expired(deadline):
             break
@@ -280,11 +296,12 @@ def excluded_items(items, deadline, country=None, topic_cache=None):
             if types & EXCLUDED_TYPES or (countryless and len(entity.get("sitelinks", {})) >= GENERIC_LINKS):
                 out.add(q)
             else:
-                if types & NOT_A_TERM_TYPES:
-                    maybe[q] = types
+                typed[q] = types
                 if not claims.get("P495") and country not in ids("P17"):
                     untied.add(q)
         time.sleep(0.2)
+    classes = subclasses({t for types in typed.values() for t in types}, NOT_A_TERM_CLASSES, deadline)
+    maybe = {q: types for q, types in typed.items() if types & (NOT_A_TERM_TYPES | classes)}
     if maybe:
         topics = topic_types({t for types in maybe.values() for t in types}, {} if topic_cache is None else topic_cache)
         out |= {q for q, types in maybe.items() if not types & topics}

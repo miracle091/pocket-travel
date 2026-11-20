@@ -99,7 +99,8 @@ class ExcludedItemsTest(unittest.TestCase):
                     "Q927083": entity(18, ["Q13406463"]), "Q1": entity(5, ["Q5"]), "Q2": {"claims": {}},
                     "Q746": entity(300, ["Q746549"], P495=["Q38"]), "Q10": entity(140, ["Q1197685"], P17=["Q38"]),
                     "Q11": entity(120, [])}
-        with mock.patch("local_terms.city_population._get", return_value={"entities": entities}), mock.patch("time.sleep"):
+        with mock.patch("local_terms.city_population._get", return_value={"entities": entities}), mock.patch("time.sleep"), \
+                mock.patch("local_terms._sparql", return_value=[]):
             excluded, untied = local_terms.excluded_items(set(entities), float("inf"), country="Q38")
         self.assertEqual({"Q35625", "Q927083", "Q1", "Q11"}, excluded)
         # senza P495 e con un paese diverso o nessuno: la voce resta, ma solo se l'introduzione nomina il paese
@@ -119,6 +120,16 @@ class NotATermTypesTest(unittest.TestCase):
             excluded, untied = local_terms.excluded_items(set(entities), float("inf"), country="Q33", topic_cache={})
         self.assertEqual({"Q1", "Q3"}, excluded)
         self.assertEqual({"Q2", "Q4"}, untied)
+
+    def test_sottoclassi_di_impresa_scartate_salvo_un_tipo_di_un_argomento(self):
+        # Q131734 birrificio, Q18534572 catena di pizzerie: sottoclassi di impresa; Q746549 piatto
+        entities = {"Q1": self.entity(["Q131734"]), "Q2": self.entity(["Q18534572", "Q746549"]), "Q3": self.entity(["Q746549"])}
+        under = lambda *qs: [{"t": {"value": f"http://www.wikidata.org/entity/{q}"}} for q in qs]
+        with mock.patch("local_terms.city_population._get", return_value={"entities": entities}), mock.patch("time.sleep"), \
+                mock.patch("local_terms._sparql", side_effect=[under("Q131734", "Q18534572"), under("Q746549")]) as sparql:
+            excluded, _ = local_terms.excluded_items(set(entities), float("inf"), country="Q33", topic_cache={})
+        self.assertEqual({"Q1"}, excluded)
+        self.assertIn("wd:Q4830453", sparql.call_args_list[0].args[0])
 
 
 class CountryTermsTest(unittest.TestCase):
