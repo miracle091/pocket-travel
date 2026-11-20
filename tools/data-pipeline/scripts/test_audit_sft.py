@@ -320,6 +320,45 @@ class DuplicatesTest(unittest.TestCase):
         self.assertEqual(drops, ["malformata"])
 
 
+def multi_turn(last, before=(("Cosa vedere in Francia?", "La Torre Eiffel."),), turns="seguito"):
+    """[last] (riga a un turno) con i turni [before] davanti, come le righe di sft_multi_turn.py."""
+    msgs = [m for q, a in before for m in ({"role": "user", "content": q}, {"role": "assistant", "content": a})]
+    return {**last, "messages": msgs + last["messages"], "category": "PIU_TURNI", "turns": turns}
+
+
+class MultiTurnTest(unittest.TestCase):
+    def test_controlli_sull_ultimo_turno(self):
+        good = multi_turn(make(GUIDE["it"], "E a che ora apre?", "Il museo apre alle 9."))
+        self.assertEqual(parse_row(good), (GUIDE["it"], "E a che ora apre?", "Il museo apre alle 9."))
+        self.assertEqual([], errors(good))
+        # la risposta dell'ultimo turno viene solo dall'ultimo contesto, non dai turni prima
+        copied = multi_turn(make(GUIDE["it"], "E a che ora apre?", "La Torre Eiffel."))
+        self.assertEqual(["non-estrattiva"], errors(copied))
+
+    def test_turni_prima_compattati(self):
+        full_prompt = PROMPT["it"](GUIDE["it"], "Quanto costa?")
+        last = make(GUIDE["it"], "E a che ora apre?", "Il museo apre alle 9.")
+        self.assertEqual(["turno-prima-non-compattato"], errors(multi_turn(last, ((full_prompt, "Costa 10 euro."),))))
+        self.assertEqual(["turno-prima-vuoto"], errors(multi_turn(last, (("Quanto costa?", " "),))))
+        self.assertEqual(["risposta-lunga"], errors(multi_turn(last, (("Quanto costa?", "x" * 451),))))
+        self.assertEqual(["markup-residuo"], errors(multi_turn(last, (("Quanto costa?", "Vedi [[Parigi]]."),))))
+
+    def test_malformate(self):
+        last = make(GUIDE["it"], "E a che ora apre?", "Il museo apre alle 9.")
+        good = multi_turn(last)
+        self.assertEqual(["malformata"], errors({**good, "messages": good["messages"][1:]}))  # numero dispari
+        self.assertEqual(["malformata"], errors({**good, "messages": good["messages"][:1] + good["messages"]}))  # ruoli
+        no_turns = dict(good)
+        del no_turns["turns"]
+        self.assertEqual(["malformata"], errors(no_turns))
+
+    def test_stesso_ultimo_turno_con_turni_prima_diversi_non_e_un_duplicato(self):
+        single = make(GUIDE["it"], "Quando apre?", "Il museo apre alle 9.")
+        a, b = multi_turn(single, turns="cambio"), multi_turn(single, (("Cosa si mangia in Francia?", "Il formaggio."),), "cambio")
+        entries = [(json.dumps(r, ensure_ascii=False), r) for r in (single, a, b, a)]
+        self.assertEqual([[], [], [], ["riga-duplicata"]], find_drops(entries, "it")[0])
+
+
 class RepeatsTest(unittest.TestCase):
     def rows(self, n, category, question="Cosa e' la luna?"):
         return [(json.dumps(r), r) for r in (make(f"{GUIDE['it']} {i}", question, refusal("it"), kind="neg", category=category)

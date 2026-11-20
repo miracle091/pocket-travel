@@ -53,10 +53,10 @@ def check_chat_format(tok, rows):
         fail("il chat template ha ancora il thinking")
     if len(tok("<|im_end|>", add_special_tokens=False)["input_ids"]) != 1:
         fail("<|im_end|> non e' un token unico per questo tokenizer: il modello non e' ChatML")
-    for r in rows:
-        user, answer = (m["content"] for m in r["messages"][:2])
+    for r in rows:  # righe a piu' turni del v12: i turni prima nel prompt, la risposta e' l'ultima
+        *history, user, answer = r["messages"]
         got = chat_prompt_and_answer(tok, r["messages"])
-        want = (chatml_prompt(user), chatml_answer(answer))
+        want = (chatml_prompt(user["content"], history=history), chatml_answer(answer["content"]))
         if got != want:
             fail(f"testo di training diverso dal ChatML dell'app\n  atteso: {want!r:.300}\n  ottenuto: {got!r:.300}")
 

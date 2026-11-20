@@ -13,7 +13,9 @@
 #           le righe del riordino e delle parole di ricerca (--rerank-rows, --search-word-rows), il prompt dei modelli v12
 #           (--user-instructions-only), le istruzioni nascoste nel contesto (--injection-rows) e le righe sul testo
 #           selezionato in un'altra app (--selected-text-rows), i rifiuti sulle domande a cui le guide non rispondono
-#           (--unanswerable-rows) e le domande dai prompt di viaggio di prompts.chat (--prompts-chat-questions)
+#           (--unanswerable-rows), le domande dai prompt di viaggio di prompts.chat (--prompts-chat-questions) e le
+#           righe a piu' turni con i turni prima compattati a domanda e risposta (--multi-turn-rows; il tokenizer di
+#           Qwen3.5 dalla cache di Hugging Face o dalla rete)
 #   --old   la ricetta vecchia (v9): citta', fatti rapidi, note e vaccinazioni, senza le opzioni nuove. Le fonti sono
 #           cambiate da allora, quindi il file non e' identico al v9 dei training: si chiama v9-rigenerato e non
 #           sostituisce pocket_travel_sft.v9.*.jsonl (per farlo, --version v9 --overwrite)
@@ -88,7 +90,7 @@ for lang in $LANGS; do
            --retrieval-cache "$DATA/retrieval-cache")
     [ "$RECIPE" = new ] || args+=(--guide-wikipedia --app-context-order --rerank-rows 3000 --search-word-rows 800
                                      --user-instructions-only --injection-rows 400 --selected-text-rows 600
-                                     --unanswerable-rows 400 --prompts-chat-questions 0.03)
+                                     --unanswerable-rows 400 --prompts-chat-questions 0.03 --multi-turn-rows 1500)
   else
     args+=(--user-style-questions 0 --no-city-daily-life --no-balanced-negatives --no-clear-questions --no-guide-sections)
   fi

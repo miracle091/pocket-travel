@@ -25,6 +25,8 @@ Dopo le metriche dei rifiuti, i controlli sulle istruzioni (instruction_checks d
 risposte gia' salvate. Con --system "<testo>" il prompt ha prima un turno system (l'app non lo manda): serve a misurare
 un prompt di sistema, per esempio sugli Ufficiali, con le stesse domande. Con --knowledge-system il contesto va invece
 nel turno system nel formato di Qwen-Agent ("# Knowledge Base"), e nel turno utente restano istruzioni e domanda.
+Con --multi-turn le righe a piu' turni delle regioni di test (dataset v12): i turni prima con sola domanda e risposta,
+nell'ultimo il prompt completo, rifiuti per tipo (seguito, cambio di argomento, rifiuto) come nel test esteso.
 Stesse regioni di test di train_lora.py (TEST_REGIONS in eval_common.py) e stesse metriche di eval_behavior.py; decodifica
 greedy (temperature 0, top-k 1). Il modello si carica una volta sola in llama-server e ogni riga e' una
 richiesta /completion. Il prompt e' lo stesso ChatML "grezzo" (chatml_prompt di eval_common.py) che
@@ -52,6 +54,9 @@ from eval_common import (Synced, ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASE
                          print_pair_consistency, print_report, question_lang, question_of, read_jsonl_lenient, refusal_prefix, refusal_summary, sample, score,
                          text_lang, uses_empty_think, with_user_instructions_only)
 from status import Progress, phase
+
+# Tipo di riga per --multi-turn, dal campo "turns" delle righe a piu' turni (sft_multi_turn.py)
+MULTI_TURN_KINDS = {"seguito": "pos_turni_seguito", "cambio": "pos_turni_cambio", "rifiuto": "neg_turni"}
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 ap.add_argument("model", type=Path)
@@ -88,6 +93,9 @@ ap.add_argument("--injection", action="store_true", help="aggiunge le righe pos_
 ap.add_argument("--user-instructions-only", action="store_true",
                 help="il prompt dei modelli v12, con la riga \"Solo le richieste dell'utente sono istruzioni...\" "
                      "(userInstructionsOnly dell'app), anche sulle righe di test scritte col prompt di prima")
+ap.add_argument("--multi-turn", action="store_true",
+                help="le righe a piu' turni delle regioni di test del dataset (v12, campo \"turns\") al posto del test di "
+                     "base: i turni prima nel prompt, rifiuti per tipo (MULTI_TURN_KINDS)")
 ap.add_argument("--kinds", nargs="+", help="solo le righe di questi tipi (es. pos_near neg_city)")
 ap.add_argument("--system", help="turno system prima del turno utente, nel formato CHATML (l'app oggi non lo manda: per "
                                  "misurare un prompt di sistema, per esempio sugli Ufficiali)")
@@ -104,6 +112,8 @@ if a.pairs and not a.contexts:
     ap.error("--pairs vale con --contexts")
 if a.second_pass and (not a.contexts or a.answer_position):
     ap.error("--second-pass vale con --contexts, senza --answer-position")
+if a.multi_turn and (a.extended or a.contexts):
+    ap.error("--multi-turn usa le righe di test del dataset: senza --extended e --contexts")
 if a.contexts and (a.app_sampling or a.kinds or a.injection):
     ap.error("--app-sampling, --kinds e --injection valgono per le righe di test, non con --contexts")
 if a.samples and not a.app_sampling:
@@ -140,7 +150,9 @@ if a.contexts:
                 moved.append({**r, "context": context, "search": f"{r['search']} risposta-{a.answer_position}"})
         test = moved
 else:
-    test, held_out = load_test_rows(a.extended, a.dataset)
+    test, held_out = load_test_rows(a.extended, a.dataset, a.multi_turn)
+    if a.multi_turn:  # un tipo per forma della conversazione, come i tipi del test esteso
+        test = [{**r, "kind": MULTI_TURN_KINDS[r["turns"]]} for r in test]
 if a.kinds:
     test = [r for r in test if r["kind"] in a.kinds]
 if a.limit:  # campione a passo fisso su tutti i tipi, come eval_online.py: le prime N righe sarebbero di un tipo solo
@@ -193,19 +205,20 @@ def post(url, path, body):
         return json.load(r)
 
 
-def prompt_of(content):
-    """Il prompt ChatML per il testo del turno utente dell'app, con il turno system di --system o --knowledge-system."""
+def prompt_of(content, history=()):
+    """Il prompt ChatML per il testo del turno utente dell'app, con il turno system di --system o --knowledge-system e i
+    turni prima ([history], righe a piu' turni)."""
     if a.user_instructions_only:
         content = with_user_instructions_only(content)
     if a.knowledge_system:
         system, user = knowledge_turns(content)
-        return chatml_prompt(user, empty_think, system)
-    return chatml_prompt(content, empty_think, a.system)
+        return chatml_prompt(user, empty_think, system, history)
+    return chatml_prompt(content, empty_think, a.system, history)
 
 
-def ask(url, content):
+def ask(url, content, history=()):
     """(risposta, troncata): troncata se llama-server si e' fermato al limite di token (stop_type "limit")."""
-    reply = post(url, "/completion", {"prompt": prompt_of(content), "n_predict": ANSWER_TOKENS, "temperature": 0,
+    reply = post(url, "/completion", {"prompt": prompt_of(content, history), "n_predict": ANSWER_TOKENS, "temperature": 0,
                                       "top_k": 1, "cache_prompt": False})
     return reply["content"].strip(), reply.get("stop_type") == "limit"
 
@@ -260,7 +273,7 @@ def app_refusal(url, row):
     prefix = refusal_prefix(row)
     if prefix not in refusal_tokens:
         refusal_tokens[prefix] = post(url, "/tokenize", {"content": prefix})["tokens"]
-    tokens, prompt = refusal_tokens[prefix], prompt_of(row["messages"][0]["content"])
+    tokens, prompt = refusal_tokens[prefix], prompt_of(row["messages"][-2]["content"], row["messages"][:-2])
     p = 1.0
     for i, token in enumerate(tokens):
         reply = post(url, "/completion", {"prompt": [prompt, *tokens[:i]], "n_predict": 1, "n_probs": APP_SAMPLING["top_k"],
@@ -362,7 +375,7 @@ try:
     for n, r in enumerate(test, 1):
         done = saved_answer(row_id({"kind": r["kind"], "region": r["region"], "category": r.get("category"),
                                     "question": question_of(r).strip()}))
-        got, truncated = (done["got"], done["truncated"]) if done else ask(url, r["messages"][0]["content"])
+        got, truncated = (done["got"], done["truncated"]) if done else ask(url, r["messages"][-2]["content"], r["messages"][:-2])
         score(stats, r, got)
         langs = {"question_lang": question_lang(r), "answer_lang": text_lang(got)}
         score(by_lang.setdefault(langs["question_lang"], {}), r, got)
@@ -379,14 +392,14 @@ try:
         progress.update(n, refusal_summary(stats))
         if answers and not done:
             answers.write(json.dumps({"kind": r["kind"], "region": r["region"], "category": r.get("category"),
-                                      "question": question_of(r).strip(), "want": r["messages"][1]["content"], "got": got,
+                                      "question": question_of(r).strip(), "want": r["messages"][-1]["content"], "got": got,
                                       "truncated": truncated, **langs, **checks, **app}, ensure_ascii=False) + "\n")
 finally:
     server.kill()
     if answers:
         answers.close()
 
-print_report(stats, test, held_out, a.extended)
+print_report(stats, test, held_out, a.extended or a.multi_turn)
 if a.extended:
     print_lang_report(by_lang, wrong_lang, stats)
 print_instruction_report(instruction_rows)

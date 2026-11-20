@@ -109,6 +109,7 @@ class FakeTokenizer:
 
 
 MESSAGES = [{"role": "user", "content": "Ciao"}, {"role": "assistant", "content": "Salve"}]
+REFUSAL_EN_ROW = "The context does not contain information about food: check an official source."
 
 
 class ChatPromptTest(unittest.TestCase):
@@ -135,6 +136,23 @@ class ChatPromptTest(unittest.TestCase):
         prompt, answer = eval_common.chat_prompt_and_answer(FakeTokenizer("chatml"), MESSAGES[:1])
         self.assertEqual("", answer)
         self.assertTrue(prompt.endswith("<|im_start|>assistant\n"))
+
+    def test_piu_turni_tutti_i_turni_prima_nel_prompt_e_solo_l_ultima_risposta(self):
+        class ChatmlTokenizer:  # il CHATML di text_only.py: tutti i messaggi nello stesso formato
+            chat_template = "chatml"
+
+            def apply_chat_template(self, messages, add_generation_prompt=False, **kwargs):
+                text = "".join(f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n" for m in messages)
+                return text + ("<|im_start|>assistant\n" if add_generation_prompt else "")
+
+        messages = [{"role": "user", "content": "Cosa vedere a Roma?"}, {"role": "assistant", "content": "Il Colosseo."},
+                    {"role": "user", "content": "CONTESTO: ...\n\nDOMANDA: E per dormire?"},
+                    {"role": "assistant", "content": "Ostelli a Termini."}]
+        prompt, answer = eval_common.chat_prompt_and_answer(ChatmlTokenizer(), messages)
+        self.assertEqual(eval_common.chatml_prompt(messages[2]["content"], history=messages[:2]), prompt)
+        self.assertEqual("Ostelli a Termini.<|im_end|>\n", answer)
+        # Con l'ultimo turno dell'utente, solo il prompt (controllo a campione di train_lora.py)
+        self.assertEqual((prompt, ""), eval_common.chat_prompt_and_answer(ChatmlTokenizer(), messages[:-1]))
 
     def test_template_che_non_estende_il_prompt_e_un_errore(self):
         tok = FakeTokenizer("chatml")
@@ -173,6 +191,24 @@ class ChatmlTest(unittest.TestCase):
     def test_prompt_e_risposta_uguali_al_formatter_di_llama_cpp(self):
         self.assertEqual(eval_common.chatml_prompt(self.user["content"]) + eval_common.chatml_answer(self.assistant["content"]),
                          llama_chatml([self.user, self.assistant], add_ass=False))
+
+    def test_prompt_con_i_turni_prima_uguale_al_formatter_di_llama_cpp(self):
+        before = [{"role": "user", "content": "Cosa vedere a San Marino?"}, {"role": "assistant", "content": "Le tre torri."}]
+        self.assertEqual(eval_common.chatml_prompt(self.user["content"], history=before),
+                         llama_chatml([*before, self.user], add_ass=True))
+
+    def test_righe_a_piu_turni_lette_dall_ultimo_turno_utente(self):
+        r = {"kind": "neg", "messages": [{"role": "user", "content": "Cosa vedere a Londra?"},
+                                         {"role": "assistant", "content": "Il British Museum."},
+                                         {"role": "user", "content": on_device_prompt("Il tè delle cinque.", "And food?", "en")},
+                                         {"role": "assistant", "content": REFUSAL_EN_ROW}]}
+        self.assertEqual(eval_common.REFUSAL_EN, eval_common.refusal_prefix(r))
+        self.assertEqual("And food?", eval_common.question_of(r))
+        self.assertEqual("Il tè delle cinque.", eval_common.context_of(r))
+        self.assertEqual("en", eval_common.dataset_lang(r))
+        stats = {}
+        eval_common.score(stats, r, REFUSAL_EN_ROW)
+        self.assertEqual({"neg": [(True, True)]}, stats)
 
     def test_blocco_think_uguale_a_quello_di_ai_chat_cpp(self):
         block = re.search(r'EMPTY_THINK\s*=\s*"(<think>[^"]*)";', AI_CHAT).group(1).replace("\\n", "\n")
@@ -573,6 +609,17 @@ class LoadTestRowsTest(unittest.TestCase):
         self.assertEqual(["canada", "palau"], [r["region"] for r in base])
         self.assertEqual(eval_common.TEST_REGIONS, held_out)
         self.assertEqual(3, len(ext))
+
+    def test_righe_a_piu_turni_solo_con_multi_turn(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rows = [row("pos", region="canada"), {**row("pos", region="canada"), "turns": "seguito"},
+                    {**row("neg", region="italia"), "turns": "rifiuto"}]
+            (Path(tmp) / eval_common.DEFAULT_DATASET).write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+            with mock.patch.object(eval_common, "SFT_DIR", Path(tmp)):
+                base, _ = eval_common.load_test_rows(False)
+                multi, _ = eval_common.load_test_rows(False, multi_turn=True)
+        self.assertEqual([None], [r.get("turns") for r in base])
+        self.assertEqual(["seguito"], [r["turns"] for r in multi])  # solo le regioni di test
 
     def test_le_regioni_di_test_sono_fisse(self):
         self.assertEqual(11, len(eval_common.TEST_REGIONS))

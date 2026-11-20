@@ -23,13 +23,16 @@ def uses_empty_think(chat_template):
     return chat_template is not None and "enable_thinking" in chat_template
 
 
-def chatml_prompt(user, empty_think=False, system=None):
-    """Prompt a turno singolo come lo manda l'app: il formatter CHATML di llama.cpp (src/llama-chat.cpp, che
+def chatml_prompt(user, empty_think=False, system=None, history=()):
+    """Prompt come lo manda l'app: il formatter CHATML di llama.cpp (src/llama-chat.cpp, che
     ai_chat.cpp usa per i modelli con template ChatML) per il turno utente e l'apertura del turno assistente, piu' il blocco <think>
     vuoto che ai_chat.cpp aggiunge quando uses_empty_think() vale per il template del modello. Con system, prima un turno
-    system nello stesso formato (l'app oggi non lo manda: serve a misurarlo)."""
+    system nello stesso formato (l'app oggi non lo manda: serve a misurarlo). Con [history] (messaggi {"role", "content"}
+    dei turni prima, righe a piu' turni del v12) quei turni nello stesso formato, prima del turno utente."""
     system_turn = f"<|im_start|>system\n{system}<|im_end|>\n" if system else ""
-    return f"{system_turn}<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n" + (EMPTY_THINK if empty_think else "")
+    turns = "".join(f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n" for m in history)
+    return (f"{system_turn}{turns}<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n"
+            + (EMPTY_THINK if empty_think else ""))
 
 
 def chatml_answer(answer):
@@ -43,14 +46,17 @@ def chat_prompt_and_answer(tok, messages):
     imparare) non contiene mai quel blocco: alcuni template (il Qwen3 ibrido, anche la copia di Unsloth di
     Qwen3-4B-Instruct-2507) lo mettono nel turno assistente completo ma non nel prompt di generazione,
     e il modello imparerebbe a scriverlo da solo (con il 4B le risposte iniziavano con "<think>..." e nessun
-    rifiuto veniva riconosciuto). Con un solo messaggio si ottiene solo il prompt (risposta vuota)."""
-    prompt = tok.apply_chat_template(messages[:1], add_generation_prompt=True, tokenize=False, enable_thinking=False)
+    rifiuto veniva riconosciuto). Il prompt sono tutti i messaggi prima dell'ultima risposta: nelle righe a piu' turni del
+    v12 i turni prima stanno nel prompt e la loss resta solo sull'ultima risposta. Se l'ultimo messaggio e' dell'utente si
+    ottiene solo il prompt (risposta vuota)."""
+    head = messages[:-1] if messages[-1]["role"] == "assistant" else messages
+    prompt = tok.apply_chat_template(head, add_generation_prompt=True, tokenize=False, enable_thinking=False)
     if uses_empty_think(tok.chat_template) and not prompt.endswith(EMPTY_THINK):
         prompt += EMPTY_THINK
-    if len(messages) < 2:
+    if head is messages:
         return prompt, ""
     full = tok.apply_chat_template(messages, tokenize=False, enable_thinking=False)
-    base = tok.apply_chat_template(messages[:1], add_generation_prompt=True, tokenize=False, enable_thinking=False)
+    base = tok.apply_chat_template(head, add_generation_prompt=True, tokenize=False, enable_thinking=False)
     assert full.startswith(base), "il template non estende il prompt: maschera non valida"
     return prompt, full[len(base):].removeprefix(EMPTY_THINK)
 
@@ -106,9 +112,15 @@ def extended_file(dataset=None):
     return "eval_extended.en.jsonl" if (dataset or "").endswith(".en.jsonl") else "eval_extended.jsonl"
 
 
+def user_content(row):
+    """Il testo dell'ultimo turno utente della riga, il prompt dell'app con contesto e domanda (nelle righe a piu' turni
+    del v12 i turni prima hanno solo la domanda e la risposta)."""
+    return next(m["content"] for m in reversed(row["messages"]) if m["role"] == "user")
+
+
 def refusal_prefix(row):
     """Inizio del rifiuto atteso nella lingua del prompt della riga."""
-    return REFUSAL_EN if row["messages"][0]["content"].startswith(EN_PROMPT) else REFUSAL
+    return REFUSAL_EN if user_content(row).startswith(EN_PROMPT) else REFUSAL
 
 
 ANSWER_POSITIONS = ("start", "middle", "end")
@@ -396,7 +408,7 @@ def question_of(row):
     eval_retrieval.py --contexts, il campo "question")."""
     if "messages" not in row:
         return row["question"]
-    content = row["messages"][0]["content"]
+    content = user_content(row)
     return content.rsplit("QUESTION: " if content.startswith(EN_PROMPT) else "DOMANDA: ", 1)[-1]
 
 
@@ -411,7 +423,7 @@ def sample(rows, limit):
 
 def context_of(row):
     """Il contesto della riga (tra "CONTESTO: " e l'ultimo "\\n\\nDOMANDA: ", o le etichette inglesi)."""
-    content = row["messages"][0]["content"]
+    content = user_content(row)
     start, end = ("CONTEXT: ", "\n\nQUESTION: ") if content.startswith(EN_PROMPT) else ("CONTESTO: ", "\n\nDOMANDA: ")
     return content.split(start, 1)[-1].rsplit(end, 1)[0]
 
@@ -429,7 +441,7 @@ def knowledge_turns(content):
 
 def dataset_lang(row):
     """Lingua del dataset della riga ("it" o "en"), dal prompt: e' la lingua attesa della risposta."""
-    return "en" if row["messages"][0]["content"].startswith(EN_PROMPT) else "it"
+    return "en" if user_content(row).startswith(EN_PROMPT) else "it"
 
 
 # Parole frequenti di una sola delle due lingue, per text_lang. Escluse quelle di entrambe ("a", "in", "no", "come",
@@ -457,19 +469,22 @@ def question_lang(row):
     return row.get("question_lang") or text_lang(question_of(row)) or dataset_lang(row)
 
 
-def load_test_rows(extended, dataset=None):
+def load_test_rows(extended, dataset=None, multi_turn=False):
     """(righe di test, regioni di test). Se extended, le righe vengono dal test esteso del dataset (extended_file),
-    altrimenti dalle regioni di test del dataset di training (default DEFAULT_DATASET)."""
+    altrimenti dalle regioni di test del dataset di training (default DEFAULT_DATASET): le righe a un turno, oppure con
+    [multi_turn] solo quelle a piu' turni del v12 (campo "turns"), che il test di base non conta."""
     held_out = set(TEST_REGIONS)
     path = SFT_DIR / (extended_file(dataset) if extended else dataset or DEFAULT_DATASET)
     with open(path, encoding="utf-8") as f:
         rows = [json.loads(l) for l in f]
-    return (rows if extended else [r for r in rows if r["region"] in held_out]), held_out
+    if extended:
+        return rows, held_out
+    return [r for r in rows if r["region"] in held_out and bool(r.get("turns")) == multi_turn], held_out
 
 
 def score(stats, row, got):
     """Aggiunge a stats (tipo di riga -> [(ha rifiutato, risposta ok)]) la risposta got alla riga row."""
-    want = row["messages"][1]["content"]
+    want = row["messages"][-1]["content"]
     # positivi: stesso inizio; negativi: stesso tema del rifiuto (la parte dopo ":" e' una di 4 code
     # scelte a caso da generate_sft_dataset.py, confrontarla abbasserebbe la metrica a ~25%)
     same = got[:60] == want[:60] if row["kind"].startswith("pos") else got.split(":")[0] == want.split(":")[0]
@@ -569,7 +584,7 @@ def instruction_checks(row, got):
     body = _THINK_BLOCK.sub("", got, count=1)
     trained_refusal = body.startswith(refusal_prefix(row))
     refused = trained_refusal or (is_loose_refusal(body) and context_fidelity(body, context, row["kind"]) != "literal")
-    want = row["messages"][1]["content"]
+    want = row["messages"][-1]["content"]
     return {"refused": refused,
             "refusal_topic_ok": body.split(":")[0] == want.split(":")[0] if trained_refusal else None,
             "fidelity": None if refused else context_fidelity(body, context, row["kind"]),

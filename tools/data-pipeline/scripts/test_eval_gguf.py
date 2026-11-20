@@ -120,6 +120,29 @@ class EvalGgufTest(unittest.TestCase):
         self.assertIn("NEG: rifiuta 100.0% | tema del rifiuto giusto 100.0%", out)
         self.server.kill.assert_called()   # il server si chiude sempre
 
+    def test_multi_turn_manda_i_turni_prima_e_conta_per_tipo(self):
+        follow = {**row("pos", "Sei una guida.\n\nDOMANDA: E per dormire?", "Ci sono ostelli in centro."), "turns": "seguito"}
+        follow["messages"][:0] = [{"role": "user", "content": "Cosa vedere in Canada?"},
+                                  {"role": "assistant", "content": "Le cascate del Niagara."}]
+        refusal = {**row("neg", "Sei una guida.\n\nDOMANDA: E per mangiare?", REFUSAL + " su cibo e bevande: altro."),
+                   "turns": "rifiuto"}
+        refusal["messages"][:0] = follow["messages"][:2]
+        out = self.run_script("--multi-turn", replies=["Ci sono ostelli in centro.", "Le cascate del Niagara."],
+                              rows=[follow, refusal])
+        self.assertEqual("<|im_start|>user\nCosa vedere in Canada?<|im_end|>\n<|im_start|>assistant\nLe cascate del Niagara."
+                         "<|im_end|>\n<|im_start|>user\nSei una guida.\n\nDOMANDA: E per dormire?<|im_end|>\n"
+                         "<|im_start|>assistant\n", self.prompts[0]["prompt"])
+        self.assertIn("pos_turni_seguito: 1 righe | rifiuta 0.0%", out)
+        self.assertIn("neg_turni: 1 righe | rifiuta 0.0% (atteso 100%)", out)  # ha copiato il turno prima
+
+    def test_multi_turn_non_vale_con_extended(self):
+        with mock.patch.object(sys, "argv", ["eval_gguf.py", str(self.tmp / "model.gguf"), "--llama-cpp", str(self.tmp),
+                                             "--multi-turn", "--extended"]), \
+                mock.patch.dict(sys.modules, {"gguf": fake_gguf(None)}), mock.patch.object(sys, "stderr", io.StringIO()):
+            with self.assertRaises(SystemExit) as ctx:
+                runpy.run_path(str(HERE / "eval_gguf.py"), run_name="__main__")
+        self.assertEqual(2, ctx.exception.code)
+
     def test_blocco_think_vuoto_se_il_template_del_gguf_usa_enable_thinking(self):
         rows = [row("pos", "D?", "R.")]
         self.run_script(template=SECRET_TEMPLATE, replies=["R."], rows=rows)

@@ -46,6 +46,11 @@ class ChatFormatTest(unittest.TestCase):
     def test_chatml_come_l_app(self):
         check_chat_format(JinjaTokenizer(CHATML), ROWS)  # nessun sys.exit
 
+    def test_righe_a_piu_turni_come_l_app(self):
+        multi = [{"messages": [{"role": "user", "content": "Cosa vedere a Roma?"}, {"role": "assistant", "content": "Il Colosseo."},
+                               *ROWS[0]["messages"]]}]
+        check_chat_format(JinjaTokenizer(CHATML), multi)  # nessun sys.exit: i turni prima nel prompt
+
     def test_template_con_thinking_ferma_il_training(self):
         with self.assertRaises(SystemExit):
             check_chat_format(JinjaTokenizer(CHATML + "{% if enable_thinking %}<think>{% endif %}"), ROWS)

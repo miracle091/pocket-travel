@@ -14,7 +14,8 @@ Pesi in bf16; --4bit (QLoRA, AMD e NVIDIA) solo per GPU con poca VRAM: Unsloth l
 
 Scelte che contano per la qualita':
 - loss solo sulla risposta dell'assistente (etichette del prompt = -100): il prompt e' ~80% dei token
-  ed e' testo Wikivoyage da non imparare a memoria;
+  ed e' testo Wikivoyage da non imparare a memoria; nelle righe a piu' turni solo sull'ultima risposta, i turni prima
+  stanno nel prompt;
 - split train/test per regione: lo stesso CONTESTO compare in piu' righe, con uno split casuale
   quasi tutto il test e' gia' nel train e la eval loss non dice nulla;
 - righe piu' lunghe di --max-len scartate, non troncate (troncare taglierebbe la risposta);
@@ -385,12 +386,12 @@ phase("controllo a campione", "2 positivi e 2 negativi del test")
 model.eval()
 for r in spot_check_rows(test_ds):
     kind = r["kind"]
-    ids = tok(chat_prompt_and_answer(tok, r["messages"][:1])[0], add_special_tokens=False,
+    ids = tok(chat_prompt_and_answer(tok, r["messages"][:-1])[0], add_special_tokens=False,
               return_tensors="pt").to(model.device)
     with torch.no_grad():
         out = model.generate(**ids, max_new_tokens=120, do_sample=False)
     print(f"\n[{kind}] {question_of(r).strip()}")
-    print("  atteso:", r["messages"][1]["content"][:160])
+    print("  atteso:", r["messages"][-1]["content"][:160])
     print("  ottenuto:", tok.decode(out[0][ids["input_ids"].shape[1]:], skip_special_tokens=True)[:160])
 print("LoRA salvato in", a.out + "/lora")
 # Il merge modifica il modello sul posto: va dopo il controllo a occhio

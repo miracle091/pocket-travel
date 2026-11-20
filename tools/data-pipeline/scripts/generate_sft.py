@@ -41,7 +41,8 @@ entrano solo quelle di un modello con una licenza verificata (translation_licens
   copie di positivi con un'istruzione nascosta nel contesto (injected_rows); con --selected-text-rows righe sul testo
   selezionato in un'altra app (sft_selected_text.py); con --unanswerable-rows rifiuti sulle domande a cui le guide non
   rispondono, con una sezione vicina nel contesto (sft_unanswerable.py); con --prompts-chat-questions una quota delle
-  domande dai prompt di viaggio di prompts.chat riscritti come domande (external_questions.PROMPTS_CHAT_QUESTIONS);
+  domande dai prompt di viaggio di prompts.chat riscritti come domande (external_questions.PROMPTS_CHAT_QUESTIONS); con
+  --multi-turn-rows righe a piu' turni, con i turni prima compattati a domanda e risposta (sft_multi_turn.py);
 - con --distances (e --cities), domande sulla distanza tra due citta' con le sezioni di entrambe nel contesto: la
   frase della guida con i km o il tempo di viaggio, o il rifiuto quando le guide non li riportano;
 - con --cities-db, Storia e Clima delle citta' da Wikipedia (sezioni STORIA e CLIMA dei cities.db pubblicati): domande
@@ -86,6 +87,7 @@ import city_population
 import external_questions
 import generate_sft_dataset as it
 import generate_sft_dataset_en as en
+import sft_multi_turn
 import sft_nearby
 import sft_retrieval
 import sft_selected_text
@@ -1268,6 +1270,9 @@ def main():
     ap.add_argument("--prompts-chat-questions", type=float, default=0,
                     help="quota delle domande delle categorie di PROMPTS_CHAT_QUESTIONS presa dai prompt di viaggio di prompts.chat "
                          "riscritti come domande (external_questions.py; la prima volta serve la rete); dal dataset v12")
+    ap.add_argument("--multi-turn-rows", type=int, default=0,
+                    help="righe a piu' turni dalle regioni di training (dal v12; piu' sft_multi_turn.TEST_ROWS dalle "
+                         "regioni di test), con domande, risposte e contesti delle righe a un turno")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
     if a.distances and not a.cities:
@@ -1277,7 +1282,7 @@ def main():
     if a.app_context_order and not a.retrieval_rows:
         ap.error("--app-context-order vale con --retrieval-rows")
     v12 = (a.guide_wikipedia or a.app_context_order or a.rerank_rows or a.search_word_rows or a.user_instructions_only
-           or a.injection_rows or a.selected_text_rows or a.unanswerable_rows or a.prompts_chat_questions)
+           or a.injection_rows or a.selected_text_rows or a.unanswerable_rows or a.prompts_chat_questions or a.multi_turn_rows)
     if not all(0 <= q < 1 for q in (a.distances, a.nearby, a.emergency)):  # quote del dataset finale: 1 darebbe /0
         ap.error("--distances, --nearby ed --emergency sono quote: tra 0 e 1 escluso")
     if missing := [p for _, p in map(city_db_region, a.cities_db or []) if not Path(p).is_file()]:
@@ -1979,10 +1984,24 @@ def main():
     capped = cap_repeats(rows, L["prompt"])
     print(f"stessa domanda e risposta oltre {SAME_ANSWER_MAX} volte: tolte {len(rows) - len(capped)} righe")
     rows = capped
+    multi_turn = []
+    if a.multi_turn_rows:  # da righe gia' controllate, come le istruzioni nascoste; seme a parte
+        try:
+            count_tokens = sft_multi_turn.token_counter()
+        except Exception as e:  # senza, i limiti di lunghezza non si verificano
+            sys.exit(f"tokenizer {sft_multi_turn.TOKENIZER[0]} non disponibile ({e}): riprova con la rete, "
+                     "o usa --multi-turn-rows 0")
+        names = {rid: name for rid, (name, *_) in data.items()}
+        name_of = lambda r: names.get(r) or (en.display_name(r.split(":", 1)[1]) if r.startswith("citta:") else None)
+        multi_turn = sft_multi_turn.multi_turn_rows(lang, rows, a.multi_turn_rows, random.Random(a.seed + 8), L["prompt"],
+                                                    name_of, count_tokens)
+        print("righe a piu' turni (tipo, turni, test):",
+              dict(Counter((r["turns"], len(r["messages"]) // 2, r["region"] in TEST_REGIONS) for r in multi_turn)))
     if a.injection_rows:  # copie di righe gia' controllate: dopo i filtri, che toglierebbero le copie come ripetizioni
         injected = injected_rows(rows, a.injection_rows, random.Random(a.seed + 5), lang, L["prompt"])
         rows += injected
         print(f"istruzioni nascoste nel contesto: {len(injected)} righe")
+    rows += multi_turn  # dopo injected_rows, che copia solo righe a un turno
     rng.shuffle(rows)
 
     for name, (dataset, *_, lic, _) in L["off_topic_sources"].items():  # solo domande, con rifiuto come risposta

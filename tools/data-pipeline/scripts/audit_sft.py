@@ -5,7 +5,9 @@ Ogni riga e' {"messages": [prompt dell'app, risposta], "kind": "pos"|"neg", "reg
 prompt e' quello di on_device_prompt (it o en, anche con la riga dei modelli v12), da cui si ricavano contesto e domanda.
 Le righe dei compiti del v12 (campo "task": "riordino" e "parole-di-ricerca", sft_retrieval.task_rows) hanno il prompt
 del compito (RERANK_PROMPT e SEARCH_WORDS_PROMPT di eval_retrieval.py): si controllano la forma del prompt e della
-risposta ("sì"/"no" secondo kind, da 3 a 5 parole), e restano fuori dalle statistiche della chat.
+risposta ("sì"/"no" secondo kind, da 3 a 5 parole), e restano fuori dalle statistiche della chat. Le righe a piu' turni
+del v12 (campo "turns", sft_multi_turn.py) hanno prima dell'ultimo turno coppie (domanda, risposta) senza il prompt
+dell'app: si controllano come righe della chat sull'ultimo turno, e i turni prima vanno solo compattati.
 
 Errori (con --strict il codice di uscita e' 1 se ce n'e' almeno uno):
 - riga malformata, o prompt in una lingua diversa da quella del dataset;
@@ -18,7 +20,9 @@ Errori (con --strict il codice di uscita e' 1 se ce n'e' almeno uno):
 - U+FFFD o markup residuo ({{, }}, [[, ]], <ref, &amp;, &nbsp;, "()") nel contesto o nella risposta;
 - regione che e' una sottoregione di una regione di test (le righe delle regioni di test vere restano nel file: train_lora.py
   le separa nel test);
-- riga identica a una precedente, o stesso (contesto, domanda) gia' visto.
+- riga identica a una precedente, o stesso (contesto, domanda) gia' visto con gli stessi turni prima;
+- nelle righe a piu' turni, un turno prima con il prompt dell'app (contesto e istruzioni stanno solo nell'ultimo), vuoto
+  o con una risposta oltre MAX_ANSWER.
 
 Avvisi e statistiche: quota di rifiuti (totale e per categoria), righe per categoria e per regione, domande e risposte piu'
 ripetute, domande oltre il limite, risposte con piu' di 3 frasi o nella lingua sbagliata (euristica prudente sulle parole
@@ -96,20 +100,31 @@ def task_parts(task, content):
 
 
 def row_lang(row):
-    """La lingua del prompt di una riga (chat o compito del v12), None se non e' riconosciuto."""
-    content = row["messages"][0]["content"]
+    """La lingua del prompt di una riga (chat o compito del v12; dell'ultimo turno nelle righe a piu' turni), None se non
+    e' riconosciuto."""
+    content = row["messages"][-2]["content"]
     if row.get("task") in TASKS:
         return (task_parts(row["task"], content) or (None,))[0]
     return prompt_lang(content)
 
 
+def history_of(row):
+    """I turni prima dell'ultimo come [(domanda, risposta)] (vuoto per le righe a un turno)."""
+    msgs = row["messages"][:-2]
+    return [(msgs[i]["content"], msgs[i + 1]["content"]) for i in range(0, len(msgs), 2)]
+
+
 def parse_row(row):
-    """(contesto, domanda, risposta) di una riga; ValueError se non e' nel formato del dataset. Nelle righe dei compiti
-    del v12 il contesto e' il testo della sezione candidata (vuoto per le parole di ricerca)."""
+    """(contesto, domanda, risposta) di una riga, dell'ultimo turno nelle righe a piu' turni; ValueError se non e' nel
+    formato del dataset. Nelle righe dei compiti del v12 il contesto e' il testo della sezione candidata (vuoto per le
+    parole di ricerca)."""
     try:
-        user, assistant = row["messages"]
-        if user["role"] != "user" or assistant["role"] != "assistant":
+        msgs = row["messages"]
+        if len(msgs) < 2 or len(msgs) % 2 or (len(msgs) > 2 and "turns" not in row):
+            raise ValueError("numero di messaggi")
+        if any(m["role"] != ("user", "assistant")[i % 2] or not isinstance(m["content"], str) for i, m in enumerate(msgs)):
             raise ValueError("ruoli")
+        user, assistant = msgs[-2:]
         content, answer = user["content"], assistant["content"]
         if not isinstance(answer, str):
             raise ValueError("risposta")
@@ -212,6 +227,14 @@ def hard_errors(row, lang):
             errors.append("risposta-lunga")
         elif kind == "pos" and not is_refusal(answer) and category not in FROM_PHRASEBOOK and not is_extractive(category, context, answer):
             errors.append("non-estrattiva")
+    for question_before, answer_before in history_of(row):
+        if not question_before.strip() or not answer_before.strip():
+            errors.append("turno-prima-vuoto")
+        elif prompt_lang(question_before) or "\n" in question_before:
+            errors.append("turno-prima-non-compattato")
+        elif len(answer_before) > it.MAX_ANSWER:
+            errors.append("risposta-lunga")
+        context += question_before + answer_before  # anche i turni prima senza U+FFFD ne' markup
     if "�" in context + answer:
         errors.append("fffd")
     if any(m in context or m in answer for m in MARKUP):
@@ -234,12 +257,14 @@ def find_drops(entries, lang, max_repeats=None):
         errs = hard_errors(row, lang) if row is not None else ["malformata"]
         if not errs:
             context, question, _ = parse_row(row)
+            # un compito del v12 non ripete la chat; una riga a piu' turni puo' ripetere l'ultimo turno di un'altra riga
+            key = (row.get("task"), tuple(history_of(row)), context, question)
             if raw in seen_raw:
                 errs = ["riga-duplicata"]
-            elif (row.get("task"), context, question) in seen_pair:  # un compito del v12 non ripete la chat
+            elif key in seen_pair:
                 errs = ["contesto-domanda-duplicati"]
             seen_raw.add(raw)
-            seen_pair.add((row.get("task"), context, question))
+            seen_pair.add(key)
         errors.append(errs)
         if errs:
             drops.append(errs[0])
@@ -389,6 +414,10 @@ def report(path, entries, lang, max_repeats, eval_rows=None, measured=None):
     if tasks:
         print("compiti del v12: " + ", ".join(f"{t} {tasks[t, 'pos'] + tasks[t, 'neg']} (pos {tasks[t, 'pos']}, neg {tasks[t, 'neg']})"
                                               for t in TASKS))
+    turns = Counter((row["turns"], len(row["messages"]) // 2, row["region"] in TEST_REGIONS) for _, row in rows if "turns" in row)
+    if turns:
+        print("righe a piu' turni (tipo/turni: training + test): " + ", ".join(
+            f"{t}/{n} {turns[t, n, False]}+{turns[t, n, True]}" for t, n in sorted({(t, n) for t, n, _ in turns})))
 
     bad = [i for i, e in enumerate(errors) if e]
     print(f"errori: {len(bad)} righe" if bad else "errori: nessuno")
