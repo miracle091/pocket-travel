@@ -39,7 +39,9 @@ entrano solo quelle di un modello con una licenza verificata (translation_licens
 - dal v12: con --rerank-rows e --search-word-rows le righe dei compiti del riordino e delle parole di ricerca
   (sft_retrieval.task_rows, campo "task"); con --user-instructions-only il prompt dei modelli v12; con --injection-rows
   copie di positivi con un'istruzione nascosta nel contesto (injected_rows); con --selected-text-rows righe sul testo
-  selezionato in un'altra app (sft_selected_text.py);
+  selezionato in un'altra app (sft_selected_text.py); con --unanswerable-rows rifiuti sulle domande a cui le guide non
+  rispondono, con una sezione vicina nel contesto (sft_unanswerable.py); con --prompts-chat-questions una quota delle
+  domande dai prompt di viaggio di prompts.chat riscritti come domande (external_questions.PROMPTS_CHAT_QUESTIONS);
 - con --distances (e --cities), domande sulla distanza tra due citta' con le sezioni di entrambe nel contesto: la
   frase della guida con i km o il tempo di viaggio, o il rifiuto quando le guide non li riportano;
 - con --cities-db, Storia e Clima delle citta' da Wikipedia (sezioni STORIA e CLIMA dei cities.db pubblicati): domande
@@ -87,6 +89,7 @@ import generate_sft_dataset_en as en
 import sft_nearby
 import sft_retrieval
 import sft_selected_text
+import sft_unanswerable
 import travel_questions
 import wiki_dump
 from eval_common import TEST_REGIONS, replaced_when_done
@@ -1259,6 +1262,12 @@ def main():
     ap.add_argument("--injection-rows", type=int, default=0,
                     help="copie di positivi con un'istruzione nascosta nel contesto (INJECTIONS, meta' nell'altra lingua) e la "
                          "stessa risposta; dal dataset v12")
+    ap.add_argument("--unanswerable-rows", type=int, default=0,
+                    help="rifiuti (al massimo) sulle domande a cui le guide non rispondono, con una sezione vicina della citta' o "
+                         "del paese nel contesto (sft_unanswerable.py); dal dataset v12")
+    ap.add_argument("--prompts-chat-questions", type=float, default=0,
+                    help="quota delle domande delle categorie di PROMPTS_CHAT_QUESTIONS presa dai prompt di viaggio di prompts.chat "
+                         "riscritti come domande (external_questions.py; la prima volta serve la rete); dal dataset v12")
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
     if a.distances and not a.cities:
@@ -1268,7 +1277,7 @@ def main():
     if a.app_context_order and not a.retrieval_rows:
         ap.error("--app-context-order vale con --retrieval-rows")
     v12 = (a.guide_wikipedia or a.app_context_order or a.rerank_rows or a.search_word_rows or a.user_instructions_only
-           or a.injection_rows or a.selected_text_rows)
+           or a.injection_rows or a.selected_text_rows or a.unanswerable_rows or a.prompts_chat_questions)
     if not all(0 <= q < 1 for q in (a.distances, a.nearby, a.emergency)):  # quote del dataset finale: 1 darebbe /0
         ap.error("--distances, --nearby ed --emergency sono quote: tra 0 e 1 escluso")
     if missing := [p for _, p in map(city_db_region, a.cities_db or []) if not Path(p).is_file()]:
@@ -1501,6 +1510,10 @@ def main():
         if not wiki and cat in user_style and rng.random() < a.user_style_questions:
             user_style_uses[cat] += 1
             return rng.choice(user_style[cat])
+        if (not wiki and (pool := prompts_chat.get(("citta" if city else "paese", cat)))
+                and rng.random() < a.prompts_chat_questions):
+            prompts_chat_uses[cat] += 1
+            return rng.choice(pool).format(r=name)
         own, oth =((L["wiki_questions"], L["other_wiki_questions"]) if wiki
                     else (L["city_questions"], L["other_city_questions"]) if city else (L["questions"], L["other_questions"]))
         pool = oth.get(cat) if rng.random() < a.other_lang else None
@@ -1517,6 +1530,15 @@ def main():
         except Exception as e:  # senza, lo stesso seme darebbe un altro file con lo stesso nome
             sys.exit(f"domande di WebFAQ e MKQA non disponibili ({e}): riprova con la rete, o usa --no-external-questions")
         attribution.extend(external_questions.ATTRIBUTION[lang])
+    # Prompt di viaggio di prompts.chat riscritti come domande (--prompts-chat-questions): una quota delle domande delle
+    # loro categorie in question(), con la risposta del generatore come le altre
+    prompts_chat, prompts_chat_uses = {}, Counter()
+    if a.prompts_chat_questions:
+        try:
+            prompts_chat = external_questions.load_prompts_chat_questions(it.OUT / "raw", lang)
+        except Exception as e:  # senza, lo stesso seme darebbe un altro file con lo stesso nome
+            sys.exit(f"domande di prompts.chat non disponibili ({e}): riprova con la rete, o usa --prompts-chat-questions 0")
+        attribution.extend(external_questions.PROMPTS_CHAT_ATTRIBUTION[lang])
     mkqa_rng, own = random.Random(a.seed + 1), 0 if lang == "it" else 1
     mkqa_questions = [pair[1 - own if mkqa_rng.random() < a.other_lang else own] for pair in mkqa[:MKQA_OFF_TOPIC]]
     off_topic_pool = L["off_topic_train"] + [q for qs in it.fetch_off_topic(L["off_topic_sources"], keywords, L["travel_stems"]).values()
@@ -1879,6 +1901,19 @@ def main():
                 rows.append(row("neg", rid, "OFF", context, q, L["refusal"](L["off_topic_topic"], faq_rng.choice(L["tails"]))))
                 faq_neg += 1
         print(f"rifiuti sui servizi (WebFAQ): {faq_neg}")
+    # Domande a cui le guide non rispondono (--unanswerable-rows): una sezione vicina della citta' o del paese nel contesto
+    # e il rifiuto; seme a parte
+    unanswerable = []
+    if a.unanswerable_rows:
+        places = ([(f"citta:{t}", en.display_name(t), "citta", [(c, b, False) for c, b in secs]) for t, secs in cities]
+                  if a.cities else [])
+        places += [(rid, name, "paese", secs) for rid, (name, secs, _) in data.items() if rid not in TEST_REGIONS]
+        unanswerable = sft_unanswerable.unanswerable_rows(lang, L, places, a.unanswerable_rows, random.Random(a.seed + 7))
+        for r in unanswerable:
+            seen.add(audit_sft.parse_row(r)[:2])
+        rows += unanswerable
+        print(f"domande senza risposta nelle guide: {len(unanswerable)} rifiuti, "
+              f"{len(sft_unanswerable.template_counts(unanswerable))} schemi")
     # Testo selezionato in un'altra app (--selected-text-rows): frasari di Wikivoyage nella lingua del dataset (pagine con
     # {{Frasario}} su it.wikivoyage, "<lingua> phrasebook" su en.wikivoyage) e paragrafi delle guide; seme a parte
     selected = Counter()
@@ -1974,7 +2009,7 @@ def main():
           f"paragrafi Wikipedia tradotti: {n_tr['wikipedia']}, originali di Wikipedia EN: {n_tr['wikipedia_en']}")
     print(f"positivi={pos} negativi={neg} citta' positivi={city_pos} negativi={city_neg} "
           f"fatti rapidi {quick_pos}/{quick_neg} note {note_pos} guida generale {general_pos} vaccinazioni {vacc_pos}/{vacc_neg} "
-          f"servizi {faq_neg} ricerca vera {retrieval['pos']}/{retrieval['neg']} "
+          f"servizi {faq_neg} senza risposta {sum(r.get('unanswerable', False) for r in rows)} ricerca vera {retrieval['pos']}/{retrieval['neg']} "
           f"distanze {dist['pos']}/{dist['neg']} vicino {near['VICINO', 'pos']}/{near['VICINO', 'neg']} partenze {near['PARTENZE', 'pos']}/{near['PARTENZE', 'neg']} "
           + "".join(f"{t} {n} " for t, n in sorted(Counter(r["task"] for r in rows if "task" in r).items()))
           + (f"istruzioni nascoste {sum(r.get('injected', False) for r in rows)} " if a.injection_rows else "")
@@ -1986,6 +2021,8 @@ def main():
     print("per categoria (righe/rifiuti):", {c: f"{n}/{refs[c]}" for c, n in cats.most_common()})
     if user_style:
         print("domande in stile utente usate (tra positivi, rifiuti e righe scartate):", dict(user_style_uses))
+    if prompts_chat:
+        print("domande di prompts.chat usate (tra positivi, rifiuti e righe scartate):", dict(prompts_chat_uses))
     print(f"scritto {data_out}")
 
 

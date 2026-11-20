@@ -299,6 +299,88 @@ class CacheTest(unittest.TestCase):
         self.assertEqual({r[3] for rows in eq.ATTRIBUTION.values() for r in rows}, {"CC BY 4.0", "CC BY-SA 3.0"})
 
 
+class PromptsChatTest(unittest.TestCase):
+    CSV = ('act,prompt,for_devs,type,contributor\n'
+           'Travel Guide,"I want you to act as a travel guide. My first suggestion request is ""I am in Istanbul."""'
+           ',FALSE,TEXT,x\n'
+           'Linux Terminal,"I want you to act as a linux terminal.\nSecond line.",FALSE,TEXT,y\n')
+
+    def test_acts(self):
+        self.assertEqual(eq.prompts_chat_acts(io.StringIO(self.CSV)), {"Travel Guide", "Linux Terminal"})
+
+    def test_questions_are_well_formed(self):
+        import generate_sft as gs
+        import sft_nearby
+        self.assertGreaterEqual(len(eq.PROMPTS_CHAT_QUESTIONS), 6)
+        for act, scope, cat, q_it, q_en in eq.PROMPTS_CHAT_QUESTIONS:
+            for lang, q in (("it", q_it), ("en", q_en)):
+                L = gs.LANGS[lang]
+                self.assertIn(cat, L["city_questions"] if scope == "citta" else L["questions"], q)
+                self.assertEqual(q.count("{r}"), 1, q)
+                self.assertTrue(q.endswith("?"), q)
+                self.assertIsNone(sft_nearby.NEARBY_WORDS.search(q), q)  # nell'app porterebbero i luoghi vicini
+
+    def test_questions_are_not_measured(self):
+        try:
+            import sft_unanswerable as su
+            measured, extended = su.measured_questions(), eq.eval_questions()
+        except Exception as e:  # moduli pesanti non disponibili in questo ambiente
+            self.skipTest(f"eval_retrieval non importabile: {e}")
+        for _, _, _, q_it, q_en in eq.PROMPTS_CHAT_QUESTIONS:
+            for q in (q_it, q_en):
+                self.assertNotIn(eq.normalize(q), extended, q)  # gli schemi del test esteso hanno ancora {r}
+                for name in ("Bologna", "Lisbon", "Italia", "X"):
+                    self.assertFalse(su.is_measured(q.format(r=name), name, measured), q)
+                    self.assertNotIn(eq.normalize(q.format(r=name)), extended, q)
+
+    def test_load_downloads_once_checks_the_file_and_groups_by_scope(self):
+        acts = {a for a, *_ in eq.PROMPTS_CHAT_QUESTIONS}
+        csv_text = "act,prompt,for_devs,type,contributor\n" + "".join(f'"{a}",x,FALSE,TEXT,y\n' for a in sorted(acts))
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(eq, "require_revision") as rev, \
+                mock.patch.object(eq, "_open", return_value=io.BytesIO(csv_text.encode())), \
+                mock.patch.object(eq, "PROMPTS_CHAT_SHA256", eq.hashlib.sha256(csv_text.encode()).hexdigest()):
+            got = eq.load_prompts_chat_questions(Path(d) / "raw", "it")
+            rev.assert_called_once_with(eq.PROMPTS_CHAT, eq.PROMPTS_CHAT_REVISION, head=False)
+            self.assertTrue((Path(d) / "raw" / eq.PROMPTS_CHAT_CACHE).exists())
+            self.assertEqual(sum(map(len, got.values())), len(eq.PROMPTS_CHAT_QUESTIONS))
+            self.assertIn(("citta", "COSA_VEDERE"), got)
+            with mock.patch.object(eq, "_open", side_effect=AssertionError("rete")):  # dalla cache, senza rete
+                self.assertEqual(eq.load_prompts_chat_questions(Path(d) / "raw", "en").keys(), got.keys())
+            # un'altra revisione fissata rifa' la cache
+            with mock.patch.object(eq, "PROMPTS_CHAT_REVISION", "altra"), \
+                    mock.patch.object(eq, "_open", side_effect=AssertionError("rete")):
+                with self.assertRaises(AssertionError):
+                    eq.load_prompts_chat_questions(Path(d) / "raw", "it")
+
+    def test_stale_cache_with_other_acts_is_rebuilt(self):
+        with tempfile.TemporaryDirectory() as d:
+            eq._write_cache(Path(d) / eq.PROMPTS_CHAT_CACHE, [["Slow Travel Rail"]], {"revisione": eq.PROMPTS_CHAT_REVISION})
+            with mock.patch.object(eq, "require_revision"), mock.patch.object(eq, "_open", side_effect=AssertionError("rete")):
+                with self.assertRaises(AssertionError):
+                    eq.load_prompts_chat_questions(Path(d), "it")
+
+    def test_load_rejects_a_different_file_or_a_missing_act(self):
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(eq, "require_revision"), \
+                mock.patch.object(eq, "_open", return_value=io.BytesIO(self.CSV.encode())):
+            with self.assertRaises(RuntimeError):  # SHA-256 diverso
+                eq.load_prompts_chat_questions(Path(d) / "raw", "it")
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(eq, "require_revision"), \
+                mock.patch.object(eq, "_open", return_value=io.BytesIO(self.CSV.encode())), \
+                mock.patch.object(eq, "PROMPTS_CHAT_SHA256", eq.hashlib.sha256(self.CSV.encode()).hexdigest()):
+            with self.assertRaises(RuntimeError):  # mancano gli act dell'elenco
+                eq.load_prompts_chat_questions(Path(d) / "raw", "it")
+            self.assertFalse((Path(d) / "raw" / eq.PROMPTS_CHAT_CACHE).exists())
+
+    def test_require_revision_pinned_without_head(self):
+        reply = io.BytesIO(json.dumps({"sha": "be0e61647a"}).encode())
+        with mock.patch.object(eq, "_open", return_value=reply) as op:
+            eq.require_revision("x/y", "be0e61647a", head=False)
+            self.assertIn("/revision/be0e61647a", op.call_args[0][0])
+        with mock.patch.object(eq, "_open", return_value=io.BytesIO(json.dumps({"sha": "other"}).encode())):
+            with self.assertRaises(RuntimeError):
+                eq.require_revision("x/y", "be0e61647a", head=False)
+
+
 class EvalSetTest(unittest.TestCase):
     def test_eval_questions_cover_the_extended_test(self):
         try:

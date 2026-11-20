@@ -12,6 +12,8 @@ Fonti:
   tutto l'alfabeto), senza mai salvare il file intero; le righe dell'argomento finiscono in un file intermedio.
 - MKQA (apple/mkqa, CC BY-SA 3.0, 10.000 domande di cultura generale uguali in 24 lingue): coppie (it, en) fuori
   argomento. Il file e' su GitHub, non nel repository Hugging Face (che ha solo lo script di caricamento).
+- prompts.chat (fka/prompts.chat, CC0): prompt di viaggio scritti da persone, riscritti come domande in
+  PROMPTS_CHAT_QUESTIONS (non rifiuti: la risposta la da' il generatore); dal file si controlla solo che i prompt ci siano.
 
 Filtri (conteggi e motivi di scarto nel Counter `stats` che i caricatori ricevono):
   cache (una volta, dai dati grezzi): forma (lunghezza, caratteri, maiuscole e nomi propri, lingua e traduzioni
@@ -24,8 +26,10 @@ Prova: python external_questions.py [cartella cache] [cartella download]
 (scarica una volta, poi stampa conteggi ed esempi; i file grandi vanno in una cartella temporanea del sistema se non si
 indica quella dei download)
 """
+import csv
 import gzip
 import hashlib
+import io
 import json
 import os
 import random
@@ -90,10 +94,12 @@ def _open(url, headers=None, method="GET"):
     return urllib.request.urlopen(req, timeout=120)
 
 
-def require_revision(dataset, revision):
+def require_revision(dataset, revision, head=True):
     """RuntimeError se [dataset] su Hugging Face non e' piu' alla revisione [revision] (come
-    travel_questions.require_revision, ma con lo User-Agent del generatore). Va chiamata prima di riempire una cache."""
-    with _open(f"https://huggingface.co/api/datasets/{dataset}") as r:
+    travel_questions.require_revision, ma con lo User-Agent del generatore). Va chiamata prima di riempire una cache. Con
+    [head] False basta che la revisione esista: per i dataset aggiornati ogni giorno, letti alla revisione fissata."""
+    url = f"https://huggingface.co/api/datasets/{dataset}" + ("" if head else f"/revision/{revision}")
+    with _open(url) as r:
         sha = json.loads(r.read())["sha"]
     if sha != revision:
         raise RuntimeError(f"{dataset} e' cambiato (revisione {sha[:7]}, fissata {revision[:7]}): controlla le "
@@ -721,6 +727,81 @@ def load_mkqa_off_topic(raw_dir, download_dir=None, test=None, stats=None):
     kw_en, st_en = _guide_filters("en")
     return select_mkqa([(r[0], r[1]) for r in rows if len(r) == 2], kw_it, st_it, kw_en, st_en,
                        eval_questions() if test is None else test, stats)
+
+
+# ----- prompts.chat -----
+
+PROMPTS_CHAT = "fka/prompts.chat"
+# Revisione letta il 2026-11-18: il dataset cambia ogni giorno, si legge questa (require_revision con head=False)
+PROMPTS_CHAT_REVISION = "be0e61647a60dac415f7639453f351ce1b4ed585"
+PROMPTS_CHAT_SHA256 = "764eb01b95280e8419c0bae8aac2b69d61fac95db2333cb170e617283d598118"  # prompts.csv a quella revisione
+PROMPTS_CHAT_URL = f"https://huggingface.co/datasets/{PROMPTS_CHAT}/resolve/{PROMPTS_CHAT_REVISION}/prompts.csv"
+PROMPTS_CHAT_CACHE = "prompts_chat_acts.tsv"
+PROMPTS_CHAT_ATTRIBUTION = {
+    "it": [("-", "domande di viaggio riscritte dai prompt di prompts.chat (fka/prompts.chat; solo le domande)",
+            f"https://huggingface.co/datasets/{PROMPTS_CHAT}/tree/{PROMPTS_CHAT_REVISION}", "CC0 1.0")],
+    "en": [("-", "travel questions rewritten from prompts.chat prompts (fka/prompts.chat; questions only)",
+            f"https://huggingface.co/datasets/{PROMPTS_CHAT}/tree/{PROMPTS_CHAT_REVISION}", "CC0 1.0")],
+}
+# Prompt di viaggio di prompts.chat (CC0, scritti da persone) riscritti come domande: sono giochi di ruolo ("act as a
+# travel guide") con la richiesta di chi viaggia dentro. (act del prompt, ambito, categoria, domanda it, domanda en); ambito
+# "citta" (CITY_QUESTIONS) o "paese" (QUESTIONS). Tenuti solo quelli la cui richiesta e' quella generale della categoria,
+# controllati sui positivi generati: una richiesta piu' stretta della sezione ("solo con i mezzi pubblici", "per una
+# famiglia con bambini", "che documenti per studiare", "guidare in auto" in TRASPORTI, "come si arriva" in DOGANE, che ha
+# anche il visto) avrebbe come risposta la sezione vicina, cioe' quello che le righe di sft_unanswerable.py tolgono. Fuori
+# anche immagini, codice, piani aziendali e rimborsi e reclami (voli cancellati, bagagli, treni in ritardo, conti degli
+# alberghi, auto a noleggio), che le guide non coprono, e le parole di sft_nearby.NEARBY_WORDS ("qui vicino", "nearby"),
+# che nell'app portano nel contesto i luoghi vicini. La risposta la da' il generatore, come per le altre domande.
+PROMPTS_CHAT_QUESTIONS = [
+    ("Travel Guide", "citta", "COSA_VEDERE", "Sono a {r}: quali posti mi consigli di visitare?",
+     "I'm in {r}: which places do you suggest I visit?"),
+    ("Cheap Travel Ticket Advisor", "citta", "ARRIVARE", "Con quali mezzi posso arrivare a {r}: aereo, treno, autobus o nave?",
+     "Which ways are there to get to {r}: plane, train, bus or ship?"),
+    ("Custom Travel Plan Generator", "citta", "CIBO_BEVANDE", "Mi piace mangiare bene: dove mi consigli di andare a {r}?",
+     "I'm a foodie: where should I eat in {r}?"),
+    ("Custom Travel Plan Generator", "citta", "ALLOGGIO", "Cerco un albergo a {r}: cosa mi consigli?",
+     "I'm looking for a hotel in {r}: what do you suggest?"),
+    ("AI Travel Agent – Interview-Driven Planner", "paese", "SICUREZZA",
+     "Prima di prenotare un viaggio in {r}, quali rischi per la sicurezza devo conoscere?",
+     "Before booking a trip to {r}, which safety risks should I know about?"),
+    ("Photography Trip Planning — Research-Backed Itinerary Builder", "citta", "COSA_VEDERE",
+     "Cosa vale la pena vedere e fotografare a {r}?", "What is worth seeing and photographing in {r}?"),
+    ("Family Camping Weekend Plan Builder (YAML)", "citta", "ALLOGGIO", "Dove possiamo dormire a {r}?",
+     "Where can we stay in {r}?"),
+]
+
+
+def prompts_chat_acts(lines):
+    """Gli act (titoli dei prompt, senza spazi ai lati) del CSV di prompts.chat letto da [lines]."""
+    csv.field_size_limit(1 << 30)  # prompt lunghi decine di migliaia di caratteri
+    return {row["act"].strip() for row in csv.DictReader(lines)}
+
+
+def load_prompts_chat_questions(raw_dir, lang):
+    """{(ambito, categoria): [domande in lang con {r}]} di PROMPTS_CHAT_QUESTIONS. La prima volta scarica prompts.csv alla
+    revisione fissata (11 MB, in memoria), lo verifica con PROMPTS_CHAT_SHA256 e controlla che ci siano tutti gli act
+    dell'elenco; la cache in [raw_dir] (prompts_chat_acts.tsv) tiene gli act e la revisione, e si rifa' se cambiano
+    l'elenco o la revisione. RuntimeError se il file non corrisponde o manca un act."""
+    cache = Path(raw_dir) / PROMPTS_CHAT_CACHE
+    wanted = {act for act, *_ in PROMPTS_CHAT_QUESTIONS}
+    rows, stats = _read_cache(cache) if cache.exists() else ([], {})
+    if stats.get("revisione") != PROMPTS_CHAT_REVISION or {r[0] for r in rows} != wanted:
+        require_revision(PROMPTS_CHAT, PROMPTS_CHAT_REVISION, head=False)
+
+        def download():
+            with _open(PROMPTS_CHAT_URL) as r:
+                return r.read()
+        data = _retry(download, "prompts.chat")
+        if hashlib.sha256(data).hexdigest() != PROMPTS_CHAT_SHA256:
+            raise RuntimeError("prompts.csv scaricato non corrisponde a PROMPTS_CHAT_SHA256: controlla il file e aggiorna "
+                               "PROMPTS_CHAT_REVISION e PROMPTS_CHAT_SHA256")
+        if missing := wanted - prompts_chat_acts(io.StringIO(data.decode("utf-8"), newline="")):
+            raise RuntimeError(f"act di PROMPTS_CHAT_QUESTIONS assenti da prompts.csv: {', '.join(sorted(missing))}")
+        _write_cache(cache, [[act] for act in sorted(wanted)], {"righe": len(wanted), "revisione": PROMPTS_CHAT_REVISION})
+    out = {}
+    for act, scope, cat, q_it, q_en in PROMPTS_CHAT_QUESTIONS:
+        out.setdefault((scope, cat), []).append(q_it if lang == "it" else q_en)
+    return out
 
 
 def main(argv):
