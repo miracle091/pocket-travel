@@ -1,0 +1,9 @@
+{
+  "uniqueId": "com.github.cliutils:cli11",
+  "name": "CLI11",
+  "artifactVersion": "1.6",
+  "website": "https://github.com/CLIUtils/CLI11",
+  "licenses": [
+    "BSD-3-Clause-cli11"
+  ]
+}

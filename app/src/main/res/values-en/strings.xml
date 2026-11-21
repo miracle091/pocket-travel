@@ -222,6 +222,8 @@
     <string name="storage_guides_download">Download the guides</string>
     <string name="storage_model">On-device AI model</string>
     <string name="storage_no_model">No AI model downloaded</string>
+    <string name="storage_translation">Offline translation Italian ↔ English</string>
+    <string name="storage_translation_section">Offline translation</string>
     <string name="storage_photo_file">The photo file</string>
     <string name="storage_delete">Delete %1$s</string>
     <string name="storage_delete_title">%1$s: delete the data?</string>
@@ -247,6 +249,10 @@
     <string name="licenses_version">Version %1$s</string>
 
     <!-- Licenze di terze parti (LicenseData.kt): testi tradotti -->
+    <string name="licenses_component_bergamot">bergamot-translator (offline translation, the Firefox Translations engine)</string>
+    <string name="licenses_note_bergamot">Translates text between Italian and English on the device. Built from source with the project\'s patches, together with the libraries listed below (Marian, SentencePiece, ruy, PCRE2, zlib, Zstandard and others)</string>
+    <string name="licenses_component_bergamot_models">Italian-English translation models of Firefox Translations (Mozilla)</string>
+    <string name="licenses_note_bergamot_models">Downloaded on request from the Firefox distribution network: collection translations-models-v2 (version 3.0, base-memory variant), https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/translations-models-v2/records. Machine translation: it can contain errors</string>
     <string name="licenses_component_brouter">BRouter (route calculation)</string>
     <string name="licenses_note_brouter">Built from source with the project\'s patches, together with the navigation profiles of the same project</string>
     <string name="licenses_component_llama_cpp">llama.cpp and ggml</string>

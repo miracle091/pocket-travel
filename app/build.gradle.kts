@@ -129,7 +129,7 @@ aboutLibraries {
     license {
         strictMode = com.mikepenz.aboutlibraries.plugin.StrictMode.FAIL
         allowedLicenses.addAll(
-            "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "MIT", "BSD-2-Clause", "BSD-3-Clause", "0BSD", "MPL-2.0", "OFL-1.1",
+            "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "MIT", "BSD-2-Clause", "BSD-3-Clause", "0BSD", "MPL-2.0", "OFL-1.1", "Zlib",
         )
         allowedLicenses.addAll(dataAndModelLicenses())
     }

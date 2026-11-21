@@ -161,6 +161,36 @@ if(NOT BERGAMOT_STAMP STREQUAL BERGAMOT_STAMP_OLD)
             DESTINATION ${BERGAMOT_SRC}/3rd_party/ssplit-cpp/src/3rd-party TOUCH)
     file(WRITE ${BERGAMOT_SRC}.stamp ${BERGAMOT_STAMP})
 endif()
+
+# zstd (BSD-3-Clause): solo il decompressore, per i modelli .zst scaricati dalla CDN di Firefox (zstd_jni.cpp). Stesso
+# schema di pcre2: scaricato una volta con impronta, nella stessa cache e con lo stesso lock, ricontrollato se gia'
+# presente; l'estrazione si segna con un file solo a fine lavoro, cosi' una a meta' si rifa'.
+set(ZSTD_VERSION "1.5.7")
+set(ZSTD_SHA256 "eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3")
+set(ZSTD_FILE ${BERGAMOT_CACHE}/zstd-${ZSTD_VERSION}.tar.gz)
+set(ZSTD_SRC ${BERGAMOT_CACHE}/zstd-src)
+set(ZSTD_DONE ${ZSTD_SRC}.${ZSTD_SHA256}.done)
+if(NOT EXISTS ${ZSTD_DONE})
+    if(EXISTS ${ZSTD_FILE})
+        file(SHA256 ${ZSTD_FILE} ZSTD_ACTUAL)
+        if(NOT ZSTD_ACTUAL STREQUAL ZSTD_SHA256)
+            message(STATUS "zstd: impronta diversa dall'attesa, riscarico")
+            file(REMOVE ${ZSTD_FILE})
+        endif()
+    endif()
+    if(NOT EXISTS ${ZSTD_FILE})
+        file(DOWNLOAD https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/zstd-${ZSTD_VERSION}.tar.gz
+                ${ZSTD_FILE} EXPECTED_HASH SHA256=${ZSTD_SHA256} STATUS ZSTD_STATUS)
+        list(GET ZSTD_STATUS 0 ZSTD_CODE)
+        if(NOT ZSTD_CODE EQUAL 0)
+            file(REMOVE ${ZSTD_FILE})
+            message(FATAL_ERROR "Download di zstd ${ZSTD_VERSION} fallito: ${ZSTD_STATUS}")
+        endif()
+    endif()
+    file(REMOVE_RECURSE ${ZSTD_SRC})
+    file(ARCHIVE_EXTRACT INPUT ${ZSTD_FILE} DESTINATION ${ZSTD_SRC} TOUCH)
+    file(WRITE ${ZSTD_DONE} "")
+endif()
 file(LOCK ${BERGAMOT_CACHE}/bergamot-src.lock RELEASE)
 
 # Come in feature/ai: senza simboli di debug le .so pesano decine di MB in piu'.
@@ -189,14 +219,34 @@ set(ENV{GIT_CEILING_DIRECTORIES} ${BERGAMOT_CACHE})
 set(ENV{FC} pocket-travel-no-fortran)
 add_subdirectory(${BERGAMOT_SRC} build-bergamot EXCLUDE_FROM_ALL)
 
+# Decompressore zstd: solo common e decompress, senza assembly (ZSTD_DISABLE_ASM, nessun file .S), thread e formati
+# vecchi.
+set(ZSTD_LIB ${ZSTD_SRC}/zstd-${ZSTD_VERSION}/lib)
+add_library(pt-zstd STATIC
+        ${ZSTD_LIB}/common/debug.c
+        ${ZSTD_LIB}/common/entropy_common.c
+        ${ZSTD_LIB}/common/error_private.c
+        ${ZSTD_LIB}/common/fse_decompress.c
+        ${ZSTD_LIB}/common/xxhash.c
+        ${ZSTD_LIB}/common/zstd_common.c
+        ${ZSTD_LIB}/decompress/huf_decompress.c
+        ${ZSTD_LIB}/decompress/zstd_ddict.c
+        ${ZSTD_LIB}/decompress/zstd_decompress.c
+        ${ZSTD_LIB}/decompress/zstd_decompress_block.c)
+target_include_directories(pt-zstd PUBLIC ${ZSTD_LIB})
+target_compile_definitions(pt-zstd PRIVATE ZSTD_DISABLE_ASM ZSTD_LEGACY_SUPPORT=0)
+set_target_properties(pt-zstd PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 add_library(${CMAKE_PROJECT_NAME} SHARED
-        translate_jni.cpp)
+        translate_jni.cpp
+        zstd_jni.cpp)
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
         ${BERGAMOT_SRC}/src)
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
         bergamot-translator
+        pt-zstd
         log)
 # I simboli delle librerie statiche restano interni a libbergamot-jni.so: esportati, il linker li terrebbe tutti.
 target_link_options(${CMAKE_PROJECT_NAME} PRIVATE -Wl,--exclude-libs,ALL -Wl,--icf=all)

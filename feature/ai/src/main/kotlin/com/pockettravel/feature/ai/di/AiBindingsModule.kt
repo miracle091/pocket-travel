@@ -2,8 +2,11 @@ package com.pockettravel.feature.ai.di
 
 import com.pockettravel.feature.ai.AiAvailability
 import com.pockettravel.feature.ai.AiModelUpdates
+import com.pockettravel.feature.ai.BergamotModelDownloads
+import com.pockettravel.feature.ai.BergamotModelManager
 import com.pockettravel.feature.ai.BiometricHistoryAvailability
 import com.pockettravel.feature.ai.DefaultAiAvailability
+import com.pockettravel.feature.ai.FileBergamotModelManager
 import com.pockettravel.feature.ai.FileLlmModelManager
 import com.pockettravel.feature.ai.HistoryAvailability
 import com.pockettravel.feature.ai.LlamaOnDeviceLlmEngine
@@ -12,6 +15,7 @@ import com.pockettravel.feature.ai.OnDeviceLlmEngine
 import com.pockettravel.feature.ai.OnDeviceVoiceInput
 import com.pockettravel.feature.ai.VoiceInput
 import com.pockettravel.feature.ai.WorkManagerAiModelUpdates
+import com.pockettravel.feature.ai.WorkManagerBergamotModelDownloads
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -30,6 +34,12 @@ interface AiBindingsModule {
 
     @Binds
     fun bindLlmModelManager(manager: FileLlmModelManager): LlmModelManager
+
+    @Binds
+    fun bindBergamotModelManager(manager: FileBergamotModelManager): BergamotModelManager
+
+    @Binds
+    fun bindBergamotModelDownloads(downloads: WorkManagerBergamotModelDownloads): BergamotModelDownloads
 
     @Binds
     fun bindAiModelUpdates(updates: WorkManagerAiModelUpdates): AiModelUpdates

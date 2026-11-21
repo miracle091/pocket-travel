@@ -1,0 +1,9 @@
+{
+  "uniqueId": "net.zlib:zlib",
+  "name": "zlib",
+  "artifactVersion": "1.2.11",
+  "website": "https://zlib.net",
+  "licenses": [
+    "Zlib-zlib"
+  ]
+}

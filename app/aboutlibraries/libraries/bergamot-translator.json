@@ -1,0 +1,8 @@
+{
+  "uniqueId": "org.browsermt:bergamot-translator",
+  "name": "bergamot-translator",
+  "website": "https://github.com/browsermt/bergamot-translator",
+  "licenses": [
+    "MPL-2.0"
+  ]
+}

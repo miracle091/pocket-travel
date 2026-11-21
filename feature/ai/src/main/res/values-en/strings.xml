@@ -94,6 +94,16 @@
     <string name="ai_error_ram">The device doesn\'t have enough RAM for the AI model</string>
     <string name="ai_error_not_available">This model isn\'t available for download yet</string>
     <string name="ai_error_space">Not enough space to download the AI model</string>
+    <string name="translation_model_title">Offline translation Italian ↔ English</string>
+    <string name="translation_model_downloaded">Downloaded</string>
+    <string name="translation_model_desc">Translates text between Italian and English without a connection. It is machine translation from Mozilla (Firefox Translations) and can contain errors, especially with signs, idioms and names</string>
+    <string name="translation_model_size">Download of %1$s, takes %2$s on the device</string>
+    <string name="translation_model_download">Download translation</string>
+    <string name="translation_model_delete">Delete translation</string>
+    <string name="translation_model_delete_title">Delete the offline translation?</string>
+    <string name="translation_model_delete_message">The files must be downloaded again to translate offline</string>
+    <string name="translation_model_error_download">Translation download failed. Try again later</string>
+    <string name="translation_model_error_space">Not enough space to download the translation</string>
     <string name="ai_error_answer">Couldn\'t generate an answer</string>
     <string name="ai_provider_title">Service</string>
     <string name="ai_provider_get_key">Create the key on %1$s</string>

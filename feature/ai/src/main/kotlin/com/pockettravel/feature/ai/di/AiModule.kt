@@ -5,14 +5,15 @@ import com.pockettravel.core.data.AppInitializer
 import com.pockettravel.core.data.UpdateCheck
 import com.pockettravel.feature.ai.AiInitializer
 import com.pockettravel.feature.ai.AndroidAppRestarter
+import com.pockettravel.feature.ai.AndroidCpuBackendStore
 import com.pockettravel.feature.ai.AnswerKeepAlive
 import com.pockettravel.feature.ai.AnswerService
-import com.pockettravel.feature.ai.AndroidCpuBackendStore
 import com.pockettravel.feature.ai.AppRestarter
 import com.pockettravel.feature.ai.CpuBackendStore
 import com.pockettravel.feature.ai.LlmModelUpdateCheckScheduler
 import com.pockettravel.feature.ai.LlmTaskMonitor
 import com.pockettravel.feature.ai.TaskMonitor
+import com.pockettravel.feature.ai.ZstdDecompressor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -54,6 +55,9 @@ object AiModule {
     @Singleton
     fun provideAnswerKeepAlive(@ApplicationContext context: Context): AnswerKeepAlive =
         AnswerKeepAlive { AnswerService.start(context) }
+
+    @Provides
+    fun provideZstdDecompressor(): ZstdDecompressor = ZstdDecompressor.Native
 
     @Provides
     fun provideTaskMonitor(monitor: LlmTaskMonitor): TaskMonitor = monitor

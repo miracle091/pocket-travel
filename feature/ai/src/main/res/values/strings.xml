@@ -94,6 +94,16 @@
     <string name="ai_error_ram">Il dispositivo non ha RAM sufficiente per il modello IA</string>
     <string name="ai_error_not_available">Questo modello non è ancora disponibile per il download</string>
     <string name="ai_error_space">Spazio insufficiente per scaricare il modello IA</string>
+    <string name="translation_model_title">Traduzione offline italiano ↔ inglese</string>
+    <string name="translation_model_downloaded">Scaricata</string>
+    <string name="translation_model_desc">Traduce testi tra italiano e inglese senza connessione. È una traduzione automatica di Mozilla (Firefox Translations): può contenere errori, soprattutto con cartelli, modi di dire e nomi</string>
+    <string name="translation_model_size">Download di %1$s, occupa %2$s sul dispositivo</string>
+    <string name="translation_model_download">Scarica la traduzione</string>
+    <string name="translation_model_delete">Elimina la traduzione</string>
+    <string name="translation_model_delete_title">Eliminare la traduzione offline?</string>
+    <string name="translation_model_delete_message">Per tradurre senza connessione bisognerà scaricare di nuovo i file</string>
+    <string name="translation_model_error_download">Download della traduzione non riuscito. Riprova più tardi</string>
+    <string name="translation_model_error_space">Spazio insufficiente per scaricare la traduzione</string>
     <string name="ai_error_answer">Impossibile generare una risposta</string>
     <string name="ai_provider_title">Servizio</string>
     <string name="ai_provider_get_key">Crea la chiave su %1$s</string>

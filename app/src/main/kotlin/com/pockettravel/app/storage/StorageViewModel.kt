@@ -15,6 +15,7 @@ import com.pockettravel.core.data.RegionZonePreferences
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.feature.ai.AiSettingsStore
+import com.pockettravel.feature.ai.BergamotModelManager
 import com.pockettravel.feature.ai.LlmModelManager
 import com.pockettravel.feature.ai.OnDeviceLlmEngine
 import com.pockettravel.feature.ai.selectedModelDefinition
@@ -53,12 +54,14 @@ data class StorageUiState(
     val modelSizeBytes: Long = 0L,
     // Il file per le foto del modello scelto (mmproj), 0 se non e' su disco.
     val photoFileSizeBytes: Long = 0L,
+    // I modelli della traduzione offline (Bergamot), 0 se non sono su disco.
+    val translationSizeBytes: Long = 0L,
     val availableBytes: Long = 0L,
     // Messaggio una tantum (es. eliminazione fallita): Snackbar, poi onMessageShown().
     @StringRes val message: Int? = null,
 )
 
-private data class ModelState(val isDownloaded: Boolean, val sizeBytes: Long, val photoFileSizeBytes: Long)
+private data class ModelState(val isDownloaded: Boolean, val sizeBytes: Long, val photoFileSizeBytes: Long, val translationSizeBytes: Long)
 
 /**
  * Vista unica dello spazio occupato da guide, pacchetti delle regioni e modello IA locale, con
@@ -69,6 +72,7 @@ class StorageViewModel @Inject constructor(
     private val regionRepository: RegionRepository,
     private val regionSyncScheduler: RegionSyncScheduler,
     private val modelManager: LlmModelManager,
+    private val translationManager: BergamotModelManager,
     private val engine: OnDeviceLlmEngine,
     private val aiSettingsStore: AiSettingsStore,
     private val recentRegionStore: RecentRegionStore,
@@ -117,6 +121,7 @@ class StorageViewModel @Inject constructor(
             isModelDownloaded = model.isDownloaded,
             modelSizeBytes = model.sizeBytes,
             photoFileSizeBytes = model.photoFileSizeBytes,
+            translationSizeBytes = model.translationSizeBytes,
             availableBytes = available,
             message = currentMessage,
         )
@@ -159,6 +164,13 @@ class StorageViewModel @Inject constructor(
         }
     }
 
+    fun deleteTranslation() {
+        viewModelScope.launch {
+            translationManager.delete()
+            refreshDeviceState()
+        }
+    }
+
     fun deletePhotoFile() {
         viewModelScope.launch {
             // Prima fuori dalla memoria: il modello lo tiene caricato dopo la prima foto.
@@ -196,6 +208,6 @@ class StorageViewModel @Inject constructor(
         val definition = aiSettingsStore.selectedModelDefinition()
         // Il file e' verificato con lo sha256 del catalogo: la sua dimensione e' quella dichiarata.
         val photoFileSize = if (modelManager.isMmprojDownloaded(definition)) definition.mmproj?.sizeBytes ?: 0L else 0L
-        return ModelState(modelManager.isDownloaded(definition), modelManager.sizeOnDisk(definition), photoFileSize)
+        return ModelState(modelManager.isDownloaded(definition), modelManager.sizeOnDisk(definition), photoFileSize, translationManager.sizeOnDisk())
     }
 }

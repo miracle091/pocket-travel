@@ -1,0 +1,8 @@
+{
+  "uniqueId": "org.browsermt:ssplit-cpp",
+  "name": "ssplit-cpp",
+  "website": "https://github.com/browsermt/ssplit-cpp",
+  "licenses": [
+    "Apache-2.0"
+  ]
+}

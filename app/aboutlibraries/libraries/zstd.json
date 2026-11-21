@@ -1,0 +1,9 @@
+{
+  "uniqueId": "com.github.facebook:zstd",
+  "name": "Zstandard",
+  "artifactVersion": "1.5.7",
+  "website": "https://github.com/facebook/zstd",
+  "licenses": [
+    "BSD-3-Clause-zstd"
+  ]
+}

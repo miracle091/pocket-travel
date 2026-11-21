@@ -1,0 +1,8 @@
+{
+  "uniqueId": "com.google.protobuf:protobuf-lite",
+  "name": "Protocol Buffers (lite)",
+  "website": "https://github.com/protocolbuffers/protobuf",
+  "licenses": [
+    "BSD-3-Clause-protobuf"
+  ]
+}

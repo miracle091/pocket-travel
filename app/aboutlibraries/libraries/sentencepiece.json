@@ -1,0 +1,8 @@
+{
+  "uniqueId": "com.google:sentencepiece",
+  "name": "SentencePiece",
+  "website": "https://github.com/google/sentencepiece",
+  "licenses": [
+    "Apache-2.0"
+  ]
+}

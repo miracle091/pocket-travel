@@ -1,0 +1,9 @@
+{
+  "uniqueId": "pockettravel.models:bergamot",
+  "name": "Bergamot models (Firefox Translations)",
+  "website": "https://github.com/mozilla/translations",
+  "licenses": [
+    "MPL-2.0"
+  ],
+  "tag": "models"
+}

@@ -1,0 +1,9 @@
+{
+  "uniqueId": "org.pcre:pcre2",
+  "name": "PCRE2",
+  "artifactVersion": "10.39",
+  "website": "https://github.com/PCRE2Project/pcre2",
+  "licenses": [
+    "BSD-3-Clause-pcre2"
+  ]
+}

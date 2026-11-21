@@ -17,6 +17,7 @@ import com.pockettravel.feature.ai.AiSettingsStore
 import com.pockettravel.feature.ai.OnDeviceLlmEngine
 import com.pockettravel.feature.ai.RamTier
 import com.pockettravel.feature.ai.selectedModelDefinition
+import com.pockettravel.feature.ai.testing.FakeBergamotModelManager
 import com.pockettravel.feature.ai.testing.FakeLlmModelManager
 import com.pockettravel.feature.ai.testing.FakeOnDeviceLlmEngine
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -45,6 +46,7 @@ class StorageViewModelTest {
     private val repository = FakeRegionRepository()
     private val scheduler = FakeRegionSyncScheduler()
     private val models = FakeLlmModelManager()
+    private val translation = FakeBergamotModelManager(sizeBytes = 72_000_000L)
     private val engine = FakeOnDeviceLlmEngine()
     private val modelsDir = createTempDirectory("storage-view-model-test").toFile()
     private val settings = AiSettingsStore(InMemoryPreferencesFactory(), modelsDir) { RamTier.MINIMO }
@@ -67,7 +69,7 @@ class StorageViewModelTest {
     private fun viewModel(
         regions: RegionRepository = repository,
         modelEngine: OnDeviceLlmEngine = engine,
-    ) = StorageViewModel(regions, scheduler, models, modelEngine, settings, recent, zones, FakeManifestClient(), mainDispatcher.dispatcher)
+    ) = StorageViewModel(regions, scheduler, models, translation, modelEngine, settings, recent, zones, FakeManifestClient(), mainDispatcher.dispatcher)
 
     // uiState e' un WhileSubscribed: serve un osservatore per avere i valori.
     private fun TestScope.observe(viewModel: StorageViewModel) {
@@ -163,6 +165,23 @@ class StorageViewModelTest {
 
         assertTrue(viewModel.uiState.value.isModelDownloaded)
         assertEquals(777L, viewModel.uiState.value.modelSizeBytes)
+    }
+
+    @Test
+    fun `la traduzione offline compare con la sua dimensione e si elimina senza toccare il modello`() = runTest {
+        translation.setInstalled(true)
+        val definition = settings.selectedModelDefinition()
+        models.downloadedModelIds.value = setOf(definition.id)
+        val viewModel = viewModel()
+        observe(viewModel)
+        assertEquals(72_000_000L, viewModel.uiState.value.translationSizeBytes)
+
+        viewModel.deleteTranslation()
+        advanceUntilIdle()
+
+        assertEquals(1, translation.deleted)
+        assertEquals(0L, viewModel.uiState.value.translationSizeBytes)
+        assertTrue(viewModel.uiState.value.isModelDownloaded)
     }
 
     @Test

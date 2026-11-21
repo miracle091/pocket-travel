@@ -1,0 +1,8 @@
+{
+  "uniqueId": "org.pytorch:cpuinfo",
+  "name": "cpuinfo",
+  "website": "https://github.com/pytorch/cpuinfo",
+  "licenses": [
+    "BSD-2-Clause-cpuinfo"
+  ]
+}

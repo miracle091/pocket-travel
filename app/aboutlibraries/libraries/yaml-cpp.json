@@ -1,0 +1,8 @@
+{
+  "uniqueId": "com.github.jbeder:yaml-cpp",
+  "name": "yaml-cpp",
+  "website": "https://github.com/jbeder/yaml-cpp",
+  "licenses": [
+    "MIT-yaml-cpp"
+  ]
+}

@@ -72,6 +72,8 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:speech"))
     implementation(project(":core:sync"))
+    // Decompressore zstd dei modelli di traduzione (BergamotModelManager).
+    implementation(project(":core:translate"))
     implementation(project(":core:ui"))
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.androidx.activity.compose)

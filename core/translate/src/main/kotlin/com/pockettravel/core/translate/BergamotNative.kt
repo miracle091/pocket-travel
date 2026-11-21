@@ -17,4 +17,7 @@ internal object BergamotNative {
     external fun translate(handle: Long, text: ByteArray): ByteArray?
 
     external fun release(handle: Long)
+
+    /** Decomprime il file zstd [source] in [target] (zstd_jni.cpp): null se riesce, altrimenti il motivo. */
+    external fun zstdDecompress(source: ByteArray, target: ByteArray): String?
 }

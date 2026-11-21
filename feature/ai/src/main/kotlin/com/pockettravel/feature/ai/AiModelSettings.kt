@@ -66,6 +66,7 @@ fun AiSettingsSection(
         actions = viewModel.toActions(regionId = ""),
         networkVoices = networkVoices,
         onNetworkVoicesChanged = readAloudViewModel::setNetworkVoices,
+        translationModel = { TranslationModelCard() },
     )
 }
 
@@ -76,6 +77,8 @@ internal fun AiSettingsContent(
     // Le voci di rete per "Ascolta" (ReadAloudViewModel): non fanno parte dello stato dell'assistente.
     networkVoices: Boolean = false,
     onNetworkVoicesChanged: (Boolean) -> Unit = {},
+    // La traduzione offline (TranslationModelCard) vale con entrambi i motori: sta sotto la scelta del motore.
+    translationModel: @Composable () -> Unit = {},
 ) {
     var showRemoveKeyConfirm by rememberSaveable { mutableStateOf(false) }
     var showDeleteHistoryConfirm by rememberSaveable { mutableStateOf(false) }
@@ -109,6 +112,7 @@ internal fun AiSettingsContent(
                 SettingSwitch(R.string.ai_online_photos_title, R.string.ai_online_photos_hint, uiState.sendsPhotos, actions.onSendsPhotosChanged)
             }
         }
+        translationModel()
         // "Ascolta" vale con entrambi i motori.
         SettingSwitch(R.string.ai_read_aloud_network_title, R.string.ai_read_aloud_network_hint, networkVoices, onNetworkVoicesChanged)
         // Anche con il motore Online: le conversazioni salvate prima restano finche' non si cancellano.

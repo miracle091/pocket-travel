@@ -225,6 +225,8 @@
     <string name="storage_guides_download">Scarica le guide</string>
     <string name="storage_model">Modello IA sul dispositivo</string>
     <string name="storage_no_model">Nessun modello IA scaricato</string>
+    <string name="storage_translation">Traduzione offline italiano ↔ inglese</string>
+    <string name="storage_translation_section">Traduzione offline</string>
     <string name="storage_photo_file">Il file per le foto</string>
     <string name="storage_delete">Elimina (%1$s)</string>
     <string name="storage_delete_title">%1$s: eliminare i dati?</string>
@@ -254,6 +256,10 @@
     <string name="licenses_note_emergency_uk" translatable="false">Contains public sector information licensed under the Open Government Licence v3.0</string>
 
     <!-- Licenze di terze parti (LicenseData.kt): testi tradotti -->
+    <string name="licenses_component_bergamot">bergamot-translator (traduzione offline, motore di Firefox Translations)</string>
+    <string name="licenses_note_bergamot">Traduce sul dispositivo i testi tra italiano e inglese. Compilato dal codice sorgente con le patch del progetto, insieme alle librerie elencate di seguito (Marian, SentencePiece, ruy, PCRE2, zlib, Zstandard e altre)</string>
+    <string name="licenses_component_bergamot_models">Modelli di traduzione italiano-inglese di Firefox Translations (Mozilla)</string>
+    <string name="licenses_note_bergamot_models">Scaricati su richiesta dalla rete di distribuzione di Firefox: collezione translations-models-v2 (versione 3.0, variante base-memory), https://firefox.settings.services.mozilla.com/v1/buckets/main/collections/translations-models-v2/records. Traduzione automatica: può contenere errori</string>
     <string name="licenses_component_brouter">BRouter (calcolo dei percorsi)</string>
     <string name="licenses_note_brouter">Compilato dal codice sorgente con le patch del progetto, insieme ai profili di navigazione dello stesso progetto</string>
     <string name="licenses_component_llama_cpp">llama.cpp e ggml</string>

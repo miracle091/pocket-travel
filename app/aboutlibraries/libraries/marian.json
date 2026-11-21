@@ -1,0 +1,8 @@
+{
+  "uniqueId": "org.marian-nmt:marian",
+  "name": "Marian",
+  "website": "https://github.com/marian-nmt/marian-dev",
+  "licenses": [
+    "MIT-marian"
+  ]
+}

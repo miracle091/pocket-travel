@@ -84,6 +84,8 @@ val licenseLabels: Map<String, LicenseLabel> = mapOf(
     "com.github.yhirose:cpp-httplib" to LicenseLabel(R.string.licenses_component_cpp_httplib),
     "com.arm:kleidiai" to LicenseLabel(R.string.licenses_component_kleidiai),
     "org.llvm:openmp" to LicenseLabel(R.string.licenses_component_openmp),
+    "org.browsermt:bergamot-translator" to LicenseLabel(R.string.licenses_component_bergamot, note = R.string.licenses_note_bergamot),
+    "pockettravel.models:bergamot" to LicenseLabel(R.string.licenses_component_bergamot_models, note = R.string.licenses_note_bergamot_models),
     "btools:brouter" to LicenseLabel(R.string.licenses_component_brouter, note = R.string.licenses_note_brouter),
     "com.google:material-symbols" to LicenseLabel(R.string.licenses_component_material_symbols, note = R.string.licenses_note_material_symbols),
     "com.google:noto-sans" to LicenseLabel(R.string.licenses_component_noto_sans, note = R.string.licenses_note_noto_sans),

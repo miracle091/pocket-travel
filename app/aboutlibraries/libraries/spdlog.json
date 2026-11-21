@@ -1,0 +1,8 @@
+{
+  "uniqueId": "com.github.gabime:spdlog",
+  "name": "spdlog",
+  "website": "https://github.com/gabime/spdlog",
+  "licenses": [
+    "MIT-spdlog"
+  ]
+}

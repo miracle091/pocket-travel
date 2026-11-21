@@ -1,0 +1,8 @@
+{
+  "uniqueId": "com.google:ruy",
+  "name": "ruy",
+  "website": "https://github.com/google/ruy",
+  "licenses": [
+    "Apache-2.0"
+  ]
+}

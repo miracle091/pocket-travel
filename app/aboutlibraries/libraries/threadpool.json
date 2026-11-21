@@ -1,0 +1,8 @@
+{
+  "uniqueId": "com.github.progschj:threadpool",
+  "name": "ThreadPool",
+  "website": "https://github.com/progschj/ThreadPool",
+  "licenses": [
+    "Zlib-threadpool"
+  ]
+}

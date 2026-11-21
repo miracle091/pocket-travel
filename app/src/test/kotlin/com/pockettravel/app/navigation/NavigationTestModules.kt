@@ -50,6 +50,8 @@ import com.pockettravel.core.sync.testing.FakeRegionSyncScheduler
 import com.pockettravel.core.sync.testing.FakeTransitClient
 import com.pockettravel.feature.ai.AiAvailability
 import com.pockettravel.feature.ai.AiModelUpdates
+import com.pockettravel.feature.ai.BergamotModelDownloads
+import com.pockettravel.feature.ai.BergamotModelManager
 import com.pockettravel.feature.ai.BiometricHistoryAvailability
 import com.pockettravel.feature.ai.HistoryAvailability
 import com.pockettravel.feature.ai.LlmModelManager
@@ -59,6 +61,8 @@ import com.pockettravel.feature.ai.VoiceInput
 import com.pockettravel.feature.ai.di.AiBindingsModule
 import com.pockettravel.feature.ai.testing.FakeAiAvailability
 import com.pockettravel.feature.ai.testing.FakeAiModelUpdates
+import com.pockettravel.feature.ai.testing.FakeBergamotModelDownloads
+import com.pockettravel.feature.ai.testing.FakeBergamotModelManager
 import com.pockettravel.feature.ai.testing.FakeLlmModelManager
 import com.pockettravel.feature.ai.testing.FakeOnDeviceLlmEngine
 import com.pockettravel.feature.map.AndroidConnectivityChecker
@@ -223,6 +227,13 @@ object TestAiModule {
     @Provides
     @Singleton
     fun modelManager(): LlmModelManager = FakeLlmModelManager()
+
+    @Provides
+    @Singleton
+    fun translationModelManager(): BergamotModelManager = FakeBergamotModelManager()
+
+    @Provides
+    fun translationModelDownloads(): BergamotModelDownloads = FakeBergamotModelDownloads()
 
     @Provides
     fun modelUpdates(): AiModelUpdates = FakeAiModelUpdates()

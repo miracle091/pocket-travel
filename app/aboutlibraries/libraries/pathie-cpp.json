@@ -1,0 +1,8 @@
+{
+  "uniqueId": "com.github.quintus:pathie-cpp",
+  "name": "Pathie",
+  "website": "https://github.com/Quintus/pathie-cpp",
+  "licenses": [
+    "BSD-2-Clause-pathie-cpp"
+  ]
+}
