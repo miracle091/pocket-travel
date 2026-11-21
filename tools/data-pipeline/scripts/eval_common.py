@@ -952,6 +952,38 @@ def text_lang(text):
     return "it" if it > en else "en" if en > it else None
 
 
+# Parole frequenti di altre lingue latine (tedesco, francese, spagnolo, portoghese, swahili, finlandese, ungherese, olandese,
+# polacco, rumeno, svedese, turco, ceco, indonesiano, catalano), senza quelle che sono anche italiane o inglesi: con IT_WORDS
+# ed EN_WORDS bastano a riconoscere una risposta in un'altra lingua latina (OnlineAnswerGuard.kt).
+OTHER_LANG_WORDS = {
+    "de": frozenset("der die das und ist nicht ein eine mit von zu den dem des auf für sie wir ich sich auch im bei nach wie "
+                    "wenn oder aber wird sind haben kann können gibt".split()),
+    "fr": frozenset("les des du sont pas une dans pour avec que vous nous je elle cette ces aux sur mais où et".split()),
+    "es": frozenset("el es los las son por para que como pero más está hay muy esto esta puede donde cuando también tiene "
+                    "sus".split()),
+    "pt": frozenset("os dos das em não uma para que mais está tem são muito também pode onde".split()),
+    "sw": frozenset("na ya wa kwa ni za katika kuwa hii huu hilo yake lakini kama hiyo vya ili hapa kuna watu".split()),
+    "fi": frozenset("ja ei että oli ovat mutta kuin tai myös hän joka kun niin ole sekä jos vain kaikki tämä heidän mitä jotka kanssa yksi kaksi "
+                    "kaupunki".split()),
+    "hu": frozenset("az és hogy nem egy meg vagy ami már csak ezt kell lehet ez nagyon város mert még minden pedig között után".split()),
+    "nl": frozenset("het een ik dat niet voor zijn maar ook als aan bij naar uit nog wel wordt deze kan".split()),
+    "pl": frozenset("nie się że jest jak czy tak od przez dla który tylko może być oraz miasto".split()),
+    "ro": frozenset("și în cu să sunt pentru dar sau fost foarte acest această oraș este ale dintre către iar".split()),
+    "sv": frozenset("och att det som är på av för med inte har om ett jag från eller också staden".split()),
+    "tr": frozenset("ve bir bu için ile çok daha gibi olarak olan şehir ise değil".split()),
+    "cs": frozenset("je že jako který byl byla jsou nebo také velmi město".split()),
+    "id": frozenset("yang dan ini itu dengan untuk tidak dari dalam akan pada adalah juga atau ada sangat".split()),
+    "ca": frozenset("els les amb és són dels als més també aquest aquesta això molt ciutat".split()),
+}
+
+
+def lang_word_counts(text):
+    """Quante parole frequenti di ogni lingua ("it", "en" e le chiavi di OTHER_LANG_WORDS) ci sono nel testo."""
+    words = re.findall(r"[^\W\d_]+", text.lower())
+    sets = {"it": IT_WORDS, "en": EN_WORDS, **OTHER_LANG_WORDS}
+    return {lang: sum(w in known for w in words) for lang, known in sets.items()}
+
+
 def question_lang(row):
     """Lingua della domanda della riga: il campo "question_lang" se c'e', altrimenti text_lang della domanda; se il
     rilevamento non decide, la lingua del dataset."""

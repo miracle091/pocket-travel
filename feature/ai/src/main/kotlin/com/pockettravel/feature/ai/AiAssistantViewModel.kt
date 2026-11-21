@@ -1000,6 +1000,8 @@ internal fun askErrorMessage(error: Exception): Int = when (error) {
     is OnlineDailyQuotaException -> R.string.ai_error_daily_quota
     is OnlineServiceBusyException -> R.string.ai_error_busy
     is OnlineAnswerInterruptedException -> R.string.ai_error_interrupted
+    is OnlineAnswerWrongLanguageException -> R.string.ai_error_wrong_language
+    is OnlineAnswerEmptyException -> R.string.ai_error_empty_answer
     else -> R.string.ai_error_answer
 }
 

@@ -232,6 +232,14 @@ internal fun FinishedAnswer(answer: AssistantAnswer, credit: ModelCredit?, onOpe
     }
     Text(text, style = MaterialTheme.typography.bodyLarge)
     AiGeneratedLabel(credit, onOpenOfficialSource)
+    if (answer.partsChanged) {
+        Text(
+            stringResource(R.string.ai_answer_parts_changed),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = Spacing.xs),
+        )
+    }
     // I numeri delle previsioni si leggono nel riquadro, non nel testo del modello.
     answer.forecast?.let { forecast ->
         WeatherCard(forecast, onOpenSource = { url, _ -> onOpenOfficialSource(url) }, modifier = Modifier.padding(top = Spacing.m))

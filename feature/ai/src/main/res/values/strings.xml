@@ -60,6 +60,7 @@
     <string name="ai_empty_title">Fai una domanda sul viaggio</string>
     <string name="ai_empty_subtitle">Le risposte sono generate da un modello IA: in poche frasi, si basano sulla guida della regione e sulle note personali. Se la guida non basta, l\'assistente lo segnala</string>
     <string name="ai_answer_generated">Generata da un modello IA</string>
+    <string name="ai_answer_parts_changed">Link o numeri che non vengono dalle guide: tolti dalla risposta o segnati da verificare</string>
     <string name="ai_verify_official">Verifica sempre sulla fonte ufficiale</string>
     <string name="ai_refresh_forecast">Aggiorna le previsioni</string>
     <string name="ai_delete_model">Elimina il modello</string>
@@ -169,6 +170,8 @@
     <string name="ai_command_model_desc">Mostra il modello in uso e ne sceglie un altro</string>
     <string name="ai_error_busy">Servizio occupato. Riprova tra poco</string>
     <string name="ai_error_interrupted">La risposta si è interrotta. Riprova</string>
+    <string name="ai_error_empty_answer">La risposta non ha contenuto utile e non viene mostrata. Riprova</string>
+    <string name="ai_error_wrong_language">La risposta è in un\'altra lingua e non viene mostrata. Riprova</string>
     <string name="ai_saved_key_reminder">È salvata una chiave API di %1$s: l\'assistente online è utilizzabile subito, senza scaricare un modello</string>
     <string name="ai_use_online">Usa online</string>
     <string name="ai_downloaded_model_choice">%1$s è già sul dispositivo. Usarlo subito o scaricare %2$s, il modello scelto in precedenza?</string>

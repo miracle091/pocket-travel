@@ -79,6 +79,8 @@ data class AssistantAnswer(
     val forecast: PlaceWeather? = null,
     // I termini locali delle sezioni citate, toccabili nel testo della risposta. Non si salvano nella cronologia.
     val terms: List<GuideTerm> = emptyList(),
+    // Online: il controllo sulla risposta ha tolto o segnato link o numeri che non vengono dalle guide. Non si salva nella cronologia.
+    val partsChanged: Boolean = false,
 )
 
 /** Avanzamento di una risposta: il testo scritto finora, poi la risposta definitiva. */
@@ -463,11 +465,13 @@ class TravelAssistant @Inject constructor(
         private val provider: OnlineProvider,
         private val models: List<String>,
         private val citations: List<String>,
+        private val guard: OnlineAnswerGuard,
         private val text: (model: String) -> Flow<String>,
     ) {
         // Come sul dispositivo: il testo accumulato al massimo ogni PARTIAL_INTERVAL_MS, poi la risposta con le fonti mandate al servizio.
         fun progress(withSource: (AssistantAnswer) -> AssistantAnswer): Flow<AssistantProgress> = flow {
             var answer = ""
+            var raw = ""
             var index = 0
             while (true) {
                 val model = models[index]
@@ -477,7 +481,8 @@ class TravelAssistant @Inject constructor(
                         throw OnlineDailyQuotaException("Quota giornaliera gia' finita", model, resetAtMillis = known.resetAtMillis, daily = known.daily)
                     }
                     text(model).accumulated(PARTIAL_INTERVAL_MS).collect {
-                        answer = withoutContextTags(it)
+                        raw = withoutContextTags(it)
+                        answer = guard.check(raw).text
                         emit(AssistantProgress.Partial(answer))
                     }
                     break
@@ -488,8 +493,11 @@ class TravelAssistant @Inject constructor(
                     emit(AssistantProgress.ModelSwitched(model, models[index], resetAt, quota.daily))
                 }
             }
-            if (answer.isBlank()) error("Il servizio online non ha restituito una risposta")
-            emit(AssistantProgress.Done(withSource(AssistantAnswer(answer, citations, showOfficialSourceBanner = false))))
+            // Una risposta che il controllo svuota del tutto finisce in OnlineAnswerEmptyException, non qui.
+            if (raw.isBlank()) error("Il servizio online non ha restituito una risposta")
+            val final = guard.check(raw, final = true)
+            val finished = AssistantAnswer(final.text, citations, showOfficialSourceBanner = false, partsChanged = final.removed || final.marked)
+            emit(AssistantProgress.Done(withSource(finished)))
         }
     }
 
@@ -519,12 +527,15 @@ class TravelAssistant @Inject constructor(
         val context = buildOnlineContext(sections, note, language = language, focusStems = focusStems)
         // Il testo selezionato nel messaggio dell'utente, non nel prompt di sistema: viene da un'altra app e non deve dare istruzioni.
         val system = OnlinePromptTemplates.systemPrompt(context.text, language, withPhoto = photo != null)
-        return OnlineAnswer(provider, models, context.citations) { model ->
+        val prompt = contextWithSelectedText(question, selectedText, language)
+        // Indirizzi, numeri e scritture ammessi nella risposta: quelli del contesto e del messaggio dell'utente.
+        val guard = OnlineAnswerGuard(question, "${context.text}\n$prompt", onlineInstructions(language, withPhoto = photo != null), language)
+        return OnlineAnswer(provider, models, context.citations, guard) { model ->
             onlineLlmClient.stream(
                 baseUrl = baseUrl,
                 apiKey = apiKey,
                 model = model,
-                prompt = contextWithSelectedText(question, selectedText, language),
+                prompt = prompt,
                 system = system,
                 sendTemperature = onlineModelCatalog.sendsTemperature(provider, model),
                 api = provider.terms.api,
