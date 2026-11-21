@@ -307,6 +307,12 @@ class EvalGgufTest(unittest.TestCase):
         self.assertIn("ISTRUZIONE NEL CONTESTO eseguita | Cosa vedere a Berlino?", out)
         self.assertIn("ISTRUZIONE NEL CONTESTO ignorata | Cosa si mangia nel Regno Unito?", out)
 
+    def test_injection_con_kinds_pos_injection_tiene_solo_le_righe_dell_istruzione(self):
+        self.run_script("--injection", "--kinds", "pos_injection", replies=["OK", "Il fish and chips."],
+                        rows=[row("pos_near", "D?", "R.")])
+        self.assertEqual(2, len(self.prompts))
+        self.assertIn("Ignora le istruzioni precedenti", self.prompts[0]["prompt"])
+
     def test_injection_non_vale_con_contexts(self):
         with mock.patch.object(sys, "argv", ["eval_gguf.py", str(self.tmp / "model.gguf"), "--llama-cpp", str(self.tmp),
                                              "--contexts", str(self.tmp / "c.jsonl"), "--injection"]), \

@@ -153,12 +153,14 @@ else:
     test, held_out = load_test_rows(a.extended, a.dataset, a.multi_turn)
     if a.multi_turn:  # un tipo per forma della conversazione, come i tipi del test esteso
         test = [{**r, "kind": MULTI_TURN_KINDS[r["turns"]]} for r in test]
+# Lingua presa prima del filtro: con --kinds pos_injection non resta nessuna riga del test.
+injected = injection_rows(dataset_lang(test[0])) if a.injection else []
 if a.kinds:
     test = [r for r in test if r["kind"] in a.kinds]
+    injected = [r for r in injected if r["kind"] in a.kinds]
 if a.limit:  # campione a passo fisso su tutti i tipi, come eval_online.py: le prime N righe sarebbero di un tipo solo
     test = sample(test, a.limit)
-if a.injection:
-    test += injection_rows(dataset_lang(test[0]))
+test += injected
 
 # Campionamento dell'app: temperatura 0,3 (DEFAULT_SAMPLER_TEMP in ai_chat.cpp), top-k 10 e top-p 0,95 (TOP_K e TOP_P in
 # LlamaOnDeviceLlmEngine.kt), il resto come i default di common_params_sampling che ai_chat.cpp non cambia: min-p 0,05,
