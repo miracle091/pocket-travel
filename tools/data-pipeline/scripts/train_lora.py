@@ -118,6 +118,9 @@ ap.add_argument("--lora-linear-attn", action="store_true",
 ap.add_argument("--batch", type=int, default=4, help="esempi per passo sulla GPU (16 effettivi: cala se manca VRAM)")
 ap.add_argument("--no-group-by-length", action="store_true",
                 help="batch in ordine casuale invece che per lunghezza (come i training fino al 4B del 2026-09-26)")
+ap.add_argument("--seed", type=int, default=42,
+                help="seme di inizializzazione della LoRA e dell'ordine dei batch (lo split train/test resta per regione): "
+                     "un altro seme misura quanto cambia un modello da un training all'altro")
 ap.add_argument("--merge", action="store_true", help="salva anche i pesi con il LoRA fuso (per la conversione); lancia anche l'eval automatico (run_eval.py)")
 ap.add_argument("--dataset", default="pocket_travel_sft.v11.it.jsonl",
                 help="file dentro data/sft/ (default: il v11 italiano, pubblicabile; pocket_travel_sft.v11.en.jsonl per l'inglese)")
@@ -164,12 +167,13 @@ if a.unsloth:
         base, max_seq_length=a.max_len, load_in_4bit=a.four_bit, dtype=DTYPE)
     stop_on_missing_lora_targets(model)
     model = FastLanguageModel.get_peft_model(
-        model, **LORA, use_gradient_checkpointing="unsloth", random_state=42)
+        model, **LORA, use_gradient_checkpointing="unsloth", random_state=a.seed)
     tok = getattr(tok, "tokenizer", tok)  # con un processor (modello vision-language) serve solo il tokenizer
 else:
     tok = AutoTokenizer.from_pretrained(base)
     model = AutoModelForCausalLM.from_pretrained(base, dtype=DTYPE)
     stop_on_missing_lora_targets(model)
+    torch.manual_seed(a.seed)  # inizializzazione della LoRA, come random_state di Unsloth
     model = get_peft_model(model, LoraConfig(**LORA, task_type="CAUSAL_LM"))
 tok.chat_template = CHATML
 check_no_vision(model)
@@ -329,7 +333,7 @@ trainer = WeightedTrainer(
         logging_steps=5, eval_strategy="steps", eval_steps=200,
         # checkpoint ogni 100 passi (solo l'ultimo): un training interrotto riparte da li' rilanciando
         # lo stesso comando, invece che da zero
-        output_dir=a.out, save_strategy="steps", save_steps=100, save_total_limit=1, report_to="none", seed=42,
+        output_dir=a.out, save_strategy="steps", save_steps=100, save_total_limit=1, report_to="none", seed=a.seed,
         **length_grouping,
         include_num_input_tokens_seen="non_padding",  # token al secondo in benchmark.json; non cambia i pesi
         disable_tqdm=True,  # sostituite da StatusLine: le barre tqdm nei log su file diventano illeggibili
@@ -339,7 +343,8 @@ trainer = WeightedTrainer(
 run_key = {"model": a.model, "dataset": a.dataset, "dataset_sha256": hashlib.sha256(dataset_path.read_bytes()).hexdigest(),
            "max_len": a.max_len, "batch": a.batch, "group_by_length": not a.no_group_by_length, "epochs": a.epochs, "max_steps": a.max_steps, "four_bit": a.four_bit,
            "lr": a.lr, "lora_r": a.lora_r, "lora_alpha": a.lora_alpha, "text_only_chatml": True,
-           **({"lora_linear_attn": True} if a.lora_linear_attn else {})}
+           **({"lora_linear_attn": True} if a.lora_linear_attn else {}),
+           **({"seed": a.seed} if a.seed != 42 else {})}  # come lora_linear_attn: i run.json di prima restano validi
 run_key_path = Path(a.out) / "run.json"
 last_checkpoint = last_complete_checkpoint(a.out)
 if last_checkpoint:
@@ -351,7 +356,7 @@ run_key_path.write_text(json.dumps(run_key, indent=2), encoding="utf-8")
 train_result = trainer.train(resume_from_checkpoint=last_checkpoint)
 print("peak VRAM GiB:", round(torch.cuda.max_memory_allocated() / 2**30, 2))
 # Misure di questo processo, per confrontare hardware e backend: stessi --model, --dataset, --max-len, --batch e
-# --max-steps danno gli stessi batch (seed 42). Temperature, consumi e uso della GPU sono nel CSV di hw_monitor.py.
+# --max-steps danno gli stessi batch, con lo stesso --seed. Temperature, consumi e uso della GPU sono nel CSV di hw_monitor.py.
 # Loss: le ultime registrate (training: media degli ultimi 5 passi); la train_loss del Trainer dopo una ripresa divide
 # la loss di questo processo per tutti i passi.
 def last_logged(key):
