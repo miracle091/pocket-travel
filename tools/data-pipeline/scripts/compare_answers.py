@@ -10,7 +10,9 @@ ed e' quello che decide l'asterisco. In fondo gli stessi numeri per tutti i nega
 correzione), e i controlli sulle istruzioni (risposte fuori dal contesto, oltre 450 caratteri, lingua sbagliata). Il tema
 del rifiuto (refusal_topic_ok) conta solo se tutti e due i file lo hanno; altrimenti un avviso e il solo rifiuto.
 
-Uso: python compare_answers.py <risposte A.jsonl> <risposte B.jsonl> [--names v10 v11]
+Con --test, solo le risposte delle righe ancora nel test: le righe tolte dal test dopo il salvataggio non contano.
+
+Uso: python compare_answers.py <risposte A.jsonl> <risposte B.jsonl> [--names v10 v11] [--test <eval_extended.jsonl>]
 """
 import argparse
 import json
@@ -18,7 +20,7 @@ import math
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from eval_common import obeyed_injection
+from eval_common import obeyed_injection, question_of
 
 Z = 1.96
 
@@ -158,13 +160,32 @@ def load(path):
     return [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def in_test(rows, test):
+    """Le risposte [rows] delle sole righe ancora nel test [test] (tipo, regione, categoria, domanda e risposta attesa, una
+    risposta per riga): le righe tolte dal test dopo che le risposte sono state salvate escono dal confronto."""
+    left = Counter((r["kind"], r.get("region"), r.get("category"), question_of(r).strip(), r["messages"][1]["content"])
+                   for r in test)
+    out = []
+    for r in rows:
+        key = (r["kind"], r.get("region"), r.get("category"), r["question"].strip(), r["want"])
+        if left[key]:
+            left[key] -= 1
+            out.append(r)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("a", type=Path)
     ap.add_argument("b", type=Path)
     ap.add_argument("--names", nargs=2, default=["A", "B"])
+    ap.add_argument("--test", type=Path, help="test (eval_extended*.jsonl o dataset): confronta solo le risposte delle sue righe")
     a = ap.parse_args()
-    print(report(load(a.a), load(a.b), a.names))
+    rows_a, rows_b = load(a.a), load(a.b)
+    if a.test:
+        test = load(a.test)
+        rows_a, rows_b = in_test(rows_a, test), in_test(rows_b, test)
+    print(report(rows_a, rows_b, a.names))
 
 
 if __name__ == "__main__":

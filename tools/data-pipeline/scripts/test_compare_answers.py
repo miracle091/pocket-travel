@@ -87,6 +87,18 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(r["neg_off"]["paired"], 2)
         self.assertEqual((r["neg_off"]["worse"], r["neg_off"]["better"]), (1, 0))
 
+    def test_solo_le_righe_ancora_nel_test(self):
+        # due righe con la stessa domanda e risposte attese diverse (sezioni Eat e Drink): se ne toglie una sola
+        def test_row(question, want):
+            return {"messages": [{"role": "user", "content": f"Sei una guida.\n\nDOMANDA: {question}"},
+                                 {"role": "assistant", "content": want}],
+                    "kind": "pos_para", "region": "germania", "category": "TRASPORTI"}
+        answers = [row("pos_para", "Come giro?", False, want="In autobus."),
+                   row("pos_para", "Come giro?", True, want="Si beve birra."),
+                   row("pos_para", "Ci sono treni?", False, want="Si', molti.")]
+        kept = ca.in_test(answers, [test_row("Ci sono treni?", "Si', molti."), test_row("Come giro?", "In autobus.")])
+        self.assertEqual(kept, [answers[0], answers[2]])
+
     def test_holm_sui_tipi_di_riga_non_sui_totali(self):
         # neg_city e neg_off 6-0 (p 1/32 = 0,03125), pos_para senza cambi (p 1): Holm 0,03125 x 3 = 0,094 per i due neg,
         # 1 per pos_para; il totale dei neg (12-0) resta col p senza correzione

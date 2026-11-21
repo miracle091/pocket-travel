@@ -10,7 +10,8 @@ di training (QUESTIONS* in generate_sft_dataset.py), e il contesto e' composto c
   neg_empty   negativo con il contesto di fallback (la ricerca dell'app non trova nulla);
   neg_off     domanda che non c'entra con la guida (cultura generale, cucina, sport; IT e EN).
 Un positivo/negativo si tiene solo se il contesto tratta (o non tratta) davvero la categoria (KEYWORDS):
-le sezioni Wikivoyage a volte coprono altro (es. 'restare in contatto' = posta).
+le sezioni Wikivoyage a volte coprono altro (es. 'restare in contatto' = posta). Un positivo che chiede una parte sola
+della categoria (come arrivare, i piatti, le malattie: ASPECTS) si toglie se la sezione nel contesto non ne parla.
 Con --dump-dir (i dump di generate_sft_dataset.py) aggiunge in coda righe sulle citta' delle regioni di test,
 che il training esclude: pos_city (domande riformulate, PARA_CITY) e neg_city (categoria assente dalla pagina).
 In fondo, con un seme proprio (le righe precedenti non cambiano), domande su cosa c'e' qui vicino e sui mezzi con i
@@ -36,6 +37,7 @@ Uso: python generate_eval_set.py [--dump-dir <cartella dei dump> [--dump-date MM
 import argparse
 import json
 import random
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -46,9 +48,9 @@ import generate_sft
 import sft_nearby
 import wiki_dump
 from generate_sft_dataset import (CITY_HEADING_TO_CATEGORY, CITY_MIN_SECTION, DUMP_WIKIS, EN_HEADING_TO_CATEGORY,
-                                  FALLBACK_CONTEXT, HEADING_TO_CATEGORY, OUT, QUESTIONS, TOPIC, city_parents, covers,
-                                  intro_sentences, load_regions, load_sources, make_context, on_device_prompt, parse_sections,
-                                  pick_answer)
+                                  FALLBACK_CONTEXT, HEADING_TO_CATEGORY, OUT, QUESTIONS, SENTENCE_END, TOPIC, city_parents,
+                                  covers, intro_sentences, line_sentences, load_regions, load_sources, make_context,
+                                  on_device_prompt, parse_sections, pick_answer)
 
 PARA = {  # riformulazioni generiche: coprono tutta la categoria, cosi' il positivo ha davvero la risposta nel contesto
     "USI_COSTUMI": ["Che galateo bisogna seguire in {r}?", "Consigli di buona educazione per {r}?", "Come evito gaffe con la popolazione di {r}?"],
@@ -85,6 +87,34 @@ PARA_CITY = {  # domande sulle citta' riformulate: non sono in CITY_QUESTIONS/CI
     "CONNETTIVITA": ["Come mi collego a internet a {r}?", "Where can I find wifi in {r}?"],
     "SHOPPING": ["Dove compro souvenir a {r}?", "Where are the markets in {r}?"],
 }
+# Domande riformulate che chiedono una parte sola della categoria, per categoria: (radici della domanda, radici che almeno
+# una frase della sezione giusta presente nel contesto deve avere). La sezione puo' arrivare nel contesto con la sola altra
+# parte: Come arrivare con i soli requisiti d'ingresso (make_context tiene i paragrafi con piu' parole della domanda),
+# Drink senza Eat nelle guide inglesi, l'assistenza sanitaria senza le malattie. Allora il contesto non risponde e la
+# riga non e' un positivo.
+ASPECTS = {
+    "DOGANE": (re.compile(r"arrivare|mezzi|way to arrive"),
+               re.compile(r"aere|aeroport|volo\b|voli\b|treno|treni|ferrovi|autobus|\bbus|pullman|traghett|\bnave|\bnavi\b|crocier|"
+                          r"\bauto\b|strad|flight|\bfly|airport|airline|plane|aircraft|train|rail|ferry|ferries|cruise|ship|"
+                          r"boat|\bcar\b|drive|road|highway|motorway|coach")),
+    "CIBO_BEVANDE": (re.compile(r"piatti|mangia|dishes|\beat"),
+                     re.compile(r"piatt|cucin|cibo|cibi|mangi|ristorant|pasto|pasti|trattori|pranz|\bcena\b|colazion|dish|"
+                                r"cuisine|food|restaurant|meal|breakfast|lunch|dinner|supper|snack|\beat|\bcafe|café|bistro")),
+    "SALUTE": (re.compile(r"malattie"),
+               re.compile(r"malatt|disease|malaria|dengue|febbre|fever|virus|vaccin|infez|infect|influenz|rabbia|rabies|zika|"
+                          r"epatit|hepatit|\btifo|typhoid|colera|cholera|chikungunya|epidem|parassit|parasit|zanzar|mosquito")),
+}
+
+
+def answerable(cat, q, context, body, split=SENTENCE_END):
+    """False se [q] chiede una parte della categoria (ASPECTS) di cui non parla nessuna frase di [body] presente in
+    [context]: la riga positiva si toglie dopo il mescolamento, cosi' le altre non cambiano."""
+    ask, need = ASPECTS.get(cat, (None, None))
+    if not ask or not ask.search(q.lower()):
+        return True
+    return any(need.search(x.lower()) for _, x in line_sentences(body, split) if x in context)
+
+
 CITY_POS, CITY_NEG = 50, 20  # righe di citta' nel test (con --dump-dir)
 # Domande di storia e clima delle citta' (con --cities-db), non in WIKI_QUESTIONS del training e con una parola di
 # historyClimateWords (TravelAssistant.kt), per lingua e categoria (il test usa i cities.db di una sola lingua)
@@ -496,7 +526,8 @@ def main():
                 context = make_context(rng, [body] + rng.sample(others, min(len(others), i)), q, name)  # 0, 1 o 2 distrattori
                 answer = pick_answer(context, body, q, cat, name, legacy=True)
                 if len(answer) >= 40:
-                    out.append(row("pos_para", rid, cat, context, q, expected_answer(answer, context, body, q, cat, name)))
+                    out.append(row("pos_para", rid, cat, context, q, expected_answer(answer, context, body, q, cat, name))
+                               | ({} if answerable(cat, q, context, body) else {"drop": True}))
         for lang, secs in langs[rid].items():
             present = {c for c, _ in secs}
             for mc in (c for c in QUESTIONS if c not in present):
@@ -517,7 +548,8 @@ def main():
                            q, refusal("VITA_QUOTIDIANA")))
     rng.shuffle(out)
     kept = [r for r in out if not r.pop("drop", False) and r["messages"][1]["content"] is not None]
-    print(f"neg_para con un contesto inglese che tratta la categoria e pos_para senza risposta: tolte {len(out) - len(kept)}")
+    print(f"neg_para con un contesto inglese che tratta la categoria e pos_para senza risposta o senza la parte chiesta "
+          f"(ASPECTS): tolte {len(out) - len(kept)}")
     out, cities = kept, []
     if args.dump_dir:  # in coda, dopo il mescolamento: le righe dei paesi restano quelle di prima
         date = wiki_dump.normalize_date(args.dump_date or args.dump_dir.name)

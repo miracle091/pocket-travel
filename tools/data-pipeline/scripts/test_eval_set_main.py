@@ -129,6 +129,21 @@ class EvalSetMainTest(unittest.TestCase):
         _, second = self.run_main(generate_eval_set_en, "eval_extended.en.jsonl")
         self.assertEqual(first, second)
 
+    def test_positivi_senza_la_parte_chiesta_tolti_senza_cambiare_le_altre_righe(self):
+        # Come arrivare con il solo passaporto: le domande sui mezzi non hanno risposta, quelle sull'ingresso si' (nel test
+        # italiano i positivi di DOGANE hanno solo domande sui mezzi: si tolgono tutti)
+        for module, name, entry in ((generate_eval_set, "eval_extended.jsonl", False), (generate_eval_set_en, "eval_extended.en.jsonl", True)):
+            with mock.patch.object(generate_eval_set, "ASPECTS", {}):
+                every, _ = self.run_main(module, name)
+            rows, _ = self.run_main(module, name)
+            arrival = [r for r in every if r["kind"] == "pos_para" and r["category"] == "DOGANE"
+                       and generate_eval_set.ASPECTS["DOGANE"][0].search(question_of(r).lower())]
+            self.assertTrue(arrival, name)
+            self.assertEqual([r for r in every if r not in arrival], rows)  # le altre righe identiche, nello stesso ordine
+            dogane = [question_of(r) for r in rows if r["kind"] == "pos_para" and r["category"] == "DOGANE"]
+            self.assertEqual(entry, bool(dogane), name)
+            self.assertFalse([q for q in dogane if generate_eval_set.ASPECTS["DOGANE"][0].search(q.lower())])
+
     def test_le_domande_del_test_non_sono_in_quelle_di_training(self):
         rows, _ = self.run_main(generate_eval_set, "eval_extended.jsonl")
         training = {q.format(r=name) for qs in g.QUESTIONS.values() for q in qs
@@ -144,6 +159,38 @@ class EvalSetMainTest(unittest.TestCase):
         with self.assertRaises(SystemExit) as ctx:
             self.run_main(generate_eval_set_en, "eval_extended.en.jsonl")
         self.assertIn("canada", str(ctx.exception))
+
+
+class AnswerableTest(unittest.TestCase):
+    """answerable: la sezione giusta nel contesto deve parlare della parte della categoria che la domanda chiede."""
+
+    def test_come_arrivare_con_i_soli_documenti(self):
+        # la riga della Bosnia: del Come arrivare il contesto tiene i documenti dei minori, non i voli
+        body = ("▸ Requisiti d'ingresso\nSe nel documento del minore non sono riportati i nomi dei genitori, serve l'atto di "
+                "nascita.\n▸ In aereo\nGli aeroporti principali sono a Sarajevo, Banja Luka e Mostar.")
+        cut = body.split("\n▸ In aereo")[0] + "\n▸ In aereo"
+        for q in ("Con che mezzi si raggiunge Bosnia?", "Qual e' il modo migliore per arrivare in Bosnia?",
+                  "What is the best way to arrive in Bosnia?"):
+            self.assertFalse(generate_eval_set.answerable("DOGANE", q, cut, body), q)
+            self.assertTrue(generate_eval_set.answerable("DOGANE", q, body, body), q)
+        # la domanda sui documenti ha la risposta anche nel contesto tagliato
+        self.assertTrue(generate_eval_set.answerable("DOGANE", "Come faccio a entrare in Bosnia?", cut, body))
+        # le frasi sui mezzi delle sezioni distraenti non contano ("strade" nella sezione Sicurezza)
+        self.assertFalse(generate_eval_set.answerable("DOGANE", "Con che mezzi si raggiunge Bosnia?",
+                                                      "Non lasciate le strade asfaltate.\n\n" + cut, body))
+
+    def test_bevande_e_malattie(self):
+        drink = "Kava is often considered to be the national drink. The local beer is Vailima."
+        for q in ("Which local dishes should I try in Samoa?", "Where is the best place to eat in Samoa?",
+                  "What is eating out like in Samoa?", "Quali piatti tipici provo in Samoa?"):
+            self.assertFalse(generate_eval_set.answerable("CIBO_BEVANDE", q, drink, drink), q)
+        food = "Palusami is a dish of taro leaves baked in coconut cream."
+        self.assertTrue(generate_eval_set.answerable("CIBO_BEVANDE", "Which local dishes should I try in Samoa?", food, food))
+        doctors = "If you have a non-urgent medical problem, you may choose from any local doctor."
+        self.assertFalse(generate_eval_set.answerable("SALUTE", "Ci sono malattie da tenere d'occhio in Germany?", doctors, doctors))
+        self.assertTrue(generate_eval_set.answerable("SALUTE", "Is it healthy to travel in Germany?", doctors, doctors))
+        # categorie senza ASPECTS: sempre vero
+        self.assertTrue(generate_eval_set.answerable("SICUREZZA", "Si puo' girare tranquilli?", "x", "y"))
 
 
 class CityRefusalsTest(unittest.TestCase):

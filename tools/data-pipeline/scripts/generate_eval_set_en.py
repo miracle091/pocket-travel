@@ -2,7 +2,8 @@
 """Come generate_eval_set.py, ma per il dataset inglese (generate_sft_dataset_en.py): test esteso
 eval_extended.en.jsonl sulle regioni di test (TEST_REGIONS), con le pagine di Wikivoyage EN, il prompt inglese e
 domande inglesi scritte a mano che NON sono nei template di training (controllato all'avvio). Stessi tipi di riga:
-  pos_para    positivo, domanda riformulata, sezione giusta + 0-2 sezioni distraenti;
+  pos_para    positivo, domanda riformulata, sezione giusta + 0-2 sezioni distraenti (senza le righe che chiedono una
+              parte della categoria di cui la sezione nel contesto non parla, ASPECTS di generate_eval_set.py);
   neg_para    negativo: contesto con sole sezioni di altre categorie che non trattano quella chiesta;
   neg_empty   negativo con il contesto di fallback inglese dell'app;
   neg_off     domanda che non c'entra con la guida;
@@ -25,12 +26,12 @@ from pathlib import Path
 
 from eval_common import TEST_REGIONS
 from generate_eval_set import (CITY_FIX_SEED, CITY_NEG, CITY_POS, NEAR_EXTRA_QUOTAS, NEAR_EXTRA_SEED, NEAR_QUESTIONS_EXTRA, PARA as PARA_IT,
-                               PARA_CITY, PARA_CITY_EXTRA, PARA_EN, city_extra_refusals, nearby_rows, refusal_context,
-                               treats, wikipedia_rows)
+                               PARA_CITY, PARA_CITY_EXTRA, PARA_EN, answerable, city_extra_refusals, nearby_rows,
+                               refusal_context, treats, wikipedia_rows)
 import wiki_dump
 from generate_sft_dataset import CITY_MIN_SECTION, DUMP_WIKIS, EN_HEADING_TO_CATEGORY, OUT, covers, load_sources, make_context, parse_sections
 from generate_sft_dataset_en import (CITY_HEADING_TO_CATEGORY, CITY_QUESTIONS, FALLBACK_CONTEXT, KEYWORDS, OFF_TOPIC_TRAIN, QUESTIONS,
-                                     TOPIC, answer_for, cities_en, display_name, load_en_dump, on_device_prompt, page_title,
+                                     SENTENCE_END, TOPIC, answer_for, cities_en, display_name, load_en_dump, on_device_prompt, page_title,
                                      refusal, with_article)
 
 # PARA_EN del test italiano piu' una formulazione nuova per categoria
@@ -133,8 +134,9 @@ def italian_rows(countries, cities, row, date):
             q = rng.choice(PARA_IT[cat]).format(r=name)
             context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
             answer = answer_for(context, body, q, cat, name)
-            if len(answer) >= 40:
-                pos.append(row("pos_para", rid, cat, context, q, answer))
+            if len(answer) >= 40:  # senza la parte chiesta (answerable) si toglie dopo il taglio: le altre righe restano
+                pos.append(row("pos_para", rid, cat, context, q, answer)
+                           | ({} if answerable(cat, q, context, body, SENTENCE_END) else {"drop": True}))
         cat = rng.choice(sorted(PARA_IT))
         bodies = [b for c, b in secs if c != cat and not treats(cat, b)]
         if bodies:
@@ -142,7 +144,7 @@ def italian_rows(countries, cities, row, date):
             context = make_context(rng, rng.sample(bodies, min(len(bodies), rng.randint(1, 3))), q, name)
             neg.append(row("neg_para", rid, cat, context, q, refusal(TOPIC[cat], TAIL)))
     rng.shuffle(pos)
-    out = pos[:IT_PARA_POS] + neg
+    out = [r for r in pos[:IT_PARA_POS] if not r.pop("drop", False)] + neg
     if cities:
         it_city = {c: [qs[0]] for c, qs in PARA_CITY.items()}  # la prima domanda di ogni categoria e' quella italiana
         out += [{**r, "dump": date} for r in city_rows(rng, cities, row, it_city, IT_CITY_POS, IT_CITY_NEG, IT_SEED + 1)]
@@ -183,7 +185,8 @@ def main():
                 context = make_context(rng, [body] + rng.sample(others, min(len(others), i)), q, name)  # 0, 1 o 2 distrattori
                 answer = answer_for(context, body, q, cat, name, legacy=True)
                 if len(answer) >= 40:
-                    out.append(row("pos_para", rid, cat, context, q, answer))
+                    out.append(row("pos_para", rid, cat, context, q, answer)
+                               | ({} if answerable(cat, q, context, body, SENTENCE_END) else {"drop": True}))
         for cat in rng.sample(list(QUESTIONS), NEG_CATEGORIES):
             bodies = [b for c, b in secs if c != cat and not covers(cat, b, KEYWORDS)]
             if bodies:
@@ -199,7 +202,10 @@ def main():
             out.append(row("neg_off", rid, "OFF", make_context(rng, rng.sample(pool, min(len(pool), rng.randint(1, 3))), q, name),
                            q, refusal("useful to answer the question", TAIL)))
     rng.shuffle(out)
-    cities = []
+    # pos_para senza la parte chiesta (answerable): tolte dopo il mescolamento, cosi' le altre righe non cambiano
+    kept = [r for r in out if not r.pop("drop", False)]
+    print(f"pos_para senza la parte chiesta (ASPECTS): tolte {len(out) - len(kept)}")
+    out, cities = kept, []
     if args.dump_dir:  # in coda, dopo il mescolamento: le righe dei paesi restano quelle di prima
         date = wiki_dump.normalize_date(args.dump_date or args.dump_dir.name)
         cities = load_test_cities(args.dump_dir, date, set(titles.values()))
