@@ -313,16 +313,37 @@ def _scripts(text):
     return [unicodedata.name(c, "").split(" ")[0] for c in text if c.isalpha()]
 
 
+OTHER_SCRIPT = "*"
+# Le lingue che la domanda puo' chiedere per la risposta, come LANGUAGE_NAMES di OnlineAnswerWords.kt.
+LANGUAGE_NAMES = {name: code for code, names in {
+    "it": "italiano italian", "en": "inglese english", "de": "tedesco german deutsch",
+    "fr": "francese french français", "es": "spagnolo spanish español", "pt": "portoghese portuguese português",
+    "sw": "swahili", "fi": "finlandese finnish", "hu": "ungherese hungarian", "nl": "olandese dutch",
+    "pl": "polacco polish", "ro": "rumeno romeno romanian", "sv": "svedese swedish", "tr": "turco turkish",
+    "cs": "ceco czech", "id": "indonesiano indonesian", "ca": "catalano catalan",
+    OTHER_SCRIPT: "giapponese japanese cinese chinese coreano korean russo russian ucraino ukrainian greco greek "
+                  "arabo arabic ebraico hebrew hindi thai tailandese",
+}.items() for name in names.split()}
+LANGUAGE_REQUEST = re.compile(r"\b(?:in|into|auf|en)\s+([^\W\d_]+)")
+
+
+def requested_languages(question):
+    """I codici delle lingue che [question] chiede per la risposta ("in tedesco", "in German"), OTHER_SCRIPT per
+    quelle con un'altra scrittura."""
+    return {LANGUAGE_NAMES[m] for m in LANGUAGE_REQUEST.findall(question.lower()) if m in LANGUAGE_NAMES}
+
+
 def _wrong_language(answer, question, known, app_lang):
     """Piu' della meta' delle lettere in una scrittura assente da domanda e contesto, o una lingua latina chiaramente
-    diversa dalla lingua dell'app e da quella della domanda (italiano o inglese)."""
+    diversa dalla lingua dell'app e da quella della domanda (italiano o inglese); la lingua che la domanda chiede e' ammessa."""
+    requested = requested_languages(question)
     seen = set(_scripts(known))
     scripts = _scripts(PARENTHESES.sub("", answer))  # le citazioni tra parentesi sono nella lingua dell'app
     foreign = sum(s not in seen for s in scripts)
-    if foreign >= FOREIGN_LETTERS_MIN and foreign * 2 > len(scripts):
+    if OTHER_SCRIPT not in requested and foreign >= FOREIGN_LETTERS_MIN and foreign * 2 > len(scripts):
         return True
     asked, got = lang_word_counts(question), lang_word_counts(answer)
-    allowed = {app_lang}
+    allowed = {app_lang} | (requested - {OTHER_SCRIPT})
     if asked["it"] != asked["en"]:
         allowed.add("it" if asked["it"] > asked["en"] else "en")
     best = max(got[lang] for lang in allowed)

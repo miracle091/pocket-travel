@@ -1,17 +1,23 @@
 package com.pockettravel.feature.ai
 
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 
 private val HEADING = Regex("""^\s{0,3}#{1,6}\s+""")
 private val BULLET = Regex("""^(\s*)[*+-]\s+""")
+private val LINK = Regex("""\[([^\[\]\n]+)]\((https?://[^\s()]+)\)""")
+private val LINK_STYLES = TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline))
 
 /**
  * Testo di una risposta senza i segni Markdown piu' comuni: grassetto e corsivo diventano stili,
- * titoli e punti elenco perdono il segno (l'elenco diventa "• "), i backtick spariscono.
+ * titoli e punti elenco perdono il segno (l'elenco diventa "• "), i backtick spariscono, i link mostrano solo il testo, toccabile.
  * Il testo semplice, per esempio per la lettura ad alta voce, e' [AnnotatedString.text].
  * I segni non chiusi restano come sono.
  */
@@ -48,7 +54,15 @@ private fun AnnotatedString.Builder.appendSpanAt(s: String, i: Int): Int = when 
         if (close > i + 1) close + 1 else i
     }
     '*', '_' -> appendEmphasisAt(s, i, c)
+    '[' -> appendLinkAt(s, i)
     else -> i
+}
+
+// Il link [testo](https://...) diventa il testo, toccabile; le immagini (![...]) e gli altri schemi restano come sono.
+private fun AnnotatedString.Builder.appendLinkAt(s: String, i: Int): Int {
+    val match = LINK.matchAt(s, i)?.takeIf { i == 0 || s[i - 1] != '!' } ?: return i
+    withLink(LinkAnnotation.Url(match.groupValues[2], LINK_STYLES)) { appendInline(match.groupValues[1]) }
+    return match.range.last + 1
 }
 
 private fun AnnotatedString.Builder.appendEmphasisAt(s: String, i: Int, c: Char): Int {

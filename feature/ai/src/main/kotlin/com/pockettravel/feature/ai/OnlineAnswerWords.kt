@@ -50,3 +50,36 @@ internal val FREQUENT_WORDS: Set<String> = LANG_WORDS.values.flatten().toSet()
 // Le parole di 4 lettere o più che non sono frequenti in nessuna lingua, e i numeri.
 internal fun contentWords(text: String): Set<String> =
     CONTENT_WORD.findAll(text.lowercase()).map { it.value }.filter { it !in FREQUENT_WORDS }.toSet()
+
+// Le lingue che la domanda può chiedere per la risposta ("in tedesco", "in German", "auf Deutsch"), con il codice di
+// LANG_WORDS; OTHER_SCRIPT per quelle con un'altra scrittura.
+internal const val OTHER_SCRIPT = "*"
+private val LANGUAGE_NAMES: Map<String, String> = buildMap {
+    fun names(code: String, names: String) = names.split(' ').forEach { put(it, code) }
+    names("it", "italiano italian")
+    names("en", "inglese english")
+    names("de", "tedesco german deutsch")
+    names("fr", "francese french français")
+    names("es", "spagnolo spanish español")
+    names("pt", "portoghese portuguese português")
+    names("sw", "swahili")
+    names("fi", "finlandese finnish")
+    names("hu", "ungherese hungarian")
+    names("nl", "olandese dutch")
+    names("pl", "polacco polish")
+    names("ro", "rumeno romeno romanian")
+    names("sv", "svedese swedish")
+    names("tr", "turco turkish")
+    names("cs", "ceco czech")
+    names("id", "indonesiano indonesian")
+    names("ca", "catalano catalan")
+    names(
+        OTHER_SCRIPT,
+        "giapponese japanese cinese chinese coreano korean russo russian ucraino ukrainian greco greek arabo arabic " +
+            "ebraico hebrew hindi thai tailandese",
+    )
+}
+private val LANGUAGE_REQUEST = Regex("""\b(?:in|into|auf|en)\s+(\p{L}+)""")
+
+internal fun requestedLanguages(question: String): Set<String> =
+    LANGUAGE_REQUEST.findAll(question.lowercase()).mapNotNull { LANGUAGE_NAMES[it.groupValues[1]] }.toSet()

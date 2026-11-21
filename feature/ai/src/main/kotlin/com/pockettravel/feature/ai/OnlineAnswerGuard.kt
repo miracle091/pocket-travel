@@ -118,7 +118,7 @@ internal fun onlineInstructions(language: String, withPhoto: Boolean): String =
 /**
  * Controlla le risposte del servizio online. [known]: il contesto e il messaggio dell'utente mandati al servizio (indirizzi,
  * numeri e scritture lì presenti sono ammessi); [question]: la domanda, che dà la lingua; [instructions]: onlineInstructions;
- * [language]: la lingua dell'app, ammessa nella risposta come quella della domanda.
+ * [language]: la lingua dell'app, ammessa nella risposta come quella della domanda e quella che la domanda chiede.
  */
 internal class OnlineAnswerGuard(
     private val question: String,
@@ -132,6 +132,7 @@ internal class OnlineAnswerGuard(
     private val squashedInstructions = squash(instructions)
     private val knownContentWords = guideWords(known) + contentWords(question)
     private val askedPlain = plain(question).trimEnd('?', '!', '.', ' ')
+    private val requested = requestedLanguages(question)
     private val mark = if (language == "en") "(not from the guides, check it)" else "(non dalle guide, da verificare)"
 
     /**
@@ -171,18 +172,20 @@ internal class OnlineAnswerGuard(
         return !content && contentWords(text).none { it in knownContentWords }
     }
 
-    // Più della metà delle lettere in una scrittura assente da domanda e contesto.
+    // Più della metà delle lettere in una scrittura assente da domanda e contesto, se la domanda non chiede una lingua che la usa.
     private fun otherScript(answer: String): Boolean {
+        if (OTHER_SCRIPT in requested) return false
         val seen = scripts(known).toSet()
         val used = scripts(PARENTHESES.replace(answer, "")) // le citazioni tra parentesi sono nella lingua dell'app
         val foreign = used.count { it !in seen }
         return foreign >= FOREIGN_LETTERS_MIN && foreign * 2 > used.size
     }
 
-    // Una lingua latina chiaramente diversa dalla lingua dell'app e da quella della domanda (italiano o inglese).
+    // Una lingua latina chiaramente diversa dalla lingua dell'app, da quella della domanda (italiano o inglese) e da quella che
+    // la domanda chiede.
     private fun otherLatinLanguage(answer: String): Boolean {
         val asked = langCounts(question)
-        val allowed = setOfNotNull(
+        val allowed = requested - OTHER_SCRIPT + setOfNotNull(
             language,
             when {
                 asked.getValue("it") > asked.getValue("en") -> "it"

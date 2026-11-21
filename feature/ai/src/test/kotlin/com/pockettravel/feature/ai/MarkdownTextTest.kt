@@ -1,5 +1,6 @@
 package com.pockettravel.feature.ai
 
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import org.junit.Assert.assertEquals
@@ -78,5 +79,21 @@ class MarkdownTextTest {
             r.text,
         )
         assertEquals(listOf("coperto", "13 °C", "8 °C"), r.spanStyles.map { r.text.substring(it.start, it.end) })
+    }
+
+    @Test
+    fun linkMostraIlTestoToccabile() {
+        val r = markdownToDisplayText("Vedi il [sito **ufficiale**](https://www.visitberlin.de/it) (non dalle guide, da verificare).")
+        assertEquals("Vedi il sito ufficiale (non dalle guide, da verificare).", r.text)
+        val link = r.getLinkAnnotations(0, r.length).single()
+        assertEquals("https://www.visitberlin.de/it", (link.item as LinkAnnotation.Url).url)
+        assertEquals("sito ufficiale", r.text.substring(link.start, link.end))
+    }
+
+    @Test
+    fun immaginiEAltriSchemiRestano() {
+        for (s in listOf("![mappa](https://x.example/p.png)", "[chiama](tel:+390612345)", "[testo] (https://x.example)")) {
+            assertEquals(s, plain(s))
+        }
     }
 }

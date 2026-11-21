@@ -313,6 +313,19 @@ class GuardAnswerTest(unittest.TestCase):
         self.assertEqual((english, False, False), eval_online.guard_answer(
             english, "Where is the museum?", "The museum opens at 9.\nWhere is the museum?", SYSTEM_EN + CONTEXT_EN, "en"))
 
+    def test_la_lingua_che_la_domanda_chiede_si_mostra(self):
+        german = "Das Museum ist von neun bis achtzehn Uhr geöffnet und die Karten gibt es an der Kasse, aber nicht billig."
+        spanish = "El museo está abierto de nueve a seis y las entradas se compran en la puerta, pero no es barato."
+        english = "The museum is open from nine to six and you can buy the tickets at the gate, but it is not cheap."
+        japanese = "博物館は9時から18時まで開いています"
+        for question, answer, shown in (("Rispondi in tedesco: quando apre il museo?", german, True),
+                                        ("Rispondi in tedesco: quando apre il museo?", spanish, False),
+                                        ("Quando apre il museo? Rispondi in inglese", english, True),
+                                        ("Rispondi in giapponese: quando apre il museo?", japanese, True),
+                                        ("C'è un ristorante giapponese vicino al museo?", japanese, False)):
+            with self.subTest(question=question, answer=answer):
+                got = eval_online.guard_answer(answer, question, f"{self.CONTEXT}\n{question}", self.INSTRUCTIONS, "it")
+                self.assertEqual((answer, False, False) if shown else (None, False, False), got)
 
     def test_piu_lingue_latine_non_si_mostrano(self):
         for answer in ("Neuschwanstein Castle iko Bavaria, juu ya kijiji cha Hohenschwangau, karibu na mpaka wa Austria na ni hii kuu.",

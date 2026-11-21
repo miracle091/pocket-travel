@@ -127,6 +127,28 @@ class OnlineAnswerGuardTest {
     }
 
     @Test
+    fun `the language the question asks for is shown`() {
+        val german = "Das Museum ist von neun bis achtzehn Uhr geöffnet und die Karten gibt es an der Kasse, aber nicht billig."
+        val spanish = "El museo está abierto de nueve a seis y las entradas se compran en la puerta, pero no es barato."
+        val english = "The museum is open from nine to six and you can buy the tickets at the gate, but it is not cheap."
+        val japanese = "博物館は9時から18時まで開いています"
+        fun guardFor(q: String) = OnlineAnswerGuard(q, "$context\n$q", onlineInstructions("it", withPhoto = false), "it")
+        for ((q, answer) in listOf(
+            "Rispondi in tedesco: quando apre il museo?" to german,
+            "Quando apre il museo? Rispondi in inglese" to english,
+            "Rispondi in giapponese: quando apre il museo?" to japanese,
+        )) {
+            assertEquals(GuardedAnswer(answer, false, false), guardFor(q).check(answer))
+        }
+        for ((q, answer) in listOf(
+            "Rispondi in tedesco: quando apre il museo?" to spanish,
+            "C'è un ristorante giapponese vicino al museo?" to japanese,
+        )) {
+            assertThrows(answer, OnlineAnswerWrongLanguageException::class.java) { guardFor(q).check(answer) }
+        }
+    }
+
+    @Test
     fun `answers in more Latin languages are not shown`() {
         assertRejected("Neuschwanstein Castle iko Bavaria, juu ya kijiji cha Hohenschwangau, karibu na mpaka wa Austria na ni hii kuu.")
         assertRejected("Dubain metrolla on kaksi linjaa, jotka yhdistävät lentokentän keskustaan, ja se on myös nopea, mutta liput ovat kalliita.")
