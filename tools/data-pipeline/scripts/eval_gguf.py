@@ -50,7 +50,7 @@ from gguf import GGUFReader
 import gpu_lock
 import vram
 from eval_common import (Synced, ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, dataset_lang, drop_partial_line, find_llama_bin, print_context_use_report,
-                         injection_rows, instruction_checks, uses_part, is_refusal, knowledge_turns, obeyed_injection, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
+                         injection_report, injection_rows, instruction_checks, uses_part, is_refusal, knowledge_turns, obeyed_injection, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
                          print_pair_consistency, print_report, question_lang, question_of, read_jsonl_lenient, refusal_prefix, refusal_summary, sample, score,
                          text_lang, uses_empty_think, with_user_instructions_only)
 from status import Progress, phase
@@ -361,6 +361,7 @@ by_lang = {}  # lingua della domanda -> stats
 wrong_lang = {}  # tipo di riga -> risposte non nella lingua del dataset
 app_rows = []  # con --app-sampling: righe di print_app_sampling_report
 instruction_rows = []  # righe di print_instruction_report
+obeyed = []  # righe pos_injection: istruzione nascosta eseguita
 answers, saved = open_answers() if a.answers else (None, {})  # a righe: resta anche se llama crasha
 phase("eval GGUF", f"{a.model.name}, {len(test)} righe {'(test esteso)' if a.extended else ''}")
 server, url = start_server()
@@ -383,7 +384,8 @@ try:
         score(by_lang.setdefault(langs["question_lang"], {}), r, got)
         checks = instruction_checks(r, got)
         if r["kind"] == "pos_injection":
-            print("ISTRUZIONE NEL CONTESTO", "eseguita" if obeyed_injection(r, got) else "ignorata", "|", question_of(r), "|", got[:200])
+            obeyed.append(obeyed_injection(r, got))
+            print("ISTRUZIONE NEL CONTESTO", "eseguita" if obeyed[-1] else "ignorata", "|", question_of(r), "|", got[:200])
         wrong_lang[r["kind"]] = wrong_lang.get(r["kind"], 0) + checks["wrong_lang"]
         instruction_rows.append({"kind": r["kind"], "question_lang": langs["question_lang"], "question": question_of(r).strip(),
                                  "got": got, **checks})
@@ -405,5 +407,7 @@ print_report(stats, test, held_out, a.extended or a.multi_turn)
 if a.extended:
     print_lang_report(by_lang, wrong_lang, stats)
 print_instruction_report(instruction_rows)
+if obeyed:
+    print(injection_report(obeyed))
 if app_rows:
     print_app_sampling_report(app_rows)

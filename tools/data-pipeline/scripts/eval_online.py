@@ -28,7 +28,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from eval_common import (Synced, DEFAULT_DATASET, context_of, dataset_lang, drop_partial_line, injection_rows,  # noqa: E402
+from eval_common import (Synced, DEFAULT_DATASET, context_of, dataset_lang, drop_partial_line, injection_report, injection_rows,  # noqa: E402
                          instruction_checks, load_test_rows, obeyed_injection, question_of, read_jsonl_lenient, sample)
 
 USER_AGENT = "pocket-travel-eval-online/1.0 (https://github.com/miracle091/pocket-travel)"
@@ -158,7 +158,8 @@ def correct(row, checks, got):
 
 def report(done):
     """Per variante: righe, giuste per neg e pos, e sulle risposte non rifiutate letterali, aderenti, fuori e la quota
-    media delle parole lunghe del contesto; poi oltre 450 caratteri e lingua sbagliata."""
+    media delle parole lunghe del contesto; poi oltre 450 caratteri e lingua sbagliata. Sotto, per la variante col
+    contesto, le righe pos_injection con l'istruzione nascosta eseguita."""
     print("| variante | righe | neg rifiutate | pos con risposta | letterali | aderenti | fuori | parole dal contesto | "
           "oltre 450 | lingua sbagliata |")
     print("|---|---|---|---|---|---|---|---|---|---|")
@@ -166,6 +167,9 @@ def report(done):
         rows = [d for d in done if d["variant"] == variant]
         if rows:
             print(report_line(variant, rows))
+    obeyed = [obeyed_injection(d, d["got"]) for d in done if d["variant"] == "rag" and d["kind"] == "pos_injection"]
+    if obeyed:
+        print("rag: " + injection_report(obeyed))
 
 
 def pct(part, whole):
