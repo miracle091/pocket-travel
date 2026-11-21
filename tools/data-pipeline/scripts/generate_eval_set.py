@@ -87,32 +87,64 @@ PARA_CITY = {  # domande sulle citta' riformulate: non sono in CITY_QUESTIONS/CI
     "CONNETTIVITA": ["Come mi collego a internet a {r}?", "Where can I find wifi in {r}?"],
     "SHOPPING": ["Dove compro souvenir a {r}?", "Where are the markets in {r}?"],
 }
-# Domande riformulate che chiedono una parte sola della categoria, per categoria: (radici della domanda, radici che almeno
-# una frase della sezione giusta presente nel contesto deve avere). La sezione puo' arrivare nel contesto con la sola altra
-# parte: Come arrivare con i soli requisiti d'ingresso (make_context tiene i paragrafi con piu' parole della domanda),
-# Drink senza Eat nelle guide inglesi, l'assistenza sanitaria senza le malattie. Allora il contesto non risponde e la
-# riga non e' un positivo.
+# Domande riformulate che chiedono una parte sola della categoria: almeno una frase della sezione giusta presente nel
+# contesto deve parlarne. La sezione puo' arrivare nel contesto con la sola altra parte: Come arrivare con i soli requisiti
+# d'ingresso (make_context tiene i paragrafi con piu' parole della domanda), Drink senza Eat nelle guide inglesi (o i
+# piatti senza un posto dove mangiarli), l'assistenza sanitaria senza le malattie, il telefono fisso senza la rete mobile,
+# i negozi senza i mercati. Allora il contesto non risponde e la riga non e' un positivo. Per categoria: [(radici della
+# domanda, radici richieste, radici che tolgono la frase o None)]; le frasi sulle bevande (DRINK) non contano per i piatti
+# e i posti dove mangiare: "5-star hotel restaurants and bars" parla di alcol.
+DRINK = re.compile(r"alcol|alcohol|birr|beer|\bvin[oi]\b|wine|liquor|drink|bevand|cocktail|\brum\b|whisk|vodka|cider|sidro|"
+                   r"kava|caff[eè]|coffee|\btea\b|spirits|distill|brew")
+# Un mercato anche senza la parola, come lo descrivono le guide Wikivoyage: bazar e suq, mercado e feira, Flohmarkt, flea,
+# bancarelle e ambulanti, stalls e hawkers, fiere di artigianato ("crafts fair", non "fair price"), e merci locali vendute
+# in piazza, sul molo o nei fine settimana in una frase senza negozi ("local art and food in the summer at the Fishermen's
+# Wharf", non "local produce from the shops lining the square"). Supermercati e ipermercati non contano.
+_LOCAL = (r"local (?:arts?|artists?|crafts?|food|produce|fish|goods|artisans?)|prodotti (?:tipici )?locali|prodotti tipici|"
+          r"artigianato locale")
+_OUTDOOR = (r"wharf|piazza|square|in (?:the )?summer|weekends?|fine settimana|saturdays?|sundays?|in estate|sabato|domenica|"
+            r"stagional")
+_NO_SHOP = r"^(?!.*\b(?:shops?|stores?|negozi\w*|botteg\w*|galler\w*)\b)"
+MARKET = re.compile(
+    r"(?<!super)(?<!iper)(?<!hyper)(?:mercat|mercad|market)|marchés?\b|\bmarkt\b|markthall|wochenmarkt|flohmarkt|"
+    r"weihnachtsmarkt|\bbazaa?rs?\b|\bsou[qk]s?\b|\bsuq\b|\bpasar\b|tianguis|\bfeira|\bferias?\b|\bfier[ae]\b|\bflea\b|"
+    r"swap meet|car boot|\bbancarell|\bbanchett|\bambulant|\bhawkers?\b|\bstalls\b|street (?:vendors?|sellers?|stands?)|"
+    r"vendor booths|\b(?:craft|crafts|art|arts|antiques?|street|christmas|summer|weekly|monthly|annual|book|trade|county|"
+    r"country|cultural|food|flea)\s+fairs?\b|"
+    rf"{_NO_SHOP}.*(?:(?:{_LOCAL})\b.*\b(?:{_OUTDOOR})|\b(?:{_OUTDOOR})\b.*(?:{_LOCAL}))")
+# Catene di negozi col nome da mercato (Big Bazaar in India, MediaMarkt, dm-drogerie markt): non contano. I supermercati
+# li esclude gia' MARKET; una frase che nomina sia i mercati sia i supermercati conta ("si compra ai mercati o nei
+# supermercati").
+NOT_MARKET = re.compile(r"\b(?:big|smart|vip) bazaar|(?:media|drogerie|penny)[- ]?markt")
 ASPECTS = {
-    "DOGANE": (re.compile(r"arrivare|mezzi|way to arrive"),
-               re.compile(r"aere|aeroport|volo\b|voli\b|treno|treni|ferrovi|autobus|\bbus|pullman|traghett|\bnave|\bnavi\b|crocier|"
-                          r"\bauto\b|strad|flight|\bfly|airport|airline|plane|aircraft|train|rail|ferry|ferries|cruise|ship|"
-                          r"boat|\bcar\b|drive|road|highway|motorway|coach")),
-    "CIBO_BEVANDE": (re.compile(r"piatti|mangia|dishes|\beat"),
-                     re.compile(r"piatt|cucin|cibo|cibi|mangi|ristorant|pasto|pasti|trattori|pranz|\bcena\b|colazion|dish|"
-                                r"cuisine|food|restaurant|meal|breakfast|lunch|dinner|supper|snack|\beat|\bcafe|café|bistro")),
-    "SALUTE": (re.compile(r"malattie"),
-               re.compile(r"malatt|disease|malaria|dengue|febbre|fever|virus|vaccin|infez|infect|influenz|rabbia|rabies|zika|"
-                          r"epatit|hepatit|\btifo|typhoid|colera|cholera|chikungunya|epidem|parassit|parasit|zanzar|mosquito")),
+    "DOGANE": [(re.compile(r"arrivare|mezzi|way to arrive"),
+                re.compile(r"aere|aeroport|volo\b|voli\b|treno|treni|ferrovi|autobus|\bbus|pullman|traghett|\bnave|\bnavi\b|crocier|"
+                           r"\bauto\b|strad|flight|\bfly|airport|airline|plane|aircraft|train|rail|ferry|ferries|cruise|ship|"
+                           r"boat|\bcar\b|drive|road|highway|motorway|coach"), None)],
+    "CIBO_BEVANDE": [(re.compile(r"piatti|dishes|eating out"),
+                      re.compile(r"piatt|cucin|specialit|cibo|cibi|zupp|carne|pesce|riso\b|dolc|formagg|pane\b|dish|cuisine|"
+                                 r"specialt|food|soup|stew|meat|fish|rice\b|dessert|cheese|bread|taro|bento"), DRINK),
+                     (re.compile(r"dove si mangia|place to eat"),
+                      re.compile(r"ristorant|trattori|osteri|pizzer|bistro|\bcaf[eé]|chiosc|bancarell|mercat|mensa|stazioni di "
+                                 r"ricerca|restaurant|eater(y|ies)|diner|kiosk|stall|street food|food court|takeaway|market|"
+                                 r"fast food|research station"), DRINK)],
+    "SALUTE": [(re.compile(r"malattie"),
+                re.compile(r"malatt|disease|malaria|dengue|febbre|fever|virus|vaccin|infez|infect|influenz|rabbia|rabies|zika|"
+                           r"epatit|hepatit|\btifo|typhoid|colera|cholera|chikungunya|epidem|parassit|parasit|zanzar|mosquito"), None)],
+    "CONNETTIVITA": [(re.compile(r"copertura telefonica|mobile coverage|mobile data"),
+                      re.compile(r"cellular|mobile|\bsim\b|esim|roaming|\b[345]g\b|\blte\b|operator|operatore|copertura|"
+                                 r"coverage|rete mobile|data plan|pacchett"), None)],
+    "SHOPPING": [(re.compile(r"markets|mercati"), MARKET, NOT_MARKET)],
 }
 
 
 def answerable(cat, q, context, body, split=SENTENCE_END):
     """False se [q] chiede una parte della categoria (ASPECTS) di cui non parla nessuna frase di [body] presente in
-    [context]: la riga positiva si toglie dopo il mescolamento, cosi' le altre non cambiano."""
-    ask, need = ASPECTS.get(cat, (None, None))
-    if not ask or not ask.search(q.lower()):
-        return True
-    return any(need.search(x.lower()) for _, x in line_sentences(body, split) if x in context)
+    [context] (senza le frasi che hanno le radici da togliere): la riga positiva si toglie dopo il mescolamento, cosi' le
+    altre non cambiano."""
+    sentences = [x.lower() for _, x in line_sentences(body, split) if x in context]
+    return all(any(need.search(x) and not (avoid and avoid.search(x)) for x in sentences)
+               for ask, need, avoid in ASPECTS.get(cat, []) if ask.search(q.lower()))
 
 
 CITY_POS, CITY_NEG = 50, 20  # righe di citta' nel test (con --dump-dir)
@@ -457,8 +489,9 @@ def city_rows(rng, cities, row, refusal):
             q = rng.choice(PARA_CITY[cat]).format(r=name)
             context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
             answer = pick_answer(context, body, q, cat, name, legacy=True)
-            if len(answer) >= 40:
-                pos.append(row("pos_city", rid, cat, context, q, answer))
+            if len(answer) >= 40:  # senza la parte chiesta (answerable) conta lo stesso per CITY_POS e si toglie in fondo
+                pos.append(row("pos_city", rid, cat, context, q, answer)
+                           | ({} if answerable(cat, q, context, body) else {"drop": True}))
         missing = [c for c in PARA_CITY if c not in {c for c, _ in secs}]
         if missing and slots < CITY_NEG:
             slots += 1  # conta i rifiuti tentati, non quelli tenuti: rng resta allineato alle righe di prima
@@ -472,7 +505,7 @@ def city_rows(rng, cities, row, refusal):
             break
     print(f"citta' delle regioni di test: {len(cities)} con sezioni utili, righe pos {len(pos)} neg {len(neg)} "
           f"(rifiuti senza un contesto che non tratta la categoria: {lost})")
-    return pos + neg
+    return [r for r in pos if not r.pop("drop", False)] + neg
 
 
 def main():

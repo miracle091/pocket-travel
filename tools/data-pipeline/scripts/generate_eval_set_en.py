@@ -98,8 +98,9 @@ def city_rows(rng, cities, row, questions=PARA_CITY_EN, n_pos=CITY_POS, n_neg=CI
             q = rng.choice(questions[cat]).format(r=name)
             context = make_context(rng, [body] + rng.sample(others, min(len(others), rng.choice([0, 1, 2]))), q, name)
             answer = answer_for(context, body, q, cat, name, legacy=True)
-            if len(answer) >= 40:
-                pos.append(row("pos_city", rid, cat, context, q, answer))
+            if len(answer) >= 40:  # senza la parte chiesta (answerable) conta lo stesso per n_pos e si toglie in fondo
+                pos.append(row("pos_city", rid, cat, context, q, answer)
+                           | ({} if answerable(cat, q, context, body, SENTENCE_END) else {"drop": True}))
         missing = [c for c in questions if c not in {c for c, _ in secs}]
         if missing and slots < n_neg:
             slots += 1  # conta i rifiuti tentati, non quelli tenuti: rng resta allineato alle righe di prima
@@ -113,7 +114,7 @@ def city_rows(rng, cities, row, questions=PARA_CITY_EN, n_pos=CITY_POS, n_neg=CI
             break
     print(f"citta' delle regioni di test: {len(cities)} con sezioni utili, righe pos {len(pos)} neg {len(neg)} "
           f"(rifiuti senza un contesto che non tratta la categoria: {lost})")
-    return pos + neg
+    return [r for r in pos if not r.pop("drop", False)] + neg
 
 
 IT_SEED = 2615  # domande italiane in coda (italian_rows)

@@ -133,16 +133,17 @@ class EvalSetMainTest(unittest.TestCase):
         # Come arrivare con il solo passaporto: le domande sui mezzi non hanno risposta, quelle sull'ingresso si' (nel test
         # italiano i positivi di DOGANE hanno solo domande sui mezzi: si tolgono tutti)
         for module, name, entry in ((generate_eval_set, "eval_extended.jsonl", False), (generate_eval_set_en, "eval_extended.en.jsonl", True)):
-            with mock.patch.object(generate_eval_set, "ASPECTS", {}):
+            without_dogane = {c: v for c, v in generate_eval_set.ASPECTS.items() if c != "DOGANE"}
+            with mock.patch.object(generate_eval_set, "ASPECTS", without_dogane):
                 every, _ = self.run_main(module, name)
             rows, _ = self.run_main(module, name)
             arrival = [r for r in every if r["kind"] == "pos_para" and r["category"] == "DOGANE"
-                       and generate_eval_set.ASPECTS["DOGANE"][0].search(question_of(r).lower())]
+                       and generate_eval_set.ASPECTS["DOGANE"][0][0].search(question_of(r).lower())]
             self.assertTrue(arrival, name)
             self.assertEqual([r for r in every if r not in arrival], rows)  # le altre righe identiche, nello stesso ordine
             dogane = [question_of(r) for r in rows if r["kind"] == "pos_para" and r["category"] == "DOGANE"]
             self.assertEqual(entry, bool(dogane), name)
-            self.assertFalse([q for q in dogane if generate_eval_set.ASPECTS["DOGANE"][0].search(q.lower())])
+            self.assertFalse([q for q in dogane if generate_eval_set.ASPECTS["DOGANE"][0][0].search(q.lower())])
 
     def test_le_domande_del_test_non_sono_in_quelle_di_training(self):
         rows, _ = self.run_main(generate_eval_set, "eval_extended.jsonl")
@@ -191,6 +192,47 @@ class AnswerableTest(unittest.TestCase):
         self.assertTrue(generate_eval_set.answerable("SALUTE", "Is it healthy to travel in Germany?", doctors, doctors))
         # categorie senza ASPECTS: sempre vero
         self.assertTrue(generate_eval_set.answerable("SICUREZZA", "Si puo' girare tranquilli?", "x", "y"))
+
+    def test_piatti_senza_posti_bevande_con_ristoranti_rete_mobile_mercati(self):
+        dishes = "Tra i piatti festivi c'e' il palusami, a base di taro."
+        self.assertTrue(generate_eval_set.answerable("CIBO_BEVANDE", "Quali piatti tipici provo in Samoa?", dishes, dishes))
+        self.assertFalse(generate_eval_set.answerable("CIBO_BEVANDE", "Dove si mangia bene in Samoa?", dishes, dishes))
+        places = "Di solito si mangia in piccoli bar e ristoranti."  # "bar" non rende la frase una frase sulle bevande
+        self.assertTrue(generate_eval_set.answerable("CIBO_BEVANDE", "Dove si mangia bene in Figi?", places, places))
+        alcohol = "Alcohol is available in alcohol stores, 5-star hotel restaurants and bars."
+        self.assertFalse(generate_eval_set.answerable("CIBO_BEVANDE", "Where is the best place to eat in the UAE?", alcohol, alcohol))
+        late = "Pubs are open until 02:00. Food is generally available until midnight."
+        self.assertTrue(generate_eval_set.answerable("CIBO_BEVANDE", "What is eating out like in Germany?", late, late))
+        phone = "Samoa has an adequate telephone system with international calling."
+        for q in ("Can I get mobile data in Samoa?", "How is mobile coverage in Samoa?"):
+            self.assertFalse(generate_eval_set.answerable("CONNETTIVITA", q, phone, phone), q)
+        esim = "Se lo smartphone supporta le eSIM, potete acquistare un pacchetto dati prima di partire."
+        self.assertTrue(generate_eval_set.answerable("CONNETTIVITA", "Com'e' la copertura telefonica in Bosnia?", esim, esim))
+        shops = "Houndshill e' un grande centro commerciale proprio dietro la Torre."
+        self.assertFalse(generate_eval_set.answerable("SHOPPING", "Where are the markets in Blackpool?", shops, shops))
+        self.assertTrue(generate_eval_set.answerable("SHOPPING", "Where do people go shopping in Blackpool?", shops, shops))
+
+    def test_mercati_anche_senza_la_parola(self):
+        def market(text):
+            return generate_eval_set.answerable("SHOPPING", "Where are the markets in X?", text, text)
+        for text in ("Local art and food in the summer at the Fishermen's Wharf",  # Hay River
+                     "Gran Bazar: Il cuore commerciale della citta' vecchia.", "Bahla Souq: A traditional souq.",
+                     "Il suq dei tappeti e' nella via dei consoli.", "Mercado Central", "Feira das Velharias il primo sabato.",
+                     "Tanque Verde Swap Meet: all sorts of oddities.", "Cleveland Flea: small businesses.",
+                     "Lungo la strada ci sono bancarelle di frutta e verdura.", "Souvenirs are sold at street stalls.",
+                     "Street vendors sell forest honey.", "A large crafts fair is held every June.",
+                     "Every weekend local artisans gather in a square to sell handcrafts.",
+                     "Nella piazza funziona il fine settimana un punto vendita di prodotti tipici locali."):
+            self.assertTrue(market(text), text)
+        for text in ("The foreign exchange booths offer extremely fair rates.",  # "fair" aggettivo
+                     "Ashburn has its fair share of local artisans.", "Fairbanks has two malls.",
+                     "Sainsbury's", "Il supermercato apre alle 8.", "There is a big supermarket near the station.",
+                     "Kitchen Kuttings: homemade summer sausage and fudge.",  # "summer sausage", non un mercato estivo
+                     "Local produce from many of the independent shops lining the main square",
+                     "Le marche migliori sono in via Roma.",  # "marche", non "marché"
+                     "Big Bazaar: a symbol of the town's modernization.", "Franchise stores: H&M, C&A, Media Markt.",
+                     "Canterbury e' una destinazione popolare a Natale, sfondo per gli acquisti."):
+            self.assertFalse(market(text), text)
 
 
 class CityRefusalsTest(unittest.TestCase):
