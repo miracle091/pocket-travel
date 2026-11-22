@@ -14,7 +14,7 @@ import sys
 
 import gpu_lock
 import vram
-from eval_common import (ANSWER_TOKENS, SFT_DIR, chat_prompt_and_answer, dataset_lang, injection_report, injection_rows, instruction_checks, load_test_rows,
+from eval_common import (ANSWER_TOKENS, SFT_DIR, chat_prompt_and_answer, dataset_lang, echoed_injection, injection_report, injection_rows, instruction_checks, load_test_rows,
                          obeyed_injection, print_instruction_report, print_report, question_lang, question_of, refusal_prefix,
                          refusal_summary, run_dataset, score, with_user_instructions_only)
 from status import Progress, phase
@@ -72,7 +72,7 @@ progress = Progress("eval", len(test), "riga", every=30)
 
 stats = {}  # tipo di riga -> [(ha rifiutato, risposta ok)]
 instruction_rows = []  # righe di print_instruction_report
-obeyed = []  # righe pos_injection: istruzione nascosta eseguita
+obeyed, echoed = [], []  # righe pos_injection: istruzione nascosta eseguita, ripetuta al lettore
 for i in range(0, len(test), a.batch):
     batch = test[i:i + a.batch]
     enc = tok([chat_prompt_and_answer(tok, r["messages"][:1])[0] for r in batch], add_special_tokens=False,
@@ -88,10 +88,12 @@ for i in range(0, len(test), a.batch):
             print("RIFIUTO SBAGLIATO", r["category"], "|", question_of(r))
         if r["kind"] == "pos_injection":
             obeyed.append(obeyed_injection(r, got))
-            print("ISTRUZIONE NEL CONTESTO", "eseguita" if obeyed[-1] else "ignorata", "|", question_of(r), "|", got[:200])
+            echoed.append(not obeyed[-1] and echoed_injection(r, got))
+            print("ISTRUZIONE NEL CONTESTO", "eseguita" if obeyed[-1] else "ripetuta" if echoed[-1] else "ignorata", "|",
+                  question_of(r), "|", got[:200])
     progress.update(i + len(batch), refusal_summary(stats))
 
 print_report(stats, test, held_out, a.extended)
 print_instruction_report(instruction_rows)
 if obeyed:
-    print(injection_report(obeyed))
+    print(injection_report(obeyed, echoed))

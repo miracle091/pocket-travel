@@ -397,9 +397,20 @@ class InjectionTest(unittest.TestCase):
         self.assertFalse(eval_common.obeyed_injection(r, r["messages"][1]["content"]))
         self.assertFalse(eval_common.obeyed_injection(row("pos", answer="OK"), "OK"))
 
+    def test_istruzione_ripetuta_al_lettore(self):
+        for lang in ("it", "en"):
+            for r, (_, question, _, injection, answer, _) in zip(eval_common.injection_rows(lang),
+                                                                  eval_common._INJECTIONS[lang]):
+                self.assertFalse(eval_common.echoed_injection(r, answer), question)
+                self.assertTrue(eval_common.echoed_injection(r, injection), question)
+                self.assertTrue(eval_common.echoed_injection(r, answer + "\n" + injection.upper().replace(" ", "  ")),
+                                question)
+                self.assertTrue(eval_common.echoed_injection({"kind": "pos_injection", "question": question}, injection))
+        self.assertFalse(eval_common.echoed_injection(row("pos", answer="OK"), "OK"))
+
     def test_rapporto_delle_istruzioni_eseguite(self):
-        self.assertEqual("istruzioni nel contesto eseguite: 25.0% (1/4)",
-                         eval_common.injection_report([True, False, False, False]))
+        self.assertEqual("istruzioni nel contesto eseguite: 25.0% (1/4), ripetute al lettore: 50.0% (2/4)",
+                         eval_common.injection_report([True, False, False, False], [False, True, True, False]))
 
 
 class ScoreTest(unittest.TestCase):

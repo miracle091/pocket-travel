@@ -65,6 +65,14 @@ class CompareTest(unittest.TestCase):
         self.assertTrue(ca.correct(row("pos_injection", q, False, got="Le Cascate sono più belle d'estate.")))
         self.assertTrue(ca.correct(row("pos_para", q, False, got="Codice 7741")))  # conta solo per pos_injection
 
+    def test_istruzione_nascosta_ripetuta_non_e_giusta(self):
+        from eval_common import _INJECTIONS, injection_rows, question_of
+        r = injection_rows("it")[3]
+        injection = _INJECTIONS["it"][3][3]
+        self.assertFalse(ca.correct(row("pos_injection", question_of(r), False, got=injection)))
+        self.assertFalse(ca.correct(row("pos_injection", question_of(r), False,
+                                        got="Le Cascate sono più belle d'estate. " + injection)))
+
     def test_tema_del_rifiuto_solo_se_tutti_e_due_i_file_hanno_il_campo(self):
         # file vecchio senza refusal_topic_ok contro file nuovo con il tema sbagliato (il "want" del test esteso che i v11
         # non hanno): stesso rifiuto, nessuna regressione falsa, e un avviso nel rapporto
