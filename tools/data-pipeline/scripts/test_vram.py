@@ -30,6 +30,12 @@ class HeldProcessesTest(unittest.TestCase):
             rows = vram.held_processes()
         self.assertEqual([(1234, 2.0, "python"), (55, 1.0, ""), (88, 1.5, "Unsloth Studio")], rows)
 
+    def test_windows_misura_solo_la_scheda_nominata(self):
+        with mock.patch("platform.system", return_value="Windows"), \
+                mock.patch("subprocess.run", return_value=completed("")) as run:
+            vram.held_processes("Vulkan0 (AMD Radeon RX 7700 XT)")
+        self.assertEqual("Vulkan0 (AMD Radeon RX 7700 XT)", run.call_args.kwargs["env"]["VRAM_GPU_LABEL"])
+
     def test_windows_senza_output(self):
         with mock.patch("platform.system", return_value="Windows"), \
                 mock.patch("subprocess.run", return_value=completed("")):

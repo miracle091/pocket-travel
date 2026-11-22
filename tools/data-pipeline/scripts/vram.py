@@ -25,16 +25,24 @@ POLL_SECONDS = 30
 HELP = "%% massima di VRAM gia' occupata da altri processi per partire (default %(default)s)"
 
 
-def held_processes():
+def held_processes(label=""):
     """[(pid, GiB, nome)] degli altri processi che occupano memoria dedicata delle GPU (oltre 100 MiB).
     Nome vuoto = processo terminato con memoria ancora trattenuta dal driver (solo Windows)."""
     if platform.system() == "Windows":
-        # Somma su tutte le GPU: la grafica integrata ha poca memoria dedicata
-        ps = ("(Get-Counter '\\GPU Process Memory(*)\\Dedicated Usage' -ErrorAction SilentlyContinue).CounterSamples"
-              " | Where-Object { $_.CookedValue -gt 100MB } | ForEach-Object {"
+        # Solo la scheda il cui nome e' in label, riconosciuta dal suo LUID (proprieta' DEVPKEY_Gpu_Luid): con piu'
+        # GPU un gioco su un'altra scheda non toglie VRAM a questa (visto il 2026-11-22: 3,6 GiB di un gioco sulla
+        # RX 7600M XT fermavano i test sulla RX 7700 XT). Nessun nome riconosciuto: somma su tutte le GPU
+        ps = ("$luid = ''; foreach ($d in Get-PnpDevice -Class Display -PresentOnly -ErrorAction SilentlyContinue) {"
+              " if ($env:VRAM_GPU_LABEL -and $env:VRAM_GPU_LABEL.Contains($d.FriendlyName)) {"
+              " $v = (Get-PnpDeviceProperty -InstanceId $d.InstanceId -KeyName '{60b193cb-5276-4d0f-96fc-f173abad3ec6} 2'"
+              " -ErrorAction SilentlyContinue).Data;"
+              " if ($v) { $h = '{0:x16}' -f [uint64]$v; $luid = \"luid_0x$($h.Substring(0, 8))_0x$($h.Substring(8))\" } } };"
+              " (Get-Counter '\\GPU Process Memory(*)\\Dedicated Usage' -ErrorAction SilentlyContinue).CounterSamples"
+              " | Where-Object { $_.CookedValue -gt 100MB -and $_.InstanceName -like \"*$luid*\" } | ForEach-Object {"
               " $id = [int]($_.InstanceName -replace '^pid_(\\d+)_.*$', '$1');"
               " \"$id $([long]$_.CookedValue) $((Get-Process -Id $id -ErrorAction SilentlyContinue).ProcessName)\" }")
-        out = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True).stdout
+        out = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True,
+                             env={**os.environ, "VRAM_GPU_LABEL": label}).stdout
         rows = [(int(pid), int(size) / 2**30, " ".join(name)) for pid, size, *name in map(str.split, out.splitlines())]
     elif shutil.which("nvidia-smi"):  # su WSL l'elenco dei processi di solito non e' disponibile: resta vuoto
         out = subprocess.run(["nvidia-smi", "--query-compute-apps=pid,used_memory,process_name",
@@ -68,7 +76,7 @@ def check(total_gib, free_gib, max_pct, label="GPU"):
     misura di nvidia-smi (nvidia_used_gib); in quel caso non cambia e si esce subito."""
     waited = 0
     while True:
-        held = held_processes()
+        held = held_processes(label)
         used = sum(gib for _, gib, _ in held) if platform.system() == "Windows" else nvidia_used_gib(label)
         fresh = used is not None
         used = total_gib - free_gib if used is None else used
