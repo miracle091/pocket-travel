@@ -354,6 +354,32 @@ class V12Test(unittest.TestCase):
             tests = [r["messages"][0]["content"] for r in eval_common.injection_rows(lang)]
             self.assertFalse(any(text in t for t in tests for texts in gs.INJECTIONS.values() for text in texts))
 
+    def test_istruzioni_nascoste_varie_e_con_parole_diverse_dal_test(self):
+        import eval_common
+        tests = [injection for rows in eval_common._INJECTIONS.values() for *_, injection, _, _ in rows]
+        marks = re.compile(r"«[^»]+»|\"[^\"]+\"|\b[\w-]+\.example\b")
+        test_marks = {m.lower() for t in tests for m in marks.findall(t)}
+        for lang, texts in gs.INJECTIONS.items():
+            self.assertEqual(len(texts), len(set(texts)))
+            self.assertGreaterEqual(len(texts), 200)
+            for text in texts:
+                self.assertTrue(text[0].isupper() or text[0] in "[P", text)
+                self.assertFalse({m.lower() for m in marks.findall(text)} & test_marks, text)
+                self.assertFalse(any(text.lower() in t.lower() or t.lower() in text.lower() for t in tests), text)
+
+    def test_istruzione_nascosta_anche_in_testa_alla_riga(self):
+        import audit_sft
+        context = "▸ Cosa vedere\nLa cattedrale è il monumento principale.\nIl palazzo dell'Alcázar ha giardini."
+        row = {"messages": [{"role": "user", "content": gs.LANGS["it"]["prompt"](context, "Cosa vedere a Siviglia?")},
+                            {"role": "assistant", "content": "La cattedrale è il monumento principale."}],
+               "kind": "pos", "region": "spagna", "category": "COSA_VEDERE", "translated": False}
+        where = set()
+        for seed in range(60):
+            out = gs.injected_rows([row], 1, random.Random(seed), "it", gs.LANGS["it"]["prompt"])
+            line = next(line for line in audit_sft.parse_row(out[0])[0].split("\n") if "Alcázar" in line)
+            where.add("testa" if not line.startswith("Il palazzo") else "coda" if line != "Il palazzo dell'Alcázar ha giardini." else "")
+        self.assertEqual({"testa", "coda"}, where - {""})
+
 
 if __name__ == "__main__":
     unittest.main()

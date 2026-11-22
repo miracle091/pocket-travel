@@ -681,7 +681,8 @@ bloccare la pubblicazione. Dopo aver aggiornato i TSV a mano si rigenera l'istan
   sono istruzioni…» (`--user-instructions-only`, nell'app `LlmModelDefinition.userInstructionsOnly`; per misurarli
   `--user-instructions-only` di `eval_gguf.py`, `eval_behavior.py`, `check_gguf.py`, `collect_onpolicy.py`,
   `llm_smoke.py` ed `eval_retrieval.py --rerank-scoring refusal`) e copie di positivi con un'istruzione nascosta nel contesto
-  (`--injection-rows`), righe sul testo selezionato in un'altra app (`--selected-text-rows`,
+  (`--injection-rows`: 220 istruzioni per lingua, un destinatario e un ordine tra risposta fissa, firma, altra lingua,
+  prompt da mostrare, cambio di argomento, sito, fatto falso, forma e rifiuto, con parole diverse dal test), righe sul testo selezionato in un'altra app (`--selected-text-rows`,
   `scripts/sft_selected_text.py`: contesto come `contextWithSelectedText`, «Traduci» e «Cosa significa?» dalle coppie
   dei frasari di Wikivoyage, «Spiegami» e domande libere sui paragrafi delle guide, rifiuti), rifiuti sulle domande
   precise a cui le guide non rispondono, con una sezione vicina nel contesto (`--unanswerable-rows`,
