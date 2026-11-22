@@ -135,7 +135,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Codice dell'account che alcuni servizi vogliono nell'indirizzo (Cloudflare, Infomaniak, Alibaba) | ID dell'account; ID del prodotto; ID del workspace (il nome usato dal servizio) | Account ID; Product ID; Workspace ID |
 | Dati EXIF della foto (data, luogo, modello del telefono), tolti prima dell'invio | dati della foto (mai "EXIF" nell'interfaccia) | photo details |
 | Testo delle guide che dà ordini al modello invece di informare, tolto prima dell'invio al motore Online | istruzione nascosta (mai "prompt injection") | hidden instruction |
-| Controllo della risposta del motore Online su link, numeri e lingua | controllo sulla risposta | answer check |
+| Controllo della risposta del motore Online su link, numeri, lingua e istruzioni nascoste copiate | controllo sulla risposta | answer check |
 | Segno dopo link e telefoni della risposta online che non vengono dalle guide | (non dalle guide, da verificare) | (not from the guides, check it) |
 | Evento reale in corso (terremoto, alluvione, allerta meteo...) letto dalle fonti online | allerta, allerte (mai "avviso", "allarme" o "notifica") | alert, alerts |
 | Riquadro della guida con le allerte della regione | Allerte in corso | Active alerts |

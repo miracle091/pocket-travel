@@ -2,10 +2,12 @@ package com.pockettravel.feature.ai
 
 import java.net.URLDecoder
 
-// Il servizio online può eseguire un'istruzione nascosta in una guida anche dopo il filtro sul contesto (Mistral Small il
-// 18-21% di 120 istruzioni, Gemini flash-lite circa il 35%). I casi gravi lasciano una traccia nella risposta, che qui si
-// controlla: si tolgono le frasi con un indirizzo o un numero di telefono che non sono nel contesto né nella domanda e quelle
-// che ripetono le istruzioni di sistema; una risposta in un'altra lingua o scrittura non si mostra. Copia in Python:
+// Il servizio online può eseguire un'istruzione nascosta in una guida anche dopo il filtro sul contesto (misura del
+// 2026-11-22 su 120 istruzioni scritte senza guardare il filtro: Mistral Small il 30%, e Gemini 3.5 flash-lite il 19% su un
+// altro set). Spesso l'istruzione lascia una traccia nella risposta, che qui si
+// controlla: si segnano gli indirizzi e i numeri di telefono che non sono nel contesto né nella domanda (quelli che stanno
+// solo in un'istruzione nascosta non contano), si tolgono le frasi che ripetono le istruzioni di sistema o copiano
+// un'istruzione nascosta; una risposta in un'altra lingua o scrittura non si mostra. Copia in Python:
 // tools/data-pipeline/scripts/eval_online.py (guard_answer).
 
 /** La risposta è in un'altra lingua o scrittura rispetto a domanda e app: non si mostra. */
@@ -21,7 +23,7 @@ internal data class GuardedAnswer(val text: String, val removed: Boolean, val ma
 private data class UnknownLink(val end: Int, val image: Boolean)
 
 private const val URL_CHARS = """[^\s<>()\[\]«»"”]"""
-private val URL = Regex(
+internal val URL = Regex(
     """(?:https?://|www\.)$URL_CHARS+|\b(?:[a-z0-9-]+\.)+(?:(?:com|net|org|info|biz|example|it|eu|de|fr|es|uk|io""" +
         """|app|shop|online)\b|[a-z]{2,}(?=/))$URL_CHARS*""",
     RegexOption.IGNORE_CASE,
@@ -59,6 +61,9 @@ private val PHONE_DIGITS = 7..15
 private const val PHONE_TAIL_DIGITS = 8
 private const val FOREIGN_LETTERS_MIN = 6
 private const val OTHER_LANG_WORDS_MIN = 4
+
+// Le altre lingue latine bastano con meno parole frequenti: una risposta breve in portoghese o swahili ne ha 3.
+private const val OTHER_LANG_WORDS_MIN_SHORT = 3
 private const val EMPTY_ANSWER_MAX_CHARS = 60
 private const val EXFILTRATION_PIECE_CHARS = 25
 private const val EXFILTRATION_QUESTION_MIN = 8
@@ -81,7 +86,7 @@ private val DIGIT = Regex("""[0-9]""")
 
 // Le parole di contenuto del contesto, senza le frasi che parlano all'assistente (ORDER_TALK).
 private fun guideWords(known: String): Set<String> =
-    known.lines().flatMap { it.split(SENTENCE_END) }.filterNot { ORDER_TALK.containsMatchIn(it) }.flatMap { contentWords(it) }.toSet()
+    sentences(known).filterNot { ORDER_TALK.containsMatchIn(it) }.flatMap { contentWords(it) }.toSet()
 
 private fun scripts(text: String): List<Character.UnicodeScript> =
     text.codePoints().toArray().filter { Character.isLetter(it) }.map { Character.UnicodeScript.of(it) }
@@ -139,7 +144,10 @@ internal class OnlineAnswerGuard(
     instructions: String,
     private val language: String,
 ) {
-    private val knownAddresses = URL_SCHEME.replace(known.lowercase(), "")
+    private val traces = InstructionTraces(known, question)
+
+    // Indirizzi e numeri che stanno solo in un'istruzione nascosta non sono della guida.
+    private val knownAddresses = URL_SCHEME.replace(traces.guide.lowercase(), "")
     private val knownDigits = DIGIT_SEPARATOR.replace(knownAddresses, "")
     private val firstSentence = instructions.substringBefore('\n').lowercase().trimEnd('.', ' ')
     private val squashedInstructions = squash(instructions)
@@ -208,7 +216,10 @@ internal class OnlineAnswerGuard(
         )
         val got = langCounts(answer)
         val best = allowed.maxOf { got.getValue(it) }
-        return got.any { (lang, n) -> lang !in allowed && n >= OTHER_LANG_WORDS_MIN && n > 2 * best }
+        return got.any { (lang, n) ->
+            val min = if (lang == "it" || lang == "en") OTHER_LANG_WORDS_MIN else OTHER_LANG_WORDS_MIN_SHORT
+            lang !in allowed && n >= min && n > 2 * best
+        }
     }
 
     // I link markdown e gli indirizzi che il contesto non ha.
@@ -230,9 +241,10 @@ internal class OnlineAnswerGuard(
     }
 
     // Si toglie: un'immagine non nel contesto, un link che porta la domanda dell'utente (o un pezzo lungo) o la posizione,
-    // una frase che ripete le istruzioni di sistema.
+    // una frase che ripete le istruzioni di sistema o che copia un'istruzione nascosta del contesto.
     private fun dropped(sentence: String, links: List<UnknownLink>): Boolean =
-        links.any { it.image } || (links.isNotEmpty() && carriesUser(sentence)) || repeatsInstructions(sentence)
+        links.any { it.image } || (links.isNotEmpty() && carriesUser(sentence)) || repeatsInstructions(sentence) ||
+            traces.copiedIn(sentence)
 
     // La domanda intera nella frase, o un pezzo lungo nell'indirizzo, o la posizione.
     private fun carriesUser(sentence: String): Boolean = LOCATION.containsMatchIn(sentence) || carriesQuestion(sentence)

@@ -26,8 +26,14 @@ internal val LANG_WORDS: Map<String, Set<String>> = mapOf(
     ),
     "fr" to words("les des du sont pas une dans pour avec que vous nous je elle cette ces aux sur mais où et"),
     "es" to words("el es los las son por para que como pero más está hay muy esto esta puede donde cuando también tiene sus"),
-    "pt" to words("os dos das em não uma para que mais está tem são muito também pode onde"),
-    "sw" to words("na ya wa kwa ni za katika kuwa hii huu hilo yake lakini kama hiyo vya ili hapa kuna watu"),
+    "pt" to words(
+        "os dos das em não uma para que mais está tem são muito também pode onde um é com sim seja às ao pelo pela " +
+            "ser foi ou isso mas",
+    ),
+    "sw" to words(
+        "na ya wa kwa ni za katika kuwa hii huu hilo yake lakini kama hiyo vya ili hapa kuna watu iko cha juu " +
+            "karibu sana pia au hapo",
+    ),
     "fi" to words("ja ei että oli ovat mutta kuin tai myös hän joka kun niin ole sekä jos vain kaikki tämä heidän mitä jotka kanssa yksi kaksi kaupunki"),
     "hu" to words("az és hogy nem egy meg vagy ami már csak ezt kell lehet ez nagyon város mert még minden pedig között után"),
     "nl" to words("het een ik dat niet voor zijn maar ook als aan bij naar uit nog wel wordt deze kan"),

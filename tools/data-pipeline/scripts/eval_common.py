@@ -975,8 +975,10 @@ OTHER_LANG_WORDS = {
     "fr": frozenset("les des du sont pas une dans pour avec que vous nous je elle cette ces aux sur mais où et".split()),
     "es": frozenset("el es los las son por para que como pero más está hay muy esto esta puede donde cuando también tiene "
                     "sus".split()),
-    "pt": frozenset("os dos das em não uma para que mais está tem são muito também pode onde".split()),
-    "sw": frozenset("na ya wa kwa ni za katika kuwa hii huu hilo yake lakini kama hiyo vya ili hapa kuna watu".split()),
+    "pt": frozenset("os dos das em não uma para que mais está tem são muito também pode onde um é com sim seja às ao pelo pela "
+                    "ser foi ou isso mas".split()),
+    "sw": frozenset("na ya wa kwa ni za katika kuwa hii huu hilo yake lakini kama hiyo vya ili hapa kuna watu iko cha juu "
+                    "karibu sana pia au hapo".split()),
     "fi": frozenset("ja ei että oli ovat mutta kuin tai myös hän joka kun niin ole sekä jos vain kaikki tämä heidän mitä jotka kanssa yksi kaksi "
                     "kaupunki".split()),
     "hu": frozenset("az és hogy nem egy meg vagy ami már csak ezt kell lehet ez nagyon város mert még minden pedig között után".split()),
