@@ -290,6 +290,11 @@ DEP_HEADSIGNS = {"it": ["Fiera", "Policlinico", "Lungomare", "Piazza Grande", "Z
                  "fr": ["Gare Routière", "Zone Industrielle", "Parc des Expositions", "Mairie", "Lycée", "Quai Sud"],
                  "de": ["Messe", "Zoo", "Westfriedhof", "Gewerbegebiet", "Nordbad", "Kliniken"],
                  "en": ["Showground", "Industrial Estate", "Seafront", "Park and Ride", "College", "Riverside"]}
+# I luoghi di culto del training fino al v12 (solo chiese): con quelli nuovi di NAMES cambierebbero le righe del test
+NEAR_NAMES = sft_nearby.NAMES | {"LUOGHI_DI_CULTO": {
+    "it": ["Chiesa di San Giorgio", "Chiesa di Santa Maria"], "es": ["Iglesia de San Pedro", "Parroquia de Santa Ana"],
+    "fr": ["Église Saint-Pierre", "Église Notre-Dame"], "de": ["Pfarrkirche St. Martin", "Stadtkirche"],
+    "en": ["St Mary's Church", "St John's Church"]}}
 NEAR_SEED = 2610  # diverso dal --seed di generate_sft.py (42)
 # Righe per lingua, per tipo e caso: "blocco" con la risposta (tabellone con il mezzo o la linea, per pos_dep), "scaduti"
 # e "vuoto" (orari scaduti, nessuna partenza), "manca" (blocco senza la categoria o il mezzo chiesti), "assente" (nessun blocco)
@@ -320,7 +325,7 @@ def nearby_rows(lang, guides, row, refusal, quotas=NEAR_QUOTAS, questions=NEAR_Q
         if transit:
             block, q, answer, kind = sft_nearby.transit_example(rng, lang, refusal, transit_asks, DEP_HEADSIGNS)
         else:
-            block, q, answer, kind = sft_nearby.poi_example(rng, lang, refusal, asks, NEAR_SURNAMES, NEAR_PLACES)
+            block, q, answer, kind = sft_nearby.poi_example(rng, lang, refusal, asks, NEAR_SURNAMES, NEAR_PLACES, NEAR_NAMES)
         kind += "_dep" if transit else "_near"
         case = ("assente" if block is None else "manca" if kind.startswith("neg") else "blocco" if "\n" in block
                 else "vuoto" if block == no_departures else "scaduti")

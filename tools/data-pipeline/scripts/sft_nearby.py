@@ -142,9 +142,11 @@ NAMES = {
     "AUTOBUS": {"it": ["{p}", "Piazza {p}", "Via {p}"], "es": ["Plaza {p}", "Calle {p}"], "fr": ["Place {p}", "Rue {p}"],
                 "de": ["{p}platz", "{p}straße"], "en": ["{p} Street", "{p} Road"]},
     "PARCHEGGIO": {"it": ["Parcheggio {p}"], "es": ["Aparcamiento {p}"], "fr": ["Parking {p}"], "de": ["Parkhaus {p}"], "en": ["{p} Car Park"]},
-    "LUOGHI_DI_CULTO": {"it": ["Chiesa di San Giorgio", "Chiesa di Santa Maria"], "es": ["Iglesia de San Pedro", "Parroquia de Santa Ana"],
-                        "fr": ["Église Saint-Pierre", "Église Notre-Dame"], "de": ["Pfarrkirche St. Martin", "Stadtkirche"],
-                        "en": ["St Mary's Church", "St John's Church"]},
+    "LUOGHI_DI_CULTO": {"it": ["Chiesa di San Giorgio", "Chiesa di Santa Maria", "Moschea {p}", "Sinagoga", "Tempio valdese"],
+                        "es": ["Iglesia de San Pedro", "Parroquia de Santa Ana", "Mezquita {p}", "Sinagoga"],
+                        "fr": ["Église Saint-Pierre", "Église Notre-Dame", "Mosquée {p}", "Synagogue", "Temple protestant"],
+                        "de": ["Pfarrkirche St. Martin", "Stadtkirche", "Moschee {p}", "Synagoge"],
+                        "en": ["St Mary's Church", "St John's Church", "{p} Mosque", "{p} Synagogue", "Sri Ganesha Temple"]},
     "MUSEI_ARTE": {"it": ["Museo civico", "Pinacoteca comunale", "Museo archeologico"], "es": ["Museo Municipal", "Museo de Bellas Artes"],
                    "fr": ["Musée municipal", "Musée des Beaux-Arts"], "de": ["Stadtmuseum", "Kunsthalle"], "en": ["Town Museum", "{p} Gallery"]},
     "ALLOGGIO": {"it": ["Hotel {p}", "Albergo {s}", "B&B {p}"], "es": ["Hotel {p}", "Hostal {s}"], "fr": ["Hôtel {p}", "Hôtel {s}"],
@@ -307,28 +309,29 @@ ASK = {
 }
 
 
-def _poi_name(rng, cat, locale, surnames, places):
+def _poi_name(rng, cat, locale, surnames, places, names):
     if CATS[cat][4] and rng.random() < 0.4:
         return CATS[cat][4]  # senza nome in OSM: GeneratePoi usa il valore del tag
-    return rng.choice(NAMES[cat][locale]).format(s=rng.choice(surnames[locale]), p=rng.choice(places[locale]))
+    return rng.choice(names[cat][locale]).format(s=rng.choice(surnames[locale]), p=rng.choice(places[locale]))
 
 
-def nearby_pois(rng, must=None, avoid=None, surnames=SURNAMES, places=PLACES):
+def nearby_pois(rng, must=None, avoid=None, surnames=SURNAMES, places=PLACES, names=NAMES):
     """POI sintetici attorno a un punto come li vede nearbyPoiContext: (raggio, [(categoria, nome, metri, orari)]) con il
     raggio e il taglio di PoiRepository.nearby e NEARBY_CONTEXT_MAX. [must]: una categoria che deve esserci; [avoid]: una
-    che non deve esserci. [surnames] e [places]: altri nomi per lingua locale (il test esteso usa nomi fuori dal training)."""
+    che non deve esserci. [surnames], [places] e [names]: altri nomi per lingua locale (il test esteso usa nomi fuori dal
+    training e i luoghi di culto di prima, cosi' le sue righe non cambiano)."""
     cats, weights = list(CAT_WEIGHTS), list(CAT_WEIGHTS.values())
     while True:
         locale = rng.choice(list(surnames))
         count = rng.choice([rng.randint(8, 30), rng.randint(3, 15), rng.randint(1, 6)])  # centro, quartiere, campagna
-        pois, names = [], set()
+        pois, seen = [], set()
         for cat in rng.choices(cats, weights, k=count) + ([must] if must else []):
             if cat == avoid:
                 continue
-            name = _poi_name(rng, cat, locale, surnames, places)
-            if name in names and name != CATS[cat][4]:
+            name = _poi_name(rng, cat, locale, surnames, places, names)
+            if name in seen and name != CATS[cat][4]:
                 continue
-            names.add(name)
+            seen.add(name)
             hours = rng.choice(HOURS[CAT_HOURS[cat]]) if cat in CAT_HOURS and rng.random() < 0.45 else None
             pois.append((cat, name, rng.randint(8, 600), hours))
         pois.sort(key=lambda p: p[2])
@@ -344,9 +347,9 @@ def _poi_ref(poi, lang):
     return CATS[cat][3 if lang == "en" else 2] if name == CATS[cat][4] else name
 
 
-def poi_example(rng, lang, refusal, asks=None, surnames=SURNAMES, places=PLACES):
+def poi_example(rng, lang, refusal, asks=None, surnames=SURNAMES, places=PLACES, names=NAMES):
     """(blocco di contesto o None, domanda, risposta, "pos"/"neg") per una domanda su cosa c'e' qui vicino. [asks]: altre
-    domande con la struttura di ASK[lang]; [surnames] e [places] come in nearby_pois."""
+    domande con la struttura di ASK[lang]; [surnames], [places] e [names] come in nearby_pois."""
     en, asks = lang == "en", asks or ASK[lang]
     cat = rng.choice([None, None] + [c for c in asks if c])
     questions, lead, topic = asks[cat]
@@ -355,9 +358,9 @@ def poi_example(rng, lang, refusal, asks=None, surnames=SURNAMES, places=PLACES)
     if x < 0.15:  # nessuna posizione recente o nessun POI: il blocco non c'e'
         return None, q, refusal(topic), "neg"
     if x < 0.3 and cat:  # il blocco c'e' ma senza la categoria chiesta
-        radius, pois = nearby_pois(rng, avoid=cat, surnames=surnames, places=places)
+        radius, pois = nearby_pois(rng, avoid=cat, surnames=surnames, places=places, names=names)
         return poi_context(pois, radius, lang), q, refusal(topic), "neg"
-    radius, pois = nearby_pois(rng, must=cat, surnames=surnames, places=places)
+    radius, pois = nearby_pois(rng, must=cat, surnames=surnames, places=places, names=names)
     block = poi_context(pois, radius, lang)
     if cat is None:
         refs = [f"{_poi_ref(p, lang)} ({p[2]} m)" for p in pois[:3]]
