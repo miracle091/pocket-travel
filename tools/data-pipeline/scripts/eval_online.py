@@ -37,7 +37,7 @@ USER_AGENT = "pocket-travel-eval-online/1.0 (https://github.com/miracle091/pocke
 # Indirizzo, modello Automatico di online-models.json, variabile della chiave e temperatura (null se il modello non la
 # accetta), come OnlineProvider.kt e l'elenco dei modelli online dell'app.
 SERVICES = {
-    "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.5-flash-lite", "GEMINI_API_KEY", None),
+    "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.5-flash-lite", "GEMINI_API_KEY", 0.3),
     "mistral": ("https://api.mistral.ai/v1", "mistral-small-latest", "MISTRAL_API_KEY", 0.3),
     "chatgpt": ("https://api.openai.com/v1", "gpt-6-luna", "OPENAI_API_KEY", None),
     "claude": ("https://api.anthropic.com/v1", "claude-haiku-5-5", "ANTHROPIC_API_KEY", None),

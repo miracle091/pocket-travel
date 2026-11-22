@@ -51,6 +51,15 @@ class SystemPromptTest(unittest.TestCase):
         self.assertTrue(prompt.endswith("\nIl museo apre alle 9.\n</contesto>"))
 
 
+class ServicesTest(unittest.TestCase):
+    def test_modello_e_temperatura_come_l_automatico_dell_app(self):
+        catalog = json.loads((TEMPLATES.parents[5] / "assets" / "online-models.json").read_text(encoding="utf-8"))
+        for service, (_, model, _, temperature) in eval_online.SERVICES.items():
+            auto = next(m for m in catalog["providers"][service.upper()] if m["role"] == "auto")
+            self.assertEqual(auto["id"], model, service)
+            self.assertEqual(0.3 if auto["temperature"] else None, temperature, service)
+
+
 class SampleTest(unittest.TestCase):
     def test_passo_fisso_su_tutti_i_tipi(self):
         rows = [row("neg_city", f"n{i}?") for i in range(10)] + [row("pos_para", f"p{i}?") for i in range(10)]
