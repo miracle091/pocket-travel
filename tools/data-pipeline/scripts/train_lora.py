@@ -122,6 +122,9 @@ ap.add_argument("--seed", type=int, default=42,
                 help="seme di inizializzazione della LoRA e dell'ordine dei batch (lo split train/test resta per regione): "
                      "un altro seme misura quanto cambia un modello da un training all'altro")
 ap.add_argument("--merge", action="store_true", help="salva anche i pesi con il LoRA fuso (per la conversione); lancia anche l'eval automatico (run_eval.py)")
+ap.add_argument("--no-final-eval", action="store_true",
+                help="con --merge, senza l'eval automatico: sul 4B dura ore (5 h 20 min nel 4B EN del 2026-11-22) e i test sul GGUF "
+                     "misurano le stesse righe sul file dell'app")
 ap.add_argument("--dataset", default="pocket_travel_sft.v11.it.jsonl",
                 help="file dentro data/sft/ (default: il v11 italiano, pubblicabile; pocket_travel_sft.v11.en.jsonl per l'inglese)")
 ap.add_argument("--out", default=str(SFT_DIR / "run-smollm2-135m"))
@@ -424,7 +427,7 @@ if a.merge:
 del model, trainer
 gc.collect()
 torch.cuda.empty_cache()
-if a.merge:
+if a.merge and not a.no_final_eval:
     phase("eval automatico", "run_eval.py sul modello fuso")
     # --max-vram-held 100: la VRAM ancora tenuta da questo processo (contesto GPU) non e' di "altri"
     result = subprocess.run([sys.executable, str(Path(__file__).parent / "run_eval.py"), a.out + "/merged",

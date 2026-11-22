@@ -209,5 +209,22 @@ class UnslothBlockCompileTest(unittest.TestCase):
         self.assertEqual("os.environ.setdefault('UNSLOTH_BLOCK_COMPILE', '0')", ast.unparse(body[setdefault]))
 
 
+class FinalEvalTest(unittest.TestCase):
+    """Il blocco di train_lora.py che lancia run_eval.py dopo il merge, eseguito con subprocess finto."""
+    NODE = next(n for n in ast.parse(SOURCE).body if isinstance(n, ast.If) and "run_eval.py" in ast.unparse(n))
+
+    def runs_eval(self, merge, no_final_eval):
+        run = mock.Mock(return_value=types.SimpleNamespace(returncode=0))
+        namespace = {"a": types.SimpleNamespace(merge=merge, no_final_eval=no_final_eval, out="run"), "phase": lambda *a: None,
+                     "subprocess": types.SimpleNamespace(run=run), "sys": sys, "Path": Path, "__file__": "train_lora.py"}
+        exec(compile(ast.Module([self.NODE], []), "train_lora.py", "exec"), namespace)
+        return run.called
+
+    def test_eval_dopo_il_merge_salvo_no_final_eval(self):
+        self.assertTrue(self.runs_eval(merge=True, no_final_eval=False))
+        self.assertFalse(self.runs_eval(merge=True, no_final_eval=True))
+        self.assertFalse(self.runs_eval(merge=False, no_final_eval=False))
+
+
 if __name__ == "__main__":
     unittest.main()
