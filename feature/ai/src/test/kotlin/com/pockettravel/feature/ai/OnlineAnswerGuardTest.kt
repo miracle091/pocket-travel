@@ -79,6 +79,14 @@ class OnlineAnswerGuardTest {
     }
 
     @Test
+    fun `an address that is only a piece of a guide address is marked`() {
+        val mark = "(non dalle guide, da verificare)"
+        assertMarked("Vedi [il sito](https://visitberlin.d) $mark.", "Vedi [il sito](https://visitberlin.d).")
+        assertMarked("Vedi [il sito](https://isitberlin.de/it) $mark.", "Vedi [il sito](https://isitberlin.de/it).")
+        assertMarked("Vedi www.visitberlin.de/i $mark.", "Vedi www.visitberlin.de/i.")
+    }
+
+    @Test
     fun `a phone number from the guide is kept in any spelling`() {
         assertKept("Il telefono è +39 06 6982 0001.")
         assertKept("Chiama il 06-6982-0001 o il 06.6982.0001.")

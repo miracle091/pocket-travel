@@ -383,15 +383,33 @@ def _plain(text):
     return re.sub(r"\s+", " ", unquote(text).replace("+", " ").replace("_", " ").lower()).strip()
 
 
+def _continues_address(c):
+    return c.isalnum() or c in "-."
+
+
+def _whole_address_in(address, text):
+    """[address] e' in [text] come indirizzo intero: "visitberlin.d" o "isitberlin.de" non sono "visitberlin.de/it". Un punto
+    dopo l'indirizzo lo chiude se non segue una lettera o una cifra (fine della frase); come wholeAddressIn di OnlineAnswerGuard.kt."""
+    i = text.find(address)
+    while i >= 0:
+        end = i + len(address)
+        before, after, next_ = text[i - 1:i], text[end:end + 1], text[end + 1:end + 2]
+        if not (before and _continues_address(before)) and (
+                not (after and _continues_address(after)) or after == "." and not (next_ and _continues_address(next_))):
+            return True
+        i = text.find(address, i + 1)
+    return False
+
+
 def _unknown_links(sentence, known):
-    """(fine, immagine) dei link markdown e degli indirizzi la cui forma normalizzata non e' nel contesto."""
+    """(fine, immagine) dei link markdown e degli indirizzi la cui forma normalizzata non e' nel contesto come indirizzo intero."""
     links, covered = [], []
     for m in MARKDOWN_LINK.finditer(sentence):
         covered.append(m.span())
-        if _address(m.group(1)) not in known:
+        if not _whole_address_in(_address(m.group(1)), known):
             links.append((m.end(), m.start() > 0 and sentence[m.start() - 1] == "!"))
     for m in URL.finditer(sentence):
-        if not any(start <= m.start() < end for start, end in covered) and _address(m.group()) not in known:
+        if not any(start <= m.start() < end for start, end in covered) and not _whole_address_in(_address(m.group()), known):
             links.append((m.start() + len(m.group().rstrip(".,;:!?)»\"'")), False))
     return links
 

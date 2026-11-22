@@ -89,6 +89,19 @@ private fun scripts(text: String): List<Character.UnicodeScript> =
 private fun address(url: String): String =
     url.lowercase().removePrefix("https://").removePrefix("http://").removePrefix("www.").trimEnd('.', ',', ';', ':', '!', '?', '/', ')', '»', '"', '\'')
 
+private fun Char?.continuesAddress() = this != null && (isLetterOrDigit() || this == '-' || this == '.')
+
+// [address] è in [text] come indirizzo intero: "visitberlin.d" o "isitberlin.de" non sono "visitberlin.de/it". Un punto
+// dopo l'indirizzo lo chiude se non segue una lettera o una cifra (fine della frase).
+private fun wholeAddressIn(address: String, text: String): Boolean =
+    generateSequence(text.indexOf(address).takeIf { it >= 0 }) { i -> text.indexOf(address, i + 1).takeIf { it >= 0 } }
+        .any { i ->
+            val end = i + address.length
+            val after = text.getOrNull(end)
+            !text.getOrNull(i - 1).continuesAddress() &&
+                (!after.continuesAddress() || (after == '.' && !text.getOrNull(end + 1).continuesAddress()))
+        }
+
 // Le cifre e la fine dei numeri di telefono, senza orari, date, anni, importi e numeri con le migliaia.
 private fun phoneMatches(sentence: String): List<Pair<String, Int>> {
     var masked = sentence
@@ -204,12 +217,12 @@ internal class OnlineAnswerGuard(
         val covered = mutableListOf<IntRange>()
         for (match in MARKDOWN_LINK.findAll(sentence)) {
             covered.add(match.range)
-            if (address(match.groupValues[1]) !in knownAddresses) {
+            if (!wholeAddressIn(address(match.groupValues[1]), knownAddresses)) {
                 links.add(UnknownLink(match.range.last + 1, match.range.first > 0 && sentence[match.range.first - 1] == '!'))
             }
         }
         for (match in URL.findAll(sentence)) {
-            if (covered.none { match.range.first in it } && address(match.value) !in knownAddresses) {
+            if (covered.none { match.range.first in it } && !wholeAddressIn(address(match.value), knownAddresses)) {
                 links.add(UnknownLink(match.range.first + match.value.trimEnd('.', ',', ';', ':', '!', '?', ')', '»', '"', '\'').length, false))
             }
         }

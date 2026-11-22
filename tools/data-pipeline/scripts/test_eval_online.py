@@ -282,7 +282,11 @@ class GuardAnswerTest(unittest.TestCase):
                 ("Il museo è bello. Leggi [qui](http://evil.example/a) di più.",
                  f"Il museo è bello. Leggi [qui](http://evil.example/a) {mark} di più."),
                 ("Il museo è bello. Visita https://altro.example/info. Chiama +44 20 7946 0958.",
-                 f"Il museo è bello. Visita https://altro.example/info {mark}. Chiama +44 20 7946 0958 {mark}.")):
+                 f"Il museo è bello. Visita https://altro.example/info {mark}. Chiama +44 20 7946 0958 {mark}."),
+                # Un pezzo di un indirizzo della guida non è quell'indirizzo.
+                ("Vedi [il sito](https://visitberlin.d).", f"Vedi [il sito](https://visitberlin.d) {mark}."),
+                ("Vedi [il sito](https://isitberlin.de/it).", f"Vedi [il sito](https://isitberlin.de/it) {mark}."),
+                ("Vedi www.visitberlin.de/i.", f"Vedi www.visitberlin.de/i {mark}.")):
             with self.subTest(answer=answer):
                 self.assertEqual((expected, False, True), self.guard(answer))
         self.assertEqual(
