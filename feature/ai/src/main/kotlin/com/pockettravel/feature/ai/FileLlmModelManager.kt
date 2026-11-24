@@ -4,6 +4,8 @@ import android.os.storage.StorageManager
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.allocatableBytes
 import com.pockettravel.core.data.reserveSpace
+import com.pockettravel.core.sync.SegmentedDownload
+import com.pockettravel.core.sync.SegmentedDownloadException
 import com.pockettravel.feature.ai.di.AiModelsDir
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -12,10 +14,10 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -46,6 +48,9 @@ class FileLlmModelManager @Inject constructor(
 ) : LlmModelManager {
     private val importLock = Mutex()
 
+    // internal (non private): i test la sostituiscono con segmenti piccoli.
+    internal var segmentedDownload = SegmentedDownload(okHttpClient)
+
     // Un download alla volta per file: dopo "Annulla" e "Scarica" il worker vecchio puo' ancora essere nella lettura
     // di rete mentre il nuovo apre lo stesso .part; il nuovo aspetta che il vecchio finisca.
     private val downloadLocks = ConcurrentHashMap<String, Mutex>()
@@ -55,6 +60,9 @@ class FileLlmModelManager @Inject constructor(
     // sha256 atteso quando il .part e' stato iniziato: se il file viene ricaricato con lo stesso nome (impronta nuova in
     // app-status.json), il parziale della versione vecchia non va ripreso, darebbe un file misto che fallisce la verifica.
     private fun partShaFile(definition: LlmModelDefinition): File = File(modelsDir, "${definition.fileName}.part.sha256")
+
+    // Mappa dei segmenti finiti del .part scaricato a piu' connessioni (vedi SegmentedDownload).
+    private fun partMapFile(definition: LlmModelDefinition): File = SegmentedDownload.mapFile(partFile(definition))
 
     // sha256 verificato al momento dell'installazione: isDownloaded guarda solo l'esistenza del file, e
     // senza questo non si saprebbe se il modello su disco e' la versione pubblicata oggi (vedi installedSha256).
@@ -235,14 +243,25 @@ class FileLlmModelManager @Inject constructor(
         val partFile = partFile(definition)
         val partShaFile = partShaFile(definition)
         val expectedSha256 = definition.sha256.orEmpty().lowercase()
-        if (partShaFile.exists() && partShaFile.readText().trim() != expectedSha256) partFile.delete()
+        val mapFile = partMapFile(definition)
+        if (partShaFile.exists() && partShaFile.readText().trim() != expectedSha256) {
+            partFile.delete()
+            mapFile.delete()
+        }
         partShaFile.writeText(expectedSha256)
+        // Un .part senza mappa e' di un tentativo a una connessione (anche del codice vecchio): si riprende in linea.
+        val segmented = (partFile.length() == 0L || mapFile.exists()) && fetchSegmented(definition, partFile, expectedSha256, onProgress)
+        // Mappa e .part preallocato di un server che ora non regge piu' i segmenti: non sono un file parziale in linea.
+        if (!segmented && mapFile.exists()) {
+            partFile.delete()
+            mapFile.delete()
+        }
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
         // .part gia' completo (processo chiuso fra l'ultimo byte e la verifica): niente richiesta, il server
         // risponderebbe 416 e si riscaricherebbe tutto da zero; basta verificare lo sha256.
-        if (definition.sizeBytes > 0 && existingBytes == definition.sizeBytes) {
+        if (!segmented && definition.sizeBytes > 0 && existingBytes == definition.sizeBytes) {
             onProgress(existingBytes, existingBytes)
-        } else {
+        } else if (!segmented) {
             fetchPart(definition, partFile, existingBytes, onProgress)
         }
 
@@ -257,6 +276,25 @@ class FileLlmModelManager @Inject constructor(
             )
         }
         return partFile
+    }
+
+    // false: file piccolo o server senza intervalli, si scarica in linea con fetchPart.
+    private suspend fun fetchSegmented(
+        definition: LlmModelDefinition,
+        partFile: File,
+        sha256: String,
+        onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
+    ): Boolean {
+        if (definition.sizeBytes <= 0) return false
+        // Il .part preallocato (sparso) ha gia' la dimensione piena: lo spazio si controlla solo alla prima volta.
+        if (!partFile.exists()) modelsDir.reserveSpace(storageManager, definition.sizeBytes)
+        return try {
+            segmentedDownload.fetch(definition.url, partFile, definition.sizeBytes, sha256, PROGRESS_STEP_BYTES) {
+                onProgress(it, definition.sizeBytes)
+            }
+        } catch (e: SegmentedDownloadException) {
+            throw ModelDownloadFailedException("Download modello fallito: ${e.message}", e)
+        }
     }
 
     // Scarica (o riprende con Range) il .part fino alla fine, senza verificarlo.
@@ -414,7 +452,7 @@ class FileLlmModelManager @Inject constructor(
     }
 
     private fun deleteMmprojFiles(mmproj: MmprojDefinition) {
-        listOf("", ".sha256", ".part", ".part.sha256").forEach { File(modelsDir, mmproj.fileName + it).delete() }
+        listOf("", ".sha256", ".part", ".part.sha256", ".part.map").forEach { File(modelsDir, mmproj.fileName + it).delete() }
     }
 
     /**
@@ -428,8 +466,8 @@ class FileLlmModelManager @Inject constructor(
         // Gli mmproj restano su disco anche se il modello e' un altro: costano centinaia di MB da riscaricare.
         val keep = LlmModelCatalog.ALL.flatMap { listOf(it.fileName, "${it.fileName}.sha256") }.toSet() +
             LlmModelCatalog.ALL.mapNotNull { it.mmproj }.flatMap { listOf(it.fileName, "${it.fileName}.sha256") } +
-            partFile(selected).name + partShaFile(selected).name +
-            listOfNotNull(selected.mmproj).flatMap { listOf("${it.fileName}.part", "${it.fileName}.part.sha256") }
+            partFile(selected).name + partShaFile(selected).name + partMapFile(selected).name +
+            listOfNotNull(selected.mmproj).flatMap { listOf("${it.fileName}.part", "${it.fileName}.part.sha256", "${it.fileName}.part.map") }
         modelsDir.listFiles()?.filter { it.isFile && it.name !in keep }?.forEach { it.delete() }
         _downloadedModelIds.value = scanDownloadedModelIds()
     }
@@ -438,6 +476,7 @@ class FileLlmModelManager @Inject constructor(
         LlmModelCatalog.ALL.filter { it.id != keep.id }.forEach {
             partFile(it).delete()
             partShaFile(it).delete()
+            partMapFile(it).delete()
         }
     }
 

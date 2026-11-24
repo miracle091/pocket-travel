@@ -355,4 +355,50 @@ class RegionPackageDownloaderTest {
         assertTrue(downloader.tryWithStagingLock("it") { cleaned = true })
         assertTrue(cleaned)
     }
+
+    // Server che risponde ai Range con fette di [data]; registra le intestazioni Range.
+    private fun serveRanges(data: ByteArray, ranges: MutableList<String>) {
+        server.dispatcher = object : okhttp3.mockwebserver.Dispatcher() {
+            override fun dispatch(request: okhttp3.mockwebserver.RecordedRequest): MockResponse {
+                val range = request.getHeader("Range") ?: return MockResponse().setBody(okio.Buffer().write(data))
+                ranges += range
+                // "bytes=a-b" dei segmenti o "bytes=a-" della ripresa in linea.
+                val match = checkNotNull(Regex("bytes=([0-9]+)-([0-9]*)").matchEntire(range)).groupValues
+                val first = match[1].toInt()
+                val last = match[2].toIntOrNull() ?: (data.size - 1)
+                return MockResponse().setResponseCode(206)
+                    .setHeader("Content-Range", "bytes $first-$last/${data.size}")
+                    .setBody(okio.Buffer().write(data, first, last - first + 1))
+            }
+        }
+    }
+
+    @Test
+    fun `un file grande si scarica a segmenti e passa la verifica`() = runBlocking {
+        val data = ByteArray(5000) { (it * 7).toByte() }
+        val ranges = Collections.synchronizedList(mutableListOf<String>())
+        serveRanges(data, ranges)
+        downloader.segmentedDownload = SegmentedDownload(OkHttpClient(), segmentBytes = 1000, parallelism = 2, minBytes = 100)
+
+        downloader.downloadAndVerify(manifestFile(data), File(targetDir, "content.db"))
+
+        assertTrue(data.contentEquals(File(targetDir, "content.db").readBytes()))
+        assertEquals(5, ranges.count { it != "bytes=0-0" })
+        assertFalse(File(targetDir, "content.db.part").exists())
+        assertFalse(File(targetDir, "content.db.part.map").exists())
+    }
+
+    @Test
+    fun `un part lineare senza mappa riprende in linea anche per un file grande`() = runBlocking {
+        val data = ByteArray(5000) { (it * 7).toByte() }
+        val ranges = Collections.synchronizedList(mutableListOf<String>())
+        serveRanges(data, ranges)
+        downloader.segmentedDownload = SegmentedDownload(OkHttpClient(), segmentBytes = 1000, parallelism = 2, minBytes = 100)
+        File(targetDir, "content.db.part").writeBytes(data.copyOf(1500))
+
+        downloader.downloadAndVerify(manifestFile(data), File(targetDir, "content.db"))
+
+        assertTrue(data.contentEquals(File(targetDir, "content.db").readBytes()))
+        assertEquals(listOf("bytes=1500-"), ranges.toList())
+    }
 }

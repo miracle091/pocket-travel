@@ -18,7 +18,7 @@ import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
-class PermanentRegionPackageException(message: String) : Exception(message)
+class PermanentRegionPackageException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 // Disco pieno: riprovare scriverebbe di nuovo fino allo stesso errore.
 internal fun isNoSpaceLeft(error: IOException): Boolean =
@@ -34,6 +34,9 @@ class RegionPackageDownloader @Inject constructor(
     private val regionStorage: RegionStorage,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
+    // internal (non private): i test la sostituiscono con segmenti piccoli.
+    internal var segmentedDownload = SegmentedDownload(okHttpClient)
+
     /**
      * Sezione critica per id di staging: chiamate concorrenti sullo stesso id (piu' ViewModel che chiedono
      * lo stesso indice, due lavori sulla stessa regione) si accodano: altrimenti scriverebbero lo stesso
@@ -131,12 +134,23 @@ class RegionPackageDownloader @Inject constructor(
         onProgress: suspend (bytesDownloaded: Long) -> Unit = {},
     ) {
         val partFile = File(target.parentFile, "${target.name}.part")
-        if (partFile.length() > file.sizeBytes) partFile.delete()
+        val mapFile = SegmentedDownload.mapFile(partFile)
+        if (partFile.length() > file.sizeBytes) {
+            partFile.delete()
+            mapFile.delete()
+        }
+        // Un .part senza mappa e' di un tentativo a una connessione (anche del codice vecchio): si riprende in linea.
+        val segmented = (partFile.length() == 0L || mapFile.exists()) && fetchSegmented(file, partFile, onProgress)
+        // Mappa e .part preallocato di un server che ora non regge piu' i segmenti: non sono un file parziale in linea.
+        if (!segmented && mapFile.exists()) {
+            partFile.delete()
+            mapFile.delete()
+        }
         val existingBytes = if (partFile.exists()) partFile.length() else 0L
 
         // .part gia' completo (processo chiuso tra l'ultimo byte e il renameTo): niente richiesta, si
         // verifica e basta. Chiedere "bytes=<dimensione>-" darebbe 416 e il download fallirebbe per sempre.
-        if (existingBytes < file.sizeBytes) okHttpClient.newCall(
+        if (!segmented && existingBytes < file.sizeBytes) okHttpClient.newCall(
             Request.Builder().url(file.url).apply {
                 if (existingBytes > 0) header("Range", "bytes=$existingBytes-")
             }.build(),
@@ -210,6 +224,20 @@ class RegionPackageDownloader @Inject constructor(
             )
         }
         check(partFile.renameTo(target)) { "Impossibile finalizzare ${file.name}" }
+    }
+
+    // false: file piccolo o server senza intervalli, si scarica in linea. Gli errori diventano quelli del chiamante.
+    private suspend fun fetchSegmented(
+        file: RegionManifestFile,
+        partFile: File,
+        onProgress: suspend (bytesDownloaded: Long) -> Unit,
+    ): Boolean = try {
+        segmentedDownload.fetch(file.url, partFile, file.sizeBytes, file.sha256, PROGRESS_STEP_BYTES, onProgress)
+    } catch (e: SegmentedDownloadException) {
+        throw PermanentRegionPackageException("Download fallito per ${file.name}: ${e.message}", e)
+    } catch (e: IOException) {
+        if (isNoSpaceLeft(e)) throw PermanentRegionPackageException("Spazio su disco esaurito scaricando ${file.name}")
+        throw e
     }
 
     private fun sha256Of(file: File): String {

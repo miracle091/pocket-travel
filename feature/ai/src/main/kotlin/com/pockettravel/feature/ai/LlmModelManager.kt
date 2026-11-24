@@ -8,7 +8,7 @@ class ModelIntegrityException(message: String) : Exception(message)
 
 /** Errore non recuperabile con un retry (es. HTTP 404): a differenza di un errore di rete
  *  transitorio, ritentare la stessa richiesta darebbe sempre lo stesso esito. */
-class ModelDownloadFailedException(message: String) : Exception(message)
+class ModelDownloadFailedException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /** definition.sha256 == null: modello non ancora disponibile per il download (vedi LlmModelDefinition). */
 class ModelNotAvailableException(message: String) : Exception(message)

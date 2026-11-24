@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import com.pockettravel.core.sync.AiModelManifestEntry
+import com.pockettravel.core.sync.SegmentedDownload
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -414,5 +415,27 @@ class LlmModelManagerTest {
 
         assertEquals(0, server.requestCount)
         assertFalse(File(modelsDir, "${definition.fileName}.part").exists())
+    }
+
+    @Test
+    fun `un modello grande si scarica a segmenti e si installa`() = runBlocking {
+        val data = ByteArray(5000) { (it * 7).toByte() }
+        server.dispatcher = object : okhttp3.mockwebserver.Dispatcher() {
+            override fun dispatch(request: okhttp3.mockwebserver.RecordedRequest): MockResponse {
+                val range = request.getHeader("Range") ?: return MockResponse().setBody(okio.Buffer().write(data))
+                val (first, last) = Regex("bytes=([0-9]+)-([0-9]+)").matchEntire(range).let { checkNotNull(it) }.destructured.let { it.component1().toInt() to it.component2().toInt() }
+                return MockResponse().setResponseCode(206)
+                    .setHeader("Content-Range", "bytes $first-$last/${data.size}")
+                    .setBody(okio.Buffer().write(data, first, last - first + 1))
+            }
+        }
+        modelManager.segmentedDownload = SegmentedDownload(OkHttpClient(), segmentBytes = 1000, parallelism = 2, minBytes = 100)
+        val definition = testDefinition.copy(url = server.url("/model").toString(), sha256 = sha256Hex(data), sizeBytes = data.size.toLong())
+
+        modelManager.download(definition) { _, _ -> }
+
+        assertTrue(data.contentEquals(modelManager.modelFile(definition).readBytes()))
+        assertFalse(File(modelsDir, "${definition.fileName}.part").exists())
+        assertFalse(File(modelsDir, "${definition.fileName}.part.map").exists())
     }
 }
