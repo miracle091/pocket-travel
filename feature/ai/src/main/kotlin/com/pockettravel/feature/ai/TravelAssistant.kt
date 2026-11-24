@@ -1078,6 +1078,18 @@ private fun namedWithoutArticle(name: String, foldedTokens: List<String>): Boole
         (1..foldedTokens.size - rest.size).any { i -> foldedTokens.subList(i, i + rest.size) == rest && foldedTokens[i - 1] in articulatedPrepositions }
 }
 
+// I nomi delle citta' normalizzati una volta: un elenco grande (l'Italia ne ha migliaia) si ripulirebbe da capo a ogni domanda.
+private class FoldedCityNames(val cities: List<String>, val names: List<String>)
+
+@Volatile private var foldedCityNamesCache: FoldedCityNames? = null
+
+private fun foldedCityNames(cities: List<String>): List<String> {
+    foldedCityNamesCache?.takeIf { it.cities == cities }?.let { return it.names }
+    val names = cities.map { normalizedWords(spokenCityName(it)).trim() }
+    foldedCityNamesCache = FoldedCityNames(cities.toList(), names)
+    return names
+}
+
 /**
  * Le citta' di [cities] nominate in [question] come parole intere, dal nome piu' lungo; un nome compreso in uno piu'
  * lungo gia' trovato non conta ("Porto" in "Porto Santo"). Un nome di una sola parola conta solo con l'iniziale
@@ -1091,8 +1103,9 @@ internal fun namedCities(question: String, cities: List<String>, language: Strin
     fun namedAsPlace(name: String) = foldedTokens.indices.any { i ->
         foldedTokens[i] == name && (tokens[i].first().isUpperCase() || foldedTokens.getOrNull(i - 1) in prepositions)
     }
-    val found = cities.filter { city ->
-        val name = normalizedWords(spokenCityName(city)).trim()
+    val foldedNames = foldedCityNames(cities)
+    val found = cities.filterIndexed { i, city ->
+        val name = foldedNames[i]
         spokenCityName(city).length >= MIN_CITY_NAME_CHARS &&
             ((" $name " in words && (' ' in name || namedAsPlace(name))) || (language == "it" && namedWithoutArticle(name, foldedTokens)))
     }.sortedByDescending { spokenCityName(it).length }

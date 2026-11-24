@@ -102,26 +102,29 @@ fun AiAssistantScreen(
     var openTerm by rememberSaveable(stateSaver = GuideTermSaver) { mutableStateOf<GuideTerm?>(null) }
     // "Chiedi all'assistente" dal foglio: siamo già nella scheda IA, la domanda va nel campo.
     GuideTermSheet(term = openTerm, onDismiss = { openTerm = null }, onOpenSource = onOpenSource, onAskAssistant = viewModel::onQuestionChanged)
-    val actions = viewModel.toActions(regionId).copy(
-        onQuestionChanged = { text ->
-            voiceViewModel.clearMessage()
-            viewModel.onQuestionChanged(text)
-        },
-        onAsk = {
-            voiceViewModel.stop()
-            readAloudViewModel.stop()
-            viewModel.ask(regionId)
-        },
-        onVoiceStart = {
-            readAloudViewModel.stop()
-            voiceViewModel.start(uiState.question)
-        },
-        onVoiceStop = voiceViewModel::stop,
-        onVoicePermissionDenied = voiceViewModel::onPermissionDenied,
-        onReadAloud = readAloudViewModel::toggle,
-        onOpenGuideSource = onOpenGuideSource,
-        onTermClick = { openTerm = it },
-    )
+    // Azioni create una volta: nuove a ogni token della risposta, ricomponevano anche le risposte gia' finite.
+    val actions = remember(viewModel, voiceViewModel, readAloudViewModel, regionId, onOpenGuideSource) {
+        viewModel.toActions(regionId).copy(
+            onQuestionChanged = { text ->
+                voiceViewModel.clearMessage()
+                viewModel.onQuestionChanged(text)
+            },
+            onAsk = {
+                voiceViewModel.stop()
+                readAloudViewModel.stop()
+                viewModel.ask(regionId)
+            },
+            onVoiceStart = {
+                readAloudViewModel.stop()
+                voiceViewModel.start(viewModel.uiState.value.question)
+            },
+            onVoiceStop = voiceViewModel::stop,
+            onVoicePermissionDenied = voiceViewModel::onPermissionDenied,
+            onReadAloud = readAloudViewModel::toggle,
+            onOpenGuideSource = onOpenGuideSource,
+            onTermClick = { openTerm = it },
+        )
+    }
     AiAssistantContent(
         uiState = uiState,
         actions = actions,
