@@ -17,7 +17,7 @@ class HttpAddressGridClient @Inject constructor(
     override suspend fun fetchIndex(entry: AddressGridManifestEntry): AddressGridIndex = withContext(ioDispatcher) {
         // Lettura, firma e validate() fuori dal thread del chiamante (spesso il Main di un viewModelScope).
         val file = RegionManifestFile(name = AddressGridClient.FILE_NAME, url = entry.url, sizeBytes = entry.sizeBytes, sha256 = entry.sha256)
-        val staging = downloader.download(AddressGridClient.STAGING_ID, entry.version, listOf(file))
+        val staging = downloader.downloadLatest(AddressGridClient.STAGING_ID, entry.version, listOf(file))
         val indexFile = File(staging, AddressGridClient.FILE_NAME)
         // Prima di interpretarlo; la firma verificata resta in staging (vedi ManifestSignatureVerifier.verifyFile).
         signatureVerifier.verifyFile(entry.url, indexFile)

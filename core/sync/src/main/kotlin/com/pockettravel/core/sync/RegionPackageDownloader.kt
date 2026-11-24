@@ -69,6 +69,15 @@ class RegionPackageDownloader @Inject constructor(
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit = { _, _ -> },
     ): File = withStagingLock(regionId) { downloadLocked(regionId, stagingVersion, files, onProgress) }
 
+    /**
+     * Come [download], poi cancella dallo staging le altre versioni: per gli indici (`_transit`, `_address_grid`)
+     * che lo staging tiene come cache di una sola versione.
+     */
+    suspend fun downloadLatest(stagingId: String, stagingVersion: String, files: List<RegionManifestFile>): File =
+        withStagingLock(stagingId) {
+            downloadLocked(stagingId, stagingVersion, files).also { regionStorage.cleanupStagingExcept(stagingId, stagingVersion) }
+        }
+
     /** Come [download], ma senza prendere il lock: il chiamante e' gia' dentro [withStagingLock] per [regionId]. */
     suspend fun downloadLocked(
         regionId: String,
@@ -150,63 +159,65 @@ class RegionPackageDownloader @Inject constructor(
 
         // .part gia' completo (processo chiuso tra l'ultimo byte e il renameTo): niente richiesta, si
         // verifica e basta. Chiedere "bytes=<dimensione>-" darebbe 416 e il download fallirebbe per sempre.
-        if (!segmented && existingBytes < file.sizeBytes) okHttpClient.newCall(
-            Request.Builder().url(file.url).apply {
-                if (existingBytes > 0) header("Range", "bytes=$existingBytes-")
-            }.build(),
-        ).execute().use { response ->
-            if (!response.isSuccessful) {
-                if (response.code == HTTP_RANGE_NOT_SATISFIABLE) {
-                    // .part non coerente con il file sul server (es. cambiato a parita' di nome): si riparte da zero
-                    partFile.delete()
-                    throw IOException("Range non valido per ${file.name}: riscarico da capo")
+        if (!segmented && existingBytes < file.sizeBytes) {
+            okHttpClient.newCall(
+                Request.Builder().url(file.url).apply {
+                    if (existingBytes > 0) header("Range", "bytes=$existingBytes-")
+                }.build(),
+            ).runCancellable { response ->
+                if (!response.isSuccessful) {
+                    if (response.code == HTTP_RANGE_NOT_SATISFIABLE) {
+                        // .part non coerente con il file sul server (es. cambiato a parita' di nome): si riparte da zero
+                        partFile.delete()
+                        throw IOException("Range non valido per ${file.name}: riscarico da capo")
+                    }
+                    if (response.code in HTTP_CLIENT_ERRORS && !isRetryableHttpStatus(response.code)) {
+                        throw PermanentRegionPackageException("Download fallito per ${file.name}: HTTP ${response.code}")
+                    }
+                    throw IOException("Download fallito per ${file.name}: HTTP ${response.code}")
                 }
-                if (response.code in HTTP_CLIENT_ERRORS && !isRetryableHttpStatus(response.code)) {
-                    throw PermanentRegionPackageException("Download fallito per ${file.name}: HTTP ${response.code}")
+                val body = response.body
+                val append = response.code == HTTP_PARTIAL_CONTENT && existingBytes > 0
+                if (existingBytes > 0 && response.code == HTTP_PARTIAL_CONTENT) {
+                    if (response.header("Content-Range")?.startsWith("bytes $existingBytes-", ignoreCase = true) != true) {
+                        // Come per il 416: .part non coerente con la risposta, si riparte da zero.
+                        partFile.delete()
+                        throw IOException("Risposta range non valida per ${file.name}: riscarico da capo")
+                    }
                 }
-                throw IOException("Download fallito per ${file.name}: HTTP ${response.code}")
-            }
-            val body = response.body
-            val append = response.code == HTTP_PARTIAL_CONTENT && existingBytes > 0
-            if (existingBytes > 0 && response.code == HTTP_PARTIAL_CONTENT) {
-                if (response.header("Content-Range")?.startsWith("bytes $existingBytes-", ignoreCase = true) != true) {
-                    // Come per il 416: .part non coerente con la risposta, si riparte da zero.
-                    partFile.delete()
-                    throw IOException("Risposta range non valida per ${file.name}: riscarico da capo")
-                }
-            }
-            var downloaded = if (append) existingBytes else 0L
-            var lastReported = downloaded
-            try {
-                FileOutputStream(partFile, append).use { output ->
-                    body.byteStream().use { input ->
-                        val buffer = ByteArray(IO_BUFFER_SIZE)
-                        var read: Int
-                        while (input.read(buffer).also { read = it } != -1) {
-                            // Annullare il download (es. regione eliminata) lo ferma subito, non al prossimo onProgress.
-                            currentCoroutineContext().ensureActive()
-                            downloaded += read
-                            // Un server che manda piu' byte di quelli del catalogo (anche col resume: conta il totale del
-                            // file) non riempie il disco: ci si ferma subito, senza aspettare l'EOF.
-                            if (downloaded > file.sizeBytes) {
-                                throw PermanentRegionPackageException("Dimensione non valida per ${file.name}: superiore ai ${file.sizeBytes} byte attesi")
-                            }
-                            output.write(buffer, 0, read)
-                            if (downloaded - lastReported >= PROGRESS_STEP_BYTES) {
-                                lastReported = downloaded
-                                onProgress(downloaded)
+                var downloaded = if (append) existingBytes else 0L
+                var lastReported = downloaded
+                try {
+                    FileOutputStream(partFile, append).use { output ->
+                        body.byteStream().use { input ->
+                            val buffer = ByteArray(IO_BUFFER_SIZE)
+                            var read: Int
+                            while (input.read(buffer).also { read = it } != -1) {
+                                // Annullare il download (es. regione eliminata) lo ferma subito, non al prossimo onProgress.
+                                currentCoroutineContext().ensureActive()
+                                downloaded += read
+                                // Un server che manda piu' byte di quelli del catalogo (anche col resume: conta il totale del
+                                // file) non riempie il disco: ci si ferma subito, senza aspettare l'EOF.
+                                if (downloaded > file.sizeBytes) {
+                                    throw PermanentRegionPackageException("Dimensione non valida per ${file.name}: superiore ai ${file.sizeBytes} byte attesi")
+                                }
+                                output.write(buffer, 0, read)
+                                if (downloaded - lastReported >= PROGRESS_STEP_BYTES) {
+                                    lastReported = downloaded
+                                    onProgress(downloaded)
+                                }
                             }
                         }
                     }
+                } catch (e: PermanentRegionPackageException) {
+                    partFile.delete()
+                    throw e
+                } catch (e: IOException) {
+                    if (isNoSpaceLeft(e)) throw PermanentRegionPackageException("Spazio su disco esaurito scaricando ${file.name}")
+                    throw e
                 }
-            } catch (e: PermanentRegionPackageException) {
-                partFile.delete()
-                throw e
-            } catch (e: IOException) {
-                if (isNoSpaceLeft(e)) throw PermanentRegionPackageException("Spazio su disco esaurito scaricando ${file.name}")
-                throw e
+                onProgress(downloaded)
             }
-            onProgress(downloaded)
         }
 
         val actual = partFile.length()

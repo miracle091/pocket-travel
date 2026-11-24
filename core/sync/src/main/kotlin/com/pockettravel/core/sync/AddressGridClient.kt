@@ -12,7 +12,7 @@ interface AddressGridClient {
     companion object {
         internal const val FILE_NAME = "address-grid.json"
         // Cartella di staging dell'indice, accanto a quelle per regione (RegionStorage) e alle guide
-        // (GuidesInstaller.STAGING_ID): fa anche da cache per versione, RegionPackageDownloader.download
+        // (GuidesInstaller.STAGING_ID): fa anche da cache per versione, RegionPackageDownloader.downloadLatest
         // cancella le versioni diverse da quella richiesta ad ogni chiamata.
         internal const val STAGING_ID = "_address_grid"
     }

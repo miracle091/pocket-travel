@@ -3,6 +3,7 @@ package com.pockettravel.core.sync
 import com.pockettravel.core.data.RegionStorage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -20,7 +21,9 @@ import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.Collections
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.createTempDirectory
+import kotlin.system.measureTimeMillis
 
 // downloadAndVerify() e' internal apposta (vedi commento nella classe di produzione): qui si
 // esercita solo il download/ripresa/verifica byte-per-byte via un vero server HTTP locale
@@ -326,6 +329,31 @@ class RegionPackageDownloaderTest {
         downloader.download("it", "v2", emptyList())
 
         assertTrue(part.exists())
+    }
+
+    @Test
+    fun `annullare un download a una connessione fermo sul corpo lo chiude subito`() = runBlocking {
+        // Intestazioni subito, corpo dopo 30 s: senza Call.cancel() si aspetterebbe il timeout di lettura (10 s).
+        server.enqueue(MockResponse().setResponseCode(200).setBody("abc").setBodyDelay(30, TimeUnit.SECONDS))
+        val job = launch(Dispatchers.IO) { downloader.downloadAndVerify(manifestFile("abc".toByteArray()), File(targetDir, "content.db")) }
+        server.takeRequest()
+        delay(200)
+
+        val elapsed = measureTimeMillis { job.cancelAndJoin() }
+
+        assertTrue("annullamento in $elapsed ms", elapsed < 2_000)
+    }
+
+    @Test
+    fun `un indice scaricato con downloadLatest lascia nello staging solo la sua versione`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("uno"))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("due"))
+
+        downloader.downloadLatest("_transit", "v1", listOf(manifestFile("uno".toByteArray(), "index.json")))
+        val latest = downloader.downloadLatest("_transit", "v2", listOf(manifestFile("due".toByteArray(), "index.json")))
+
+        assertEquals("due", File(latest, "index.json").readText())
+        assertEquals(listOf("v2"), regionStorage.stagingDirectoryFor("_transit", "v2").parentFile?.list()?.toList())
     }
 
     @Test

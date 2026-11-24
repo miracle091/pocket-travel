@@ -206,26 +206,6 @@ class SegmentedDownload(
         }
     }
 
-    // execute() e le letture bloccano il thread: annullando la coroutine si annulla la chiamata, che le fa fallire subito.
-    private suspend fun <T> Call.runCancellable(block: suspend (Response) -> T): T = coroutineScope {
-        val canceller = launch(Dispatchers.Unconfined) {
-            try {
-                awaitCancellation()
-            } finally {
-                this@runCancellable.cancel()
-            }
-        }
-        try {
-            execute().use { block(it) }
-        } catch (e: IOException) {
-            // La chiamata annullata fallisce con "Socket closed": e' l'annullamento, non un errore da riportare.
-            currentCoroutineContext().ensureActive()
-            throw e
-        } finally {
-            canceller.cancel()
-        }
-    }
-
     private fun String.toHttpUrlOrThrow(): HttpUrl =
         toHttpUrlOrNull() ?: throw SegmentedDownloadException("Indirizzo non valido: $this")
 
@@ -244,5 +224,25 @@ class SegmentedDownload(
         // (primo, ultimo, totale), o null se l'intestazione non e' nella forma attesa.
         private fun parseContentRange(value: String): Triple<Long, Long, Long>? =
             CONTENT_RANGE.matchEntire(value.trim())?.destructured?.let { (a, b, c) -> Triple(a.toLong(), b.toLong(), c.toLong()) }
+    }
+}
+
+// execute() e le letture bloccano il thread: annullando la coroutine si annulla la chiamata, che le fa fallire subito.
+internal suspend fun <T> Call.runCancellable(block: suspend (Response) -> T): T = coroutineScope {
+    val canceller = launch(Dispatchers.Unconfined) {
+        try {
+            awaitCancellation()
+        } finally {
+            this@runCancellable.cancel()
+        }
+    }
+    try {
+        execute().use { block(it) }
+    } catch (e: IOException) {
+        // La chiamata annullata fallisce con "Socket closed": e' l'annullamento, non un errore da riportare.
+        currentCoroutineContext().ensureActive()
+        throw e
+    } finally {
+        canceller.cancel()
     }
 }
