@@ -235,13 +235,16 @@ internal fun worldStyleJson(
         }
         """["match", ["get", "iso"], $names, ["get", "name"]]"""
     }
+    // Una sorgente delle etichette per lingua: con lo stesso id MapLibre riusa le etichette gia' disegnate e, cambiata la
+    // lingua dell'app, la mappa restava nella lingua di prima finche' la schermata non veniva ricreata.
+    val labelSource = "labels-${locale.language}"
     return """
         {
           "version": 8,
           "glyphs": "asset://fonts/NotoSansRegular/{range}.pbf",
           "sources": {
             "countries": { "type": "geojson", "data": "asset://world/countries.geojson", "attribution": "Natural Earth" },
-            "labels": { "type": "geojson", "data": "asset://world/country-labels.geojson" }
+            "$labelSource": { "type": "geojson", "data": "asset://world/country-labels.geojson" }
           },
           "layers": [
             { "id": "ocean", "type": "background", "paint": { "background-color": "$ocean" } },
@@ -249,7 +252,7 @@ internal fun worldStyleJson(
             { "id": "countries-available", "type": "fill", "source": "countries", "filter": ["in", ["get", "iso"], ["literal", []]], "paint": { "fill-color": "$available" } },
             { "id": "countries-downloaded", "type": "fill", "source": "countries", "filter": ["in", ["get", "iso"], ["literal", []]], "paint": { "fill-color": "$downloaded" } },
             { "id": "countries-line", "type": "line", "source": "countries", "paint": { "line-color": "$border", "line-width": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 6, 1.2] } },
-            { "id": "country-labels", "type": "symbol", "source": "labels",
+            { "id": "country-labels", "type": "symbol", "source": "$labelSource",
               "filter": ["<=", ["get", "rank"], ["+", 2, ["*", 1.5, ["zoom"]]]],
               "layout": { "text-field": $labelField, "text-font": ["NotoSansRegular"], "text-size": ["interpolate", ["linear"], ["zoom"], 0, 9, 6, 14], "symbol-sort-key": ["get", "rank"], "text-max-width": 7 },
               "paint": { "text-color": "$label", "text-halo-color": "$labelHalo", "text-halo-width": 1.2 } }

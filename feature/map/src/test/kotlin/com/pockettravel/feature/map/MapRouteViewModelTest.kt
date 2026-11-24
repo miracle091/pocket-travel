@@ -178,6 +178,23 @@ class MapRouteViewModelTest {
     }
 
     @Test
+    fun `un aggiornamento dei POI della regione aperta rilegge i segnalini dell'area`() = runTest {
+        dao.rows += poiRow(1, "Vecchio", lat = 45.2, lon = 9.2)
+        val viewModel = viewModel()
+        viewModel.loadPins("r1")
+        viewModel.setViewport(MapBounds(9.0, 45.0, 9.5, 45.5))
+        runCurrent()
+
+        dao.rows += poiRow(2, "Nuovo", lat = 45.3, lon = 9.3)
+        regions.installedRegions.value = listOf(installedRegion("r1").copy(poiVersion = "p2"), installedRegion("r2"))
+        runCurrent()
+        viewModel.setViewport(MapBounds(9.1, 45.1, 9.4, 45.4))
+        runCurrent()
+
+        assertEquals(listOf("1", "2"), settled(viewModel.uiState).pins.map { it.id }.sorted())
+    }
+
+    @Test
     fun `uscire dall'ultima area letta rilegge i POI`() = runTest {
         dao.rows += poiRow(1, "Da Mario", lat = 45.2, lon = 9.2)
         val viewModel = viewModel()

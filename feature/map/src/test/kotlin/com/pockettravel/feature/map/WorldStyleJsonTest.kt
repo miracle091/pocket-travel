@@ -57,6 +57,16 @@ class WorldStyleJsonTest {
     }
 
     @Test
+    fun `ogni lingua ha la sua sorgente delle etichette, cosi' il cambio di lingua le ridisegna`() {
+        val italian = style(Locale.ITALIAN)
+        val english = style(Locale.ENGLISH)
+        assertTrue(italian.contains("\"labels-it\": { \"type\": \"geojson\""))
+        assertTrue(layer(italian, "country-labels").contains("\"source\": \"labels-it\""))
+        assertTrue(english.contains("\"labels-en\": { \"type\": \"geojson\""))
+        assertTrue(layer(english, "country-labels").contains("\"source\": \"labels-en\""))
+    }
+
+    @Test
     fun `i colori passati finiscono nello stile`() {
         val json = style()
         assertTrue(json.contains("\"background-color\": \"#001\""))

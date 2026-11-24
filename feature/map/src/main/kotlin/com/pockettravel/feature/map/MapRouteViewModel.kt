@@ -101,6 +101,27 @@ class MapRouteViewModel @Inject constructor(
     private var lastRead: PinRead? = null
 
     init {
+        // POI della regione aperta aggiornati con la mappa aperta (anche in background): categorie e area letta non
+        // valgono piu', i segnalini si rileggono. Il cambio di regione lo fa gia' loadPins.
+        viewModelScope.launch {
+            var last: Pair<String, List<String?>?>? = null
+            @OptIn(ExperimentalCoroutinesApi::class)
+            regionIdFlow.filterNotNull().flatMapLatest { regionId ->
+                regionRepository.observeInstalled().map { installed ->
+                    regionId to installed.firstOrNull { it.regionId == regionId }?.let { listOf(it.poiVersion, it.poiExtraVersion) }
+                }
+            }.distinctUntilChanged().collect { current ->
+                if (last?.first == current.first) {
+                    regionTags = null
+                    lastRead = null
+                    reloadPins()
+                }
+                last = current
+            }
+        }
+    }
+
+    init {
         viewModelScope.launch {
             pinRequests.collect {
                 // Un errore del database (una regione cancellata mentre si legge) chiuderebbe l'app o fermerebbe
