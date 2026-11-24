@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.sync.AiModelManifestEntry
 import com.pockettravel.core.sync.AppStatusClient
 import com.pockettravel.core.sync.NetworkBlock
@@ -88,13 +89,8 @@ class LlmModelDownloadWorker @AssistedInject constructor(
     }
 
     // Senza rete verso GitHub, o con un file non firmato, restano le impronte del catalogo dei modelli dell'APK.
-    private suspend fun publishedModels(): List<AiModelManifestEntry> = try {
-        appStatusClient.fetchAppStatus().aiModels
-    } catch (error: CancellationException) {
-        throw error
-    } catch (_: Exception) {
-        emptyList()
-    }
+    private suspend fun publishedModels(): List<AiModelManifestEntry> =
+        runCatchingCancellable { appStatusClient.fetchAppStatus().aiModels }.getOrDefault(emptyList())
 
     companion object {
         private const val PERCENT = 100L

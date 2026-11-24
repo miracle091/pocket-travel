@@ -2,8 +2,8 @@ package com.pockettravel.feature.ai
 
 import androidx.core.content.edit
 import com.pockettravel.core.data.PreferencesFactory
+import com.pockettravel.core.data.sha256Hex
 import com.pockettravel.core.sync.OnlineModelEntry
-import java.security.MessageDigest
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
@@ -61,11 +61,11 @@ class OnlineQuotaTracker(
     }
 }
 
-private const val FINGERPRINT_BYTES = 8
+private const val FINGERPRINT_CHARS = 16
 
 /** Impronta di una chiave API: i primi 8 byte del suo SHA-256, in esadecimale; null senza chiave. */
 internal fun apiKeyFingerprint(apiKey: String?): String? = apiKey?.takeIf { it.isNotBlank() }?.let { key ->
-    MessageDigest.getInstance("SHA-256").digest(key.toByteArray()).take(FINGERPRINT_BYTES).joinToString("") { "%02x".format(it) }
+    key.toByteArray().sha256Hex().take(FINGERPRINT_CHARS)
 }
 
 private val QUOTA_ZONE: ZoneId = ZoneId.of("America/Los_Angeles")

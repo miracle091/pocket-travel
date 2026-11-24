@@ -33,7 +33,6 @@
     <ID>MixedConditionOperators:TravelAssistant.kt:TravelAssistant$guideRepository.searchCandidates(regionId, query).none { isGuideSectionFor(it.first.sourceUrl, nationality) } &amp;&amp; cityRepository.candidates(regionId, query, emptyList()).isEmpty()</ID>
     <ID>MixedConditionOperators:TravelAssistant.kt:TravelAssistant$namedCities(question, cityNames, language).isEmpty() &amp;&amp; buildFtsQuery(question, regionId).let { query -&gt; query.isBlank() || guideRepository.searchCandidates(regionId, query).none { isGuideSectionFor(it.first.sourceUrl, nationality) } &amp;&amp; cityRepository.candidates(regionId, query, emptyList()).isEmpty() }</ID>
     <ID>MixedConditionOperators:TravelAssistant.kt:countryFirst != false &amp;&amp; world.score &gt; generalGuideFirstRatio(language, generalQuestion) * top.maxOf { it.compareScore }</ID>
-    <ID>MultiLineIfElse:AiConversation.kt:Surface( shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth().semantics { if (!streaming) liveRegion = LiveRegionMode.Polite }, ) { // animateContentSize: la bolla cresce con morbidezza da "Sto pensando…" alla risposta. Column(modifier = Modifier.animateContentSize().padding(Spacing.l)) { (uiState.notice as? ChatNotice.ModelSwitched)?.let { ModelSwitchedLine(it) } AnswerContent(uiState, streaming, onOpenOfficialSource, actions, readAloud) } }</ID>
     <ID>MultiLineIfElse:AssistantHeader.kt:null</ID>
     <ID>MultiLineIfElse:AssistantHeader.kt:uiState.availableModels.firstOrNull { it.id != uiState.selectedModelId &amp;&amp; it.id in uiState.downloadedModelIds }</ID>
     <ID>MultiLineIfElse:TravelAssistant.kt:" (estimated time)"</ID>
@@ -43,7 +42,6 @@
     <ID>NoBlankLineBeforeRbrace:InferenceEngineImpl.kt:InferenceEngineImpl$ </ID>
     <ID>NoConsecutiveBlankLines:AssistantConversation.kt: </ID>
     <ID>NoUnusedImports:OnlineRequestTest.kt:com.pockettravel.feature.ai.OnlineRequestTest.kt</ID>
-    <ID>SpacingAroundKeyword:InferenceEngineImpl.kt:InferenceEngineImpl$when</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:DeviceAiCapabilityTest.kt:DeviceAiCapabilityTest$@Test fun `inferenceThreadCountFor uses cores minus one below the tier cap`</ID>
     <ID>SpacingBetweenDeclarationsWithComments:GgufMetadata.kt:GgufReader.Companion$// Tipi dei valori GGUF (gguf_type di ggml).</ID>
     <ID>SpacingBetweenDeclarationsWithComments:InferenceEngine.kt:InferenceEngine.Companion$// Default di common_params_sampling (llama.cpp): usati solo se il chiamante non passa i</ID>

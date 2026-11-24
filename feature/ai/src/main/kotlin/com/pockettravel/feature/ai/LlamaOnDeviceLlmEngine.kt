@@ -70,13 +70,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
     override suspend fun ensureLoaded(): Long = withContext(ioDispatcher) {
         idleReleaser.withModelUse {
             mutex.withLock {
-                if (isSelectedModelLoaded()) {
-                    0L
-                } else {
-                    val start = System.currentTimeMillis()
-                    loadModelIfNeeded()
-                    System.currentTimeMillis() - start
-                }
+                loadModelIfNeeded()
             }
         }
     }
@@ -84,10 +78,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
     override suspend fun generateAll(prompts: List<String>): OnDeviceLlmEngine.GenerationBatch = withContext(ioDispatcher) {
         idleReleaser.withModelUse {
             mutex.withLock {
-                val loadStart = System.currentTimeMillis()
-                val wasLoaded = isSelectedModelLoaded()
-                loadModelIfNeeded()
-                val loadTimeMs = if (wasLoaded) 0L else System.currentTimeMillis() - loadStart
+                val loadTimeMs = loadModelIfNeeded()
                 val start = System.currentTimeMillis()
                 val answers = prompts.map {
                     engine.resetConversation()
@@ -101,10 +92,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
     override suspend fun <T> withBench(block: suspend (OnDeviceLlmEngine.BenchRunner) -> T): T = withContext(ioDispatcher) {
         idleReleaser.withModelUse {
             mutex.withLock {
-                val loadStart = System.currentTimeMillis()
-                val wasLoaded = isSelectedModelLoaded()
-                loadModelIfNeeded()
-                val loaded = if (wasLoaded) 0L else System.currentTimeMillis() - loadStart
+                val loaded = loadModelIfNeeded()
                 val version = engine.llamaVersion()
                 try {
                     block(LlamaBenchRunner(engine, version, loaded))
@@ -181,8 +169,10 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
     private fun isSelectedModelLoaded(): Boolean =
         engine.state.value.isModelLoaded && loadedModelPath == selectedModelPath
 
-    private suspend fun loadModelIfNeeded() {
-        if (isSelectedModelLoaded()) return
+    // Carica il modello scelto se serve e restituisce i millisecondi impiegati (0 se era gia' in memoria).
+    private suspend fun loadModelIfNeeded(): Long {
+        if (isSelectedModelLoaded()) return 0L
+        val start = System.currentTimeMillis()
         // Un altro modello in memoria (scelta cambiata): va scaricato prima di caricare quello nuovo.
         if (engine.state.value is InferenceEngine.State.ModelReady) engine.cleanUp()
         loadedModelPath = null
@@ -216,6 +206,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
         }
         loadedModelPath = path
         _stats.update { it.copy(loadedModelId = definition.id, loadTimeMs = (System.nanoTime() - loadStart) / NANOS_PER_MS) }
+        return System.currentTimeMillis() - start
     }
 
     private companion object {

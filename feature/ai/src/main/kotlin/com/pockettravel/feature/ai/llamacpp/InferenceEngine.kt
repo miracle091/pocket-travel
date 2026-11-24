@@ -105,15 +105,6 @@ interface InferenceEngine {
     suspend fun cleanUp()
 
     /**
-     * Libera il backend GGML nativo (llama_backend_free), oltre a quanto libera gia' [cleanUp].
-     * Il codice dell'app non la chiama: l'implementazione e' un singleton di processo e non puo'
-     * rieseguire l'`init()` nativo di [loadModel], quindi chiamarla romperebbe il motore per il resto
-     * del processo. Lo spegnimento vero e' la fine del processo; resta per completezza e per i test
-     * strumentati che creano una propria istanza.
-     */
-    suspend fun destroy()
-
-    /**
      * States of the inference engine
      */
     sealed class State {

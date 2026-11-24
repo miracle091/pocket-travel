@@ -23,7 +23,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -54,9 +53,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * 4. Generate responses as token streams
  * 5. Perform [cleanUp] when done with a model
  *
- * Singleton di processo (vedi [getInstance]): il codice dell'app non chiama mai [destroy], che
- * libererebbe il backend nativo senza modo di ricaricarlo; vedi il suo KDoc in
- * [com.pockettravel.feature.ai.llamacpp.InferenceEngine].
+ * Singleton di processo (vedi [getInstance]): il backend nativo si inizializza una volta e vive quanto il processo.
  *
  * State transitions are managed automatically and validated at each operation.
  *
@@ -178,8 +175,6 @@ internal class InferenceEngineImpl private constructor(
     private external fun llamaVersionNative(): String?
 
     private external fun unload()
-
-    private external fun shutdown()
 
     private val _state =
         MutableStateFlow<InferenceEngine.State>(InferenceEngine.State.Uninitialized)
@@ -306,19 +301,11 @@ internal class InferenceEngineImpl private constructor(
             }
         }
 
-    override suspend fun resetConversation() =
-        withContext(llamaDispatcher) {
-            check(_state.value is InferenceEngine.State.ModelReady) {
-                "Cannot reset conversation in ${_state.value.javaClass.simpleName}!"
-            }
-            resetConversationNative()
-        }
+    override suspend fun resetConversation() = resetConversation(emptyList())
 
     override suspend fun resetConversation(history: List<HistoryTurn>) =
         withContext(llamaDispatcher) {
-            check(_state.value is InferenceEngine.State.ModelReady) {
-                "Cannot reset conversation in ${_state.value.javaClass.simpleName}!"
-            }
+            requireReady("reset conversation")
             resetConversationNative()
             if (history.isNotEmpty()) {
                 val result = setHistoryNative(history.flatMap { listOf(it.question, it.answer) }.toTypedArray())
@@ -326,42 +313,50 @@ internal class InferenceEngineImpl private constructor(
             }
         }
 
+    // Lancia IllegalStateException se il modello non e' pronto; con [action] il messaggio dice cosa non si puo' fare.
+    private fun requireReady(action: String? = null) {
+        check(_state.value is InferenceEngine.State.ModelReady) {
+            val state = _state.value.javaClass.simpleName
+            if (action == null) "No model ready: $state" else "Cannot $action in $state!"
+        }
+    }
+
     /** "none", "jinja", "chatml" o "builtin", gli ultimi due anche con "-think" (chatFormatNative in ai_chat.cpp). */
     internal suspend fun chatFormat(): String =
         withContext(llamaDispatcher) {
-            check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
+            requireReady()
             chatFormatNative()
         }
 
     internal suspend fun formatPrompt(message: String): String =
         withContext(llamaDispatcher) {
-            check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
+            requireReady()
             checkNotNull(formatPromptNative(message)) { "Chat template failed" }
         }
 
     /** Il testo che il modello legge per [message] dopo i turni di [history] (come [formatPrompt]), senza toccare la conversazione. */
     internal suspend fun formatPrompt(message: String, history: List<HistoryTurn>): String =
         withContext(llamaDispatcher) {
-            check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
+            requireReady()
             val messages = history.flatMap { listOf(it.question, it.answer) }.toTypedArray()
             checkNotNull(formatPromptWithHistoryNative(message, messages)) { "Chat template failed" }
         }
 
     internal suspend fun countTokens(text: String, parseSpecial: Boolean): Int =
         withContext(llamaDispatcher) {
-            check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
+            requireReady()
             countTokensNative(text, parseSpecial).also { check(it >= 0) { "Tokenization failed" } }
         }
 
     internal suspend fun streamTokens(text: String, maxTokens: Int): String =
         withContext(llamaDispatcher) {
-            check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
+            requireReady()
             checkNotNull(streamTokensNative(text, maxTokens)) { "Tokenization failed" }
         }
 
     override suspend fun bench(nPrompt: Int, nGen: Int, nThreads: Int, seed: Int): LongArray =
         withContext(llamaDispatcher) {
-            check(_state.value is InferenceEngine.State.ModelReady) { "No model ready: ${_state.value.javaClass.simpleName}" }
+            requireReady()
             checkNotNull(benchNative(nPrompt, nGen, nThreads, seed)) { "Benchmark failed" }
         }
 
@@ -369,9 +364,7 @@ internal class InferenceEngineImpl private constructor(
 
     override suspend fun setGrammar(grammar: String) =
         withContext(llamaDispatcher) {
-            check(_state.value is InferenceEngine.State.ModelReady) {
-                "Cannot set grammar in ${_state.value.javaClass.simpleName}!"
-            }
+            requireReady("set grammar")
             val result = setGrammarNative(grammar)
             require(result == 0) { "Invalid grammar: $result" }
         }
@@ -388,9 +381,7 @@ internal class InferenceEngineImpl private constructor(
 
     override suspend fun loadMmproj(pathToMmproj: String) =
         withContext(llamaDispatcher) {
-            check(_state.value is InferenceEngine.State.ModelReady) {
-                "Cannot load mmproj in ${_state.value.javaClass.simpleName}!"
-            }
+            requireReady("load mmproj")
             if (loadedMmproj == pathToMmproj) return@withContext
             require(File(pathToMmproj).isFile) { "mmproj not found" }
             Log.i(TAG, "Loading mmproj... " + pathToMmproj)
@@ -563,23 +554,5 @@ internal class InferenceEngineImpl private constructor(
                 else -> throw IllegalStateException("Cannot unload model in ${state.javaClass.simpleName}")
             }
         }
-    }
-
-    /**
-     * Cancel all ongoing coroutines and free GGML backends
-     */
-    override suspend fun destroy() {
-        _cancelGeneration = true
-        withContext(llamaDispatcher) {
-            when(_state.value) {
-                is InferenceEngine.State.Uninitialized -> {}
-                // Dopo un errore di init non ci sono chiamate native possibili.
-                is InferenceEngine.State.Error -> if (nativeInitError == null) { unload(); loadedMmproj = null; shutdown() } else Unit
-                is InferenceEngine.State.Initialized -> shutdown()
-                else -> { unload(); loadedMmproj = null; shutdown() }
-            }
-        }
-        llamaScope.cancel()
-        llamaDispatcher.close()
     }
 }

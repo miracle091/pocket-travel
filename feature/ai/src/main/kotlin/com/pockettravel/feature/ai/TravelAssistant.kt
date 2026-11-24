@@ -180,13 +180,11 @@ class TravelAssistant @Inject constructor(
         // Le citta' nominate nella domanda: le sezioni delle citta' candidate sono solo le loro (due per "quanto dista X da Y").
         val cities = namedCities(searched, cityNames, language)
         val city = cities.singleOrNull()
+        val askedGroups = questionGroups(searched)
         // Sul dispositivo, quando le liste di parole non riconoscono la categoria, la sceglie il modello (modelQuestionCategory).
-        val modelGroups = if (modelPicksCategory(mode, selectedText) && wordListsOverride.enabled() && questionGroups(question).isEmpty()) {
-            setOfNotNull(modelQuestionCategory(engine, question, language))
-        } else {
-            emptySet()
-        }
-        val search = searchSections(regionId, searched, cities, language, modelGroups, if (mode == AiEngineMode.ONLINE) ONLINE_MAX_SECTIONS else MAX_SECTIONS, nationality)
+        val modelPicks = modelPicksCategory(mode, selectedText) && wordListsOverride.enabled() && askedGroups.isEmpty()
+        val modelGroups = if (modelPicks) setOfNotNull(modelQuestionCategory(engine, question, language)) else emptySet()
+        val search = searchSections(regionId, searched, cities, language, askedGroups, modelGroups, if (mode == AiEngineMode.ONLINE) ONLINE_MAX_SECTIONS else MAX_SECTIONS, nationality)
         val sections = if (selectedTextOnly(mode, selectedText)) emptyList() else search.sections
         val regulatedMatch = sections.firstOrNull { !it.fromGeneralGuide && it.isRegulatedTopic() }
         // Per Viaggiare Sicuri il banner apre la pagina della nazione nominata nella domanda, o di quella della regione.
@@ -295,12 +293,14 @@ class TravelAssistant @Inject constructor(
      * scelta dal modello ([modelGroups]); storia, clima e periodi delle liste o del modello valgono come domanda di storia
      * o clima (le sezioni di Wikipedia non si abbassano). Un termine locale nominato nella domanda («cos'è il cebiche?») entra
      * per primo con la voce di Wikipedia che lo spiega, prima delle sezioni trovate dalla ricerca.
+     * [askedGroups]: le categorie delle liste di parole nella domanda (questionGroups).
      */
     private suspend fun searchSections(
         regionId: String,
         question: String,
         cities: List<String>,
         language: String,
+        askedGroups: Set<String>,
         modelGroups: Set<String>,
         maxSections: Int,
         nationality: String?,
@@ -310,7 +310,7 @@ class TravelAssistant @Inject constructor(
         val wordLists = wordListsOverride.enabled()
         // Con le parole della categoria non serve ripiegare sul nome della citta' quando la domanda non ha altre parole
         // ("Where to eat in Collesano?"): il nome vincerebbe sulle sezioni dove compare piu' spesso.
-        val topicBase = buildFtsQuery(question, regionId, city ?: country?.name, keepCityWords = !wordLists || (questionGroups(question) + modelGroups).isEmpty())
+        val topicBase = buildFtsQuery(question, regionId, city ?: country?.name, keepCityWords = !wordLists || (askedGroups + modelGroups).isEmpty())
         val topicQuery = withCategoryWords(topicBase, question, language, wordLists, modelGroups)
         val topicMatches = if (topicQuery.isBlank() || country != null) emptyList() else cityRepository.candidates(regionId, topicQuery, cities)
         // Nessuna sezione della citta' nominata con le parole della domanda: si cerca anche il suo nome.
@@ -331,7 +331,7 @@ class TravelAssistant @Inject constructor(
             generalQuestion = isGeneralTravelQuestion(question),
             comparePhrases = questionPhrases(baseQuery, modelGroups),
         )
-        val groups = (questionGroups(question) + modelGroups).takeIf { wordLists }.orEmpty()
+        val groups = (askedGroups + modelGroups).takeIf { wordLists }.orEmpty()
         val found = cityRepository.withClimateFirst(regionId, sections, cities.firstOrNull() ?: country?.name, groups, language, maxSections)
         return SectionSearch((listOfNotNull(term) + found).take(maxSections), baseQuery, country, terms)
     }
@@ -569,7 +569,6 @@ class TravelAssistant @Inject constructor(
         // Il percorso in auto tra due citta' lontane puo' richiedere minuti sul dispositivo (Milano-Roma 45 s sull'emulatore):
         // oltre questo tempo l'assistente risponde con la sola distanza in linea d'aria.
         const val CAR_ROUTE_TIMEOUT_MILLIS = 30_000L
-        // Posizione per le previsioni "dove sono": come il riquadro meteo della guida (3 ore, POI entro ~5 km).
     }
 }
 

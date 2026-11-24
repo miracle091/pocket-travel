@@ -4,30 +4,22 @@ import android.os.storage.StorageManager
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.allocatableBytes
 import com.pockettravel.core.data.reserveSpace
+import com.pockettravel.core.data.sha256Hex
 import com.pockettravel.core.sync.SegmentedDownload
 import com.pockettravel.core.sync.SegmentedDownloadException
 import com.pockettravel.feature.ai.di.AiModelsDir
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
 import java.io.InputStream
-import java.security.DigestInputStream
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -211,7 +203,7 @@ class FileLlmModelManager @Inject constructor(
                 }
             }
         }
-        return digest.digest().joinToString("") { "%02x".format(it.toInt() and BYTE_MASK) } to total
+        return digest.digest().toHexString() to total
     }
 
     /**
@@ -268,7 +260,7 @@ class FileLlmModelManager @Inject constructor(
         // Hash calcolato sul .part completo, non solo sui byte scaricati in questa chiamata:
         // dopo una ripresa i byte gia' presenti prima di questa chiamata non sono mai passati
         // per il digest di questa esecuzione.
-        val actualSha256 = sha256Of(partFile)
+        val actualSha256 = partFile.sha256Hex()
         if (!actualSha256.equals(definition.sha256, ignoreCase = true)) {
             partFile.delete()
             throw ModelIntegrityException(
@@ -305,99 +297,7 @@ class FileLlmModelManager @Inject constructor(
         onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
     ) {
         modelsDir.reserveSpace(storageManager, definition.sizeBytes - existingBytes)
-        val requestBuilder = Request.Builder().url(definition.url)
-        if (existingBytes > 0) {
-            requestBuilder.header("Range", "bytes=$existingBytes-")
-        }
-        val request = requestBuilder.build()
-
-        val call = okHttpClient.newCall(request)
-        // execute() e le letture del corpo bloccano il thread: annullando la coroutine si annulla la chiamata, che le
-        // fa fallire subito. Unconfined: il gestore parte nel thread che annulla, anche se quello del download e' bloccato.
-        coroutineScope {
-            val canceller = launch(Dispatchers.Unconfined) {
-                try {
-                    awaitCancellation()
-                } finally {
-                    call.cancel()
-                }
-            }
-            try {
-                call.execute().use { response ->
-                    if (!response.isSuccessful) throw failedResponse(response.code, partFile, existingBytes)
-                    val body = response.body
-
-                    val resumed = response.code == 206 && existingBytes > 0
-                    if (resumed) {
-                        require(response.header("Content-Range")?.startsWith("bytes $existingBytes-", ignoreCase = true) == true) {
-                            "Risposta range non valida per il modello"
-                        }
-                    }
-                    val baseBytes = if (resumed) existingBytes else 0L
-                    val total = baseBytes + body.contentLength().coerceAtLeast(0L)
-                    val downloaded = body.byteStream().use { input -> writePart(input, partFile, resumed, baseBytes, total, definition, onProgress) }
-                    onProgress(downloaded, total)
-                }
-            } catch (error: IOException) {
-                // La chiamata annullata fallisce con "Socket closed": e' l'annullamento, non un errore da riportare.
-                currentCoroutineContext().ensureActive()
-                throw error
-            } finally {
-                canceller.cancel()
-            }
-        }
-    }
-
-    /**
-     * L'errore per una risposta non riuscita. .part gia' completo (processo chiuso fra l'ultimo byte e la verifica):
-     * il server risponde 416 al Range, e senza cancellarlo ogni nuovo tentativo fallirebbe uguale. Stessa
-     * classificazione di RegionPackageDownloader: un 4xx (tranne 408/429, tipicamente transitori) non cambierebbe
-     * ritentando la stessa richiesta; un errore di rete o un 5xx invece si', il Worker chiamante puo' ritentare.
-     */
-    private fun failedResponse(code: Int, partFile: File, existingBytes: Long): Exception = when {
-        code == HTTP_RANGE_NOT_SATISFIABLE && existingBytes > 0 -> {
-            partFile.delete()
-            IOException("Download modello da ricominciare: HTTP $code")
-        }
-        code in HTTP_CLIENT_ERRORS && code != HTTP_REQUEST_TIMEOUT && code != HTTP_TOO_MANY_REQUESTS ->
-            ModelDownloadFailedException("Download modello fallito: HTTP $code")
-        else -> IOException("Download modello fallito: HTTP $code")
-    }
-
-    /** Scrive [input] in [partFile] (in coda se [resumed]) e restituisce i byte del file a fine download. */
-    private suspend fun writePart(
-        input: InputStream,
-        partFile: File,
-        resumed: Boolean,
-        baseBytes: Long,
-        total: Long,
-        definition: LlmModelDefinition,
-        onProgress: suspend (bytesDownloaded: Long, totalBytes: Long) -> Unit,
-    ): Long {
-        var downloaded = baseBytes
-        var lastReported = downloaded
-        FileOutputStream(partFile, resumed).use { output ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            var read: Int
-            while (input.read(buffer).also { read = it } != -1) {
-                currentCoroutineContext().ensureActive()
-                output.write(buffer, 0, read)
-                downloaded += read
-                // downloaded include gia' i byte del .part ripreso: sizeBytes e' la dimensione
-                // del file intero. Oltre quella il server sta mandando altro (file cambiato,
-                // risposta sbagliata): si interrompe subito invece di riempire il disco fino a EOF.
-                if (definition.sizeBytes > 0 && downloaded > definition.sizeBytes) {
-                    output.close()
-                    partFile.delete()
-                    throw ModelDownloadFailedException("Download modello interrotto: oltre i ${definition.sizeBytes} byte attesi")
-                }
-                if (downloaded - lastReported >= PROGRESS_STEP_BYTES) {
-                    lastReported = downloaded
-                    onProgress(downloaded, total)
-                }
-            }
-        }
-        return downloaded
+        resumableDownload(okHttpClient, definition.url, partFile, definition.sizeBytes, "modello", onProgress)
     }
 
     /**
@@ -412,22 +312,10 @@ class FileLlmModelManager @Inject constructor(
         val saved = if (shaFile.exists()) shaFile.readText().trim() else ""
         if (saved.length == SHA256_HEX_LENGTH) return@withContext saved
         val stamp = model.lastModified() to model.length()
-        val computed = sha256Of(model)
+        val computed = model.sha256Hex()
         if (!model.exists() || stamp != (model.lastModified() to model.length())) return@withContext null
         shaFile.writeText(computed)
         computed
-    }
-
-    private suspend fun sha256Of(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        DigestInputStream(file.inputStream(), digest).use { stream ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            while (stream.read(buffer) != -1) {
-                currentCoroutineContext().ensureActive()
-                // il digest si aggiorna come effetto collaterale di DigestInputStream.read
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it.toInt() and BYTE_MASK) }
     }
 
     override suspend fun delete(definition: LlmModelDefinition): Boolean = coordinator.withModelLock { deleteWithoutLock(definition) }
@@ -486,12 +374,6 @@ class FileLlmModelManager @Inject constructor(
         const val IMPORT_STAGING_NAME = "import.part"
     }
 }
-
-private const val BYTE_MASK = 0xFF
-private const val HTTP_RANGE_NOT_SATISFIABLE = 416
-private const val HTTP_REQUEST_TIMEOUT = 408
-private const val HTTP_TOO_MANY_REQUESTS = 429
-private val HTTP_CLIENT_ERRORS = 400..499
 
 // Il modello del catalogo per un file importato, o l'errore da mostrare: danneggiato o fuori dal catalogo.
 private fun ImportVerdict.definitionOrThrow(sha256: String): LlmModelDefinition = when (this) {

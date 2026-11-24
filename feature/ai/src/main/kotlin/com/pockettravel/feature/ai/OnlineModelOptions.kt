@@ -1,7 +1,7 @@
 package com.pockettravel.feature.ai
 
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.sync.OnlineModelEntry
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,13 +38,8 @@ internal class OnlineModelOptions(
 
     fun refresh() {
         scope.launch {
-            try {
-                catalog.refresh()
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                // Senza rete o con un file non valido resta l'elenco attuale.
-            }
+            // Senza rete o con un file non valido resta l'elenco attuale.
+            runCatchingCancellable { catalog.refresh() }
         }
     }
 
@@ -53,13 +48,7 @@ internal class OnlineModelOptions(
         val apiKey = settings.apiKey()?.takeIf { it.isNotBlank() } ?: return
         val baseUrl = settings.onlineBaseUrl(provider) ?: return
         scope.launch {
-            val models = try {
-                availability.availableModels(provider, apiKey, baseUrl)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                return@launch
-            }
+            val models = runCatchingCancellable { availability.availableModels(provider, apiKey, baseUrl) }.getOrNull() ?: return@launch
             // Chiave tolta o cambiata nel frattempo: quei modelli valgono per un altro account.
             if (settings.onlineProvider() != provider || settings.apiKey() != apiKey) return@launch
             available.update { it + (provider to models) }

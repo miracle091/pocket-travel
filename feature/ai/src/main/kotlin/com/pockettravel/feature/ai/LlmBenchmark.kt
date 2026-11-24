@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -82,7 +81,7 @@ class LlmBenchmark @Inject constructor(
         val file = modelManager.modelFile(definition)
         val threads = fastCoreCount(withContext(ioDispatcher) { readCoreMaxFreqsKhz() }, deviceAiCapability.inferenceThreadCount())
         val hotBefore = isOverheating(thermalStatus())
-        val sha256 = definition.sha256 ?: withContext(ioDispatcher) { sha256Of(file) }
+        val sha256 = definition.sha256 ?: checkNotNull(modelManager.installedSha256(definition)) { "Modello assente: ${file.name}" }
         return engine.withBench { runner ->
             val pp = measureStable { tokensPerSecond(BENCH_N_PROMPT, runner.run(BENCH_N_PROMPT, 0, threads, BENCH_SEED).ppNanos) }
             val tg = measureStable { tokensPerSecond(BENCH_N_GEN, runner.run(0, BENCH_N_GEN, threads, BENCH_SEED).tgNanos) }
@@ -208,19 +207,6 @@ private const val THERMAL_STATUS_MODERATE = 2
 internal fun readCoreMaxFreqsKhz(): List<Long> =
     (File("/sys/devices/system/cpu").listFiles { f -> f.name.matches(Regex("cpu[0-9]+")) } ?: emptyArray())
         .mapNotNull { runCatching { File(it, "cpufreq/cpuinfo_max_freq").readText().trim().toLong() }.getOrNull() }
-
-private fun sha256Of(file: File): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    file.inputStream().use { input ->
-        val buffer = ByteArray(1 shl 20)
-        while (true) {
-            val n = input.read(buffer)
-            if (n < 0) break
-            digest.update(buffer, 0, n)
-        }
-    }
-    return digest.digest().joinToString("") { "%02x".format(it) }
-}
 
 /** Misura [modelId] con [benchmark] e salva il risultato in [store]; un errore lo dice nella schermata. */
 internal suspend fun MutableStateFlow<AiUiState>.runBenchmark(benchmark: LlmBenchmark, store: AiSettingsStore, modelId: String) {

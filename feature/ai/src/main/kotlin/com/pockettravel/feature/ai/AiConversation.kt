@@ -4,6 +4,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -84,11 +85,9 @@ internal fun Conversation(
         uiState.earlierTurns.forEach { turn ->
             AskedPhoto(turn.photo)
             QuestionBubble(turn.askedQuestion)
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(Spacing.l)) {
-                    FinishedAnswer(turn.answer, turn.credit, onOpenOfficialSource, actions)
-                    ReadAloudButton(remember(turn.answer.text) { markdownToDisplayText(turn.answer.text).text }, readAloud, actions.onReadAloud)
-                }
+            AnswerBubble {
+                FinishedAnswer(turn.answer, turn.credit, onOpenOfficialSource, actions)
+                ReadAloudButton(remember(turn.answer.text) { markdownToDisplayText(turn.answer.text).text }, readAloud, actions.onReadAloud)
             }
         }
         if (asked != null) {
@@ -100,13 +99,12 @@ internal fun Conversation(
         // risposta (o l'errore) quando arriva, senza dover cercare dove e' comparsa. Non durante lo
         // streaming: ogni aggiornamento del testo parziale verrebbe riletto, la risposta si annuncia una
         // volta sola quando e' completa. Niente bolla vuota sotto il riquadro di emergenza, quando il modello non risponde.
-        if (uiState.isThinking || uiState.errorMessage != null || uiState.answer != null) Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.fillMaxWidth().semantics { if (!streaming) liveRegion = LiveRegionMode.Polite },
-        ) {
-            // animateContentSize: la bolla cresce con morbidezza da "Sto pensando…" alla risposta.
-            Column(modifier = Modifier.animateContentSize().padding(Spacing.l)) {
+        if (uiState.isThinking || uiState.errorMessage != null || uiState.answer != null) {
+            AnswerBubble(
+                modifier = Modifier.semantics { if (!streaming) liveRegion = LiveRegionMode.Polite },
+                // animateContentSize: la bolla cresce con morbidezza da "Sto pensando…" alla risposta.
+                contentModifier = Modifier.animateContentSize(),
+            ) {
                 (uiState.notice as? ChatNotice.ModelSwitched)?.let { ModelSwitchedLine(it) }
                 AnswerContent(uiState, streaming, onOpenOfficialSource, actions, readAloud)
             }
@@ -147,16 +145,26 @@ private fun ModelNoticeBubble(notice: ChatNotice, uiState: AiUiState, onChoice: 
         // Nella bolla della risposta: la quota con l'errore, il cambio sopra la risposta.
         is ChatNotice.QuotaExhausted, is ChatNotice.ModelSwitched -> return
     }
+    // Come la bolla delle risposte, con il testo attenuato: parla l'app, non il modello. I pulsanti tonali risaltano.
+    AnswerBubble(modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        ModelChoiceButtons(choices, onChoice)
+    }
+}
+
+// La bolla grigia delle risposte, a tutta larghezza; [modifier] va alla bolla, [contentModifier] alla colonna dentro.
+@Composable
+private fun AnswerBubble(
+    modifier: Modifier = Modifier,
+    contentModifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Surface(
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+        modifier = Modifier.fillMaxWidth().then(modifier),
     ) {
-        // Come la bolla delle risposte, con il testo attenuato: parla l'app, non il modello. I pulsanti tonali risaltano.
-        Column(modifier = Modifier.padding(Spacing.l)) {
-            Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            ModelChoiceButtons(choices, onChoice)
-        }
+        Column(modifier = contentModifier.padding(Spacing.l), content = content)
     }
 }
 

@@ -2,7 +2,7 @@ package com.pockettravel.feature.ai
 
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.PreferencesFactory
-import kotlinx.coroutines.CancellationException
+import com.pockettravel.core.data.runCatchingCancellable
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -35,14 +35,10 @@ class ModelRamEstimates @Inject constructor(
         // Scaricato: il file e il suo peso vero; altrimenti l'intestazione dal server e il peso del catalogo.
         val file = modelManager.modelFile(definition).takeIf { modelManager.isDownloaded(definition) }
         // Un file malformato (numeri a zero o negativi) non deve far chiudere l'app: nessuna stima, come senza rete.
-        val estimate = try {
+        val estimate = runCatchingCancellable {
             val meta = (file?.inputStream() ?: openRemoteHeader(definition)).use { GgufMetadata.read(it) }
             meta?.let { estimateRamBytes(it, file?.length() ?: definition.sizeBytes) }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Exception) {
-            null
-        }
+        }.getOrNull()
         estimate?.also { prefs.edit().putLong(key, it).apply() }
     }
 
@@ -65,6 +61,7 @@ class ModelRamEstimates @Inject constructor(
 }
 
 // Le stime di RAM dei modelli visibili, una alla volta: ogni stima scaricata aggiorna subito la lista.
+// Con la stima, l'avviso "richiede almeno N GB" lo decide lei e non la fascia scritta nel catalogo.
 internal suspend fun MutableStateFlow<AiUiState>.estimateModelRam(tier: RamTier, estimates: ModelRamEstimates) {
     for (definition in value.availableModels) {
         val estimate = estimates.estimate(definition) ?: continue

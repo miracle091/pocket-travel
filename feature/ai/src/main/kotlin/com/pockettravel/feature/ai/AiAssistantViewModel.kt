@@ -15,6 +15,7 @@ import com.pockettravel.core.data.crypto.HistoryKeys
 import com.pockettravel.core.data.crypto.HistoryReader
 import com.pockettravel.core.data.crypto.HistoryUnreadableException
 import com.pockettravel.core.data.currentGuidesLanguage
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.sync.AppStatusClient
 import com.pockettravel.core.sync.OnlineModelEntry
 import com.pockettravel.feature.ai.di.AiPhotosDir
@@ -296,13 +297,7 @@ class AiAssistantViewModel @Inject constructor(
         // Dimensione mostrata e spazio richiesto come quelli che il download verifichera' (LlmModelDownloadWorker):
         // un modello ricaricato con lo stesso nome puo' pesare diversamente da quanto scritto nell'APK.
         viewModelScope.launch {
-            val published = try {
-                appStatusClient.fetchAppStatus().aiModels
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                null
-            }
+            val published = runCatchingCancellable { appStatusClient.fetchAppStatus().aiModels }.getOrNull()
             if (published != null) {
                 _uiState.update { state -> state.copy(availableModels = state.availableModels.map { it.withPublishedFingerprint(published) }) }
             }
@@ -311,8 +306,6 @@ class AiAssistantViewModel @Inject constructor(
         }
     }
 
-    // La RAM stimata di ogni modello della lista; con la stima, l'avviso "richiede almeno N GB" lo decide lei e non la
-    // fascia scritta nel catalogo.
     // Osservato dall'init, non solo dopo aver premuto "Scarica": cosi' un download in corso
     // sopravvive a un kill di processo (WorkManager persiste il lavoro) e la UI ne mostra lo
     // stato reale alla riapertura dello schermo, invece di perdere il progresso perche' viveva
@@ -390,7 +383,7 @@ class AiAssistantViewModel @Inject constructor(
         loadOnlineModels(refreshList = false)
     }
 
-    /** Cambiare servizio cancella la chiave salvata (vedi AiSettingsStore.setOnlineProvider). */
+    /** Cambiando servizio la chiave e' quella salvata per il nuovo, se c'e' (vedi AiSettingsStore.setOnlineProvider). */
     fun onProviderSelected(provider: OnlineProvider) {
         aiSettingsStore.setOnlineProvider(provider)
         showProvider(provider)
@@ -567,13 +560,9 @@ class AiAssistantViewModel @Inject constructor(
      */
     suspend fun resolveGuideSources(regionId: String, citations: List<String>, answer: String): Map<String, GuideSourceTarget> {
         if (_uiState.value.readOnlyRegion != null) return emptyMap()
-        return try {
+        return runCatchingCancellable {
             guideCitationResolver.resolveAll(conversation.regionId ?: regionId, citations, answer)
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (_: Exception) {
-            emptyMap()
-        }
+        }.getOrDefault(emptyMap())
     }
 
     // Richieste "portami a ..." per il Navigatore: un evento solo, consumato da chi apre la scheda.
@@ -618,12 +607,18 @@ class AiAssistantViewModel @Inject constructor(
             // Accanto alla ricerca e al modello, non prima: le allerte di una domanda su una catastrofe arrivano da
             // piu' fonti in rete, e il numero da chiamare non aspetta la risposta.
             launch { _uiState.showEmergencyCard(emergencyCards, region, question) }
-            val answered = collectAnswer(region, question, state.mode, previous, photo) { answer ->
-                // Dal foglio "Chiedi all'assistente" niente cronologia: domanda e risposta restano nel foglio.
-                conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer, save = state.selectedText == null, withPhoto = photo != null)
+            val answered = try {
+                collectAnswer(region, question, state.mode, previous, photo) { answer ->
+                    // Dal foglio "Chiedi all'assistente" niente cronologia: domanda e risposta restano nel foglio.
+                    conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer, save = state.selectedText == null, withPhoto = photo != null)
+                }
+            } catch (stopped: AnswerStopped) {
+                // "Ferma": come dopo un errore, la foto torna allegata.
+                restorePhoto(attached)
+                throw stopped
             }
             // Senza risposta la foto torna allegata: un turno fallito non e' un seguito, e la domanda dopo la perderebbe.
-            if (!answered && attached != null) _uiState.update { if (it.attachedPhoto == null) it.copy(attachedPhoto = attached) else it }
+            if (!answered) restorePhoto(attached)
         }
     }
 
@@ -646,6 +641,10 @@ class AiAssistantViewModel @Inject constructor(
                 conversation.onReplaced(region, state.selectedModelId, asked, refreshed)
             }
         }
+    }
+
+    private fun restorePhoto(attached: AttachedPhoto?) {
+        if (attached != null) _uiState.update { if (it.attachedPhoto == null) it.copy(attachedPhoto = attached) else it }
     }
 
     // La risposta in arrivo nella schermata; [onDone] la registra nella conversazione. Falso se la risposta non e' arrivata.
@@ -738,7 +737,7 @@ class AiAssistantViewModel @Inject constructor(
     // Turni precedenti e conversazione restano; gli altri ViewModel (il servizio e' unico) non hanno niente da fermare.
     private fun stopAnswer() {
         val job = askJob?.takeIf { it.isActive } ?: return
-        job.cancel()
+        job.cancel(AnswerStopped())
         askJob = null
         forecastJob?.cancel()
         conversation.onFailed()
@@ -794,14 +793,8 @@ class AiAssistantViewModel @Inject constructor(
         }
         _uiState.update { it.copy(history = HistoryUiState.Loading, historyDeleteFailed = false) }
         viewModelScope.launch {
-            val unlock = try {
-                conversationRepository.prepareUnlock()
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                // Errore del Keystore (ProviderException): niente prompt, resta "Sblocca" per riprovare.
-                null
-            }
+            // Errore del Keystore (ProviderException): niente prompt, resta "Sblocca" per riprovare.
+            val unlock = runCatchingCancellable { conversationRepository.prepareUnlock() }.getOrNull()
             val history = when (unlock) {
                 null -> HistoryUiState.Locked(cipher = null)
                 HistoryKeys.Unlock.Empty -> HistoryUiState.Unlocked(emptyList())
@@ -942,6 +935,9 @@ internal fun historyEmptied(counts: Flow<Int>, shown: () -> Boolean): Flow<Unit>
 }
 
 private const val TAG = "AiAssistant"
+
+// Motivo della cancellazione di "Ferma": distingue l'interruzione voluta dall'utente da una domanda sostituita da un'altra.
+private class AnswerStopped : CancellationException("Risposta fermata")
 
 /** Quanto manca perche' le previsioni scaricate a [updatedAtMillis] si possano riscaricare; 0 se si puo' gia'. */
 internal fun forecastRefreshDelayMillis(updatedAtMillis: Long, nowMillis: Long): Long =

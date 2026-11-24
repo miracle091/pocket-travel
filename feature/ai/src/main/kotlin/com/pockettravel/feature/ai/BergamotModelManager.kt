@@ -3,28 +3,19 @@ package com.pockettravel.feature.ai
 import android.os.storage.StorageManager
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.reserveSpace
+import com.pockettravel.core.data.sha256Hex
 import com.pockettravel.core.translate.Zstd
 import com.pockettravel.feature.ai.di.AiModelsDir
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
-import java.io.InputStream
-import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -143,7 +134,7 @@ class FileBergamotModelManager internal constructor(
     // Dimensione e sha256 di [file]; se non corrispondono cancella [discard] (un file sbagliato non si riprende: il
     // prossimo tentativo riparte da zero) e lancia ModelIntegrityException.
     private suspend fun verify(file: File, bytes: Long, sha256: String, discard: File) {
-        if (file.length() != bytes || sha256Of(file) != sha256) {
+        if (file.length() != bytes || file.sha256Hex() != sha256) {
             discard.delete()
             throw ModelIntegrityException("Checksum di ${file.name} non valido")
         }
@@ -158,80 +149,9 @@ class FileBergamotModelManager internal constructor(
             onProgress(existing)
             return
         }
-        val request = Request.Builder().url(baseUrl + file.attachment)
-            .apply { if (existing > 0) header("Range", "bytes=$existing-") }
-            .build()
-        val call = okHttpClient.newCall(request)
-        // Annullando la coroutine si annulla la chiamata, che fa fallire subito la lettura bloccata.
-        coroutineScope {
-            val canceller = launch(Dispatchers.Unconfined) {
-                try {
-                    awaitCancellation()
-                } finally {
-                    call.cancel()
-                }
-            }
-            try {
-                call.execute().use { response ->
-                    if (!response.isSuccessful) throw failedResponse(response.code, part, existing)
-                    val resumed = response.code == HTTP_PARTIAL_CONTENT && existing > 0
-                    if (resumed) {
-                        require(response.header("Content-Range")?.startsWith("bytes $existing-", ignoreCase = true) == true) {
-                            "Risposta range non valida per ${file.fileName}"
-                        }
-                    }
-                    response.body.byteStream().use { input -> write(input, part, resumed, if (resumed) existing else 0L, file, onProgress) }
-                }
-            } catch (error: IOException) {
-                // La chiamata annullata fallisce con "Socket closed": e' l'annullamento, non un errore da riportare.
-                currentCoroutineContext().ensureActive()
-                throw error
-            } finally {
-                canceller.cancel()
-            }
+        resumableDownload(okHttpClient, baseUrl + file.attachment, part, file.compressedBytes, file.fileName) { downloaded, _ ->
+            onProgress(downloaded)
         }
-    }
-
-    private fun failedResponse(code: Int, part: File, existing: Long): Exception = when {
-        code == HTTP_RANGE_NOT_SATISFIABLE && existing > 0 -> {
-            part.delete()
-            IOException("Download da ricominciare: HTTP $code")
-        }
-        code in HTTP_CLIENT_ERRORS && code != HTTP_REQUEST_TIMEOUT && code != HTTP_TOO_MANY_REQUESTS ->
-            ModelDownloadFailedException("Download fallito: HTTP $code")
-        else -> IOException("Download fallito: HTTP $code")
-    }
-
-    private suspend fun write(
-        input: InputStream,
-        part: File,
-        resumed: Boolean,
-        base: Long,
-        file: BergamotFile,
-        onProgress: suspend (Long) -> Unit,
-    ) {
-        var downloaded = base
-        var lastReported = base
-        FileOutputStream(part, resumed).use { output ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            var read: Int
-            while (input.read(buffer).also { read = it } != -1) {
-                currentCoroutineContext().ensureActive()
-                output.write(buffer, 0, read)
-                downloaded += read
-                // Oltre la dimensione pubblicata il server manda altro: si ferma invece di riempire il disco.
-                if (downloaded > file.compressedBytes) {
-                    output.close()
-                    part.delete()
-                    throw ModelDownloadFailedException("Download di ${file.fileName} interrotto: oltre i ${file.compressedBytes} byte attesi")
-                }
-                if (downloaded - lastReported >= PROGRESS_STEP_BYTES) {
-                    lastReported = downloaded
-                    onProgress(downloaded)
-                }
-            }
-        }
-        onProgress(downloaded)
     }
 
     override suspend fun delete() {
@@ -240,28 +160,4 @@ class FileBergamotModelManager internal constructor(
             _installed.value = scanInstalled()
         }
     }
-
-    private companion object {
-        const val PROGRESS_STEP_BYTES = 1_000_000L
-        const val HTTP_PARTIAL_CONTENT = 206
-        const val HTTP_RANGE_NOT_SATISFIABLE = 416
-        const val HTTP_REQUEST_TIMEOUT = 408
-        const val HTTP_TOO_MANY_REQUESTS = 429
-        val HTTP_CLIENT_ERRORS = 400..499
-    }
-}
-
-private const val BYTE_MASK = 0xFF
-
-private suspend fun sha256Of(file: File): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    file.inputStream().use { stream ->
-        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-        var read: Int
-        while (stream.read(buffer).also { read = it } != -1) {
-            currentCoroutineContext().ensureActive()
-            digest.update(buffer, 0, read)
-        }
-    }
-    return digest.digest().joinToString("") { "%02x".format(it.toInt() and BYTE_MASK) }
 }

@@ -8,10 +8,10 @@ import com.pockettravel.core.data.alerts.AlertLevel
 import com.pockettravel.core.data.alerts.AlertSource
 import com.pockettravel.core.data.alerts.AlertsRepository
 import com.pockettravel.core.data.alerts.RegionAlerts
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.ui.AlertText
 import com.pockettravel.core.ui.alertText
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Clock
 import java.time.Instant
@@ -50,14 +50,9 @@ class AlertsSections @Inject constructor(
         )
     }
 
-    private suspend fun load(regionId: String): RegionAlerts? = try {
-        withTimeoutOrNull(ALERTS_TIMEOUT_MILLIS) { alertsRepository.alerts(regionId) }
-    } catch (error: CancellationException) {
-        throw error
-    } catch (_: Exception) {
-        // Un errore della rete o della cache non ferma la risposta: il contesto resta senza allerte.
-        null
-    }
+    // Un errore della rete o della cache non ferma la risposta: il contesto resta senza allerte.
+    private suspend fun load(regionId: String): RegionAlerts? =
+        runCatchingCancellable { withTimeoutOrNull(ALERTS_TIMEOUT_MILLIS) { alertsRepository.alerts(regionId) } }.getOrNull()
 
     private companion object {
         // Come le previsioni: la risposta dell'assistente non aspetta le fonti oltre questo tempo.

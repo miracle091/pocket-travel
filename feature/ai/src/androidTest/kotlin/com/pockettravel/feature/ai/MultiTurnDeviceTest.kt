@@ -15,10 +15,10 @@ import com.pockettravel.core.data.testing.SoftwareHistoryMasterKey
 import com.pockettravel.feature.ai.llamacpp.ContextUsage
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine
 import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -27,7 +27,6 @@ import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -101,7 +100,6 @@ class MultiTurnDeviceTest {
         Log.i(TAG, "chiarimento unito: cita i 90 giorni = ${"90" in answer}")
     }
 
-
     // La stessa domanda di seguito dopo che la conversazione e' stata salvata, chiusa e ripresa (come dopo un riavvio
     // dell'app): lo stato ricostruito dai turni salvati da' la stessa domanda unita di prima.
     @Test
@@ -109,9 +107,13 @@ class MultiTurnDeviceTest {
         val keys = HistoryKeys(InMemorySharedPreferences(), SoftwareHistoryMasterKey())
         val repository = ConversationRepository(FakeConversationDao(), keys, Dispatchers.IO)
         val japan = InstalledRegion("giappone", "Giappone", null, null, null, null, null, null, null, null, 0L)
-        fun conversation() = AssistantConversation(repository, FakeRegionRepository(listOf(japan)), object : HistoryAvailability {
-            override fun isAvailable() = true
-        }, ConversationMonitor())
+        fun conversation() = AssistantConversation(
+            repository, FakeRegionRepository(listOf(japan)),
+            object : HistoryAvailability {
+                override fun isAvailable() = true
+            },
+            ConversationMonitor(),
+        )
         val question = "Serve il visto per il Giappone?"
         val followUp = "E per quanto tempo posso restare?"
         val first = conversation()
@@ -129,6 +131,7 @@ class MultiTurnDeviceTest {
         val again = turn("ripresa 2 unita", joined, JAPAN)
         Log.i(TAG, "chiarimento dopo la ripresa: cita i 90 giorni = ${"90" in again}")
     }
+
     @Test
     fun cambioDiDestinazione() = runBlocking<Unit> {
         turn("destinazione 1", "Cosa vedere a Roma?", ROME)
@@ -157,22 +160,22 @@ class MultiTurnDeviceTest {
     }
 
     @Test
-    fun navigazioneEPoiDomanda() = runBlocking<Unit> {
-        val json = engine.generateWithGrammar(navigationPrompt("Colosseo"), NAVIGATION_GRAMMAR, NAVIGATION_TOKENS)
-        assertNotNull("JSON non valido: $json", parseNavigationJson(json))
-        val answer = turn("dopo la navigazione", "Serve il visto per il Giappone?", JAPAN)
-        assertFalse("la grammatica della navigazione e' rimasta attiva: $answer", answer.trimStart().startsWith("{"))
+    fun grammaticaEPoiDomanda() = runBlocking<Unit> {
+        val json = engine.generateWithGrammar(GRAMMAR_PROMPT, JSON_GRAMMAR, GRAMMAR_TOKENS)
+        assertTrue("JSON non valido: $json", json.trimStart().startsWith("{"))
+        val answer = turn("dopo la grammatica", "Serve il visto per il Giappone?", JAPAN)
+        assertFalse("la grammatica e' rimasta attiva: $answer", answer.trimStart().startsWith("{"))
     }
 
     @Test
-    fun navigazioneInterrottaEPoiDomanda() = runBlocking<Unit> {
-        // Annullata mentre il modello scrive il JSON: la grammatica va tolta anche cosi'.
-        val job = launch { engine.generateWithGrammar(navigationPrompt("Colosseo"), NAVIGATION_GRAMMAR, NAVIGATION_TOKENS) }
+    fun grammaticaInterrottaEPoiDomanda() = runBlocking<Unit> {
+        // Annullata mentre il modello scrive il JSON vincolato: la grammatica va tolta anche cosi'.
+        val job = launch { engine.generateWithGrammar(GRAMMAR_PROMPT, JSON_GRAMMAR, GRAMMAR_TOKENS) }
         withTimeoutOrNull(CANCEL_AFTER_MS) { native.state.first { it is InferenceEngine.State.Generating } }
         job.cancel()
         job.join()
-        val answer = turn("dopo la navigazione interrotta", "Serve il visto per il Giappone?", JAPAN)
-        assertFalse("la grammatica della navigazione e' rimasta attiva: $answer", answer.trimStart().startsWith("{"))
+        val answer = turn("dopo la grammatica interrotta", "Serve il visto per il Giappone?", JAPAN)
+        assertFalse("la grammatica e' rimasta attiva: $answer", answer.trimStart().startsWith("{"))
     }
 
     /**
@@ -235,7 +238,13 @@ class MultiTurnDeviceTest {
         // ~4 token per ripetizione: oltre i 4096 del contesto.
         const val FILL_REPEATS = 1_200
         const val TAG = "MultiTurn"
-        const val NAVIGATION_TOKENS = 64
+        const val GRAMMAR_TOKENS = 64
+
+        // JSON a forma fissa, come le grammatiche usate dall'app; il prompt chiede solo di ricopiare un luogo.
+        const val JSON_GRAMMAR = """root ::= "{\"destination\": \"" dest "\"}"
+dest ::= [^"\\\x00-\x1f]{1,80}
+"""
+        const val GRAMMAR_PROMPT = "Testo: Colosseo\n\nIl testo indica un luogo: ricopialo."
         const val SHORT_ANSWER = 96
         const val CANCEL_AFTER_MS = 30_000L
         const val RELEASE_TIMEOUT_MS = 30_000L

@@ -26,10 +26,10 @@ import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.EmergencyNumbersRepository
 import com.pockettravel.core.data.alerts.AlertsRepository
 import com.pockettravel.core.data.alerts.RegionAlerts
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.ui.AlertsCard
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
-import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
 /** Nome di un numero nel riquadro di emergenza. */
@@ -86,13 +86,7 @@ class EmergencyCardProvider @Inject constructor(
         if (isDisasterQuestion(question)) orNull { alertsRepository.alerts(regionId) }?.takeIf { it.alerts.isNotEmpty() } else null
 
     // Un errore della base dati o della rete non deve fermare la domanda: il riquadro resta senza quella parte.
-    private suspend fun <T> orNull(block: suspend () -> T?): T? = try {
-        block()
-    } catch (error: CancellationException) {
-        throw error
-    } catch (_: Exception) {
-        null
-    }
+    private suspend fun <T> orNull(block: suspend () -> T?): T? = runCatchingCancellable { block() }.getOrNull()
 }
 
 @Composable

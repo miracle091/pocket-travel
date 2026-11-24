@@ -141,14 +141,7 @@ internal fun AiSettingsContent(
 
 /** Lista dei modelli disponibili per la fascia RAM del dispositivo (uiState.availableModels,
  *  gia' filtrata da AiAssistantViewModel). Un solo modello installato alla volta: selezionarne
- *  uno diverso da quello scaricato lo sostituisce a download finito (vedi LlmModelManager.selectAndDownload).
- *  Non private: riusata anche dallo step di onboarding "Scarica il modello IA" (modulo :app,
- *  quindi serve visibilita' public — un internal qui non basterebbe, e' un modulo diverso). */
-@Composable
-fun ModelListCard(uiState: AiUiState, viewModel: AiAssistantViewModel) {
-    ModelList(uiState, viewModel.toActions(regionId = ""))
-}
-
+ *  uno diverso da quello scaricato lo sostituisce a download finito (vedi LlmModelManager.selectAndDownload). */
 @Composable
 internal fun ModelList(uiState: AiUiState, actions: AiActions) {
     Column(modifier = Modifier.fillMaxWidth()) {

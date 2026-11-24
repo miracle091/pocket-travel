@@ -66,6 +66,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA, motore Online: sotto un modello gratuito, come `inclusionai/ling-3.2-flash:free` di OpenRouter, il costo dice «Gratuito» invece di «Meno di 0,01 USD ogni 100 domande».
 
 ### Corretto
+- Assistente IA: dopo «Ferma» nella notifica della risposta, la foto allegata alla domanda torna nel campo, come dopo un errore, invece di andare persa.
 - Allerte: le allerte vulcaniche della Nuova Zelanda (GeoNet) compaiono di nuovo in italiano con il livello di allerta, nella scheda e nelle notifiche, invece che con il testo inglese della fonte.
 - Meteo: dopo «Aggiorna» il pulsante si spegne per 10 minuti, come previsto; prima restava acceso.
 - Mezzi pubblici: il Navigatore trova anche gli itinerari in cui dalla fermata di discesa si va a piedi a un'altra fermata, entro 300 m, vicina all'arrivo. Nelle reti lontane dal meridiano di Greenwich (Americhe, Asia orientale, Oceania) non mancano più i cambi a piedi tra fermate vicine.
