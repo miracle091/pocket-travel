@@ -84,60 +84,6 @@ class CurrentValuesTest(unittest.TestCase):
         self.assertEqual([], city_population._current_values([{"rank": "normal", "mainsnak": {}}]))
 
 
-class GetTest(unittest.TestCase):
-    def _response(self, payload):
-        r = mock.MagicMock()
-        r.__enter__.return_value.read.return_value = json.dumps(payload).encode("utf-8")
-        return r
-
-    def _too_many(self, retry_after=None):
-        headers = email.message.Message()
-        if retry_after is not None:
-            headers["Retry-After"] = retry_after
-        error = urllib.error.HTTPError("http://x", 429, "Too Many Requests", headers, None)
-        # Da Python 3.14 un HTTPError mai chiuso da' un ResourceWarning, che il controllo dei test conta come errore.
-        self.addCleanup(error.close)
-        return error
-
-    def test_riprova_dopo_un_errore_e_poi_riesce(self):
-        with mock.patch("city_population.urllib.request.urlopen", side_effect=[OSError("rete"), self._response({"a": 1})]), \
-                mock.patch("city_population.random.uniform", return_value=0), \
-                mock.patch("city_population.time.sleep") as sleep, redirect_stderr(io.StringIO()):
-            self.assertEqual({"a": 1}, city_population.get_json("http://x"))
-        sleep.assert_called_once_with(10)
-
-    def test_attese_che_raddoppiano_e_poi_rilancia(self):
-        with mock.patch("city_population.urllib.request.urlopen", side_effect=self._too_many()) as urlopen, \
-                mock.patch("city_population.random.uniform", return_value=0), \
-                mock.patch("city_population.time.sleep") as sleep, redirect_stderr(io.StringIO()):
-            with self.assertRaises(urllib.error.HTTPError):
-                city_population.get_json("http://x")
-        self.assertEqual(6, urlopen.call_count)
-        self.assertEqual([10, 20, 40, 80, 160], [c.args[0] for c in sleep.call_args_list])
-
-    def test_retry_after_della_risposta_con_un_tetto(self):
-        errors = [self._too_many("42"), self._too_many("9999"), self._too_many("domani"), self._response({"a": 1})]
-        with mock.patch("city_population.urllib.request.urlopen", side_effect=errors), \
-                mock.patch("city_population.random.uniform", return_value=0), \
-                mock.patch("city_population.time.sleep") as sleep, redirect_stderr(io.StringIO()):
-            self.assertEqual({"a": 1}, city_population.get_json("http://x"))
-        self.assertEqual([42, 300, 40], [c.args[0] for c in sleep.call_args_list])
-
-    def test_post_con_intestazioni_e_nome_del_servizio(self):
-        with mock.patch("city_population.urllib.request.urlopen", side_effect=[OSError("rete"), self._response({"a": 1})]) as urlopen,                 mock.patch("city_population.random.uniform", return_value=0),                 mock.patch("city_population.time.sleep"), redirect_stderr(io.StringIO()) as err:
-            self.assertEqual({"a": 1}, city_population.get_json("http://x", b"query=1", {"User-Agent": "t"}, 120, "Wikidata"))
-        request = urlopen.call_args[0][0]
-        self.assertEqual(b"query=1", request.data)
-        self.assertEqual("t", request.get_header("User-agent"))
-        self.assertEqual(120, urlopen.call_args[1]["timeout"])
-        self.assertIn("-- Wikidata: rete", err.getvalue())
-
-    def test_attesa_casuale_aggiunta(self):
-        with mock.patch("city_population.random.uniform", return_value=3.5) as uniform:
-            self.assertEqual(13.5, city_population._retry_wait(OSError("rete"), 0))
-        uniform.assert_called_once_with(0, city_population.RETRY_JITTER_S)
-
-
 class WikidataCityFactsTest(unittest.TestCase):
     def test_segue_normalizzazioni_e_redirect_fino_al_titolo_richiesto(self):
         responses = [

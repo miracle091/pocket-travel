@@ -227,6 +227,9 @@ class SparqlTest(unittest.TestCase):
         patcher = mock.patch.object(wikidata_missions, "_deadline", None)
         patcher.start()
         self.addCleanup(patcher.stop)
+        jitter = mock.patch("wiki_http.random.uniform", return_value=0)
+        jitter.start()
+        self.addCleanup(jitter.stop)
         sleep = mock.patch("time.sleep")
         self.sleep = sleep.start()
         self.addCleanup(sleep.stop)
@@ -246,7 +249,7 @@ class SparqlTest(unittest.TestCase):
         with mock.patch("urllib.request.urlopen", side_effect=[self.errore_http(503), self.errore_http(502), FakeHttpResponse(self.ok)]):
             rows = wikidata_missions.sparql("q", "ua")
         self.assertEqual(1, len(rows))
-        self.assertEqual([mock.call(20), mock.call(40)], self.sleep.call_args_list)
+        self.assertEqual([mock.call(10), mock.call(20)], self.sleep.call_args_list)
 
     def test_429_rispetta_retry_after_se_piu_lungo(self):
         with mock.patch("urllib.request.urlopen", side_effect=[self.errore_http(429, "90"), FakeHttpResponse(self.ok)]):
@@ -256,7 +259,7 @@ class SparqlTest(unittest.TestCase):
     def test_429_retry_after_non_numerico_usa_l_attesa_base(self):
         with mock.patch("urllib.request.urlopen", side_effect=[self.errore_http(429, "domani"), FakeHttpResponse(self.ok)]):
             wikidata_missions.sparql("q", "ua")
-        self.sleep.assert_called_once_with(20)
+        self.sleep.assert_called_once_with(10)
 
     def test_4xx_diverso_da_429_non_si_riprova(self):
         with mock.patch("urllib.request.urlopen", side_effect=[self.errore_http(400)]) as urlopen:

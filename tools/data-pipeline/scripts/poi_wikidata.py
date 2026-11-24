@@ -35,7 +35,8 @@ from contextlib import closing
 from datetime import date
 from pathlib import Path
 
-from city_population import _save_cache, get_json
+from city_population import _save_cache
+from wiki_http import get_json
 
 ENDPOINT = "https://query.wikidata.org/sparql"
 HEADERS = {

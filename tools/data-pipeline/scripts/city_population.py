@@ -19,25 +19,17 @@ Mai fatale: un errore di rete lascia le citta' interessate senza popolazione.
 """
 import json
 import os
-import random
 import re
 import sys
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from datetime import date
 from pathlib import Path
 
-UA = {"User-Agent": "pocket-travel-cities/1.0 (https://github.com/miracle091/pocket-travel)"}
+from wiki_http import get_json  # noqa: F401 - lo usano anche city_wikipedia e local_terms
+
 ABITANTI = re.compile(r"^\|\s*Abitanti\s*=\s*([0-9][0-9.\s ]*)", re.M)
 BATCH = 50  # massimo di titoli/id per richiesta delle API MediaWiki
-# Tre shard chiedono a Wikimedia insieme e ricevono 429 a raffiche: fino a 5 attese (10 s, 20 s... 160 s, o il
-# Retry-After della risposta) prima di arrendersi, al massimo 5 minuti l'una.
-RETRY_ATTEMPTS = 6
-RETRY_BASE_S = 10
-RETRY_MAX_S = 300
-RETRY_JITTER_S = 5
 CACHE_ENV = "CITY_FACTS_CACHE"
 CACHE_MAX_AGE_DAYS = 60  # popolazione e coordinate cambiano di rado; anche "nessun dato" si richiede dopo 60 giorni
 
@@ -49,28 +41,6 @@ def abitanti(text):
         return None
     digits = re.sub(r"\D", "", m.group(1))
     return int(digits) if digits and int(digits) > 0 else None
-
-
-def _retry_wait(error, attempt):
-    """Secondi di attesa prima del tentativo [attempt] + 1: il Retry-After di un 429 o 503 se c'e', altrimenti 10, 20,
-    40... secondi; piu' fino a 5 secondi a caso, perche' gli shard che girano insieme non riprovino nello stesso istante."""
-    retry_after = error.headers.get("Retry-After") if isinstance(error, urllib.error.HTTPError) and error.headers else None
-    wait = int(retry_after) if retry_after and retry_after.isdigit() else RETRY_BASE_S * 2 ** attempt
-    return min(wait, RETRY_MAX_S) + random.uniform(0, RETRY_JITTER_S)
-
-
-def get_json(url, data=None, headers=UA, timeout=60, service="Wikimedia"):
-    """JSON di [url] (POST se c'e' [data]), con nuovi tentativi e attese crescenti su 429 e errori di rete."""
-    for attempt in range(RETRY_ATTEMPTS):
-        try:
-            with urllib.request.urlopen(urllib.request.Request(url, data=data, headers=headers), timeout=timeout) as r:
-                return json.loads(r.read().decode("utf-8"))
-        except Exception as e:  # 429 (limite di Wikimedia) o rete: si riprova con attesa crescente
-            if attempt == RETRY_ATTEMPTS - 1:
-                raise
-            wait = _retry_wait(e, attempt)
-            print(f"-- {service}: {e}, riprovo tra {wait:.0f}s", file=sys.stderr)
-            time.sleep(wait)
 
 
 def _latest_population(claims):

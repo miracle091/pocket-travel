@@ -17,15 +17,14 @@ Esce con codice 1 se Wikidata non risponde o il risultato e' sospettosamente pic
 """
 
 import argparse
-import json
 import math
 import os
 import re
 import sys
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
+
+from wiki_http import get_json
 
 ENDPOINT = "https://query.wikidata.org/sparql"
 USER_AGENT = "PocketTravel-pipeline/1.0 (https://github.com/miracle091/pocket-travel)"
@@ -62,27 +61,8 @@ def sparql(query, user_agent, attempts=5):
     """Esegue una query SELECT e restituisce le righe come lista di dict {variabile: valore}."""
     data = urllib.parse.urlencode({"query": query}).encode()
     headers = {"User-Agent": user_agent, "Accept": "application/sparql-results+json"}
-    for attempt in range(1, attempts + 1):
-        remaining = None if _deadline is None else _deadline - time.monotonic()
-        if remaining is not None and remaining <= 0:
-            raise TimeoutError(f"tempo massimo di {DEADLINE_SECONDS} s superato")
-        try:
-            request = urllib.request.Request(ENDPOINT, data=data, headers=headers)
-            with urllib.request.urlopen(request, timeout=180 if remaining is None else min(180, remaining)) as response:
-                payload = json.load(response)
-            return [{k: v["value"] for k, v in b.items()} for b in payload["results"]["bindings"]]
-        except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
-            # 429 e 5xx: l'endpoint e' sovraccarico, si riprova con attesa crescente (rispettando Retry-After).
-            if attempt == attempts:
-                raise
-            wait = 20 * attempt
-            if isinstance(e, urllib.error.HTTPError):
-                if e.code not in (429, 500, 502, 503, 504):
-                    raise
-                if e.code == 429 and e.headers.get("Retry-After", "").isdigit():
-                    wait = max(wait, int(e.headers["Retry-After"]))
-            print(f"-- Wikidata: tentativo {attempt} fallito ({e}), riprovo tra {wait}s", file=sys.stderr)
-            time.sleep(wait)
+    payload = get_json(ENDPOINT, data, headers, 180, "Wikidata", attempts, _deadline)
+    return [{k: v["value"] for k, v in b.items()} for b in payload["results"]["bindings"]]
 
 
 def qid(uri):

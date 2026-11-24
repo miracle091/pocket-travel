@@ -434,7 +434,7 @@ jobs:
           if [ -n "$BASE" ] && [ "$BASE" != 0000000000000000000000000000000000000000 ] \
             && git fetch --no-tags --depth=1 origin "$BASE"; then
             git diff --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed.txt"
-            grep -qE '^(third-party/patches/llama-cpp/|third-party/llama-cpp$|tools/data-pipeline/scripts/(eval_common|eval_retrieval|llm_smoke|resolve_ai_models|word_lists|city_wikipedia|city_population)\.py$|tools/data-pipeline/scripts/(portable|regions)\.sh$|feature/ai/src/main/kotlin/com/pockettravel/feature/ai/LlmModelCatalog\.kt$|feature/ai/src/main/resources/pockettravel/word_lists\.txt$|\.github/scripts/(llm-smoke|env)\.sh$|\.github/workflows/android-ci\.yml$)' \
+            grep -qE '^(third-party/patches/llama-cpp/|third-party/llama-cpp$|tools/data-pipeline/scripts/(eval_common|eval_retrieval|llm_smoke|resolve_ai_models|word_lists|city_wikipedia|city_population|wiki_http)\.py$|tools/data-pipeline/scripts/(portable|regions)\.sh$|feature/ai/src/main/kotlin/com/pockettravel/feature/ai/LlmModelCatalog\.kt$|feature/ai/src/main/resources/pockettravel/word_lists\.txt$|\.github/scripts/(llm-smoke|env)\.sh$|\.github/workflows/android-ci\.yml$)' \
               "$RUNNER_TEMP/changed.txt" || run=false
           fi
           echo "run=$run" | tee -a "$GITHUB_OUTPUT"
