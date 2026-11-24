@@ -294,14 +294,15 @@ class OnlineConsentDeviceTest {
         NoteRepository(db.noteDao(), Dispatchers.IO).save(Note(title = "Prenotazione", body = "Farmacia da ricordare: $NOTE_MARKER"))
     }
 
-    // Risponde senza rete e conserva il corpo di ogni richiesta.
+    // Risponde senza rete e conserva il corpo di ogni richiesta; il numero dà contenuto alla risposta, che altrimenti
+    // OnlineAnswerGuard scarta come vuota.
     private fun recordingClient() = OkHttpClient.Builder().addInterceptor(
         Interceptor { chain ->
             val body = Buffer().also { chain.request().body?.writeTo(it) }.readUtf8()
             requests += body
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(HTTP_OK).message("OK")
                 .body(
-                    "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"Apre alle 9.\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
                         .toResponseBody("text/event-stream".toMediaType()),
                 )
                 .build()
