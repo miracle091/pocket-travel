@@ -17,7 +17,11 @@ import com.pockettravel.core.data.PackageKind
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -25,12 +29,13 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 /** [RegionSyncScheduler] sui lavori di WorkManager. */
-class WorkManagerRegionSyncScheduler @Inject constructor(
+class WorkManagerRegionSyncScheduler @Inject internal constructor(
     @ApplicationContext private val context: Context,
     private val json: Json,
     private val appCompatibility: AppCompatibility,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val cityPackageCopies: CityPackageCopies,
+    private val queue: RegionDownloadQueue,
 ) : RegionSyncScheduler {
     private val workManager get() = WorkManager.getInstance(context)
 
@@ -134,19 +139,27 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
     override fun observeGuidesSync(): Flow<WorkInfo?> =
         workManager.getWorkInfosForUniqueWorkFlow(SyncConfig.GUIDES_SYNC_WORK_NAME).map { it.firstOrNull() }
 
+    // Le regioni della coda (RegionDownloadQueue) non hanno un tag: le scarica un solo lavoro, WORK_NAME, per tutte.
     override fun observeDownload(regionId: String): Flow<WorkInfo?> =
-        workManager.getWorkInfosByTagFlow(tagFor(regionId)).map(::currentDownload)
+        combine(
+            workManager.getWorkInfosByTagFlow(tagFor(regionId)),
+            queue.regionIdsFlow().map { regionId in it }.distinctUntilChanged(),
+            workManager.getWorkInfosForUniqueWorkFlow(RegionDownloadQueueWorker.WORK_NAME),
+        ) { tagged, queued, queueWork -> currentDownload(if (queued) tagged + queueWork else tagged) }
 
     override fun observeDownloadingRegions(): Flow<Set<String>> =
-        workManager.getWorkInfosByTagFlow(SyncConfig.DOWNLOAD_TAG).map { infos ->
+        combine(workManager.getWorkInfosByTagFlow(SyncConfig.DOWNLOAD_TAG), queue.regionIdsFlow()) { infos, queued ->
             infos.filter { !it.state.isFinished }
                 .flatMap { it.tags }
                 .filter { it.startsWith("${SyncConfig.DOWNLOAD_TAG}:") }
-                .mapTo(mutableSetOf()) { it.removePrefix("${SyncConfig.DOWNLOAD_TAG}:") }
+                .mapTo(mutableSetOf()) { it.removePrefix("${SyncConfig.DOWNLOAD_TAG}:") } + queued
         }
 
-    override suspend fun isDownloadPending(regionId: String): Boolean =
-        workManager.getWorkInfosByTagFlow(tagFor(regionId)).first().any { !it.state.isFinished }
+    override suspend fun isDownloadPending(regionId: String): Boolean {
+        queue.load()
+        return regionId in queue.state.value.regionIds ||
+            workManager.getWorkInfosByTagFlow(tagFor(regionId)).first().any { !it.state.isFinished }
+    }
 
     override suspend fun isGuidesSyncPending(): Boolean =
         workManager.getWorkInfosForUniqueWorkFlow(SyncConfig.GUIDES_SYNC_WORK_NAME).first().any { !it.state.isFinished }
@@ -154,6 +167,12 @@ class WorkManagerRegionSyncScheduler @Inject constructor(
     override fun cancelDownload(regionId: String) {
         workManager.cancelAllWorkByTag(tagFor(regionId))
     }
+}
+
+// La coda si legge dal file la prima volta: fino ad allora il suo stato e' vuoto.
+private fun RegionDownloadQueue.regionIdsFlow(): Flow<Set<String>> = flow {
+    load()
+    emitAll(state.map { it.regionIds })
 }
 
 private fun tagFor(regionId: String) = "${SyncConfig.DOWNLOAD_TAG}:$regionId"

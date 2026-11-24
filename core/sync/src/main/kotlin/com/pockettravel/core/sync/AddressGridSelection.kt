@@ -1,8 +1,8 @@
 package com.pockettravel.core.sync
 
+import com.pockettravel.core.data.sha256Hex
 import com.pockettravel.core.tiles.TileRange
 import com.pockettravel.core.tiles.tileRangeFor
-import java.security.MessageDigest
 
 /** Nodo z/x/y del quadtree Web Mercator che identifica una cella dei civici (z <= 14 = tileZoom). */
 internal data class CellId(val z: Int, val x: Int, val y: Int)
@@ -64,9 +64,7 @@ private fun cellsInBbox(cells: List<Pair<CellId, AddressGridCell>>, bbox: MapExt
  */
 fun regionAddressesGridVersion(cells: List<AddressGridCell>): String {
     val lines = cells.map { "${it.id}@${it.version}" + if (it.search != null) "+search" else "" }.sorted().joinToString("\n")
-    val digest = MessageDigest.getInstance("SHA-256").digest(lines.toByteArray(Charsets.UTF_8))
-    val hex = digest.joinToString("") { "%02x".format(it) }
-    return "grid-" + hex.take(GRID_VERSION_HASH_CHARS)
+    return "grid-" + lines.toByteArray(Charsets.UTF_8).sha256Hex().take(GRID_VERSION_HASH_CHARS)
 }
 
 /**

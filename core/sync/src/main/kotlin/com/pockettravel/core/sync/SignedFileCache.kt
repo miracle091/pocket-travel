@@ -2,6 +2,8 @@ package com.pockettravel.core.sync
 
 import android.content.Context
 import com.pockettravel.core.data.IoDispatcher
+import com.pockettravel.core.data.runCatchingCancellable
+import com.pockettravel.core.data.sha256Hex
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -12,13 +14,16 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
-import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val HTTP_NOT_MODIFIED = 304
 
-private fun key(url: String): String = MessageDigest.getInstance("SHA-256").digest(url.toByteArray()).joinToString("") { "%02x".format(it) }
+private fun key(url: String): String = url.toByteArray().sha256Hex()
+
+// Firma che non torna o contenuto rifiutato da parse: la copia salvata non vale.
+private fun isInvalidCopy(error: Throwable) =
+    error is ManifestSignatureException || error is IllegalArgumentException || error is IllegalStateException
 
 /**
  * File firmati letti a ogni controllo (manifest.json, app-status.json, online-models.json), scaricati solo quando
@@ -72,23 +77,13 @@ class SignedFileCache internal constructor(
      * o non passa. Per mostrare subito l'ultimo file verificato mentre [fetch] chiede al sito se e' cambiato. Senza il
      * lucchetto di [fetch]: la copia si scrive rinominando un file intero, e una copia a meta' non supera la firma.
      */
-    suspend fun <T> saved(url: String, parse: (ByteArray) -> T): T? = try {
+    suspend fun <T> saved(url: String, parse: (ByteArray) -> T): T? = runCatchingCancellable {
         withContext(ioDispatcher) {
             val saved = load(url) ?: return@withContext null
             val signature = saved.signature ?: return@withContext null
             parse(saved.body).also { signatureVerifier.verifyWith(url, saved.body, signature) }
         }
-    } catch (error: CancellationException) {
-        throw error
-    } catch (ignored: ManifestSignatureException) {
-        null
-    } catch (ignored: IllegalArgumentException) {
-        null
-    } catch (ignored: IllegalStateException) {
-        null
-    } catch (ignored: IOException) {
-        null
-    }
+    }.getOrElse { if (isInvalidCopy(it) || it is IOException) null else throw it }
 
     /**
      * La copia salvata dopo un 304: verificata di nuovo con la firma salvata (senza, scaricata); se non passa, o se
@@ -100,7 +95,7 @@ class SignedFileCache internal constructor(
         httpError: (Int) -> Nothing,
         emptyBody: () -> Nothing,
         parse: (ByteArray) -> T,
-    ): T = try {
+    ): T = runCatchingCancellable {
         val value = parse(saved.body)
         if (saved.signature != null) {
             signatureVerifier.verifyWith(url, saved.body, saved.signature)
@@ -108,15 +103,7 @@ class SignedFileCache internal constructor(
             signatureVerifier.verify(url, saved.body)?.let { withContext(ioDispatcher) { write(file(url, "sig"), it) } }
         }
         value
-    } catch (error: CancellationException) {
-        throw error
-    } catch (ignored: ManifestSignatureException) {
-        refetch(url, httpError, emptyBody, parse)
-    } catch (ignored: IllegalArgumentException) {
-        refetch(url, httpError, emptyBody, parse)
-    } catch (ignored: IllegalStateException) {
-        refetch(url, httpError, emptyBody, parse)
-    }
+    }.getOrElse { if (isInvalidCopy(it)) refetch(url, httpError, emptyBody, parse) else throw it }
 
     private suspend fun <T> refetch(url: String, httpError: (Int) -> Nothing, emptyBody: () -> Nothing, parse: (ByteArray) -> T): T {
         withContext(ioDispatcher) { forget(url) }

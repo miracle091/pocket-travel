@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.SystemClock
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
@@ -71,19 +70,7 @@ class RegionPackageDownloadWorker @AssistedInject internal constructor(
         override suspend fun start(displayName: String, kinds: Set<PackageKind>): Boolean {
             this.displayName = displayName
             this.kinds = kinds
-            // Da Android 12 il servizio in primo piano non parte da sfondo (ForegroundServiceStartNotAllowedException):
-            // si scarica comunque, senza notifica.
-            @Suppress("TooGenericExceptionCaught")
-            val shown = try {
-                setForeground(foregroundInfo(DownloadPhase.Files(0, 0)))
-                true
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                Log.w(TAG, "Notifica di download non mostrata", error)
-                false
-            }
-            return shown
+            return tryForeground(foregroundInfo(DownloadPhase.Files(0, 0)), TAG, "Notifica di download non mostrata")
         }
 
         override suspend fun onFiles(bytesDownloaded: Long, totalBytes: Long) {

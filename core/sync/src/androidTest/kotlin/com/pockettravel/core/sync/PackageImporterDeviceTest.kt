@@ -20,6 +20,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -118,34 +119,22 @@ class PackageImporterDeviceTest {
 
     @Test
     fun importaIPoiDiUnaRegioneSostituendoQuelliPrecedenti() = runBlocking {
-        val importer = PoiImporter(db.poiDao(), db, Dispatchers.IO)
+        val importer = PoiImporter(db.poiDao(), db)
 
         val file = copyAsset("poi.db")
-        importer.import("san-marino", file)
+        importer.replaceFromFile("san-marino", file)
 
         val pois = db.poiDao().poisForRegion("san-marino")
         assertEquals(708, pois.size)
-        assertFalse("poi.db va cancellato dopo l'import", file.exists())
 
-        importer.import("san-marino", copyAsset("poi.db"))
+        importer.replaceFromFile("san-marino", copyAsset("poi.db"))
         assertEquals(708, db.poiDao().poisForRegion("san-marino").size)
-    }
-
-    @Test
-    fun importaIlContentDbV1SenzaColonnaPhoneComePacchettoPoi() = runBlocking {
-        // content.db pubblicato di Andorra (2026.09.18, prima della colonna phone): le regioni non
-        // ancora rigenerate lo usano come pacchetto POI dopo la conversione di `manifest.json` v1.
-        PoiImporter(db.poiDao(), db, Dispatchers.IO).import("andorra", copyAsset("content-v1.db"))
-
-        val pois = db.poiDao().poisForRegion("andorra")
-        assertEquals(2681, pois.size)
-        assertTrue(pois.all { it.phone == null })
     }
 
     @Test
     fun importaIPoiNelFormatoCompattoConLaTabellaDeiCodici() = runBlocking {
         val file = compactPoiDbFile("poi-compact.db")
-        PoiImporter(db.poiDao(), db, Dispatchers.IO).import("test-region", file)
+        PoiImporter(db.poiDao(), db).replaceFromFile("test-region", file)
 
         val pois = db.poiDao().poisForRegion("test-region")
         assertEquals(1, pois.size)
@@ -156,7 +145,20 @@ class PackageImporterDeviceTest {
         assertEquals(45.4646, poi.lat, 1e-6)
         assertEquals(9.1908, poi.lon, 1e-6)
         assertEquals("+39 06 1234567", poi.phone)
-        assertFalse("poi.db va cancellato dopo l'import", file.exists())
+    }
+
+    @Test
+    fun unPoiDbNelVecchioFormatoFallisceConUnErrorePermanente() = runBlocking {
+        val file = File(workDir, "poi-v0.db")
+        SQLiteDatabase.openOrCreateDatabase(file, null).use { poi ->
+            poi.execSQL("CREATE TABLE poi (name TEXT NOT NULL, category TEXT NOT NULL, osmTag TEXT NOT NULL, lat REAL NOT NULL, lon REAL NOT NULL)")
+        }
+        try {
+            PoiImporter(db.poiDao(), db).replaceFromFile("test-region", file)
+            fail("atteso PermanentRegionPackageException")
+        } catch (_: PermanentRegionPackageException) {
+            assertTrue(db.poiDao().poisForRegion("test-region").isEmpty())
+        }
     }
 
     @Test
@@ -169,18 +171,17 @@ class PackageImporterDeviceTest {
             cities.execSQL("INSERT INTO city_sections VALUES ('Citta di San Marino', 'CATEGORIA_FUTURA', 'Sezione futura', 'corpo', 'https://it.wikivoyage.org/wiki/Citta_di_San_Marino')")
         }
 
-        importer.import("san-marino", file)
+        importer.replace("san-marino", importer.read("san-marino", file))
 
         val sections = db.cityDao().sectionsFor("san-marino", "Citta di San Marino")
         assertEquals(1, sections.size)
         assertEquals("Cosa vedere", sections.single().title)
-        assertFalse("cities.db va cancellato dopo l'import", file.exists())
 
         // Un secondo import sostituisce, non accoda.
         val secondFile = citiesDbFile("cities-san-marino-2.db") { cities ->
             cities.execSQL("INSERT INTO city_sections VALUES ('Citta di San Marino', 'COSA_VEDERE', 'Cosa vedere', 'corpo aggiornato', 'https://it.wikivoyage.org/wiki/Citta_di_San_Marino')")
         }
-        importer.import("san-marino", secondFile)
+        importer.replace("san-marino", importer.read("san-marino", secondFile))
         val sectionsAfterUpdate = db.cityDao().sectionsFor("san-marino", "Citta di San Marino")
         assertEquals(1, sectionsAfterUpdate.size)
         assertEquals("corpo aggiornato", sectionsAfterUpdate.single().body)
@@ -200,7 +201,7 @@ class PackageImporterDeviceTest {
             cities.execSQL("INSERT INTO city_sections VALUES ('Asti', 'COSA_VEDERE', 'Cosa vedere', 'Il Palio.', 'u', NULL, 0, NULL, NULL, 0)")
         }
 
-        CityImporter(db.cityDao(), db, Dispatchers.IO).import("italia", file)
+        CityImporter(db.cityDao(), db, Dispatchers.IO).let { it.replace("italia", it.read("italia", file)) }
 
         assertEquals(CityCoordinates(45.07917, 7.67611), db.cityDao().coordinatesFor("italia", "Torino"))
         assertNull(db.cityDao().coordinatesFor("italia", "Asti"))
@@ -216,7 +217,7 @@ class PackageImporterDeviceTest {
             poi.execSQL("CREATE TABLE poi_code (code INTEGER NOT NULL PRIMARY KEY, category TEXT NOT NULL, osmTag TEXT NOT NULL)")
             poi.execSQL("INSERT INTO poi_code VALUES (0, 'embassy', 'amenity=embassy')")
             poi.execSQL(
-                "CREATE TABLE poi (name TEXT NOT NULL, code INTEGER NOT NULL, latE6 INTEGER NOT NULL, lonE6 INTEGER NOT NULL, phone TEXT, wheelchair TEXT)"
+                "CREATE TABLE poi (name TEXT NOT NULL, code INTEGER NOT NULL, latE6 INTEGER NOT NULL, lonE6 INTEGER NOT NULL, phone TEXT, wheelchair TEXT)",
             )
             poi.execSQL("INSERT INTO poi VALUES ('Ambasciata', 0, 45464600, 9190800, '+39 06 1234567', NULL)")
             poi.version = 1

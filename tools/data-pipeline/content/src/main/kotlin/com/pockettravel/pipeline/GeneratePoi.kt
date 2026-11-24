@@ -253,9 +253,9 @@ private fun addressOf(tags: Map<String, String>): String? {
  *   dell'umanita' UNESCO o parte di uno; 2 anche dal tag OSM ref:whc, scritto qui), scritti da poi_wikidata.py (colonne aggiunte in seguito: le versioni
  *   dell'app che non le conoscono non le selezionano). Niente colonna
  *   regionId (sarebbe costante su ogni riga: la regione la passa comunque chi importa il file).
- * - PRAGMA user_version = [POI_DB_FORMAT_VERSION]: marcatore di formato per PoiImporter, che
- *   legge sia questo che il vecchio formato (regionId/category/osmTag/lat/lon in chiaro,
- *   user_version assente cioe' 0 di default) - vedi PoiImporter.replaceFromFile.
+ * - PRAGMA user_version = [POI_DB_FORMAT_VERSION]: marcatore di formato. PoiImporter legge solo
+ *   questo formato: il vecchio (regionId/category/osmTag/lat/lon in chiaro, user_version 0) non
+ *   e' piu' pubblicato dal 2026-09-27 - vedi PoiImporter.replaceFromFile.
  *
  * outputDb e' poi.db (o poi-extra.db, stesso formato), un pacchetto POI della regione, scaricato
  * e aggiornato dall'app separatamente da guide (guides.db), mappa e rete stradale.

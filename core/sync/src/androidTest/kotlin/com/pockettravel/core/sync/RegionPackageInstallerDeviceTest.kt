@@ -101,7 +101,7 @@ class RegionPackageInstallerDeviceTest {
         RegionPackageDownloader(OkHttpClient(), storage, Dispatchers.IO),
         repository,
         storage,
-        PoiImporter(db.poiDao(), db, Dispatchers.IO),
+        PoiImporter(db.poiDao(), db),
         RoutingSegmentsInstaller(Dispatchers.IO),
         PmtilesExtractor(OkHttpClient()),
         CityImporter(db.cityDao(), db, Dispatchers.IO),

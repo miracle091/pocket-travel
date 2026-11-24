@@ -3,7 +3,7 @@ package com.pockettravel.core.sync
 import com.pockettravel.core.data.ExchangeRateTable
 import com.pockettravel.core.data.ExchangeRates
 import com.pockettravel.core.data.parseExchangeRates
-import kotlinx.coroutines.CancellationException
+import com.pockettravel.core.data.runCatchingCancellable
 import java.io.IOException
 import javax.inject.Inject
 
@@ -15,7 +15,7 @@ import javax.inject.Inject
 class HttpExchangeRates @Inject constructor(
     private val signedFileCache: SignedFileCache,
 ) : ExchangeRates {
-    override suspend fun latest(): ExchangeRateTable? = try {
+    override suspend fun latest(): ExchangeRateTable? = runCatchingCancellable {
         // Validato prima della firma, come online-models.json: un file firmato ma non valido non aggiorna publishedAt.
         signedFileCache.fetch(
             SyncConfig.EXCHANGE_RATES_URL,
@@ -23,9 +23,5 @@ class HttpExchangeRates @Inject constructor(
             emptyBody = { throw IOException("Empty exchange rates response") },
             parse = ::parseExchangeRates,
         )
-    } catch (error: CancellationException) {
-        throw error
-    } catch (ignored: Exception) {
-        signedFileCache.saved(SyncConfig.EXCHANGE_RATES_URL, ::parseExchangeRates)
-    }
+    }.getOrElse { signedFileCache.saved(SyncConfig.EXCHANGE_RATES_URL, ::parseExchangeRates) }
 }

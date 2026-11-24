@@ -32,7 +32,7 @@ class RegionSyncSchedulerDeviceTest {
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
     private val json = Json { ignoreUnknownKeys = true }
     private val compatibility = AppCompatibility(context) { context.getSharedPreferences(it, Context.MODE_PRIVATE) }
-    private val scheduler = WorkManagerRegionSyncScheduler(context, json, compatibility, Dispatchers.IO, CityPackageCopies(RegionStorage(File(context.cacheDir, "regions-test"), File(context.cacheDir, "staging-test"))))
+    private val scheduler = WorkManagerRegionSyncScheduler(context, json, compatibility, Dispatchers.IO, CityPackageCopies(RegionStorage(File(context.cacheDir, "regions-test"), File(context.cacheDir, "staging-test"))), RegionDownloadQueue(File(context.cacheDir, "queue-test.json"), Dispatchers.IO))
     private val workManager get() = WorkManager.getInstance(context)
     private val sha = "a".repeat(64)
 

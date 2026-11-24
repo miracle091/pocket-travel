@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.SystemClock
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
@@ -42,13 +41,7 @@ class AppUpdateDownloadWorker @AssistedInject constructor(
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
             )
             // Da Android 12 un nuovo tentativo partito da sfondo non può avviare il servizio: si scarica senza notifica.
-            try {
-                setForeground(foregroundInfo(0))
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                Log.w(TAG, "Notifica di download non mostrata", error)
-            }
+            tryForeground(foregroundInfo(0), TAG, "Notifica di download non mostrata")
             val failure = fetcher.fetch(entry) { bytesDownloaded ->
                 setProgress(workDataOf(KEY_BYTES_DOWNLOADED to bytesDownloaded, KEY_TOTAL_BYTES to totalBytes))
                 if (throttle.tryAcquire(SystemClock.elapsedRealtime())) setForegroundAsync(foregroundInfo(bytesDownloaded))

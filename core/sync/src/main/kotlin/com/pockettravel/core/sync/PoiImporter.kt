@@ -2,14 +2,11 @@ package com.pockettravel.core.sync
 
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.withTransaction
-import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.db.PoiCodeDao
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiRow
 import com.pockettravel.core.data.db.RegionDatabase
 import com.pockettravel.core.data.db.estimatedStorageBytes
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 
@@ -18,31 +15,17 @@ import javax.inject.Inject
  * tools/data-pipeline) in region.db, l'unico database che l'app interroga via PoiDao, sostituendo
  * i POI dello stesso pacchetto gia' presenti per la regione. Le colonne corrispondono a PoiRow meno l'id, autogenerato all'insert:
  * regione e coppia (category, osmTag) diventano interi di poi_region e poi_code (registrati qui se nuovi), le coordinate
- * microgradi interi. poi.db
- * viene cancellato dopo un import riuscito: tenerlo raddoppierebbe lo spazio occupato.
+ * microgradi interi.
  *
- * Due formati, distinti da PRAGMA user_version (SQLiteDatabase.version): 0 (assente, il vecchio
- * formato) ha "category"/"osmTag" in chiaro e lat/lon REAL su ogni riga di "poi", oltre a una
- * colonna "regionId" costante mai letta (il chiamante la passa gia'); >= 1 e' il formato compatto
- * di GeneratePoi.kt (tools/data-pipeline, POI_DB_FORMAT_VERSION) - "poi" ha solo un intero "code"
- * verso la tabella "poi_code" (category/osmTag) e coordinate come interi in microgradi
- * (latE6/lonE6). Finche' non tutte le regioni pubblicate sono state rigenerate nel nuovo formato
- * (rigenerazione incrementale, non tutte insieme) l'app puo' incontrare entrambi: legge entrambi.
+ * Formato compatto di GeneratePoi.kt (tools/data-pipeline, POI_DB_FORMAT_VERSION, PRAGMA user_version >= 1): "poi" ha
+ * solo un intero "code" verso la tabella "poi_code" (category/osmTag) e le coordinate come interi in microgradi (latE6/lonE6).
+ * Il vecchio formato (category/osmTag e lat/lon REAL in chiaro, user_version assente) non si legge piu' e fa fallire
+ * l'installazione: tutte le regioni del catalogo ufficiale sono nel nuovo.
  */
 class PoiImporter @Inject constructor(
     private val poiDao: PoiDao,
     private val database: RegionDatabase,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
-    /**
-     * Solo per i test (PackageImporterDeviceTest): sostituisce i POI e cancella [poiDbFile]. L'installazione
-     * vera passa da [replaceFromFile] dentro RegionRepository.inInstallTransaction e lascia il file allo staging.
-     */
-    suspend fun import(regionId: String, poiDbFile: File, extra: Boolean = false) = withContext(ioDispatcher) {
-        replaceFromFile(regionId, poiDbFile, extra)
-        poiDbFile.delete()
-    }
-
     /**
      * Sostituisce i POI del pacchetto leggendo [poiDbFile] a blocchi di [CHUNK_SIZE] righe invece che tutto in memoria:
      * per le regioni grandi (centinaia di migliaia di POI, ognuno con una dozzina di stringhe) la lista
@@ -57,6 +40,8 @@ class PoiImporter @Inject constructor(
             val regionRef = poiCodeDao.regionRef(regionId)
             var storageBytes = 0L
             SQLiteDatabase.openDatabase(poiDbFile.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+                // Un catalogo con pacchetti di prima del 2026-09-27 (MergeManifests converte ancora le regioni v1).
+                if (db.version < 1) throw PermanentRegionPackageException("${poiDbFile.name} di $regionId e' nel vecchio formato dei POI")
                 forEachPoiChunk(regionRef, db, extra, poiCodeDao) { chunk ->
                     poiDao.insertAll(chunk)
                     storageBytes += chunk.sumOf { it.estimatedStorageBytes() }
@@ -65,17 +50,12 @@ class PoiImporter @Inject constructor(
             storageBytes
         }
 
-    // Le colonne facoltative dipendono da quando il file e' stato generato: i content.db v1 (vedi
-    // MergeManifests.convertV1Region, tools/data-pipeline) pubblicati prima di "phone" non la hanno, i
-    // poi.db pubblicati prima di "wheelchair" nemmeno questa. Selezionare una colonna assente farebbe
-    // fallire l'intero download.
+    // Le colonne facoltative dipendono da quando il file e' stato generato: i poi.db pubblicati prima di
+    // "wheelchair" non hanno questa colonna. Selezionare una colonna assente farebbe fallire l'intero download.
     private suspend fun forEachPoiChunk(
         regionRef: Long, db: SQLiteDatabase, extra: Boolean, poiCodeDao: PoiCodeDao, onChunk: suspend (List<PoiRow>) -> Unit,
     ) {
-        // db.version legge PRAGMA user_version: assente (0) sui file nel vecchio formato, vedi la
-        // nota di formato sopra la classe.
-        val columns = poiColumns(db)
-        val query = if (db.version >= 1) compactPoiQuery(columns) else poiQuery(columns)
+        val query = compactPoiQuery(poiColumns(db))
         var pois = ArrayList<PoiRow>(CHUNK_SIZE)
         // I codici di poi_code, uno per coppia (category, osmTag): poche centinaia, si chiedono al database la prima volta.
         val codes = HashMap<Pair<String, String>, Long>()
@@ -103,7 +83,7 @@ class PoiImporter @Inject constructor(
                 pois += PoiRow(
                     regionRef = regionRef,
                     code = code,
-                    // Il formato compatto ha gia' i microgradi (la query li divide per 1e6, qui si riportano allo stesso intero).
+                    // La query divide i microgradi per 1e6: qui si riportano allo stesso intero.
                     latE6 = Math.round(cursor.getDouble(2) * MICRODEGREES),
                     lonE6 = Math.round(cursor.getDouble(3) * MICRODEGREES),
                     name = cursor.getString(0),
@@ -142,14 +122,9 @@ class PoiImporter @Inject constructor(
         private const val CHUNK_SIZE = 5_000
         private const val MICRODEGREES = 1_000_000.0
 
-        // Vedi GuidesImporter: eseguita via JDBC da un test JVM contro lo schema della pipeline.
-        internal fun poiQuery(columns: Set<String>): String =
-            "SELECT name, category, lat, lon, osmTag" + OPTIONAL_COLUMNS.filter { it in columns }.joinToString("") { ", $it" } + " FROM poi"
-
-        // Formato compatto (GeneratePoi.kt, POI_DB_FORMAT_VERSION): stesso ordine di colonne di
-        // poiQuery (name, category, lat, lon, osmTag, poi le facoltative) cosi' forEachPoiChunk legge le
-        // prime cinque per posizione in entrambi i casi. Anche qui le facoltative dipendono dal file:
-        // i poi.db pubblicati prima di orari e indirizzo non le hanno.
+        // Colonne in quest'ordine (name, category, lat, lon, osmTag, poi le facoltative): forEachPoiChunk legge le
+        // prime cinque per posizione. Le facoltative dipendono dal file: i poi.db pubblicati prima di orari e
+        // indirizzo non le hanno. Eseguita via JDBC da un test JVM, vedi GuidesImporter.
         internal fun compactPoiQuery(columns: Set<String>): String =
             "SELECT poi.name, poi_code.category, poi.latE6 / 1000000.0 AS lat, poi.lonE6 / 1000000.0 AS lon, poi_code.osmTag" +
                 OPTIONAL_COLUMNS.filter { it in columns }.joinToString("") { ", poi.$it" } +

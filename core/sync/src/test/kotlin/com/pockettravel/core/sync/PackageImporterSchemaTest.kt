@@ -197,54 +197,6 @@ class PackageImporterSchemaTest {
     }
 
     @Test
-    fun `la query poi legacy legge i content db v1 senza colonna phone`() = withDb { conn ->
-        conn.createStatement().use { statement ->
-            statement.execute("CREATE TABLE poi (regionId TEXT, name TEXT, category TEXT, lat REAL, lon REAL, osmTag TEXT)")
-            statement.execute("INSERT INTO poi VALUES ('test-region', 'Punto panoramico', 'viewpoint', 45.0, 9.0, 'tourism=viewpoint')")
-        }
-        conn.createStatement().use { statement ->
-            val rs = statement.executeQuery(PoiImporter.poiQuery(setOf("regionId", "name", "category", "lat", "lon", "osmTag")))
-            assertEquals(true, rs.next())
-            assertEquals("Punto panoramico", rs.getString("name"))
-            assertEquals("tourism=viewpoint", rs.getString("osmTag"))
-        }
-    }
-
-    @Test
-    fun `la query poi legge le colonne di poi db`() = withDb { conn ->
-        conn.createStatement().use { statement ->
-            statement.execute(
-                """
-                CREATE TABLE poi (
-                    regionId TEXT NOT NULL,
-                    name TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    lat REAL NOT NULL,
-                    lon REAL NOT NULL,
-                    osmTag TEXT NOT NULL,
-                    phone TEXT,
-                    wheelchair TEXT
-                )
-                """.trimIndent()
-            )
-            statement.execute(
-                "INSERT INTO poi VALUES ('test-region', 'Ambasciata', 'embassy', 45.4646, 9.1908, 'amenity=embassy', '+39 06 1234567', 'yes')"
-            )
-        }
-        conn.createStatement().use { statement ->
-            val rs = statement.executeQuery(PoiImporter.poiQuery(setOf("name", "phone", "wheelchair")))
-            assertEquals(true, rs.next())
-            assertEquals("Ambasciata", rs.getString("name"))
-            assertEquals("embassy", rs.getString("category"))
-            assertEquals(45.4646, rs.getDouble("lat"), 1e-9)
-            assertEquals(9.1908, rs.getDouble("lon"), 1e-9)
-            assertEquals("amenity=embassy", rs.getString("osmTag"))
-            assertEquals("+39 06 1234567", rs.getString("phone"))
-            assertEquals("yes", rs.getString("wheelchair"))
-        }
-    }
-
-    @Test
     fun `la query poi compatta legge poi_code e le coordinate in microgradi di poi db`() = withDb { conn ->
         conn.createStatement().use { statement ->
             statement.execute(
@@ -309,14 +261,6 @@ class PackageImporterSchemaTest {
             assertEquals(null, rs.getString("toiletsWheelchair"))
             assertEquals(null, rs.getString("capacityDisabled"))
         }
-    }
-
-    @Test
-    fun `la query poi seleziona solo le colonne facoltative presenti nel file`() {
-        assertEquals(
-            "SELECT name, category, lat, lon, osmTag, phone FROM poi",
-            PoiImporter.poiQuery(setOf("regionId", "name", "category", "lat", "lon", "osmTag", "phone")),
-        )
     }
 
     @Test

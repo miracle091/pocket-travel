@@ -299,7 +299,7 @@ internal class OkHttpRangeChannel(
     /** Il numero di byte che la risposta dichiara di avere, dopo aver controllato che sia l'intervallo richiesto da [pos]. */
     private fun checkedLength(response: Response, pos: Long, length: Int): Int {
         if (response.code != HTTP_PARTIAL_CONTENT) {
-            val retryable = response.code >= HTTP_SERVER_ERROR || response.code == HTTP_REQUEST_TIMEOUT || response.code == HTTP_TOO_MANY_REQUESTS
+            val retryable = isRetryableHttpStatus(response.code)
             throw RangeResponseException("Il server ha risposto HTTP ${response.code} alla richiesta dell'intervallo da $pos", retryable)
         }
         val range = CONTENT_RANGE.find(response.header("Content-Range").orEmpty())
@@ -351,10 +351,6 @@ internal class OkHttpRangeChannel(
         const val CANCEL_JOIN_MS = 2_000L
         const val NANOS_PER_MILLI = 1_000_000L
         const val NANOS_PER_SECOND = 1_000_000_000.0
-        const val HTTP_PARTIAL_CONTENT = 206
-        const val HTTP_REQUEST_TIMEOUT = 408
-        const val HTTP_TOO_MANY_REQUESTS = 429
-        const val HTTP_SERVER_ERROR = 500
         val CONTENT_RANGE = Regex("^bytes ([0-9]+)-([0-9]+)/")
     }
 }

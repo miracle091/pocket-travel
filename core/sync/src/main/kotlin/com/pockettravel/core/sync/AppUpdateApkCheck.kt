@@ -4,9 +4,9 @@ import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import com.pockettravel.core.data.sha256Hex
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
-import java.security.MessageDigest
 import javax.inject.Inject
 
 /** Perché un aggiornamento dell'app non è pronto: download o controllo dell'APK scaricato. */
@@ -76,14 +76,7 @@ class PackageManagerApkInspector @Inject constructor(@ApplicationContext private
         return ApkIdentity(
             info.packageName,
             code,
-            signatures.orEmpty().mapTo(mutableSetOf()) { sha256Hex(it.toByteArray()) },
+            signatures.orEmpty().mapTo(mutableSetOf()) { it.toByteArray().sha256Hex() },
         )
-    }
-
-    private fun sha256Hex(bytes: ByteArray) =
-        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it.toInt() and BYTE_MASK) }
-
-    private companion object {
-        const val BYTE_MASK = 0xFF
     }
 }

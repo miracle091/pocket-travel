@@ -1,9 +1,9 @@
 package com.pockettravel.core.sync
 
 import com.pockettravel.core.data.TransitFeedInfo
+import com.pockettravel.core.data.sha256Hex
 import kotlinx.serialization.Serializable
 import java.net.URI
-import java.security.MessageDigest
 import java.time.LocalDate
 
 /**
@@ -136,8 +136,7 @@ fun regionTransitFeeds(index: TransitIndex, regionId: String): List<TransitFeed>
  */
 fun regionTransitVersion(feeds: List<TransitFeed>): String {
     val lines = feeds.map { "${it.id}@${it.version}" }.sorted().joinToString("\n")
-    val digest = MessageDigest.getInstance("SHA-256").digest(lines.toByteArray(Charsets.UTF_8))
-    return "transit-" + digest.joinToString("") { "%02x".format(it) }.take(VERSION_HASH_CHARS)
+    return "transit-" + lines.toByteArray(Charsets.UTF_8).sha256Hex().take(VERSION_HASH_CHARS)
 }
 
 /**

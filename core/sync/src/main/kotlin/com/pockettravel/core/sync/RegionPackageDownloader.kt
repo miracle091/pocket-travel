@@ -2,6 +2,7 @@ package com.pockettravel.core.sync
 
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.RegionStorage
+import com.pockettravel.core.data.sha256Hex
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -13,8 +14,6 @@ import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-import java.security.DigestInputStream
-import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
@@ -121,18 +120,13 @@ class RegionPackageDownloader @Inject constructor(
      * copia, non si sposta, e solo se lo SHA-256 coincide: il segmento installato serve ancora per
      * il rollback (RegionStorage.activatePackage).
      */
-    private fun reuseLocalCopy(file: RegionManifestFile, target: File, sources: List<File>): Boolean {
-        if (!target.exists()) {
-            val source = sources.firstOrNull { it.isFile && it.length() == file.sizeBytes && sha256Of(it).equals(file.sha256, ignoreCase = true) }
-            if (source != null) {
-                source.copyTo(target)
-                return true
-            }
-        }
-        if (!target.exists()) return false
-        if (target.length() == file.sizeBytes && sha256Of(target).equals(file.sha256, ignoreCase = true)) return true
-        target.delete()
-        return false
+    private suspend fun reuseLocalCopy(file: RegionManifestFile, target: File, sources: List<File>): Boolean {
+        suspend fun matches(candidate: File) =
+            candidate.isFile && candidate.length() == file.sizeBytes && candidate.sha256Hex().equals(file.sha256, ignoreCase = true)
+        val copied = !target.exists() && sources.firstOrNull { matches(it) }?.copyTo(target) != null
+        val reusable = copied || matches(target)
+        if (!reusable) target.delete()
+        return reusable
     }
     // internal (non private) cosi' un test puo' esercitare direttamente il download/verifica
     // byte-per-byte senza dover soddisfare anche il vincolo HTTPS+host-allowlist di
@@ -227,7 +221,7 @@ class RegionPackageDownloader @Inject constructor(
             partFile.delete()
             throw PermanentRegionPackageException("Dimensione non valida per ${file.name}: attesa ${file.sizeBytes}, ottenuta $actual")
         }
-        val actualSha256 = sha256Of(partFile)
+        val actualSha256 = partFile.sha256Hex()
         if (!actualSha256.equals(file.sha256, ignoreCase = true)) {
             partFile.delete()
             throw PermanentRegionPackageException(
@@ -251,25 +245,13 @@ class RegionPackageDownloader @Inject constructor(
         throw e
     }
 
-    private fun sha256Of(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        DigestInputStream(file.inputStream(), digest).use { stream ->
-            val buffer = ByteArray(IO_BUFFER_SIZE)
-            while (stream.read(buffer) != -1) {
-                // DigestInputStream.read aggiorna il digest a ogni lettura
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it.toInt() and BYTE_MASK) }
-    }
-
     private companion object {
         // Un lock per id di staging, condiviso tra le istanze (il downloader non e' un singleton).
         val locks = ConcurrentHashMap<String, Mutex>()
         const val PROGRESS_STEP_BYTES = 4_000_000L
 
         // Pacchetti da decine o centinaia di MB: blocchi piu' grandi degli 8 KiB di DEFAULT_BUFFER_SIZE, meno chiamate
-        // di sistema per SHA-256 e scrittura. Dalla rete byteStream().read ne restituisce comunque al piu' 8 KiB.
+        // di sistema per la scrittura. Dalla rete byteStream().read ne restituisce comunque al piu' 8 KiB.
         const val IO_BUFFER_SIZE = 64 * 1024
-        const val BYTE_MASK = 0xFF
     }
 }

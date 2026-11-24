@@ -53,7 +53,6 @@
     <ID>ReturnCount:AddressGridSelection.kt:internal fun parseCellId: CellId?</ID>
     <ID>ReturnCount:HttpManifestClient.kt:fun &lt;T&gt; optional: T?</ID>
     <ID>ReturnCount:PmtilesExtractorTest.kt:RangeFileDispatcher$override fun dispatch: MockResponse</ID>
-    <ID>ReturnCount:RegionPackageDownloader.kt:RegionPackageDownloader$private fun reuseLocalCopy: Boolean</ID>
     <ID>ReturnCount:RegionZoneRestriction.kt:fun RegionManifestEntry.restrictedTo: RegionManifestEntry</ID>
     <ID>SpacingAroundOperators:PmtilesWriterTest.kt:PmtilesWriterTest$=</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:HttpManifestClient.kt:RecentFetch$@Volatile private var value: T? = null</ID>
@@ -75,7 +74,6 @@
     <ID>SpacingBetweenDeclarationsWithComments:TransitClient.kt:TransitClient.Companion$// Come AddressGridClient.STAGING_ID: accanto alle cartelle per regione, fa anche da cache per versione.</ID>
     <ID>SwallowedException:ManifestSignatureVerifier.kt:error: SignatureException</ID>
     <ID>ThrowsCount:ManifestSignatureVerifier.kt:internal fun verifyManifestSignature</ID>
-    <ID>ThrowsCount:PackageXzUnpacker.kt:internal suspend fun unpackXz</ID>
     <ID>ThrowsCount:PmtilesExtractor.kt:PmtilesExtractor$fun extract: PmtilesExtractionStats</ID>
     <ID>ThrowsCount:RegionPackageDownloader.kt:RegionPackageDownloader$internal suspend fun downloadAndVerify</ID>
     <ID>TooGenericExceptionCaught:AppUpdateCheckWorker.kt:AppUpdateCheckWorker$error: Exception</ID>
@@ -88,12 +86,10 @@
     <ID>TrailingCommaOnCallSite:PackageImporterSchemaTest.kt:PackageImporterSchemaTest$( """ CREATE TABLE emergency_numbers ( regionId TEXT NOT NULL, general TEXT, police TEXT NOT NULL, ambulance TEXT NOT NULL, fire TEXT NOT NULL ) """.trimIndent() )</ID>
     <ID>TrailingCommaOnCallSite:PackageImporterSchemaTest.kt:PackageImporterSchemaTest$( """ CREATE TABLE guide_sections ( regionId TEXT NOT NULL, category TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, sourceUrl TEXT NOT NULL ) """.trimIndent() )</ID>
     <ID>TrailingCommaOnCallSite:PackageImporterSchemaTest.kt:PackageImporterSchemaTest$( """ CREATE TABLE poi ( name TEXT NOT NULL, code INTEGER NOT NULL, latE6 INTEGER NOT NULL, lonE6 INTEGER NOT NULL, phone TEXT, wheelchair TEXT ) """.trimIndent() )</ID>
-    <ID>TrailingCommaOnCallSite:PackageImporterSchemaTest.kt:PackageImporterSchemaTest$( """ CREATE TABLE poi ( regionId TEXT NOT NULL, name TEXT NOT NULL, category TEXT NOT NULL, lat REAL NOT NULL, lon REAL NOT NULL, osmTag TEXT NOT NULL, phone TEXT, wheelchair TEXT ) """.trimIndent() )</ID>
     <ID>TrailingCommaOnCallSite:PackageImporterSchemaTest.kt:PackageImporterSchemaTest$( "CREATE TABLE poi (name TEXT NOT NULL, code INTEGER NOT NULL, latE6 INTEGER NOT NULL, lonE6 INTEGER NOT NULL, " + "toiletsWheelchair TEXT, capacityDisabled INTEGER)" )</ID>
     <ID>TrailingCommaOnCallSite:PackageImporterSchemaTest.kt:PackageImporterSchemaTest$( "CREATE TABLE poi_code (code INTEGER NOT NULL PRIMARY KEY, category TEXT NOT NULL, osmTag TEXT NOT NULL)" )</ID>
     <ID>TrailingCommaOnCallSite:PackageImporterSchemaTest.kt:PackageImporterSchemaTest$( "INSERT INTO city_sections VALUES ('Roma', 'COSA_VEDERE', 'Cosa vedere', 'body', 'https://it.wikivoyage.org/wiki/Roma')" )</ID>
     <ID>TrailingCommaOnCallSite:PackageImporterSchemaTest.kt:PackageImporterSchemaTest$( "INSERT INTO guide_sections VALUES ('test-region', 'TRASPORTI', 'Get around', 'body', 'https://example.org')" )</ID>
-    <ID>TrailingCommaOnCallSite:PackageImporterSchemaTest.kt:PackageImporterSchemaTest$( "INSERT INTO poi VALUES ('test-region', 'Ambasciata', 'embassy', 45.4646, 9.1908, 'amenity=embassy', '+39 06 1234567', 'yes')" )</ID>
     <ID>Wrapping:AddressGridIndexTest.kt:AddressGridIndexTest$(</ID>
     <ID>Wrapping:RegionManifest.kt:(</ID>
     <ID>Wrapping:RegionManifestTest.kt:RegionManifestTest$(</ID>

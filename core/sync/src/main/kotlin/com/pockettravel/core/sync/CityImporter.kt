@@ -21,22 +21,13 @@ class CityPackage(val sections: List<CitySectionEntity>, val climate: List<CityC
  * Importa il cities.db scaricato di una regione (guide delle citta', generato da
  * tools/data-pipeline) in region.db, sostituendo le sezioni della stessa regione gia' presenti —
  * stesso pattern di PoiImporter. Le categorie sconosciute vengono scartate invece di far fallire
- * l'intero import, come GuidesImporter. cities.db viene cancellato dopo un import riuscito.
+ * l'intero import, come GuidesImporter.
  */
 class CityImporter @Inject constructor(
     private val cityDao: CityDao,
     private val database: RegionDatabase,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
-    /**
-     * Solo per i test (PackageImporterDeviceTest): legge, sostituisce e cancella [citiesDbFile]. L'installazione
-     * vera usa [read] fuori dalla transazione e [replace] dentro RegionRepository.inInstallTransaction.
-     */
-    suspend fun import(regionId: String, citiesDbFile: File) = withContext(ioDispatcher) {
-        replace(regionId, read(regionId, citiesDbFile))
-        citiesDbFile.delete()
-    }
-
     /**
      * Legge e fa il parsing del file senza toccare region.db: va chiamata fuori da
      * RegionRepository.inInstallTransaction, per non tenere occupato il lock di scrittura del database durante l'IO sul file.

@@ -7,6 +7,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 ## [Non rilasciato]
 
 ### Cambiamenti incompatibili
+- Cataloghi personalizzati: un pacchetto dei punti di interesse pubblicato prima del 27 settembre 2026 non si installa più e la nazione si ferma con un errore. Il catalogo ufficiale non ne ha.
 - Notifiche degli aggiornamenti: chi aveva spento le notifiche di nazioni, app o modello IA deve spegnere di nuovo «Aggiornamenti disponibili», il canale unico che le sostituisce.
 
 ### Aggiunto

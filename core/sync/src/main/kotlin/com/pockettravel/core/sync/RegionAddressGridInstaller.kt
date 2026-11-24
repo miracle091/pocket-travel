@@ -4,11 +4,9 @@ import ch.poole.geo.pmtiles.Constants
 import com.pockettravel.core.data.RegionStorage
 import com.pockettravel.core.data.mergeAddressSearchOnDevice
 import org.tukaani.xz.LZMA2Options
-import org.tukaani.xz.XZInputStream
 import org.tukaani.xz.XZOutputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.security.MessageDigest
 import java.util.zip.GZIPOutputStream
 import javax.inject.Inject
 
@@ -253,31 +251,6 @@ internal fun compressXz(source: File, target: File) {
         check(part.renameTo(target)) { "Impossibile scrivere ${target.name}" }
     } finally {
         part.delete()
-    }
-}
-
-/**
- * Decomprime [source] (xz) in [target], che deve essere [expected]: si ferma appena supera la sua dimensione e alla fine ne
- * controlla dimensione e sha256. Bloccante.
- */
-internal fun decompressXz(source: File, target: File, expected: RegionManifestFile) {
-    val digest = MessageDigest.getInstance("SHA-256")
-    var written = 0L
-    XZInputStream(source.inputStream().buffered()).use { input ->
-        target.outputStream().buffered().use { output ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            var read: Int
-            while (input.read(buffer).also { read = it } != -1) {
-                written += read
-                if (written > expected.sizeBytes) throw PermanentRegionPackageException("${expected.name} decompresso supera la dimensione del catalogo")
-                digest.update(buffer, 0, read)
-                output.write(buffer, 0, read)
-            }
-        }
-    }
-    val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
-    if (written != expected.sizeBytes || !sha256.equals(expected.sha256, ignoreCase = true)) {
-        throw PermanentRegionPackageException("${expected.name} decompresso non corrisponde al catalogo")
     }
 }
 

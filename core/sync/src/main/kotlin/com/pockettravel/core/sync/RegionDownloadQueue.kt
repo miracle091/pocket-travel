@@ -43,6 +43,9 @@ internal data class QueueState(
 ) {
     // Il «M» di «N di M»: le finite, quella in corso e quelle in attesa.
     val total: Int get() = done + failedRegionIds.size + pending.size + (if (current != null) 1 else 0)
+
+    // Le regioni con una voce in corso o in attesa (non quelle fallite).
+    val regionIds: Set<String> get() = (listOfNotNull(current) + pending).mapTo(mutableSetOf()) { it.regionId }
 }
 
 @Serializable
@@ -77,7 +80,7 @@ internal class RegionDownloadQueue(private val file: File, private val ioDispatc
     val state: StateFlow<QueueState> = _state.asStateFlow()
 
     suspend fun load() {
-        change {}
+        if (!mutex.withLock { loaded }) change {}
     }
 
     /** Accoda [kinds] di una regione; true se il worker va avviato (nessuno sta scaricando). */

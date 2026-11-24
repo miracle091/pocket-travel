@@ -29,34 +29,12 @@ internal suspend fun unpackXz(
     withContext(ioDispatcher) {
         val target = File(staging, file.name)
         val part = File(staging, "${file.name}.${UUID.randomUUID()}.unpack")
-        val digest = MessageDigest.getInstance("SHA-256")
-        var written = 0L
         try {
             try {
-                XZInputStream(File(staging, xz.name).inputStream().buffered()).use { input ->
-                    part.outputStream().buffered().use { output ->
-                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                        var read: Int
-                        while (input.read(buffer).also { read = it } != -1) {
-                            ensureActive()
-                            written += read
-                            if (written > file.sizeBytes) {
-                                throw PermanentRegionPackageException("${file.name} decompresso supera la dimensione del catalogo")
-                            }
-                            digest.update(buffer, 0, read)
-                            output.write(buffer, 0, read)
-                        }
-                    }
-                }
+                decompressXz(File(staging, xz.name), part, file) { ensureActive() }
             } catch (e: PermanentRegionPackageException) {
-                // Cancellato qui, a flusso chiuso: Windows (test sul JVM) non cancella un file ancora aperto.
                 File(staging, xz.name).delete()
                 throw e
-            }
-            val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
-            if (written != file.sizeBytes || !sha256.equals(file.sha256, ignoreCase = true)) {
-                File(staging, xz.name).delete()
-                throw PermanentRegionPackageException("${file.name} decompresso non corrisponde al catalogo")
             }
             // Un tentativo precedente interrotto dopo la decompressione puo' aver lasciato il file finale.
             target.delete()
@@ -68,5 +46,32 @@ internal suspend fun unpackXz(
             // Dopo il rename non esiste piu'; su errore o annullamento non resta niente di parziale.
             part.delete()
         }
+    }
+}
+
+/**
+ * Decomprime [source] (xz) in [target], che deve essere [expected]: si ferma appena supera la sua dimensione e alla fine ne
+ * controlla dimensione e sha256, calcolato mentre scrive. [onChunk] gira dopo ogni blocco letto (per fermarsi su annullamento).
+ * Bloccante.
+ */
+internal fun decompressXz(source: File, target: File, expected: RegionManifestFile, onChunk: () -> Unit = {}) {
+    val digest = MessageDigest.getInstance("SHA-256")
+    var written = 0L
+    XZInputStream(source.inputStream().buffered()).use { input ->
+        target.outputStream().buffered().use { output ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var read: Int
+            while (input.read(buffer).also { read = it } != -1) {
+                onChunk()
+                written += read
+                if (written > expected.sizeBytes) throw PermanentRegionPackageException("${expected.name} decompresso supera la dimensione del catalogo")
+                digest.update(buffer, 0, read)
+                output.write(buffer, 0, read)
+            }
+        }
+    }
+    val sha256 = digest.digest().toHexString()
+    if (written != expected.sizeBytes || !sha256.equals(expected.sha256, ignoreCase = true)) {
+        throw PermanentRegionPackageException("${expected.name} decompresso non corrisponde al catalogo")
     }
 }
