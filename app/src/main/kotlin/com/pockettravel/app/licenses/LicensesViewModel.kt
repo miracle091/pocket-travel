@@ -6,8 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.mikepenz.aboutlibraries.Libs
 import com.mikepenz.aboutlibraries.entity.Library
 import com.mikepenz.aboutlibraries.util.withContext
-import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.IoDispatcher
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.sync.AddressGridAttribution
 import com.pockettravel.core.sync.AddressGridClient
 import com.pockettravel.core.sync.ManifestClient

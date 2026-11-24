@@ -185,13 +185,13 @@ class RegionListViewModelContentsTest : RegionListViewModelTestBase() {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.setRoutingChoice("italia", RoutingVariantOption.CAR)
+        viewModel.setRoutingChoice("italia", RoutingVariantChoice.CAR)
         advanceUntilIdle()
 
         val (entry, kinds) = scheduler.enqueued.single()
         assertEquals(setOf(PackageKind.ROUTING), kinds)
         assertEquals("rc1", entry.routing.version)
-        assertEquals(RoutingVariantOption.CAR, viewModel.observeRoutingChoice("italia").first())
+        assertEquals(RoutingVariantChoice.CAR, viewModel.observeRoutingChoice("italia").first())
     }
 
     @Test
@@ -200,13 +200,13 @@ class RegionListViewModelContentsTest : RegionListViewModelTestBase() {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.setRoutingChoice("italia", RoutingVariantOption.ALL)
-        viewModel.setRoutingChoice("italia", RoutingVariantOption.CAR)
-        viewModel.setRoutingChoice("italia", RoutingVariantOption.BIKE_FOOT)
+        viewModel.setRoutingChoice("italia", RoutingVariantChoice.ALL)
+        viewModel.setRoutingChoice("italia", RoutingVariantChoice.CAR)
+        viewModel.setRoutingChoice("italia", RoutingVariantChoice.BIKE_FOOT)
         advanceUntilIdle()
 
         assertTrue(scheduler.enqueued.isEmpty())
-        assertEquals(RoutingVariantOption.BIKE_FOOT, viewModel.observeRoutingChoice("italia").first())
+        assertEquals(RoutingVariantChoice.BIKE_FOOT, viewModel.observeRoutingChoice("italia").first())
         assertEquals(RoutingVariantChoice.BIKE_FOOT, routingPreferences.choices.value.choiceFor("italia"))
     }
 

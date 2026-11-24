@@ -11,11 +11,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -25,16 +20,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.pockettravel.app.R
-import com.pockettravel.app.regions.LargePackageDownloadDialog
 import com.pockettravel.app.regions.PackageUiState
 import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.app.regions.RegionStatus
 import com.pockettravel.app.regions.RegionUiItem
 import com.pockettravel.app.regions.label
-import com.pockettravel.app.regions.warnsOnCellular
+import com.pockettravel.app.regions.rememberPackageDownload
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.ui.Spacing
-import com.pockettravel.core.ui.isOnCellularNetwork
 
 /**
  * Sotto una nazione da aggiornare, cosa cambia: un elenco puntato dei pacchetti con il loro peso. Con piu' di un pacchetto
@@ -43,32 +36,12 @@ import com.pockettravel.core.ui.isOnCellularNetwork
  */
 @Composable
 internal fun UpdatePackageList(item: RegionUiItem, actions: RegionRowActions) {
-    val context = LocalContext.current
     val packages = item.packages.filter { it.status == RegionStatus.UPDATE_AVAILABLE }
-    var pendingLargeDownload by rememberSaveable(item.regionId) { mutableStateOf<PackageKind?>(null) }
+    val download = rememberPackageDownload(item.regionId, packages) { kind -> actions.onDownloadPackage(item.regionId, kind) }
     packages.forEach { pkg ->
-        UpdatePackageRow(pkg, item.displayName, showButton = packages.size > 1, enabled = !item.fromSavedCopy) {
-            if (pkg.warnsOnCellular() && isOnCellularNetwork(context)) {
-                pendingLargeDownload = pkg.kind
-            } else {
-                actions.onDownloadPackage(item.regionId, pkg.kind)
-            }
-        }
+        UpdatePackageRow(pkg, item.displayName, showButton = packages.size > 1, enabled = !item.fromSavedCopy) { download(pkg) }
     }
     if (packages.isNotEmpty()) Spacer(Modifier.height(Spacing.s))
-    pendingLargeDownload?.let { kind ->
-        // Il pacchetto puo' non essere piu' da aggiornare (aggiornato altrove): si chiude il dialogo.
-        val pkg = packages.firstOrNull { it.kind == kind }
-        if (pkg == null) {
-            SideEffect { pendingLargeDownload = null }
-        } else {
-            LargePackageDownloadDialog(
-                pkg = pkg,
-                onConfirm = { pendingLargeDownload = null; actions.onDownloadPackage(item.regionId, kind) },
-                onDismiss = { pendingLargeDownload = null },
-            )
-        }
-    }
 }
 
 @Composable

@@ -3,11 +3,11 @@ package com.pockettravel.app.regions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.sync.GuidesInstaller
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.guidesChoice
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,17 +35,13 @@ class RegionPreviewViewModel @Inject constructor(
     fun load() {
         viewModelScope.launch {
             _state.value = RegionPreviewState.Loading
-            try {
+            _state.value = runCatchingCancellable {
                 // Le guide di tutte le nazioni sono un solo pacchetto: se gia' installato non serve scaricare nulla.
                 if (regionRepository.installedGuidesVersion() == null) {
                     manifestClient.fetchManifest().guidesChoice().let { guidesInstaller.install(it.entry, it.installedVersion) }
                 }
-                _state.value = RegionPreviewState.Ready
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                _state.value = RegionPreviewState.Error
-            }
+                RegionPreviewState.Ready
+            }.getOrDefault(RegionPreviewState.Error)
         }
     }
 }

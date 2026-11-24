@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.app.R
-import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.LastKnownPosition
@@ -18,6 +17,7 @@ import com.pockettravel.core.data.RoutingVariantChoice
 import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.data.UpdateCheck
 import com.pockettravel.core.data.currentGuidesLanguage
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.sync.AddressGridClient
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.NetworkBlockDetector
@@ -86,7 +86,7 @@ class RegionListViewModel @Inject constructor(
     private val lastKnownPosition: LastKnownPosition,
     private val countryLocator: CountryLocator,
     private val connectivityChecker: ConnectivityChecker,
-    private val recentRegionStore: RecentRegionStore,
+    private val regionRemoval: RegionRemoval,
     private val networkBlocks: NetworkBlockDetector,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
@@ -196,7 +196,7 @@ class RegionListViewModel @Inject constructor(
             }
         }
         viewModelScope.launch(defaultDispatcher) {
-            place.value = lastKnownPosition.get()?.let { (lat, lon) -> DevicePlace(lat, lon, countryLocator.countryAt(lat, lon)) }
+            place.value = countryLocator.placeOf(lastKnownPosition)
         }
     }
 
@@ -332,40 +332,20 @@ class RegionListViewModel @Inject constructor(
         return enoughSpace
     }
 
-    // L'eliminazione dei file puo' fallire (check nel repository): un messaggio invece del crash.
-    private suspend fun removeOrReport(remove: suspend () -> Unit) {
-        try {
-            remove()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: IllegalStateException) {
-            status.update { it.copy(message = R.string.regions_delete_error) }
-        }
-    }
-
     fun onMessageShown() {
         status.update { it.copy(message = null) }
     }
 
     fun delete(regionId: String) {
-        regionSyncScheduler.cancelDownload(regionId)
-        regionZonePreferences.setZone(regionId, null)
-        viewModelScope.launch {
-            removeOrReport {
-                regionRepository.remove(regionId)
-                withContext(ioDispatcher) { recentRegionStore.clearIfLast(regionId) }
-            }
-        }
+        viewModelScope.launch { regionRemoval.remove(regionId)?.let(::showMessage) }
     }
 
     fun deletePackage(regionId: String, kind: PackageKind) {
-        viewModelScope.launch {
-            removeOrReport {
-                regionRepository.removePackage(regionId, kind)
-                // Con l'ultimo pacchetto se ne va l'intera regione.
-                if (regionRepository.installed(regionId) == null) withContext(ioDispatcher) { recentRegionStore.clearIfLast(regionId) }
-            }
-        }
+        viewModelScope.launch { regionRemoval.removePackage(regionId, kind)?.let(::showMessage) }
+    }
+
+    private fun showMessage(@StringRes message: Int) {
+        status.update { it.copy(message = message) }
     }
 
     /** Mappa leggera: la scelta dell'utente o, senza, com'e' la mappa installata; senza mappa leggera (il default). */
@@ -385,8 +365,6 @@ class RegionListViewModel @Inject constructor(
         }
     }
 
-    // La voce del catalogo limitata alla zona scelta: anche il worker la limita, ma dimensioni, spazio libero e versioni
-    // da confrontare devono essere gia' quelle della zona.
     /**
      * [entry] con le guide delle citta' nella lingua di adesso: se l'elenco e' stato letto nell'altra lingua (cambiata
      * mentre era aperto, prima che setLocale lo rileggesse) si prendono dal catalogo, letto ora nella lingua giusta.
@@ -411,6 +389,8 @@ class RegionListViewModel @Inject constructor(
     @StringRes
     private fun loadErrorFor(error: IOException): Int = networkBlocks.blockFor(error).message() ?: R.string.regions_load_error
 
+    // La voce del catalogo limitata alla zona scelta: anche il worker la limita, ma dimensioni, spazio libero e versioni
+    // da confrontare devono essere gia' quelle della zona.
     private fun zonedEntry(regionId: String, zone: RegionZone? = regionZonePreferences.zone(regionId)): RegionManifestEntry? =
         manifestRegions.value.firstOrNull { it.regionId == regionId }
             ?.withRoutingVariant(routingVariantPreferences.choices.value.isCarOnly(regionId))?.restrictedTo(zone)
@@ -439,30 +419,24 @@ class RegionListViewModel @Inject constructor(
             }
             val installedKinds = setOf(PackageKind.MAP, PackageKind.ROUTING, PackageKind.ADDRESSES).filter { local.versionOf(it) != null }
             if (PackageKind.ADDRESSES in installedKinds && PackageKind.ADDRESSES !in entry.availableKinds) {
-                removeOrReport { regionRepository.removePackage(regionId, PackageKind.ADDRESSES) }
+                regionRemoval.removePackage(regionId, PackageKind.ADDRESSES)?.let(::showMessage)
             }
             enqueue(entry, installedKinds.filterTo(mutableSetOf()) { it in entry.availableKinds })
         }
     }
 
-    fun observeRoutingChoice(regionId: String): Flow<RoutingVariantOption> =
-        routingVariantPreferences.choices.map { choices ->
-            when (choices.choiceFor(regionId)) {
-                RoutingVariantChoice.CAR -> RoutingVariantOption.CAR
-                RoutingVariantChoice.BIKE_FOOT -> RoutingVariantOption.BIKE_FOOT
-                RoutingVariantChoice.ALL -> RoutingVariantOption.ALL
-            }
-        }
+    fun observeRoutingChoice(regionId: String): Flow<RoutingVariantChoice> =
+        routingVariantPreferences.choices.map { it.choiceFor(regionId) }
 
     /**
      * Rete stradale per l'auto (variante "solo auto") o per bici e piedi / tutti i modi (rete stradale completa); se
      * cambia la variante e la rete stradale e' gia' installata, si riscarica subito.
      */
-    fun setRoutingChoice(regionId: String, choice: RoutingVariantOption) {
-        val carOnly = choice == RoutingVariantOption.CAR
+    fun setRoutingChoice(regionId: String, choice: RoutingVariantChoice) {
+        val carOnly = choice == RoutingVariantChoice.CAR
         val packageChanged = carOnly != routingVariantPreferences.choices.value.isCarOnly(regionId)
         routingVariantPreferences.setCarOnly(regionId, carOnly)
-        routingVariantPreferences.setBikeFoot(regionId, choice == RoutingVariantOption.BIKE_FOOT)
+        routingVariantPreferences.setBikeFoot(regionId, choice == RoutingVariantChoice.BIKE_FOOT)
         if (!packageChanged) return
         viewModelScope.launch {
             if (regionRepository.installed(regionId)?.versionOf(PackageKind.ROUTING) != null) downloadPackage(regionId, PackageKind.ROUTING)

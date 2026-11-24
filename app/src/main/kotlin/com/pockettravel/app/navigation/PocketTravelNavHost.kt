@@ -246,11 +246,8 @@ private fun fadeThroughEnter(): EnterTransition =
 
 private fun fadeThroughExit(): ExitTransition = fadeOut(tween(MOTION_MS / THIRD))
 
-// Destinazioni principali: "fade through" tra loro (cambio di sezione dalla barra), "shared axis"
-// verso e dalle schermate di dettaglio.
 // Notifica di aggiornamento o di allerta, o widget, toccati (OpenScreenRequests): dopo la regione iniziale; le pagine delle regioni
-// sostituiscono quello che c'e' sopra Nazioni. Durante
-// l'onboarding no: la richiesta resta per quando l'elenco delle nazioni c'e'.
+// sostituiscono quello che c'e' sopra Nazioni. Durante l'onboarding no: la richiesta resta per quando l'elenco delle nazioni c'e'.
 @Composable
 private fun OpenScreenRequestsEffect(navController: NavHostController, currentDestination: NavDestination?) {
     val openScreen by OpenScreenRequests.screen.collectAsStateWithLifecycle()
@@ -309,6 +306,8 @@ private fun NavBackStackEntry.isRegionHub() = destination.hasRoute<RegionHubRout
 
 private fun NavHostController.openRegionId(): String? = currentBackStackEntry?.takeIf { it.isRegionHub() }?.toRoute<RegionHubRoute>()?.regionId
 
+// Destinazioni principali: "fade through" tra loro (cambio di sezione dalla barra), "shared axis"
+// verso e dalle schermate di dettaglio, "container transform" da e verso l'hub di una regione.
 internal val topLevelEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
     if (initialState.isTopLevel()) fadeThroughEnter() else sharedAxisEnter(forward = true)
 }

@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.WorkInfo
 import com.pockettravel.app.R
+import com.pockettravel.app.isActive
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.ui.AppIcons
@@ -200,7 +201,7 @@ internal data class RegionDownloadUi(
 )
 
 internal fun WorkInfo?.downloadUi(): RegionDownloadUi {
-    val isDownloading = this?.state == WorkInfo.State.RUNNING || this?.state == WorkInfo.State.ENQUEUED
+    val isDownloading = isActive()
     // Due fasi: prima i file (byte), poi l'estrazione della mappa (byte di tile), ognuna da 0 a 100%.
     val mapBytesTotal = this?.progress?.getLong(RegionPackageDownloadWorker.KEY_MAP_BYTES_TOTAL, 0L) ?: 0L
     val extractingMap = mapBytesTotal > 0

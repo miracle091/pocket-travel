@@ -3,11 +3,12 @@ package com.pockettravel.app.regions
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
-import com.pockettravel.app.runCatchingCancellable
+import com.pockettravel.app.isActive
 import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RoutingVariantPreferences
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.NetworkBlockDetector
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
@@ -22,7 +23,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -59,26 +59,27 @@ class RoutingDownloadViewModel @Inject constructor(
     private val targets = MutableStateFlow<List<String>>(emptyList())
     private val downloadIds: Flow<List<String>> = combine(regionId, targets) { id, targets -> targets.ifEmpty { listOfNotNull(id) } }
 
+    // Il lavoro di download di ogni regione seguita (null: non registrato), vuoto se non ce n'e'.
+    private val works: Flow<List<WorkInfo?>> = downloadIds.flatMapLatest { ids ->
+        if (ids.isEmpty()) flowOf(emptyList()) else combine(ids.map { regionSyncScheduler.observeDownload(it) }) { it.toList() }
+    }
+
     /**
      * Avanzamento 0..1 del download in corso, null se nessuno. Con piu' regioni, la media: quelle finite contano 1,
      * quelle in coda 0.
      */
-    val downloadProgress: StateFlow<Float?> = downloadIds.flatMapLatest { ids ->
-        if (ids.isEmpty()) return@flatMapLatest flowOf(null)
-        combine(ids.map { regionSyncScheduler.observeDownload(it) }) { works ->
-            val active = { work: WorkInfo? -> work?.state == WorkInfo.State.RUNNING || work?.state == WorkInfo.State.ENQUEUED }
-            if (works.none(active)) return@combine null
-            works.map { work ->
-                when {
-                    work?.state == WorkInfo.State.SUCCEEDED -> 1f
-                    !active(work) -> 0f
-                    else -> {
-                        val total = work!!.progress.getLong(RegionPackageDownloadWorker.KEY_TOTAL_BYTES, 0L)
-                        if (total > 0) work.progress.getLong(RegionPackageDownloadWorker.KEY_BYTES_DOWNLOADED, 0L) / total.toFloat() else 0f
-                    }
+    val downloadProgress: StateFlow<Float?> = works.map { works ->
+        if (works.none { it.isActive() }) return@map null
+        works.map { work ->
+            when {
+                work?.state == WorkInfo.State.SUCCEEDED -> 1f
+                work == null || !work.isActive() -> 0f
+                else -> {
+                    val total = work.progress.getLong(RegionPackageDownloadWorker.KEY_TOTAL_BYTES, 0L)
+                    if (total > 0) work.progress.getLong(RegionPackageDownloadWorker.KEY_BYTES_DOWNLOADED, 0L) / total.toFloat() else 0f
                 }
-            }.average().toFloat()
-        }
+            }
+        }.average().toFloat()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     // Il catalogo non si e' potuto leggere nell'ultimo tentativo di scaricare (offline).
@@ -88,19 +89,13 @@ class RoutingDownloadViewModel @Inject constructor(
     private val manifestBlockMessage = MutableStateFlow<Int?>(null)
 
     /** L'ultimo download (di una delle regioni) e' finito in errore (lavoro fallito o catalogo non raggiungibile): si puo' riprovare. */
-    val downloadFailed: StateFlow<Boolean> = downloadIds.flatMapLatest { ids ->
-        if (ids.isEmpty()) return@flatMapLatest manifestFailed
-        combine(combine(ids.map { regionSyncScheduler.observeDownload(it) }) { it.toList() }, manifestFailed) { works, noManifest ->
-            noManifest || works.any { it?.state == WorkInfo.State.FAILED }
-        }
+    val downloadFailed: StateFlow<Boolean> = combine(works, manifestFailed) { works, noManifest ->
+        noManifest || works.any { it?.state == WorkInfo.State.FAILED }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** Il messaggio di rete bloccata del download fallito di una delle regioni, se il motivo è questo. */
-    val downloadBlockMessage: StateFlow<Int?> = downloadIds.flatMapLatest { ids ->
-        if (ids.isEmpty()) return@flatMapLatest manifestBlockMessage
-        combine(combine(ids.map { regionSyncScheduler.observeDownload(it) }) { it.toList() }, manifestBlockMessage) { works, manifestBlock ->
-            manifestBlock ?: works.firstNotNullOfOrNull { it.blockMessage() }
-        }
+    val downloadBlockMessage: StateFlow<Int?> = combine(works, manifestBlockMessage) { works, manifestBlock ->
+        manifestBlock ?: works.firstNotNullOfOrNull { it.blockMessage() }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun load(regionId: String?) {

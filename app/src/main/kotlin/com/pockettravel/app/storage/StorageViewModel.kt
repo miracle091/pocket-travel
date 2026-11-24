@@ -3,15 +3,13 @@ package com.pockettravel.app.storage
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pockettravel.app.R
-import com.pockettravel.app.regions.RecentRegionStore
+import com.pockettravel.app.regions.RegionRemoval
 import com.pockettravel.app.regions.installedRegionName
-import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.InstalledGuides
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
-import com.pockettravel.core.data.RegionZonePreferences
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.feature.ai.AiSettingsStore
@@ -20,7 +18,6 @@ import com.pockettravel.feature.ai.LlmModelManager
 import com.pockettravel.feature.ai.OnDeviceLlmEngine
 import com.pockettravel.feature.ai.selectedModelDefinition
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -75,8 +72,7 @@ class StorageViewModel @Inject constructor(
     private val translationManager: BergamotModelManager,
     private val engine: OnDeviceLlmEngine,
     private val aiSettingsStore: AiSettingsStore,
-    private val recentRegionStore: RecentRegionStore,
-    private val regionZonePreferences: RegionZonePreferences,
+    private val regionRemoval: RegionRemoval,
     private val manifestClient: ManifestClient,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -131,24 +127,15 @@ class StorageViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StorageUiState())
 
     fun deleteRegion(regionId: String) {
-        regionSyncScheduler.cancelDownload(regionId)
-        regionZonePreferences.setZone(regionId, null)
         viewModelScope.launch {
-            removeOrReport {
-                regionRepository.remove(regionId)
-                withContext(ioDispatcher) { recentRegionStore.clearIfLast(regionId) }
-            }
+            regionRemoval.remove(regionId)?.let { message.value = it }
             refreshDeviceState()
         }
     }
 
     fun deletePackage(regionId: String, kind: PackageKind) {
         viewModelScope.launch {
-            removeOrReport {
-                regionRepository.removePackage(regionId, kind)
-                // Con l'ultimo pacchetto se ne va l'intera regione.
-                if (regionRepository.installed(regionId) == null) withContext(ioDispatcher) { recentRegionStore.clearIfLast(regionId) }
-            }
+            regionRemoval.removePackage(regionId, kind)?.let { message.value = it }
             refreshDeviceState()
         }
     }
@@ -182,17 +169,6 @@ class StorageViewModel @Inject constructor(
 
     fun onMessageShown() {
         message.value = null
-    }
-
-    // L'eliminazione dei file puo' fallire (check nel repository): un messaggio invece del crash.
-    private suspend fun removeOrReport(remove: suspend () -> Unit) {
-        try {
-            remove()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: IllegalStateException) {
-            message.value = R.string.regions_delete_error
-        }
     }
 
     private fun refreshDeviceState() {

@@ -2,13 +2,12 @@ package com.pockettravel.app.crash
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.currentGuidesLanguage
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.feature.ai.AiSettingsStore
 import com.pockettravel.feature.ai.LlmModelDownloadScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
 /** Modello più grande della RAM del dispositivo che si è chiuso, e quello adatto da scaricare. */
 data class ModelProposal(val loadedName: String, val proposedId: String, val proposedName: String)

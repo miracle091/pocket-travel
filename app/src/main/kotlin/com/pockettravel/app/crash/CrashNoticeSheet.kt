@@ -15,10 +15,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -34,6 +32,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.rememberExpandedSheetState
 
 /** Foglio al lancio dopo una chiusura inattesa; non compare se non c'è un rapporto in attesa. */
 @Composable
@@ -54,7 +53,7 @@ private fun CrashNoticeSheet(notice: CrashNoticeState, onDismiss: () -> Unit, on
     val text = remember(notice.report, labels) { notice.report.toText(labels) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)),
+        sheetState = rememberExpandedSheetState(),
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl).padding(bottom = Spacing.xxl)) {
             Text(

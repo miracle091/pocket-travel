@@ -1,6 +1,7 @@
 package com.pockettravel.app.regions
 
 import com.pockettravel.core.data.PackageKind
+import com.pockettravel.core.data.RoutingVariantChoice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -31,10 +32,10 @@ class PackageKindResourcesTest {
 
     @Test
     fun `le scelte della rete stradale sono tre, con testi diversi`() {
-        assertEquals(listOf(RoutingVariantOption.CAR, RoutingVariantOption.BIKE_FOOT, RoutingVariantOption.ALL), RoutingVariantOption.entries)
+        assertEquals(listOf(RoutingVariantChoice.CAR, RoutingVariantChoice.BIKE_FOOT, RoutingVariantChoice.ALL), RoutingVariantChoice.entries)
 
-        val labels = RoutingVariantOption.entries.map { it.label }
-        val details = RoutingVariantOption.entries.map { it.detail }
+        val labels = RoutingVariantChoice.entries.map { it.routingLabel() }
+        val details = RoutingVariantChoice.entries.map { it.routingDetail() }
 
         assertEquals(3, labels.toSet().size)
         assertEquals(3, details.toSet().size)

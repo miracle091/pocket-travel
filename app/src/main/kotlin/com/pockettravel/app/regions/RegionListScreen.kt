@@ -67,6 +67,7 @@ import com.pockettravel.app.R
 import com.pockettravel.app.navigation.regionContainer
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionZone
+import com.pockettravel.core.data.RoutingVariantChoice
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.EmptyState
@@ -146,8 +147,8 @@ internal data class RegionRowActions(
     // La regione e' installata per intero (senza zona): una zona scelta da un'altra nazione non deve ridurla.
     val isInstalledWhole: suspend (regionId: String) -> Boolean = { false },
     // Per quali modi e' la rete stradale (foglio Contenuti, sotto Rete stradale).
-    val observeRoutingChoice: (regionId: String) -> Flow<RoutingVariantOption> = { flowOf(RoutingVariantOption.ALL) },
-    val onRoutingChoiceChange: (regionId: String, choice: RoutingVariantOption) -> Unit = { _, _ -> },
+    val observeRoutingChoice: (regionId: String) -> Flow<RoutingVariantChoice> = { flowOf(RoutingVariantChoice.ALL) },
+    val onRoutingChoiceChange: (regionId: String, choice: RoutingVariantChoice) -> Unit = { _, _ -> },
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)

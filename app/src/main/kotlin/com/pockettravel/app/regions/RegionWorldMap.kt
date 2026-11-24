@@ -8,9 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +22,7 @@ import androidx.compose.ui.semantics.semantics
 import com.pockettravel.app.R
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.countryName
+import com.pockettravel.core.ui.rememberExpandedSheetState
 import com.pockettravel.feature.map.CountryStatus
 import com.pockettravel.feature.map.WorldMap
 
@@ -61,7 +60,7 @@ internal fun RegionWorldMap(
         val regions = regionsByCountry[iso].orEmpty()
         val countryName = countryName(iso)
         // Aperto per intero e scorrevole: gli Stati Uniti hanno 51 regioni.
-        ModalBottomSheet(onDismissRequest = { selectedIso = null }, sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))) {
+        ModalBottomSheet(onDismissRequest = { selectedIso = null }, sheetState = rememberExpandedSheetState()) {
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = Spacing.xxl)) {
                 Text(
                     text = countryName,

@@ -87,7 +87,7 @@ abstract class RegionListViewModelTestBase {
         lastKnownPosition = position,
         countryLocator = locator,
         connectivityChecker = connectivity,
-        recentRegionStore = recent,
+        regionRemoval = RegionRemoval(regions, scheduler, zones, recent, mainDispatcher.dispatcher),
         networkBlocks = { networkBlock },
         ioDispatcher = mainDispatcher.dispatcher,
         defaultDispatcher = mainDispatcher.dispatcher,

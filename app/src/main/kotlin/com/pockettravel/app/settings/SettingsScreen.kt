@@ -2,12 +2,8 @@ package com.pockettravel.app.settings
 
 import android.Manifest
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -22,20 +18,16 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -47,7 +39,6 @@ import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -58,12 +49,13 @@ import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.CountryPickerSheet
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.countryName
+import com.pockettravel.core.ui.rememberExpandedSheetState
+import com.pockettravel.core.ui.rememberPermissionRequest
 import com.pockettravel.feature.ai.AiSettingsSection
 import com.pockettravel.feature.map.RouteAvoidOptions
 import com.pockettravel.feature.map.UsageMode
 import com.pockettravel.feature.map.UsageModeOptions
 import com.pockettravel.feature.map.routeAvoidSummary
-import kotlinx.coroutines.launch
 import com.pockettravel.core.ui.R as UiR
 
 // Le preferenze dell'app, raccolte qui da Altro: generali (lingua, nazionalita', aspetto) e del
@@ -168,7 +160,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     // Scegliere un modo riporta i filtri della mappa ai suoi predefiniti: lo dice il testo del foglio.
     if (showUsageModes) {
         // Aperto per intero e scorrevole: 6 modi e la casella non stanno a mezza altezza, ne' con i caratteri grandi.
-        ModalBottomSheet(onDismissRequest = { showUsageModes = false }, sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))) {
+        ModalBottomSheet(onDismissRequest = { showUsageModes = false }, sheetState = rememberExpandedSheetState()) {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = Spacing.l)) {
                 Text(
                     text = stringResource(R.string.more_usage_mode),
@@ -196,7 +188,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
 
     if (showRouteOptions) {
         // Aperto per intero e scorrevole, come "Come ti sposti": cinque interruttori non stanno a mezza altezza.
-        ModalBottomSheet(onDismissRequest = { showRouteOptions = false }, sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))) {
+        ModalBottomSheet(onDismissRequest = { showRouteOptions = false }, sheetState = rememberExpandedSheetState()) {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = Spacing.l)) {
                 Text(
                     text = stringResource(R.string.settings_route_options),
@@ -270,25 +262,14 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
 private fun AlertNotificationsItem(switch: AlertNotificationSwitch, snackbarHostState: SnackbarHostState) {
     val context = LocalContext.current
     val enabled by switch.enabled.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
-    val deniedMessage = stringResource(R.string.settings_alert_notifications_denied)
-    val openSettingsLabel = stringResource(R.string.settings_open_app_settings)
     // Senza il permesso delle notifiche l'interruttore resta spento.
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            switch.set(true)
-        } else {
-            // Dopo un rifiuto, rationale false vuol dire "Non chiedere piu'": il sistema non mostra piu' la richiesta
-            // e l'unica strada sono le impostazioni dell'app.
-            val permanentlyDenied = !ActivityCompat.shouldShowRequestPermissionRationale(context.findActivity(), Manifest.permission.POST_NOTIFICATIONS)
-            scope.launch {
-                val result = snackbarHostState.showSnackbar(message = deniedMessage, actionLabel = if (permanentlyDenied) openSettingsLabel else null)
-                if (result == SnackbarResult.ActionPerformed) {
-                    context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri()))
-                }
-            }
-        }
-    }
+    val requestPermission = rememberPermissionRequest(
+        permission = Manifest.permission.POST_NOTIFICATIONS,
+        snackbarHostState = snackbarHostState,
+        deniedMessage = stringResource(R.string.settings_alert_notifications_denied),
+        openSettingsLabel = stringResource(R.string.settings_open_app_settings),
+        onGranted = { switch.set(true) },
+    )
     SwitchItem(
         icon = ImageVector.vectorResource(UiR.drawable.ms_notifications),
         title = stringResource(R.string.settings_alert_notifications),
@@ -296,7 +277,7 @@ private fun AlertNotificationsItem(switch: AlertNotificationSwitch, snackbarHost
         checked = enabled,
         onCheckedChange = { on ->
             if (on && !hasNotificationPermission(context)) {
-                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                requestPermission()
             } else {
                 switch.set(on)
             }

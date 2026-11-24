@@ -8,10 +8,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -29,6 +27,7 @@ import androidx.lifecycle.viewModelScope
 import com.pockettravel.app.R
 import com.pockettravel.core.data.PreferencesFactory
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.rememberExpandedSheetState
 import com.pockettravel.feature.ai.AiSettingsStore
 import com.pockettravel.feature.ai.DeviceAiCapability
 import com.pockettravel.feature.ai.LlmModelCatalog
@@ -38,14 +37,14 @@ import com.pockettravel.feature.ai.LlmModelManager
 import com.pockettravel.feature.ai.ModelOrigin
 import com.pockettravel.feature.ai.RamTier
 import dagger.hilt.android.lifecycle.HiltViewModel
-import java.util.Locale
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.stateIn
+import java.util.Locale
+import javax.inject.Inject
 
 /** Modello addestrato scaricato nell'altra lingua e quello da proporre per la lingua dell'app. */
 data class ModelLanguageProposal(val downloaded: LlmModelDefinition, val proposed: LlmModelDefinition)
@@ -130,7 +129,7 @@ private fun ModelLanguageSheet(proposal: ModelLanguageProposal, language: String
     val size = Formatter.formatShortFileSize(context, proposal.proposed.sizeBytes)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)),
+        sheetState = rememberExpandedSheetState(),
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl).padding(bottom = Spacing.xxl)) {
             Text(

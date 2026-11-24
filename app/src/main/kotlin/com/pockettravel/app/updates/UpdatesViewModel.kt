@@ -6,8 +6,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.app.InstalledVersionCode
 import com.pockettravel.app.R
-import com.pockettravel.app.runCatchingCancellable
+import com.pockettravel.app.isActive
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.sync.AiModelManifestEntry
 import com.pockettravel.core.sync.AppStatusClient
 import com.pockettravel.core.sync.AppUpdateDownloads
@@ -21,13 +22,13 @@ import com.pockettravel.feature.ai.AiModelUpdates
 import com.pockettravel.feature.ai.LlmModelDownloadWorker
 import com.pockettravel.feature.map.ConnectivityChecker
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /** Guide da aggiornare: il peso del pacchetto compresso. */
 data class GuidesUpdate(val sizeBytes: Long)
@@ -204,5 +205,3 @@ class UpdatesViewModel @Inject constructor(
         }
     }
 }
-
-private fun WorkInfo?.isActive() = this?.state == WorkInfo.State.RUNNING || this?.state == WorkInfo.State.ENQUEUED

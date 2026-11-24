@@ -3,9 +3,9 @@ package com.pockettravel.app.widget
 import android.content.Context
 import android.util.Log
 import androidx.glance.appwidget.updateAll
-import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.core.data.AppInitializer
 import com.pockettravel.core.data.DefaultDispatcher
+import com.pockettravel.core.data.runCatchingCancellable
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope

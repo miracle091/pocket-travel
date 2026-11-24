@@ -32,10 +32,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,8 +50,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.work.WorkInfo
 import com.pockettravel.app.R
+import com.pockettravel.app.isActive
 import com.pockettravel.app.regions.RegionListViewModel
 import com.pockettravel.app.regions.RegionStatus
 import com.pockettravel.app.regions.RegionUiItem
@@ -207,7 +207,7 @@ private fun OnboardingRegionRow(
 ) {
     val context = LocalContext.current
     val work by remember(item.regionId) { viewModel.observeDownloadProgress(item.regionId) }.collectAsStateWithLifecycle(null)
-    val downloading = work?.state == WorkInfo.State.RUNNING || work?.state == WorkInfo.State.ENQUEUED
+    val downloading = work.isActive()
     val selectable = item.status == RegionStatus.NOT_INSTALLED && !downloading
     val kinds = selectedKinds ?: defaultKinds
     val size = Formatter.formatShortFileSize(context, downloadBytes(item, kinds))

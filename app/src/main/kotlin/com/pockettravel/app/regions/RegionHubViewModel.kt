@@ -5,12 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.app.R
-import com.pockettravel.app.runCatchingCancellable
+import com.pockettravel.app.isActive
 import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.NetworkBlockDetector
 import com.pockettravel.core.sync.RegionManifestEntry
@@ -145,7 +146,7 @@ class RegionHubViewModel @Inject constructor(
             when {
                 isTransitUpdating(update, updateWork) -> TransitPackageState.DOWNLOADING
                 installed -> TransitPackageState.INSTALLED
-                work?.state == WorkInfo.State.RUNNING || work?.state == WorkInfo.State.ENQUEUED -> TransitPackageState.DOWNLOADING
+                work.isActive() -> TransitPackageState.DOWNLOADING
                 offered == true -> TransitPackageState.AVAILABLE
                 offered == false -> TransitPackageState.NOT_OFFERED
                 else -> TransitPackageState.UNKNOWN
@@ -251,7 +252,7 @@ class RegionHubViewModel @Inject constructor(
         val index = manifest.transit?.let { transitClient.fetchIndex(it) }
         val regions = manifest.regions.filter { it.regionId == id }
         val place = withContext(defaultDispatcher) {
-            lastKnownPosition.get()?.let { (lat, lon) -> DevicePlace(lat, lon, countryLocator.countryAt(lat, lon)) }
+            countryLocator.placeOf(lastKnownPosition)
         }
         val choices = effectiveTransitChoices(regions, index, transitNetworkPreferences.excluded.value, place)
         return attachTransitFeeds(regions, index, choices.excluded, choices.reasons).first()
@@ -272,7 +273,7 @@ class RegionHubViewModel @Inject constructor(
 
     private fun mapState(hasMap: Boolean, work: WorkInfo?): RegionMapState = when {
         hasMap -> RegionMapState.INSTALLED
-        work?.state == WorkInfo.State.RUNNING || work?.state == WorkInfo.State.ENQUEUED -> RegionMapState.DOWNLOADING
+        work.isActive() -> RegionMapState.DOWNLOADING
         else -> RegionMapState.MISSING
     }
 }

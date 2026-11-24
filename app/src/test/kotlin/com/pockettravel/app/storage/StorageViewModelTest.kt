@@ -3,6 +3,7 @@ package com.pockettravel.app.storage
 import com.pockettravel.app.MainDispatcherRule
 import com.pockettravel.app.R
 import com.pockettravel.app.regions.RecentRegionStore
+import com.pockettravel.app.regions.RegionRemoval
 import com.pockettravel.core.data.InstalledGuides
 import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.PackageKind
@@ -69,7 +70,7 @@ class StorageViewModelTest {
     private fun viewModel(
         regions: RegionRepository = repository,
         modelEngine: OnDeviceLlmEngine = engine,
-    ) = StorageViewModel(regions, scheduler, models, translation, modelEngine, settings, recent, zones, FakeManifestClient(), mainDispatcher.dispatcher)
+    ) = StorageViewModel(regions, scheduler, models, translation, modelEngine, settings, RegionRemoval(regions, scheduler, zones, recent, mainDispatcher.dispatcher), FakeManifestClient(), mainDispatcher.dispatcher)
 
     // uiState e' un WhileSubscribed: serve un osservatore per avere i valori.
     private fun TestScope.observe(viewModel: StorageViewModel) {

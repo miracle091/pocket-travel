@@ -19,10 +19,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +41,7 @@ import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.UiMessage
 import com.pockettravel.core.ui.asString
+import com.pockettravel.core.ui.rememberExpandedSheetState
 
 /**
  * Catalogo da usare al posto di quello ufficiale: indirizzo di manifest.json e chiave pubblica delle sue firme,
@@ -63,7 +62,7 @@ internal fun CatalogSheet(
     val checking = state == CatalogState.Checking
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)),
+        sheetState = rememberExpandedSheetState(),
     ) {
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().imePadding()

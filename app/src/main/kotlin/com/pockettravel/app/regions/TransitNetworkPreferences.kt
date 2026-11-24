@@ -1,11 +1,12 @@
 package com.pockettravel.app.regions
 
 import androidx.core.content.edit
+import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.PreferencesFactory
 import com.pockettravel.core.sync.RegionManifestEntry
-import com.pockettravel.core.sync.TransitIndex
 import com.pockettravel.core.sync.TransitDefaultReason
+import com.pockettravel.core.sync.TransitIndex
 import com.pockettravel.core.sync.defaultTransitChoice
 import com.pockettravel.core.sync.regionTransitFeeds
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,6 +46,10 @@ class TransitNetworkPreferences @Inject constructor(preferences: PreferencesFact
 
 /** Dove si trova il dispositivo: ultima posizione nota e paese (CountryLocator), null se non nota. */
 internal data class DevicePlace(val latitude: Double, val longitude: Double, val countryCode: String?)
+
+/** L'ultima posizione nota con il suo paese, null se non nota. Da chiamare fuori dal main thread (vedi [CountryLocator]). */
+internal fun CountryLocator.placeOf(position: LastKnownPosition): DevicePlace? =
+    position.get()?.let { (lat, lon) -> DevicePlace(lat, lon, countryAt(lat, lon)) }
 
 /** Le reti tolte per regione e, per quelle con la scelta di default, il perche'. */
 internal data class TransitChoices(val excluded: Map<String, Set<String>>, val reasons: Map<String, TransitDefaultReason>)

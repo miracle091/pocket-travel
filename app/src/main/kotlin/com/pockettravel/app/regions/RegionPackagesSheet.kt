@@ -22,13 +22,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionZone
+import com.pockettravel.core.data.RoutingVariantChoice
 import com.pockettravel.core.data.routingIsStale
 import com.pockettravel.core.sync.TransitDefaultReason
 import com.pockettravel.core.sync.TransitMissing
@@ -62,6 +61,7 @@ import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.isOnCellularNetwork
+import com.pockettravel.core.ui.rememberExpandedSheetState
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -77,15 +77,14 @@ internal fun RegionPackagesSheet(
     actions: RegionRowActions,
     onDismiss: () -> Unit,
 ) {
-    val context = LocalContext.current
     var pendingDelete by rememberSaveable { mutableStateOf<PackageKind?>(null) }
-    var pendingLargeDownload by rememberSaveable { mutableStateOf<PackageKind?>(null) }
+    val download = rememberPackageDownload(item.regionId, item.packages) { kind -> actions.onDownloadPackage(item.regionId, kind) }
     var pickingZone by rememberSaveable { mutableStateOf(false) }
     var showNetworks by rememberSaveable { mutableStateOf(false) }
     var showDeleteAll by rememberSaveable { mutableStateOf(false) }
 
     // Sempre aperto per intero: a meta' altezza (tablet in orizzontale) "Elimina tutto" resterebbe sotto il bordo.
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberExpandedSheetState()) {
         Column(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
@@ -103,13 +102,7 @@ internal fun RegionPackagesSheet(
                         PackageRow(
                             pkg = pkg,
                             enabled = !isDownloading,
-                            onDownload = {
-                                if (pkg.warnsOnCellular() && isOnCellularNetwork(context)) {
-                                    pendingLargeDownload = pkg.kind
-                                } else {
-                                    actions.onDownloadPackage(item.regionId, pkg.kind)
-                                }
-                            },
+                            onDownload = { download(pkg) },
                             onDelete = { pendingDelete = pkg.kind },
                         )
                         // Piu' reti: a scomparsa sotto "N di M reti scelte", chiuse di default. Una sola: la sua casella.
@@ -137,7 +130,7 @@ internal fun RegionPackagesSheet(
                         if (pkg.missingNetworks.isNotEmpty()) TransitMissingNote(pkg.missingNetworks)
                         if (pkg.kind == PackageKind.ROUTING && item.routingCarAvailable) {
                             val choice by remember(item.regionId) { actions.observeRoutingChoice(item.regionId) }
-                                .collectAsStateWithLifecycle(RoutingVariantOption.ALL)
+                                .collectAsStateWithLifecycle(RoutingVariantChoice.ALL)
                             RoutingChoiceRow(choice = choice, enabled = !isDownloading, onChange = { actions.onRoutingChoiceChange(item.regionId, it) })
                         }
                         if (pkg.kind == PackageKind.MAP) {
@@ -177,19 +170,6 @@ internal fun RegionPackagesSheet(
             onDismiss = { pendingDelete = null },
         )
     }
-    pendingLargeDownload?.let { kind ->
-        // Dopo un ripristino lo stato salvato puo' riferirsi a un pacchetto che non c'e' piu': si chiude il dialogo.
-        val pkg = item.packages.firstOrNull { it.kind == kind }
-        if (pkg == null) {
-            SideEffect { pendingLargeDownload = null }
-            return@let
-        }
-        LargePackageDownloadDialog(
-            pkg = pkg,
-            onConfirm = { pendingLargeDownload = null; actions.onDownloadPackage(item.regionId, kind) },
-            onDismiss = { pendingLargeDownload = null },
-        )
-    }
     if (showDeleteAll) {
         ConfirmationDialog(
             title = stringResource(R.string.regions_delete_title, item.displayName),
@@ -197,6 +177,32 @@ internal fun RegionPackagesSheet(
             onConfirm = { showDeleteAll = false; onDismiss(); actions.onDelete(item.regionId) },
             onDismiss = { showDeleteAll = false },
         )
+    }
+}
+
+/**
+ * Il tocco su "Scarica" di un pacchetto di [packages]: parte subito, o dopo la conferma se e' grande sulla rete mobile.
+ * Mostra la conferma: foglio Contenuti e schermata Aggiornamenti.
+ */
+@Composable
+internal fun rememberPackageDownload(regionId: String, packages: List<PackageUiState>, onDownload: (PackageKind) -> Unit): (PackageUiState) -> Unit {
+    val context = LocalContext.current
+    var pendingLargeDownload by rememberSaveable(regionId) { mutableStateOf<PackageKind?>(null) }
+    pendingLargeDownload?.let { kind ->
+        // Dopo un ripristino lo stato salvato puo' riferirsi a un pacchetto che non c'e' piu' (o non piu' da aggiornare): si chiude il dialogo.
+        val pkg = packages.firstOrNull { it.kind == kind }
+        if (pkg == null) {
+            SideEffect { pendingLargeDownload = null }
+        } else {
+            LargePackageDownloadDialog(
+                pkg = pkg,
+                onConfirm = { pendingLargeDownload = null; onDownload(kind) },
+                onDismiss = { pendingLargeDownload = null },
+            )
+        }
+    }
+    return { pkg ->
+        if (pkg.warnsOnCellular() && isOnCellularNetwork(context)) pendingLargeDownload = pkg.kind else onDownload(pkg.kind)
     }
 }
 
@@ -333,20 +339,20 @@ private fun MapLightRow(light: Boolean, enabled: Boolean, onChange: (Boolean) ->
 // modi = la rete stradale completa (una rete solo per bici e piedi peserebbe quasi uguale). Cambiare variante con la rete
 // stradale installata la riscarica.
 @Composable
-private fun RoutingChoiceRow(choice: RoutingVariantOption, enabled: Boolean, onChange: (RoutingVariantOption) -> Unit) {
+private fun RoutingChoiceRow(choice: RoutingVariantChoice, enabled: Boolean, onChange: (RoutingVariantChoice) -> Unit) {
     ListItem(
         content = { Text(stringResource(R.string.package_routing_for)) },
         supportingContent = {
             Column {
-                Text(stringResource(choice.detail))
+                Text(stringResource(choice.routingDetail()))
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(top = Spacing.s)) {
-                    RoutingVariantOption.entries.forEachIndexed { index, candidate ->
+                    RoutingVariantChoice.entries.forEachIndexed { index, candidate ->
                         SegmentedButton(
                             selected = candidate == choice,
                             onClick = { onChange(candidate) },
                             enabled = enabled,
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = RoutingVariantOption.entries.size),
-                        ) { Text(stringResource(candidate.label)) }
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = RoutingVariantChoice.entries.size),
+                        ) { Text(stringResource(candidate.routingLabel())) }
                     }
                 }
             }
@@ -355,13 +361,6 @@ private fun RoutingChoiceRow(choice: RoutingVariantOption, enabled: Boolean, onC
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth(),
     )
-}
-
-/** Per quali modi e' la rete stradale di una regione: solo [CAR] scarica la variante "solo auto". */
-enum class RoutingVariantOption(@StringRes val label: Int, @StringRes val detail: Int) {
-    CAR(R.string.package_routing_car, R.string.package_routing_car_only_detail),
-    BIKE_FOOT(R.string.package_routing_bike_foot, R.string.package_routing_bike_foot_detail),
-    ALL(R.string.package_routing_all, R.string.package_routing_all_detail),
 }
 
 // Sotto la mappa leggera, solo nelle nazioni grandi: la zona scaricata di mappa, rete stradale e civici.
@@ -455,6 +454,21 @@ internal fun PackageKind.label(): Int = when (this) {
     PackageKind.ADDRESSES -> R.string.package_addresses
     PackageKind.CITIES -> R.string.package_cities
     PackageKind.TRANSIT -> R.string.package_transit
+}
+
+/** Per quali modi e' la rete stradale di una regione: solo [RoutingVariantChoice.CAR] scarica la variante "solo auto". */
+@StringRes
+internal fun RoutingVariantChoice.routingLabel(): Int = when (this) {
+    RoutingVariantChoice.CAR -> R.string.package_routing_car
+    RoutingVariantChoice.BIKE_FOOT -> R.string.package_routing_bike_foot
+    RoutingVariantChoice.ALL -> R.string.package_routing_all
+}
+
+@StringRes
+internal fun RoutingVariantChoice.routingDetail(): Int = when (this) {
+    RoutingVariantChoice.CAR -> R.string.package_routing_car_only_detail
+    RoutingVariantChoice.BIKE_FOOT -> R.string.package_routing_bike_foot_detail
+    RoutingVariantChoice.ALL -> R.string.package_routing_all_detail
 }
 
 @StringRes

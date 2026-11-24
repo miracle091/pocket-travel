@@ -37,8 +37,8 @@ import androidx.glance.text.TextStyle
 import com.pockettravel.app.R
 import com.pockettravel.app.navigation.WidgetScreens
 import com.pockettravel.app.regions.RegionTab
-import com.pockettravel.app.runCatchingCancellable
 import com.pockettravel.app.settings.AppLanguage
+import com.pockettravel.core.data.runCatchingCancellable
 import dagger.hilt.android.EntryPointAccessors
 
 /**
