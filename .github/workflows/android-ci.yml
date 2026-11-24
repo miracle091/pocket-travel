@@ -54,12 +54,12 @@ jobs:
 
       # Stesso JDK del daemon Gradle (toolchainVersion in gradle/gradle-daemon-jvm.properties): con
       # un JDK diverso Gradle ne scaricherebbe un secondo a ogni run. Stessa versione negli altri workflow.
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: '25'
 
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       # Heap del daemon a 3 GB solo in CI (gradle.properties ha 2 GB): con il parallelismo e i molti task KSP, 2 GB
       # hanno dato un classpath incompleto in :feature:ai:kspReleaseKotlin. Il gradle.properties della cartella
@@ -544,7 +544,7 @@ jobs:
         run: bash third-party/init-bergamot-submodules.sh
 
       # Stesso JDK del job "build".
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
           java-version: '25'
@@ -552,7 +552,7 @@ jobs:
       # Cache di Gradle in sola lettura: la scrive solo il job "build" di android-ci.yml, che compila anche la
       # pipeline. Un salvataggio per job riempirebbe il limite di 10 GB delle cache del repository e farebbe
       # sfrattare le altre (dump, traduzioni, ccache).
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: true
 
