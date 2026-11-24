@@ -30,4 +30,14 @@ class RunCatchingCancellableTest {
             // atteso
         }
     }
+
+    @Test
+    fun `un Error non diventa un risultato fallito`() = runBlocking {
+        try {
+            runCatchingCancellable<Int> { throw OutOfMemoryError("memoria esaurita") }
+            fail("l'Error doveva essere rilanciato")
+        } catch (_: OutOfMemoryError) {
+            // atteso
+        }
+    }
 }
