@@ -89,6 +89,8 @@ internal class InferenceEngineImpl private constructor(
          */
         internal fun getInstance(context: Context) =
             instance ?: synchronized(this) {
+                // Ricontrollato dentro il lock: due thread arrivati insieme creerebbero due motori sulle stesse globali native.
+                instance?.let { return@synchronized it }
                 val nativeLibDir = context.applicationInfo.nativeLibraryDir
                 require(nativeLibDir.isNotBlank()) { "Expected a valid native library path!" }
 

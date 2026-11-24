@@ -56,7 +56,7 @@ private class Texts(val resources: Resources, val locale: Locale) {
     fun string(id: Int, vararg args: Any): String = resources.getString(id, *args)
 }
 
-private val NATIONAL_TYPES = mapOf(
+internal val NATIONAL_TYPES = mapOf(
     NationalEventType.EMERGENCY_WARNING to R.string.alerts_type_emergency_warning,
     NationalEventType.URGENT_WARNING to R.string.alerts_type_urgent_warning,
     NationalEventType.WARNING to R.string.alerts_type_warning,
@@ -67,7 +67,7 @@ private val NATIONAL_TYPES = mapOf(
     NationalEventType.THREAT to R.string.alerts_type_threat,
 )
 
-private val NATIONAL_HAZARDS = mapOf(
+internal val NATIONAL_HAZARDS = mapOf(
     NationalHazard.WINTER_STORM to R.string.alerts_national_winter_storm,
     NationalHazard.WINTER_WEATHER to R.string.alerts_national_winter_weather,
     NationalHazard.BLIZZARD to R.string.alerts_national_blizzard,
@@ -123,15 +123,18 @@ private val NATIONAL_HAZARDS = mapOf(
     NationalHazard.EARTHQUAKE to R.string.alerts_national_earthquake,
 )
 
-private val VOLCANO_LEVEL = Regex("""VAL(d)""")
+private val VOLCANO_LEVEL = Regex("""VAL(\d)""")
 
-private val COLOR_NAMES = mapOf(
+/** Il livello di allerta vulcanica dal codice evento di GeoNet ("VAL3" -> 3). */
+internal fun volcanoLevel(eventCode: String): Int? = VOLCANO_LEVEL.matchEntire(eventCode)?.groupValues?.get(1)?.toInt()
+
+internal val COLOR_NAMES = mapOf(
     WarningColor.YELLOW to R.string.alerts_color_yellow,
     WarningColor.ORANGE to R.string.alerts_color_orange,
     WarningColor.RED to R.string.alerts_color_red,
 )
 
-private val HAZARD_NAMES = mapOf(
+internal val HAZARD_NAMES = mapOf(
     WeatherHazard.WIND to R.string.alerts_hazard_wind,
     WeatherHazard.SNOW_ICE to R.string.alerts_hazard_snow_ice,
     WeatherHazard.THUNDERSTORM to R.string.alerts_hazard_thunderstorm,
@@ -244,6 +247,6 @@ private fun Texts.nationalText(alert: Alert): AlertText? {
 }
 
 private fun Texts.volcanoText(alert: Alert): AlertText? {
-    val level = alert.eventCode?.let { VOLCANO_LEVEL.matchEntire(it) }?.groupValues?.get(1)?.toInt() ?: return null
+    val level = alert.eventCode?.let(::volcanoLevel) ?: return null
     return AlertText(string(R.string.alerts_volcano_level, alert.title, level), listOfNotNull(alert.details))
 }

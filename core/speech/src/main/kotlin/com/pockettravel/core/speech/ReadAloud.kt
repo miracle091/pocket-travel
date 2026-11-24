@@ -99,6 +99,11 @@ class SystemReadAloud @Inject constructor(@ApplicationContext private val contex
                     finish(ReadAloudResult.FAILED)
                 }
             }
+            // Prima del costruttore: se onInit fallisce li' dentro, finish() toglie anche questo invece di lasciarlo in coda.
+            handler.postDelayed({
+                Log.w(TAG, "tempo massimo scaduto")
+                finish(ReadAloudResult.FAILED)
+            }, readTimeoutMillis(text.length))
             // Senza motori installati TextToSpeech chiama onInit con ERROR gia' dentro il costruttore.
             engine.set(
                 TextToSpeech(context) { status ->
@@ -113,10 +118,6 @@ class SystemReadAloud @Inject constructor(@ApplicationContext private val contex
                     }
                 },
             )
-            handler.postDelayed({
-                Log.w(TAG, "tempo massimo scaduto")
-                finish(ReadAloudResult.FAILED)
-            }, readTimeoutMillis(text.length))
             if (done.get()) engine.getAndSet(null)?.shutdown()
             continuation.invokeOnCancellation {
                 if (done.compareAndSet(false, true)) {

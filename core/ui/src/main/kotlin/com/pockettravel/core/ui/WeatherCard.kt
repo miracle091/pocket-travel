@@ -84,10 +84,14 @@ fun WeatherCard(
                 )
                 if (onRefresh != null) {
                     // Si riaccende da solo allo scadere dell'intervallo, senza dover riaprire la guida.
+                    // produceState tiene il valore tra una chiave e l'altra: dopo «Aggiorna» va rispento qui.
                     val canRefresh by produceState(false, state.result.updatedAtMillis) {
                         val wait = state.result.updatedAtMillis + WEATHER_MIN_REFRESH_MILLIS - System.currentTimeMillis()
-                        if (wait > 0) delay(wait)
-                        value = true
+                        value = wait <= 0
+                        if (wait > 0) {
+                            delay(wait)
+                            value = true
+                        }
                     }
                     IconButton(onClick = onRefresh, enabled = canRefresh) {
                         Icon(AppIcons.Refresh, contentDescription = stringResource(R.string.weather_refresh))
