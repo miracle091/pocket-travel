@@ -190,6 +190,7 @@ class AssistantConversation @Inject constructor(
         cities = answer.cities,
         destination = answer.destination,
         askedAt = now,
+        suggestedQuestionCategories = answer.suggestedQuestionCategories.map { it.name },
     )
 
     /** Domanda senza risposta: un seguito non si riferisce a una risposta che non si vede. */

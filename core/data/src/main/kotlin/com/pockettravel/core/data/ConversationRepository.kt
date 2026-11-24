@@ -42,6 +42,9 @@ data class ConversationTurn(
     val cities: List<String> = emptyList(),
     val destination: String? = null,
     val askedAt: Long,
+    // Nomi di GuideCategory per le domande suggerite sotto la risposta; stringhe, cosi' un nome non piu' noto si salta
+    // (guideCategoryOrNull) senza rendere illeggibile il turno. I turni salvati prima non l'hanno: lista vuota.
+    val suggestedQuestionCategories: List<String> = emptyList(),
 )
 
 /** Una conversazione dell'elenco della cronologia, gia' decifrata. */

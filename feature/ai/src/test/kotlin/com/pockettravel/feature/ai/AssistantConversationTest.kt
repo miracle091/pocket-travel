@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import com.pockettravel.core.data.ConversationRepository
+import com.pockettravel.core.data.GuideCategory
 import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.crypto.HistoryKeys
 import com.pockettravel.core.data.crypto.HistoryReader
@@ -62,6 +63,19 @@ class AssistantConversationTest {
         assertTrue(dao.conversations.isEmpty())
         assertTrue(dao.turns.isEmpty())
         assertEquals(HistoryKeys.Unlock.Empty, repository.prepareUnlock())
+    }
+
+    @Test
+    fun `un turno salvato porta le categorie delle domande suggerite alla ripresa`() = runTest {
+        val repository = repository()
+        val conversation = conversation(repository)
+        val suggested = listOf(GuideCategory.SALUTE, GuideCategory.CIBO_BEVANDE)
+        conversation.onAnswered(AiEngineMode.ON_DEVICE, "portogallo", "qwen", "Come arrivo a Lisbona?", answer("Come arrivo a Lisbona?").copy(suggestedQuestionCategories = suggested))
+        val id = checkNotNull(conversation.id)
+        conversation.end()
+
+        val resumed = checkNotNull(conversation(repository).resume(repository.unlock(), id))
+        assertEquals(suggested, resumed.turns.single().suggestedQuestionCategories.map(GuideCategory::valueOf))
     }
 
     @Test

@@ -247,6 +247,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Punti di interesse tolti per mancanza di spazio, da scaricare di nuovo | punti di interesse da riscaricare | points of interest to download again |
 | Livello di una vaccinazione non obbligatoria (altrove "consigliato" resta) | raccomandata | recommended |
 | Scalo aereo nelle regole delle vaccinazioni | scalo | stopover |
+| Domande proposte sotto l'ultima risposta dell'assistente, su argomenti della guida che la risposta non ha citato | domande suggerite ("Firenze: dove si mangia?") | suggested questions ("Florence: where can I eat?") |
 
 "Paese" resta per i paesi del mondo che non si scaricano: nazionalità, partenza e destinazione delle vaccinazioni
 ("Paese di partenza", "del tuo paese").

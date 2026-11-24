@@ -274,6 +274,12 @@
     <string name="ai_sources_show">Show sources</string>
     <string name="ai_sources_hide">Hide sources</string>
     <string name="ai_source_open_guide">Open the section in the guide</string>
+    <string name="ai_suggested_question_getting_around">%1$s: how do I get around?</string>
+    <string name="ai_suggested_question_lodging">%1$s: where can I stay?</string>
+    <string name="ai_suggested_question_food">%1$s: where can I eat?</string>
+    <string name="ai_suggested_question_sights">%1$s: what is there to see?</string>
+    <string name="ai_suggested_question_customs">%1$s: which customs should I know?</string>
+    <string name="ai_suggested_question_safety">%1$s: which safety precautions apply?</string>
     <plurals name="ai_sources_count">
         <item quantity="one">Source (%d)</item>
         <item quantity="other">Sources (%d)</item>

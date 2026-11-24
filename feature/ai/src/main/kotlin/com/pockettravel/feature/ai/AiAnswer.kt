@@ -1,11 +1,15 @@
 package com.pockettravel.feature.ai
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -14,6 +18,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -157,7 +162,8 @@ internal fun AnswerContent(
         }
         answer != null -> Column {
             FinishedAnswer(answer, uiState.answerCredit, onOpenOfficialSource, actions)
-            ReadAloudButton(markdownToDisplayText(answer.text).text, readAloud, actions.onReadAloud)
+            ReadAloudButton(remember(answer.text) { markdownToDisplayText(answer.text).text }, readAloud, actions.onReadAloud)
+            SuggestedQuestionChips(answer, uiState, actions)
             // Solo la risposta in fondo, con le previsioni nel contesto e piu' vecchie del limite per luogo.
             if (uiState.canRefreshForecast && answer.forecast != null) {
                 TextButton(onClick = actions.onRefreshForecast, modifier = Modifier.padding(top = Spacing.s)) {
@@ -255,4 +261,42 @@ internal fun FinishedAnswer(answer: AssistantAnswer, credit: ModelCredit?, onOpe
             modifier = Modifier.padding(top = Spacing.s),
         )
     }
+}
+
+// Domande suggerite sotto l'ultima risposta finita: un tocco le fa come una domanda scritta nel campo.
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SuggestedQuestionChips(answer: AssistantAnswer, uiState: AiUiState, actions: AiActions) {
+    // Con un testo selezionato le domande riguardano quello, non la guida.
+    if (uiState.selectedText != null) return
+    val asked = uiState.askedQuestion
+    val place = answer.cities.firstOrNull() ?: answer.destination
+    val texts = SuggestedQuestionTopic.entries.associateWith { stringResource(it.textRes(), place.orEmpty()) }
+    val questions = remember(answer, asked, texts) {
+        suggestedQuestions(answer.suggestedQuestionCategories, place, listOfNotNull(asked, answer.question)) { topic, _ -> texts.getValue(topic) }
+    }
+    if (questions.isEmpty()) return
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.padding(top = Spacing.s)) {
+        questions.forEach { question ->
+            SuggestionChip(
+                onClick = {
+                    actions.onQuestionChanged(question)
+                    actions.onAsk()
+                },
+                label = { Text(question) },
+                modifier = Modifier.heightIn(min = MIN_TOUCH_TARGET),
+            )
+        }
+    }
+}
+
+private val MIN_TOUCH_TARGET = 48.dp
+
+private fun SuggestedQuestionTopic.textRes(): Int = when (this) {
+    SuggestedQuestionTopic.GETTING_AROUND -> R.string.ai_suggested_question_getting_around
+    SuggestedQuestionTopic.LODGING -> R.string.ai_suggested_question_lodging
+    SuggestedQuestionTopic.FOOD -> R.string.ai_suggested_question_food
+    SuggestedQuestionTopic.SIGHTS -> R.string.ai_suggested_question_sights
+    SuggestedQuestionTopic.CUSTOMS -> R.string.ai_suggested_question_customs
+    SuggestedQuestionTopic.SAFETY -> R.string.ai_suggested_question_safety
 }

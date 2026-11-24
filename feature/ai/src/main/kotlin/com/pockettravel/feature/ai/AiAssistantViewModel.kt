@@ -859,7 +859,7 @@ class AiAssistantViewModel @Inject constructor(
             val shown = resumed.turns.map { turn ->
                 ShownTurn(
                     turn.askedQuestion,
-                    AssistantAnswer(turn.answer, turn.citations, turn.showOfficialSourceBanner, turn.officialSourceUrl, turn.question),
+                    turn.toAnswer(),
                     onDeviceModelCredit(turn.modelId),
                 )
             }

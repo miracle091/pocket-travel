@@ -9,6 +9,7 @@ import com.pockettravel.core.data.testing.SoftwareHistoryMasterKey
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -64,6 +65,23 @@ class ConversationRepositoryTest {
         assertEquals(listOf("Serve il visto?", "E per il Nepal?"), resumed.turns.map { it.askedQuestion })
         assertEquals("Risposta a E per il Nepal?", resumed.turns.last().answer)
         assertEquals(listOf("Guida › Visti"), resumed.turns.last().citations)
+    }
+
+    @Test
+    fun `le categorie delle domande suggerite tornano alla ripresa`() = runTest {
+        val repository = repository()
+        val categories = listOf(GuideCategory.TRASPORTI.name, GuideCategory.SALUTE.name)
+        val handle = repository.start({ summary }, turn("Serve il visto?").copy(suggestedQuestionCategories = categories), now = 10)
+
+        val resumed = checkNotNull(repository.resume(repository.unlock(), handle.id, now = 20))
+        assertEquals(categories, resumed.turns.single().suggestedQuestionCategories)
+    }
+
+    @Test
+    fun `un turno salvato senza le categorie suggerite si legge con la lista vuota`() {
+        val old = """{"askedQuestion":"a","question":"a","answer":"b","modelId":"qwen","askedAt":1}"""
+        val decoded = Json { ignoreUnknownKeys = true }.decodeFromString<ConversationTurn>(old)
+        assertEquals(emptyList<String>(), decoded.suggestedQuestionCategories)
     }
 
     @Test

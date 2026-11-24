@@ -7,6 +7,7 @@ import com.pockettravel.core.data.CarRoute
 import com.pockettravel.core.data.CarRouteCalculator
 import com.pockettravel.core.data.CityRepository
 import com.pockettravel.core.data.CitySection
+import com.pockettravel.core.data.ConversationTurn
 import com.pockettravel.core.data.DefaultDispatcher
 import com.pockettravel.core.data.EmergencyNumbers
 import com.pockettravel.core.data.EmergencyNumbersRepository
@@ -33,6 +34,7 @@ import com.pockettravel.core.data.bm25Score
 import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.data.db.CityCoordinates
 import com.pockettravel.core.data.displayName
+import com.pockettravel.core.data.guideCategoryOrNull
 import com.pockettravel.core.data.guideSourceSiteOf
 import com.pockettravel.core.data.guideSourceUrlWithoutAudience
 import com.pockettravel.core.data.isGuideSectionFor
@@ -81,6 +83,17 @@ data class AssistantAnswer(
     val terms: List<GuideTerm> = emptyList(),
     // Online: il controllo sulla risposta ha tolto o segnato link o numeri che non vengono dalle guide. Non si salva nella cronologia.
     val partsChanged: Boolean = false,
+    // Le categorie che la guida del luogo ha e la risposta non ha citato, per le domande suggerite sotto di lei. Si salvano
+    // nella cronologia (ConversationTurn) e tornano alla ripresa.
+    val suggestedQuestionCategories: List<GuideCategory> = emptyList(),
+)
+
+/** La risposta di un turno ripreso dalla cronologia, con citta', destinazione e argomenti delle domande suggerite. */
+internal fun ConversationTurn.toAnswer() = AssistantAnswer(
+    answer, citations, showOfficialSourceBanner, officialSourceUrl, question,
+    cities = cities,
+    destination = destination,
+    suggestedQuestionCategories = suggestedQuestionCategories.mapNotNull(::guideCategoryOrNull),
 )
 
 /** Avanzamento di una risposta: il testo scritto finora, poi la risposta definitiva. */
@@ -196,6 +209,7 @@ class TravelAssistant @Inject constructor(
         }
 
         val contextSections = contextSections(regionId, searched, language, search, listOfNotNull(forecast?.section, alerts), distance, personalSections(sharePersonal, selectedText))
+        val guideCategories = guideCategoriesFor(cityRepository, guideRepository, regionId, cities.firstOrNull())
         val withSource = { answer: AssistantAnswer ->
             answer.copy(
                 question = question,
@@ -204,8 +218,7 @@ class TravelAssistant @Inject constructor(
                 showOfficialSourceBanner = regulatedMatch != null,
                 officialSourceUrl = regulatedMatch?.let { officialSourceFor(it.category, nationalityPreferences.nationality.value)?.urlFor(destination) },
                 forecast = forecast?.weather,
-                terms = citedTerms(contextSections.filter { it.citation in answer.sourceCitations }, search.terms),
-            )
+            ).withCited(contextSections, search.terms, guideCategories)
         }
         val focus = focusStems(search.baseQuery, city)
         when (mode) {
@@ -216,7 +229,7 @@ class TravelAssistant @Inject constructor(
                 var text = ""
                 engine.generateStream(plan.prompt, input, modelHistory).accumulated(PARTIAL_INTERVAL_MS).collect {
                     text = it
-                    emit(AssistantProgress.Partial(it))
+                    emit(AssistantProgress.Partial(withoutPartialMarkup(it)))
                 }
                 // Come online: una risposta vuota e' un errore, non va mostrata ne' salvata in cronologia.
                 if (text.isBlank()) error("Il modello sul dispositivo non ha generato una risposta")
@@ -482,7 +495,7 @@ class TravelAssistant @Inject constructor(
                     }
                     text(model).accumulated(PARTIAL_INTERVAL_MS).collect {
                         raw = withoutContextTags(it)
-                        answer = guard.check(raw).text
+                        answer = guard.check(withoutPartialMarkup(raw)).text
                         emit(AssistantProgress.Partial(answer))
                     }
                     break
@@ -661,6 +674,22 @@ internal fun citedSections(sections: List<AssistantSection>, context: String): L
 private const val CITATION_PROBE_CHARS = 60
 
 /** I termini di [terms] nominati nel testo di [sections] (le sezioni citate dalla risposta), per nome o alias. */
+// Gli argomenti della guida di [city], o della nazione senza citta', per le domande suggerite sotto la risposta.
+private suspend fun guideCategoriesFor(cities: CityRepository, guides: GuideRepository, regionId: String, city: String?): List<GuideCategory> {
+    val categories = city?.let { place -> cities.sectionsFor(regionId, place).map { it.category } }
+    return (categories ?: guides.sectionsFor(regionId).map { it.category }).distinct()
+}
+
+// I termini locali delle sezioni citate e, per le domande suggerite, gli argomenti [guideCategories] della guida che la risposta non cita.
+private fun AssistantAnswer.withCited(
+    sections: List<AssistantSection>,
+    terms: List<GuideTerm>,
+    guideCategories: List<GuideCategory>,
+): AssistantAnswer {
+    val cited = sections.filter { it.citation in sourceCitations }
+    return copy(terms = citedTerms(cited, terms), suggestedQuestionCategories = guideCategories - cited.map { it.category }.toSet())
+}
+
 internal fun citedTerms(sections: List<AssistantSection>, terms: List<GuideTerm>): List<GuideTerm> =
     termLinks(sections.map { it.body }, terms).flatten().map { it.second }.distinct()
 

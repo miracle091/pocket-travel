@@ -280,6 +280,12 @@
     <string name="ai_sources_show">Mostra le fonti</string>
     <string name="ai_sources_hide">Nascondi le fonti</string>
     <string name="ai_source_open_guide">Apri la sezione nella guida</string>
+    <string name="ai_suggested_question_getting_around">%1$s: come ci si sposta?</string>
+    <string name="ai_suggested_question_lodging">%1$s: dove si dorme?</string>
+    <string name="ai_suggested_question_food">%1$s: dove si mangia?</string>
+    <string name="ai_suggested_question_sights">%1$s: che cosa si può vedere?</string>
+    <string name="ai_suggested_question_customs">%1$s: quali usi e costumi conoscere?</string>
+    <string name="ai_suggested_question_safety">%1$s: quali precauzioni di sicurezza servono?</string>
     <plurals name="ai_sources_count">
         <item quantity="one">Fonte (%d)</item>
         <item quantity="many">Fonti (%d)</item>

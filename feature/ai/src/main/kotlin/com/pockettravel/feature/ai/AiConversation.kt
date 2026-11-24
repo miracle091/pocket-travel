@@ -87,7 +87,7 @@ internal fun Conversation(
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(Spacing.l)) {
                     FinishedAnswer(turn.answer, turn.credit, onOpenOfficialSource, actions)
-                    ReadAloudButton(markdownToDisplayText(turn.answer.text).text, readAloud, actions.onReadAloud)
+                    ReadAloudButton(remember(turn.answer.text) { markdownToDisplayText(turn.answer.text).text }, readAloud, actions.onReadAloud)
                 }
             }
         }
