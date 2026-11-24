@@ -51,10 +51,8 @@ import com.pockettravel.core.ui.CountryFlag
 import com.pockettravel.core.ui.DownloadProgressIndicator
 import com.pockettravel.core.ui.IndeterminateDownloadProgressIndicator
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
-import com.pockettravel.core.ui.NetworkBlockSettingsButton
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.isOnCellularNetwork
-import com.pockettravel.core.ui.R as UiR
 
 // Regione installata che il catalogo ha diviso in regioni piu' piccole: si apre ancora (i dati sono
 // sul dispositivo), non si aggiorna piu'; "Scegli" porta alle regioni che la sostituiscono.
@@ -166,15 +164,7 @@ internal fun RegionRow(
             modifier = Modifier.clickable(onClick = onClick),
             content = { Text(title) },
         )
-        download.blockMessage?.let {
-            Text(
-                text = stringResource(it),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 72.dp, end = Spacing.l),
-            )
-            Row(modifier = Modifier.padding(start = 64.dp)) { NetworkBlockSettingsButton(it) }
-        }
+        download.blockMessage?.let { NetworkBlockNotice(it) }
         if (isDownloading && installing) {
             IndeterminateDownloadProgressIndicator(modifier = Modifier.fillMaxWidth().padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m))
         } else if (isDownloading) {
@@ -224,16 +214,6 @@ internal fun WorkInfo?.downloadUi(): RegionDownloadUi {
         }
     } ?: 0f
     return RegionDownloadUi(isDownloading, installing, extractingMap, progress, blockMessage())
-}
-
-@StringRes
-private fun WorkInfo?.blockMessage(): Int? {
-    if (this?.state != WorkInfo.State.FAILED) return null
-    return when (outputData.getString(RegionPackageDownloadWorker.KEY_FAILURE_REASON)) {
-        RegionPackageDownloadWorker.FAILURE_REASON_DATA_SAVER -> UiR.string.network_blocked_data_saver
-        RegionPackageDownloadWorker.FAILURE_REASON_NETWORK_BLOCKED -> UiR.string.network_blocked_suspected
-        else -> null
-    }
 }
 
 @Composable

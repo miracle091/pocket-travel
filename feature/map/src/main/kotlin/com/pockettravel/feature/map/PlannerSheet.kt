@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.DownloadProgressIndicator
+import com.pockettravel.core.ui.NetworkBlockSettingsButton
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
 import java.time.LocalDate
@@ -68,6 +70,7 @@ internal fun PlannerSheet(
     routingInstalled: Boolean,
     downloadProgress: Float?,
     downloadFailed: Boolean,
+    @StringRes downloadBlockMessage: Int?,
     onDownloadRouting: () -> Unit,
     routeProfile: RouteProfile,
     // Le regioni del catalogo senza rete stradale tra partenza e arrivo, in ordine (vuota se non si sono trovate).
@@ -96,7 +99,7 @@ internal fun PlannerSheet(
             // Il download si propone se il catalogo dice quali regioni mancano tra partenza e arrivo, o se la regione aperta
             // non ha la rete stradale; altrimenti "nessun dato" vuol dire fuori dalle zone scaricate, e riscaricare non cambierebbe nulla.
             preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData && missingRegions.isNotEmpty() ->
-                MissingRoutingCard(missingRegions, downloadProgress, downloadFailed, onDownloadRouting)
+                MissingRoutingCard(missingRegions, downloadProgress, downloadFailed, onDownloadRouting, downloadBlockMessage = downloadBlockMessage)
             preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData && !routingInstalled -> {
                 if (downloadProgress != null) {
                     Text(
@@ -108,12 +111,13 @@ internal fun PlannerSheet(
                 } else {
                     SheetMessage(
                         when {
-                            downloadFailed -> stringResource(R.string.planner_routing_failed)
+                            downloadFailed -> stringResource(downloadBlockMessage ?: R.string.planner_routing_failed)
                             else -> stringResource(R.string.planner_no_routing_data)
                         },
                         stringResource(R.string.navigation_routing_download),
                         onDownloadRouting,
                     )
+                    if (downloadFailed && downloadBlockMessage != null) NetworkBlockSettingsButton(downloadBlockMessage)
                 }
             }
             preview is PlannerPreview.Unavailable && preview.result == RouteResult.NoRoutingData ->

@@ -41,6 +41,7 @@ fun RegionNavigatorScreen(
     LaunchedEffect(regionId) { routingViewModel.load(regionId) }
     val downloadProgress by routingViewModel.downloadProgress.collectAsStateWithLifecycle()
     val downloadFailed by routingViewModel.downloadFailed.collectAsStateWithLifecycle()
+    val downloadBlockMessage by routingViewModel.downloadBlockMessage.collectAsStateWithLifecycle()
     NavigationPlannerScreen(
         regionId = regionId,
         viewModel = plannerViewModel,
@@ -48,6 +49,7 @@ fun RegionNavigatorScreen(
         onDownloadRouting = routingViewModel::downloadRouting,
         downloadProgress = downloadProgress,
         downloadFailed = downloadFailed,
+        downloadBlockMessage = downloadBlockMessage,
         findMissingRegions = routingViewModel::missingRoutingRegions,
     )
 }

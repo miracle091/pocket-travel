@@ -14,6 +14,12 @@ enum class AppUpdateFailure {
     /** Rete: i tentativi sono finiti. */
     NETWORK,
 
+    /** Il Risparmio dati di Android limita la rete dell'app: non si ritenta. */
+    DATA_SAVER,
+
+    /** Tentativi finiti con errori immediati e una rete funzionante: rete probabilmente bloccata per l'app. */
+    NETWORK_BLOCKED,
+
     /** Dimensione o SHA-256 diversi da app-status.json, o risposta del server rifiutata. */
     INVALID_FILE,
 

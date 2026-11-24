@@ -84,6 +84,8 @@ fun NavigationInstructions(
     missingRegions: List<MissingRegion> = emptyList(),
     downloadProgress: Float? = null,
     downloadFailed: Boolean = false,
+    // Il messaggio (stringa) di rete bloccata per l'app, se il download è fallito per questo.
+    downloadBlockMessage: Int? = null,
     onDownloadRouting: () -> Unit = {},
     // La prossima tappa non ancora raggiunta (null senza tappe) e «Salta la tappa».
     nextWaypoint: String? = null,
@@ -159,7 +161,7 @@ fun NavigationInstructions(
                 NavigationStatus.Arrived -> Unit
                 // Rete stradale mancante a meta' strada: partenza o arrivo fuori dalla zona della rete stradale scaricata.
                 is NavigationStatus.Unavailable -> if (state.result == RouteResult.NoRoutingData && missingRegions.isNotEmpty()) {
-                    MissingRoutingCard(missingRegions, downloadProgress, downloadFailed, onDownloadRouting)
+                    MissingRoutingCard(missingRegions, downloadProgress, downloadFailed, onDownloadRouting, downloadBlockMessage = downloadBlockMessage)
                 } else {
                     RetryMessage(
                         text = stringResource(

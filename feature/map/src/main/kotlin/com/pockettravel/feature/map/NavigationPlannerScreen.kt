@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -70,6 +71,8 @@ fun NavigationPlannerScreen(
     downloadProgress: Float?,
     // Il download e' fallito (lavoro finito in errore o catalogo non raggiungibile): si puo' riprovare.
     downloadFailed: Boolean,
+    // Il messaggio di rete bloccata per l'app, se il download è fallito per questo.
+    @StringRes downloadBlockMessage: Int?,
     // Le regioni senza rete stradale che coprono i punti (partenza, linea in mezzo, arrivo), in ordine, dal catalogo che il
     // Navigatore non vede (core:sync); vuota se non se ne trova nessuna (anche offline).
     findMissingRegions: suspend (points: List<RoutePoint>, usableRouting: Set<String>) -> List<MissingRegion>,
@@ -169,6 +172,7 @@ fun NavigationPlannerScreen(
             drivingSide = drivingSide,
             missingRegions = navigationMissing,
             downloadFailed = downloadFailed,
+            downloadBlockMessage = downloadBlockMessage,
             downloadProgress = downloadProgress,
             onDownloadRouting = { onDownloadRouting(navigationMissing.map { it.regionId }, navigationMode == RouteProfile.CAR) },
             nextWaypoint = navigation.waypoints.firstOrNull()?.name,
@@ -202,6 +206,7 @@ fun NavigationPlannerScreen(
             missingRegions = missingRegions,
             downloadProgress = downloadProgress,
             downloadFailed = downloadFailed,
+            downloadBlockMessage = downloadBlockMessage,
             arrivedAt = arrivedAt,
         ),
         actions = NavigationPlannerActions(
@@ -290,6 +295,7 @@ internal data class NavigationPlannerState(
     val missingRegions: List<MissingRegion> = emptyList(),
     val downloadProgress: Float? = null,
     val downloadFailed: Boolean = false,
+    @StringRes val downloadBlockMessage: Int? = null,
     // Destinazione appena raggiunta: se non e' null se ne mostra l'avviso, poi si chiama onArrivalAnnounced.
     val arrivedAt: String? = null,
 )
@@ -397,6 +403,7 @@ internal fun NavigationPlannerContent(
                 routingInstalled = state.routingInstalled,
                 downloadProgress = state.downloadProgress,
                 downloadFailed = state.downloadFailed,
+                downloadBlockMessage = state.downloadBlockMessage,
                 routeProfile = state.routeProfile,
                 missingRegions = state.missingRegions,
                 onDownloadRouting = actions.onDownloadRouting,

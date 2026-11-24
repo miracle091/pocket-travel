@@ -1,5 +1,6 @@
 package com.pockettravel.app.regions
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
@@ -11,9 +12,11 @@ import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.sync.ManifestClient
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.sync.RegionSyncScheduler
+import com.pockettravel.core.sync.networkBlockFor
 import com.pockettravel.feature.map.MissingRegion
 import com.pockettravel.feature.map.RoutePoint
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +31,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.util.Locale
 import javax.inject.Inject
 
@@ -39,6 +43,7 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class RoutingDownloadViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val regionRepository: RegionRepository,
     private val manifestClient: ManifestClient,
     private val regionSyncScheduler: RegionSyncScheduler,
@@ -81,6 +86,9 @@ class RoutingDownloadViewModel @Inject constructor(
     // Il catalogo non si e' potuto leggere nell'ultimo tentativo di scaricare (offline).
     private val manifestFailed = MutableStateFlow(false)
 
+    // Il messaggio di rete bloccata se il catalogo non si è letto perché Android blocca la rete dell'app.
+    private val manifestBlockMessage = MutableStateFlow<Int?>(null)
+
     /** L'ultimo download (di una delle regioni) e' finito in errore (lavoro fallito o catalogo non raggiungibile): si puo' riprovare. */
     val downloadFailed: StateFlow<Boolean> = downloadIds.flatMapLatest { ids ->
         if (ids.isEmpty()) return@flatMapLatest manifestFailed
@@ -88,6 +96,14 @@ class RoutingDownloadViewModel @Inject constructor(
             noManifest || works.any { it?.state == WorkInfo.State.FAILED }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Il messaggio di rete bloccata del download fallito di una delle regioni, se il motivo è questo. */
+    val downloadBlockMessage: StateFlow<Int?> = downloadIds.flatMapLatest { ids ->
+        if (ids.isEmpty()) return@flatMapLatest manifestBlockMessage
+        combine(combine(ids.map { regionSyncScheduler.observeDownload(it) }) { it.toList() }, manifestBlockMessage) { works, manifestBlock ->
+            manifestBlock ?: works.firstNotNullOfOrNull { it.blockMessage() }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun load(regionId: String?) {
         if (regionId == this.regionId.value) return
@@ -106,10 +122,14 @@ class RoutingDownloadViewModel @Inject constructor(
         if (!carOnlyAllowed) ids.filter { routingVariantPreferences.choices.value.isCarOnly(it) }.forEach { routingVariantPreferences.setCarOnly(it, false) }
         viewModelScope.launch {
             manifestFailed.value = false
+            manifestBlockMessage.value = null
             // Un errore del catalogo non si butta: il Navigatore lo mostra e lascia riprovare, invece di restare fermo.
             runCatchingCancellable { manifestClient.fetchManifest().regions.filter { it.regionId in ids } }
                 .onSuccess { entries -> entries.forEach { regionSyncScheduler.enqueueDownload(it, setOf(PackageKind.ROUTING)) } }
-                .onFailure { manifestFailed.value = true }
+                .onFailure { error ->
+                    manifestFailed.value = true
+                    manifestBlockMessage.value = (error as? IOException)?.let { context.networkBlockFor(it).message() }
+                }
         }
     }
 

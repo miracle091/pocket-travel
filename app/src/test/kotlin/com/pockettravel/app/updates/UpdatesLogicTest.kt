@@ -13,6 +13,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.pockettravel.core.ui.R as UiR
 
 class UpdatesLogicTest {
     private fun item(id: String, status: RegionStatus, bytes: Long = 0, includesMap: Boolean = false) =
@@ -150,12 +151,16 @@ class UpdatesLogicTest {
         assertEquals(R.string.updates_app_error_download, AppUpdateFailure.NETWORK.messageRes())
         assertEquals(R.string.updates_app_error_file, AppUpdateFailure.INVALID_FILE.messageRes())
         assertEquals(R.string.updates_app_error_file, AppUpdateFailure.NOT_NEWER.messageRes())
+        assertEquals(UiR.string.network_blocked_data_saver, AppUpdateFailure.DATA_SAVER.messageRes())
+        assertEquals(UiR.string.network_blocked_suspected, AppUpdateFailure.NETWORK_BLOCKED.messageRes())
     }
 
     @Test
     fun `si riprova solo dopo un errore che un nuovo download puo' evitare`() {
         assertTrue(AppUpdateFailure.NETWORK.canRetry())
         assertTrue(AppUpdateFailure.INVALID_FILE.canRetry())
+        assertTrue(AppUpdateFailure.DATA_SAVER.canRetry())
+        assertTrue(AppUpdateFailure.NETWORK_BLOCKED.canRetry())
         assertFalse(AppUpdateFailure.UNREADABLE.canRetry())
         assertFalse(AppUpdateFailure.PACKAGE.canRetry())
         assertFalse(AppUpdateFailure.NOT_NEWER.canRetry())

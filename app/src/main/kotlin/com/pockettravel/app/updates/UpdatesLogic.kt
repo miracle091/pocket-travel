@@ -8,6 +8,7 @@ import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.sync.AppUpdateFailure
 import com.pockettravel.core.sync.AppUpdateState
 import com.pockettravel.core.sync.AppVersionEntry
+import com.pockettravel.core.ui.R as UiR
 
 /** Le nazioni installate con almeno un pacchetto da aggiornare. */
 internal fun outdatedRegions(items: List<RegionUiItem>): List<RegionUiItem> =
@@ -65,6 +66,8 @@ internal fun AppUpdateState.Downloading.fraction(): Float? =
 @StringRes
 internal fun AppUpdateFailure.messageRes(): Int = when (this) {
     AppUpdateFailure.NETWORK -> R.string.updates_app_error_download
+    AppUpdateFailure.DATA_SAVER -> UiR.string.network_blocked_data_saver
+    AppUpdateFailure.NETWORK_BLOCKED -> UiR.string.network_blocked_suspected
     AppUpdateFailure.SIGNATURE -> R.string.updates_app_error_signature
     AppUpdateFailure.INVALID_FILE,
     AppUpdateFailure.UNREADABLE,
@@ -78,6 +81,6 @@ internal fun AppUpdateFailure.messageRes(): Int = when (this) {
  * versione o archivio sbagliati lo stesso APK verrebbe scartato di nuovo, e resta solo "Scarica da GitHub".
  */
 internal fun AppUpdateFailure.canRetry(): Boolean = when (this) {
-    AppUpdateFailure.NETWORK, AppUpdateFailure.INVALID_FILE -> true
+    AppUpdateFailure.NETWORK, AppUpdateFailure.DATA_SAVER, AppUpdateFailure.NETWORK_BLOCKED, AppUpdateFailure.INVALID_FILE -> true
     AppUpdateFailure.UNREADABLE, AppUpdateFailure.PACKAGE, AppUpdateFailure.NOT_NEWER, AppUpdateFailure.SIGNATURE -> false
 }

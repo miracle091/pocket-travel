@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.app.R
+import com.pockettravel.app.regions.NetworkBlockNotice
 import com.pockettravel.app.regions.RegionDownloadFlow
 import com.pockettravel.app.regions.RegionRowActions
 import com.pockettravel.app.regions.RegionStatus
@@ -55,8 +56,10 @@ import com.pockettravel.core.ui.CountryFlag
 import com.pockettravel.core.ui.DownloadProgressIndicator
 import com.pockettravel.core.ui.EmptyState
 import com.pockettravel.core.ui.IndeterminateDownloadProgressIndicator
+import com.pockettravel.core.ui.NetworkBlockSettingsButton
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.isNetworkBlockMessage
 import com.pockettravel.core.ui.R as UiR
 
 internal const val PERCENT = 100
@@ -111,6 +114,7 @@ internal fun AppSection(app: AppVersionEntry, state: UpdatesUiState, actions: Ap
                 if (inAppUpdate) {
                     TextButton(onClick = { openUrl(context, SyncConfig.APP_RELEASES_URL) }) { Text(stringResource(R.string.updates_app_download)) }
                 }
+                (download as? AppUpdateState.Failed)?.reason?.messageRes()?.takeIf(::isNetworkBlockMessage)?.let { NetworkBlockSettingsButton(it) }
             }
         }
     }
@@ -255,6 +259,7 @@ private fun UpdateRegionRow(item: RegionUiItem, actions: RegionRowActions) {
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             content = { Text(item.displayName) },
         )
+        download.blockMessage?.let { NetworkBlockNotice(it) }
         if (!download.isDownloading) UpdatePackageList(item, actions)
         if (download.isDownloading && download.installing) {
             IndeterminateDownloadProgressIndicator(modifier = Modifier.fillMaxWidth().padding(start = 72.dp, end = Spacing.l, bottom = Spacing.m))

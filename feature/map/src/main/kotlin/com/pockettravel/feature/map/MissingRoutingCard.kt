@@ -1,6 +1,7 @@
 package com.pockettravel.feature.map
 
 import android.text.format.Formatter
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +24,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.DownloadProgressIndicator
+import com.pockettravel.core.ui.NetworkBlockSettingsButton
 import com.pockettravel.core.ui.Spacing
 
 /**
@@ -36,6 +38,8 @@ internal fun MissingRoutingCard(
     downloadFailed: Boolean,
     onDownload: () -> Unit,
     modifier: Modifier = Modifier,
+    // Il download è fallito perché Android blocca la rete dell'app: il messaggio al posto di quello generico.
+    @StringRes downloadBlockMessage: Int? = null,
 ) {
     val context = LocalContext.current
     Card(modifier = modifier.fillMaxWidth().padding(vertical = Spacing.s)) {
@@ -44,7 +48,7 @@ internal fun MissingRoutingCard(
                 Text(
                     stringResource(
                         when {
-                            downloadFailed -> R.string.planner_routing_failed
+                            downloadFailed -> downloadBlockMessage ?: R.string.planner_routing_failed
                             // Solo regioni con la rete stradale solo auto: a piedi o in bici serve quella completa.
                             regions.all { it.carOnly } -> R.string.navigation_car_only_routing_list
                             else -> R.string.navigation_missing_routing_list
@@ -66,6 +70,7 @@ internal fun MissingRoutingCard(
                     }
                 }
             }
+            if (downloadFailed && downloadBlockMessage != null) NetworkBlockSettingsButton(downloadBlockMessage)
             regions.forEachIndexed { index, region ->
                 Row(modifier = Modifier.padding(top = Spacing.s)) {
                     Text("${index + 1}.", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(32.dp).alignByBaseline())

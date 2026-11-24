@@ -61,8 +61,19 @@ class AppUpdateDownloadWorker @AssistedInject constructor(
         } catch (_: PermanentRegionPackageException) {
             storage.delete(entry.versionCode)
             Result.failure(failureData(AppUpdateFailure.INVALID_FILE))
-        } catch (_: IOException) {
-            if (runAttemptCount < MAX_RETRIES) Result.retry() else Result.failure(failureData(AppUpdateFailure.NETWORK))
+        } catch (error: IOException) {
+            resultFor(error)
+        }
+    }
+
+    // Come per i modelli IA: col Risparmio dati non si ritenta, il blocco sospetto si dice solo a tentativi finiti.
+    private fun resultFor(error: IOException): Result {
+        val block = applicationContext.networkBlockFor(error)
+        return when {
+            block == NetworkBlock.DATA_SAVER -> Result.failure(failureData(AppUpdateFailure.DATA_SAVER))
+            runAttemptCount < MAX_RETRIES -> Result.retry()
+            block == NetworkBlock.SUSPECTED -> Result.failure(failureData(AppUpdateFailure.NETWORK_BLOCKED))
+            else -> Result.failure(failureData(AppUpdateFailure.NETWORK))
         }
     }
 
