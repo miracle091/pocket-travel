@@ -29,10 +29,10 @@ pmtilesReader = "0.3.7"
 orgJson = "20260814"
 aboutLibraries = "15.3.0"
 # Versioni minime delle dipendenze transitive di planetiler-core con CVE note (vedi tools/data-pipeline/content).
-jackson = "2.22.4"
+jackson = "2.23.0"
 log4j = "2.26.1"
 aircompressor = "2.0.3"
-lz4Java = "1.12.0"
+lz4Java = "1.14.1"
 snappyJava = "1.1.10.12"
 # guava dalla 33.7.2 corregge CVE-2026-102554: -jre per la pipeline (planetiler), -android per l'app (media3).
 guavaJre = "33.8.0-jre"
