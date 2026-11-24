@@ -74,8 +74,9 @@ QUERY = """SELECT ?item ?links (MIN(STR(?c)) AS ?coord) (MAX(?p) AS ?protected) 
 } GROUP BY ?item ?links"""
 
 
-def _post(query):
-    return get_json(ENDPOINT, urllib.parse.urlencode({"query": query}).encode(), HEADERS, 120, "Wikidata")
+def _post(query, deadline):
+    return get_json(ENDPOINT, urllib.parse.urlencode({"query": query}).encode(), HEADERS, 120, "Wikidata",
+                    deadline=deadline)
 
 
 def _point(row):
@@ -97,7 +98,7 @@ def fetch(qids, deadline):
             break
         chunk = qids[i:i + BATCH]
         try:
-            rows = _post(QUERY % " ".join(f"wd:Q{q}" for q in chunk))["results"]["bindings"]
+            rows = _post(QUERY % " ".join(f"wd:Q{q}" for q in chunk), deadline)["results"]["bindings"]
         except Exception as e:
             print(f"::warning::Wikidata non risponde ({e}): {len(qids) - i} elementi senza fama e patrimonio",
                   file=sys.stderr)

@@ -81,6 +81,13 @@ class FetchTest(unittest.TestCase):
             self.assertEqual({}, poi_wikidata.fetch({1, 2}, time.monotonic() - 1))
         post.assert_not_called()
 
+    def test_i_nuovi_tentativi_si_fermano_alla_scadenza(self):
+        deadline = time.monotonic() + 60
+        with mock.patch("poi_wikidata.get_json", return_value=answer()) as get_json, \
+                mock.patch("poi_wikidata.time.sleep"):
+            poi_wikidata.fetch({1}, deadline)
+        self.assertEqual(deadline, get_json.call_args.kwargs.get("deadline"))
+
 
 class AnnotateTest(unittest.TestCase):
     def setUp(self):
