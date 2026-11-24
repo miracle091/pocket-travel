@@ -1,15 +1,18 @@
 package com.pockettravel.app.regions
 
-import com.pockettravel.core.data.DefaultDispatcher
-import com.pockettravel.core.data.IoDispatcher
-import com.pockettravel.core.data.LastKnownPosition
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
+import com.pockettravel.app.R
 import com.pockettravel.app.runCatchingCancellable
+import com.pockettravel.core.data.DefaultDispatcher
+import com.pockettravel.core.data.IoDispatcher
+import com.pockettravel.core.data.LastKnownPosition
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.sync.ManifestClient
+import com.pockettravel.core.sync.NetworkBlockDetector
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.TransitClient
@@ -33,6 +36,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.util.Locale
 import javax.inject.Inject
 
@@ -59,6 +63,7 @@ data class RegionHubUiState(
     val transitState: TransitPackageState = TransitPackageState.UNKNOWN,
     val transitUpdateResult: TransitUpdateResult? = null,
     val staleTransit: List<String> = emptyList(),
+    @StringRes val mapDownloadError: Int? = null,
 )
 
 private data class RegionHeader(
@@ -81,6 +86,7 @@ class RegionHubViewModel @Inject constructor(
     private val lastKnownPosition: LastKnownPosition,
     private val countryLocator: CountryLocator,
     private val aiAvailability: AiAvailability,
+    private val networkBlocks: NetworkBlockDetector,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -114,6 +120,9 @@ class RegionHubViewModel @Inject constructor(
     // L'ultimo tocco su "Aggiorna" o "Scarica" nel riquadro delle fermate della regione aperta, null se nessuno.
     private val transitUpdate = MutableStateFlow<TransitUpdate?>(null)
 
+    // Il motivo dell'ultimo "Scarica" della mappa non riuscito; null dopo un nuovo tocco o in un'altra regione.
+    private val mapDownloadError = MutableStateFlow<Int?>(null)
+
     // Lo stato del download accodato da quel tocco: null se nessuno (o non ancora registrato da WorkManager).
     private val transitUpdateWork: Flow<WorkInfo.State?> = transitUpdate.flatMapLatest { update ->
         if (update is TransitUpdate.Requested) update.work.map { it?.state } else flowOf(null)
@@ -146,8 +155,8 @@ class RegionHubViewModel @Inject constructor(
 
     /** Tutto quello che l'hub legge, in un solo stato. */
     val uiState: StateFlow<RegionHubUiState> = combine(
-        header, mapState, aiAvailability.available, transitState, combine(transitUpdateResult, staleTransit, ::Pair),
-    ) { currentHeader, map, ai, transit, (transitResult, stale) ->
+        header, mapState, aiAvailability.available, transitState, combine(transitUpdateResult, staleTransit, mapDownloadError, ::Triple),
+    ) { currentHeader, map, ai, transit, (transitResult, stale, mapError) ->
         RegionHubUiState(
             displayName = currentHeader.displayName,
             splitCountry = currentHeader.splitCountry,
@@ -157,6 +166,7 @@ class RegionHubViewModel @Inject constructor(
             transitState = transit,
             transitUpdateResult = transitResult,
             staleTransit = stale,
+            mapDownloadError = mapError,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionHubUiState(aiAvailable = aiAvailability.available.value))
 
@@ -170,6 +180,7 @@ class RegionHubViewModel @Inject constructor(
         transitOffered.value = null
         staleTransit.value = emptyList()
         transitUpdate.value = null
+        mapDownloadError.value = null
         recentRegionStore.setLastRegionId(regionId)
         viewModelScope.launch {
             val region = regionRepository.installed(regionId)
@@ -246,13 +257,16 @@ class RegionHubViewModel @Inject constructor(
         return attachTransitFeeds(regions, index, choices.excluded, choices.reasons).first()
     }
 
-    fun downloadMap() = downloadPackage(PackageKind.MAP)
-
-    private fun downloadPackage(kind: PackageKind) {
+    fun downloadMap() {
         val id = regionId.value ?: return
+        mapDownloadError.value = null
         viewModelScope.launch {
             runCatchingCancellable { manifestClient.fetchManifest().regions.first { it.regionId == id } }
-                .onSuccess { regionSyncScheduler.enqueueDownload(it, setOf(kind)) }
+                .onSuccess { regionSyncScheduler.enqueueDownload(it, setOf(PackageKind.MAP)) }
+                // Senza messaggio il tocco su "Scarica" offline non farebbe nulla: il motivo se Android blocca la rete dell'app.
+                .onFailure { error ->
+                    mapDownloadError.value = (error as? IOException)?.let { networkBlocks.blockFor(it).message() } ?: R.string.regions_load_error
+                }
         }
     }
 

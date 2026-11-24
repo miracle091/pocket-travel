@@ -24,12 +24,16 @@ class FakePoiDao : PoiDao {
     val searches = mutableListOf<Pair<List<String>, String>>()
     val nearestRows = mutableListOf<PoiEntity>()
 
+    /** Se non e' null, `poisInBounds` la lancia (il database cambiato sotto, per esempio). */
+    var inBoundsFailure: Exception? = null
+
     override suspend fun poisInBounds(
         regionId: String, minLat: Double, maxLat: Double, minLon: Double, maxLon: Double,
         excluded: List<String>, accessibility: Int, limit: Int,
     ): List<PoiEntity> {
         inBoundsCalls += InBoundsCall(regionId, minLat, maxLat, minLon, maxLon, excluded, accessibility, limit)
         gates[regionId]?.await()
+        inBoundsFailure?.let { throw it }
         return rows.filter {
             it.regionId == regionId && it.lat in minLat..maxLat && it.lon in minLon..maxLon && "${it.category}|${it.osmTag}" !in excluded
         }.take(limit)

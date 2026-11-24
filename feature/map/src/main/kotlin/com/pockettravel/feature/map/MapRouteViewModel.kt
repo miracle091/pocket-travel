@@ -45,6 +45,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 // Holder minimo per far arrivare OfflineTileSource (fornito da RouteEngineModule), i segnalini e i
 // filtri salvati a MapScreen tramite hiltViewModel(), come ogni altra dipendenza di questo progetto
@@ -97,7 +98,18 @@ class MapRouteViewModel @Inject constructor(
     private var regionTags: Pair<String, List<CategoryTag>>? = null
 
     init {
-        viewModelScope.launch { pinRequests.collect { loadPinsNow() } }
+        viewModelScope.launch {
+            pinRequests.collect {
+                // Un errore del database (una regione cancellata mentre si legge) chiuderebbe l'app o fermerebbe
+                // il raccoglitore per sempre: restano i segnalini di prima e la richiesta dopo riprova.
+                try {
+                    loadPinsNow()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                }
+            }
+        }
     }
 
     // Partenze del POI di trasporto aperto nel riquadro: null finche' si leggono o senza POI.

@@ -59,7 +59,7 @@ class RecentDestinations @Inject constructor(preferences: PreferencesFactory) {
 
         // Una riga per destinazione, campi separati da tab: niente libreria di serializzazione in feature:map per una lista corta.
         fun encode(places: List<NavigationPlace>): String = places.joinToString("\n") { place ->
-            listOf(place.latitude, place.longitude, place.regionId, place.name.replace('\t', ' ').replace('\n', ' ')).joinToString("\t")
+            listOf(place.latitude, place.longitude, place.regionId, place.name.replace('\t', ' ').replace('\n', ' ').replace('\r', ' ')).joinToString("\t")
         }
 
         fun decode(text: String?): List<NavigationPlace> = text.orEmpty().lines().mapNotNull { line ->

@@ -1,5 +1,6 @@
 package com.pockettravel.app.regions
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -36,10 +37,14 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.dropUnlessResumed
@@ -249,6 +254,7 @@ fun RegionHubScreen(
                                     MapDownloadBar(
                                         sourceKind = sourceKind,
                                         downloading = mapState == RegionMapState.DOWNLOADING,
+                                        error = hubState.mapDownloadError,
                                         onDownload = viewModel::downloadMap,
                                     )
                                 }
@@ -306,7 +312,7 @@ private fun RegionTab.icon(selected: Boolean): ImageVector = when (this) {
 // restante sopra la barra). Niente navigationBarsPadding: la barra sta sopra la navigazione della
 // regione, che gestisce gia' gli inset di sistema (con il padding resterebbe una fascia vuota).
 @Composable
-private fun MapDownloadBar(sourceKind: MapSourceKind, downloading: Boolean, onDownload: () -> Unit) {
+private fun MapDownloadBar(sourceKind: MapSourceKind, downloading: Boolean, @StringRes error: Int?, onDownload: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceContainer,
@@ -319,10 +325,11 @@ private fun MapDownloadBar(sourceKind: MapSourceKind, downloading: Boolean, onDo
         ) {
             Text(
                 text = stringResource(
-                    if (sourceKind == MapSourceKind.NONE) R.string.map_missing_notice else R.string.map_preview_notice,
+                    error ?: if (sourceKind == MapSourceKind.NONE) R.string.map_missing_notice else R.string.map_preview_notice,
                 ),
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
+                color = if (error != null) MaterialTheme.colorScheme.error else Color.Unspecified,
+                modifier = Modifier.weight(1f).semantics { if (error != null) liveRegion = LiveRegionMode.Polite },
             )
             if (downloading) {
                 PocketTravelLoadingIndicator()

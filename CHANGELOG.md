@@ -65,6 +65,9 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA, motore Online: sotto un modello gratuito, come `inclusionai/ling-3.2-flash:free` di OpenRouter, il costo dice «Gratuito» invece di «Meno di 0,01 USD ogni 100 domande».
 
 ### Corretto
+- Mappa: «Scarica» senza rete o con il catalogo non raggiungibile mostra un messaggio invece di non fare nulla; se Android blocca la rete dell'app, il messaggio lo dice.
+- Mappa: un errore nella lettura dei luoghi, per esempio mentre si elimina la nazione, non chiude più l'app e non lascia la mappa senza segnalini.
+- Navigatore: una destinazione con un ritorno a capo nel nome non sparisce più dai recenti e dai preferiti.
 - Download: «Annulla» ferma subito anche un download a una sola connessione bloccato su una rete che non risponde, invece di aspettare la scadenza della connessione.
 - Spazio di archiviazione: le versioni vecchie degli indici dei mezzi pubblici e delle celle degli indirizzi non restano più sul telefono dopo ogni aggiornamento.
 - Mezzi pubblici: il Navigatore trova anche gli itinerari in cui dalla fermata di discesa si va a piedi a un'altra fermata, entro 300 m, vicina all'arrivo. Nelle reti lontane dal meridiano di Greenwich (Americhe, Asia orientale, Oceania) non mancano più i cambi a piedi tra fermate vicine.

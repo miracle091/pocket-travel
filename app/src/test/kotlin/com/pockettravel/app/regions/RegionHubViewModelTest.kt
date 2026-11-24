@@ -2,17 +2,20 @@ package com.pockettravel.app.regions
 
 import androidx.work.WorkInfo
 import com.pockettravel.app.MainDispatcherRule
+import com.pockettravel.app.R
 import com.pockettravel.app.regionEntry
 import com.pockettravel.app.regionManifest
 import com.pockettravel.app.transitFeed
 import com.pockettravel.app.transitManifestEntry
 import com.pockettravel.core.data.InstalledRegion
-import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.PackageKind
+import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.TransitFeedInfo
 import com.pockettravel.core.data.testing.FakeLastKnownPosition
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
+import com.pockettravel.core.sync.NetworkBlock
+import com.pockettravel.core.sync.NetworkBlockDetector
 import com.pockettravel.core.sync.TransitIndex
 import com.pockettravel.core.sync.TransitMissing
 import com.pockettravel.core.sync.attachTransitFeeds
@@ -22,8 +25,8 @@ import com.pockettravel.core.sync.testing.FakeTransitClient
 import com.pockettravel.feature.ai.testing.FakeAiAvailability
 import com.pockettravel.feature.map.TransitPackageState
 import com.pockettravel.feature.map.TransitUpdateResult
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -41,6 +44,7 @@ import org.junit.Test
 import java.io.IOException
 import java.util.Locale
 import java.util.UUID
+import com.pockettravel.core.ui.R as UiR
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RegionHubViewModelTest {
@@ -56,6 +60,8 @@ class RegionHubViewModelTest {
     private val position = FakeLastKnownPosition()
     private val locator = FakeCountryLocator()
     private val ai = FakeAiAvailability()
+    private var block = NetworkBlock.NONE
+    private val networkBlocks = NetworkBlockDetector { block }
     private val transitPreferences = TransitNetworkPreferences(files)
     private val recent = RecentRegionStore(files)
     private lateinit var previousLocale: Locale
@@ -72,7 +78,7 @@ class RegionHubViewModelTest {
     }
 
     private fun viewModel() = RegionHubViewModel(
-        repository, recent, manifests, scheduler, transitClient, transitPreferences, position, locator, ai, mainDispatcher.dispatcher, mainDispatcher.dispatcher,
+        repository, recent, manifests, scheduler, transitClient, transitPreferences, position, locator, ai, networkBlocks, mainDispatcher.dispatcher, mainDispatcher.dispatcher,
     )
 
     // I StateFlow con WhileSubscribed hanno valori solo con un osservatore.
@@ -220,7 +226,7 @@ class RegionHubViewModelTest {
             }
         }
         val viewModel = RegionHubViewModel(
-            slow, recent, manifests, scheduler, transitClient, transitPreferences, position, locator, ai, mainDispatcher.dispatcher, mainDispatcher.dispatcher,
+            slow, recent, manifests, scheduler, transitClient, transitPreferences, position, locator, ai, networkBlocks, mainDispatcher.dispatcher, mainDispatcher.dispatcher,
         )
         observe(viewModel)
         viewModel.load("italia")
@@ -302,6 +308,29 @@ class RegionHubViewModelTest {
         advanceUntilIdle()
 
         assertTrue(scheduler.enqueued.isEmpty())
+    }
+
+    @Test
+    fun `scaricare la mappa senza catalogo lo dice, con il motivo se Android blocca la rete`() = runTest {
+        val viewModel = viewModel()
+        observe(viewModel)
+        viewModel.load("italia")
+        advanceUntilIdle()
+
+        manifests.failure = IOException("offline")
+        viewModel.downloadMap()
+        advanceUntilIdle()
+        assertEquals(R.string.regions_load_error, viewModel.uiState.value.mapDownloadError)
+
+        block = NetworkBlock.DATA_SAVER
+        viewModel.downloadMap()
+        advanceUntilIdle()
+        assertEquals(UiR.string.network_blocked_data_saver, viewModel.uiState.value.mapDownloadError)
+
+        manifests.failure = null
+        viewModel.downloadMap()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.mapDownloadError)
     }
 
     @Test

@@ -104,6 +104,21 @@ class MapRouteViewModelTest {
     }
 
     @Test
+    fun `un errore del database dei POI non ferma i caricamenti successivi`() = runTest {
+        dao.rows += poiRow(1, "Da Mario", lat = 45.2, lon = 9.2)
+        dao.inBoundsFailure = IllegalStateException("database chiuso")
+        val viewModel = viewModel()
+        viewModel.loadPins("r1")
+        runCurrent()
+
+        dao.inBoundsFailure = null
+        viewModel.setViewport(MapBounds(9.0, 45.0, 9.5, 45.5))
+        runCurrent()
+
+        assertEquals(listOf("1"), settled(viewModel.uiState).pins.map { it.id })
+    }
+
+    @Test
     fun `senza mappa ne zona si legge tutto il mondo`() = runTest {
         tileSource.bounds.remove("r1")
         dao.rows += poiRow(1, "Da Mario", lat = -33.0, lon = 151.0)

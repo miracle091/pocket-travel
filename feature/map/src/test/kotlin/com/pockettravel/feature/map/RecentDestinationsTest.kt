@@ -21,6 +21,13 @@ class RecentDestinationsTest {
     }
 
     @Test
+    fun `un ritorno a capo nel nome non fa sparire la destinazione`() {
+        val place = NavigationPlace("Bar\r\nda Gino", 45.0, 9.0, "it")
+
+        assertEquals(listOf("Bar  da Gino"), RecentDestinations.decode(RecentDestinations.encode(listOf(place))).map { it.name })
+    }
+
+    @Test
     fun `righe rovinate o vuote si saltano`() {
         assertEquals(emptyList<NavigationPlace>(), RecentDestinations.decode(null))
         assertEquals(1, RecentDestinations.decode("x\ty\tz\tw\n1.0\t2.0\tit\tRoma\nsolo testo").size)
