@@ -16,8 +16,15 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         // Richiesto da planetiler-core (gt-shapefile/gt-epsg-hsql, dipendenze GeoTools
-        // non pubblicate su Maven Central) — usato solo da :tools:data-pipeline.
-        maven("https://repo.osgeo.org/repository/release/")
+        // non pubblicate su Maven Central) — usato solo da :tools:data-pipeline. Solo i gruppi che mancano su Maven
+        // Central, cosi' il repository non puo' servire altre librerie.
+        maven("https://repo.osgeo.org/repository/release/") {
+            content {
+                includeGroupByRegex("org\\.geotools(\\..+)?")
+                includeGroup("org.eclipse.imagen")
+                includeGroup("it.geosolutions.jgridshift")
+            }
+        }
     }
 }
 
