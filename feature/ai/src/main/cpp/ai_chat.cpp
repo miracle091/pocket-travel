@@ -1594,12 +1594,6 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_unload(JN
     }
 }
 
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_shutdown(JNIEnv *, jobject /*unused*/) {
-    llama_backend_free();
-}
-
 // Uso del contesto per il task manager di debug (contextUsageNative): {token del prompt, token generati, posizione nella KV
 // cache, dimensione del contesto, token della cronologia, turni della cronologia}. Da chiamare sul thread del motore, come
 // le altre funzioni.

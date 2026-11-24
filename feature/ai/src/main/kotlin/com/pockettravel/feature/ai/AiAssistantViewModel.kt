@@ -598,6 +598,7 @@ class AiAssistantViewModel @Inject constructor(
         _uiState.update { it.startingTurn(question)?.copy(attachedPhoto = null, askedPhoto = attached?.askedWith(question) ?: it.askedPhoto) ?: it }
         // Il riquadro della domanda precedente e' un figlio del suo lavoro: va fermato, o sovrascriverebbe quello nuovo.
         askJob?.cancel()
+        askedPhotoInFlight = attached
         askJob = viewModelScope.launch {
             // Pericolo per la vita: solo i numeri da chiamare. Il modello non aiuta e puo' inventare consigli medici.
             if (isLifeThreatening(question)) {
@@ -607,16 +608,11 @@ class AiAssistantViewModel @Inject constructor(
             // Accanto alla ricerca e al modello, non prima: le allerte di una domanda su una catastrofe arrivano da
             // piu' fonti in rete, e il numero da chiamare non aspetta la risposta.
             launch { _uiState.showEmergencyCard(emergencyCards, region, question) }
-            val answered = try {
-                collectAnswer(region, question, state.mode, previous, photo) { answer ->
-                    // Dal foglio "Chiedi all'assistente" niente cronologia: domanda e risposta restano nel foglio.
-                    conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer, save = state.selectedText == null, withPhoto = photo != null)
-                }
-            } catch (stopped: AnswerStopped) {
-                // "Ferma": come dopo un errore, la foto torna allegata.
-                restorePhoto(attached)
-                throw stopped
+            val answered = collectAnswer(region, question, state.mode, previous, photo) { answer ->
+                // Dal foglio "Chiedi all'assistente" niente cronologia: domanda e risposta restano nel foglio.
+                conversation.onAnswered(state.mode, region, state.selectedModelId, question, answer, save = state.selectedText == null, withPhoto = photo != null)
             }
+            askedPhotoInFlight = null
             // Senza risposta la foto torna allegata: un turno fallito non e' un seguito, e la domanda dopo la perderebbe.
             if (!answered) restorePhoto(attached)
         }
@@ -631,6 +627,7 @@ class AiAssistantViewModel @Inject constructor(
         val asked = state.askedQuestion ?: return
         val answer = state.answer?.takeIf { state.canRefreshForecast && !state.isThinking } ?: return
         val region = conversation.regionId ?: regionId
+        askedPhotoInFlight = null
         askJob = viewModelScope.launch {
             _uiState.update {
                 it.copy(isThinking = true, errorMessage = null, canRefreshForecast = false, answer = null, answerCredit = it.currentModelCredit(), streamingText = "")
@@ -733,12 +730,17 @@ class AiAssistantViewModel @Inject constructor(
     // La domanda in corso (generazione o richiesta online).
     private var askJob: Job? = null
 
+    // La foto allegata alla domanda in corso: "Ferma" la rimette nel campo, come dopo un errore.
+    private var askedPhotoInFlight: AttachedPhoto? = null
+
     // "Ferma" della notifica: interrompe solo la risposta di questo ViewModel, se c'e', e la segna come non riuscita.
     // Turni precedenti e conversazione restano; gli altri ViewModel (il servizio e' unico) non hanno niente da fermare.
     private fun stopAnswer() {
         val job = askJob?.takeIf { it.isActive } ?: return
-        job.cancel(AnswerStopped())
+        job.cancel()
         askJob = null
+        restorePhoto(askedPhotoInFlight)
+        askedPhotoInFlight = null
         forecastJob?.cancel()
         conversation.onFailed()
         _uiState.update { it.copy(isThinking = false, streamingText = "", canRefreshForecast = false) }
@@ -935,9 +937,6 @@ internal fun historyEmptied(counts: Flow<Int>, shown: () -> Boolean): Flow<Unit>
 }
 
 private const val TAG = "AiAssistant"
-
-// Motivo della cancellazione di "Ferma": distingue l'interruzione voluta dall'utente da una domanda sostituita da un'altra.
-private class AnswerStopped : CancellationException("Risposta fermata")
 
 /** Quanto manca perche' le previsioni scaricate a [updatedAtMillis] si possano riscaricare; 0 se si puo' gia'. */
 internal fun forecastRefreshDelayMillis(updatedAtMillis: Long, nowMillis: Long): Long =
