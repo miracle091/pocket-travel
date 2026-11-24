@@ -106,6 +106,19 @@ jobs:
       # compilano a ogni push, non per la prima volta in publish-apk.yml al rilascio.
       - run: ./gradlew assembleDebug :app:assembleRelease lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :core:transit-routing:test :tools:data-pipeline:content:test --no-daemon
 
+      # Le dipendenze dell'APK di release devono essere quelle di app/dependencies/releaseRuntimeClasspath.txt: una
+      # libreria nuova o una transitiva cambiata (es. Google Play Services portato da una dipendenza) si vede qui.
+      - name: Dipendenze del release uguali al baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :app:dependencyGuard --no-daemon || {
+            msg="Le dipendenze del release non corrispondono a app/dependencies/releaseRuntimeClasspath.txt (righe + e - nel log del passo): se il cambio e' voluto, rilanciare ./gradlew :app:dependencyGuardBaseline e committare il file"
+            echo "::error::$msg"
+            echo "$msg." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
+
       # Vincolo del progetto: niente Google Play Services. Si cerca nelle classi dei classes*.dex (dexdump dei
       # build-tools dell'SDK, senza rete) il package di Play Services (gms), di Firebase, delle librerie Play (core,
       # integrity, review, feature delivery: com/google/android/play/) e di ML Kit (com/google/mlkit/). Non basta

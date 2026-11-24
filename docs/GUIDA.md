@@ -20,7 +20,7 @@ bash third-party/init-bergamot-submodules.sh                    # e i submodule 
 Prima di ogni commit, lancia gli stessi controlli della CI (`.github/workflows/android-ci.yml`):
 
 ```bash
-./gradlew assembleDebug :app:assembleRelease lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :core:transit-routing:test :tools:data-pipeline:content:test --continue
+./gradlew assembleDebug :app:assembleRelease lint detekt testDebugUnitTest :core:poi:test :core:tiles:test :core:transit-routing:test :tools:data-pipeline:content:test :app:dependencyGuard --continue
 for t in tools/data-pipeline/scripts/test_*.py .github/scripts/test_check_dependencies.py; do python "$t" || break; done
 ```
 
@@ -33,6 +33,10 @@ python .github/scripts/check-dependencies.py app.txt pipeline.txt
 ```
 
 Dopo la build la CI controlla anche che gli APK di debug e di release non contengano classi di Google Play Services, Firebase, librerie Play (`com/google/android/play/`) o ML Kit, con `dexdump` dei build-tools, e nessun tracker noto, con exodus-standalone. Una dipendenza nuova che porta con sé una di queste librerie fa fallire il job.
+
+`:app:dependencyGuard` confronta le dipendenze dell'APK di release, dirette e transitive, con `app/dependencies/releaseRuntimeClasspath.txt` e fallisce a ogni differenza. Dopo un aggiornamento voluto si rigenera il file con `./gradlew :app:dependencyGuardBaseline`, si controlla il diff e lo si committa insieme al cambio.
+
+Il baseline profile (`app/src/release/generated/baselineProfiles/`) elenca le classi e i metodi dell'avvio, che Android compila all'installazione invece che al primo uso. Lo genera il modulo `:baselineprofile` su un emulatore con API 33 o successiva: `./gradlew :app:generateReleaseBaselineProfile`, con l'emulatore acceso. Va rigenerato e committato quando cambia molto il codice dell'avvio; la CI e `publish-apk` usano il file committato.
 
 detekt segnala solo i problemi nuovi: quelli già presenti stanno nel `detekt-baseline.xml` di ogni modulo. La baseline di un modulo si rigenera (`./gradlew :feature:map:detektBaseline`) solo quando si sposta codice che contiene già un problema registrato, non per far passare codice nuovo.
 

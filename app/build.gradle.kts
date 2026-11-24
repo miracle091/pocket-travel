@@ -6,6 +6,9 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     // Schermata Licenze: elenco delle dipendenze con i testi delle licenze, generato al build (res/raw/aboutlibraries.json).
     alias(libs.plugins.aboutlibraries.android)
+    alias(libs.plugins.dependency.guard)
+    // Baseline profile in src/release/generated/baselineProfiles, generato dal modulo :baselineprofile.
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
@@ -144,6 +147,13 @@ fun dataAndModelLicenses(): List<String> =
         if (definition["tag"] in setOf("data", "models")) (definition["licenses"] as List<String>) else emptyList()
     }.distinct()
 
+// Dipendenze dell'APK di release, dirette e transitive, in app/dependencies/releaseRuntimeClasspath.txt: il task
+// dependencyGuard (in CI) fallisce se cambiano, per esempio se una libreria porta dentro Google Play Services. Dopo un
+// cambio voluto: ./gradlew :app:dependencyGuardBaseline, e il file aggiornato va nel commit.
+dependencyGuard {
+    configuration("releaseRuntimeClasspath")
+}
+
 // LicenseDataTest legge i JSON generati per debug e release.
 tasks.withType<Test>().configureEach {
     inputs.files(tasks.named("prepareLibraryDefinitionsDebug"), tasks.named("prepareLibraryDefinitionsRelease"))
@@ -178,6 +188,9 @@ dependencies {
     // Widget della schermata Home (Emergenza, Scorciatoie).
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.aboutlibraries.core)
+    // Compila il baseline profile all'installazione anche senza Play Store (APK da GitHub Releases).
+    implementation(libs.androidx.profileinstaller)
+    baselineProfile(project(":baselineprofile"))
     // Oggetti e activity trattenuti in memoria, con una notifica sua: solo nell'APK di debug.
     debugImplementation(libs.leakcanary.android)
 
