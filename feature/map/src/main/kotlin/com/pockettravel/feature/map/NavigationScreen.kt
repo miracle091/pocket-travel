@@ -111,7 +111,7 @@ fun NavigationInstructions(
     }
 
     if (state is NavigationStatus.Navigating) {
-        ActiveNavigationContent(state, destinationName, routeProfile, arriveBy, tileSource, regionIds, onClose, onStreetNames, drivingSide, voice, toCatch, nextWaypoint, onSkipWaypoint)
+        ActiveNavigationContent(state, routeProfile, arriveBy, tileSource, regionIds, onClose, onStreetNames, drivingSide, voice, toCatch, nextWaypoint, onSkipWaypoint)
         return
     }
     // Senza percorso da seguire: un messaggio al centro, con la destinazione in cima e sempre "Termina".

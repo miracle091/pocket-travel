@@ -119,16 +119,8 @@ private fun LegRow(leg: JourneyLeg, clock: DateTimeFormatter) {
 private fun minutes(from: Instant, to: Instant): Int = Duration.between(from, to).toMinutes().toInt().coerceAtLeast(0)
 
 @Composable
-private fun minutesText(from: Instant, to: Instant): String {
-    val minutes = minutes(from, to)
-    return if (minutes < MINUTES_PER_HOUR) {
-        stringResource(R.string.navigation_minutes, minutes)
-    } else {
-        stringResource(R.string.navigation_hours_minutes, minutes / MINUTES_PER_HOUR, minutes % MINUTES_PER_HOUR)
-    }
-}
-
-private const val MINUTES_PER_HOUR = 60
+private fun minutesText(from: Instant, to: Instant): String =
+    formatMinutes(minutes(from, to)) { id, args -> stringResource(id, *args) }
 
 // Mezzi su rotaia: l'icona del treno; gli altri quella dell'autobus.
 private val RAIL_MODES = setOf(TransitMode.METRO, TransitMode.TRAIN, TransitMode.TRAM, TransitMode.MONORAIL)

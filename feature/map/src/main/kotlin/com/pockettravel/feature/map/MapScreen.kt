@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -454,7 +455,11 @@ fun MapScreen(
     }
 
     selectedPin?.let { pin ->
-        ModalBottomSheet(onDismissRequest = { selectedPinId = null; stopPin = null }) {
+        fun closePin() {
+            selectedPinId = null
+            stopPin = null
+        }
+        ModalBottomSheet(onDismissRequest = ::closePin) {
             // Scorre: il tabellone di una fermata affollata ha una riga per linea, anche decine.
             Column(
                 modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
@@ -524,8 +529,7 @@ fun MapScreen(
                         onReachStop = onReachStop?.let { reach ->
                             { toCatch ->
                                 onCloseTrip()
-                                selectedPinId = null
-                                stopPin = null
+                                closePin()
                                 reach(toCatch)
                             }
                         },
@@ -534,8 +538,7 @@ fun MapScreen(
                             val stopName = pin.displayName(LocalLocale.current.platformLocale.language) ?: pin.name ?: stringResource(pin.category.label())
                             val reachDeparture: (TransitDeparture) -> Unit = { departure ->
                                 tripToCatch(departure, stopName, pin.latitude, pin.longitude, transitBoardTime ?: LocalDateTime.now())?.let { toCatch ->
-                                    selectedPinId = null
-                                    stopPin = null
+                                    closePin()
                                     reach(toCatch)
                                 }
                             }
@@ -545,36 +548,30 @@ fun MapScreen(
                 }
                 onNavigate?.let { navigate ->
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
-                    Button(
+                    PoiActionButton(
+                        AppIcons.Route, stringResource(R.string.poi_directions), tonal = false,
                         onClick = {
-                            selectedPinId = null
-                            stopPin = null
+                            closePin()
                             navigate(pin)
                         },
-                    ) {
-                        Icon(AppIcons.Route, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(Spacing.s))
-                        Text(stringResource(R.string.poi_directions))
-                    }
+                    )
                 }
                 pin.phone?.let { phone ->
                     Spacer(modifier = Modifier.padding(top = Spacing.l))
-                    FilledTonalButton(
+                    PoiActionButton(
+                        AppIcons.Call, stringResource(R.string.poi_call, phone),
                         onClick = {
                             // Tablet solo Wi-Fi o profilo senza telefono: nessuna app per ACTION_DIAL.
                             // Uri.fromParts codifica il testo (che viene da OSM, modificabile da chiunque): "tel:$phone" no.
                             runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", phone, null))) }
                             selectedPinId = null
                         },
-                    ) {
-                        Icon(AppIcons.Call, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(Spacing.s))
-                        Text(stringResource(R.string.poi_call, phone))
-                    }
+                    )
                 }
                 pin.website?.let { website ->
                     Spacer(modifier = Modifier.padding(top = Spacing.s))
-                    FilledTonalButton(
+                    PoiActionButton(
+                        AppIcons.Web, stringResource(R.string.poi_website),
                         onClick = {
                             // In OSM il sito c'e' spesso senza schema ("www.esempio.it"), ed e' modificabile da
                             // chiunque: si apre solo http/https, tutto il resto si scarta.
@@ -582,25 +579,29 @@ fun MapScreen(
                                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
                             }
                         },
-                    ) {
-                        Icon(AppIcons.Web, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(Spacing.s))
-                        Text(stringResource(R.string.poi_website))
-                    }
+                    )
                 }
                 pin.email?.let { email ->
                     Spacer(modifier = Modifier.padding(top = Spacing.s))
-                    FilledTonalButton(
+                    PoiActionButton(
+                        AppIcons.Mail, stringResource(R.string.poi_email, email),
                         onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto", email, null))) } },
-                    ) {
-                        Icon(AppIcons.Mail, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(Spacing.s))
-                        Text(stringResource(R.string.poi_email, email))
-                    }
+                    )
                 }
             }
         }
     }
+}
+
+// Un'azione del riquadro del POI (indicazioni, telefono, sito, email): icona e testo; "Indicazioni" e' il pulsante pieno.
+@Composable
+private fun PoiActionButton(icon: ImageVector, label: String, onClick: () -> Unit, tonal: Boolean = true) {
+    val content: @Composable RowScope.() -> Unit = {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(Spacing.s))
+        Text(label)
+    }
+    if (tonal) FilledTonalButton(onClick = onClick, content = content) else Button(onClick = onClick, content = content)
 }
 
 // Una riga del riquadro del POI: icona piccola e testo (accessibilita', indirizzo, orari).
@@ -686,10 +687,6 @@ private fun wheelchairLabel(value: String?, station: Boolean): Int? = when (valu
     "no" -> if (station) R.string.poi_station_wheelchair_no else R.string.poi_wheelchair_no
     else -> null
 }
-
-// Badge del segnalino: dal tag wheelchair del posto o, se manca, da quello dei suoi bagni.
-private fun pinBadgeOf(pin: MapPin): AccessibilityBadge? =
-    accessibilityBadgeOf(pin.wheelchair) ?: accessibilityBadgeOf(pin.toiletsWheelchair)
 
 // Come wheelchairLabel, per il tag OSM "toilets:wheelchair".
 @StringRes

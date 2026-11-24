@@ -32,7 +32,6 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
-import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.SymbolLayer
@@ -97,23 +96,14 @@ internal fun NavigationMap(
                 val positionSource = GeoJsonSource(POSITION_SOURCE).also(style::addSource)
                 val destinationSource = GeoJsonSource(DESTINATION_SOURCE).also(style::addSource)
                 style.addLayer(
-                    LineLayer(ROUTE_SOURCE, ROUTE_SOURCE).withProperties(
-                        PropertyFactory.lineColor(routeColor), PropertyFactory.lineWidth(ROUTE_LINE_WIDTH),
-                        PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
-                    ),
+                    roundedLineLayer(ROUTE_SOURCE, ROUTE_SOURCE, routeColor, ROUTE_LINE_WIDTH),
                 )
                 // Il percorso gia' fatto sopra quello intero, in grigio: resta visibile da dove si e' arrivati.
                 style.addLayer(
-                    LineLayer(DONE_SOURCE, DONE_SOURCE).withProperties(
-                        PropertyFactory.lineColor(doneColor), PropertyFactory.lineWidth(ROUTE_LINE_WIDTH),
-                        PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
-                    ),
+                    roundedLineLayer(DONE_SOURCE, DONE_SOURCE, doneColor, ROUTE_LINE_WIDTH),
                 )
                 style.addLayer(
-                    LineLayer(NEXT_SOURCE, NEXT_SOURCE).withProperties(
-                        PropertyFactory.lineColor(nextColor), PropertyFactory.lineWidth(NEXT_LINE_WIDTH),
-                        PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
-                    ),
+                    roundedLineLayer(NEXT_SOURCE, NEXT_SOURCE, nextColor, NEXT_LINE_WIDTH),
                 )
                 // Arrivo sotto la posizione: vicino alla destinazione il punto blu resta sopra la bandiera.
                 style.addImage(DESTINATION_PIN_IMAGE, pinBitmap(context, destinationColor, UiR.drawable.ms_flag, scale = DESTINATION_PIN_SCALE))
@@ -238,9 +228,6 @@ private fun Feature.toNamedRoads(language: String): List<NamedRoad> {
     }
     return lines.map { line -> NamedRoad(name, line.map { RoutePoint(it.latitude(), it.longitude()) }) }
 }
-
-private fun lineString(points: List<RoutePoint>): LineString =
-    LineString.fromLngLats(points.map { Point.fromLngLat(it.longitude, it.latitude) })
 
 // Sorgenti vettoriali delle regioni ("region-<id>") e layer delle strade dello stile (vedi OfflineTileSource).
 private const val REGION_SOURCE_PREFIX = "region"

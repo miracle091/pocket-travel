@@ -79,7 +79,6 @@ private fun SpeedCameraNotice() {
 @Composable
 internal fun ActiveNavigationContent(
     state: NavigationStatus.Navigating,
-    destinationName: String,
     routeProfile: RouteProfile,
     arriveBy: LocalDateTime?,
     tileSource: OfflineTileSource,

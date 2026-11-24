@@ -28,7 +28,6 @@ import kotlinx.coroutines.withContext
 import java.time.Clock
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.time.ZoneOffset
 import javax.inject.Inject
 import javax.inject.Qualifier
 import javax.inject.Singleton
@@ -212,7 +211,7 @@ class NavigationController @Inject constructor(
         announcer.begin(mode)
         beginSession(place)
         navigationPreferences.saveActiveNavigation(
-            ActiveNavigation(regionId, place, mode, arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }, clock.millis(), toCatch, avoid, waypoints),
+            ActiveNavigation(regionId, place, mode, arriveBy?.let(::dateTimeToMinute), clock.millis(), toCatch, avoid, waypoints),
         )
     }
 
@@ -348,7 +347,9 @@ class NavigationController @Inject constructor(
             val self = coroutineContext[Job]
             try {
                 val start = RoutePoint(from.latitude, from.longitude)
-                val candidates = routingRegions()
+                val candidates = withContext(ioDispatcher) {
+                    routingRegions(regionRepository.observeInstalled().first(), routingVariantPreferences.installedCarOnly.value, _routeProfile.value, tileSource::regionBounds)
+                }
                 val regionIds = navigationRegionIds(regionId, candidates, start, target.point, via)
                 _regionIds.value = regionIds
                 // Fuori dalle regioni con la rete stradale (un ricalcolo dopo una deviazione oltre il confine) BRouter
@@ -379,23 +380,5 @@ class NavigationController @Inject constructor(
         }
         calculationJob = job
         job.start()
-    }
-
-    // Regioni installate con la rete stradale utile al modo (usableRoutingRegions) e rettangolo della loro mappa (127 byte di
-    // header ognuna).
-    private suspend fun routingRegions(): List<RoutingRegion> = withContext(ioDispatcher) {
-        val regions = regionRepository.observeInstalled().first()
-        val usable = usableRoutingRegions(
-            regions.filter { it.routingVersion != null }.map { it.regionId }.toSet(),
-            routingVariantPreferences.installedCarOnly.value,
-            _routeProfile.value,
-        )
-        regions
-            .filter { it.regionId in usable }
-            .map { RoutingRegion(it.regionId, tileSource.regionBounds(it.regionId)) }
-    }
-
-    private companion object {
-        const val SECONDS_PER_MINUTE = 60
     }
 }

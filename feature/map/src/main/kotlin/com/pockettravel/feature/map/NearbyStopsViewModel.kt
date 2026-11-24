@@ -26,11 +26,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
-import kotlin.math.asin
-import kotlin.math.cos
-import kotlin.math.pow
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 /** Da dove sono cercate le fermate vicine: dalla posizione del telefono o dal centro della mappa. */
 enum class NearbyOrigin { POSITION, MAP_CENTER }
@@ -154,13 +149,8 @@ internal fun FavoriteStop.matches(name: String, latitude: Double, longitude: Dou
 internal fun isFavoriteStop(favorites: List<FavoriteStop>, name: String, latitude: Double, longitude: Double): Boolean =
     favorites.any { it.matches(name, latitude, longitude) }
 
-// Distanza sulla sfera (haversine): per le fermate salvate basta all'ordine del metro.
-private fun distanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-    val dLat = Math.toRadians(lat2 - lat1)
-    val dLon = Math.toRadians(lon2 - lon1)
-    val a = sin(dLat / 2).pow(2) + cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2).pow(2)
-    return 2 * EARTH_RADIUS_M * asin(sqrt(a))
-}
+private fun distanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double =
+    NavigationTracker.distanceMeters(RoutePoint(lat1, lon1), RoutePoint(lat2, lon2))
 
 // Una posizione piu' vecchia di cosi' potrebbe essere di un altro posto.
 private const val POSITION_MAX_AGE_MILLIS = 5 * 60_000L
@@ -170,4 +160,3 @@ private const val REFRESH_MILLIS = 60_000L
 
 // Raggio della ricerca di una fermata salvata attorno alle sue coordinate, e tolleranza per riconoscerla.
 private const val FAVORITE_RADIUS_M = 150.0
-private const val EARTH_RADIUS_M = 6_371_000.0

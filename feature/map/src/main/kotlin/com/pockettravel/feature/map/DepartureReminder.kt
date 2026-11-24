@@ -153,7 +153,6 @@ internal fun restoreAction(triggerAt: Long, now: Long): RestoreAction = when {
 }
 
 private const val MISSED_GRACE_MILLIS = 30 * 60_000L
-private const val SECONDS_PER_MINUTE = 60
 
 /** Riprogramma l'avviso di partenza dopo il riavvio del dispositivo (gli allarmi non sopravvivono allo spegnimento). */
 class DepartureReminderBootReceiver : BroadcastReceiver() {

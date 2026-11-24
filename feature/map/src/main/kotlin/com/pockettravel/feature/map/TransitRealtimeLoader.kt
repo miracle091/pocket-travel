@@ -252,7 +252,6 @@ internal val REALTIME_MIN_INTERVAL: Duration = Duration.ofSeconds(20)
 // Aggiornamento automatico: un minuto di attesa ogni mezzo MB di feed, tra 1 e 7 minuti (sotto REALTIME_MAX_AGE, cosi'
 // tra un download e l'altro il feed precedente vale ancora).
 private const val REALTIME_BYTES_PER_MINUTE = 500_000L
-private const val SECONDS_PER_MINUTE = 60L
 internal val REALTIME_MIN_AUTO_INTERVAL: Duration = Duration.ofMinutes(1)
 internal val REALTIME_MAX_AUTO_INTERVAL: Duration = Duration.ofMinutes(7)
 

@@ -69,8 +69,6 @@ internal sealed interface DistanceLabel {
 }
 
 private const val METERS_PER_KILOMETER = 1_000
-private const val SECONDS_PER_MINUTE = 60
-private const val MILLIS_PER_MINUTE = 60_000L
 
 internal fun distanceLabel(meters: Double): DistanceLabel {
     // Arrotondato prima del confronto: 996 m sono gia' "1,0 km", non "1000 m".

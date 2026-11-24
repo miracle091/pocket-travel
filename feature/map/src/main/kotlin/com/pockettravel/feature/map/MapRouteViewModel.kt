@@ -21,6 +21,7 @@ import com.pockettravel.core.data.hasName
 import com.pockettravel.core.data.isHiddenOnMap
 import com.pockettravel.core.data.isItalianSpeakingPlace
 import com.pockettravel.core.data.poiCategory
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.poi.PoiCategory
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
@@ -45,7 +46,6 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import javax.inject.Inject
-import kotlin.coroutines.cancellation.CancellationException
 
 // Holder minimo per far arrivare OfflineTileSource (fornito da RouteEngineModule), i segnalini e i
 // filtri salvati a MapScreen tramite hiltViewModel(), come ogni altra dipendenza di questo progetto
@@ -102,12 +102,7 @@ class MapRouteViewModel @Inject constructor(
             pinRequests.collect {
                 // Un errore del database (una regione cancellata mentre si legge) chiuderebbe l'app o fermerebbe
                 // il raccoglitore per sempre: restano i segnalini di prima e la richiesta dopo riprova.
-                try {
-                    loadPinsNow()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                }
+                runCatchingCancellable { loadPinsNow() }
             }
         }
     }

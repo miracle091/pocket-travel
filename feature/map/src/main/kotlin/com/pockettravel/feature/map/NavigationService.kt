@@ -23,7 +23,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import com.pockettravel.core.ui.R as UiR
 import dagger.hilt.android.AndroidEntryPoint
-import java.text.NumberFormat
 import java.util.Date
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -125,8 +124,8 @@ class NavigationService : Service() {
         // All'arrivo la distanza dalla destinazione non dice nulla: solo "Arrivo".
         val title = if (turn.type == TurnType.ARRIVE && snapshot.distanceToNextMeters < NOW_METERS) turnText(context, turn) else "$distance · ${turnText(context, turn)}"
         val minutes = remainingMinutes(snapshot.remainingSeconds)
-        val duration = if (minutes < 60) context.getString(R.string.navigation_minutes, minutes) else context.getString(R.string.navigation_hours_minutes, minutes / 60, minutes % 60)
-        val arrival = DateFormat.getTimeFormat(context).format(Date(arrivalMinute(System.currentTimeMillis(), snapshot.remainingSeconds) * 60_000))
+        val duration = formatMinutes(minutes) { id, args -> context.getString(id, *args) }
+        val arrival = DateFormat.getTimeFormat(context).format(Date(arrivalMinute(System.currentTimeMillis(), snapshot.remainingSeconds) * MILLIS_PER_MINUTE))
         return NotificationText(
             title = title,
             text = snapshot.street ?: context.getString(R.string.navigation_title, snapshot.destinationName),
@@ -212,34 +211,9 @@ class NavigationService : Service() {
             }
         }
 
-        private fun distanceText(context: Context, meters: Double): String = when (val label = distanceLabel(meters)) {
-            is DistanceLabel.Meters -> context.getString(R.string.navigation_meters, label.value)
-            is DistanceLabel.Kilometers -> {
-                val format = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 1; minimumFractionDigits = 1 }
-                context.getString(R.string.navigation_kilometers, format.format(label.value))
-            }
-        }
+        private fun distanceText(context: Context, meters: Double): String = formatDistance(meters) { id, args -> context.getString(id, *args) }
 
         private fun turnText(context: Context, instruction: TurnInstruction): String =
             context.getString(turnTextRes(instruction.type), instruction.roundaboutExit)
-
-        // Le stesse frecce di turnIcon() della navigazione a schermo (che e' un composable: qui servono gli id).
-        private fun turnIconRes(type: TurnType): Int = when (type) {
-            TurnType.CONTINUE -> UiR.drawable.ms_straight
-            TurnType.SLIGHT_LEFT -> UiR.drawable.ms_turn_slight_left
-            TurnType.LEFT -> UiR.drawable.ms_turn_left
-            TurnType.SHARP_LEFT -> UiR.drawable.ms_turn_sharp_left
-            TurnType.SLIGHT_RIGHT -> UiR.drawable.ms_turn_slight_right
-            TurnType.RIGHT -> UiR.drawable.ms_turn_right
-            TurnType.SHARP_RIGHT -> UiR.drawable.ms_turn_sharp_right
-            TurnType.KEEP_LEFT -> UiR.drawable.ms_fork_left
-            TurnType.KEEP_RIGHT -> UiR.drawable.ms_fork_right
-            TurnType.EXIT_LEFT -> UiR.drawable.ms_ramp_left
-            TurnType.EXIT_RIGHT -> UiR.drawable.ms_ramp_right
-            TurnType.U_TURN -> UiR.drawable.ms_u_turn_left
-            TurnType.ROUNDABOUT -> UiR.drawable.ms_roundabout_right
-            TurnType.ROUNDABOUT_LEFT -> UiR.drawable.ms_roundabout_left
-            TurnType.ARRIVE -> UiR.drawable.ms_flag
-        }
     }
 }

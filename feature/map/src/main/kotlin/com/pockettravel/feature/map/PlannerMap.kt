@@ -31,14 +31,12 @@ import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
-import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
-import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 import com.pockettravel.core.ui.R as UiR
 
@@ -106,24 +104,14 @@ internal fun PlannerMap(
                     ),
                 )
                 style.addLayer(
-                    LineLayer(PLANNER_OTHER_ROUTES_SOURCE, PLANNER_OTHER_ROUTES_SOURCE).withProperties(
-                        PropertyFactory.lineColor(otherRouteColor), PropertyFactory.lineWidth(OTHER_ROUTE_LINE_WIDTH),
-                        PropertyFactory.lineOpacity(OTHER_ROUTE_OPACITY),
-                        PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
-                    ),
+                    roundedLineLayer(PLANNER_OTHER_ROUTES_SOURCE, PLANNER_OTHER_ROUTES_SOURCE, otherRouteColor, OTHER_ROUTE_LINE_WIDTH, OTHER_ROUTE_OPACITY),
                 )
                 // Bordo chiaro sotto il percorso scelto: si stacca dalle alternative grigie anche dove si incrociano.
                 style.addLayer(
-                    LineLayer("$PLANNER_ROUTE_SOURCE-casing", PLANNER_ROUTE_SOURCE).withProperties(
-                        PropertyFactory.lineColor(startColor), PropertyFactory.lineWidth(ROUTE_LINE_WIDTH + 2 * ROUTE_CASING_WIDTH),
-                        PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
-                    ),
+                    roundedLineLayer("$PLANNER_ROUTE_SOURCE-casing", PLANNER_ROUTE_SOURCE, startColor, ROUTE_LINE_WIDTH + 2 * ROUTE_CASING_WIDTH),
                 )
                 style.addLayer(
-                    LineLayer(PLANNER_ROUTE_SOURCE, PLANNER_ROUTE_SOURCE).withProperties(
-                        PropertyFactory.lineColor(routeColor), PropertyFactory.lineWidth(ROUTE_LINE_WIDTH),
-                        PropertyFactory.lineCap(Property.LINE_CAP_ROUND), PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
-                    ),
+                    roundedLineLayer(PLANNER_ROUTE_SOURCE, PLANNER_ROUTE_SOURCE, routeColor, ROUTE_LINE_WIDTH),
                 )
                 // Partenza: anello spesso nel colore del percorso con un punto al centro (come Google Maps).
                 style.addLayer(
@@ -262,9 +250,6 @@ private class PlannerSources(
 
 private fun pointCollection(point: RoutePoint?): FeatureCollection =
     FeatureCollection.fromFeatures(listOfNotNull(point?.let { Feature.fromGeometry(Point.fromLngLat(it.longitude, it.latitude)) }))
-
-private fun lineString(points: List<RoutePoint>): LineString =
-    LineString.fromLngLats(points.map { Point.fromLngLat(it.longitude, it.latitude) })
 
 private const val PLANNER_ROUTE_SOURCE = "planner-route"
 private const val PLANNER_OTHER_ROUTES_SOURCE = "planner-other-routes"

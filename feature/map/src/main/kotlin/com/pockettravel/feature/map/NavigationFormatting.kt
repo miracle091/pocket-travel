@@ -47,50 +47,47 @@ internal fun turnTextRes(type: TurnType): Int = when (type) {
     TurnType.ARRIVE -> R.string.turn_arrive
 }
 
-// Frecce di Material Symbols, come le altre icone dell'app. Uscite = rampe, "mantieni" = biforcazione.
 @Composable
-internal fun turnIcon(type: TurnType): ImageVector = ImageVector.vectorResource(
-    when (type) {
-        TurnType.CONTINUE -> UiR.drawable.ms_straight
-        TurnType.SLIGHT_LEFT -> UiR.drawable.ms_turn_slight_left
-        TurnType.LEFT -> UiR.drawable.ms_turn_left
-        TurnType.SHARP_LEFT -> UiR.drawable.ms_turn_sharp_left
-        TurnType.SLIGHT_RIGHT -> UiR.drawable.ms_turn_slight_right
-        TurnType.RIGHT -> UiR.drawable.ms_turn_right
-        TurnType.SHARP_RIGHT -> UiR.drawable.ms_turn_sharp_right
-        TurnType.KEEP_LEFT -> UiR.drawable.ms_fork_left
-        TurnType.KEEP_RIGHT -> UiR.drawable.ms_fork_right
-        TurnType.EXIT_LEFT -> UiR.drawable.ms_ramp_left
-        TurnType.EXIT_RIGHT -> UiR.drawable.ms_ramp_right
-        TurnType.U_TURN -> UiR.drawable.ms_u_turn_left
-        TurnType.ROUNDABOUT -> UiR.drawable.ms_roundabout_right
-        TurnType.ROUNDABOUT_LEFT -> UiR.drawable.ms_roundabout_left
-        TurnType.ARRIVE -> UiR.drawable.ms_flag
-    },
-)
+internal fun turnIcon(type: TurnType): ImageVector = ImageVector.vectorResource(turnIconRes(type))
+
+// Frecce di Material Symbols, come le altre icone dell'app. Uscite = rampe, "mantieni" = biforcazione.
+internal fun turnIconRes(type: TurnType): Int = when (type) {
+    TurnType.CONTINUE -> UiR.drawable.ms_straight
+    TurnType.SLIGHT_LEFT -> UiR.drawable.ms_turn_slight_left
+    TurnType.LEFT -> UiR.drawable.ms_turn_left
+    TurnType.SHARP_LEFT -> UiR.drawable.ms_turn_sharp_left
+    TurnType.SLIGHT_RIGHT -> UiR.drawable.ms_turn_slight_right
+    TurnType.RIGHT -> UiR.drawable.ms_turn_right
+    TurnType.SHARP_RIGHT -> UiR.drawable.ms_turn_sharp_right
+    TurnType.KEEP_LEFT -> UiR.drawable.ms_fork_left
+    TurnType.KEEP_RIGHT -> UiR.drawable.ms_fork_right
+    TurnType.EXIT_LEFT -> UiR.drawable.ms_ramp_left
+    TurnType.EXIT_RIGHT -> UiR.drawable.ms_ramp_right
+    TurnType.U_TURN -> UiR.drawable.ms_u_turn_left
+    TurnType.ROUNDABOUT -> UiR.drawable.ms_roundabout_right
+    TurnType.ROUNDABOUT_LEFT -> UiR.drawable.ms_roundabout_left
+    TurnType.ARRIVE -> UiR.drawable.ms_flag
+}
 
 internal fun isolatedText(result: RouteResult.Isolated): Int =
     if (result.atStart) R.string.navigation_isolated_start else R.string.navigation_isolated_destination
 
 // Sotto il chilometro a decine di metri, sopra in km con un decimale nel formato della lingua.
 @Composable
-internal fun distanceText(meters: Double): String {
-    // Arrotondato prima del confronto: 996 m sono gia' "1,0 km", non "1000 m".
-    val rounded = (meters / 10).roundToInt() * 10
-    return if (rounded < METERS_PER_KILOMETER) {
-        stringResource(R.string.navigation_meters, rounded)
-    } else {
+internal fun distanceText(meters: Double): String = formatDistance(meters) { id, args -> stringResource(id, *args) }
+
+/** La distanza di [distanceLabel] composta con [text] (id della stringa e argomenti): schermo e notifica la scrivono allo stesso modo. */
+internal inline fun formatDistance(meters: Double, text: (Int, Array<Any>) -> String): String = when (val label = distanceLabel(meters)) {
+    is DistanceLabel.Meters -> text(R.string.navigation_meters, arrayOf(label.value))
+    is DistanceLabel.Kilometers -> {
         val format = NumberFormat.getNumberInstance().apply { maximumFractionDigits = 1; minimumFractionDigits = 1 }
-        stringResource(R.string.navigation_kilometers, format.format(meters / METERS_PER_KILOMETER))
+        text(R.string.navigation_kilometers, arrayOf(format.format(label.value)))
     }
 }
 
 @Composable
-internal fun durationText(seconds: Double): String {
-    val minutes = (seconds / SECONDS_PER_MINUTE).roundToInt().coerceAtLeast(1)
-    return if (minutes < MINUTES_PER_HOUR) stringResource(R.string.navigation_minutes, minutes)
-    else stringResource(R.string.navigation_hours_minutes, minutes / MINUTES_PER_HOUR, minutes % MINUTES_PER_HOUR)
-}
+internal fun durationText(seconds: Double): String =
+    formatMinutes(remainingMinutes(seconds)) { id, args -> stringResource(id, *args) }
 
 /** Fuori dalla mappa scaricata resta la mappa del mondo (dati fino a z8): oltre questo zoom non mostra piu' niente. */
 private const val OUTSIDE_REGION_MAX_ZOOM = 11.0
@@ -100,9 +97,6 @@ private const val FAR_FOLLOW_ZOOM = 12.0
 
 // Conversioni di unita'.
 
-private const val SECONDS_PER_MINUTE = 60
-private const val MINUTES_PER_HOUR = 60
-private const val MILLIS_PER_MINUTE = 60_000L
 private const val METERS_PER_KILOMETER = 1_000
 
 /**

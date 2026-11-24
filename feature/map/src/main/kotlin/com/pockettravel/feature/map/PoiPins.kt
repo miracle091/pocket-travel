@@ -175,6 +175,10 @@ internal fun accessibilityBadgeOf(wheelchair: String?): AccessibilityBadge? = wh
     else -> null
 }
 
+// Badge del segnalino: dal tag wheelchair del posto o, se manca, da quello dei suoi bagni.
+internal fun pinBadgeOf(pin: MapPin): AccessibilityBadge? =
+    accessibilityBadgeOf(pin.wheelchair) ?: accessibilityBadgeOf(pin.toiletsWheelchair)
+
 /**
  * Cerchio con il simbolo della sedia a rotelle, disegnato nell'angolo in alto a destra del segnalino
  * (dentro la stessa immagine: se MapLibre nasconde un segnalino sovrapposto, sparisce anche il

@@ -1,5 +1,6 @@
 package com.pockettravel.feature.map
 
+import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.MapBounds
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -174,6 +175,20 @@ fun isRecentArrival(arrivedAtMillis: Long?, nowMillis: Long): Boolean =
 
 /** Regione installata con la rete stradale e rettangolo della sua mappa (null se non si legge). */
 data class RoutingRegion(val regionId: String, val bounds: MapBounds?)
+
+/**
+ * Le regioni [installed] con la rete stradale utile per [mode] (usableRoutingRegions, con [carOnly]) e il rettangolo della
+ * loro mappa ([boundsOf]: 127 byte di header ognuna, da leggere fuori dal thread principale).
+ */
+internal fun routingRegions(
+    installed: List<InstalledRegion>,
+    carOnly: Set<String>,
+    mode: RouteProfile,
+    boundsOf: (String) -> MapBounds?,
+): List<RoutingRegion> {
+    val usable = usableRoutingRegions(installed.filter { it.routingVersion != null }.map { it.regionId }.toSet(), carOnly, mode)
+    return installed.filter { it.regionId in usable }.map { RoutingRegion(it.regionId, boundsOf(it.regionId)) }
+}
 
 /** Attorno a partenza e arrivo, per le regioni vicine al confine: circa 5 km. */
 private const val NAVIGATION_MARGIN_DEGREES = 0.05

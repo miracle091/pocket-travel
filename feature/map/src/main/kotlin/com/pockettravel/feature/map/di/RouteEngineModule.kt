@@ -145,8 +145,8 @@ object RouteEngineModule {
         AndroidConnectivityChecker(connectivityManager, context.getSystemService(PowerManager::class.java))
 
     @Provides
-    fun provideConnectivityObserver(connectivityManager: ConnectivityManager): ConnectivityObserver =
-        AndroidConnectivityObserver(connectivityManager)
+    fun provideConnectivityObserver(connectivityManager: ConnectivityManager, connectivityChecker: ConnectivityChecker): ConnectivityObserver =
+        AndroidConnectivityObserver(connectivityManager, connectivityChecker)
 
     // I profili .brf + lookups.dat sono logica dell'app (gli stessi per tutte le regioni), non dati
     // per-regione — bundlati come asset e copiati su file reali: BRouter legge da file system, non da

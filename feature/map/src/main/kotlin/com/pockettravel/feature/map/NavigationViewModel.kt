@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import java.time.Clock
 import java.time.LocalDateTime
-import java.time.ZoneOffset
 import javax.inject.Inject
 
 /**
@@ -60,7 +59,7 @@ class NavigationViewModel @Inject constructor(
     // Nessuna proposta se la navigazione e' ancora in corso (app chiusa con il servizio vivo, poi riaperta).
     private val savedNavigation = if (controller.isNavigating) null else navigationPreferences.activeNavigation(clock.millis())
     private val resumeOffer = MutableStateFlow(if (controller.isNavigating) null else savedStateHandle.savedPlace(KEY_DESTINATION) ?: savedNavigation?.place)
-    private val savedArrival = MutableStateFlow(savedStateHandle.get<Long>(KEY_ARRIVE_BY)?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) })
+    private val savedArrival = MutableStateFlow(savedStateHandle.get<Long>(KEY_ARRIVE_BY)?.let { minuteToDateTime(it) })
     private val savedMode = savedStateHandle.get<String>(KEY_MODE)?.let(RouteProfile::valueOf)
 
     /**
@@ -145,7 +144,7 @@ class NavigationViewModel @Inject constructor(
             regionId = fromDisk?.regionId ?: regionId,
             place = place,
             mode = fromDisk?.mode ?: savedMode ?: controller.routeProfile.value,
-            arriveBy = fromDisk?.arriveByEpochMinute?.let { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) } ?: savedArrival.value,
+            arriveBy = fromDisk?.arriveByEpochMinute?.let { minuteToDateTime(it) } ?: savedArrival.value,
             toCatch = savedNavigation?.toCatch,
             avoid = savedNavigation?.avoid.orEmpty(),
             waypoints = savedNavigation?.waypoints.orEmpty(),
@@ -190,7 +189,7 @@ class NavigationViewModel @Inject constructor(
         controller.start(regionId, place, mode, arriveBy, preview, toCatch, avoid, waypoints)
         savedStateHandle[KEY_REGION] = regionId
         savedStateHandle[KEY_MODE] = mode.name
-        savedStateHandle[KEY_ARRIVE_BY] = arriveBy?.let { it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE }
+        savedStateHandle[KEY_ARRIVE_BY] = arriveBy?.let(::dateTimeToMinute)
         savedStateHandle[KEY_DESTINATION] = place.toSavedState()
     }
 
@@ -212,7 +211,6 @@ class NavigationViewModel @Inject constructor(
         const val KEY_DESTINATION = "destination"
         const val KEY_MODE = "mode"
         const val KEY_ARRIVE_BY = "arriveBy"
-        const val SECONDS_PER_MINUTE = 60
     }
 
     private data class CalculationInputs(val calculating: Boolean, val startedMillis: Long, val progress: Double, val result: RouteResult?, val arrived: Boolean)

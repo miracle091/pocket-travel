@@ -45,10 +45,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.text.Normalizer
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.ZoneOffset
 import javax.inject.Inject
-import kotlin.math.cos
-import kotlin.math.sqrt
 
 /** Quale campo della scheda si sta scegliendo con la ricerca; [STOP] e' una tappa nuova («Aggiungi tappa»). */
 enum class PlannerField { FROM, TO, WAYPOINT }
@@ -703,7 +700,9 @@ class NavigationPlannerViewModel @Inject constructor(
                 )
                 return@launch
             }
-            val candidates = routingRegions()
+            val candidates = withContext(ioDispatcher) {
+                routingRegions(regionRepository.observeInstalled().first(), routingVariantPreferences.installedCarOnly.value, _routeProfile.value, tileSource::regionBounds)
+            }
             val regionIds = navigationRegionIds(current, candidates, start, destination.point, via)
             // Nazioni in mezzo senza rete stradale: "manca la rete stradale" subito, invece di un errore generico dopo il calcolo.
             val result = if (leavesRoutingRegions(candidates, start, destination.point, via)) {
@@ -760,7 +759,7 @@ class NavigationPlannerViewModel @Inject constructor(
             place = NavigationPlace(name ?: coordinatesText(latitude, longitude), latitude, longitude, regionId),
             typeLabel = R.string.planner_type_coordinates,
             otherRegionName = regions[regionId]?.takeIf { regionId != current },
-            distanceMeters = (lastPosition.value ?: _from.value?.point)?.let { approximateDistance(it, point) },
+            distanceMeters = (lastPosition.value ?: _from.value?.point)?.let { NavigationTracker.distanceMeters(it, point) },
         )
     }
 
@@ -776,7 +775,6 @@ class NavigationPlannerViewModel @Inject constructor(
     }
 
     private suspend fun searchPlaces(text: String, current: String?, regions: Map<String, String>): List<PlannerResult> {
-        if (text.trim().length < 2 || regions.isEmpty()) return emptyList()
         // La regione aperta per prima: con il limite, i suoi risultati non restano fuori per quelli delle altre.
         val ids = listOfNotNull(current?.takeIf { it in regions }) + (regions.keys - setOfNotNull(current))
         val language = java.util.Locale.getDefault().language
@@ -800,7 +798,7 @@ class NavigationPlannerViewModel @Inject constructor(
         place = NavigationPlace(displayName, latitude, longitude, regionId),
         typeLabel = R.string.planner_type_address,
         otherRegionName = regions[regionId]?.takeIf { regionId != current },
-        distanceMeters = reference?.let { approximateDistance(it, RoutePoint(latitude, longitude)) },
+        distanceMeters = reference?.let { NavigationTracker.distanceMeters(it, RoutePoint(latitude, longitude)) },
         isAddress = true,
     )
 
@@ -809,16 +807,8 @@ class NavigationPlannerViewModel @Inject constructor(
         // Senza un tipo preciso (stazioni, autostazioni) il nome della categoria della mappa.
         typeLabel = poiTypeLabel(osmTag) ?: poiCategory().label(),
         otherRegionName = regions[regionId]?.takeIf { regionId != current },
-        distanceMeters = reference?.let { approximateDistance(it, RoutePoint(latitude, longitude)) },
+        distanceMeters = reference?.let { NavigationTracker.distanceMeters(it, RoutePoint(latitude, longitude)) },
     )
-
-    // Regioni installate con la rete stradale utile al modo scelto e rettangolo della loro mappa, come in NavigationController.
-    private suspend fun routingRegions(): List<RoutingRegion> = withContext(ioDispatcher) {
-        val usable = usableRouting().first()
-        regionRepository.observeInstalled().first()
-            .filter { it.regionId in usable }
-            .map { RoutingRegion(it.regionId, tileSource.regionBounds(it.regionId)) }
-    }
 
     private companion object {
         const val KEY_FROM = "from"
@@ -844,18 +834,3 @@ class NavigationPlannerViewModel @Inject constructor(
 }
 
 private data class SearchInput(val text: String, val current: String?, val regions: Map<String, String>)
-
-private const val EARTH_RADIUS_METERS = 6_371_000.0
-private const val SECONDS_PER_MINUTE = 60
-
-// Distanza in linea d'aria per ordinare i risultati: l'approssimazione equirettangolare basta a pochi km.
-private fun approximateDistance(a: RoutePoint, b: RoutePoint): Double {
-    val x = Math.toRadians(b.longitude - a.longitude) * cos(Math.toRadians((a.latitude + b.latitude) / 2))
-    val y = Math.toRadians(b.latitude - a.latitude)
-    return sqrt(x * x + y * y) * EARTH_RADIUS_METERS
-}
-
-// Gli orari si salvano come minuti dall'epoca (locale): un Long entra nello stato salvato senza altro.
-private fun minuteToDateTime(minute: Long): LocalDateTime = LocalDateTime.ofEpochSecond(minute * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC)
-
-private fun dateTimeToMinute(time: LocalDateTime): Long = time.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE

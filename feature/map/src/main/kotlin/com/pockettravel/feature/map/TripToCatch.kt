@@ -21,7 +21,6 @@ import com.pockettravel.core.data.TripView
 import com.pockettravel.core.ui.Spacing
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import java.util.Date
 
@@ -44,14 +43,14 @@ data class TripToCatch(
         /** Una riga di testo per salvarla con la navigazione attiva: campi separati da tabulazioni, partenze in minuti dall'epoca. */
         fun encode(trip: TripToCatch): String = listOf(
             trip.stopName.clean(), trip.latitude, trip.longitude, trip.line.clean(), trip.color ?: "", trip.textColor ?: "", trip.headsign?.clean() ?: "",
-            trip.departures.joinToString(",") { "${it.toEpochSecond(ZoneOffset.UTC) / SECONDS_PER_MINUTE}" },
+            trip.departures.joinToString(",") { "${dateTimeToMinute(it)}" },
         ).joinToString("\t")
 
         /** null se [text] manca o non si legge. */
         fun decode(text: String?): TripToCatch? {
             val fields = text?.split('\t')?.takeIf { it.size == FIELD_COUNT } ?: return null
             val departures = fields[DEPARTURES].split(',').mapNotNull { it.toLongOrNull() }
-                .map { LocalDateTime.ofEpochSecond(it * SECONDS_PER_MINUTE, 0, ZoneOffset.UTC) }
+                .map(::minuteToDateTime)
             val latitude = fields[1].toDoubleOrNull()
             val longitude = fields[2].toDoubleOrNull()
             return if (latitude == null || longitude == null || departures.isEmpty()) {
@@ -66,7 +65,6 @@ data class TripToCatch(
 
         private fun String.clean() = replace('\t', ' ').replace('\n', ' ')
 
-        private const val SECONDS_PER_MINUTE = 60
         private const val FIELD_COUNT = 8
         private const val LINE = 3
         private const val COLOR = 4

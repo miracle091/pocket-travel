@@ -198,4 +198,3 @@ internal fun LaterTripButtons(later: List<TransitDeparture>, clockOf: (Int) -> S
 }
 
 private const val MINUTES_PER_DAY = 24 * 60
-private const val MILLIS_PER_MINUTE = 60_000L
