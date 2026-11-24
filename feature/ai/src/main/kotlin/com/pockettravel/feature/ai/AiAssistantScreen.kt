@@ -196,7 +196,7 @@ data class AiActions(
     val onPhotoConsent: (Boolean) -> Unit = {},
     val onVoiceStart: () -> Unit = {},
     val onVoiceStop: () -> Unit = {},
-    val onVoicePermissionDenied: () -> Unit = {},
+    val onVoicePermissionDenied: (canAskAgain: Boolean) -> Unit = {},
     // Ascolta e Ferma sotto una risposta, con il suo testo.
     val onReadAloud: (String) -> Unit = {},
     val onNewConversation: () -> Unit = {},

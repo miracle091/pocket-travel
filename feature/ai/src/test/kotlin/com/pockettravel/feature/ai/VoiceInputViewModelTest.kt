@@ -134,11 +134,24 @@ class VoiceInputViewModelTest {
     fun `permesso negato e messaggio tolto quando si scrive`() = runTest(dispatcher) {
         val viewModel = VoiceInputViewModel(FakeVoiceInput())
 
-        viewModel.onPermissionDenied()
+        viewModel.onPermissionDenied(canAskAgain = true)
         assertEquals(R.string.ai_voice_permission, viewModel.uiState.value.message)
+        assertFalse(viewModel.uiState.value.offersAppSettings)
 
         viewModel.clearMessage()
         assertNull(viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `permesso negato per sempre offre le impostazioni fino a quando il messaggio si toglie`() = runTest(dispatcher) {
+        val viewModel = VoiceInputViewModel(FakeVoiceInput())
+
+        viewModel.onPermissionDenied(canAskAgain = false)
+        assertEquals(R.string.ai_voice_permission, viewModel.uiState.value.message)
+        assertTrue(viewModel.uiState.value.offersAppSettings)
+
+        viewModel.clearMessage()
+        assertFalse(viewModel.uiState.value.offersAppSettings)
     }
 
     @Test

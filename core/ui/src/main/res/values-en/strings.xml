@@ -213,4 +213,5 @@
     <string name="network_blocked_suspected">The network seems to be blocked for this app. Check in Android\'s settings that it can use the network, then try again.</string>
     <string name="network_blocked_data_saver_settings">Open Data Saver settings</string>
     <string name="network_blocked_settings">Open the app\'s settings</string>
+    <string name="permission_open_settings">Settings</string>
 </resources>

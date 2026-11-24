@@ -33,24 +33,38 @@ fun rememberPermissionRequest(
 ): () -> Unit {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    return rememberPermissionRequest(permission, onGranted) { canAskAgain ->
+        scope.launch {
+            val result = snackbarHostState.showSnackbar(message = deniedMessage, actionLabel = if (canAskAgain) null else openSettingsLabel)
+            if (result == SnackbarResult.ActionPerformed) context.openAppSettings()
+        }
+    }
+}
+
+/**
+ * Richiesta di [permission] per chi mostra il rifiuto a modo suo: [onDenied] riceve canAskAgain falso quando il sistema
+ * non mostra piu' la richiesta e l'unica strada sono le impostazioni dell'app ([openAppSettings]).
+ */
+@Composable
+fun rememberPermissionRequest(permission: String, onGranted: () -> Unit, onDenied: (canAskAgain: Boolean) -> Unit): () -> Unit {
+    val context = LocalContext.current
     val granted by rememberUpdatedState(onGranted)
+    val denied by rememberUpdatedState(onDenied)
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
             granted()
         } else {
-            // Dopo un rifiuto, rationale false vuol dire "Non chiedere piu'": il sistema non mostra piu' la richiesta
-            // e l'unica strada sono le impostazioni dell'app.
+            // Dopo un rifiuto, rationale false vuol dire "Non chiedere piu'".
             val activity = context.findActivity()
-            val permanentlyDenied = activity != null && !ActivityCompat.shouldShowRequestPermissionRationale(activity, permission)
-            scope.launch {
-                val result = snackbarHostState.showSnackbar(message = deniedMessage, actionLabel = if (permanentlyDenied) openSettingsLabel else null)
-                if (result == SnackbarResult.ActionPerformed) {
-                    context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri()))
-                }
-            }
+            denied(activity == null || ActivityCompat.shouldShowRequestPermissionRationale(activity, permission))
         }
     }
     return { launcher.launch(permission) }
+}
+
+/** Apre la pagina dell'app nelle impostazioni di Android, dove si attivano i permessi negati. */
+fun Context.openAppSettings() {
+    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:$packageName".toUri()))
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {

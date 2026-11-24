@@ -21,6 +21,8 @@ data class VoiceInputUiState(
     val isAvailable: Boolean,
     val isListening: Boolean = false,
     @StringRes val message: Int? = null,
+    // Microfono negato con "Non chiedere piu'": accanto al messaggio, il pulsante delle impostazioni dell'app.
+    val offersAppSettings: Boolean = false,
 )
 
 /** Dettatura della domanda dell'assistente: il testo riconosciuto va nel campo, da correggere e inviare a mano. */
@@ -40,14 +42,14 @@ class VoiceInputViewModel @Inject constructor(private val voiceInput: VoiceInput
     fun start(currentText: String) {
         if (listenJob != null || !_uiState.value.isAvailable) return
         val before = currentText.trim()
-        _uiState.update { it.copy(isListening = true, message = null) }
+        _uiState.update { it.copy(isListening = true, message = null, offersAppSettings = false) }
         listenJob = viewModelScope.launch {
             try {
                 voiceInput.listen(if (currentGuidesLanguage() == "en") "en-US" else "it-IT").collect { event ->
                     when (event) {
                         is VoiceInputEvent.Partial -> _text.trySend(join(before, event.text))
                         is VoiceInputEvent.Final -> _text.trySend(join(before, event.text))
-                        is VoiceInputEvent.Error -> _uiState.update { it.copy(message = messageFor(event.reason)) }
+                        is VoiceInputEvent.Error -> _uiState.update { it.copy(message = messageFor(event.reason), offersAppSettings = false) }
                     }
                 }
             } finally {
@@ -62,12 +64,12 @@ class VoiceInputViewModel @Inject constructor(private val voiceInput: VoiceInput
         finish()
     }
 
-    fun onPermissionDenied() {
-        _uiState.update { it.copy(message = R.string.ai_voice_permission) }
+    fun onPermissionDenied(canAskAgain: Boolean) {
+        _uiState.update { it.copy(message = R.string.ai_voice_permission, offersAppSettings = !canAskAgain) }
     }
 
     fun clearMessage() {
-        if (_uiState.value.message != null) _uiState.update { it.copy(message = null) }
+        if (_uiState.value.message != null) _uiState.update { it.copy(message = null, offersAppSettings = false) }
     }
 
     private fun finish() {

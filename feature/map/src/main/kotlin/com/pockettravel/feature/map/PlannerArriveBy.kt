@@ -4,8 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.text.format.DateFormat
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -48,6 +46,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.openAppSettings
+import com.pockettravel.core.ui.rememberPermissionRequest
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -70,17 +70,26 @@ internal fun ArriveBy(
 ) {
     val context = LocalContext.current
     var picking by rememberSaveable { mutableStateOf(false) }
-    // Notifiche spente (permesso negato o disattivate): l'avviso non si programma e lo si dice.
+    // Notifiche spente (permesso negato o disattivate): l'avviso non si programma e lo si dice; se il sistema non chiede
+    // piu' il permesso, o le notifiche sono spente nelle impostazioni, accanto c'e' il pulsante delle impostazioni.
     var notificationsOff by rememberSaveable { mutableStateOf(false) }
+    var offersAppSettings by rememberSaveable { mutableStateOf(false) }
     val timeFormat = remember(context) { DateFormat.getTimeFormat(context) }
     val format = { time: LocalDateTime -> timeFormat.format(java.util.Date.from(time.atZone(ZoneId.systemDefault()).toInstant())) }
     // Partenza per cui si e' chiesto il permesso: serve alla risposta, che arriva dopo la scelta.
     var pendingDeparture by remember { mutableStateOf<LocalDateTime?>(null) }
-    val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        val departure = pendingDeparture
-        pendingDeparture = null
-        if (granted && departure != null) onSetReminder(departure) else notificationsOff = true
-    }
+    val requestNotifications = rememberPermissionRequest(
+        Manifest.permission.POST_NOTIFICATIONS,
+        onGranted = {
+            pendingDeparture?.let(onSetReminder)
+            pendingDeparture = null
+        },
+        onDenied = { canAskAgain ->
+            pendingDeparture = null
+            notificationsOff = true
+            offersAppSettings = !canAskAgain
+        },
+    )
 
     if (arrival == null) {
         // Senza il margine sinistro del TextButton l'icona si allinea al tempo e alla distanza sopra.
@@ -148,14 +157,18 @@ internal fun ArriveBy(
             if (reminder == null) {
                 FilledTonalButton(onClick = {
                     notificationsOff = false
+                    offersAppSettings = false
                     when {
                         NotificationManagerCompat.from(context).areNotificationsEnabled() -> onSetReminder(departure)
                         // Da Android 13 le notifiche vanno chieste; negate o spente dalle impostazioni, niente avviso.
                         Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED -> {
                             pendingDeparture = departure
-                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            requestNotifications()
                         }
-                        else -> notificationsOff = true
+                        else -> {
+                            notificationsOff = true
+                            offersAppSettings = true
+                        }
                     }
                 }) {
                     Icon(ImageVector.vectorResource(UiR.drawable.ms_notifications), contentDescription = null, modifier = Modifier.size(18.dp))
@@ -177,6 +190,12 @@ internal fun ArriveBy(
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = Spacing.xs, bottom = Spacing.s).semantics { liveRegion = LiveRegionMode.Polite },
                 )
+                if (offersAppSettings) {
+                    // Senza il margine sinistro del TextButton il testo si allinea all'avviso sopra.
+                    TextButton(onClick = { context.openAppSettings() }, contentPadding = PaddingValues(end = Spacing.l, top = Spacing.s, bottom = Spacing.s)) {
+                        Text(stringResource(UiR.string.permission_open_settings))
+                    }
+                }
             }
         }
     }

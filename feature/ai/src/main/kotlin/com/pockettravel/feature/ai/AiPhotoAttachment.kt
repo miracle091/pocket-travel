@@ -47,9 +47,12 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.openAppSettings
+import com.pockettravel.core.ui.rememberPermissionRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import com.pockettravel.core.ui.R as UiR
 
 /**
  * "Allega una foto": un menu con la galleria (selettore di Android, senza permessi) e la fotocamera. Lo scatto va in
@@ -79,10 +82,12 @@ internal fun PhotoAttachButton(actions: AiActions, needsMmproj: Boolean) {
             Toast.makeText(context, R.string.ai_photo_no_camera, Toast.LENGTH_LONG).show()
         }
     }
-    // Dopo il secondo rifiuto Android non chiede piu': senza questo avviso il tocco non farebbe niente.
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) takePicture() else Toast.makeText(context, R.string.ai_photo_camera_denied, Toast.LENGTH_LONG).show()
+    // Dopo il secondo rifiuto Android non chiede piu': senza la finestra con le impostazioni il tocco non farebbe niente.
+    var cameraBlocked by remember { mutableStateOf(false) }
+    val requestCamera = rememberPermissionRequest(Manifest.permission.CAMERA, takePicture) { canAskAgain ->
+        if (canAskAgain) Toast.makeText(context, R.string.ai_photo_camera_denied, Toast.LENGTH_LONG).show() else cameraBlocked = true
     }
+    if (cameraBlocked) CameraBlockedDialog(onDismiss = { cameraBlocked = false })
     Box {
         // Sul dispositivo, senza l'mmproj il tocco offre il download prima di scegliere la foto.
         IconButton(onClick = { if (needsMmproj) actions.onMmprojOffer() else menuOpen = true }) {
@@ -103,11 +108,27 @@ internal fun PhotoAttachButton(actions: AiActions, needsMmproj: Boolean) {
                 onClick = {
                     menuOpen = false
                     val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-                    if (granted) takePicture() else permission.launch(Manifest.permission.CAMERA)
+                    if (granted) takePicture() else requestCamera()
                 },
             )
         }
     }
+}
+
+@Composable
+private fun CameraBlockedDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = { Text(stringResource(R.string.ai_photo_camera_denied)) },
+        confirmButton = {
+            TextButton(onClick = {
+                onDismiss()
+                context.openAppSettings()
+            }) { Text(stringResource(UiR.string.permission_open_settings)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ai_close)) } },
+    )
 }
 
 // Foto con un modello che la legge, e non nel foglio del testo selezionato.

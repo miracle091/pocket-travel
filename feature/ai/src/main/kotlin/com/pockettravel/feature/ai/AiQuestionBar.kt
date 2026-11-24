@@ -2,8 +2,7 @@ package com.pockettravel.feature.ai
 
 import android.Manifest
 import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +39,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.openAppSettings
+import com.pockettravel.core.ui.rememberPermissionRequest
+import com.pockettravel.core.ui.R as UiR
 
 @Composable
 internal fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: Boolean, voice: VoiceInputUiState) {
@@ -46,9 +49,7 @@ internal fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: B
     val send = rememberSend(uiState, actions)
     val context = LocalContext.current
     // Il permesso del microfono si chiede al primo tocco, non all'apertura della schermata.
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) actions.onVoiceStart() else actions.onVoicePermissionDenied()
-    }
+    val requestMicrophone = rememberPermissionRequest(Manifest.permission.RECORD_AUDIO, actions.onVoiceStart, actions.onVoicePermissionDenied)
     // Il testo resta quello dello stato, come nel campo con una String; il cursore e' qui, per metterlo in fondo dopo
     // un tocco nel menu dei comandi.
     var field by remember { mutableStateOf(TextFieldValue(uiState.question)) }
@@ -79,7 +80,7 @@ internal fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: B
                     } else {
                         IconButton(onClick = {
                             val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-                            if (granted) actions.onVoiceStart() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            if (granted) actions.onVoiceStart() else requestMicrophone()
                         }) {
                             Icon(AppIcons.Mic, contentDescription = stringResource(R.string.ai_voice_start))
                         }
@@ -88,7 +89,7 @@ internal fun QuestionBar(uiState: AiUiState, actions: AiActions, splitCountry: B
             } else {
                 null
             },
-            supportingText = voice.message?.let { message -> { Text(stringResource(message)) } }
+            supportingText = voice.message?.let { message -> { VoiceMessage(message, voice.offersAppSettings) } }
                 ?: uiState.question.length.takeIf { it >= QUESTION_COUNTER_FROM }?.let { length -> { Text("$length/$MAX_QUESTION_CHARS") } },
             shape = MaterialTheme.shapes.extraLarge,
             maxLines = 4,
@@ -154,6 +155,18 @@ private fun CommandMenu(uiState: AiUiState, actions: AiActions, onFill: (String)
                     subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
+        }
+    }
+}
+
+// Messaggio della dettatura sotto il campo; col microfono negato per sempre, il pulsante delle impostazioni dell'app.
+@Composable
+private fun VoiceMessage(@StringRes message: Int, offersAppSettings: Boolean) {
+    val context = LocalContext.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(message), modifier = Modifier.weight(1f))
+        if (offersAppSettings) {
+            TextButton(onClick = { context.openAppSettings() }) { Text(stringResource(UiR.string.permission_open_settings)) }
         }
     }
 }
