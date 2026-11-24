@@ -84,11 +84,12 @@ def _get(url):
         return json.loads(r.read())
 
 
-def require_revision(dataset, revision):
+def require_revision(dataset, revision, head=True):
     """RuntimeError se [dataset] su Hugging Face non e' piu' alla revisione [revision]. datasets-server legge solo
     l'ultima revisione: senza questo controllo un dataset cambiato finirebbe nel training senza che nessuno l'abbia
-    guardato. Va chiamata prima di riempire una cache (con la cache non serve la rete)."""
-    sha = _get(f"https://huggingface.co/api/datasets/{dataset}")["sha"]
+    guardato. Va chiamata prima di riempire una cache (con la cache non serve la rete). Con [head] False basta che la
+    revisione esista: per i dataset aggiornati ogni giorno, letti alla revisione fissata."""
+    sha = _get(f"https://huggingface.co/api/datasets/{dataset}" + ("" if head else f"/revision/{revision}"))["sha"]
     if sha != revision:
         raise RuntimeError(f"{dataset} e' cambiato (revisione {sha[:7]}, fissata {revision[:7]}): controlla le "
                            "modifiche e aggiorna la revisione nel codice")

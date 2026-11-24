@@ -280,14 +280,6 @@ class CacheTest(unittest.TestCase):
                     eq.mkqa_file(d)
             self.assertTrue((Path(d) / "mkqa.jsonl.gz").exists())  # non si cancella da solo
 
-    def test_require_revision(self):
-        reply = io.BytesIO(json.dumps({"sha": "abc1234"}).encode())
-        with mock.patch.object(eq, "_open", return_value=reply):
-            with self.assertRaises(RuntimeError):
-                eq.require_revision("x/y", "def5678")
-        with mock.patch.object(eq, "_open", return_value=io.BytesIO(json.dumps({"sha": "abc1234"}).encode())):
-            eq.require_revision("x/y", "abc1234")
-
     def test_attribution_is_in_the_dataset_language(self):
         for lang, rows in eq.ATTRIBUTION.items():
             for row in rows:
@@ -370,15 +362,6 @@ class PromptsChatTest(unittest.TestCase):
             with self.assertRaises(RuntimeError):  # mancano gli act dell'elenco
                 eq.load_prompts_chat_questions(Path(d) / "raw", "it")
             self.assertFalse((Path(d) / "raw" / eq.PROMPTS_CHAT_CACHE).exists())
-
-    def test_require_revision_pinned_without_head(self):
-        reply = io.BytesIO(json.dumps({"sha": "be0e61647a"}).encode())
-        with mock.patch.object(eq, "_open", return_value=reply) as op:
-            eq.require_revision("x/y", "be0e61647a", head=False)
-            self.assertIn("/revision/be0e61647a", op.call_args[0][0])
-        with mock.patch.object(eq, "_open", return_value=io.BytesIO(json.dumps({"sha": "other"}).encode())):
-            with self.assertRaises(RuntimeError):
-                eq.require_revision("x/y", "be0e61647a", head=False)
 
 
 class EvalSetTest(unittest.TestCase):

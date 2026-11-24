@@ -136,7 +136,7 @@ class UpdateAppStatusTest(unittest.TestCase):
             gguf.write_bytes(b"gguf")
             catalog = Path(tmp) / "LlmModelCatalog.kt"
             catalog.write_text(CATALOG, encoding="utf-8")
-            info = types.SimpleNamespace(path=file_name, size=4, lfs=types.SimpleNamespace(sha256=upload_hf.sha256_of(gguf)))
+            info = types.SimpleNamespace(path=file_name, size=4, lfs=types.SimpleNamespace(sha256=upload_hf.file_sha256(gguf)))
             api = types.SimpleNamespace(get_paths_info=lambda repo, paths: [info])
             with mock.patch.object(upload_hf, "CATALOG", catalog), \
                     mock.patch.object(upload_hf, "released_model_ids", return_value=released), \
@@ -238,10 +238,10 @@ class HelpersTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "f.bin"
             path.write_bytes(data)
-            self.assertEqual(hashlib.sha256(data).hexdigest(), upload_hf.sha256_of(path))
+            self.assertEqual(hashlib.sha256(data).hexdigest(), upload_hf.file_sha256(path))
             empty = Path(d) / "vuoto"
             empty.write_bytes(b"")
-            self.assertEqual(hashlib.sha256(b"").hexdigest(), upload_hf.sha256_of(empty))
+            self.assertEqual(hashlib.sha256(b"").hexdigest(), upload_hf.file_sha256(empty))
 
     def test_catalogo_senza_modelli_e_un_errore(self):
         with self.assertRaises(ValueError):

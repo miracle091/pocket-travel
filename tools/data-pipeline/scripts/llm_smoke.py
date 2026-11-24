@@ -15,18 +15,14 @@ PromptTemplates.onDevicePrompt (on_device_prompt); i contesti sono scritti appos
 Uso: python llm_smoke.py <file .gguf> --llama-cpp <cartella dei binari o build di llama.cpp>
 """
 import argparse
-import json
-import socket
-import subprocess
 import sys
 import tempfile
-import time
 import urllib.error
-import urllib.request
 from pathlib import Path
 
 import eval_retrieval as ev
-from eval_common import ANSWER_TOKENS, chatml_prompt, find_llama_bin, is_refusal, llama_env, on_device_prompt, uses_empty_think
+from eval_common import (ANSWER_TOKENS, chatml_prompt, find_llama_bin, is_refusal, on_device_prompt, post_json, start_llama_server,
+                         uses_empty_think)
 
 # (contesto, domanda, valore atteso nella risposta; None = rifiuto atteso)
 ROWS = [
@@ -51,40 +47,14 @@ CATEGORY_QUESTIONS = ["C'è un agriturismo a Zara?", "Tira vento a Spalato?", "C
 def start_server(llama_cpp, model):
     """llama-server su una porta libera di localhost; ritorna (processo, url) quando il modello e' carico. Il log del
     server va in un file temporaneo: se non parte, le sue ultime righe dicono perche'."""
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        port = s.getsockname()[1]
     exe = find_llama_bin("llama-server", llama_cpp)
     # -c come DEFAULT_CONTEXT_SIZE di ai_chat.cpp
     log = Path(tempfile.mkdtemp()) / "llama-server.log"
-    with open(log, "wb") as out:
-        server = subprocess.Popen([exe, "-m", str(model), "--host", "127.0.0.1", "--port", str(port), "-c", "8192", "-np", "1",
-                                   "--no-webui", "-ngl", "0"], stdout=out, stderr=subprocess.STDOUT, env=llama_env(exe))
-
-    def log_tail():
-        return "\n".join(log.read_text(encoding="utf-8", errors="replace").splitlines()[-20:])
-
-    url = f"http://127.0.0.1:{port}"
-    for _ in range(600):
-        if server.poll() is not None:
-            raise SystemExit(f"llama-server uscito con codice {server.returncode}:\n{log_tail()}")
-        try:
-            with urllib.request.urlopen(f"{url}/health", timeout=5) as r:
-                if r.status == 200:
-                    return server, url
-        except OSError:
-            pass  # porta non ancora aperta o modello in caricamento (503)
-        time.sleep(0.5)
-    server.kill()
-    server.wait()
-    raise SystemExit(f"llama-server non pronto dopo 5 minuti:\n{log_tail()}")
+    return start_llama_server(exe, ["-m", str(model), "-c", "8192", "-np", "1", "--no-webui", "-ngl", "0"], log)
 
 
 def post(url, path, body=None):
-    data = json.dumps(body).encode("utf-8") if body is not None else None
-    request = urllib.request.Request(f"{url}{path}", data, {"Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=600) as r:
-        return json.load(r)
+    return post_json(f"{url}{path}", body, 600)
 
 
 def complete(url, prompt, n_predict, grammar=None):

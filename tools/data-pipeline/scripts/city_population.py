@@ -59,16 +59,17 @@ def _retry_wait(error, attempt):
     return min(wait, RETRY_MAX_S) + random.uniform(0, RETRY_JITTER_S)
 
 
-def _get(url):
+def get_json(url, data=None, headers=UA, timeout=60, service="Wikimedia"):
+    """JSON di [url] (POST se c'e' [data]), con nuovi tentativi e attese crescenti su 429 e errori di rete."""
     for attempt in range(RETRY_ATTEMPTS):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
+            with urllib.request.urlopen(urllib.request.Request(url, data=data, headers=headers), timeout=timeout) as r:
                 return json.loads(r.read().decode("utf-8"))
         except Exception as e:  # 429 (limite di Wikimedia) o rete: si riprova con attesa crescente
             if attempt == RETRY_ATTEMPTS - 1:
                 raise
             wait = _retry_wait(e, attempt)
-            print(f"-- Wikimedia: {e}, riprovo tra {wait:.0f}s", file=sys.stderr)
+            print(f"-- {service}: {e}, riprovo tra {wait:.0f}s", file=sys.stderr)
             time.sleep(wait)
 
 
@@ -100,7 +101,7 @@ def wikibase_items(titles, lang, deadline=None):
         chunk = titles[i:i + BATCH]
         url = (f"https://{lang}.wikivoyage.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item"
                f"&redirects=1&format=json&titles=" + urllib.parse.quote("|".join(chunk)))
-        data = _get(url)["query"]
+        data = get_json(url)["query"]
         alias = {n["to"]: n["from"] for k in ("normalized", "redirects") for n in data.get(k, [])}
         for page in data.get("pages", {}).values():
             if q := page.get("pageprops", {}).get("wikibase_item"):
@@ -120,7 +121,7 @@ def _wikidata_values(titles, lang, value_of):
     for i in range(0, len(ids), BATCH):
         url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims&format=json&ids="
                + "|".join(ids[i:i + BATCH]))
-        for q, entity in _get(url).get("entities", {}).items():
+        for q, entity in get_json(url).get("entities", {}).items():
             if (value := value_of(entity.get("claims", {}))) is not None:
                 value_of_item[q] = value
         time.sleep(0.2)
@@ -187,7 +188,7 @@ def capital_titles(region_titles, lang):
     for i in range(0, len(region_items), BATCH):
         url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims&format=json&ids="
                + "|".join(region_items[i:i + BATCH]))
-        for q, entity in _get(url).get("entities", {}).items():
+        for q, entity in get_json(url).get("entities", {}).items():
             capitals_of[q] = _current_values(entity.get("claims", {}).get("P36", []))
         time.sleep(0.2)
     capital_items = sorted({c for cs in capitals_of.values() for c in cs})
@@ -195,7 +196,7 @@ def capital_titles(region_titles, lang):
     for i in range(0, len(capital_items), BATCH):
         url = (f"https://www.wikidata.org/w/api.php?action=wbgetentities&props=sitelinks|labels&sitefilter={lang}wikivoyage"
                f"&languages={lang}&format=json&ids=" + "|".join(capital_items[i:i + BATCH]))
-        for q, entity in _get(url).get("entities", {}).items():
+        for q, entity in get_json(url).get("entities", {}).items():
             # il titolo della pagina di Wikivoyage e il nome dell'elemento: la capitale del Giappone su Wikidata e' la
             # prefettura ("Prefettura di Tokyo"), la pagina della citta' su Wikivoyage e' "Tokyo"
             names = {link["title"]} if (link := entity.get("sitelinks", {}).get(f"{lang}wikivoyage")) else set()

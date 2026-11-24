@@ -69,7 +69,6 @@ Richiede rete (`manifest.json`, release, API di Wikipedia) e, per Storia e Clima
 """
 import argparse
 import atexit
-import hashlib
 import json
 import lzma
 import math
@@ -91,6 +90,7 @@ from contextlib import closing
 from pathlib import Path
 
 import city_wikipedia
+from eval_common import file_sha256
 # Liste di parole dell'app (stopword sempre; categorie e previsioni solo con --word-lists), dal file che legge anche l'app.
 from word_lists import (CATEGORY_GUIDE_WORDS, CATEGORY_TRIGGERS, FORECAST_STEMS, HISTORY_CLIMATE_WORDS, NEAR_TIME_STEMS,
                         STOPWORDS)
@@ -1216,43 +1216,23 @@ class RerankScorer:
 
     def __init__(self, model, llama_cpp, gpu_layers, device, cache_file, user_instructions_only=False):
         self.user_instructions_only = user_instructions_only  # punteggio "refusal" col prompt dei modelli v12
-        import socket
-        import time
         from gguf import GGUFReader
-        from eval_common import chatml_prompt, find_llama_bin, llama_env, on_device_prompt, uses_empty_think
+        from eval_common import chatml_prompt, find_llama_bin, on_device_prompt, post_json, start_llama_server, uses_empty_think
         self.chatml_prompt, self.on_device_prompt = chatml_prompt, on_device_prompt
         template = GGUFReader(model).fields.get("tokenizer.chat_template")
         self.think = uses_empty_think(bytes(template.parts[template.data[0]]).decode("utf-8") if template is not None else None)
-        with socket.socket() as s:
-            s.bind(("127.0.0.1", 0))
-            port = s.getsockname()[1]
-        exe = find_llama_bin("llama-server", llama_cpp)
-        self.server = subprocess.Popen([exe, "-m", str(model), "--host", "127.0.0.1", "--port", str(port),
-                                        "-c", str(4096 * RERANK_SLOTS), "-np", str(RERANK_SLOTS),
-                                        "--no-webui", "-ngl", str(gpu_layers), *(["--device", device] if device else [])],
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=llama_env(exe))
-        atexit.register(self.close)
-        self.url = f"http://127.0.0.1:{port}"
-        self.cache_file = cache_file  # prima dell'attesa: close() (atexit) salva la cache anche se il server non parte
+        self.cache_file = cache_file
         self.cache = json.loads(cache_file.read_text(encoding="utf-8")) if cache_file.exists() else {}
         self.calls = 0
         self.lock = threading.Lock()
-        for _ in range(600):
-            if self.server.poll() is not None:
-                raise SystemExit(f"llama-server terminato con codice {self.server.returncode} prima di essere pronto")
-            try:
-                with urllib.request.urlopen(f"{self.url}/health", timeout=5) as r:
-                    if r.status == 200:
-                        break
-            except OSError:
-                time.sleep(0.5)
-        else:
-            raise SystemExit("llama-server: /health non pronto dopo 600 tentativi")
+        exe = find_llama_bin("llama-server", llama_cpp)
+        self.server, self.url = start_llama_server(
+            exe, ["-m", str(model), "-c", str(4096 * RERANK_SLOTS), "-np", str(RERANK_SLOTS), "--no-webui",
+                  "-ngl", str(gpu_layers), *(["--device", device] if device else [])])
+        atexit.register(self.close)
 
     def post(self, path, payload):
-        request = urllib.request.Request(self.url + path, json.dumps(payload).encode("utf-8"), {"Content-Type": "application/json"})
-        with urllib.request.urlopen(request, timeout=300) as r:
-            return json.load(r)
+        return post_json(self.url + path, payload, 300)
 
     def next_probs(self, prompt, grammar=None):
         """({id: probabilita'}, {id: testo}) dei 20 primi token dopo [prompt] (testo, o lista di testo e id): con la
@@ -1824,11 +1804,7 @@ def fingerprint(paths):
     out = {}
     for path in paths:
         if path.exists():
-            digest = hashlib.sha256()
-            with open(path, "rb") as f:
-                for block in iter(lambda: f.read(1 << 20), b""):
-                    digest.update(block)
-            out[path.name] = digest.hexdigest()[:12]
+            out[path.name] = file_sha256(path)[:12]
     return out
 
 

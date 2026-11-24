@@ -164,7 +164,7 @@ def _expired(deadline):
 
 
 def _sparql(query):
-    return city_population._get(SPARQL + urllib.parse.quote(query))["results"]["bindings"]
+    return city_population.get_json(SPARQL + urllib.parse.quote(query))["results"]["bindings"]
 
 
 def subclasses(types, roots, deadline):
@@ -213,7 +213,7 @@ def categories(country, lang):
 
 def _api(lang, params):
     params = {"format": "json", "formatversion": "2", **params}
-    return city_population._get(f"https://{lang}.wikipedia.org/w/api.php?" + urllib.parse.urlencode(params))
+    return city_population.get_json(f"https://{lang}.wikipedia.org/w/api.php?" + urllib.parse.urlencode(params))
 
 
 def members(cats, lang, deadline):
@@ -288,7 +288,7 @@ def excluded_items(items, deadline, country=None, topic_cache=None):
             break
         url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims|sitelinks&format=json&ids="
                + "|".join(items[i:i + city_population.BATCH]))
-        for q, entity in city_population._get(url).get("entities", {}).items():
+        for q, entity in city_population.get_json(url).get("entities", {}).items():
             claims = entity.get("claims", {})
             ids = lambda prop: {c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") for c in claims.get(prop, [])}
             types = ids("P31")
@@ -311,7 +311,7 @@ def excluded_items(items, deadline, country=None, topic_cache=None):
 def country_names(country, lang):
     """Nomi con cui l'introduzione di una voce nomina il paese: nome e alias in [lang] e aggettivi (P1549) dell'elemento Wikidata."""
     url = (f"https://www.wikidata.org/w/api.php?action=wbgetentities&props=labels|aliases|claims&languages={lang}&format=json&ids={country}")
-    entity = city_population._get(url).get("entities", {}).get(country, {})
+    entity = city_population.get_json(url).get("entities", {}).get(country, {})
     names = [entity.get("labels", {}).get(lang, {}).get("value")] + [a["value"] for a in entity.get("aliases", {}).get(lang, [])]
     demonyms = [c["mainsnak"].get("datavalue", {}).get("value", {}).get("text") for c in entity.get("claims", {}).get("P1549", [])
                 if c["mainsnak"].get("datavalue", {}).get("value", {}).get("language") == lang]
@@ -414,7 +414,7 @@ def _claims_of(items, deadline, cache):
             break
         url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims|sitelinks&format=json&ids="
                + "|".join(todo[i:i + city_population.BATCH]))
-        for q, entity in city_population._get(url).get("entities", {}).items():
+        for q, entity in city_population.get_json(url).get("entities", {}).items():
             claims = entity.get("claims", {})
             ids = lambda prop: {c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") for c in claims.get(prop, [])}
             cache[q] = {"types": ids("P31"), "origin": ids("P495"), "country": ids("P17"), "place": "P625" in claims or "P131" in claims,

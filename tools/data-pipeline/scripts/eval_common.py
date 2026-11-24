@@ -3,12 +3,16 @@
 train_lora.py (TEST_REGIONS), stesso formato di report, sia base che esteso (generate_eval_set.py), e
 ricerca dei binari di llama.cpp.
 """
+import hashlib
 import json
 import os
 import re
 import shutil
+import socket
+import subprocess
 import sys
 import time
+import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -81,6 +85,60 @@ def llama_env(exe):
     if extra.exists():
         env["PATH"] = os.pathsep.join(extra.read_text(encoding="utf-8").splitlines() + [env.get("PATH", "")])
     return env
+
+
+def start_llama_server(exe, args, log_path=None, attempts=600):
+    """llama-server di [exe] con [args] (modello, contesto, GPU...) su una porta libera di localhost; (processo, url) quando
+    /health risponde 200, controllato ogni mezzo secondo per [attempts] volte. Se il processo esce o il modello non si
+    carica, lo chiude e esce con SystemExit e il motivo; con [log_path] lo stderr del server va li' e le ultime righe
+    si aggiungono al motivo."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    cmd = [exe, *args, "--host", "127.0.0.1", "--port", str(port)]
+    url = f"http://127.0.0.1:{port}"
+    log = open(log_path, "w+b") if log_path else None
+    try:
+        server = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=log or subprocess.DEVNULL, env=llama_env(exe))
+        reason = f"non pronto dopo {attempts // 2} secondi"
+        for _ in range(attempts):
+            if server.poll() is not None:
+                reason = f"uscito con codice {server.returncode}"
+                break
+            try:
+                with urllib.request.urlopen(f"{url}/health", timeout=5) as r:
+                    if r.status == 200:
+                        return server, url
+            except OSError:
+                pass  # porta non ancora aperta o modello in caricamento (503)
+            time.sleep(0.5)
+        server.kill()
+        server.wait()
+        tail = ""
+        if log:
+            log.seek(0)
+            tail = "\n" + log.read().decode("utf-8", "replace")[-2000:]
+        raise SystemExit(f"llama-server {reason}: {' '.join(cmd)}{tail}")
+    finally:
+        if log:
+            log.close()  # il server tiene il suo handle e continua a scriverci
+
+
+def file_sha256(path):
+    """SHA-256 esadecimale di un file, letto a blocchi."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def post_json(url, payload, timeout):
+    """Risposta JSON di [url] a una richiesta con [payload] in JSON (GET se None)."""
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    with urllib.request.urlopen(urllib.request.Request(url, data, {"Content-Type": "application/json"}), timeout=timeout) as r:
+        return json.load(r)
+
 
 SFT_DIR = Path(__file__).resolve().parent.parent / "data" / "sft"
 DEFAULT_DATASET = "pocket_travel_sft.v11.it.jsonl"

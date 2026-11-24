@@ -31,12 +31,11 @@ import sqlite3
 import sys
 import time
 import urllib.parse
-import urllib.request
 from contextlib import closing
 from datetime import date
 from pathlib import Path
 
-from city_population import RETRY_ATTEMPTS, _retry_wait, _save_cache
+from city_population import _save_cache, get_json
 
 ENDPOINT = "https://query.wikidata.org/sparql"
 HEADERS = {
@@ -75,17 +74,7 @@ QUERY = """SELECT ?item ?links (MIN(STR(?c)) AS ?coord) (MAX(?p) AS ?protected) 
 
 
 def _post(query):
-    data = urllib.parse.urlencode({"query": query}).encode()
-    for attempt in range(RETRY_ATTEMPTS):
-        try:
-            with urllib.request.urlopen(urllib.request.Request(ENDPOINT, data=data, headers=HEADERS), timeout=120) as r:
-                return json.loads(r.read().decode("utf-8"))
-        except Exception as e:  # 429 (limite di Wikimedia) o rete: si riprova con attesa crescente
-            if attempt == RETRY_ATTEMPTS - 1:
-                raise
-            wait = _retry_wait(e, attempt)
-            print(f"-- Wikidata: {e}, riprovo tra {wait:.0f}s", file=sys.stderr)
-            time.sleep(wait)
+    return get_json(ENDPOINT, urllib.parse.urlencode({"query": query}).encode(), HEADERS, 120, "Wikidata")
 
 
 def _point(row):

@@ -216,7 +216,7 @@ def wikipedia_titles(titles, lang, deadline=None, voyage_lang=None):
         url = (f"https://www.wikidata.org/w/api.php?action=wbgetentities&props=sitelinks&sitefilter={lang}wiki"
                "&format=json&ids=" + "|".join(ids[i:i + city_population.BATCH]))
         try:
-            entities = city_population._get(url).get("entities", {})
+            entities = city_population.get_json(url).get("entities", {})
         except Exception as e:
             # Un lotto perso dopo i tentativi di _get non fa perdere gli altri.
             print(f"-- Wikidata: lotto di sitelink saltato ({e})", file=sys.stderr)
@@ -244,7 +244,7 @@ def wikipedia_sections(titles, lang, deadline=None, names=None, keep_empty=False
                   "formatversion": "2", "titles": "|".join(titles[i:i + CONTENT_BATCH])}
         while True:
             try:
-                data = city_population._get(f"https://{lang}.wikipedia.org/w/api.php?" + urllib.parse.urlencode(params))
+                data = city_population.get_json(f"https://{lang}.wikipedia.org/w/api.php?" + urllib.parse.urlencode(params))
             except Exception as e:
                 # Un lotto perso dopo i tentativi di _get non fa perdere le voci gia' lette.
                 print(f"-- Wikipedia: lotto di voci saltato ({e})", file=sys.stderr)
@@ -283,7 +283,7 @@ def weatherbox_tables(climates, lang, deadline=None):
         params = {"action": "query", "prop": "revisions", "rvprop": "content", "rvslots": "main", "format": "json",
                   "formatversion": "2", "titles": "|".join("Template:" + n for n in names[i:i + CONTENT_BATCH])}
         try:
-            data = city_population._get(f"https://{lang}.wikipedia.org/w/api.php?" + urllib.parse.urlencode(params))
+            data = city_population.get_json(f"https://{lang}.wikipedia.org/w/api.php?" + urllib.parse.urlencode(params))
         except Exception as e:
             print(f"-- Wikipedia: lotto di template saltato ({e})", file=sys.stderr)
             continue

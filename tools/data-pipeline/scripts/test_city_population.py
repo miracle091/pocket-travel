@@ -103,7 +103,7 @@ class GetTest(unittest.TestCase):
         with mock.patch("city_population.urllib.request.urlopen", side_effect=[OSError("rete"), self._response({"a": 1})]), \
                 mock.patch("city_population.random.uniform", return_value=0), \
                 mock.patch("city_population.time.sleep") as sleep, redirect_stderr(io.StringIO()):
-            self.assertEqual({"a": 1}, city_population._get("http://x"))
+            self.assertEqual({"a": 1}, city_population.get_json("http://x"))
         sleep.assert_called_once_with(10)
 
     def test_attese_che_raddoppiano_e_poi_rilancia(self):
@@ -111,7 +111,7 @@ class GetTest(unittest.TestCase):
                 mock.patch("city_population.random.uniform", return_value=0), \
                 mock.patch("city_population.time.sleep") as sleep, redirect_stderr(io.StringIO()):
             with self.assertRaises(urllib.error.HTTPError):
-                city_population._get("http://x")
+                city_population.get_json("http://x")
         self.assertEqual(6, urlopen.call_count)
         self.assertEqual([10, 20, 40, 80, 160], [c.args[0] for c in sleep.call_args_list])
 
@@ -120,8 +120,17 @@ class GetTest(unittest.TestCase):
         with mock.patch("city_population.urllib.request.urlopen", side_effect=errors), \
                 mock.patch("city_population.random.uniform", return_value=0), \
                 mock.patch("city_population.time.sleep") as sleep, redirect_stderr(io.StringIO()):
-            self.assertEqual({"a": 1}, city_population._get("http://x"))
+            self.assertEqual({"a": 1}, city_population.get_json("http://x"))
         self.assertEqual([42, 300, 40], [c.args[0] for c in sleep.call_args_list])
+
+    def test_post_con_intestazioni_e_nome_del_servizio(self):
+        with mock.patch("city_population.urllib.request.urlopen", side_effect=[OSError("rete"), self._response({"a": 1})]) as urlopen,                 mock.patch("city_population.random.uniform", return_value=0),                 mock.patch("city_population.time.sleep"), redirect_stderr(io.StringIO()) as err:
+            self.assertEqual({"a": 1}, city_population.get_json("http://x", b"query=1", {"User-Agent": "t"}, 120, "Wikidata"))
+        request = urlopen.call_args[0][0]
+        self.assertEqual(b"query=1", request.data)
+        self.assertEqual("t", request.get_header("User-agent"))
+        self.assertEqual(120, urlopen.call_args[1]["timeout"])
+        self.assertIn("-- Wikidata: rete", err.getvalue())
 
     def test_attesa_casuale_aggiunta(self):
         with mock.patch("city_population.random.uniform", return_value=3.5) as uniform:
@@ -138,7 +147,7 @@ class WikidataCityFactsTest(unittest.TestCase):
                                  "2": {"title": "Senza", "pageprops": {}}}}},
             {"entities": {"Q220": {"claims": {"P1082": [claim("+2800000")], "P625": [coord(41.9, 12.5)]}}}},
         ]
-        with mock.patch("city_population._get", side_effect=responses) as get, mock.patch("city_population.time.sleep"):
+        with mock.patch("city_population.get_json", side_effect=responses) as get, mock.patch("city_population.time.sleep"):
             result = city_population.wikidata_city_facts(["roma", "Senza"], "it")
         self.assertEqual({"roma": (2800000, (41.9, 12.5))}, result)
         # popolazione e coordinate con lo stesso giro: una richiesta per i titoli, una per gli elementi
@@ -149,7 +158,7 @@ class WikidataCityFactsTest(unittest.TestCase):
             {"query": {"pages": {"1": {"title": "Villa", "pageprops": {"wikibase_item": "Q5"}}}}},
             {"entities": {"Q5": {"claims": {}}}},
         ]
-        with mock.patch("city_population._get", side_effect=responses), mock.patch("city_population.time.sleep"):
+        with mock.patch("city_population.get_json", side_effect=responses), mock.patch("city_population.time.sleep"):
             self.assertEqual({"Villa": (None, None)}, city_population.wikidata_city_facts(["Villa"], "it"))
 
 
@@ -175,7 +184,7 @@ class CoordinatesTest(unittest.TestCase):
             {"query": {"pages": {"1": {"title": "Torino", "pageprops": {"wikibase_item": "Q495"}}}}},
             {"entities": {"Q495": {"claims": {"P625": [coord(45.07, 7.68)]}}}},
         ]
-        with mock.patch("city_population._get", side_effect=responses), mock.patch("city_population.time.sleep"):
+        with mock.patch("city_population.get_json", side_effect=responses), mock.patch("city_population.time.sleep"):
             self.assertEqual({"Torino": (45.07, 7.68)}, city_population.wikidata_coordinates(["Torino"], "it"))
 
 
@@ -187,7 +196,7 @@ class CapitalTitlesTest(unittest.TestCase):
             {"entities": {"Q1490": {"sitelinks": {"itwikivoyage": {"title": "Tokyo"}},
                                     "labels": {"it": {"value": "Prefettura di Tokyo"}}}}},
         ]
-        with mock.patch("city_population._get", side_effect=responses), mock.patch("city_population.time.sleep"):
+        with mock.patch("city_population.get_json", side_effect=responses), mock.patch("city_population.time.sleep"):
             result = city_population.capital_titles(["Giappone"], "it")
         self.assertEqual({"Giappone": {"Tokyo", "Prefettura di Tokyo"}}, result)
 

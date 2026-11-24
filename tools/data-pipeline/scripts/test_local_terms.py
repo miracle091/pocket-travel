@@ -99,7 +99,7 @@ class ExcludedItemsTest(unittest.TestCase):
                     "Q927083": entity(18, ["Q13406463"]), "Q1": entity(5, ["Q5"]), "Q2": {"claims": {}},
                     "Q746": entity(300, ["Q746549"], P495=["Q38"]), "Q10": entity(140, ["Q1197685"], P17=["Q38"]),
                     "Q11": entity(120, [])}
-        with mock.patch("local_terms.city_population._get", return_value={"entities": entities}), mock.patch("time.sleep"), \
+        with mock.patch("local_terms.city_population.get_json", return_value={"entities": entities}), mock.patch("time.sleep"), \
                 mock.patch("local_terms._sparql", return_value=[]):
             excluded, untied = local_terms.excluded_items(set(entities), float("inf"), country="Q38")
         self.assertEqual({"Q35625", "Q927083", "Q1", "Q11"}, excluded)
@@ -115,7 +115,7 @@ class NotATermTypesTest(unittest.TestCase):
     def test_luoghi_enti_e_aspetti_di_una_regione_scartati_salvo_un_tipo_di_un_argomento(self):
         entities = {"Q1": self.entity(["Q74817647"]), "Q2": self.entity(["Q74817647", "Q4618"]), "Q3": self.entity(["Q5189488"]),
                     "Q4": self.entity(["Q746549"])}
-        with mock.patch("local_terms.city_population._get", return_value={"entities": entities}), mock.patch("time.sleep"), \
+        with mock.patch("local_terms.city_population.get_json", return_value={"entities": entities}), mock.patch("time.sleep"), \
                 mock.patch("local_terms._sparql", return_value=[{"t": {"value": "http://www.wikidata.org/entity/Q4618"}}]):
             excluded, untied = local_terms.excluded_items(set(entities), float("inf"), country="Q33", topic_cache={})
         self.assertEqual({"Q1", "Q3"}, excluded)
@@ -125,7 +125,7 @@ class NotATermTypesTest(unittest.TestCase):
         # Q131734 birrificio, Q18534572 catena di pizzerie: sottoclassi di impresa; Q746549 piatto
         entities = {"Q1": self.entity(["Q131734"]), "Q2": self.entity(["Q18534572", "Q746549"]), "Q3": self.entity(["Q746549"])}
         under = lambda *qs: [{"t": {"value": f"http://www.wikidata.org/entity/{q}"}} for q in qs]
-        with mock.patch("local_terms.city_population._get", return_value={"entities": entities}), mock.patch("time.sleep"), \
+        with mock.patch("local_terms.city_population.get_json", return_value={"entities": entities}), mock.patch("time.sleep"), \
                 mock.patch("local_terms._sparql", side_effect=[under("Q131734", "Q18534572"), under("Q746549")]) as sparql:
             excluded, _ = local_terms.excluded_items(set(entities), float("inf"), country="Q33", topic_cache={})
         self.assertEqual({"Q1"}, excluded)
@@ -375,7 +375,7 @@ class CountryNamesTest(unittest.TestCase):
             return {"mainsnak": {"datavalue": {"value": {"text": value, "language": language}}}}
         entity = {"labels": {"it": {"value": "Finlandia"}}, "aliases": {"it": [{"value": "Suomi"}]},
                   "claims": {"P1549": [text("finlandese", "it"), text("Finnish", "en")]}}
-        with mock.patch("local_terms.city_population._get", return_value={"entities": {"Q33": entity}}):
+        with mock.patch("local_terms.city_population.get_json", return_value={"entities": {"Q33": entity}}):
             self.assertEqual(["Finlandia", "Suomi", "finlandese"], local_terms.country_names("Q33", "it"))
 
 

@@ -55,7 +55,7 @@ class SectionsTest(unittest.TestCase):
 class WikipediaTitlesTest(unittest.TestCase):
     def test_sitelink_della_voce_dall_elemento_della_pagina_wikivoyage(self):
         with mock.patch("city_wikipedia.city_population.wikibase_items", return_value={"Rimini": "Q18", "Borgo": "Q9"}), \
-                mock.patch("city_wikipedia.city_population._get",
+                mock.patch("city_wikipedia.city_population.get_json",
                            return_value={"entities": {"Q18": {"sitelinks": {"itwiki": {"title": "Rimini"}}},
                                                       "Q9": {"sitelinks": {}}}}) as get, \
                 mock.patch("city_wikipedia.time.sleep"):
@@ -64,7 +64,7 @@ class WikipediaTitlesTest(unittest.TestCase):
 
     def test_pagine_wikivoyage_di_un_altra_lingua(self):
         with mock.patch("city_wikipedia.city_population.wikibase_items", return_value={"Japan": "Q17"}) as items, \
-                mock.patch("city_wikipedia.city_population._get",
+                mock.patch("city_wikipedia.city_population.get_json",
                            return_value={"entities": {"Q17": {"sitelinks": {"itwiki": {"title": "Giappone"}}}}}), \
                 mock.patch("city_wikipedia.time.sleep"):
             self.assertEqual({"Japan": "Giappone"}, city_wikipedia.wikipedia_titles(["Japan"], "it", voyage_lang="en"))
@@ -74,7 +74,7 @@ class WikipediaTitlesTest(unittest.TestCase):
 class DeadlineTitlesTest(unittest.TestCase):
     def test_la_scadenza_vale_anche_per_i_titoli(self):
         with mock.patch("city_wikipedia.city_population.wikibase_items", return_value={"Rimini": "Q18"}) as items, \
-                mock.patch("city_wikipedia.city_population._get") as get, \
+                mock.patch("city_wikipedia.city_population.get_json") as get, \
                 mock.patch("city_wikipedia.time.monotonic", return_value=100.0), \
                 redirect_stderr(io.StringIO()) as err:
             self.assertEqual({}, city_wikipedia.wikipedia_titles(["Rimini"], "it", deadline=50.0))
@@ -92,7 +92,7 @@ class WikipediaSectionsTest(unittest.TestCase):
              "query": {"pages": [page("Rimini", VOCE), {"title": "Roma"}]}},
             {"query": {"pages": [page("Roma", "== Clima ==\nMite."), page("Borgo", "Nessuna sezione.")]}},
         ]
-        with mock.patch("city_wikipedia.city_population._get", side_effect=responses) as get, \
+        with mock.patch("city_wikipedia.city_population.get_json", side_effect=responses) as get, \
                 mock.patch("city_wikipedia.time.sleep"):
             result = city_wikipedia.wikipedia_sections(["Rimini", "Roma", "Borgo"], "it")
         self.assertEqual({"Rimini", "Roma"}, set(result))
@@ -103,7 +103,7 @@ class WikipediaSectionsTest(unittest.TestCase):
         def page(title, text):
             return {"title": title, "revisions": [{"slots": {"main": {"content": text}}}]}
         response = {"query": {"pages": [page("Giappone", VOCE + "== Gastronomia ==\nSushi."), page("Borgo", "Niente.")]}}
-        with mock.patch("city_wikipedia.city_population._get", return_value=response), \
+        with mock.patch("city_wikipedia.city_population.get_json", return_value=response), \
                 mock.patch("city_wikipedia.time.sleep"):
             result = city_wikipedia.wikipedia_sections(["Giappone", "Borgo"], "it", names=("gastronomia",), keep_empty=True)
         self.assertEqual({"Giappone": "== Gastronomia ==\nSushi.", "Borgo": ""}, result)
@@ -112,7 +112,7 @@ class WikipediaSectionsTest(unittest.TestCase):
         titles = [f"Citta {i}" for i in range(city_wikipedia.CONTENT_BATCH + 1)]
         page = {"title": "Citta 0", "revisions": [{"slots": {"main": {"content": "== Storia ==\nx"}}}]}
         # monotonic: entro la scadenza per il primo lotto, oltre per il secondo
-        with mock.patch("city_wikipedia.city_population._get", return_value={"query": {"pages": [page]}}) as get, \
+        with mock.patch("city_wikipedia.city_population.get_json", return_value={"query": {"pages": [page]}}) as get, \
                 mock.patch("city_wikipedia.time.sleep"), \
                 mock.patch("city_wikipedia.time.monotonic", side_effect=[0.0, 100.0]), \
                 redirect_stderr(io.StringIO()) as err:
@@ -124,7 +124,7 @@ class WikipediaSectionsTest(unittest.TestCase):
     def test_un_lotto_fallito_non_fa_perdere_gli_altri(self):
         titles = [f"Citta {i}" for i in range(city_wikipedia.CONTENT_BATCH + 1)]
         page = {"title": "Citta 0", "revisions": [{"slots": {"main": {"content": "== Storia ==\nx"}}}]}
-        with mock.patch("city_wikipedia.city_population._get", side_effect=[{"query": {"pages": [page]}}, OSError("rete")]), \
+        with mock.patch("city_wikipedia.city_population.get_json", side_effect=[{"query": {"pages": [page]}}, OSError("rete")]), \
                 mock.patch("city_wikipedia.time.sleep"), \
                 redirect_stderr(io.StringIO()) as err:
             result = city_wikipedia.wikipedia_sections(titles, "it")
@@ -247,7 +247,7 @@ class WeatherboxTablesTest(unittest.TestCase):
             {"query": {"pages": [_page("Template:Paris weatherbox", EN_F)]}},
         ]
         climates = {}
-        with mock.patch("city_wikipedia.city_population._get", side_effect=responses) as get, \
+        with mock.patch("city_wikipedia.city_population.get_json", side_effect=responses) as get, \
                 mock.patch("city_wikipedia.time.sleep"):
             result = city_wikipedia.wikipedia_sections(["Rimini", "Paris", "Borgo"], "en", climates=climates)
             self.assertEqual({"Rimini", "Borgo"}, set(result))
@@ -259,7 +259,7 @@ class WeatherboxTablesTest(unittest.TestCase):
 
     def test_template_illeggibile_o_lotto_fallito_tolgono_la_voce(self):
         climates = {"Paris": "Paris weatherbox"}
-        with mock.patch("city_wikipedia.city_population._get", side_effect=OSError("rete")), \
+        with mock.patch("city_wikipedia.city_population.get_json", side_effect=OSError("rete")), \
                 mock.patch("city_wikipedia.time.sleep"), redirect_stderr(io.StringIO()) as err:
             city_wikipedia.weatherbox_tables(climates, "en")
         self.assertEqual({}, climates)

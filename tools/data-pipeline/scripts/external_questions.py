@@ -43,6 +43,9 @@ import urllib.request
 from collections import Counter
 from pathlib import Path
 
+from eval_common import file_sha256
+from travel_questions import require_revision
+
 HERE = Path(__file__).resolve().parent
 
 WEBFAQ = "PaDaS-Lab/webfaq"
@@ -92,18 +95,6 @@ def _ua():
 def _open(url, headers=None, method="GET"):
     req = urllib.request.Request(url, headers={**_ua(), **(headers or {})}, method=method)
     return urllib.request.urlopen(req, timeout=120)
-
-
-def require_revision(dataset, revision, head=True):
-    """RuntimeError se [dataset] su Hugging Face non e' piu' alla revisione [revision] (come
-    travel_questions.require_revision, ma con lo User-Agent del generatore). Va chiamata prima di riempire una cache. Con
-    [head] False basta che la revisione esista: per i dataset aggiornati ogni giorno, letti alla revisione fissata."""
-    url = f"https://huggingface.co/api/datasets/{dataset}" + ("" if head else f"/revision/{revision}")
-    with _open(url) as r:
-        sha = json.loads(r.read())["sha"]
-    if sha != revision:
-        raise RuntimeError(f"{dataset} e' cambiato (revisione {sha[:7]}, fissata {revision[:7]}): controlla le "
-                           "modifiche e aggiorna la revisione nel codice")
 
 
 def _retry(fn, what):
@@ -633,14 +624,6 @@ def mkqa_question(text):
     return text[:1].upper() + text[1:] + "?"
 
 
-def _sha256(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def mkqa_file(download_dir):
     """Percorso di mkqa.jsonl.gz in [download_dir]: scaricato dal commit fissato e verificato con MKQA_SHA256 (anche un
     file gia' presente: se non corrisponde, RuntimeError e il file resta com'e')."""
@@ -658,12 +641,12 @@ def mkqa_file(download_dir):
                         break
                     f.write(chunk)
         _retry(download, "mkqa")
-        if _sha256(tmp) != MKQA_SHA256:
+        if file_sha256(tmp) != MKQA_SHA256:
             tmp.unlink()
             raise RuntimeError("mkqa.jsonl.gz scaricato non corrisponde a MKQA_SHA256: controlla il file e aggiorna "
                                "MKQA_URL e MKQA_SHA256")
         os.replace(tmp, path)
-    elif _sha256(path) != MKQA_SHA256:
+    elif file_sha256(path) != MKQA_SHA256:
         raise RuntimeError(f"{path} non corrisponde a MKQA_SHA256: cancellarlo per scaricarlo di nuovo")
     return path
 

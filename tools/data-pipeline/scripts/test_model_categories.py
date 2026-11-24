@@ -59,8 +59,7 @@ class HealthWaitTest(unittest.TestCase):
     def run_categories(self, server, health):
         argv = ["model_categories.py", str(self.tmp / "model.gguf"), "--llama-cpp", str(self.tmp), "--out", str(self.tmp / "o.json")]
         patches = self.patches(server, health) + [mock.patch.object(sys, "argv", argv),
-                                                  mock.patch.object(mc, "find_llama_bin", return_value="llama-server"),
-                                                  mock.patch.object(mc, "llama_env", return_value={})]
+                                                  mock.patch.object(mc, "find_llama_bin", return_value="llama-server")]
         for p in patches:
             p.start()
             self.addCleanup(p.stop)
@@ -84,7 +83,7 @@ class HealthWaitTest(unittest.TestCase):
         server = self.server(None)
         with self.assertRaises(SystemExit) as ctx:
             self.run_categories(server, None)
-        self.assertIn("/health non pronto", str(ctx.exception))
+        self.assertIn("non pronto", str(ctx.exception))
         server.kill.assert_called()
 
     def test_categorie_chiude_la_risposta_di_health(self):
@@ -101,7 +100,7 @@ class HealthWaitTest(unittest.TestCase):
     def test_rerank_health_mai_pronto_esce_con_un_messaggio(self):
         with self.assertRaises(SystemExit) as ctx:
             self.make_scorer(self.server(None), None)
-        self.assertIn("/health non pronto", str(ctx.exception))
+        self.assertIn("non pronto", str(ctx.exception))
 
     def test_rerank_chiude_la_risposta_di_health(self):
         health = [FakeHealth()]

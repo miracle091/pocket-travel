@@ -51,19 +51,16 @@ import hashlib
 import json
 import os
 import re
-import socket
 import sqlite3
-import subprocess
 import sys
 import time
 import urllib.parse
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import city_population
 import translate_dataset as ts
-from eval_common import Synced, drop_partial_line
+from eval_common import Synced, drop_partial_line, post_json
 from status import Progress
 import vram
 from untrusted_text import strip_markup
@@ -433,37 +430,14 @@ def fix_register(chat, english, italian, second_person):
 def start_llama_server(gguf, llama_cpp, device, log_path, parallel=1, max_vram_held=vram.DEFAULT_MAX_HELD_PCT):
     """llama-server su una porta libera di localhost, tutto sulla GPU [device], con [parallel] richieste insieme in una
     cache KV comune da 4096 token ciascuna, stderr in [log_path]; (processo, url) a modello carico."""
-    from eval_common import find_llama_bin, llama_env
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        port = s.getsockname()[1]
+    from eval_common import find_llama_bin, llama_env, start_llama_server
     exe = find_llama_bin("llama-server", llama_cpp)
     vram.check_llama(exe, llama_env(exe), device, max_vram_held)
-    cmd = [exe, "-m", str(gguf), "--host", "127.0.0.1", "--port", str(port), "-c", str(4096 * parallel),
-           "-np", str(parallel), "--kv-unified", "-fa", "on", "-b", "2048", "-ub", "512", "--load-mode", "none", "--jinja",
-           "--no-webui", "-ngl", "99", "--device", device]
     # stderr in un file: se il server esce subito (un'opzione che la build non conosce) il motivo si stampa, se cade a
     # meta' giro resta da leggere
-    log = open(log_path, "w+b")
-    server = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=log, env=llama_env(exe))
-    url = f"http://127.0.0.1:{port}"
-    for _ in range(600):
-        if server.poll() is not None:
-            log.seek(0)
-            tail = log.read().decode("utf-8", "replace")[-2000:]
-            log.close()
-            sys.exit(f"llama-server uscito con codice {server.returncode}: {' '.join(cmd)}\n{tail}")
-        try:
-            with urllib.request.urlopen(f"{url}/health", timeout=5) as r:
-                if r.status == 200:
-                    log.close()  # il server tiene il suo handle e continua a scriverci
-                    return server, url
-        except OSError:
-            pass  # porta non ancora aperta o modello in caricamento (503)
-        time.sleep(0.5)
-    server.kill()
-    log.close()
-    sys.exit("llama-server non pronto dopo 5 minuti")
+    return start_llama_server(exe, ["-m", str(gguf), "-c", str(4096 * parallel), "-np", str(parallel), "--kv-unified", "-fa", "on",
+                                    "-b", "2048", "-ub", "512", "--load-mode", "none", "--jinja", "--no-webui", "-ngl", "99",
+                                    "--device", device], log_path)
 
 
 def llama_chat(url):
@@ -472,10 +446,7 @@ def llama_chat(url):
     def chat(text, temperature=0, seed=0):
         body = {"messages": [{"role": "user", "content": f"{LLAMA_PROMPT}\n\n{strip_markup(text)}"}], "temperature": temperature,
                 "seed": seed, "max_tokens": 2048, "chat_template_kwargs": {"enable_thinking": False}}
-        request = urllib.request.Request(f"{url}/v1/chat/completions", json.dumps(body).encode("utf-8"),
-                                         {"Content-Type": "application/json"})
-        with urllib.request.urlopen(request, timeout=600) as r:
-            return json.load(r)["choices"][0]["message"]["content"]
+        return post_json(f"{url}/v1/chat/completions", body, 600)["choices"][0]["message"]["content"]
     return chat
 
 
@@ -707,7 +678,7 @@ def other_titles(own_titles, other_titles, own_lang, other_lang, cache_dir):
             url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=sitelinks"
                    f"&sitefilter={other_lang}wikivoyage&format=json&ids="
                    + urllib.parse.quote("|".join(ids[i:i + city_population.BATCH]), safe="|"))
-            for q, entity in city_population._get(url).get("entities", {}).items():
+            for q, entity in city_population.get_json(url).get("entities", {}).items():
                 if link := entity.get("sitelinks", {}).get(f"{other_lang}wikivoyage"):
                     title_of_item[q] = link["title"]
             time.sleep(0.2)

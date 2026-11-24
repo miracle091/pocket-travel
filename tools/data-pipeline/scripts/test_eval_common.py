@@ -5,10 +5,13 @@ riconoscimento dei rifiuti e il conteggio dei rifiuti con e senza la sezione att
 
 Uso: python test_eval_common.py
 """
+import hashlib
 import io
 import json
 import os
 import re
+import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -757,6 +760,100 @@ class ContextUseTest(unittest.TestCase):
         row = used_row("attuale", "x")
         del row["parts"]
         self.assertEqual(({}, None, {}), eval_common.context_use_report([row]))
+
+
+FAKE_HEALTH = """
+import http.server, sys
+port = int(sys.argv[sys.argv.index("--port") + 1])
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200 if self.path == "/health" else 404)
+        self.end_headers()
+    def log_message(self, *args):
+        pass
+http.server.HTTPServer(("127.0.0.1", port), Handler).serve_forever()
+"""
+
+
+class StartLlamaServerTest(unittest.TestCase):
+    """Processo finto al posto di llama-server (python -c ...): riceve in coda --host e --port come il vero."""
+
+    def start(self, script, **kwargs):
+        return eval_common.start_llama_server(sys.executable, ["-c", script], **kwargs)
+
+    def test_health_servito_da_un_server_locale(self):
+        server, url = self.start(FAKE_HEALTH, attempts=60)
+        self.addCleanup(server.wait)
+        self.addCleanup(server.kill)
+        self.assertRegex(url, r"^http://127\.0\.0\.1:\d+$")
+        self.assertIsNone(server.poll())
+
+    def test_processo_uscito_esce_con_il_codice_e_la_coda_del_log(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = Path(d) / "server.log"
+            with self.assertRaises(SystemExit) as ctx:
+                self.start("import sys; print('opzione sconosciuta', file=sys.stderr); sys.exit(5)", log_path=log, attempts=60)
+        self.assertIn("uscito con codice 5", str(ctx.exception))
+        self.assertIn("opzione sconosciuta", str(ctx.exception))
+
+    def test_mai_pronto_esce_con_un_messaggio_e_chiude_il_processo(self):
+        started, real_popen = [], subprocess.Popen
+
+        def popen(*args, **kwargs):
+            started.append(real_popen(*args, **kwargs))
+            return started[-1]
+
+        with mock.patch.object(eval_common.subprocess, "Popen", side_effect=popen):
+            with self.assertRaises(SystemExit) as ctx:
+                self.start("import time; time.sleep(60)", attempts=2)
+        self.assertIn("non pronto", str(ctx.exception))
+        self.assertIsNotNone(started[0].poll())
+
+    def test_risposta_di_health_chiusa(self):
+        class Health:
+            status, closed = 200, False
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                Health.closed = True
+
+        fake = mock.Mock(poll=lambda: None)
+        with mock.patch.object(eval_common.subprocess, "Popen", return_value=fake),                 mock.patch.object(eval_common.urllib.request, "urlopen", return_value=Health()):
+            self.assertIs(fake, eval_common.start_llama_server("llama-server", [])[0])
+        self.assertTrue(Health.closed)
+
+
+class PostJsonTest(unittest.TestCase):
+    def reply(self, payload):
+        r = mock.MagicMock()
+        r.__enter__.return_value.read.return_value = json.dumps(payload).encode("utf-8")
+        return r
+
+    def test_post_con_corpo_json(self):
+        with mock.patch.object(eval_common.urllib.request, "urlopen", return_value=self.reply({"a": 1})) as urlopen:
+            self.assertEqual({"a": 1}, eval_common.post_json("http://x/completion", {"prompt": "ciao"}, 7))
+        request = urlopen.call_args[0][0]
+        self.assertEqual(b'{"prompt": "ciao"}', request.data)
+        self.assertEqual("application/json", request.get_header("Content-type"))
+        self.assertEqual(7, urlopen.call_args[1]["timeout"])
+
+    def test_senza_corpo_e_una_get(self):
+        with mock.patch.object(eval_common.urllib.request, "urlopen", return_value=self.reply({})) as urlopen:
+            eval_common.post_json("http://x/props", None, 7)
+        self.assertEqual("GET", urlopen.call_args[0][0].get_method())
+
+
+class FileSha256Test(unittest.TestCase):
+    def test_file_a_piu_blocchi_e_vuoto(self):
+        with tempfile.TemporaryDirectory() as d:
+            big, empty = Path(d) / "big", Path(d) / "empty"
+            data = os.urandom((1 << 20) * 2 + 5)
+            big.write_bytes(data)
+            empty.write_bytes(b"")
+            self.assertEqual(hashlib.sha256(data).hexdigest(), eval_common.file_sha256(big))
+            self.assertEqual(hashlib.sha256(b"").hexdigest(), eval_common.file_sha256(empty))
 
 
 if __name__ == "__main__":

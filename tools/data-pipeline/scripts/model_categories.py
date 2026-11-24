@@ -13,17 +13,13 @@ domande).
 import argparse
 import json
 import random
-import socket
-import subprocess
 import tempfile
-import time
-import urllib.request
 from pathlib import Path
 
 from gguf import GGUFReader
 
 import eval_retrieval as ev
-from eval_common import chatml_prompt, find_llama_bin, llama_env, uses_empty_think
+from eval_common import chatml_prompt, find_llama_bin, post_json, start_llama_server, uses_empty_think
 
 SERIES = ["direct", "reworded", "dev", "dev2", "other-lang", "control"]
 
@@ -55,36 +51,18 @@ def main():
     a = ap.parse_args()
     labels = {name: group for name, _, group in ev.MODEL_CATEGORY_LABELS[a.lang]}
     grammar = ev.model_category_grammar(a.lang)
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        port = s.getsockname()[1]
     exe = find_llama_bin("llama-server", a.llama_cpp)
-    server = subprocess.Popen([exe, "-m", str(a.model), "--host", "127.0.0.1", "--port", str(port), "-c", "4096", "-np", "1",
-                               "--no-webui", "-ngl", str(a.gpu_layers), *(["--device", a.device] if a.device else [])],
-                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=llama_env(exe))
-    url = f"http://127.0.0.1:{port}"
+    server, url = start_llama_server(exe, ["-m", str(a.model), "-c", "4096", "-np", "1", "--no-webui", "-ngl", str(a.gpu_layers),
+                                           *(["--device", a.device] if a.device else [])])
     try:
-        for _ in range(600):
-            if server.poll() is not None:
-                raise SystemExit(f"llama-server terminato con codice {server.returncode} prima di essere pronto")
-            try:
-                with urllib.request.urlopen(f"{url}/health", timeout=5) as r:
-                    if r.status == 200:
-                        break
-            except OSError:
-                time.sleep(0.5)
-        else:
-            raise SystemExit("llama-server: /health non pronto dopo 600 tentativi")
         result = {}
         template = GGUFReader(a.model).fields.get("tokenizer.chat_template")
         think = uses_empty_think(bytes(template.parts[template.data[0]]).decode("utf-8") if template is not None else None)
         for q in questions(a.lang, a.cache, a.regions):
             # Come ai_chat.cpp: un turno utente, piu' il blocco <think> vuoto per i template con enable_thinking
             prompt = chatml_prompt(ev.model_category_prompt(q, a.lang), think)
-            body = json.dumps({"prompt": prompt, "n_predict": 8, "temperature": 0, "top_k": 1, "grammar": grammar})
-            request = urllib.request.Request(f"{url}/completion", body.encode("utf-8"), {"Content-Type": "application/json"})
-            with urllib.request.urlopen(request, timeout=120) as r:
-                result[q] = labels.get(json.load(r)["content"].strip())
+            body = {"prompt": prompt, "n_predict": 8, "temperature": 0, "top_k": 1, "grammar": grammar}
+            result[q] = labels.get(post_json(f"{url}/completion", body, 120)["content"].strip())
     finally:
         server.kill()
     a.out.write_text(json.dumps(result, ensure_ascii=False, indent=0), encoding="utf-8")

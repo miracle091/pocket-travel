@@ -39,10 +39,6 @@ e' esattamente quello che finisce nel modello.
 import argparse
 import hashlib
 import json
-import socket
-import subprocess
-import time
-import urllib.request
 from pathlib import Path
 
 from gguf import GGUFReader
@@ -50,8 +46,8 @@ from gguf import GGUFReader
 import gpu_lock
 import vram
 from eval_common import (Synced, ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, dataset_lang, drop_partial_line, find_llama_bin, print_context_use_report,
-                         echoed_injection, injection_report, injection_rows, instruction_checks, uses_part, is_refusal, knowledge_turns, obeyed_injection, llama_env, load_test_rows, move_answer, on_device_prompt, print_app_sampling_report, print_instruction_report, print_lang_report,
-                         print_pair_consistency, print_report, question_lang, question_of, read_jsonl_lenient, refusal_prefix, refusal_summary, sample, score,
+                         echoed_injection, injection_report, injection_rows, instruction_checks, uses_part, is_refusal, knowledge_turns, obeyed_injection, llama_env, load_test_rows, move_answer, on_device_prompt, post_json, print_app_sampling_report, print_instruction_report, print_lang_report,
+                         print_pair_consistency, print_report, question_lang, question_of, read_jsonl_lenient, refusal_prefix, refusal_summary, sample, score, start_llama_server,
                          text_lang, uses_empty_think, with_user_instructions_only)
 from status import Progress, phase
 
@@ -174,37 +170,18 @@ APP_SAMPLING = {"temperature": 0.3, "top_k": 10, "top_p": 0.95, "min_p": 0.05, "
 
 def start_server():
     """llama-server su una porta libera di localhost; ritorna (processo, url) quando il modello e' carico."""
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        port = s.getsockname()[1]
     exe = find_llama_bin("llama-server", a.llama_cpp)
     # -c come DEFAULT_CONTEXT_SIZE di ai_chat.cpp: senza, llama.cpp usa tutto il contesto di training
     # (262k per Qwen3.5) e alloca una cache KV enorme, che con poca RAM libera manda in crash il processo
-    cmd = [exe, "-m", str(a.model), "--host", "127.0.0.1", "--port", str(port), "-c", "8192", "-np", "1",
-           "--no-webui", "-ngl", str(a.gpu_layers), *(["--device", a.device] if a.device else []),
-           *(["-t", str(a.threads)] if a.threads else [])]
+    args = ["-m", str(a.model), "-c", "8192", "-np", "1", "--no-webui", "-ngl", str(a.gpu_layers),
+            *(["--device", a.device] if a.device else []), *(["-t", str(a.threads)] if a.threads else [])]
     if a.gpu_layers:
         vram.check_llama(exe, llama_env(exe), a.device, a.max_vram_held)
-    server = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=llama_env(exe))
-    url = f"http://127.0.0.1:{port}"
-    for _ in range(600):
-        if server.poll() is not None:
-            raise SystemExit(f"llama-server uscito con codice {server.returncode}: {' '.join(cmd)}")
-        try:
-            with urllib.request.urlopen(f"{url}/health", timeout=5) as r:
-                if r.status == 200:
-                    return server, url
-        except OSError:
-            pass  # porta non ancora aperta o modello in caricamento (503)
-        time.sleep(0.5)
-    server.kill()
-    raise SystemExit("llama-server non pronto dopo 5 minuti")
+    return start_llama_server(exe, args)
 
 
 def post(url, path, body):
-    request = urllib.request.Request(f"{url}{path}", json.dumps(body).encode("utf-8"), {"Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=600) as r:
-        return json.load(r)
+    return post_json(f"{url}{path}", body, 600)
 
 
 def prompt_of(content, history=()):

@@ -20,10 +20,6 @@ dai prompt mancanti.
 import argparse
 import json
 import random
-import socket
-import subprocess
-import time
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -31,7 +27,7 @@ import gpu_lock
 import vram
 from eval_common import (Synced, ANSWER_TOKENS, MAX_ANSWER_CHARS, SFT_DIR, TEST_REGIONS, chatml_prompt, drop_partial_line,
                          extended_file, find_llama_bin, instruction_checks, dataset_lang, llama_env,
-                         read_jsonl_lenient, refusal_prefix, with_user_instructions_only)
+                         post_json, read_jsonl_lenient, refusal_prefix, start_llama_server, with_user_instructions_only)
 
 # Prompt al piu' per gruppo, su --prompts 5000: i gruppi deboli del test esteso del v11 per intero, gli altri a campione.
 QUOTAS = {"pos_near": 1.0, "neg_near": 1.0, "pos_dep": 1.0, "neg_dep": 1.0,
@@ -117,39 +113,20 @@ def main():
     phase("raccolta on-policy", f"{a.model.name}: {len(picked)} prompt, {len(done)} gia' fatti, "
                                 f"{a.samples} campioni + greedy, temperatura {a.temperature}")
 
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        port = s.getsockname()[1]
     exe = find_llama_bin("llama-server", a.llama_cpp)
     if a.gpu_layers:
         vram.check_llama(exe, llama_env(exe), a.device, a.max_vram_held)
     # 8192 token per slot, come DEFAULT_CONTEXT_SIZE di ai_chat.cpp (llama-server divide -c tra gli slot)
-    cmd = [exe, "-m", str(a.model), "--host", "127.0.0.1", "--port", str(port), "-c", str(8192 * a.parallel),
-           "-np", str(a.parallel), "--no-webui", "-ngl", str(a.gpu_layers), *(["--device", a.device] if a.device else [])]
-    server = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=llama_env(exe))
-    url = f"http://127.0.0.1:{port}"
+    server, url = start_llama_server(exe, ["-m", str(a.model), "-c", str(8192 * a.parallel), "-np", str(a.parallel), "--no-webui",
+                                           "-ngl", str(a.gpu_layers), *(["--device", a.device] if a.device else [])])
     try:
-        for _ in range(600):
-            if server.poll() is not None:
-                raise SystemExit(f"llama-server uscito con codice {server.returncode}: {' '.join(cmd)}")
-            try:
-                with urllib.request.urlopen(f"{url}/health", timeout=5) as r:
-                    if r.status == 200:
-                        break
-            except OSError:
-                time.sleep(0.5)  # porta non ancora aperta o modello in caricamento (503)
-        else:
-            raise SystemExit("llama-server non pronto dopo 5 minuti")
 
         def complete(prompt, seed):
             """Risposta greedy (seed None) o campionata con il seme dato."""
             sampling = {"temperature": 0, "top_k": 1} if seed is None else {
                 "temperature": a.temperature, "top_k": 0, "top_p": 1.0, "min_p": 0.0, "seed": seed}
             body = {"prompt": prompt, "n_predict": ANSWER_TOKENS, "cache_prompt": True, **sampling}
-            request = urllib.request.Request(f"{url}/completion", json.dumps(body).encode("utf-8"),
-                                             {"Content-Type": "application/json"})
-            with urllib.request.urlopen(request, timeout=600) as r:
-                return json.load(r)["content"].strip()
+            return post_json(f"{url}/completion", body, 600)["content"].strip()
 
         def collect(row):
             # stesso prompt ChatML grezzo di eval_gguf.py: i modelli v11 non hanno il blocco <think> (text_only.py)

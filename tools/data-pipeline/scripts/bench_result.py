@@ -7,14 +7,13 @@ riscaldamento (lo fa llama-bench), 5 ripetizioni; con CV oltre il 5% altre 5 uni
 instabile. `comparison_key` e' "<sha256[:12]>/<llama_cpp>/<device>/t<thread>/pp<n>tg<n>", come nell'app; `device` e' la GPU
 (`gpu_info` di llama-bench) se ci sono strati sulla GPU, altrimenti la CPU.
 """
-import hashlib
 import json
 import statistics
 import subprocess
 import time
 from pathlib import Path
 
-from eval_common import find_llama_bin, llama_env
+from eval_common import file_sha256, find_llama_bin, llama_env
 
 SCHEMA_VERSION = 1
 N_PROMPT = 512
@@ -35,14 +34,6 @@ def stable_measure(samples):
     cv = cv_percent(samples)
     return {"median_tps": statistics.median(samples), "cv_percent": cv, "samples_tps": list(samples),
             "unstable": cv > CV_UNSTABLE_PERCENT}
-
-
-def file_sha256(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as f:
-        for block in iter(lambda: f.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def comparison_key(sha256, llama_cpp, device, threads, n_prompt, n_gen):

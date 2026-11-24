@@ -224,6 +224,14 @@ class RequireRevisionTest(unittest.TestCase):
         with mock.patch.object(tq, "_get", return_value={"sha": "c" * 40}):
             self.assertIsNone(tq.require_revision("x/y", "c" * 40))
 
+    def test_senza_head_legge_la_revisione_fissata(self):
+        with mock.patch.object(tq, "_get", return_value={"sha": "be0e61647a"}) as get:
+            tq.require_revision("x/y", "be0e61647a", head=False)
+            self.assertIn("/revision/be0e61647a", get.call_args[0][0])
+        with mock.patch.object(tq, "_get", return_value={"sha": "other"}):
+            with self.assertRaises(RuntimeError):
+                tq.require_revision("x/y", "be0e61647a", head=False)
+
     def test_la_revisione_fissata_e_un_sha_completo(self):
         self.assertRegex(tq.DATASET_REVISION, r"^[0-9a-f]{40}$")
 

@@ -33,7 +33,6 @@ cc-by-sa-4.0 di default (modificabile con --license); ATTRIBUTION.tsv viene cari
 Prima di --public conviene comunque una verifica legale.
 """
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -42,6 +41,8 @@ import sys
 import time
 import uuid
 from pathlib import Path
+
+from eval_common import file_sha256
 
 HERE = Path(__file__).resolve().parent
 GLOBAL_ATTRIBUTION = HERE.parent / "data" / "sft" / "ATTRIBUTION.tsv"
@@ -168,14 +169,6 @@ def update_catalog(catalog_text, file_name, sha256, size):
     raise ValueError(f"{file_name} non e' nel catalogo dei modelli")
 
 
-def sha256_of(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def check_on_hf(api, repo, models):
     """Le impronte calcolate in locale devono essere quelle del file che Hugging Face ora serve."""
     infos = {i.path: i for i in api.get_paths_info(repo, [m["fileName"] for m in models])}
@@ -248,7 +241,7 @@ def update_app_status(api, repo, folder, push):
     if not ggufs:
         sys.exit(f"--update-app-status: nessun .gguf in {folder}")
     targets = catalog_targets(CATALOG.read_text(encoding="utf-8"), repo, [p.name for p in ggufs])
-    models = [{"modelId": model_id, "fileName": path.name, "sha256": sha256_of(path), "sizeBytes": path.stat().st_size}
+    models = [{"modelId": model_id, "fileName": path.name, "sha256": file_sha256(path), "sizeBytes": path.stat().st_size}
               for (model_id, _), path in zip(targets, ggufs)]
     for m in models:
         print(f"  {m['modelId']} ({m['fileName']}): {m['sha256']}, {m['sizeBytes']} byte")

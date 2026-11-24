@@ -368,7 +368,7 @@ class OtherTitlesWikidataTest(unittest.TestCase):
                                  "Q2": {"sitelinks": {}}}}
         with tempfile.TemporaryDirectory() as d:
             with mock.patch.object(tg.city_population, "wikibase_items", return_value={"Venezia": "Q1", "Roma": "Q2"}), \
-                    mock.patch.object(tg.city_population, "_get", return_value=entities), mock.patch("time.sleep"):
+                    mock.patch.object(tg.city_population, "get_json", return_value=entities), mock.patch("time.sleep"):
                 mapping = tg.other_titles({"Venezia", "Roma"}, {"Venice", "Roma"}, "it", "en", d)
             cached = (Path(d) / "city-titles.it-en.jsonl").read_text(encoding="utf-8")
         self.assertEqual({"Venezia": "Venice", "Roma": "Roma"}, mapping)   # Roma: senza link, titolo uguale
