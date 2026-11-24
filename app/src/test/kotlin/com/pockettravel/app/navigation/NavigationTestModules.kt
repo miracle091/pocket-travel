@@ -34,6 +34,8 @@ import com.pockettravel.core.sync.CatalogPreferences
 import com.pockettravel.core.sync.DefaultCatalogPreferences
 import com.pockettravel.core.sync.DefaultPublishedAtStore
 import com.pockettravel.core.sync.ManifestClient
+import com.pockettravel.core.sync.NetworkBlock
+import com.pockettravel.core.sync.NetworkBlockDetector
 import com.pockettravel.core.sync.OnlineModelsClient
 import com.pockettravel.core.sync.PackageManagerApkInspector
 import com.pockettravel.core.sync.PublishedAtStore
@@ -120,6 +122,9 @@ object TestSyncModule {
     @Provides
     @Singleton
     fun json(): Json = Json { ignoreUnknownKeys = true }
+
+    @Provides
+    fun networkBlockDetector(): NetworkBlockDetector = NetworkBlockDetector { NetworkBlock.NONE }
 
     @Provides
     @Singleton

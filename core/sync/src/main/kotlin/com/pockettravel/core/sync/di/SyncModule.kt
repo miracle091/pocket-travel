@@ -1,18 +1,22 @@
 package com.pockettravel.core.sync.di
 
+import android.content.Context
 import com.pockettravel.core.data.AppInitializer
 import com.pockettravel.core.data.UpdateCheck
 import com.pockettravel.core.sync.AlertNotificationSink
 import com.pockettravel.core.sync.AlertNotificationsScheduler
 import com.pockettravel.core.sync.AlertNotifier
 import com.pockettravel.core.sync.AppUpdateCheckScheduler
-import com.pockettravel.core.sync.WorkManagerAlertNotificationsScheduler
-import com.pockettravel.core.sync.PublishedAtStore
 import com.pockettravel.core.sync.DefaultPublishedAtStore
+import com.pockettravel.core.sync.NetworkBlockDetector
+import com.pockettravel.core.sync.PublishedAtStore
 import com.pockettravel.core.sync.SyncInitializer
+import com.pockettravel.core.sync.WorkManagerAlertNotificationsScheduler
+import com.pockettravel.core.sync.networkBlockFor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
 import kotlinx.serialization.json.Json
@@ -30,6 +34,9 @@ object SyncModule {
     @Provides
     @Singleton
     fun provideJson(): Json = Json { ignoreUnknownKeys = true }
+
+    @Provides
+    fun provideNetworkBlockDetector(@ApplicationContext context: Context): NetworkBlockDetector = NetworkBlockDetector(context::networkBlockFor)
 
     @Provides
     fun providePublishedAtStore(store: DefaultPublishedAtStore): PublishedAtStore = store

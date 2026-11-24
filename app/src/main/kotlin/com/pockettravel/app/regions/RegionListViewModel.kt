@@ -20,6 +20,7 @@ import com.pockettravel.core.data.UpdateCheck
 import com.pockettravel.core.data.currentGuidesLanguage
 import com.pockettravel.core.sync.AddressGridClient
 import com.pockettravel.core.sync.ManifestClient
+import com.pockettravel.core.sync.NetworkBlockDetector
 import com.pockettravel.core.sync.RegionManifestEntry
 import com.pockettravel.core.sync.RegionSyncScheduler
 import com.pockettravel.core.sync.ReplacedRegion
@@ -52,6 +53,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.util.Locale
 import javax.inject.Inject
 
@@ -85,6 +87,7 @@ class RegionListViewModel @Inject constructor(
     private val countryLocator: CountryLocator,
     private val connectivityChecker: ConnectivityChecker,
     private val recentRegionStore: RecentRegionStore,
+    private val networkBlocks: NetworkBlockDetector,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -246,14 +249,12 @@ class RegionListViewModel @Inject constructor(
                 if (regionRepository.installedGuidesVersion() != guides.installedVersion) {
                     regionSyncScheduler.enqueueGuidesSync(onlyOnWifi = !guides.automaticOnMeteredNetwork, automatic = true)
                 }
-                // Regioni installate prima che il database salvasse il codice paese: serve alla bandiera in Spazio.
-                val withoutCode = regionRepository.observeInstalled().first().filter { it.countryCode == null }.mapTo(mutableSetOf()) { it.regionId }
-                manifest.regions.filter { it.regionId in withoutCode }.forEach { remote ->
-                    remote.countryCode?.let { regionRepository.fillCountryCode(remote.regionId, it) }
-                }
+                fillMissingCountryCodes(manifest.regions)
                 status.update { it.copy(loadError = null) }
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: IOException) {
+                status.update { it.copy(loadError = loadErrorFor(e)) }
             } catch (_: Exception) {
                 status.update { it.copy(loadError = R.string.regions_load_error) }
             } finally {
@@ -397,6 +398,18 @@ class RegionListViewModel @Inject constructor(
             ?.regions?.firstOrNull { it.regionId == entry.regionId }
         return current?.let { entry.copy(cities = it.cities) } ?: entry
     }
+
+    // Regioni installate prima che il database salvasse il codice paese: serve alla bandiera in Spazio.
+    private suspend fun fillMissingCountryCodes(regions: List<RegionManifestEntry>) {
+        val withoutCode = regionRepository.observeInstalled().first().filter { it.countryCode == null }.mapTo(mutableSetOf()) { it.regionId }
+        regions.filter { it.regionId in withoutCode }.forEach { remote ->
+            remote.countryCode?.let { regionRepository.fillCountryCode(remote.regionId, it) }
+        }
+    }
+
+    // Catalogo non letto: se Android blocca la rete dell'app lo si dice, con il pulsante per le impostazioni.
+    @StringRes
+    private fun loadErrorFor(error: IOException): Int = networkBlocks.blockFor(error).message() ?: R.string.regions_load_error
 
     private fun zonedEntry(regionId: String, zone: RegionZone? = regionZonePreferences.zone(regionId)): RegionManifestEntry? =
         manifestRegions.value.firstOrNull { it.regionId == regionId }

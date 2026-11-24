@@ -1,6 +1,5 @@
 package com.pockettravel.app.regions
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
@@ -10,13 +9,12 @@ import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.RoutingVariantPreferences
 import com.pockettravel.core.sync.ManifestClient
+import com.pockettravel.core.sync.NetworkBlockDetector
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import com.pockettravel.core.sync.RegionSyncScheduler
-import com.pockettravel.core.sync.networkBlockFor
 import com.pockettravel.feature.map.MissingRegion
 import com.pockettravel.feature.map.RoutePoint
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -43,12 +41,12 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class RoutingDownloadViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val regionRepository: RegionRepository,
     private val manifestClient: ManifestClient,
     private val regionSyncScheduler: RegionSyncScheduler,
     private val countryLocator: CountryLocator,
     private val routingVariantPreferences: RoutingVariantPreferences,
+    private val networkBlocks: NetworkBlockDetector,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     private val regionId = MutableStateFlow<String?>(null)
@@ -128,7 +126,7 @@ class RoutingDownloadViewModel @Inject constructor(
                 .onSuccess { entries -> entries.forEach { regionSyncScheduler.enqueueDownload(it, setOf(PackageKind.ROUTING)) } }
                 .onFailure { error ->
                     manifestFailed.value = true
-                    manifestBlockMessage.value = (error as? IOException)?.let { context.networkBlockFor(it).message() }
+                    manifestBlockMessage.value = (error as? IOException)?.let { networkBlocks.blockFor(it).message() }
                 }
         }
     }

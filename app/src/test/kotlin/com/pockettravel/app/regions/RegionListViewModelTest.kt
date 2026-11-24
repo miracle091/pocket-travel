@@ -9,6 +9,7 @@ import com.pockettravel.core.data.InstalledGuides
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.sync.AddressGridManifestEntry
+import com.pockettravel.core.sync.NetworkBlock
 import com.pockettravel.core.sync.ReplacedRegion
 import com.pockettravel.core.sync.TransitIndex
 import com.pockettravel.core.sync.testing.FakeRegionSyncScheduler
@@ -23,7 +24,9 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import java.net.ConnectException
 import java.util.Locale
+import com.pockettravel.core.ui.R as UiR
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RegionListViewModelTest : RegionListViewModelTestBase() {
@@ -131,6 +134,18 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
         assertEquals("italia", item.regionId)
         assertEquals(RegionStatus.INSTALLED, item.status)
         assertEquals(0L, item.packages.sumOf { it.downloadBytes })
+    }
+
+    @Test
+    fun `con la rete bloccata per l'app il catalogo irraggiungibile ha il messaggio del blocco`() = runTest {
+        manifests.failure = ConnectException("rifiutata")
+        networkBlock = NetworkBlock.DATA_SAVER
+        repository.installedRegions.value = listOf(installed())
+        val viewModel = viewModel()
+
+        observe(viewModel)
+
+        assertEquals(UiR.string.network_blocked_data_saver, viewModel.uiState.value.loadError)
     }
 
     @Test

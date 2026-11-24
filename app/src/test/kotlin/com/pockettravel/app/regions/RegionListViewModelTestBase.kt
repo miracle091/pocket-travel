@@ -14,6 +14,7 @@ import com.pockettravel.core.data.UpdateCheck
 import com.pockettravel.core.data.testing.FakeLastKnownPosition
 import com.pockettravel.core.data.testing.FakeRegionRepository
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
+import com.pockettravel.core.sync.NetworkBlock
 import com.pockettravel.core.sync.testing.FakeAddressGridClient
 import com.pockettravel.core.sync.testing.FakeManifestClient
 import com.pockettravel.core.sync.testing.FakeRegionSyncScheduler
@@ -55,6 +56,9 @@ abstract class RegionListViewModelTestBase {
     protected val locator = FakeCountryLocator()
     protected val connectivity = TestConnectivityChecker()
     protected val recent = RecentRegionStore(files)
+
+    // Il blocco della rete dell'app che il test fa vedere: nessuno, salvo dove il test lo cambia.
+    protected var networkBlock = NetworkBlock.NONE
     protected lateinit var previousLocale: Locale
 
     @Before
@@ -84,6 +88,7 @@ abstract class RegionListViewModelTestBase {
         countryLocator = locator,
         connectivityChecker = connectivity,
         recentRegionStore = recent,
+        networkBlocks = { networkBlock },
         ioDispatcher = mainDispatcher.dispatcher,
         defaultDispatcher = mainDispatcher.dispatcher,
     )

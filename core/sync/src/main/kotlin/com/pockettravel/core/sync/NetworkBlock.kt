@@ -30,6 +30,11 @@ fun classifyNetworkBlock(error: IOException, networkValidated: Boolean, dataSave
     else -> NetworkBlock.SUSPECTED
 }
 
+/** [Context.networkBlockFor] come dipendenza iniettabile: i ViewModel la ricevono, i test passano un falso. */
+fun interface NetworkBlockDetector {
+    fun blockFor(error: IOException): NetworkBlock
+}
+
 /** [classifyNetworkBlock] con lo stato della rete letto dal sistema; senza stato leggibile, [NetworkBlock.NONE]. */
 fun Context.networkBlockFor(error: IOException): NetworkBlock {
     val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return NetworkBlock.NONE

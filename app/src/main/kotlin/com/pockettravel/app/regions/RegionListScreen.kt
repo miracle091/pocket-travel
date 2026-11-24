@@ -1,5 +1,6 @@
 package com.pockettravel.app.regions
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -69,9 +70,11 @@ import com.pockettravel.core.data.RegionZone
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.EmptyState
+import com.pockettravel.core.ui.NetworkBlockSettingsButton
 import com.pockettravel.core.ui.PocketTravelLoadingIndicator
 import com.pockettravel.core.ui.PocketTravelTheme
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.isNetworkBlockMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
@@ -217,7 +220,12 @@ internal fun RegionListContent(
                     icon = AppIcons.OfflineWifi,
                     title = stringResource(uiState.loadError),
                     modifier = Modifier.fillMaxSize(),
-                    action = { FilledTonalButton(onClick = onRetry) { Text(stringResource(R.string.regions_retry)) } },
+                    action = {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            FilledTonalButton(onClick = onRetry) { Text(stringResource(R.string.regions_retry)) }
+                            if (isNetworkBlockMessage(uiState.loadError)) NetworkBlockSettingsButton(uiState.loadError)
+                        }
+                    },
                 )
 
                 uiState.items.isEmpty() && uiState.replaced.isEmpty() && uiState.query.isNotBlank() -> EmptyState(
@@ -229,7 +237,7 @@ internal fun RegionListContent(
 
                 else -> Column {
                     // Catalogo irraggiungibile ma nazioni installate: si aprono lo stesso, il catalogo torna con "Riprova".
-                    if (uiState.loadError != null) OfflineCatalogNotice(onRetry)
+                    if (uiState.loadError != null) OfflineCatalogNotice(uiState.loadError, onRetry)
                     RegionGroupedList(
                     items = uiState.items,
                     downloading = downloadingRegions,
@@ -246,18 +254,23 @@ internal fun RegionListContent(
 }
 
 @Composable
-private fun OfflineCatalogNotice(onRetry: () -> Unit) {
+private fun OfflineCatalogNotice(@StringRes loadError: Int, onRetry: () -> Unit) {
+    // Con la rete bloccata per l'app il motivo e il pulsante per le impostazioni, al posto del messaggio generico.
+    val blocked = isNetworkBlockMessage(loadError)
     Surface(
         color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         shape = MaterialTheme.shapes.large,
         modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.s),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s)) {
-            Icon(AppIcons.OfflineWifi, contentDescription = null)
-            Spacer(modifier = Modifier.width(Spacing.m))
-            Text(stringResource(R.string.regions_offline_installed), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            IconButton(onClick = onRetry) { Icon(AppIcons.Refresh, contentDescription = stringResource(R.string.regions_retry)) }
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = Spacing.l, end = Spacing.s, top = Spacing.s, bottom = Spacing.s)) {
+                Icon(AppIcons.OfflineWifi, contentDescription = null)
+                Spacer(modifier = Modifier.width(Spacing.m))
+                Text(stringResource(if (blocked) loadError else R.string.regions_offline_installed), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                IconButton(onClick = onRetry) { Icon(AppIcons.Refresh, contentDescription = stringResource(R.string.regions_retry)) }
+            }
+            if (blocked) Box(modifier = Modifier.padding(start = Spacing.s, bottom = Spacing.xs)) { NetworkBlockSettingsButton(loadError) }
         }
     }
 }
