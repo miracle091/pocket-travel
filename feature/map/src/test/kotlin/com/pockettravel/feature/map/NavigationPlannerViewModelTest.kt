@@ -638,4 +638,13 @@ class NavigationPlannerViewModelTest : NavigationPlannerTestBase() {
         runCurrent()
         assertNull(settled(viewModel.uiState).idlePosition)
     }
+
+    @Test
+    fun `le regioni con la rete stradale utile condividono un solo ascolto delle regioni installate`() = runTest {
+        viewModel()
+        runCurrent()
+
+        // Un ascolto per le regioni con la rete stradale (condiviso da stato, «manca la rete» e ricalcolo): prima erano tre, in tutto cinque ascolti, ora tre.
+        assertEquals(3, regions.installedRegions.subscriptionCount.value)
+    }
 }

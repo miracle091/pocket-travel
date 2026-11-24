@@ -26,6 +26,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -38,6 +39,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -300,22 +302,24 @@ class NavigationPlannerViewModel @Inject constructor(
         old != null && new != null && NavigationTracker.distanceMeters(old, new) < SEARCH_REFRESH_METERS
     }
 
+    // Un solo ascolto delle regioni installate per le regioni con la rete stradale utile: lo condividono stato, «manca la rete» e ricalcolo.
+    private val usableRouting: SharedFlow<Set<String>> =
+        combine(regionRepository.observeInstalled(), routingVariantPreferences.installedCarOnly, _routeProfile) { regions, carOnly, mode ->
+            usableRoutingRegions(regions.filter { it.routingVersion != null }.map { it.regionId }.toSet(), carOnly, mode)
+        }.shareIn(viewModelScope, SharingStarted.Eagerly, replay = 1)
+
     /**
      * La regione aperta ha la rete stradale installata. Se mancano, "nessun dato di percorso" vuol dire
      * "scaricali"; se ci sono, partenza o arrivo sono fuori dalle zone scaricate e riscaricare non serve.
      */
-    private val routingInstalled: StateFlow<Boolean> = combine(usableRouting(), regionId) { ids, id -> id == null || id in ids }
+    private val routingInstalled: StateFlow<Boolean> = combine(usableRouting, regionId) { ids, id -> id == null || id in ids }
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     /**
      * Le regioni con la rete stradale installata utile al modo scelto (usableRoutingRegions), di qualunque regione: serve a
      * rileggere quale regione manca.
      */
-    private val routingRegionIds: StateFlow<Set<String>> = usableRouting().stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
-
-    private fun usableRouting() = combine(regionRepository.observeInstalled(), routingVariantPreferences.installedCarOnly, _routeProfile) { regions, carOnly, mode ->
-        usableRoutingRegions(regions.filter { it.routingVersion != null }.map { it.regionId }.toSet(), carOnly, mode)
-    }
+    private val routingRegionIds: StateFlow<Set<String>> = usableRouting.stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     /** La partenza del percorso: il posto scelto o l'ultima posizione nota, null se ancora ignota. */
     fun startPoint(): RoutePoint? = _from.value?.point ?: lastPosition.value
@@ -394,7 +398,7 @@ class NavigationPlannerViewModel @Inject constructor(
         // partenza o arrivo): l'anteprima del percorso si ricalcola da sola.
         viewModelScope.launch {
             var hadRouting: Set<String>? = null
-            usableRouting().collect { has ->
+            usableRouting.collect { has ->
                 val before = hadRouting
                 if (before != null && (has - before).isNotEmpty()) refreshPreview()
                 hadRouting = has

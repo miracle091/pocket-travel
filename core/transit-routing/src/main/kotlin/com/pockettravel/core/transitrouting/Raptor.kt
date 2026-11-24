@@ -156,9 +156,15 @@ class Raptor(private val network: TransitNetwork) {
         return if (low < pattern.trips.size) low else -1
     }
 
-    private fun near(place: Place, maxMeters: Int): List<Pair<Int, Double>> =
-        network.stops.indices.map { it to distanceMeters(place.lat, place.lon, network.stops[it].lat, network.stops[it].lon) }
-            .filter { it.second <= maxMeters }
+    // Un Pair solo per le fermate vicine, non per tutte quelle della rete.
+    private fun near(place: Place, maxMeters: Int): List<Pair<Int, Double>> {
+        val found = mutableListOf<Pair<Int, Double>>()
+        for ((stop, candidate) in network.stops.withIndex()) {
+            val meters = distanceMeters(place.lat, place.lon, candidate.lat, candidate.lon)
+            if (meters <= maxMeters) found += stop to meters
+        }
+        return found
+    }
 
     private fun itinerary(
         k: Int,
