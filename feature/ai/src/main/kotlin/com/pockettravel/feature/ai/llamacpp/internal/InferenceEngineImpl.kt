@@ -6,6 +6,7 @@
 package com.pockettravel.feature.ai.llamacpp.internal
 
 import android.content.Context
+import android.os.Process
 import android.util.Log
 import com.pockettravel.feature.ai.llamacpp.ContextUsage
 import com.pockettravel.feature.ai.llamacpp.CpuBackendInfo
@@ -19,8 +20,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
@@ -36,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -71,6 +73,7 @@ internal class InferenceEngineImpl private constructor(
         private const val CONTEXT_SIZE_INDEX = 3
         private const val HISTORY_TOKENS_INDEX = 4
         private const val HISTORY_TURNS_INDEX = 5
+        private const val INFERENCE_NICE = 4
 
         @Volatile
         private var instance: InferenceEngine? = null
@@ -200,10 +203,19 @@ internal class InferenceEngineImpl private constructor(
     private var nativeInitError: Exception? = null
 
     /**
-     * Single-threaded coroutine dispatcher & scope for LLama asynchronous operations
+     * Single-threaded coroutine dispatcher & scope for LLama asynchronous operations.
+     *
+     * Thread proprio ("llama") a nice [INFERENCE_NICE]: sotto UI, RenderThread e tastiera, ma sopra il gruppo
+     * di background (nice >= 10), che lo sposterebbe sui core piccoli. La priorita' si imposta una volta qui, prima
+     * di qualsiasi lavoro nativo: i worker di OpenMP e del threadpool di ggml nascono da questo thread e la ereditano.
+     * Caricamento, benchmark e generazione girano tutti su di lui.
      */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val llamaDispatcher = Dispatchers.IO.limitedParallelism(1)
+    private val llamaDispatcher = Executors.newSingleThreadExecutor { task ->
+        Thread({
+            Process.setThreadPriority(INFERENCE_NICE)
+            task.run()
+        }, "llama").apply { isDaemon = true }
+    }.asCoroutineDispatcher()
     private val llamaScope = CoroutineScope(llamaDispatcher + SupervisorJob())
 
     init {
@@ -566,5 +578,6 @@ internal class InferenceEngineImpl private constructor(
             }
         }
         llamaScope.cancel()
+        llamaDispatcher.close()
     }
 }
