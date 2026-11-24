@@ -86,7 +86,8 @@ class Raptor(private val network: TransitNetwork) {
                     }
                 }
             }
-            val exit = egress.filter { (stop, _) -> stop in ridden }
+            // Anche dalle fermate raggiunte a piedi dopo la corsa: la meta puo' essere vicina solo a quelle.
+            val exit = egress.filter { (stop, _) -> stop in marked }
                 .map { (stop, meters) -> Triple(stop, meters, arrival[k][stop] + walkMinutes(meters)) }
                 .minByOrNull { it.third }
             if (exit != null && exit.third < bestTarget) {

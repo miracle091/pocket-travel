@@ -61,6 +61,17 @@ class RaptorTest {
     }
 
     @Test
+    fun `dopo la corsa un passaggio a piedi porta alla fermata vicina all'arrivo`() {
+        // A circa 730 m da s2 e 830 m da s1: dalla fermata della corsa non si esce, dalla vicina si'.
+        val beyondS2 = Place(45.0175, 9.0)
+
+        val legs = raptor(lineA).plan(origin, beyondS2, departMinute = 475).single().legs
+
+        assertEquals(listOf(WalkLeg::class, RideLeg::class, WalkLeg::class, WalkLeg::class), legs.map { it::class })
+        assertEquals(Place(s2.lat, s2.lon, 2), legs[2].to)
+    }
+
+    @Test
     fun `oltre il numero massimo di cambi nessun itinerario`() {
         assertEquals(emptyList<Itinerary>(), raptor(lineA, lineB).plan(origin, destination, departMinute = 475, maxTransfers = 0))
     }

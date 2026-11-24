@@ -24,6 +24,18 @@ class TransitNetworkTest {
     }
 
     @Test
+    fun `a longitudini alte il passaggio a piedi tra righe vicine della griglia resta`() {
+        // 289 m lungo un meridiano, a cavallo di due righe: con la larghezza della cella presa dalla latitudine
+        // di ogni fermata le due colonne distano 2 e la ricerca nelle celle accanto non le trova.
+        val stops = listOf(TransitStop(35.00175, 150.0), TransitStop(35.00435, 150.0))
+
+        val paths = footpaths(stops, TRANSFER_METERS)
+
+        assertEquals(listOf(1), paths[0].map { it.to })
+        assertEquals(listOf(0), paths[1].map { it.to })
+    }
+
+    @Test
     fun `minuti a piedi dalla linea d'aria`() {
         assertEquals(13, walkMinutes(750.0))
         assertEquals(0, walkMinutes(0.0))

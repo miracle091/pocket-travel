@@ -65,6 +65,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA, motore Online: sotto un modello gratuito, come `inclusionai/ling-3.2-flash:free` di OpenRouter, il costo dice «Gratuito» invece di «Meno di 0,01 USD ogni 100 domande».
 
 ### Corretto
+- Mezzi pubblici: il Navigatore trova anche gli itinerari in cui dalla fermata di discesa si va a piedi a un'altra fermata, entro 300 m, vicina all'arrivo. Nelle reti lontane dal meridiano di Greenwich (Americhe, Asia orientale, Oceania) non mancano più i cambi a piedi tra fermate vicine.
 - Assistente IA: mentre la risposta arriva non compaiono più link Markdown scritti a metà («[Museo](https://www.vis») né asterischi di un grassetto non ancora chiuso; con il motore Online il segno «(non dalle guide, da verificare)» non compare e sparisce più su un indirizzo non ancora completo.
 - Assistente IA, motore Online: cambiare servizio non cancella più la chiave API salvata; ogni servizio tiene la sua. La chiave già salvata resta al servizio scelto.
 - Guide, termini sottolineati: non compaiono più le voci generiche ripetute in tante nazioni o legate a più paesi, come Natale, Capodanno e Venerdì santo, «caffè» per l'Etiopia, «sidro» per la Normandia, «Ginger» e «Public holidays in India» per l'India. Restano i termini legati alla nazione, come pizza, sushi, Diwali, Knödel e tequila. Arrivano con il prossimo aggiornamento delle guide.

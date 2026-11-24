@@ -59,16 +59,21 @@ class TransitNetwork(
  */
 internal fun footpaths(stops: List<TransitStop>, maxMeters: Int): Array<List<Footpath>> {
     val cellLat = maxMeters / METERS_PER_DEGREE
-    fun cell(stop: TransitStop): Pair<Int, Int> {
-        val cellLon = cellLat / cos(stop.lat * RADIANS).coerceAtLeast(MIN_COS)
-        return floor(stop.lat / cellLat).toInt() to floor(stop.lon / cellLon).toInt()
-    }
-    val grid = stops.indices.groupBy { cell(stops[it]) }
+
+    // Larghezza della cella dalla latitudine al centro della riga, uguale per tutta la riga: con quella di ogni
+    // fermata, a longitudini alte due fermate vicine in righe accanto finirebbero a piu' di una colonna di distanza.
+    fun col(lon: Double, row: Int): Int = floor(lon * cos((row + ROW_CENTER) * cellLat * RADIANS).coerceAtLeast(MIN_COS) / cellLat).toInt()
+    fun row(lat: Double): Int = floor(lat / cellLat).toInt()
+    val grid = stops.indices.groupBy { stops[it].let { stop -> row(stop.lat).let { r -> r to col(stop.lon, r) } } }
     val byParent = stops.indices.filter { stops[it].parent != null }.groupBy { stops[it].parent }
     return Array(stops.size) { from ->
         val stop = stops[from]
-        val (row, col) = cell(stop)
-        val near = (-1..1).flatMap { dr -> (-1..1).flatMap { dc -> grid[row + dr to col + dc].orEmpty() } }
+        val row = row(stop.lat)
+        val near = (-1..1).flatMap { dr ->
+            val r = row + dr
+            val c = col(stop.lon, r)
+            (-1..1).flatMap { dc -> grid[r to c + dc].orEmpty() }
+        }
         val sameStation = stop.parent?.let { byParent[it] }.orEmpty()
         (near + sameStation).distinct().filter { it != from }.mapNotNull { to ->
             val meters = distanceMeters(stop.lat, stop.lon, stops[to].lat, stops[to].lon)
@@ -108,3 +113,6 @@ private const val RADIANS = PI / 180
 
 // Vicino ai poli il coseno va a zero: le celle non diventano piu' larghe di cosi'.
 private const val MIN_COS = 0.01
+
+// Meta' riga: la latitudine al centro della riga della griglia.
+private const val ROW_CENTER = 0.5
