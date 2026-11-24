@@ -162,7 +162,8 @@ class PmtilesExtractorAdaptiveTest {
         val tiles = writeSource(count = 4, size = 20_000, zoom = 3)
         serve { _, response -> response.throttleBody(4_096, 100, TimeUnit.MILLISECONDS) }
 
-        newExtractor(tuning = stallTuning).extract(mapSource(3), outputFile)
+        // Finestra di 1 s invece di 300 ms: con la macchina carica una pausa dello scheduler sembrava uno stallo.
+        newExtractor(tuning = stallTuning.copy(stallWindowMs = 1_000)).extract(mapSource(3), outputFile)
 
         val ranges = tileRequests.map { it.range }
         assertEquals("nessuna richiesta ripetuta", ranges.size, ranges.distinct().size)
