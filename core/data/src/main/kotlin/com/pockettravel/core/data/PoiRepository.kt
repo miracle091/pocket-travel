@@ -51,7 +51,7 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
             val spread = if (maxLat - minLat > WIDE_AREA_DEGREES) poiDao::spreadInWideBounds else poiDao::spreadInBounds
             spread(regionId, minLat, maxLat, minLon, maxLon, (maxLat - minLat) / side, (maxLon - minLon) / side, excluded, accessibility.ordinal)
         }
-        return AreaPois(entities.map { it.toDomain() }, present)
+        return AreaPois(entities.map { it.toDomain() }, present, sampled = firstRows.size > maxPois)
     }
 
     /** Le coppie (category, osmTag) della regione, per [inBounds]: da leggere una volta per regione. */
@@ -100,8 +100,11 @@ class PoiRepository @Inject constructor(private val poiDao: PoiDao) {
             .mapValues { (_, counts) -> counts.sum() }
 }
 
-/** I POI di un'area per i segnalini e le categorie che l'area contiene (anche quelle filtrate). */
-data class AreaPois(val pois: List<Poi>, val categories: Set<PoiCategory>)
+/**
+ * I POI di un'area per i segnalini e le categorie che l'area contiene (anche quelle filtrate). [sampled]: nell'area ce n'erano
+ * piu' del massimo e questi sono un campione sparso, non tutti.
+ */
+data class AreaPois(val pois: List<Poi>, val categories: Set<PoiCategory>, val sampled: Boolean = false)
 
 data class Poi(
     val id: Long,

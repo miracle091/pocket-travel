@@ -13,6 +13,7 @@ import com.pockettravel.core.poi.PoiCategory
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -150,7 +151,10 @@ class PoiRepositoryBoundsTest {
     fun `senza filtri resta il campione e le categorie presenti comprendono quelle filtrate`() = runBlocking {
         fill()
         val repo = PoiRepository(JdbcPoiDao())
-        assertTrue(repo.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 4).pois.size <= 4)
+        val sample = repo.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 4)
+        assertTrue(sample.pois.size <= 4)
+        assertTrue(sample.sampled)
+        assertFalse(repo.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 100).sampled)
         val filtered = repo.inBounds("roma", 41.0, 42.0, 12.0, 13.0, 4, setOf(PoiCategory.CIBO_BEVANDE), tags = repo.categoryTags("roma"))
         assertEquals(setOf(PoiCategory.CIBO_BEVANDE, PoiCategory.FARMACIA), filtered.categories)
     }

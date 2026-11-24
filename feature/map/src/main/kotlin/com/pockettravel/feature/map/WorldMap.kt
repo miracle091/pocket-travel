@@ -82,7 +82,6 @@ fun WorldMap(
         )
     }
     val currentOnCountryClick by rememberUpdatedState(onCountryClick)
-    val currentCountryStatus by rememberUpdatedState(countryStatus)
     var mapLibre by remember(mapView) { mutableStateOf<MapLibreMap?>(null) }
     // Lo stile caricato della mappa: null mentre se ne imposta uno nuovo.
     var loadedStyle by remember(mapView) { mutableStateOf<Style?>(null) }
@@ -105,10 +104,8 @@ fun WorldMap(
     LaunchedEffect(mapLibre, styleJson) {
         val map = mapLibre ?: return@LaunchedEffect
         loadedStyle = null
-        map.setStyle(Style.Builder().fromJson(styleJson)) { style ->
-            style.applyCountryStatus(currentCountryStatus)
-            loadedStyle = style
-        }
+        // Lo stato delle nazioni lo applica l'effetto qui sotto, appena lo stile e' caricato.
+        map.setStyle(Style.Builder().fromJson(styleJson)) { style -> loadedStyle = style }
     }
     LaunchedEffect(loadedStyle, countryStatus) {
         loadedStyle?.takeIf { it.isFullyLoaded }?.applyCountryStatus(countryStatus)

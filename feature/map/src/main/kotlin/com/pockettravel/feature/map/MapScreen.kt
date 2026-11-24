@@ -1,6 +1,7 @@
 package com.pockettravel.feature.map
 
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.LocalActivity
 import androidx.annotation.StringRes
@@ -89,6 +90,7 @@ import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.concurrent.ConcurrentHashMap
 import com.pockettravel.core.ui.R as UiR
 
 private const val PIN_ICON_PREFIX = "pocket-travel-pin-"
@@ -252,24 +254,24 @@ fun MapScreen(
                 (if (areaCategories != null) category in areaCategories else pins.any { it.category == category })
         }
     }
+    // Le icone dei segnalini per id: non dipendono dal tema, valgono per ogni stile.
+    val pinIcons = remember { ConcurrentHashMap<String, Bitmap>() }
     // Segnalini ridisegnati solo quando cambiano quelli visibili o la sorgente (nuovo stile),
     // non a ogni ricomposizione.
     LaunchedEffect(pinsSource, visiblePins, hideInaccessible) {
         val source = pinsSource ?: return@LaunchedEffect
-        // Con "In sedia a rotelle" i segnalini accessibili hanno il distintivo: varianti delle icone
-        // create solo per le combinazioni presenti, non per tutte le categorie in anticipo.
+        // Icone solo per le categorie presenti, con il distintivo di "In sedia a rotelle" se c'e', disegnate su Default e
+        // una volta sola: prima si disegnavano tutte sul main a ogni nuovo stile (cambio di tema), 75-190 ms di fermo.
         val badgeOf = { pin: MapPin -> if (hideInaccessible) pinBadgeOf(pin) else null }
-        // Distintivi presenti e punti GeoJSON su Default: sul main restano solo lo stile e setGeoJson.
-        val (badges, collection) = withContext(Dispatchers.Default) {
-            visiblePins.mapNotNullTo(mutableSetOf()) { pin -> badgeOf(pin)?.let { pin.category to it } } to
-                pinsFeatureCollection(visiblePins, badgeOf)
+        // Icone e punti GeoJSON su Default: sul main restano solo lo stile e setGeoJson.
+        val (icons, collection) = withContext(Dispatchers.Default) {
+            visiblePins.mapTo(mutableSetOf()) { pin -> pin.category to badgeOf(pin) }.associate { (category, badge) ->
+                iconIdFor(category, badge).let { id -> id to pinIcons.getOrPut(id) { poiPinBitmap(context, category, badge) } }
+            } to pinsFeatureCollection(visiblePins, badgeOf)
         }
         mapView.getMapAsync { map ->
             val style = map.style ?: return@getMapAsync
-            badges.forEach { (category, badge) ->
-                val id = iconIdFor(category, badge)
-                if (style.getImage(id) == null) style.addImage(id, poiPinBitmap(context, category, badge))
-            }
+            icons.forEach { (id, bitmap) -> if (style.getImage(id) == null) style.addImage(id, bitmap) }
             source.setGeoJson(collection)
         }
     }
@@ -290,11 +292,7 @@ fun MapScreen(
             pinsSource = null
             pointSource = null
             map.setStyle(Style.Builder().fromJson(json)) { style ->
-                PoiCategory.entries.forEach { category ->
-                    style.addImage(iconIdFor(category), poiPinBitmap(context, category))
-                }
-                // Usata solo quando lo stile non ha alcuna sorgente (MapSourceKind.NONE),
-                // ma aggiunta sempre, come le icone dei POI sopra.
+                // Usata solo quando lo stile non ha alcuna sorgente (MapSourceKind.NONE), ma aggiunta sempre.
                 style.addImage(MISSING_MAP_HATCH_IMAGE, missingMapHatchBitmap(context, darkMap))
                 val source = GeoJsonSource(PINS_SOURCE)
                 style.addSource(source)

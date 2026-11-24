@@ -161,6 +161,74 @@ class MapRouteViewModelTest {
     }
 
     @Test
+    fun `una vista dentro l'ultima area letta non rilegge i POI e mostra solo i suoi`() = runTest {
+        dao.rows += poiRow(1, "Dentro", lat = 45.2, lon = 9.2)
+        dao.rows += poiRow(2, "Solo nella prima", lat = 45.45, lon = 9.45)
+        val viewModel = viewModel()
+        viewModel.loadPins("r1")
+        viewModel.setViewport(MapBounds(9.0, 45.0, 9.5, 45.5))
+        runCurrent()
+        val readsBefore = dao.inBoundsCalls.size
+
+        viewModel.setViewport(MapBounds(9.1, 45.1, 9.3, 45.3))
+        runCurrent()
+
+        assertEquals(readsBefore, dao.inBoundsCalls.size)
+        assertEquals(listOf("1"), settled(viewModel.uiState).pins.map { it.id })
+    }
+
+    @Test
+    fun `uscire dall'ultima area letta rilegge i POI`() = runTest {
+        dao.rows += poiRow(1, "Da Mario", lat = 45.2, lon = 9.2)
+        val viewModel = viewModel()
+        viewModel.loadPins("r1")
+        viewModel.setViewport(MapBounds(9.0, 45.0, 9.5, 45.5))
+        runCurrent()
+        val readsBefore = dao.inBoundsCalls.size
+
+        viewModel.setViewport(MapBounds(9.4, 45.4, 9.9, 45.9))
+        runCurrent()
+        viewModel.setViewport(MapBounds(8.0, 44.0, 10.0, 46.0))
+        runCurrent()
+
+        assertEquals(readsBefore + 2, dao.inBoundsCalls.size)
+    }
+
+    @Test
+    fun `cambiare i filtri rilegge i POI anche nella stessa area`() = runTest {
+        dao.rows += poiRow(1, "Da Mario", lat = 45.2, lon = 9.2)
+        val viewModel = viewModel()
+        viewModel.loadPins("r1")
+        viewModel.setViewport(MapBounds(9.0, 45.0, 9.5, 45.5))
+        runCurrent()
+        val readsBefore = dao.inBoundsCalls.size
+
+        viewModel.setHiddenCategories(setOf(PoiCategory.CIBO_BEVANDE))
+        runCurrent()
+        viewModel.setOnlyAccessible(true)
+        usageModes.setAccessible(true)
+        runCurrent()
+
+        assertTrue(dao.inBoundsCalls.size >= readsBefore + 2)
+        assertEquals(2, dao.inBoundsCalls.last().accessibility)
+    }
+
+    @Test
+    fun `una lettura a campione non vale per le aree dentro, che si rileggono`() = runTest {
+        repeat(3_001) { dao.rows += poiRow(it + 1L, "POI $it", lat = 45.2, lon = 9.2) }
+        val viewModel = viewModel()
+        viewModel.loadPins("r1")
+        viewModel.setViewport(MapBounds(9.0, 45.0, 9.5, 45.5))
+        runCurrent()
+        val readsBefore = dao.inBoundsCalls.size
+
+        viewModel.setViewport(MapBounds(9.1, 45.1, 9.3, 45.3))
+        runCurrent()
+
+        assertEquals(readsBefore + 1, dao.inBoundsCalls.size)
+    }
+
+    @Test
     fun `l'area dei segnalini resta dentro la zona scaricata`() = runTest {
         zones.setZone("r1", RegionZone(minLon = 9.0, minLat = 45.0, maxLon = 9.5, maxLat = 45.5))
         dao.rows += poiRow(1, "Dentro la zona", lat = 45.2, lon = 9.2)

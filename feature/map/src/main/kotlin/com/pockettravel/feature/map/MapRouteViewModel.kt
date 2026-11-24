@@ -97,6 +97,9 @@ class MapRouteViewModel @Inject constructor(
     // Le coppie categoria/tag della regione aperta, lette una volta (PoiRepository.categoryTags).
     private var regionTags: Pair<String, List<CategoryTag>>? = null
 
+    // L'ultima lettura dei POI dell'area: una vista dentro quell'area, con gli stessi filtri, non rilegge il database.
+    private var lastRead: PinRead? = null
+
     init {
         viewModelScope.launch {
             pinRequests.collect {
@@ -244,6 +247,7 @@ class MapRouteViewModel @Inject constructor(
         regionIdFlow.value = regionId
         // Riaperta la regione si rileggono le categorie: un aggiornamento dei POI puo' averle cambiate.
         regionTags = null
+        lastRead = null
         reloadPins()
     }
 
@@ -268,12 +272,15 @@ class MapRouteViewModel @Inject constructor(
         val inView = viewport ?: zone?.let { MapBounds(it.minLon, it.minLat, it.maxLon, it.maxLat) }
             ?: withContext(ioDispatcher) { tileSource.regionBounds(regionId) } ?: WORLD
         val area = pinsArea(inView, zone)
-        val inArea = area?.let {
-            val tags = regionTags?.takeIf { cached -> cached.first == regionId }?.second
-                ?: poiRepository.categoryTags(regionId).also { read -> regionTags = regionId to read }
-            poiRepository.inBounds(
-                regionId, it.minLat, it.maxLat, it.minLon, it.maxLon, MAX_PINS, filterPreferences.hiddenCategories.value, accessibility(), tags,
-            )
+        val hidden = filterPreferences.hiddenCategories.value
+        val access = accessibility()
+        val inArea = area?.let { wanted ->
+            lastRead?.takeIf { it.covers(regionId, wanted, hidden, access) }?.pois?.within(wanted) ?: run {
+                val tags = regionTags?.takeIf { cached -> cached.first == regionId }?.second
+                    ?: poiRepository.categoryTags(regionId).also { read -> regionTags = regionId to read }
+                poiRepository.inBounds(regionId, wanted.minLat, wanted.maxLat, wanted.minLon, wanted.maxLon, MAX_PINS, hidden, access, tags)
+                    .also { read -> lastRead = PinRead(regionId, wanted, hidden, access, read) }
+            }
         }
         // Regione cambiata durante il caricamento: questi segnalini non sono piu' suoi.
         if (regionIdFlow.value == regionId) publishPins(inArea)
@@ -357,3 +364,16 @@ private data class BoardState(val board: TransitBoard?, val time: LocalDateTime?
  * [toCatch]: la corsa per "Raggiungi la fermata", null se la partenza non e' piu' nel tabellone.
  */
 data class TripUi(val loading: Boolean, val view: TripView? = null, val toCatch: TripToCatch? = null)
+
+// Una lettura dei POI di un'area con i filtri con cui e' stata letta.
+private class PinRead(
+    val regionId: String, val area: MapBounds, val hidden: Set<PoiCategory>, val accessibility: MapAccessibility, val pois: AreaPois,
+) {
+    // Vale per [wanted] solo se contiene tutti i POI dell'area letta (non un campione) e ne copre il rettangolo.
+    fun covers(regionId: String, wanted: MapBounds, hidden: Set<PoiCategory>, accessibility: MapAccessibility): Boolean =
+        !pois.sampled && regionId == this.regionId && hidden == this.hidden && accessibility == this.accessibility &&
+            wanted.minLat >= area.minLat && wanted.maxLat <= area.maxLat && wanted.minLon >= area.minLon && wanted.maxLon <= area.maxLon
+}
+
+private fun AreaPois.within(area: MapBounds): AreaPois =
+    copy(pois = pois.filter { it.latitude in area.minLat..area.maxLat && it.longitude in area.minLon..area.maxLon })
