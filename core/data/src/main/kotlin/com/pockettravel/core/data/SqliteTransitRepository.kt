@@ -2,7 +2,6 @@ package com.pockettravel.core.data
 
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -71,11 +70,11 @@ class SqliteTransitRepository @Inject constructor(
         val dir = File(regionStorage.directoryFor(regionId), RegionStorage.TRANSIT_DIR)
         val infos = runCatching { TransitFeedInfo.decode(File(dir, RegionStorage.TRANSIT_FEEDS_FILE).readText()) }.getOrDefault(emptyList())
         return dir.listFiles { file -> file.isFile && file.extension == "db" && (onlyNetwork == null || file.nameWithoutExtension == onlyNetwork) }.orEmpty().mapNotNull { file ->
-            runCatching {
+            runCatchingCancellable {
                 SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
                     read(SqliteTransitQuery(db), infos.firstOrNull { it.id == file.nameWithoutExtension }, file.nameWithoutExtension)
                 }
-            }.onFailure { if (it is CancellationException) throw it }.getOrNull()
+            }.getOrNull()
         }
     }
 }

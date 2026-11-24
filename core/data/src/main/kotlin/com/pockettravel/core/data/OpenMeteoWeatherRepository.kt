@@ -16,7 +16,6 @@ import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-import java.security.MessageDigest
 import java.time.Clock
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -140,5 +139,4 @@ private fun withoutDisambiguator(city: String): String = city.replace(Regex("\\s
 
 // Nome di file sicuro per qualunque nome di citta' (spazi, apostrofi, alfabeti non latini).
 private fun String.toFileName(): String =
-    MessageDigest.getInstance("SHA-256").digest(toByteArray())
-        .joinToString("") { "%02x".format(it) } + ".json"
+    toByteArray().sha256Hex() + ".json"

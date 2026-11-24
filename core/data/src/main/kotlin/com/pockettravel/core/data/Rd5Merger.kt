@@ -5,7 +5,6 @@ import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
-import java.security.MessageDigest
 import java.util.zip.CRC32
 import kotlin.math.abs
 
@@ -139,7 +138,7 @@ object Rd5Merger {
             .map { (dir, file) -> "${dir.parentFile?.name}/${file.name}:${file.length()}:${file.lastModified()}" }
             .sorted()
             .joinToString("\n", prefix = "v$MERGE_VERSION\n")
-        return MessageDigest.getInstance("SHA-256").digest(description.toByteArray()).joinToString("") { "%02x".format(it) }.take(KEY_LENGTH)
+        return description.toByteArray().sha256Hex().take(KEY_LENGTH)
     }
 
     /**
