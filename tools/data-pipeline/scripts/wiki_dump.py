@@ -152,5 +152,7 @@ def load_titles(dump_dir, wiki, date, titles):
     except (OSError, ValueError, KeyError):  # cache assente o rovinata (scrittura interrotta): si rifa'
         pass
     pages = load_pages(dump_files(dump_dir, wiki, date), wanted)
-    cache.write_text(json.dumps({"titles": sorted(wanted), "pages": pages}, ensure_ascii=False), encoding="utf-8")
+    part = cache.with_name(cache.name + ".part")  # un processo ucciso a meta' non lascia una cache troncata
+    part.write_text(json.dumps({"titles": sorted(wanted), "pages": pages}, ensure_ascii=False), encoding="utf-8")
+    os.replace(part, cache)
     return pages

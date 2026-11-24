@@ -3,13 +3,18 @@
 
 Uso: python test_online_models.py
 """
+import contextlib
+import gc
+import io
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
+import warnings
 from pathlib import Path
 
+import online_models
 from online_models import other_models
 
 HERE = Path(__file__).resolve().parent
@@ -174,6 +179,20 @@ class MainTest(unittest.TestCase):
         result, written = self.run_script({}, {})
         self.assertEqual(1, result.returncode)
         self.assertIsNone(written)
+
+    def test_chiude_i_file_letti(self):
+        with tempfile.TemporaryDirectory() as d:
+            paths = []
+            for name, data in [("curated.json", CURATED), ("litellm.json", {"mistral/m": lite("mistral")}),
+                               ("dev.json", {"mistral": {"models": {"m": dev()}}})]:
+                path = Path(d) / name
+                path.write_text(json.dumps(data), encoding="utf-8")
+                paths.append(str(path))
+            with warnings.catch_warnings(record=True) as caught, contextlib.redirect_stdout(io.StringIO()):
+                warnings.simplefilter("always")
+                online_models.main(["online_models.py", *paths, str(Path(d) / "out.json")])
+                gc.collect()
+            self.assertEqual([], [str(w.message) for w in caught if issubclass(w.category, ResourceWarning)])
 
 
 if __name__ == "__main__":

@@ -1233,16 +1233,21 @@ class RerankScorer:
                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=llama_env(exe))
         atexit.register(self.close)
         self.url = f"http://127.0.0.1:{port}"
-        for _ in range(600):
-            try:
-                if urllib.request.urlopen(f"{self.url}/health", timeout=5).status == 200:
-                    break
-            except OSError:
-                time.sleep(0.5)
-        self.cache_file = cache_file
+        self.cache_file = cache_file  # prima dell'attesa: close() (atexit) salva la cache anche se il server non parte
         self.cache = json.loads(cache_file.read_text(encoding="utf-8")) if cache_file.exists() else {}
         self.calls = 0
         self.lock = threading.Lock()
+        for _ in range(600):
+            if self.server.poll() is not None:
+                raise SystemExit(f"llama-server terminato con codice {self.server.returncode} prima di essere pronto")
+            try:
+                with urllib.request.urlopen(f"{self.url}/health", timeout=5) as r:
+                    if r.status == 200:
+                        break
+            except OSError:
+                time.sleep(0.5)
+        else:
+            raise SystemExit("llama-server: /health non pronto dopo 600 tentativi")
 
     def post(self, path, payload):
         request = urllib.request.Request(self.url + path, json.dumps(payload).encode("utf-8"), {"Content-Type": "application/json"})

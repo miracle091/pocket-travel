@@ -34,6 +34,7 @@ Uso: python online_models.py <online-models.json> <litellm.json> <models.dev api
 import json
 import re
 import sys
+from pathlib import Path
 
 # Servizio dell'app -> (litellm_provider e prefisso della chiave in LiteLLM, servizio in models.dev).
 # Senza litellm_provider (None) il servizio non e' in LiteLLM o non ha voci utili: basta models.dev.
@@ -161,7 +162,7 @@ def main(argv):
     if len(argv) != 5:
         sys.exit(__doc__)
     paths = argv[1:4]
-    curated, litellm, modelsdev = (json.load(open(p, encoding="utf-8")) for p in paths)
+    curated, litellm, modelsdev = (json.loads(Path(p).read_text(encoding="utf-8")) for p in paths)
     both, warnings = other_models(curated, litellm, modelsdev)
     others = {p: m for p, m in both.items() if p in LEGACY_PROVIDERS}
     extra = {p: m for p, m in both.items() if p not in LEGACY_PROVIDERS}

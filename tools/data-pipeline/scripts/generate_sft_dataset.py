@@ -33,7 +33,7 @@ Wikivoyage spesso non tratta a fondo. L'articolo si divide in paragrafi e
 si tengono solo i piu' pertinenti (WP_MAX_PARAGRAPHS): lunghi come una sezione Wikivoyage, non l'intro
 enciclopedica troncata a 2000 caratteri.
 """
-import argparse, functools, html, json, os, random, re, subprocess, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
+import argparse, atexit, functools, html, json, os, random, re, subprocess, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -321,6 +321,15 @@ HEADING = re.compile(r"^==(?!=)\s*(.+?)\s*(?<!=)==$")
 
 _app_cleaner = None
 
+def _close_app_cleaner():
+    """A fine esecuzione la JVM di app_clean vede la fine di stdin e esce; se non lo fa in tempo, kill()."""
+    _app_cleaner.stdin.close()
+    try:
+        _app_cleaner.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        _app_cleaner.kill()
+        _app_cleaner.wait()
+
 def app_clean(raw):
     """La pulizia delle guide dell'app (cleanBody di GenerateGuideContent.kt, via CleanWikitext.kt): stesso testo,
     con sottotitoli "▸", elenchi "•" e a capo, che l'assistente si trova nel contesto. Un solo processo JVM per tutta
@@ -334,6 +343,7 @@ def app_clean(raw):
         java, classpath = lines[-2], lines[-1]
         _app_cleaner = subprocess.Popen([java, "-cp", classpath, "com.pockettravel.pipeline.CleanWikitextKt"],
                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8")
+        atexit.register(_close_app_cleaner)
     _app_cleaner.stdin.write(json.dumps({"raw": raw}) + "\n")
     _app_cleaner.stdin.flush()
     return json.loads(_app_cleaner.stdout.readline())["text"]

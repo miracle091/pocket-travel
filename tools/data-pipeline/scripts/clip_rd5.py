@@ -69,6 +69,9 @@ class FileSource:
         self.fetched += len(chunk)
         return chunk
 
+    def close(self):
+        self.file.close()
+
 
 class HttpSource:
     """Legge intervalli di byte da un .rd5 remoto con richieste HTTP Range su una sola connessione
@@ -321,13 +324,18 @@ def main():
     except LookupVersionError as e:
         print(f"::error::{e}" if os.environ.get("GITHUB_ACTIONS") else f"ERRORE: {e}", file=sys.stderr)
         return LOOKUP_MISMATCH_EXIT
+    finally:
+        if isinstance(src, FileSource):
+            src.close()
     if kept == 0:
         # La tile esiste ma nel rettangolo non ha strade (costa, mare al bordo della regione): non si scrive
         # un .rd5 vuoto e il chiamante salta solo questa tile, con EMPTY_EXIT distinto da un errore vero.
         print(f"-- {src.name}: nessuna micro-cella nel rettangolo {bbox}, tile saltata", file=sys.stderr)
         print(src.size)  # anche qui: build-region.sh registra la tile vuota con questa dimensione (routing.emptyTiles)
         return EMPTY_EXIT
-    a.dst.write_bytes(out)
+    tmp = a.dst.with_name(a.dst.name + ".tmp")  # un processo ucciso a meta' non lascia un .rd5 troncato in dst
+    tmp.write_bytes(out)
+    os.replace(tmp, a.dst)
     reused = f", {src.reused / 2**20:.1f} MiB dalla cache" if isinstance(src, CachedSource) else ""
     print(f"{src.name}: {src.size / 2**20:.1f} -> {len(out) / 2**20:.1f} MiB, {kept} micro-celle tenute, "
           f"{src.fetched / 2**20:.1f} MiB {'scaricati' if remote else 'letti'}{reused}", file=sys.stderr)

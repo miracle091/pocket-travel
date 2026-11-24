@@ -14,6 +14,7 @@ import sys
 import tempfile
 import types
 import unittest
+import warnings
 from pathlib import Path
 from unittest import mock
 
@@ -350,6 +351,18 @@ class EvalGgufTest(unittest.TestCase):
         self.assertIn("en direct word-lists: 1 | 1 | 1/1 | 0/0", out)
         self.assertIn("CONTESTO: Ctx A", self.prompts[0]["prompt"])
         self.assertIn("CONTEXT: Ctx C", self.prompts[2]["prompt"])
+
+    def test_contexts_chiude_i_file_letti(self):
+        contexts = self.tmp / "contexts.jsonl"
+        item = {"lang": "it", "series": "direct", "search": "word-lists", "context": "Ctx A", "question": "D1?",
+                "section_in_context": True}
+        contexts.write_text(json.dumps(item) + "\n", encoding="utf-8")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            self.run_script("--contexts", str(contexts), replies=["Risposta ok."])
+            gc.collect()
+        self.assertEqual([], [str(w.message) for w in caught
+                              if issubclass(w.category, ResourceWarning) and "contexts.jsonl" in str(w.message)])
 
     def test_pairs_coerenza_tra_domande_equivalenti(self):
         contexts = self.tmp / "contexts.jsonl"

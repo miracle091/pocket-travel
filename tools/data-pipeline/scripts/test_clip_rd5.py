@@ -3,7 +3,10 @@
 
 Uso: python test_clip_rd5.py
 """
+import contextlib
+import gc
 import http.server
+import io
 import random
 import struct
 import subprocess
@@ -11,9 +14,12 @@ import sys
 import tempfile
 import threading
 import unittest
+import warnings
 import zlib
 from pathlib import Path
+from unittest import mock
 
+import clip_rd5
 from clip_rd5 import (CachedSource, FileSource, HttpSource, LookupVersionError, brouter_crc, check_lookups_version, clip,
                       overlaps, read_lookups_version, tile_lookups_version, tile_origin)
 
@@ -156,6 +162,32 @@ class ClipRd5Test(unittest.TestCase):
         self.assertFalse(out.exists())
         # La dimensione dell'originale esce comunque: build-region.sh la registra in routing.emptyTiles.
         self.assertEqual(res.stdout.decode().strip(), str((self.dir / self.NAME).stat().st_size))
+
+    def run_main(self, out):
+        argv = ["clip_rd5.py", str(self.dir / self.NAME), str(out), "--bbox=" + ",".join(map(str, self.BBOX)),
+                "--margin", "0", "--lookups", str(self.lookups)]
+        with mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(io.StringIO()),                 contextlib.redirect_stderr(io.StringIO()):
+            return clip_rd5.main()
+
+    def test_scrittura_interrotta_non_lascia_un_file_troncato(self):
+        out = self.dir / "out.rd5"
+        with mock.patch("os.replace", side_effect=KeyboardInterrupt), self.assertRaises(KeyboardInterrupt):
+            self.run_main(out)
+        self.assertFalse(out.exists())
+
+    def test_scrive_il_file_ritagliato_senza_temporanei(self):
+        out = self.dir / "out.rd5"
+        self.assertEqual(0, self.run_main(out))
+        self.assertEqual(self.expected(), read_cells(out.read_bytes()))
+        self.assertFalse(list(self.dir.glob("*.tmp")))
+
+    def test_chiude_il_file_locale_letto(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            self.run_main(self.dir / "out.rd5")
+            gc.collect()
+        self.assertEqual([], [str(w.message) for w in caught if issubclass(w.category, ResourceWarning)
+                              and self.NAME in str(w.message)])
 
     def test_via_http_senza_content_range_errore(self):
         RangeHandler.data, RangeHandler.honor_range, RangeHandler.send_content_range = self.rd5, True, False

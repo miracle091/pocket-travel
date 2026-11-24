@@ -65,11 +65,16 @@ def main():
     url = f"http://127.0.0.1:{port}"
     try:
         for _ in range(600):
+            if server.poll() is not None:
+                raise SystemExit(f"llama-server terminato con codice {server.returncode} prima di essere pronto")
             try:
-                if urllib.request.urlopen(f"{url}/health", timeout=5).status == 200:
-                    break
+                with urllib.request.urlopen(f"{url}/health", timeout=5) as r:
+                    if r.status == 200:
+                        break
             except OSError:
                 time.sleep(0.5)
+        else:
+            raise SystemExit("llama-server: /health non pronto dopo 600 tentativi")
         result = {}
         template = GGUFReader(a.model).fields.get("tokenizer.chat_template")
         think = uses_empty_think(bytes(template.parts[template.data[0]]).decode("utf-8") if template is not None else None)

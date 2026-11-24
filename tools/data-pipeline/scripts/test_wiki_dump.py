@@ -8,6 +8,7 @@ import bz2
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import wiki_dump
 
@@ -92,6 +93,13 @@ class ContentFileExportTest(unittest.TestCase):
             for part in Path(d).glob("*.xml.bz2"):  # dalla cache, senza rileggere le parti
                 part.unlink()
             self.assertEqual({"Alias": ("Destinazione", "ok")}, wiki_dump.load_titles(d, "itwiki", "09-2026", ["Alias"]))
+
+    def test_scrittura_della_cache_interrotta_non_lascia_un_file_troncato(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._parts(d)
+            with mock.patch("os.replace", side_effect=KeyboardInterrupt), self.assertRaises(KeyboardInterrupt):
+                wiki_dump.load_titles(d, "itwiki", "2026-09-01", ["Torino"])
+            self.assertFalse((Path(d) / "itwiki-2026-09-01.pages.json").exists())
 
     def test_cache_rovinata_si_rifa(self):
         with tempfile.TemporaryDirectory() as d:

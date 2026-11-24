@@ -141,7 +141,7 @@ empty_think = a.empty_think or uses_empty_think(
     bytes(template.parts[template.data[0]]).decode("utf-8") if template is not None else None)
 
 if a.contexts:
-    test = [json.loads(line) for f in a.contexts for line in open(f, encoding="utf-8")]
+    test = [json.loads(line) for f in a.contexts for line in Path(f).read_text(encoding="utf-8").splitlines()]
     if a.answer_position:
         moved = []
         for r in test:
