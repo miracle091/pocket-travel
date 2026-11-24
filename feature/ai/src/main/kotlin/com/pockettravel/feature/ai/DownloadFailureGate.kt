@@ -1,6 +1,7 @@
 package com.pockettravel.feature.ai
 
 import androidx.work.WorkInfo
+import com.pockettravel.core.ui.R as UiR
 
 /**
  * Decide se un FAILED del download del modello va mostrato. WorkManager ripete l'ultimo stato del lavoro a ogni nuova
@@ -29,6 +30,8 @@ internal class DownloadFailureGate {
 internal fun downloadFailureMessage(reason: String?): Int = when (reason) {
     LlmModelDownloadWorker.FAILURE_REASON_INTEGRITY -> R.string.ai_error_integrity
     LlmModelDownloadWorker.FAILURE_REASON_SPACE -> R.string.ai_error_space
+    LlmModelDownloadWorker.FAILURE_REASON_DATA_SAVER -> UiR.string.network_blocked_data_saver
+    LlmModelDownloadWorker.FAILURE_REASON_NETWORK_BLOCKED -> UiR.string.network_blocked_suspected
     else -> R.string.ai_error_download
 }
 

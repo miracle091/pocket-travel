@@ -47,6 +47,8 @@ class RegionPackageDownloadWorker @AssistedInject internal constructor(
             DownloadOutcome.SUCCESS -> Result.success()
             DownloadOutcome.RETRY -> Result.retry()
             DownloadOutcome.FAILURE -> Result.failure()
+            DownloadOutcome.DATA_SAVER_BLOCKED -> Result.failure(workDataOf(KEY_FAILURE_REASON to FAILURE_REASON_DATA_SAVER))
+            DownloadOutcome.NETWORK_BLOCKED -> Result.failure(workDataOf(KEY_FAILURE_REASON to FAILURE_REASON_NETWORK_BLOCKED))
         }
     }
 
@@ -124,6 +126,9 @@ class RegionPackageDownloadWorker @AssistedInject internal constructor(
         const val KEY_MANIFEST_ENTRY_FILE = "manifest_entry_file"
         // true dopo download ed estrazione: la riga della regione mostra "Installazione…" senza percentuale.
         const val KEY_INSTALLING = "installing"
+        const val KEY_FAILURE_REASON = "failure_reason"
+        const val FAILURE_REASON_DATA_SAVER = "data_saver"
+        const val FAILURE_REASON_NETWORK_BLOCKED = "network_blocked"
         const val KEY_PACKAGE_KINDS = "package_kinds"
         const val KEY_BYTES_DOWNLOADED = "bytes_downloaded"
         const val KEY_TOTAL_BYTES = "total_bytes"

@@ -5,6 +5,8 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.pockettravel.core.sync.NetworkBlock
+import com.pockettravel.core.sync.networkBlockFor
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
@@ -42,15 +44,26 @@ class BergamotModelDownloadWorker @AssistedInject constructor(
         } catch (_: ModelDownloadFailedException) {
             Result.failure()
         } catch (error: IOException) {
-            when {
-                error.isNoSpaceLeft() ->
-                    Result.failure(workDataOf(LlmModelDownloadWorker.KEY_FAILURE_REASON to LlmModelDownloadWorker.FAILURE_REASON_SPACE))
-                shouldRetryDownload(runAttemptCount) -> Result.retry()
-                else -> Result.failure()
-            }
+            resultFor(error)
         } catch (_: Exception) {
             Result.failure()
         }
+
+    private fun resultFor(error: IOException): Result {
+        val block = applicationContext.networkBlockFor(error)
+        return when {
+            error.isNoSpaceLeft() ->
+                Result.failure(workDataOf(LlmModelDownloadWorker.KEY_FAILURE_REASON to LlmModelDownloadWorker.FAILURE_REASON_SPACE))
+            // Ritentare non serve finché l'utente non toglie il Risparmio dati per l'app.
+            block == NetworkBlock.DATA_SAVER ->
+                Result.failure(workDataOf(LlmModelDownloadWorker.KEY_FAILURE_REASON to LlmModelDownloadWorker.FAILURE_REASON_DATA_SAVER))
+            shouldRetryDownload(runAttemptCount) -> Result.retry()
+            // Un errore DNS passeggero non è un blocco: lo si dice solo quando i tentativi sono finiti.
+            block == NetworkBlock.SUSPECTED ->
+                Result.failure(workDataOf(LlmModelDownloadWorker.KEY_FAILURE_REASON to LlmModelDownloadWorker.FAILURE_REASON_NETWORK_BLOCKED))
+            else -> Result.failure()
+        }
+    }
 
     private companion object {
         const val PERCENT = 100L

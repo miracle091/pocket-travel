@@ -5,9 +5,11 @@ import androidx.work.WorkInfo
 import com.pockettravel.core.sync.RegionPackageDownloadWorker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.UUID
+import com.pockettravel.core.ui.R as UiR
 
 class RegionDownloadUiTest {
     private fun work(state: WorkInfo.State, progress: Data = Data.EMPTY) =
@@ -72,5 +74,20 @@ class RegionDownloadUiTest {
         val data = progress { putBoolean(RegionPackageDownloadWorker.KEY_INSTALLING, true) }
 
         assertTrue(work(WorkInfo.State.RUNNING, data).downloadUi().installing)
+    }
+
+    @Test
+    fun `un download fallito per un blocco della rete porta il messaggio`() {
+        fun failed(reason: String?) = WorkInfo(
+            UUID.randomUUID(),
+            WorkInfo.State.FAILED,
+            emptySet(),
+            outputData = Data.Builder().apply { reason?.let { putString(RegionPackageDownloadWorker.KEY_FAILURE_REASON, it) } }.build(),
+        )
+
+        assertEquals(UiR.string.network_blocked_data_saver, failed(RegionPackageDownloadWorker.FAILURE_REASON_DATA_SAVER).downloadUi().blockMessage)
+        assertEquals(UiR.string.network_blocked_suspected, failed(RegionPackageDownloadWorker.FAILURE_REASON_NETWORK_BLOCKED).downloadUi().blockMessage)
+        assertNull(failed(null).downloadUi().blockMessage)
+        assertNull(work(WorkInfo.State.RUNNING).downloadUi().blockMessage)
     }
 }

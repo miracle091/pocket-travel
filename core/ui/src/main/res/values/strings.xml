@@ -209,4 +209,8 @@
     <string name="guide_term_source">Da Wikipedia: %1$s</string>
     <string name="guide_term_question">Cos\'è %1$s?</string>
     <string name="guide_term_ask">Chiedi all\'assistente</string>
+    <string name="network_blocked_data_saver">Il risparmio dati di Android limita la rete di questa app. Consenti i dati senza restrizioni e riprova.</string>
+    <string name="network_blocked_suspected">La rete sembra bloccata per questa app. Controlla nelle impostazioni di Android che possa usare la rete e riprova.</string>
+    <string name="network_blocked_data_saver_settings">Apri le impostazioni del risparmio dati</string>
+    <string name="network_blocked_settings">Apri le impostazioni dell\'app</string>
 </resources>

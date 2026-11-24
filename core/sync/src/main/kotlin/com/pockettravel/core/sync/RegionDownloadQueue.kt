@@ -135,7 +135,8 @@ internal class RegionDownloadQueue(private val file: File, private val ioDispatc
                 items = items - item
                 when (outcome) {
                     DownloadOutcome.SUCCESS -> done++
-                    DownloadOutcome.FAILURE -> failedRegionIds = failedRegionIds + item.regionId
+                    DownloadOutcome.FAILURE, DownloadOutcome.DATA_SAVER_BLOCKED, DownloadOutcome.NETWORK_BLOCKED ->
+                        failedRegionIds = failedRegionIds + item.regionId
                     DownloadOutcome.RETRY -> items = items + item.copy(attempts = item.attempts + 1)
                 }
             }

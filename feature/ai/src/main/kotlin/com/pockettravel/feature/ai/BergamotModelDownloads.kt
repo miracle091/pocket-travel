@@ -26,7 +26,7 @@ sealed interface BergamotDownloadStatus {
     data class Failed(val reason: BergamotDownloadFailure) : BergamotDownloadStatus
 }
 
-enum class BergamotDownloadFailure { INTEGRITY, SPACE, OTHER }
+enum class BergamotDownloadFailure { INTEGRITY, SPACE, DATA_SAVER, NETWORK_BLOCKED, OTHER }
 
 /** Il download della coppia di traduzione, persistente a un kill del processo (WorkManager), come quello dei modelli dell'assistente. */
 interface BergamotModelDownloads {
@@ -75,6 +75,8 @@ internal fun downloadStatus(state: WorkInfo.State, progress: Data, output: Data)
         when (output.getString(LlmModelDownloadWorker.KEY_FAILURE_REASON)) {
             LlmModelDownloadWorker.FAILURE_REASON_INTEGRITY -> BergamotDownloadFailure.INTEGRITY
             LlmModelDownloadWorker.FAILURE_REASON_SPACE -> BergamotDownloadFailure.SPACE
+            LlmModelDownloadWorker.FAILURE_REASON_DATA_SAVER -> BergamotDownloadFailure.DATA_SAVER
+            LlmModelDownloadWorker.FAILURE_REASON_NETWORK_BLOCKED -> BergamotDownloadFailure.NETWORK_BLOCKED
             else -> BergamotDownloadFailure.OTHER
         },
     )

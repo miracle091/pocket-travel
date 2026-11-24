@@ -31,7 +31,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.DownloadProgressIndicator
+import com.pockettravel.core.ui.NetworkBlockSettingsButton
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.isNetworkBlockMessage
 import com.pockettravel.core.ui.R as UiR
 
 /** La coppia di traduzione italiano-inglese per le Impostazioni, sotto i modelli dell'assistente. */
@@ -77,6 +79,7 @@ internal fun TranslationModelContent(
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
+            if (isNetworkBlockMessage(it)) NetworkBlockSettingsButton(it)
         }
         val progress = state.downloadProgress
         when {

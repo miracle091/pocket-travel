@@ -46,6 +46,7 @@ import com.pockettravel.core.ui.DownloadProgressIndicator
 import com.pockettravel.core.ui.LARGE_DOWNLOAD_WARNING_BYTES
 import com.pockettravel.core.ui.Spacing
 import com.pockettravel.core.ui.isOnCellularNetwork
+import com.pockettravel.core.ui.openNetworkSettings
 import kotlin.math.roundToInt
 import com.pockettravel.core.ui.R as UiR
 
@@ -220,7 +221,11 @@ private fun ImportModelButton(uiState: AiUiState, actions: AiActions) {
 
 // Dopo un errore del download il pulsante propone "Riprova" invece di "Scarica il modello".
 internal fun Int?.isDownloadError(): Boolean =
-    this == R.string.ai_error_download || this == R.string.ai_error_integrity || this == R.string.ai_error_space
+    this == R.string.ai_error_download || this == R.string.ai_error_integrity || this == R.string.ai_error_space ||
+        this.isNetworkBlockError()
+
+internal fun Int?.isNetworkBlockError(): Boolean =
+    this == UiR.string.network_blocked_data_saver || this == UiR.string.network_blocked_suspected
 
 @Composable
 private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiState: AiUiState, actions: AiActions) {
@@ -269,6 +274,12 @@ private fun ModelRow(definition: LlmModelDefinition, isSelected: Boolean, uiStat
             Column(modifier = Modifier.padding(start = 56.dp, end = Spacing.l, bottom = Spacing.l)) {
                 uiState.errorMessage?.let {
                     Text(text = stringResource(it), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = Spacing.s))
+                    if (it.isNetworkBlockError()) {
+                        val dataSaver = it == UiR.string.network_blocked_data_saver
+                        TextButton(onClick = { openNetworkSettings(context, dataSaver) }) {
+                            Text(stringResource(if (dataSaver) UiR.string.network_blocked_data_saver_settings else UiR.string.network_blocked_settings))
+                        }
+                    }
                 }
                 val downloadProgress = uiState.downloadProgress
                 if (uiState.isModelDownloaded && uiState.pendingModelId == null) {

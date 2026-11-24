@@ -1,16 +1,21 @@
 package com.pockettravel.core.sync
 
+import android.content.Context
 import android.util.Log
 import com.pockettravel.core.data.PackageKind
 import com.pockettravel.core.data.RegionZonePreferences
 import com.pockettravel.core.data.RoutingVariantPreferences
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import javax.inject.Inject
 
-/** Come e' finito il download di una voce: installata, da ritentare (errore di rete) o fallita per sempre. */
-internal enum class DownloadOutcome { SUCCESS, RETRY, FAILURE }
+/**
+ * Come e' finito il download di una voce: installata, da ritentare (errore di rete) o fallita per sempre. Le due
+ * ultime sono fallimenti con la causa nota: il Risparmio dati di Android, o un blocco sospetto della rete dell'app.
+ */
+internal enum class DownloadOutcome { SUCCESS, RETRY, FAILURE, DATA_SAVER_BLOCKED, NETWORK_BLOCKED }
 
 /** Quello che il download fa sapere a chi lo esegue: la notifica in primo piano e l'avanzamento. */
 internal interface DownloadCallbacks {
@@ -45,6 +50,7 @@ internal interface RegionDownload {
  * installazione, pulizia dello staging e decisione sui nuovi tentativi.
  */
 internal class RegionPackageDownload @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val installer: RegionPackageInstaller,
     private val regionZonePreferences: RegionZonePreferences,
     private val routingVariantPreferences: RoutingVariantPreferences,
@@ -74,9 +80,9 @@ internal class RegionPackageDownload @Inject constructor(
             throw error
         } catch (_: PermanentRegionPackageException) {
             DownloadOutcome.FAILURE
-        } catch (_: IOException) {
+        } catch (error: IOException) {
             // Errore di rete: si riprova, ma non all'infinito.
-            if (attempt < MAX_RETRIES) DownloadOutcome.RETRY else DownloadOutcome.FAILURE
+            outcomeForNetworkError(context.networkBlockFor(error), attempt)
         } catch (error: Exception) {
             Log.w(TAG, "Download pacchetto regione fallito", error)
             DownloadOutcome.FAILURE
@@ -157,6 +163,15 @@ internal class RegionPackageDownload @Inject constructor(
         // Da Android 12 un nuovo tentativo partito da sfondo non puo' avviare il servizio: si scarica comunque, senza notifica.
         // Senza notifica pero' il lavoro ha il limite di 10 minuti e l'estrazione della mappa riparte da zero a ogni stop, che
         // non conta in MAX_RETRIES: dopo qualche tentativo ci si arrende. Senza mappa tra i pacchetti non c'e' motivo di arrendersi.
+        // Ritentare non serve finche' l'utente non toglie il Risparmio dati per l'app. Un errore DNS passeggero non e' un
+        // blocco: lo si dice solo quando i tentativi sono finiti.
+        internal fun outcomeForNetworkError(block: NetworkBlock, attempt: Int): DownloadOutcome = when {
+            block == NetworkBlock.DATA_SAVER -> DownloadOutcome.DATA_SAVER_BLOCKED
+            attempt < MAX_RETRIES -> DownloadOutcome.RETRY
+            block == NetworkBlock.SUSPECTED -> DownloadOutcome.NETWORK_BLOCKED
+            else -> DownloadOutcome.FAILURE
+        }
+
         internal fun givesUpWithoutForeground(attempt: Int, kinds: Set<PackageKind>) =
             PackageKind.MAP in kinds && attempt >= MAX_RETRIES_WITHOUT_FOREGROUND
     }

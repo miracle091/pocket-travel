@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.pockettravel.core.ui.R as UiR
 
 data class TranslationModelUiState(
     val isInstalled: Boolean = false,
@@ -47,6 +48,8 @@ class TranslationModelViewModel @Inject constructor(
     private fun BergamotDownloadFailure.message(): Int = when (this) {
         BergamotDownloadFailure.INTEGRITY -> R.string.ai_error_integrity
         BergamotDownloadFailure.SPACE -> R.string.translation_model_error_space
+        BergamotDownloadFailure.DATA_SAVER -> UiR.string.network_blocked_data_saver
+        BergamotDownloadFailure.NETWORK_BLOCKED -> UiR.string.network_blocked_suspected
         BergamotDownloadFailure.OTHER -> R.string.translation_model_error_download
     }
 

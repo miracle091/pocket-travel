@@ -18,6 +18,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
+import com.pockettravel.core.ui.R as UiR
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TranslationModelViewModelTest {
@@ -66,6 +67,16 @@ class TranslationModelViewModelTest {
     }
 
     @Test
+    fun `un blocco della rete mostra il messaggio con le impostazioni di Android`() = runTest(dispatcher) {
+        val viewModel = newViewModel()
+
+        downloads.status.value = BergamotDownloadStatus.Failed(BergamotDownloadFailure.DATA_SAVER)
+        assertEquals(UiR.string.network_blocked_data_saver, viewModel.uiState.value.errorMessage)
+        downloads.status.value = BergamotDownloadStatus.Failed(BergamotDownloadFailure.NETWORK_BLOCKED)
+        assertEquals(UiR.string.network_blocked_suspected, viewModel.uiState.value.errorMessage)
+    }
+
+    @Test
     fun `scarica, annulla ed elimina, e l'eliminazione ferma prima un download in corso`() = runTest(dispatcher) {
         manager.setInstalled(true)
         val viewModel = newViewModel()
@@ -92,5 +103,9 @@ class TranslationModelViewModelTest {
         assertEquals(BergamotDownloadStatus.Idle, downloadStatus(WorkInfo.State.CANCELLED, progress, empty))
         assertEquals(BergamotDownloadStatus.Failed(BergamotDownloadFailure.SPACE), downloadStatus(WorkInfo.State.FAILED, empty, noSpace))
         assertEquals(BergamotDownloadStatus.Failed(BergamotDownloadFailure.OTHER), downloadStatus(WorkInfo.State.FAILED, empty, empty))
+        val dataSaver = workDataOf(LlmModelDownloadWorker.KEY_FAILURE_REASON to LlmModelDownloadWorker.FAILURE_REASON_DATA_SAVER)
+        val blocked = workDataOf(LlmModelDownloadWorker.KEY_FAILURE_REASON to LlmModelDownloadWorker.FAILURE_REASON_NETWORK_BLOCKED)
+        assertEquals(BergamotDownloadStatus.Failed(BergamotDownloadFailure.DATA_SAVER), downloadStatus(WorkInfo.State.FAILED, empty, dataSaver))
+        assertEquals(BergamotDownloadStatus.Failed(BergamotDownloadFailure.NETWORK_BLOCKED), downloadStatus(WorkInfo.State.FAILED, empty, blocked))
     }
 }
