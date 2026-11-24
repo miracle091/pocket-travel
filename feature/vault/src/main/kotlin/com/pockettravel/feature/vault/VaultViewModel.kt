@@ -6,8 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.Passport
 import com.pockettravel.core.data.PassportRepository
 import com.pockettravel.core.data.crypto.VaultKeyEnvelope
+import com.pockettravel.core.data.runCatchingCancellable
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -72,16 +72,12 @@ class VaultViewModel @Inject constructor(
         if (_resetState.value == VaultResetState.RESETTING) return
         _resetState.value = VaultResetState.RESETTING
         viewModelScope.launch {
-            try {
+            val reset = runCatchingCancellable {
                 repository.deleteAll()
                 keyEnvelope.reset()
                 thumbnails.evictAll()
-                _resetState.value = VaultResetState.DONE
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (_: Exception) {
-                _resetState.value = VaultResetState.FAILED
             }
+            _resetState.value = if (reset.isSuccess) VaultResetState.DONE else VaultResetState.FAILED
         }
     }
 
@@ -121,13 +117,8 @@ class VaultViewModel @Inject constructor(
     // Suspend semplice (non viewModelScope.launch): il chiamante (PassportEditDialog) ha bisogno
     // del fileName risultante prima di proseguire, per aggiungerlo alla lista di foto in sospeso.
     // Null se la foto non si salva (per esempio la cassaforte si e' bloccata durante lo scatto).
-    suspend fun savePhoto(jpegBytes: ByteArray): String? = try {
-        repository.savePhoto(jpegBytes)
-    } catch (cancellation: CancellationException) {
-        throw cancellation
-    } catch (_: Exception) {
-        null
-    }
+    suspend fun savePhoto(jpegBytes: ByteArray): String? =
+        runCatchingCancellable { repository.savePhoto(jpegBytes) }.getOrNull()
 
     // Chiusura del modulo con le foto [initial] del documento e [current] della bozza. Salvato: si cancellano
     // le foto tolte, solo ora, così un Annulla non rompe i riferimenti del documento già su disco. Non salvato

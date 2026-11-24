@@ -18,9 +18,7 @@
     <ID>NoUnusedImports:TravelAdviceNotice.kt:com.pockettravel.feature.guide.TravelAdviceNotice.kt</ID>
     <ID>SpacingBetweenDeclarationsWithComments:GuideViewModel.kt:GuideViewModel$// Tutte le sezioni della regione: in uiState solo quelle per la nazionalita' scelta (isGuideSectionFor).</ID>
     <ID>SwallowedException:GuideViewModel.kt:GuideViewModel$error: Exception</ID>
-    <ID>SwallowedException:VaccinationViewModel.kt:VaccinationViewModel$error: Exception</ID>
     <ID>TooGenericExceptionCaught:GuideViewModel.kt:GuideViewModel$error: Exception</ID>
-    <ID>TooGenericExceptionCaught:VaccinationViewModel.kt:VaccinationViewModel$error: Exception</ID>
     <ID>TooManyFunctions:VaccinationViewModel.kt:VaccinationViewModel : ViewModel</ID>
   </CurrentIssues>
 </SmellBaseline>

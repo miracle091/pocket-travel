@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pockettravel.core.data.NationalityPreferences
 import com.pockettravel.core.data.RegionRepository
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.data.vaccination.PolioCategory
 import com.pockettravel.core.data.vaccination.Trip
 import com.pockettravel.core.data.vaccination.TripLeg
@@ -14,7 +15,6 @@ import com.pockettravel.core.data.vaccination.VaccinationRepository
 import com.pockettravel.core.data.vaccination.VaccinationResult
 import com.pockettravel.core.data.vaccination.evaluateVaccinations
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -110,13 +110,7 @@ class VaccinationViewModel @Inject constructor(
     }
 
     private suspend fun loadData(regionId: String) {
-        val loaded = try {
-            vaccinationRepository.load()
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (error: Exception) {
-            null
-        }
+        val loaded = runCatchingCancellable { vaccinationRepository.load() }.getOrNull()
         data = loaded
         val destination = regionRepository.installed(regionId)?.countryCode?.uppercase()
         _uiState.update { state ->

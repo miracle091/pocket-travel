@@ -174,7 +174,8 @@ private fun EmbassyRow(entry: EmbassyEntry, onOpenLink: (url: String, title: Str
     val website = entry.website
     val email = entry.email
     // Chiamata, sito ed email come tre pulsanti uguali in fila, allineati alle icone delle altre righe.
-    val url = website?.let(::webUrl)
+    // Il sito arriva da Wikidata, modificabile da chiunque: solo http(s), senza schema si assume https.
+    val url = website?.let(::safeWebUrl)
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = Spacing.l, end = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
@@ -205,9 +206,6 @@ private fun EmbassyRow(entry: EmbassyEntry, onOpenLink: (url: String, title: Str
         }
     }
 }
-
-// Il sito arriva da Wikidata, modificabile da chiunque: solo http(s), senza schema si assume https.
-private fun webUrl(website: String): String? = safeWebUrl(website)
 
 private fun MissionKind.label(): Int = when (this) {
     MissionKind.EMBASSY -> R.string.emergency_kind_embassy

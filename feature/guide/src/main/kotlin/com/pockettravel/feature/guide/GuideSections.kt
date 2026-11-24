@@ -227,14 +227,14 @@ private fun GuideSectionCard(
     modifier: Modifier = Modifier,
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
-        val (container, _) = section.category.tone()
+        val tone = section.category.tone()
         Column(modifier = Modifier.padding(Spacing.l)) {
             // Niente etichetta della categoria quando ripete il titolo ("Fatti rapidi").
             val category = stringResource(section.category.displayName())
             InfoCardHeader(
                 icon = section.category.icon(),
                 title = section.title,
-                iconTint = container,
+                iconTint = tone,
                 overline = category.takeUnless { it.equals(section.title, ignoreCase = true) },
             )
             // AI Act art. 50(4): un testo tradotto da un'IA e pubblicato su sicurezza, salute e leggi va
@@ -378,21 +378,21 @@ private fun GuideCategory.icon(): ImageVector = ImageVector.vectorResource(
 
 // Tre toni dello schema (validi anche con i colori dinamici, in chiaro e scuro) per gruppi di
 // significato: logistica in primary, vita locale e cultura in secondary, attenzione in tertiary.
-// Colori pieni e non i container: con alcuni temi i tre container chiari sembrano uguali. Le coppie
-// colore/onColore garantiscono il contrasto AA; il rosso resta al riquadro emergenze.
+// Colori pieni e non i container: con alcuni temi i tre container chiari sembrano uguali. Il rosso resta
+// al riquadro emergenze.
 @Composable
-private fun GuideCategory.tone(): Pair<Color, Color> {
+private fun GuideCategory.tone(): Color {
     val colors = MaterialTheme.colorScheme
     return when (this) {
         GuideCategory.FATTI_RAPIDI, GuideCategory.TRASPORTI, GuideCategory.ALLOGGIO, GuideCategory.CONNETTIVITA,
         GuideCategory.CLIMA,
-        -> colors.primary to colors.onPrimary
+        -> colors.primary
 
         GuideCategory.USI_COSTUMI, GuideCategory.FRASI_UTILI, GuideCategory.VITA_QUOTIDIANA,
         GuideCategory.CIBO_BEVANDE, GuideCategory.ACQUISTI, GuideCategory.COSA_VEDERE, GuideCategory.STORIA,
-        -> colors.secondary to colors.onSecondary
+        -> colors.secondary
 
         GuideCategory.SALUTE, GuideCategory.SICUREZZA, GuideCategory.DOGANE, GuideCategory.DA_SAPERE ->
-            colors.tertiary to colors.onTertiary
+            colors.tertiary
     }
 }

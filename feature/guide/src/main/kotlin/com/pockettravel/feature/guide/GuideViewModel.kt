@@ -29,6 +29,7 @@ import com.pockettravel.core.data.advice.newerThanPackage
 import com.pockettravel.core.data.alerts.AlertsRepository
 import com.pockettravel.core.data.alerts.RegionAlerts
 import com.pockettravel.core.data.isGuideSectionFor
+import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.poi.PoiCategory
 import com.pockettravel.core.ui.PlaceWeather
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -131,13 +132,7 @@ class GuideViewModel @Inject constructor(
         _uiState.update { it.copy(alerts = null, travelAdviceUpdate = null) }
         alertsJob = viewModelScope.launch {
             // Le allerte non devono mai fermare la guida: un errore inatteso lascia il riquadro nascosto.
-            val alerts = try {
-                alertsRepository.alerts(regionId)
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (_: Exception) {
-                null
-            }
+            val alerts = runCatchingCancellable { alertsRepository.alerts(regionId) }.getOrNull()
             _uiState.update { it.copy(alerts = alerts) }
         }
     }
@@ -249,7 +244,7 @@ class GuideViewModel @Inject constructor(
         }
     }
 
-    // Confronta la data dei consigli dell'FCDO con quella del pacchetto guide; un errore lascia l'avviso nascosto.
+    // Carica meteo, sezioni e clima della citta'; un errore di lettura mostra il messaggio con "Riprova".
     fun loadCity(regionId: String, city: String) {
         val key = regionId to city
         if (loadedCityKey == key) return
@@ -298,8 +293,7 @@ class GuideViewModel @Inject constructor(
 
     private suspend fun cityWeather(regionId: String, city: String): PlaceWeather? {
         val country = regionRepository.installed(regionId)?.countryCode ?: return null
-        return weatherRepository.weather("city|$country|$city") { weatherRepository.coordinatesOf(city, country) }
-            ?.let { PlaceWeather(city, it) }
+        return weatherRepository.cityPlaceWeather(country, city)
     }
 
     // Chiamata quando si torna alla lista citta': la prossima loadCity() ricarica sempre, invece
@@ -327,8 +321,7 @@ class GuideViewModel @Inject constructor(
         val country = regionRepository.installed(regionId)?.countryCode
         val city = cityRepository.capitalFor(regionId)
         if (country == null || city == null) return null
-        return weatherRepository.weather("city|$country|$city") { weatherRepository.coordinatesOf(city, country) }
-            ?.let { PlaceWeather(city, it) }
+        return weatherRepository.cityPlaceWeather(country, city)
     }
 }
 
@@ -340,13 +333,11 @@ private const val POSITION_MAX_AGE_MILLIS = 3 * 60 * 60 * 1000L
 private const val NEAR_DEGREES = 0.05
 private const val TENTHS = 10.0
 
+private suspend fun WeatherRepository.cityPlaceWeather(country: String, city: String): PlaceWeather? =
+    weather("city|$country|$city") { coordinatesOf(city, country) }?.let { PlaceWeather(city, it) }
+
 private fun Double.roundToTenth(): Double = Math.round(this * TENTHS) / TENTHS
 
 // Il riquadro delle medie mensili e' accessorio: un errore di lettura lo lascia nascosto, senza fermare la guida.
-private suspend fun CityRepository.climateOrEmpty(regionId: String, city: String): List<CityClimate> = try {
-    climateFor(regionId, city)
-} catch (cancellation: CancellationException) {
-    throw cancellation
-} catch (_: Exception) {
-    emptyList()
-}
+private suspend fun CityRepository.climateOrEmpty(regionId: String, city: String): List<CityClimate> =
+    runCatchingCancellable { climateFor(regionId, city) }.getOrDefault(emptyList())

@@ -2,11 +2,7 @@ package com.pockettravel.feature.vault
 
 import android.Manifest
 import android.app.Activity
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,7 +27,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -54,13 +49,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.SecureFlagPolicy
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import com.pockettravel.core.data.DocumentType
 import com.pockettravel.core.data.Passport
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.Spacing
+import com.pockettravel.core.ui.rememberPermissionRequest
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -95,37 +89,19 @@ internal fun PassportEditDialog(
     val context = LocalContext.current
     var showCamera by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val cameraPermissionDeniedMessage = stringResource(R.string.vault_camera_permission_denied)
-    val openAppSettingsLabel = stringResource(R.string.vault_open_app_settings)
-    val requestCameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            showCamera = true
-        } else {
-            // "Non chiedere piu'": shouldShowRequestPermissionRationale torna false anche prima
-            // della primissima richiesta, ma qui siamo sempre dopo un rifiuto, quindi false vuol
-            // dire davvero "negato per sempre" — solo allora ha senso proporre le impostazioni.
-            val activity = context as? Activity
-            val permanentlyDenied = activity != null &&
-                !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.CAMERA)
-            coroutineScope.launch {
-                val result = snackbarHostState.showSnackbar(
-                    message = cameraPermissionDeniedMessage,
-                    actionLabel = if (permanentlyDenied) openAppSettingsLabel else null,
-                )
-                if (result == SnackbarResult.ActionPerformed) {
-                    context.startActivity(
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:${context.packageName}".toUri()),
-                    )
-                }
-            }
-        }
-    }
+    val requestCameraPermission = rememberPermissionRequest(
+        permission = Manifest.permission.CAMERA,
+        snackbarHostState = snackbarHostState,
+        deniedMessage = stringResource(R.string.vault_camera_permission_denied),
+        openSettingsLabel = stringResource(R.string.vault_open_app_settings),
+        onGranted = { showCamera = true },
+    )
 
     fun openCamera() {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
             showCamera = true
         } else {
-            requestCameraPermission.launch(Manifest.permission.CAMERA)
+            requestCameraPermission()
         }
     }
 
