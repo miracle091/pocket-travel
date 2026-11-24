@@ -19,6 +19,9 @@ __pycache__/
 # Piani di lavoro locali di Claude Code (comando /dev-docs)
 /dev/
 
+# Report, log e screenshot delle sessioni di QA automatica
+/.android-qa/
+
 # Byproduct di Planetiler quando gira da tools/data-pipeline (cerca data/tile_weights.tsv.gz)
 /tools/data-pipeline/data/
 
