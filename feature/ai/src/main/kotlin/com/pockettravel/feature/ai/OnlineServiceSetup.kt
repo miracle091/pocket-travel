@@ -15,22 +15,30 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.foundation.text.input.clearText
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,8 +50,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.pockettravel.core.sync.ONLINE_MODEL_ROLE_AUTO
 import com.pockettravel.core.sync.OnlineModelEntry
@@ -152,13 +158,18 @@ internal fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
                 singleLine = true,
             )
         }
-        OutlinedTextField(
-            value = uiState.apiKeyInput,
-            onValueChange = actions.onApiKeyInputChanged,
+        // remember e non rememberTextFieldState: la chiave non deve finire nello stato salvato dell'activity.
+        val apiKeyState = remember { TextFieldState(uiState.apiKeyInput) }
+        val onApiKeyInputChanged by rememberUpdatedState(actions.onApiKeyInputChanged)
+        LaunchedEffect(apiKeyState) { snapshotFlow { apiKeyState.text.toString() }.collect { onApiKeyInputChanged(it) } }
+        // Dopo il salvataggio il ViewModel svuota la chiave: il campo la segue.
+        LaunchedEffect(uiState.apiKeyInput) { if (uiState.apiKeyInput.isEmpty()) apiKeyState.clearText() }
+        OutlinedSecureTextField(
+            state = apiKeyState,
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(R.string.ai_api_key_label)) },
             placeholder = provider.keyPrefix?.let { prefix -> { Text(stringResource(R.string.ai_api_key_placeholder, prefix)) } },
-            visualTransformation = if (isKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            textObfuscationMode = if (isKeyVisible) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
             // Password e senza correzione: la tastiera non deve memorizzare ne' suggerire la chiave.
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
             trailingIcon = {
@@ -171,7 +182,6 @@ internal fun ApiKeySetup(uiState: AiUiState, actions: AiActions) {
                     )
                 }
             },
-            singleLine = true,
         )
         Button(
             onClick = actions.onSaveApiKey,

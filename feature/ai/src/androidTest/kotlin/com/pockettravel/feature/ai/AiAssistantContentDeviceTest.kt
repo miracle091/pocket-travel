@@ -187,6 +187,31 @@ class AiAssistantContentDeviceTest {
         assertEquals(1, saved)
     }
 
+    // Il campo della chiave tiene il testo per conto suo: quello scritto arriva al ViewModel e, svuotato lo stato
+    // dopo il salvataggio, il campo torna vuoto.
+    @Test
+    fun typedApiKeyReachesTheStateAndClearsAfterSaving() {
+        compose.setContent {
+            var uiState by remember { mutableStateOf(readyState().copy(mode = AiEngineMode.ONLINE, isModelDownloaded = false)) }
+            PocketTravelTheme(dynamicColor = false) {
+                AiAssistantContent(
+                    uiState = uiState,
+                    actions = noOpActions.copy(
+                        onApiKeyInputChanged = { uiState = uiState.copy(apiKeyInput = it) },
+                        onSaveApiKey = { uiState = uiState.copy(apiKeyInput = "") },
+                    ),
+                    onOpenOfficialSource = {},
+                )
+            }
+        }
+
+        compose.onNode(hasSetTextAction()).performScrollTo().performTextInput("chiave-di-prova")
+        compose.onNodeWithContentDescription(context.getString(R.string.ai_api_key_show)).performClick()
+        compose.onNodeWithText("chiave-di-prova").assertIsDisplayed()
+        compose.onNodeWithText(context.getString(R.string.ai_api_key_save)).performScrollTo().performClick()
+        compose.onNodeWithText("chiave-di-prova").assertDoesNotExist()
+    }
+
     // Con la chiave in chiaro la finestra e' protetta (niente screenshot ne' miniatura delle app recenti), poi non piu'.
     @Test
     fun visibleApiKeyProtectsTheWindow() {
@@ -205,7 +230,9 @@ class AiAssistantContentDeviceTest {
 
         compose.waitForIdle()
         assertFalse(secure())
-        compose.onNodeWithContentDescription(context.getString(R.string.ai_api_key_show)).performScrollTo().performClick()
+        // Si scorre al campo, non all'icona: performScrollTo dall'icona scorrerebbe il testo del campo, non la pagina.
+        compose.onNode(hasSetTextAction()).performScrollTo()
+        compose.onNodeWithContentDescription(context.getString(R.string.ai_api_key_show)).performClick()
         compose.waitForIdle()
         assertTrue(secure())
         compose.onNodeWithContentDescription(context.getString(R.string.ai_api_key_hide)).performClick()
