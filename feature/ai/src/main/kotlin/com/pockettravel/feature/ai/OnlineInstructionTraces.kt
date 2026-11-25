@@ -8,8 +8,8 @@ private const val INSTRUCTION_RUN_WORDS = 4
 // Le frasi del contesto rivolte all'assistente: un'istruzione nascosta. Più stretto di ORDER_TALK, perché qui la frase perde
 // anche i suoi indirizzi e numeri; IA e AI solo maiuscole ("ai" è una preposizione).
 private val ADDRESSED = Regex(
-    """\b(?:assistente|assistant|chatbot|prompt|rispond\w*|risposta|risposte|answer\w*|repl(?:y|ies)|respond|responds""" +
-        """|response|responses|utente|user|(?-i:IA|AI))\b""",
+    """\b(?:assistent[ei]|assistants?|chatbots?|prompts?|rispond\w*|risposta|risposte|answer\w*|repl(?:y|ies)|respond|responds""" +
+        """|response|responses|utent[ei]|users?|(?-i:IA|AI))\b""",
     RegexOption.IGNORE_CASE,
 )
 private val WORD_OR_NUMBER = Regex("""[\p{L}\p{N}]+""")

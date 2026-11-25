@@ -288,8 +288,8 @@ YES_NO = re.compile(r"""\W*(?:sì|si|no|yes)(?!\w)""", re.I)
 # Le frasi del contesto rivolte all'assistente: un'istruzione nascosta. Più stretto di ORDER_TALK, perché qui la frase perde
 # anche i suoi indirizzi e numeri; IA e AI solo maiuscole ("ai" è una preposizione).
 ADDRESSED = re.compile(
-    r"""\b(?:assistente|assistant|chatbot|prompt|rispond\w*|risposta|risposte|answer\w*|repl(?:y|ies)|respond|responds"""
-    r"""|response|responses|utente|user|(?-i:IA|AI))\b""", re.I)
+    r"""\b(?:assistent[ei]|assistants?|chatbots?|prompts?|rispond\w*|risposta|risposte|answer\w*|repl(?:y|ies)|respond|responds"""
+    r"""|response|responses|utent[ei]|users?|(?-i:IA|AI))\b""", re.I)
 WORD_OR_NUMBER = re.compile(r"[^\W_]+")
 PARENTHESIS_END = re.compile(r"(?<=[.!?]\))\s+")
 INSTRUCTION_RUN_WORDS = 4
