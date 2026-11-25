@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.update
 /**
  * [RegionRepository] in memoria per i test JVM. Lo stato e' pubblico: il test imposta [installedRegions], [guides],
  * [availableBytes] e le dimensioni su disco ([packageSizes], [addressCells]); le chiamate che cambiano qualcosa
- * restano in [removedPackages], [recovered] e [compactions]. Le dimensioni sono quelle registrate, senza disco.
+ * restano in [removedPackages] e [recovered]. Le dimensioni sono quelle registrate, senza disco.
  */
 class FakeRegionRepository(initial: List<InstalledRegion> = emptyList()) : RegionRepository {
     val installedRegions = MutableStateFlow(initial)
@@ -32,8 +32,6 @@ class FakeRegionRepository(initial: List<InstalledRegion> = emptyList()) : Regio
 
     val removedPackages = mutableListOf<Pair<String, PackageKind>>()
     val recovered = mutableListOf<String>()
-    var compactions = 0
-        private set
 
     override fun observeInstalled(): Flow<List<InstalledRegion>> = installedRegions
 
@@ -143,10 +141,6 @@ class FakeRegionRepository(initial: List<InstalledRegion> = emptyList()) : Regio
 
     override suspend fun markGuidesInstalled(version: String, sizeBytes: Long) {
         guides.value = InstalledGuides(version, sizeBytes)
-    }
-
-    override suspend fun compactDatabase() {
-        compactions++
     }
 
     override suspend fun <T> inInstallTransaction(block: suspend () -> T): T = block()

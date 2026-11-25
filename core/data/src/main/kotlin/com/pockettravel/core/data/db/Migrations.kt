@@ -541,8 +541,8 @@ private fun updateInstalledPoiSizes(db: SQLiteConnection) {
 }
 
 // La conversione scrive la tabella nuova accanto a quella vecchia: la stima del suo peso (la stessa dei POI importati) per due,
-// perche' il WAL ne tiene una copia fino al checkpoint, piu' un margine. Il file non si accorcia da solo dopo la DROP: lo fa
-// DatabaseCompactor, all'avvio.
+// perche' il WAL ne tiene una copia fino al checkpoint, piu' un margine. Dopo la DROP il file si accorcia da solo: l'SQLite di
+// Android crea i database con auto_vacuum FULL.
 internal fun poiConversionNeedsBytes(db: SQLiteConnection): Long {
     val estimate = db.prepare("SELECT COALESCE(SUM($POI_ROW_ESTIMATE_SQL), 0) FROM `poi`").use { if (it.step()) it.getLong(0) else 0L }
     return 2 * estimate + CONVERSION_MARGIN_BYTES

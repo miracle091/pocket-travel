@@ -48,10 +48,7 @@ interface RegionRepository {
 
     suspend fun markGuidesInstalled(version: String, sizeBytes: Long)
 
-    /** VACUUM di region.db se ha tante pagine libere (vedi [DatabaseCompactor]): all'avvio, dopo una migrazione che ne ha lasciate. */
-    suspend fun compactDatabase()
-
-    /** Esegue [block] in una transazione del database, senza che un VACUUM parta nel frattempo. */
+    /** Esegue [block] in una transazione di scrittura del database. */
     suspend fun <T> inInstallTransaction(block: suspend () -> T): T
 
     /** Riallinea i pacchetti su disco di [regionId] alle versioni registrate dopo un'installazione interrotta da un crash. */

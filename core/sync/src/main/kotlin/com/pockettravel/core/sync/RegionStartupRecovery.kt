@@ -61,9 +61,5 @@ class RegionStartupRecovery @Inject constructor(
         // Punti di interesse tolti dalla migrazione del database per mancanza di spazio: la notifica non aspetta il controllo
         // periodico (fino a un giorno), parte appena c'e' una rete.
         if (regionRepository.observeInstalled().first().any { it.poiToRedownload().isNotEmpty() }) manifestCheckNow.enqueue()
-
-        // Le pagine che una migrazione del database (la conversione dei POI) o una rimozione fatta in un'altra sessione hanno
-        // lasciato libere: per ultimo, e' il lavoro piu' lungo e non serve a niente di quanto sopra.
-        regionRepository.compactDatabase()
     }
 }

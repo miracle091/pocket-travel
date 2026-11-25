@@ -1,9 +1,7 @@
 package com.pockettravel.core.data.db
 
-import androidx.room3.PooledConnection
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteStatement
-import com.pockettravel.core.data.WriterAccess
 import java.sql.Connection
 import java.sql.ResultSet
 
@@ -14,14 +12,6 @@ import java.sql.ResultSet
  * connessione JDBC, che resta del test.
  */
 internal fun jdbcSqliteConnection(connection: Connection): SQLiteConnection = JdbcSqliteConnection(connection)
-
-/** La connessione di scrittura di [DatabaseCompactor] sopra sqlite-jdbc, con gli stessi limiti di [jdbcSqliteConnection]. */
-internal fun jdbcWriterAccess(connection: Connection): WriterAccess = WriterAccess { block ->
-    block(object : PooledConnection {
-        override suspend fun <R> usePrepared(sql: String, block: suspend (SQLiteStatement) -> R): R =
-            JdbcSqliteStatement(connection.prepareStatement(sql)).use { block(it) }
-    })
-}
 
 private class JdbcSqliteConnection(private val connection: Connection) : SQLiteConnection {
     override fun prepare(sql: String): SQLiteStatement = JdbcSqliteStatement(connection.prepareStatement(sql))

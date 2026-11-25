@@ -1,13 +1,12 @@
 package com.pockettravel.core.data
 
-import androidx.room3.useWriterConnection
 import androidx.room3.withWriteTransaction
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.InstalledGuidesEntity
+import com.pockettravel.core.data.db.InstalledRegionDao
 import com.pockettravel.core.data.db.InstalledRegionEntity
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.RegionDatabase
-import com.pockettravel.core.data.db.InstalledRegionDao
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -24,9 +23,6 @@ class RoomRegionRepository @Inject constructor(
     private val cityDao: CityDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : RegionRepository {
-    // Dopo una rimozione il file di region.db non si accorcia da solo: vedi DatabaseCompactor.
-    private val compactor = DatabaseCompactor({ block -> database.useWriterConnection { block(it) } }, ioDispatcher) { regionStorage.availableBytes() }
-
     override fun observeInstalled(): Flow<List<InstalledRegion>> =
         installedRegionDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
@@ -104,11 +100,6 @@ class RoomRegionRepository @Inject constructor(
                 citiesSizeBytes = if (kind == PackageKind.CITIES) null else current.citiesSizeBytes,
                 diskBytes = diskBytes,
             )
-        }
-        // Fuori dalla transazione (il VACUUM non ci puo' stare). Mappa, rete stradale e il resto sono file, non righe;
-        // se e' sparita l'intera regione, come in remove().
-        if (kind in ROW_PACKAGES || installed(regionId) == null) {
-            compactor.compactIfWasteful()
         }
     }
 
@@ -194,9 +185,7 @@ class RoomRegionRepository @Inject constructor(
     override suspend fun markGuidesInstalled(version: String, sizeBytes: Long) =
         installedRegionDao.upsertGuides(InstalledGuidesEntity(version = version, sizeBytes = sizeBytes))
 
-    override suspend fun compactDatabase() = compactor.compactIfWasteful()
-
-    override suspend fun <T> inInstallTransaction(block: suspend () -> T): T = compactor.exclusive { database.withWriteTransaction { block() } }
+    override suspend fun <T> inInstallTransaction(block: suspend () -> T): T = database.withWriteTransaction { block() }
 
     override suspend fun recoverInterruptedActivations(regionId: String) {
         val current = installed(regionId)
@@ -217,10 +206,8 @@ class RoomRegionRepository @Inject constructor(
     // Le guide restano: sono un pacchetto unico per tutte le regioni, non di questa regione.
     override suspend fun remove(regionId: String) {
         removeRegion(regionId)
-        compactor.compactIfWasteful()
     }
 
-    // Senza il VACUUM: lo chiamano anche save(), che puo' essere dentro la transazione di un'installazione o di removePackage.
     private suspend fun removeRegion(regionId: String) {
         withContext(ioDispatcher) {
             check(regionStorage.delete(regionId)) { "Impossibile eliminare la regione $regionId" }
@@ -254,11 +241,6 @@ class RoomRegionRepository @Inject constructor(
     override fun installedAddressCells(regionId: String): Map<String, String> = regionStorage.installedAddressCells(regionId)
 
     override fun installedTransitFeeds(regionId: String): List<TransitFeedInfo> = regionStorage.installedTransitFeeds(regionId)
-
-    private companion object {
-        // Pacchetti fatti di righe del database (gli altri sono file).
-        val ROW_PACKAGES = setOf(PackageKind.POI, PackageKind.POI_EXTRA, PackageKind.CITIES)
-    }
 }
 
 private val FILE_PACKAGES = mapOf(
