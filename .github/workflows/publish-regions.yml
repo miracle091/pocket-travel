@@ -148,8 +148,8 @@ jobs:
 
       - uses: ./.github/actions/setup-pipeline
 
-      # Sezioni del governo canadese tradotte per la guida italiana: le traduce sul PC translate_guides.py --backend llama
-      # (un modello di chat, per paragrafo) e le pubblica a mano come asset della release guide-translations; qui si
+      # Sezioni del governo canadese e di Wikivoyage tradotte per la guida italiana: le traduce sul PC
+      # translate_guides.py --backend llama (un modello di chat, per paragrafo) e le pubblica a mano come asset della release guide-translations; qui si
       # leggono soltanto (--backend file, via TRANSLATE_FILE_EN_IT). Mai bloccante: senza l'asset le guide escono come
       # prima. Accesa solo con la variabile del repository TRANSLATE_GUIDES = true, dopo la revisione a campione.
       - name: Scarica le traduzioni delle guide
