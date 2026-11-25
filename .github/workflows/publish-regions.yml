@@ -770,6 +770,8 @@ jobs:
 
       # Via le cache dei giorni scorsi (nessuna run le ripristina piu'), a prescindere dall'esito del salvataggio; le
       # copie di oggi restano, perche' una continuazione puo' assegnare le regioni di uno shard a un altro.
+      # NF salta la riga vuota che awk legge da un elenco vuoto: `gh cache delete ""` chiede all'API la chiave vuota,
+      # che corrisponde a tutte le cache del repository (Gradle, dump, ccache) e le cancella.
       - name: Elimina le cache degli estratti di Geofabrik dei giorni scorsi
         if: ${{ always() }}
         continue-on-error: true
@@ -781,7 +783,7 @@ jobs:
             echo "::warning::elenco delle cache di Geofabrik non leggibile: cache dei giorni scorsi non tolte"
             exit 0
           fi
-          awk -v today="geofabrik-poi-$DAY-" 'index($0, today) != 1' <<< "$KEYS" \
+          awk -v today="geofabrik-poi-$DAY-" 'NF && index($0, today) != 1' <<< "$KEYS" \
             | while read -r key; do gh cache delete "$key" --repo "$GITHUB_REPOSITORY" || echo "::warning::cache $key non tolta"; done
 
       - name: Salva gli estratti di Geofabrik
