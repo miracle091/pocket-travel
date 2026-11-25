@@ -1,5 +1,5 @@
 [versions]
-agp = "9.5.1"
+agp = "9.5.2"
 kotlin = "2.4.21"
 # Mai la 2.3.13: due task KSP nello stesso processo di Gradle possono perdere le classi delle librerie e finire
 # senza il codice generato (binding di Hilt, RegionDatabase_Impl mancanti). La 2.3.14 contiene la correzione
