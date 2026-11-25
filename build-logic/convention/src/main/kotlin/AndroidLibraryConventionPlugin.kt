@@ -7,7 +7,9 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         pluginManager.apply("com.android.library")
         extensions.configure<LibraryExtension> {
-            compileSdk = ProjectConventions.COMPILE_SDK
+            compileSdk {
+                version = release(ProjectConventions.COMPILE_SDK) { minorApiLevel = ProjectConventions.COMPILE_SDK_MINOR }
+            }
             defaultConfig {
                 minSdk = ProjectConventions.MIN_SDK
                 testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

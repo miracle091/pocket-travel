@@ -8,7 +8,9 @@ plugins {
 
 android {
     namespace = "com.pockettravel.baselineprofile"
-    compileSdk = 37
+    compileSdk {
+        version = release(37) { minorApiLevel = 2 }
+    }
 
     defaultConfig {
         minSdk = 26

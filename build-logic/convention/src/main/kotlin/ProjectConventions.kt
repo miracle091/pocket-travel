@@ -9,6 +9,9 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 internal object ProjectConventions {
     const val COMPILE_SDK = 37
+
+    // Compose 1.13 (BOM 2026.11.01) chiede di compilare almeno con la 37.1.
+    const val COMPILE_SDK_MINOR = 2
     const val MIN_SDK = 26
     const val TARGET_SDK = 36
     val JAVA_VERSION = JavaVersion.VERSION_17
