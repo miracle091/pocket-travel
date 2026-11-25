@@ -1,8 +1,8 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Entity
-import androidx.room.Fts4
-import androidx.room.FtsOptions
+import androidx.room3.Entity
+import androidx.room3.Fts4
+import androidx.room3.FtsOptions
 
 // unicode61: casefolda anche le maiuscole accentate indicizzate (il tokenizer di default "simple" le
 // lascia intatte, cosi' una query in minuscolo come "perù" non trova "PERÙ" nel testo).

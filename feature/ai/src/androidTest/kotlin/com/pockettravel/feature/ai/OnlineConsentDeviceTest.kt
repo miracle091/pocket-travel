@@ -1,7 +1,8 @@
 package com.pockettravel.feature.ai
 
 import android.content.Context
-import androidx.room.Room
+import androidx.room3.Room
+import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.core.data.CarRouteCalculator
@@ -93,7 +94,7 @@ class OnlineConsentDeviceTest {
     @Before
     fun setUp() = runBlocking<Unit> {
         Locale.setDefault(Locale.ITALIAN)
-        db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).build()
+        db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).setDriver(AndroidSQLiteDriver()).build()
         seed()
 
         val preferences = InMemoryPreferencesFactory()

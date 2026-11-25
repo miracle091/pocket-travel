@@ -1,8 +1,8 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
+import androidx.room3.Insert
+import androidx.room3.OnConflictStrategy
+import androidx.room3.Query
 
 /** Query del clima mensile delle citta': CityDao le eredita, cosi' RegionDatabase espone un solo DAO per le citta'. */
 interface CityClimateDao {

@@ -1,7 +1,10 @@
 package com.pockettravel.core.data.db
 
 import android.content.Context
-import androidx.room.Room
+import androidx.room3.Room
+import androidx.room3.useWriterConnection
+import androidx.room3.withWriteTransaction
+import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
@@ -31,7 +34,7 @@ class SecureDeleteDeviceTest {
     @Test
     fun laConversazioneCancellataNonRestaNelFile() {
         context.deleteDatabase(DB_NAME)
-        val db = Room.databaseBuilder(context, RegionDatabase::class.java, DB_NAME).build()
+        val db = Room.databaseBuilder(context, RegionDatabase::class.java, DB_NAME).setDriver(AndroidSQLiteDriver()).build()
         try {
             runBlocking {
                 val dao = db.conversationDao()
@@ -40,17 +43,11 @@ class SecureDeleteDeviceTest {
                     ConversationTurnEntity(conversationId = "c1", encryptedPayload = MARKER, createdAt = 1),
                 )
                 dao.delete("c1")
-            }
-            val writable = db.openHelper.writableDatabase
-            writable.beginTransaction()
-            try {
                 // In una transazione: la connessione principale, quella che scrive.
-                assertEquals(1, writable.query("PRAGMA secure_delete").use { it.moveToFirst(); it.getInt(0) })
-                writable.setTransactionSuccessful()
-            } finally {
-                writable.endTransaction()
+                val secureDelete = db.withWriteTransaction { usePrepared("PRAGMA secure_delete") { it.step(); it.getLong(0) } }
+                assertEquals(1L, secureDelete)
+                db.useWriterConnection { it.usePrepared("PRAGMA wal_checkpoint(TRUNCATE)") { statement -> statement.step() } }
             }
-            writable.query("PRAGMA wal_checkpoint(TRUNCATE)").close()
         } finally {
             db.close()
         }

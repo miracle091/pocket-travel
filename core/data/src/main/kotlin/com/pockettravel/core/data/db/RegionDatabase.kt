@@ -1,8 +1,8 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Database
-import androidx.room.RoomDatabase
-import androidx.room.TypeConverters
+import androidx.room3.ColumnTypeConverters
+import androidx.room3.Database
+import androidx.room3.RoomDatabase
 
 @Database(
     entities = [
@@ -35,7 +35,7 @@ import androidx.room.TypeConverters
     version = 28,
     exportSchema = true,
 )
-@TypeConverters(Converters::class)
+@ColumnTypeConverters(Converters::class)
 @Suppress("TooManyFunctions") // un accessor per DAO, come vuole Room
 abstract class RegionDatabase : RoomDatabase() {
     abstract fun guideDao(): GuideDao

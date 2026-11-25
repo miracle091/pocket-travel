@@ -1,6 +1,7 @@
 package com.pockettravel.core.data
 
-import androidx.room.withTransaction
+import androidx.room3.useWriterConnection
+import androidx.room3.withWriteTransaction
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.InstalledGuidesEntity
 import com.pockettravel.core.data.db.InstalledRegionEntity
@@ -24,7 +25,7 @@ class RoomRegionRepository @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : RegionRepository {
     // Dopo una rimozione il file di region.db non si accorcia da solo: vedi DatabaseCompactor.
-    private val compactor = DatabaseCompactor(database, ioDispatcher) { regionStorage.availableBytes() }
+    private val compactor = DatabaseCompactor({ block -> database.useWriterConnection { block(it) } }, ioDispatcher) { regionStorage.availableBytes() }
 
     override fun observeInstalled(): Flow<List<InstalledRegion>> =
         installedRegionDao.observeAll().map { entities -> entities.map { it.toDomain() } }
@@ -83,8 +84,8 @@ class RoomRegionRepository @Inject constructor(
         }
         // Lo stato si rilegge dentro la transazione: un'installazione registrata dopo la prima lettura non va sovrascritta.
         // Se non resta nessun altro pacchetto, save() elimina l'intera regione.
-        database.withTransaction {
-            val current = installedRegionDao.findById(regionId)?.toDomain() ?: return@withTransaction
+        database.withWriteTransaction {
+            val current = installedRegionDao.findById(regionId)?.toDomain() ?: return@withWriteTransaction
             when (kind) {
                 PackageKind.POI -> poiDao.deleteForRegion(regionId, extra = false)
                 PackageKind.POI_EXTRA -> poiDao.deleteForRegion(regionId, extra = true)
@@ -121,10 +122,10 @@ class RoomRegionRepository @Inject constructor(
         }
         if (missing.isEmpty()) return missing
         // Lo stato si rilegge dentro la transazione: un'installazione registrata dopo la prima lettura non va annullata.
-        return database.withTransaction {
-            val current = installedRegionDao.findById(regionId)?.toDomain() ?: return@withTransaction emptySet()
+        return database.withWriteTransaction {
+            val current = installedRegionDao.findById(regionId)?.toDomain() ?: return@withWriteTransaction emptySet()
             val forgotten = missing.filterTo(mutableSetOf()) { current.versionOf(it) == first.versionOf(it) }
-            if (forgotten.isEmpty()) return@withTransaction forgotten
+            if (forgotten.isEmpty()) return@withWriteTransaction forgotten
             save(
                 regionId, current.displayName, current.countryCode,
                 versionOf = { if (it in forgotten) null else current.versionOf(it) },
@@ -195,7 +196,7 @@ class RoomRegionRepository @Inject constructor(
 
     override suspend fun compactDatabase() = compactor.compactIfWasteful()
 
-    override suspend fun <T> inInstallTransaction(block: suspend () -> T): T = compactor.exclusive { database.withTransaction { block() } }
+    override suspend fun <T> inInstallTransaction(block: suspend () -> T): T = compactor.exclusive { database.withWriteTransaction { block() } }
 
     override suspend fun recoverInterruptedActivations(regionId: String) {
         val current = installed(regionId)
@@ -225,7 +226,7 @@ class RoomRegionRepository @Inject constructor(
             check(regionStorage.delete(regionId)) { "Impossibile eliminare la regione $regionId" }
             regionStorage.deleteStaging(regionId)
         }
-        database.withTransaction {
+        database.withWriteTransaction {
             installedRegionDao.deleteById(regionId)
             poiDao.deleteForRegion(regionId, extra = null)
             cityDao.deleteForRegion(regionId)

@@ -1,7 +1,7 @@
 package com.pockettravel.core.sync
 
 import android.database.sqlite.SQLiteDatabase
-import androidx.room.withTransaction
+import androidx.room3.withWriteTransaction
 import com.pockettravel.core.data.db.PoiCodeDao
 import com.pockettravel.core.data.db.PoiDao
 import com.pockettravel.core.data.db.PoiRow
@@ -33,7 +33,7 @@ class PoiImporter @Inject constructor(
      * Ritorna i byte che i POI importati occupano in region.db (stima di [estimatedStorageBytes], non la dimensione del file).
      */
     suspend fun replaceFromFile(regionId: String, poiDbFile: File, extra: Boolean = false): Long =
-        database.withTransaction {
+        database.withWriteTransaction {
             poiDao.deleteForRegion(regionId, extra)
             val poiCodeDao = database.poiCodeDao()
             poiCodeDao.ensureRegion(regionId)

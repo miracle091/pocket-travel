@@ -1,6 +1,6 @@
 package com.pockettravel.core.data
 
-import androidx.room.InvalidationTracker
+import androidx.room3.InvalidationTracker
 import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.db.CityClimateEntity
 import com.pockettravel.core.data.db.CityDao
@@ -38,8 +38,7 @@ import kotlin.io.path.createTempDirectory
 
 /** Le tre Dao sono interfacce Room senza logica propria: fake in-memory bastano per testare
  * RegionRepository senza un vero database. `remove()`/`inInstallTransaction()` usano
- * `RoomDatabase.withTransaction`, che richiede un'istanza Room reale (getOpenHelper() inizializzato) —
- * non coperti qui per lo stesso motivo per cui questo progetto non usa Robolectric altrove:
+ * `RoomDatabase.withWriteTransaction`, che richiede un'istanza Room reale: non coperti qui per lo stesso motivo per cui questo progetto non usa Robolectric altrove:
  * quel percorso resta verificato solo dai test strumentati esistenti. */
 private class FakeInstalledRegionDao : InstalledRegionDao {
     private val entities = linkedMapOf<String, InstalledRegionEntity>()
@@ -134,7 +133,7 @@ private class UnusedRegionDatabase(
     // Mai chiamati nei test: qui RegionDatabase non e' mai inizializzata da Room, serve solo
     // come valore-tipo per il costruttore di RegionRepository.
     override fun createInvalidationTracker(): InvalidationTracker = throw UnsupportedOperationException()
-    override fun clearAllTables(): Unit = throw UnsupportedOperationException()
+    override suspend fun clearAllTables(): Unit = throw UnsupportedOperationException()
 }
 
 class RegionRepositoryTest {

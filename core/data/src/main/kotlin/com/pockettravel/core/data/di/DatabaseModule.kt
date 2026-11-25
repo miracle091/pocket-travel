@@ -1,7 +1,8 @@
 package com.pockettravel.core.data.di
 
 import android.content.Context
-import androidx.room.Room
+import androidx.room3.Room
+import androidx.sqlite.driver.AndroidSQLiteDriver
 import com.pockettravel.core.data.db.ALL_MIGRATIONS
 import com.pockettravel.core.data.db.CityDao
 import com.pockettravel.core.data.db.ConversationDao
@@ -32,6 +33,7 @@ object DatabaseModule {
     @Singleton
     fun provideRegionDatabase(@ApplicationContext context: Context): RegionDatabase =
         Room.databaseBuilder(context, RegionDatabase::class.java, "region.db")
+            .setDriver(AndroidSQLiteDriver())
             .addMigrations(*ALL_MIGRATIONS)
             // Versioni mai pubblicate, rimaste solo su qualche dispositivo di sviluppo: senza una
             // migrazione l'app non partirebbe, cosi' il database si ricrea vuoto.

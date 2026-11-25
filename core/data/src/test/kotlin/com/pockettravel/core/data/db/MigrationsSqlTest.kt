@@ -1,7 +1,8 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.migration.Migration
+import androidx.room3.migration.Migration
 import com.pockettravel.core.data.POI_TO_REDOWNLOAD_VERSION
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -67,11 +68,11 @@ class MigrationsSqlTest {
     }
 
     private fun migrate(from: Int, to: Int, target: Connection = connection) {
-        val db = jdbcSupportDatabase(target)
+        val db = jdbcSqliteConnection(target)
         var version = from
         while (version < to) {
             val step: Migration = ALL_MIGRATIONS.single { it.startVersion == version }
-            step.migrate(db)
+            runBlocking { step.migrate(db) }
             version = step.endVersion
         }
         assertEquals("la catena deve arrivare esattamente a $to", to, version)
@@ -380,7 +381,7 @@ class MigrationsSqlTest {
         fillV24()
         region("peru", "2", null, 5000L, null, 3000L)
         connection.createStatement().use { it.execute("INSERT INTO notes(title, body, updatedAt) VALUES ('t', 'b', 1)") }
-        migratePoiToCompact(jdbcSupportDatabase(connection), freeBytes = 0)
+        migratePoiToCompact(jdbcSqliteConnection(connection), freeBytes = 0)
 
         assertEquals(0, (scalar("SELECT COUNT(*) FROM poi") as Number).toInt())
         assertEquals(0, (scalar("SELECT COUNT(*) FROM poi_region") as Number).toInt())
@@ -401,7 +402,7 @@ class MigrationsSqlTest {
     @Test
     fun `24 a 25 lascia la tabella poi con gli indici nuovi anche senza conversione`() {
         fillV24()
-        migratePoiToCompact(jdbcSupportDatabase(connection), freeBytes = 0)
+        migratePoiToCompact(jdbcSqliteConnection(connection), freeBytes = 0)
 
         val indexes = shapeOf(connection).indexes.keys.filter { it.startsWith("index_poi_") }
         assertTrue(indexes.containsAll(listOf("index_poi_regionRef", "index_poi_regionRef_latE6", "index_poi_regionRef_code")))
@@ -413,29 +414,29 @@ class MigrationsSqlTest {
     @Test
     fun `24 a 25 converte quando lo spazio libero e' esattamente quello richiesto e non con un byte in meno`() {
         fillV24()
-        val needed = poiConversionNeedsBytes(jdbcSupportDatabase(connection))
+        val needed = poiConversionNeedsBytes(jdbcSqliteConnection(connection))
 
         // La richiesta e' il doppio della stima dei POI piu' 8 MiB di margine.
         val estimate = (scalar("SELECT SUM($POI_ROW_ESTIMATE_SQL) FROM poi") as Number).toLong()
         assertEquals(2 * estimate + 8L * 1024 * 1024, needed)
 
-        migratePoiToCompact(jdbcSupportDatabase(connection), freeBytes = needed)
+        migratePoiToCompact(jdbcSqliteConnection(connection), freeBytes = needed)
         assertEquals(4, (scalar("SELECT COUNT(*) FROM poi") as Number).toInt())
     }
 
     @Test
     fun `24 a 25 con un byte in meno del necessario non converte`() {
         fillV24()
-        val needed = poiConversionNeedsBytes(jdbcSupportDatabase(connection))
-        migratePoiToCompact(jdbcSupportDatabase(connection), freeBytes = needed - 1)
+        val needed = poiConversionNeedsBytes(jdbcSqliteConnection(connection))
+        migratePoiToCompact(jdbcSqliteConnection(connection), freeBytes = needed - 1)
         assertEquals(0, (scalar("SELECT COUNT(*) FROM poi") as Number).toInt())
     }
 
     @Test
     fun `24 a 25 senza POI chiede solo il margine`() {
         createSchema(24)
-        assertEquals(8L * 1024 * 1024, poiConversionNeedsBytes(jdbcSupportDatabase(connection)))
-        migratePoiToCompact(jdbcSupportDatabase(connection), freeBytes = 8L * 1024 * 1024)
+        assertEquals(8L * 1024 * 1024, poiConversionNeedsBytes(jdbcSqliteConnection(connection)))
+        migratePoiToCompact(jdbcSqliteConnection(connection), freeBytes = 8L * 1024 * 1024)
         assertEquals(0, (scalar("SELECT COUNT(*) FROM poi") as Number).toInt())
         assertTrue(columnsOf("poi").contains("latE6"))
     }
@@ -444,7 +445,7 @@ class MigrationsSqlTest {
     fun `lo spazio libero si legge dal disco del file e senza file e' illimitato`() {
         fillV24()
         // In memoria (o senza percorso) non c'e' un disco da controllare: si converte sempre.
-        migratePoiToCompact(jdbcSupportDatabase(connection, null))
+        migratePoiToCompact(jdbcSqliteConnection(connection))
         assertEquals(4, (scalar("SELECT COUNT(*) FROM poi") as Number).toInt())
 
         val file = folder.newFile("region.db")
@@ -452,7 +453,7 @@ class MigrationsSqlTest {
             createSchema(24, onDisk)
             insert("poi", mapOf("regionId" to "r", "name" to "n", "category" to "c", "osmTag" to "t=1", "lat" to 1.0, "lon" to 2.0), onDisk)
             // Su un disco vero c'e' spazio per un solo POI: si converte.
-            migratePoiToCompact(jdbcSupportDatabase(onDisk, file.absolutePath))
+            migratePoiToCompact(jdbcSqliteConnection(onDisk))
             assertEquals(1, (rows(onDisk, "SELECT COUNT(*) FROM poi").single().single() as Number).toInt())
             assertEquals(1_000_000L, (rows(onDisk, "SELECT latE6 FROM poi").single().single() as Number).toLong())
         }

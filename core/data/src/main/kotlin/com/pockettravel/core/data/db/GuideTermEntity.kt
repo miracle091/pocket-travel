@@ -1,8 +1,8 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Entity
-import androidx.room.Index
-import androidx.room.PrimaryKey
+import androidx.room3.Entity
+import androidx.room3.Index
+import androidx.room3.PrimaryKey
 
 /**
  * Termine locale di una guida (piatto, bevanda, festa, usanza, abito, strumento): voce di Wikipedia del paese che la guida

@@ -1,6 +1,7 @@
 package com.pockettravel.core.data
 
-import androidx.room.Room
+import androidx.room3.Room
+import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.core.data.db.InstalledRegionDao
@@ -34,7 +35,7 @@ class RoomRegionRepositoryRemovePackageDeviceTest {
     @Before
     fun open() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).build()
+        db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).setDriver(AndroidSQLiteDriver()).build()
         root = createTempDirectory("pocket-travel-remove-package-test").toFile()
         storage = RegionStorage(File(root, "regions").apply { mkdirs() }, File(root, "staging").apply { mkdirs() })
         val real = db.installedRegionDao()

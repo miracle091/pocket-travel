@@ -1,11 +1,9 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.migration.Migration
-import androidx.room.testing.MigrationTestHelper
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.room3.migration.Migration
+import androidx.sqlite.SQLiteConnection
 import com.pockettravel.core.data.POI_TO_REDOWNLOAD_VERSION
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -21,7 +19,7 @@ import org.junit.runner.RunWith
 class RegionDatabaseMigrationTest {
 
     @get:Rule
-    val helper = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), RegionDatabase::class.java)
+    val helper = migrationTestHelper(DB_NAME)
 
     @Test
     fun migrazione3a5AggiungeIlTelefonoVuotoAiPoiEINumeriDiEmergenza() {
@@ -29,7 +27,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag) VALUES ('italia', 'Ambasciata', 'embassy', 45.0, 9.0, 'amenity=embassy')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 5, true, MIGRATION_3_5).use { db ->
+        helper.migrateAndValidate(5, MIGRATION_3_5).use { db ->
             db.query("SELECT name, phone FROM poi").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("Ambasciata", cursor.getString(0))
@@ -47,7 +45,7 @@ class RegionDatabaseMigrationTest {
         }
 
         // Valida anche lo schema risultante contro quello atteso dalla versione 6.
-        helper.runMigrationsAndValidate(DB_NAME, 6, true, MIGRATION_5_6).use { db ->
+        helper.migrateAndValidate(6, MIGRATION_5_6).use { db ->
             db.query("SELECT regionId, displayName, mapVersion, routingVersion, poiVersion, sizeBytes, installedAt, poiSizeBytes FROM installed_regions").use { cursor ->
                 assertEquals(1, cursor.count)
                 cursor.moveToFirst()
@@ -77,7 +75,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO installed_regions VALUES ('italia', 'Italia', '1', '1', '1', 10, 1000, 42)")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 9, true, MIGRATION_6_9).use { db ->
+        helper.migrateAndValidate(9, MIGRATION_6_9).use { db ->
             db.query("SELECT COUNT(*) FROM emergency_numbers_none").use { cursor ->
                 cursor.moveToFirst()
                 assertEquals(0, cursor.getInt(0))
@@ -104,7 +102,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant', NULL)")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 11, true, MIGRATION_9_11).use { db ->
+        helper.migrateAndValidate(11, MIGRATION_9_11).use { db ->
             db.query("SELECT poiVersion, poiExtraVersion, poiExtraSizeBytes FROM installed_regions WHERE regionId = 'italia'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("1", cursor.getString(0))
@@ -132,7 +130,7 @@ class RegionDatabaseMigrationTest {
             )
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 15, true, MIGRATION_11_15).use { db ->
+        helper.migrateAndValidate(15, MIGRATION_11_15).use { db ->
             for (index in listOf("index_poi_regionId", "index_guide_sections_regionId", "index_city_sections_regionId_city")) {
                 db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND name = '$index'").use { cursor ->
                     assertTrue(index, cursor.moveToFirst())
@@ -185,7 +183,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO poi (regionId, name, category, lat, lon, osmTag, phone, extra, wheelchair) VALUES ('italia', 'Da Mario', 'restaurant', 45.0, 9.0, 'amenity=restaurant', NULL, 0, 'yes')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 17, true, MIGRATION_15_17).use { db ->
+        helper.migrateAndValidate(17, MIGRATION_15_17).use { db ->
             db.query("SELECT name, wheelchair, openingHours, address, website, email, country FROM poi").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("Da Mario", cursor.getString(0))
@@ -204,7 +202,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('italia', 'TRASPORTI', 'In treno', 'corpo', 'u')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 24, true, MIGRATION_17_24).use { db ->
+        helper.migrateAndValidate(24, MIGRATION_17_24).use { db ->
             // 17 -> 18: accessibilita' dei POI e rappresentanze diplomatiche vuote.
             db.query("SELECT name, wheelchair, toiletsWheelchair, capacityDisabled FROM poi").use { cursor ->
                 assertTrue(cursor.moveToFirst())
@@ -286,7 +284,7 @@ class RegionDatabaseMigrationTest {
             insertOldPoi(db, 13, "san-marino", "Bar Titano", "bar", 43.9333, 12.45, "amenity=bar", extra = 0)
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 25, true, MIGRATION_24_25).use { db ->
+        helper.migrateAndValidate(25, MIGRATION_24_25).use { db ->
             // Una riga per regione e una per coppia (category, osmTag), non per POI.
             assertEquals(2, scalar(db, "SELECT COUNT(*) FROM poi_region"))
             assertEquals(3, scalar(db, "SELECT COUNT(*) FROM poi_code"))
@@ -361,9 +359,9 @@ class RegionDatabaseMigrationTest {
         }
 
         val withoutRoom = object : Migration(24, 25) {
-            override fun migrate(db: SupportSQLiteDatabase) = migratePoiToCompact(db, freeBytes = 0)
+            override suspend fun migrate(connection: SQLiteConnection) = migratePoiToCompact(connection, freeBytes = 0)
         }
-        helper.runMigrationsAndValidate(DB_NAME, 25, true, withoutRoom).use { db ->
+        helper.migrateAndValidate(25, withoutRoom).use { db ->
             assertEquals(0, scalar(db, "SELECT COUNT(*) FROM poi"))
             db.query("SELECT poiVersion, poiExtraVersion, poiSizeBytes, poiExtraSizeBytes, mapVersion, sizeBytes FROM installed_regions WHERE regionId = 'italia'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
@@ -390,7 +388,7 @@ class RegionDatabaseMigrationTest {
     fun migrazione24a25ChiedeSpazioPariAlDoppioDellaStimaPiuIlMargine() {
         helper.createDatabase(DB_NAME, 24).use { db ->
             insertOldPoi(db, 1, "italia", "Da Mario", "restaurant", 45.0, 9.0, "amenity=restaurant", extra = 0)
-            assertEquals(2 * estimate("Da Mario") + 8L * 1024 * 1024, poiConversionNeedsBytes(db))
+            assertEquals(2 * estimate("Da Mario") + 8L * 1024 * 1024, poiConversionNeedsBytes(db.connection))
         }
     }
 
@@ -399,7 +397,7 @@ class RegionDatabaseMigrationTest {
         helper.createDatabase(DB_NAME, 25).use { db ->
             db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
         }
-        helper.runMigrationsAndValidate(DB_NAME, 26, true, MIGRATION_25_26).use { db ->
+        helper.migrateAndValidate(26, MIGRATION_25_26).use { db ->
             assertEquals(0, scalar(db, "SELECT COUNT(*) FROM conversations"))
             assertEquals(0, scalar(db, "SELECT COUNT(*) FROM conversation_turns"))
             assertEquals(1, scalar(db, "SELECT COUNT(*) FROM passport_vault"))
@@ -411,7 +409,7 @@ class RegionDatabaseMigrationTest {
         helper.createDatabase(DB_NAME, 26).use { db ->
             db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
         }
-        helper.runMigrationsAndValidate(DB_NAME, 27, true, MIGRATION_26_27).use { db ->
+        helper.migrateAndValidate(27, MIGRATION_26_27).use { db ->
             assertEquals(0, scalar(db, "SELECT COUNT(*) FROM city_climate"))
             assertEquals(1, scalar(db, "SELECT COUNT(*) FROM passport_vault"))
         }
@@ -422,7 +420,7 @@ class RegionDatabaseMigrationTest {
         helper.createDatabase(DB_NAME, 27).use { db ->
             db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
         }
-        helper.runMigrationsAndValidate(DB_NAME, 28, true, MIGRATION_27_28).use { db ->
+        helper.migrateAndValidate(28, MIGRATION_27_28).use { db ->
             assertEquals(0, scalar(db, "SELECT COUNT(*) FROM guide_terms"))
             assertEquals(1, scalar(db, "SELECT COUNT(*) FROM passport_vault"))
         }
@@ -432,13 +430,13 @@ class RegionDatabaseMigrationTest {
     private fun estimate(name: String, wheelchair: String? = null): Long =
         PoiRow(regionRef = 1, code = 1, latE6 = 0, lonE6 = 0, name = name, wheelchair = wheelchair).estimatedStorageBytes()
 
-    private fun scalar(db: SupportSQLiteDatabase, sql: String): Int = db.query(sql).use { cursor ->
+    private fun scalar(db: TestDb, sql: String): Int = db.query(sql).use { cursor ->
         cursor.moveToFirst()
         cursor.getInt(0)
     }
 
     private fun insertOldPoi(
-        db: SupportSQLiteDatabase, id: Long, regionId: String, name: String, category: String, lat: Double, lon: Double, osmTag: String,
+        db: TestDb, id: Long, regionId: String, name: String, category: String, lat: Double, lon: Double, osmTag: String,
         extra: Int, wheelchair: String? = null,
     ) {
         db.execSQL(
@@ -448,7 +446,7 @@ class RegionDatabaseMigrationTest {
     }
 
     private fun insertInstalledRegion(
-        db: SupportSQLiteDatabase, regionId: String, mapVersion: String? = null, poiVersion: String? = null, poiExtraVersion: String? = null,
+        db: TestDb, regionId: String, mapVersion: String? = null, poiVersion: String? = null, poiExtraVersion: String? = null,
         poiSizeBytes: Long? = null, poiExtraSizeBytes: Long? = null, sizeBytes: Long,
     ) {
         db.execSQL(
@@ -468,7 +466,7 @@ class RegionDatabaseMigrationTest {
             db.execSQL("INSERT INTO guide_sections (regionId, category, title, body, sourceUrl) VALUES ('italia', 'TRASPORTI', 'In treno', 'corpo', 'https://example.org')")
         }
 
-        helper.runMigrationsAndValidate(DB_NAME, 27, true, *ALL_MIGRATIONS).use { db ->
+        helper.migrateAndValidate(27, *ALL_MIGRATIONS).use { db ->
             db.query("SELECT encryptedPayload FROM passport_vault WHERE id = 'p1'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("cifrato", cursor.getString(0))

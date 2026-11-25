@@ -1,7 +1,7 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import androidx.room3.Entity
+import androidx.room3.PrimaryKey
 
 // title e body sono cifrati con KeystoreCipher (vedi NoteRepository), come encryptedPayload in
 // PassportEntity; updatedAt resta in chiaro per ordinare la lista senza dover decifrare tutto.

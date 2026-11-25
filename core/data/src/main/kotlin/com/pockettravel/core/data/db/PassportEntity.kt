@@ -1,7 +1,7 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import androidx.room3.Entity
+import androidx.room3.PrimaryKey
 
 // I dati sensibili (nome, numero documento, ecc.) vivono solo dentro encryptedPayload, cifrati
 // con KeystoreCipher — vedi PassportRepository. id/createdAt/updatedAt restano in chiaro perche'

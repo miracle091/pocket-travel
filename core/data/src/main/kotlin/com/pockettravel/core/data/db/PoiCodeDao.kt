@@ -1,7 +1,7 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Dao
-import androidx.room.Query
+import androidx.room3.Dao
+import androidx.room3.Query
 
 /** Le tabelle poi_region e poi_code, a cui l'importazione dei POI chiede i numeri da scrivere in [PoiRow]. */
 @Dao

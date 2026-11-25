@@ -4,7 +4,9 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Log
-import androidx.room.Room
+import androidx.room3.Room
+import androidx.room3.useWriterConnection
+import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.core.data.crypto.HistoryKeys
@@ -38,7 +40,7 @@ class ConversationHistoryDeviceTest {
 
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
     private val dbName = "conversation-history-test.db"
-    private val db = Room.databaseBuilder(context, RegionDatabase::class.java, dbName).build()
+    private val db = Room.databaseBuilder(context, RegionDatabase::class.java, dbName).setDriver(AndroidSQLiteDriver()).build()
 
     @After
     fun tearDown() {
@@ -62,7 +64,7 @@ class ConversationHistoryDeviceTest {
         val reader = keys.completeUnlock(unlock.cipher)
         // Prima lettura: aspetta le scritture in coda e scalda il codice.
         assertEquals(CONVERSATIONS, repository.list(reader).size)
-        db.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(TRUNCATE)").close()
+        db.useWriterConnection { it.usePrepared("PRAGMA wal_checkpoint(TRUNCATE)") { statement -> statement.step() } }
         val perConversation = (databaseBytes() - sizeBefore) / CONVERSATIONS
 
         val listMs = measureTimeMillis { repository.list(reader) }

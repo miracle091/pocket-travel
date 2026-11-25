@@ -2,7 +2,8 @@ package com.pockettravel.core.sync
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import androidx.room.Room
+import androidx.room3.Room
+import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.core.data.RegionRepository
@@ -44,7 +45,7 @@ class PackageImporterDeviceTest {
     fun setUp() {
         workDir.deleteRecursively()
         workDir.mkdirs()
-        db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).build()
+        db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).setDriver(AndroidSQLiteDriver()).build()
         val storage = RegionStorage(File(workDir, "regions").apply { mkdirs() }, File(workDir, "staging").apply { mkdirs() })
         repository = RoomRegionRepository(db.installedRegionDao(), db.poiDao(), storage, db, db.cityDao(), Dispatchers.IO)
     }

@@ -1,7 +1,7 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import androidx.room3.Entity
+import androidx.room3.PrimaryKey
 
 /*
  * Tabelle vacc_* di guides.db (tools/data-pipeline, GenerateVaccinations), copiate cosi' come sono:

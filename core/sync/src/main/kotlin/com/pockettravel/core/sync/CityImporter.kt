@@ -2,7 +2,7 @@ package com.pockettravel.core.sync
 
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
-import androidx.room.withTransaction
+import androidx.room3.withWriteTransaction
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.db.CityClimateEntity
 import com.pockettravel.core.data.db.CityDao
@@ -41,7 +41,7 @@ class CityImporter @Inject constructor(
 
     /** Sostituisce le guide delle citta' della regione: va chiamata dentro RegionRepository.inInstallTransaction. */
     suspend fun replace(regionId: String, cityPackage: CityPackage) {
-        database.withTransaction {
+        database.withWriteTransaction {
             cityDao.deleteForRegion(regionId)
             cityDao.insertAll(cityPackage.sections)
             cityDao.deleteClimateForRegion(regionId)

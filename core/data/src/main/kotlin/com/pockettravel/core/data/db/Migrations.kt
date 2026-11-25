@@ -1,8 +1,9 @@
 package com.pockettravel.core.data.db
 
 import android.annotation.SuppressLint
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.room3.migration.Migration
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import com.pockettravel.core.data.POI_TO_REDOWNLOAD_VERSION
 import java.io.File
 
@@ -19,16 +20,16 @@ val UNRELEASED_VERSIONS = intArrayOf(1, 2, 4, 7, 8, 10, 12, 13, 14, 16, 18, 19, 
 
 // Da 3 (v0.2.0 e v0.3.0) a 5 (v0.4.0).
 val MIGRATION_3_5 = object : Migration(3, 5) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+    override suspend fun migrate(connection: SQLiteConnection) {
         // 3 -> 4:
         //   Numero di telefono del POI (ambasciate/consolati in primo luogo, ma vale per qualunque POI
         //   che lo abbia su OSM): nullable, i pacchetti regionali gia' pubblicati non lo portano finche'
         //   non vengono ripubblicati da tools/data-pipeline — la colonna resta NULL per quelli fino ad
         //   allora, non un errore di migrazione.
-        db.execSQL("ALTER TABLE `poi` ADD COLUMN `phone` TEXT")
+        connection.execSQL("ALTER TABLE `poi` ADD COLUMN `phone` TEXT")
 
         // 4 -> 5.
-        db.execSQL(
+        connection.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `emergency_numbers` (
                 `regionId` TEXT NOT NULL PRIMARY KEY,
@@ -49,8 +50,8 @@ val MIGRATION_3_5 = object : Migration(3, 5) {
 // i POI dal resto). installed_guides resta vuota: le guide finora importate venivano dai
 // content.db per regione, il pacchetto guide unico va ancora scaricato.
 val MIGRATION_5_6 = object : Migration(5, 6) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
+    override suspend fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
             """
             CREATE TABLE `installed_regions_new` (
                 `regionId` TEXT NOT NULL PRIMARY KEY,
@@ -64,16 +65,16 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
             )
             """.trimIndent()
         )
-        db.execSQL(
+        connection.execSQL(
             """
             INSERT INTO `installed_regions_new`
             SELECT `regionId`, `displayName`, `version`, `version`, `version`, NULL, `sizeBytes`, `installedAt`
             FROM `installed_regions`
             """.trimIndent()
         )
-        db.execSQL("DROP TABLE `installed_regions`")
-        db.execSQL("ALTER TABLE `installed_regions_new` RENAME TO `installed_regions`")
-        db.execSQL(
+        connection.execSQL("DROP TABLE `installed_regions`")
+        connection.execSQL("ALTER TABLE `installed_regions_new` RENAME TO `installed_regions`")
+        connection.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `installed_guides` (
                 `id` INTEGER NOT NULL PRIMARY KEY,
@@ -87,79 +88,79 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
 
 // Da 6 (v0.5.0) a 9 (v0.6.0).
 val MIGRATION_6_9 = object : Migration(6, 9) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+    override suspend fun migrate(connection: SQLiteConnection) {
         // 6 -> 7:
         //   Regioni senza numero di emergenza centralizzato, dal guides.db: vuota finche' non si importa un
         //   pacchetto guide che la contiene.
-        db.execSQL("CREATE TABLE IF NOT EXISTS `emergency_numbers_none` (`regionId` TEXT NOT NULL PRIMARY KEY)")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `emergency_numbers_none` (`regionId` TEXT NOT NULL PRIMARY KEY)")
 
         // 7 -> 8:
         //   Codice paese per la bandiera in Spazio: le regioni gia' installate restano a NULL finche' l'elenco
         //   regioni non lo riempie dal catalogo (RegionListViewModel.refresh).
-        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `countryCode` TEXT")
+        connection.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `countryCode` TEXT")
 
         // 8 -> 9:
         //   Pacchetto civici (addresses.pmtiles): nessuna regione gia' installata lo ha.
-        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `addressesVersion` TEXT")
+        connection.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `addressesVersion` TEXT")
     }
 }
 
 // Da 9 (v0.6.0) a 11 (v0.7.0).
 val MIGRATION_9_11 = object : Migration(9, 11) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+    override suspend fun migrate(connection: SQLiteConnection) {
         // 9 -> 10:
         //   Pacchetto POI extra (poi-extra.db): i POI gia' importati sono tutti del pacchetto base.
-        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `poiExtraVersion` TEXT")
-        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `poiExtraSizeBytes` INTEGER")
-        db.execSQL("ALTER TABLE `poi` ADD COLUMN `extra` INTEGER NOT NULL DEFAULT 0")
+        connection.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `poiExtraVersion` TEXT")
+        connection.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `poiExtraSizeBytes` INTEGER")
+        connection.execSQL("ALTER TABLE `poi` ADD COLUMN `extra` INTEGER NOT NULL DEFAULT 0")
 
         // 10 -> 11:
         //   Accessibilita' in sedia a rotelle dei POI (tag OSM "wheelchair"): i POI gia' importati non la hanno.
-        db.execSQL("ALTER TABLE `poi` ADD COLUMN `wheelchair` TEXT")
+        connection.execSQL("ALTER TABLE `poi` ADD COLUMN `wheelchair` TEXT")
     }
 }
 
 // Da 11 (v0.7.0) a 15 (v0.8.0).
 val MIGRATION_11_15 = object : Migration(11, 15) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+    override suspend fun migrate(connection: SQLiteConnection) {
         // 11 -> 12:
         //   Indice su poi.regionId: senza, caricare o eliminare i POI di una regione scorre l'intera tabella.
-        db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId` ON `poi` (`regionId`)")
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId` ON `poi` (`regionId`)")
 
         // 12 -> 13:
         //   Mappa d'insieme della regione (preview.pmtiles, pochi zoom): si installa e aggiorna da sola con
         //   ogni download della regione (RegionPackageInstaller), non e' un PackageKind ne' un pacchetto che
         //   l'utente puo' togliere a parte - le regioni gia' installate la prendono al prossimo aggiornamento.
-        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `previewVersion` TEXT")
+        connection.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `previewVersion` TEXT")
 
         // 13 -> 14:
         //   Indice su guide_sections.regionId: senza, sectionsForRegion scorre l'intera tabella mondiale delle
         //   guide. Il tokenizer FTS delle guide passa da "simple" a unicode61, che casefolda anche le maiuscole
         //   accentate: la tabella va ricreata (FTS4 non supporta ALTER del tokenizer), con le stesse trigger di
         //   sincronizzazione col content table e un rebuild dell'indice sui dati gia' importati.
-        db.execSQL("CREATE INDEX IF NOT EXISTS `index_guide_sections_regionId` ON `guide_sections` (`regionId`)")
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_guide_sections_regionId` ON `guide_sections` (`regionId`)")
 
-        db.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_guide_sections_fts_BEFORE_UPDATE")
-        db.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_guide_sections_fts_BEFORE_DELETE")
-        db.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_guide_sections_fts_AFTER_UPDATE")
-        db.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_guide_sections_fts_AFTER_INSERT")
-        db.execSQL("DROP TABLE IF EXISTS `guide_sections_fts`")
-        db.execSQL(
+        connection.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_guide_sections_fts_BEFORE_UPDATE")
+        connection.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_guide_sections_fts_BEFORE_DELETE")
+        connection.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_guide_sections_fts_AFTER_UPDATE")
+        connection.execSQL("DROP TRIGGER IF EXISTS room_fts_content_sync_guide_sections_fts_AFTER_INSERT")
+        connection.execSQL("DROP TABLE IF EXISTS `guide_sections_fts`")
+        connection.execSQL(
             "CREATE VIRTUAL TABLE IF NOT EXISTS `guide_sections_fts` USING FTS4(`title` TEXT NOT NULL, `body` TEXT NOT NULL, content=`guide_sections`, tokenize=unicode61)"
         )
-        db.execSQL(
+        connection.execSQL(
             "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_guide_sections_fts_BEFORE_UPDATE BEFORE UPDATE ON `guide_sections` BEGIN DELETE FROM `guide_sections_fts` WHERE `docid`=OLD.`rowid`; END"
         )
-        db.execSQL(
+        connection.execSQL(
             "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_guide_sections_fts_BEFORE_DELETE BEFORE DELETE ON `guide_sections` BEGIN DELETE FROM `guide_sections_fts` WHERE `docid`=OLD.`rowid`; END"
         )
-        db.execSQL(
+        connection.execSQL(
             "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_guide_sections_fts_AFTER_UPDATE AFTER UPDATE ON `guide_sections` BEGIN INSERT INTO `guide_sections_fts`(`docid`, `title`, `body`) VALUES (NEW.`rowid`, NEW.`title`, NEW.`body`); END"
         )
-        db.execSQL(
+        connection.execSQL(
             "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_guide_sections_fts_AFTER_INSERT AFTER INSERT ON `guide_sections` BEGIN INSERT INTO `guide_sections_fts`(`docid`, `title`, `body`) VALUES (NEW.`rowid`, NEW.`title`, NEW.`body`); END"
         )
-        db.execSQL("INSERT INTO guide_sections_fts(guide_sections_fts) VALUES('rebuild')")
+        connection.execSQL("INSERT INTO guide_sections_fts(guide_sections_fts) VALUES('rebuild')")
 
         // 14 -> 15:
         //   Guide delle citta' per regione e note personali.
@@ -168,10 +169,10 @@ val MIGRATION_11_15 = object : Migration(11, 15) {
         //   trigger di sincronizzazione col content table di guide_sections_fts (vedi MIGRATION_11_15, passo 13 -> 14).
         //   citiesVersion/citiesSizeBytes su installed_regions restano NULL finche' una regione non scarica
         //   il pacchetto citta'; notes resta vuota finche' l'utente non scrive la prima nota.
-        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `citiesVersion` TEXT")
-        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `citiesSizeBytes` INTEGER")
+        connection.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `citiesVersion` TEXT")
+        connection.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `citiesSizeBytes` INTEGER")
 
-        db.execSQL(
+        connection.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `city_sections` (
                 `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -184,24 +185,24 @@ val MIGRATION_11_15 = object : Migration(11, 15) {
             )
             """.trimIndent()
         )
-        db.execSQL("CREATE INDEX IF NOT EXISTS `index_city_sections_regionId_city` ON `city_sections` (`regionId`, `city`)")
-        db.execSQL(
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_city_sections_regionId_city` ON `city_sections` (`regionId`, `city`)")
+        connection.execSQL(
             "CREATE VIRTUAL TABLE IF NOT EXISTS `city_sections_fts` USING FTS4(`title` TEXT NOT NULL, `body` TEXT NOT NULL, content=`city_sections`, tokenize=unicode61)"
         )
-        db.execSQL(
+        connection.execSQL(
             "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_city_sections_fts_BEFORE_UPDATE BEFORE UPDATE ON `city_sections` BEGIN DELETE FROM `city_sections_fts` WHERE `docid`=OLD.`rowid`; END"
         )
-        db.execSQL(
+        connection.execSQL(
             "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_city_sections_fts_BEFORE_DELETE BEFORE DELETE ON `city_sections` BEGIN DELETE FROM `city_sections_fts` WHERE `docid`=OLD.`rowid`; END"
         )
-        db.execSQL(
+        connection.execSQL(
             "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_city_sections_fts_AFTER_UPDATE AFTER UPDATE ON `city_sections` BEGIN INSERT INTO `city_sections_fts`(`docid`, `title`, `body`) VALUES (NEW.`rowid`, NEW.`title`, NEW.`body`); END"
         )
-        db.execSQL(
+        connection.execSQL(
             "CREATE TRIGGER IF NOT EXISTS room_fts_content_sync_city_sections_fts_AFTER_INSERT AFTER INSERT ON `city_sections` BEGIN INSERT INTO `city_sections_fts`(`docid`, `title`, `body`) VALUES (NEW.`rowid`, NEW.`title`, NEW.`body`); END"
         )
 
-        db.execSQL(
+        connection.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `notes` (
                 `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -218,28 +219,28 @@ val MIGRATION_11_15 = object : Migration(11, 15) {
 // Orari e indirizzo dei POI di cibo, alloggi e ambasciate, sito ed email di alloggi e ambasciate, paese rappresentato dalle ambasciate, nomi in inglese e italiano: vuoti finche' la regione non riscarica
 // i punti di interesse pubblicati con questi dati; versione degli orari dei mezzi pubblici installati.
 val MIGRATION_15_17 = object : Migration(15, 17) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE `poi` ADD COLUMN `openingHours` TEXT")
-        db.execSQL("ALTER TABLE `poi` ADD COLUMN `address` TEXT")
-        db.execSQL("ALTER TABLE `poi` ADD COLUMN `website` TEXT")
-        db.execSQL("ALTER TABLE `poi` ADD COLUMN `email` TEXT")
-        db.execSQL("ALTER TABLE `poi` ADD COLUMN `country` TEXT")
-        db.execSQL("ALTER TABLE `poi` ADD COLUMN `nameEn` TEXT")
-        db.execSQL("ALTER TABLE `poi` ADD COLUMN `nameIt` TEXT")
+    override suspend fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `poi` ADD COLUMN `openingHours` TEXT")
+        connection.execSQL("ALTER TABLE `poi` ADD COLUMN `address` TEXT")
+        connection.execSQL("ALTER TABLE `poi` ADD COLUMN `website` TEXT")
+        connection.execSQL("ALTER TABLE `poi` ADD COLUMN `email` TEXT")
+        connection.execSQL("ALTER TABLE `poi` ADD COLUMN `country` TEXT")
+        connection.execSQL("ALTER TABLE `poi` ADD COLUMN `nameEn` TEXT")
+        connection.execSQL("ALTER TABLE `poi` ADD COLUMN `nameIt` TEXT")
         // Orari dei mezzi pubblici (pacchetto TRANSIT): nessuna regione gia' installata li ha.
-        db.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `transitVersion` TEXT")
+        connection.execSQL("ALTER TABLE `installed_regions` ADD COLUMN `transitVersion` TEXT")
     }
 }
 
 // Da 17 (v0.9.0) a 24 (v0.10.0). Dentro, i passi originali nello stesso ordine.
 val MIGRATION_17_24 = object : Migration(17, 24) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+    override suspend fun migrate(connection: SQLiteConnection) {
         // 17 -> 18: ambasciate e consolati da Wikidata (diplomatic_missions), vuota finche' non si
         // importa un pacchetto guide che la contiene; bagni accessibili e posti auto per disabili dei
         // POI, vuoti finche' la regione non riscarica i punti di interesse.
-        db.execSQL("ALTER TABLE `poi` ADD COLUMN `toiletsWheelchair` TEXT")
-        db.execSQL("ALTER TABLE `poi` ADD COLUMN `capacityDisabled` INTEGER")
-        db.execSQL(
+        connection.execSQL("ALTER TABLE `poi` ADD COLUMN `toiletsWheelchair` TEXT")
+        connection.execSQL("ALTER TABLE `poi` ADD COLUMN `capacityDisabled` INTEGER")
+        connection.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `diplomatic_missions` (
                 `wikidata` TEXT NOT NULL,
@@ -259,12 +260,12 @@ val MIGRATION_17_24 = object : Migration(17, 24) {
             )
             """.trimIndent()
         )
-        db.execSQL("CREATE INDEX IF NOT EXISTS `index_diplomatic_missions_sending_host` ON `diplomatic_missions` (`sending`, `host`)")
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_diplomatic_missions_sending_host` ON `diplomatic_missions` (`sending`, `host`)")
 
         // 18 -> 19: dati vaccinali per il viaggio (vacc_*, dal guides.db), vuoti finche' non si importa
         // un pacchetto guide che li contiene. Una tabella per file curato della pipeline, con le stesse
         // colonne.
-        db.execSQL(
+        connection.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `vacc_yf_risk` (
                 `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -277,7 +278,7 @@ val MIGRATION_17_24 = object : Migration(17, 24) {
             )
             """.trimIndent()
         )
-        db.execSQL(
+        connection.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `vacc_yf_entry` (
                 `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -294,7 +295,7 @@ val MIGRATION_17_24 = object : Migration(17, 24) {
             )
             """.trimIndent()
         )
-        db.execSQL(
+        connection.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `vacc_polio_status` (
                 `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -306,7 +307,7 @@ val MIGRATION_17_24 = object : Migration(17, 24) {
             )
             """.trimIndent()
         )
-        db.execSQL(
+        connection.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `vacc_polio_entry` (
                 `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -322,7 +323,7 @@ val MIGRATION_17_24 = object : Migration(17, 24) {
             )
             """.trimIndent()
         )
-        db.execSQL(
+        connection.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `vacc_special` (
                 `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -339,7 +340,7 @@ val MIGRATION_17_24 = object : Migration(17, 24) {
             )
             """.trimIndent()
         )
-        db.execSQL(
+        connection.execSQL(
             """
             CREATE TABLE IF NOT EXISTS `vacc_recommended` (
                 `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -353,61 +354,61 @@ val MIGRATION_17_24 = object : Migration(17, 24) {
             )
             """.trimIndent()
         )
-        db.execSQL("CREATE TABLE IF NOT EXISTS `vacc_meta` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `vacc_meta` (`key` TEXT NOT NULL, `value` TEXT NOT NULL, PRIMARY KEY(`key`))")
 
         // 19 -> 20: popolazione e capitale delle citta' (CitySectionEntity.population, capital), per le
         // citta' principali del riquadro Citta'.
-        db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `population` INTEGER")
-        db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `capital` INTEGER NOT NULL DEFAULT 0")
+        connection.execSQL("ALTER TABLE `city_sections` ADD COLUMN `population` INTEGER")
+        connection.execSQL("ALTER TABLE `city_sections` ADD COLUMN `capital` INTEGER NOT NULL DEFAULT 0")
 
         // 20 -> 21: indice dei POI su (regionId, lat), cosi' i segnalini e i piu' vicini non scandiscono
         // tutta la regione.
-        db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId_lat` ON `poi` (`regionId`, `lat`)")
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId_lat` ON `poi` (`regionId`, `lat`)")
 
         // 21 -> 22: indice dei POI su (regionId, category, osmTag): le coppie categoria/tag e i conteggi dei
         // trasporti si leggono dall'indice.
-        db.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId_category_osmTag` ON `poi` (`regionId`, `category`, `osmTag`)")
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_poi_regionId_category_osmTag` ON `poi` (`regionId`, `category`, `osmTag`)")
 
         // 22 -> 23: coordinate delle citta' (CitySectionEntity.latitude, longitude), per la distanza tra due
         // citta' dell'assistente.
-        db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `latitude` REAL")
-        db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `longitude` REAL")
+        connection.execSQL("ALTER TABLE `city_sections` ADD COLUMN `latitude` REAL")
+        connection.execSQL("ALTER TABLE `city_sections` ADD COLUMN `longitude` REAL")
 
         // 23 -> 24: sezioni tradotte automaticamente dall'altra lingua (GuideSectionEntity.translated,
         // CitySectionEntity.translated), segnate nelle Fonti della guida: false per le sezioni gia'
         // importate finche' le guide non vengono riscaricate.
-        db.execSQL("ALTER TABLE `guide_sections` ADD COLUMN `translated` INTEGER NOT NULL DEFAULT 0")
-        db.execSQL("ALTER TABLE `city_sections` ADD COLUMN `translated` INTEGER NOT NULL DEFAULT 0")
+        connection.execSQL("ALTER TABLE `guide_sections` ADD COLUMN `translated` INTEGER NOT NULL DEFAULT 0")
+        connection.execSQL("ALTER TABLE `city_sections` ADD COLUMN `translated` INTEGER NOT NULL DEFAULT 0")
     }
 }
 
 // Da 24 (v0.10.0) a 25 (v0.11.0): POI in forma compatta (poi_region, poi_code, coordinate intere in microgradi), da 172 a
 // 94 MB per un milione di POI.
 val MIGRATION_24_25 = object : Migration(24, 25) {
-    override fun migrate(db: SupportSQLiteDatabase) = migratePoiToCompact(db)
+    override suspend fun migrate(connection: SQLiteConnection) = migratePoiToCompact(connection)
 }
 
 // Da 25 (v0.11.0) a 26 (v0.12.0): cronologia delle conversazioni dell'assistente (conversations, conversation_turns), vuota.
 val MIGRATION_25_26 = object : Migration(25, 26) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
+    override suspend fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
             "CREATE TABLE IF NOT EXISTS `conversations` (`id` TEXT NOT NULL, `wrappedKey` TEXT NOT NULL, `encryptedSummary` TEXT NOT NULL, " +
                 "`createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `archiveCount` INTEGER NOT NULL, `resumeCount` INTEGER NOT NULL, " +
                 "`lastResumedAt` INTEGER, PRIMARY KEY(`id`))",
         )
-        db.execSQL(
+        connection.execSQL(
             "CREATE TABLE IF NOT EXISTS `conversation_turns` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `conversationId` TEXT NOT NULL, " +
                 "`encryptedPayload` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, FOREIGN KEY(`conversationId`) REFERENCES `conversations`(`id`) " +
                 "ON UPDATE NO ACTION ON DELETE CASCADE )",
         )
-        db.execSQL("CREATE INDEX IF NOT EXISTS `index_conversation_turns_conversationId` ON `conversation_turns` (`conversationId`)")
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_conversation_turns_conversationId` ON `conversation_turns` (`conversationId`)")
     }
 }
 
 // Da 26 a 27 (v0.14.0): clima mensile delle citta' (city_climate), vuoto finche' la regione non riscarica il pacchetto citta'.
 val MIGRATION_26_27 = object : Migration(26, 27) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
+    override suspend fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
             "CREATE TABLE IF NOT EXISTS `city_climate` (`regionId` TEXT NOT NULL, `city` TEXT NOT NULL, `month` INTEGER NOT NULL, " +
                 "`tempMax` REAL, `tempMin` REAL, `precipMm` REAL, `rainDays` REAL, `sourceUrl` TEXT NOT NULL, " +
                 "PRIMARY KEY(`regionId`, `city`, `month`))",
@@ -418,13 +419,13 @@ val MIGRATION_26_27 = object : Migration(26, 27) {
 // Da 27 a 28: termini locali delle guide (guide_terms), vuoti fino al prossimo aggiornamento delle guide. E' la migrazione piu'
 // recente: resta separata.
 val MIGRATION_27_28 = object : Migration(27, 28) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL(
+    override suspend fun migrate(connection: SQLiteConnection) {
+        connection.execSQL(
             "CREATE TABLE IF NOT EXISTS `guide_terms` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `regionId` TEXT NOT NULL, " +
                 "`term` TEXT NOT NULL, `aliases` TEXT NOT NULL, `title` TEXT NOT NULL, `summary` TEXT NOT NULL, `sourceUrl` TEXT NOT NULL, " +
                 "`revision` INTEGER)",
         )
-        db.execSQL("CREATE INDEX IF NOT EXISTS `index_guide_terms_regionId` ON `guide_terms` (`regionId`)")
+        connection.execSQL("CREATE INDEX IF NOT EXISTS `index_guide_terms_regionId` ON `guide_terms` (`regionId`)")
     }
 }
 
@@ -437,7 +438,7 @@ val MIGRATION_27_28 = object : Migration(27, 28) {
  * da riscaricare. Gli altri pacchetti della regione e i dati dell'utente non si toccano. [freeBytes] e' lo spazio libero del
  * disco; solo i test lo passano, per provare i due rami senza riempire il disco.
  */
-internal fun migratePoiToCompact(db: SupportSQLiteDatabase, freeBytes: Long = freeSpaceOf(db)) {
+internal fun migratePoiToCompact(db: SQLiteConnection, freeBytes: Long = freeSpaceOf(db)) {
     val convert = freeBytes >= poiConversionNeedsBytes(db)
     db.execSQL("CREATE TABLE IF NOT EXISTS `poi_region` (`ref` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `regionId` TEXT NOT NULL)")
     db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_poi_region_regionId` ON `poi_region` (`regionId`)")
@@ -455,7 +456,7 @@ internal fun migratePoiToCompact(db: SupportSQLiteDatabase, freeBytes: Long = fr
     if (convert) updateInstalledPoiSizes(db)
 }
 
-private fun createCompactPoiTable(db: SupportSQLiteDatabase) {
+private fun createCompactPoiTable(db: SQLiteConnection) {
     db.execSQL(
         """
         CREATE TABLE `poi_new` (
@@ -482,7 +483,7 @@ private fun createCompactPoiTable(db: SupportSQLiteDatabase) {
     )
 }
 
-private fun convertPoiRows(db: SupportSQLiteDatabase) {
+private fun convertPoiRows(db: SQLiteConnection) {
     db.execSQL("INSERT OR IGNORE INTO `poi_region` (`regionId`) SELECT DISTINCT `regionId` FROM `poi`")
     db.execSQL("INSERT OR IGNORE INTO `poi_code` (`category`, `osmTag`) SELECT DISTINCT `category`, `osmTag` FROM `poi`")
     // CROSS JOIN: la tabella vecchia si legge una volta, in ordine di rowid, e le due ricerche sono sugli indici unici delle
@@ -506,7 +507,7 @@ private fun convertPoiRows(db: SupportSQLiteDatabase) {
 
 // I POI non ci sono piu': la regione li segna da riscaricare (versione-segnaposto, peso a zero) e il peso registrato scende della
 // loro parte. Un pacchetto assente resta assente.
-private fun forgetInstalledPoi(db: SupportSQLiteDatabase) {
+private fun forgetInstalledPoi(db: SQLiteConnection) {
     db.execSQL(
         """
         UPDATE `installed_regions` SET
@@ -522,7 +523,7 @@ private fun forgetInstalledPoi(db: SupportSQLiteDatabase) {
 // Il peso registrato dei POI di ogni regione installata e' la stima sulle righe convertite, base ed extra a parte; il totale
 // della regione (sizeBytes) cambia della differenza. Tre istruzioni per non ripetere le sottoquery: la prima toglie il peso
 // vecchio, la seconda scrive il nuovo, la terza lo aggiunge.
-private fun updateInstalledPoiSizes(db: SupportSQLiteDatabase) {
+private fun updateInstalledPoiSizes(db: SQLiteConnection) {
     db.execSQL(
         "UPDATE `installed_regions` SET `sizeBytes` = MAX(0, `sizeBytes` - COALESCE(`poiSizeBytes`, 0) - COALESCE(`poiExtraSizeBytes`, 0))"
     )
@@ -542,16 +543,18 @@ private fun updateInstalledPoiSizes(db: SupportSQLiteDatabase) {
 // La conversione scrive la tabella nuova accanto a quella vecchia: la stima del suo peso (la stessa dei POI importati) per due,
 // perche' il WAL ne tiene una copia fino al checkpoint, piu' un margine. Il file non si accorcia da solo dopo la DROP: lo fa
 // DatabaseCompactor, all'avvio.
-internal fun poiConversionNeedsBytes(db: SupportSQLiteDatabase): Long {
-    val estimate = db.query("SELECT COALESCE(SUM($POI_ROW_ESTIMATE_SQL), 0) FROM `poi`").use { if (it.moveToFirst()) it.getLong(0) else 0L }
+internal fun poiConversionNeedsBytes(db: SQLiteConnection): Long {
+    val estimate = db.prepare("SELECT COALESCE(SUM($POI_ROW_ESTIMATE_SQL), 0) FROM `poi`").use { if (it.step()) it.getLong(0) else 0L }
     return 2 * estimate + CONVERSION_MARGIN_BYTES
 }
 
 // Spazio libero ora, senza la cache che il sistema potrebbe liberare: nella migrazione non c'e' un Context per
 // StorageManager.allocateBytes.
 @SuppressLint("UsableSpace")
-private fun freeSpaceOf(db: SupportSQLiteDatabase): Long {
-    val file = db.path?.takeIf { it != ":memory:" }?.let(::File)
+private fun freeSpaceOf(db: SQLiteConnection): Long {
+    // Il file del database principale: vuoto se e' in memoria.
+    val path = db.prepare("PRAGMA database_list").use { if (it.step()) it.getText(2) else null }
+    val file = path?.takeIf { it.isNotEmpty() }?.let(::File)
     return file?.absoluteFile?.parentFile?.usableSpace ?: Long.MAX_VALUE
 }
 

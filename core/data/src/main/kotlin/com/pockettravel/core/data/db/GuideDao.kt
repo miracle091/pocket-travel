@@ -1,10 +1,10 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Dao
-import androidx.room.Embedded
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
+import androidx.room3.Dao
+import androidx.room3.Embedded
+import androidx.room3.Insert
+import androidx.room3.OnConflictStrategy
+import androidx.room3.Query
 
 /**
  * Candidato di ricerca con il matchinfo FTS4 grezzo (formato 'pcxnal'), per ordinare per rilevanza

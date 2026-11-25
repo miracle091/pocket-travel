@@ -1,7 +1,7 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import androidx.room3.Entity
+import androidx.room3.PrimaryKey
 
 /** Versione del pacchetto guide (unico per tutte le regioni): al piu' una riga, id 0. */
 @Entity(tableName = "installed_guides")

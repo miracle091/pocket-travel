@@ -1,7 +1,8 @@
 package com.pockettravel.core.data.db
 
 import android.content.Context
-import androidx.room.Room
+import androidx.room3.Room
+import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pockettravel.core.data.FtsMatchInfo
@@ -30,7 +31,7 @@ class RegionDatabaseDaoTest {
     @Before
     fun open() {
         val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
-        db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).build()
+        db = Room.inMemoryDatabaseBuilder(context, RegionDatabase::class.java).setDriver(AndroidSQLiteDriver()).build()
     }
 
     @After

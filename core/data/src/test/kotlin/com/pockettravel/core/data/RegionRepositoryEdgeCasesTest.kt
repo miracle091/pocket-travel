@@ -1,6 +1,6 @@
 package com.pockettravel.core.data
 
-import androidx.room.InvalidationTracker
+import androidx.room3.InvalidationTracker
 import com.pockettravel.core.data.db.CategoryTag
 import com.pockettravel.core.data.db.CityClimateEntity
 import com.pockettravel.core.data.db.CityDao
@@ -127,7 +127,7 @@ class RegionRepositoryEdgeCasesTest {
         override fun vaccinationDao(): VaccinationDao = throw UnsupportedOperationException()
         override fun conversationDao(): ConversationDao = throw UnsupportedOperationException()
         override fun createInvalidationTracker(): InvalidationTracker = throw UnsupportedOperationException()
-        override fun clearAllTables(): Unit = throw UnsupportedOperationException()
+        override suspend fun clearAllTables(): Unit = throw UnsupportedOperationException()
     }
 
     private val dao = MemoryRegionDao()

@@ -2,7 +2,7 @@ package com.pockettravel.core.sync
 
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
-import androidx.room.withTransaction
+import androidx.room3.withWriteTransaction
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.RegionRepository
 import com.pockettravel.core.data.db.DiplomaticMissionDao
@@ -54,7 +54,7 @@ class GuidesImporter @Inject constructor(
             val noCentralNumber = readNoCentralEmergencyNumber(db)
             val missions = readDiplomaticMissions(db)
             val vaccinations = readVaccinations(db)
-            database.withTransaction {
+            database.withWriteTransaction {
                 guideDao.deleteAll()
                 guideTermDao.deleteAll()
                 emergencyNumbersDao.deleteAll()

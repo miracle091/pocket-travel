@@ -1,8 +1,8 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.Query
+import androidx.room3.Dao
+import androidx.room3.Insert
+import androidx.room3.Query
 
 /** Poche decine di termini per regione: l'assistente li legge tutti e cerca i nomi nella domanda in Kotlin. */
 @Dao

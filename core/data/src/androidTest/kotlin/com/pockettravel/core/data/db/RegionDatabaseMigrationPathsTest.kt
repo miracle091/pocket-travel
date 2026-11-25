@@ -1,9 +1,9 @@
 package com.pockettravel.core.data.db
 
 import android.content.Context
-import androidx.room.Room
-import androidx.room.testing.MigrationTestHelper
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.room3.Room
+import androidx.room3.useReaderConnection
+import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
@@ -25,7 +25,7 @@ import org.junit.runner.RunWith
 class RegionDatabaseMigrationPathsTest {
 
     @get:Rule
-    val helper = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), RegionDatabase::class.java)
+    val helper = migrationTestHelper(DB_NAME)
 
     private val context: Context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
@@ -39,7 +39,7 @@ class RegionDatabaseMigrationPathsTest {
         for (start in RELEASED_STARTS) {
             helper.createDatabase(DB_NAME, start).use { db -> seed(db, start) }
 
-            helper.runMigrationsAndValidate(DB_NAME, CURRENT_VERSION, true, *ALL_MIGRATIONS).use { db ->
+            helper.migrateAndValidate(CURRENT_VERSION, *ALL_MIGRATIONS).use { db ->
                 val label = "partendo dalla versione $start"
                 assertEquals(label, "cifrato", text(db, "SELECT encryptedPayload FROM passport_vault WHERE id = 'p1'"))
                 assertEquals(label, "Italia", text(db, "SELECT displayName FROM installed_regions WHERE regionId = 'italia'"))
@@ -58,7 +58,7 @@ class RegionDatabaseMigrationPathsTest {
         for (start in RELEASED_STARTS) {
             helper.createDatabase(DB_NAME, start).use { db -> seed(db, start) }
 
-            helper.runMigrationsAndValidate(DB_NAME, CURRENT_VERSION, true, *ALL_MIGRATIONS).use { db ->
+            helper.migrateAndValidate(CURRENT_VERSION, *ALL_MIGRATIONS).use { db ->
                 val label = "partendo dalla versione $start"
                 val triggers = names(db, "trigger")
                 assertTrue("$label: trigger FTS mancanti ${FTS_TRIGGERS - triggers}", triggers.containsAll(FTS_TRIGGERS))
@@ -87,7 +87,7 @@ class RegionDatabaseMigrationPathsTest {
         for (start in RELEASED_STARTS) {
             helper.createDatabase(DB_NAME, start).use { db -> seed(db, start) }
 
-            helper.runMigrationsAndValidate(DB_NAME, CURRENT_VERSION, true, *ALL_MIGRATIONS).use { db ->
+            helper.migrateAndValidate(CURRENT_VERSION, *ALL_MIGRATIONS).use { db ->
                 val label = "partendo dalla versione $start"
                 val indexes = names(db, "index")
                 assertTrue("$label: indici mancanti ${EXPECTED_INDEXES - indexes}", indexes.containsAll(EXPECTED_INDEXES))
@@ -105,6 +105,7 @@ class RegionDatabaseMigrationPathsTest {
             helper.createDatabase(DB_NAME, start).use { db -> seed(db, start) }
 
             val database = Room.databaseBuilder(context, RegionDatabase::class.java, DB_NAME)
+                .setDriver(AndroidSQLiteDriver())
                 .addMigrations(*ALL_MIGRATIONS)
                 .build()
             try {
@@ -134,6 +135,7 @@ class RegionDatabaseMigrationPathsTest {
             }
 
             val database = Room.databaseBuilder(context, RegionDatabase::class.java, DB_NAME)
+                .setDriver(AndroidSQLiteDriver())
                 .addMigrations(*ALL_MIGRATIONS)
                 .fallbackToDestructiveMigrationFrom(dropAllTables = true, *UNRELEASED_VERSIONS)
                 .build()
@@ -141,7 +143,10 @@ class RegionDatabaseMigrationPathsTest {
                 runBlocking {
                     assertEquals("partendo dalla versione $start", emptyList<Any>(), database.guideDao().sectionsForRegion("peru"))
                 }
-                assertEquals(CURRENT_VERSION, database.openHelper.readableDatabase.version)
+                val version = runBlocking {
+                    database.useReaderConnection { it.usePrepared("PRAGMA user_version") { statement -> statement.step(); statement.getLong(0) } }
+                }
+                assertEquals(CURRENT_VERSION.toLong(), version)
             } finally {
                 database.close()
                 context.deleteDatabase(DB_NAME)
@@ -151,7 +156,7 @@ class RegionDatabaseMigrationPathsTest {
 
     // Dati dell'utente e delle regioni che ogni versione di partenza sa scrivere: le colonne comuni a tutte le versioni
     // pubblicate, con i nomi che hanno in quella versione.
-    private fun seed(db: SupportSQLiteDatabase, version: Int) {
+    private fun seed(db: TestDb, version: Int) {
         db.execSQL("INSERT INTO passport_vault VALUES ('p1', 'cifrato', 1, 2)")
         val mapColumn = if (version <= 5) "version" else "mapVersion"
         db.execSQL("INSERT INTO installed_regions (regionId, displayName, $mapColumn, sizeBytes, installedAt) VALUES ('italia', 'Italia', '1', 1000, 42)")
@@ -173,19 +178,19 @@ class RegionDatabaseMigrationPathsTest {
         }
     }
 
-    private fun text(db: SupportSQLiteDatabase, sql: String): String =
+    private fun text(db: TestDb, sql: String): String =
         db.query(sql).use { cursor ->
             assertTrue(sql, cursor.moveToFirst())
-            cursor.getString(0)
+            requireNotNull(cursor.getString(0)) { "valore nullo per $sql" }
         }
 
-    private fun count(db: SupportSQLiteDatabase, sql: String): Int =
+    private fun count(db: TestDb, sql: String): Int =
         db.query(sql).use { cursor ->
             cursor.moveToFirst()
             cursor.getInt(0)
         }
 
-    private fun names(db: SupportSQLiteDatabase, type: String): Set<String> =
+    private fun names(db: TestDb, type: String): Set<String> =
         db.query("SELECT name FROM sqlite_master WHERE type = '$type'").use { cursor ->
             generateSequence { if (cursor.moveToNext()) cursor.getString(0) else null }.toSet()
         }

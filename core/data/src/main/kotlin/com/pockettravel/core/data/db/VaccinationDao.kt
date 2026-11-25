@@ -1,9 +1,9 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.Query
-import androidx.room.Transaction
+import androidx.room3.Dao
+import androidx.room3.Insert
+import androidx.room3.Query
+import androidx.room3.Transaction
 
 /** Le righe di tutte le tabelle vacc_*, lette insieme da [VaccinationDao.readAll]. */
 class VaccinationRows(

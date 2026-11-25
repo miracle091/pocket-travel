@@ -1,12 +1,18 @@
 package com.pockettravel.core.data
 
-import android.database.sqlite.SQLiteException
 import android.util.Log
-import com.pockettravel.core.data.db.RegionDatabase
+import androidx.room3.PooledConnection
+import androidx.room3.executeSQL
+import androidx.sqlite.SQLiteException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+
+/** La connessione di scrittura di region.db, fuori da ogni transazione: Room la da' con useWriterConnection, i test con sqlite-jdbc. */
+fun interface WriterAccess {
+    suspend fun use(block: suspend (PooledConnection) -> Unit)
+}
 
 /**
  * Restituisce al sistema lo spazio che region.db non usa piu'. SQLite non rimpicciolisce il file: le pagine delle righe
@@ -18,7 +24,7 @@ import kotlinx.coroutines.withContext
  * (importazione delle guide) il VACUUM le aspetta da solo, perche' SQLite ha un solo writer.
  */
 class DatabaseCompactor(
-    private val database: RegionDatabase,
+    private val writer: WriterAccess,
     private val ioDispatcher: CoroutineDispatcher,
     private val availableBytes: () -> Long,
 ) {
@@ -39,7 +45,7 @@ class DatabaseCompactor(
         try {
             withContext(ioDispatcher) {
                 try {
-                    compact()
+                    writer.use { compact(it) }
                 } catch (error: SQLiteException) {
                     Log.w(TAG, "VACUUM di region.db non riuscito", error)
                 }
@@ -49,21 +55,20 @@ class DatabaseCompactor(
         }
     }
 
-    private fun compact() {
-        val db = database.openHelper.writableDatabase
-        fun pragma(name: String): Long = db.query("PRAGMA $name").use { if (it.moveToFirst()) it.getLong(0) else 0L }
+    private suspend fun compact(db: PooledConnection) {
+        suspend fun pragma(name: String): Long = db.usePrepared("PRAGMA $name") { if (it.step()) it.getLong(0) else 0L }
         val pageSize = pragma("page_size")
         val freeBytes = pragma("freelist_count") * pageSize
         if (freeBytes < MIN_FREE_BYTES) return
         // Il WAL prima: con le pagine ancora li' il file principale sembra piu' piccolo e il VACUUM lo raddoppierebbe.
-        db.query("PRAGMA wal_checkpoint(TRUNCATE)").use { it.moveToFirst() }
+        db.executeSQL("PRAGMA wal_checkpoint(TRUNCATE)")
         // Il VACUUM scrive i dati vivi due volte (la copia ricostruita e il WAL) prima che il file si accorci: le pagine libere
         // non contano, e dopo una migrazione che ha lasciato mezzo file vuoto sono la meta'.
         val liveBytes = pragma("page_count") * pageSize - freeBytes
         if (availableBytes() < 2 * liveBytes) return
-        db.execSQL("VACUUM")
+        db.executeSQL("VACUUM")
         // Il VACUUM in modalita' WAL passa dal log: svuotarlo, o resterebbe un -wal grande quanto il database.
-        db.query("PRAGMA wal_checkpoint(TRUNCATE)").use { it.moveToFirst() }
+        db.executeSQL("PRAGMA wal_checkpoint(TRUNCATE)")
     }
 
     private companion object {

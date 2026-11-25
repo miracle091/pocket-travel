@@ -45,7 +45,6 @@ dependencies {
     implementation(project(":core:tiles"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
     implementation(libs.work.runtime.ktx)
     implementation(libs.okhttp)
     // Decompressione dei pacchetti POI .xz (xz-java, 0BSD, Java puro).

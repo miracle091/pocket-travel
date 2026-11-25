@@ -1,6 +1,6 @@
 package com.pockettravel.core.data.db
 
-import androidx.room.Entity
+import androidx.room3.Entity
 
 // Medie mensili della tabella del clima di Wikipedia (pipeline: tabella city_climate di cities.db). La chiave
 // (regionId, city, month) copre anche le ricerche per (regionId, city): niente indice a parte.
