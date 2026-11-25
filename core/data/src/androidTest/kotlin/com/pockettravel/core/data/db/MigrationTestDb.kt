@@ -13,7 +13,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 
 /**
- * Il minimo di SQLiteConnection che servono ai test di migrazione, con i nomi che avevano con SupportSQLiteDatabase e Cursor:
+ * I metodi di SQLiteConnection che servono ai test di migrazione, con i nomi che avevano con SupportSQLiteDatabase e Cursor:
  * le righe di una query si leggono subito, cosi' i test restano come erano.
  */
 internal class TestDb(val connection: SQLiteConnection) : AutoCloseable {
