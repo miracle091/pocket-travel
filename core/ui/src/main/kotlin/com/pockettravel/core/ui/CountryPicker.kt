@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -16,6 +17,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,7 +81,10 @@ fun CountryPickerSheet(title: String, selected: String?, onSelect: (String) -> U
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.s),
             )
-            LazyColumn {
+            // La lista tiene la posizione per chiave: senza questo, cancellata la ricerca, resterebbe sul primo risultato.
+            val listState = rememberLazyListState()
+            LaunchedEffect(query) { listState.scrollToItem(0) }
+            LazyColumn(state = listState) {
                 items(filtered, key = { it.first }) { (code, name) ->
                     ListItem(
                         leadingContent = { CountryFlag(code, size = 32.dp) { Icon(AppIcons.World, contentDescription = null) } },

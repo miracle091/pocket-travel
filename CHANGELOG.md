@@ -69,6 +69,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA, motore Online: sotto un modello gratuito, come `inclusionai/ling-3.2-flash:free` di OpenRouter, il costo dice «Gratuito» invece di «Meno di 0,01 USD ogni 100 domande».
 
 ### Corretto
+- Scelta della nazionalità: cancellata la ricerca, l'elenco torna all'inizio; prima restava sulla nazione trovata, a metà elenco.
 - Mappa delle nazioni: dopo un cambio di lingua i nomi delle nazioni passano subito alla lingua nuova; prima restavano nella lingua di prima finché la schermata non veniva riaperta o non cambiava il tema.
 - Mappa della nazione: un aggiornamento dei punti di interesse installato con la mappa aperta compare subito nei segnalini.
 - Assistente IA: dopo «Ferma» nella notifica della risposta, la foto allegata alla domanda torna nel campo, come dopo un errore, invece di andare persa.
