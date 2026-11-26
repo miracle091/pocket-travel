@@ -70,6 +70,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA, motore Online: sotto un modello gratuito, come `inclusionai/ling-3.2-flash:free` di OpenRouter, il costo dice «Gratuito» invece di «Meno di 0,01 USD ogni 100 domande».
 
 ### Corretto
+- Licenze: la nota della mappa cita anche ESA WorldCover (CC BY 4.0), da cui viene la copertura del suolo contenuta nelle mappe di Protomaps.
 - Documenti: su Android 8 e 9 la cassaforte si sblocca con l'impronta. Prima diceva «Biometria non configurata» anche con un'impronta registrata, e la cronologia dell'assistente non si salvava.
 - Mezzi pubblici: il metro di Siviglia e gli autobus di Palma (EMT) hanno tutte le partenze. Le loro corse passano a intervalli regolari, e prima il tabellone mostrava solo una partenza per corsa: 104 a Siviglia in due settimane, ora 1.598. Arrivano con la prossima pubblicazione degli orari.
 - Scelta della nazionalità: cancellata la ricerca, l'elenco torna all'inizio; prima restava sulla nazione trovata, a metà elenco.
