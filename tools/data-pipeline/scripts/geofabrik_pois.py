@@ -40,6 +40,7 @@ import json
 import math
 import os
 import re
+import socket
 import subprocess
 import sys
 import tempfile
@@ -422,13 +423,39 @@ def scarica(url, dest, user_agent, attempts=5):
             if isinstance(error, urllib.error.HTTPError) and error.code < 500:
                 raise
             if attempt == attempts:
+                motivo = str(error)
+                # Un 5xx o una lettura incompleta vengono da una connessione riuscita: niente prova degli indirizzi.
+                if isinstance(error, OSError) and not isinstance(error, urllib.error.HTTPError):
+                    motivo += f" (indirizzi: {prova_indirizzi(url)})"
                 with open(segno, "w", encoding="utf-8") as f:
-                    f.write(f"{error}\n")
-                print(f"-- geofabrik: {error}, {os.path.basename(segno)}: niente download da questo host per "
+                    f.write(f"{motivo}\n")
+                print(f"-- geofabrik: {motivo}, {os.path.basename(segno)}: niente download da questo host per "
                       f"{FUORI_USO_SECONDI // 60} minuti", flush=True)
                 raise
             print(f"-- geofabrik: {error}, riprovo ({attempt}/{attempts})", flush=True)
             time.sleep(15 * 2 ** (attempt - 1))
+
+
+def prova_indirizzi(url, timeout=10):
+    """Esito di una connessione TCP a ogni indirizzo dell'host di url ("95.217.45.61: ok; 2a01:...: errore").
+    urllib riporta solo l'errore del primo indirizzo: su un runner senza IPv6 "Network is unreachable" dell'indirizzo
+    IPv6 nasconde il motivo per cui anche gli IPv4 non rispondevano (rifiuto, timeout, nessuna strada)."""
+    parts = urllib.parse.urlsplit(url)
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(parts.hostname, port, type=socket.SOCK_STREAM)
+    except OSError as error:
+        return f"DNS: {error}"
+    esiti = []
+    for family, kind, proto, _, address in infos:
+        try:
+            with socket.socket(family, kind, proto) as sock:
+                sock.settimeout(timeout)
+                sock.connect(address)
+            esiti.append(f"{address[0]}: ok")
+        except OSError as error:
+            esiti.append(f"{address[0]}: {error}")
+    return "; ".join(esiti)
 
 
 def segno_fuori_uso(url, dest):

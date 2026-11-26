@@ -11,6 +11,7 @@ import math
 import os
 import random
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -1086,7 +1087,8 @@ class FakeDownload:
 
 class ScaricaTest(unittest.TestCase):
     def setUp(self):
-        for patcher in (mock.patch("time.sleep"), mock.patch("builtins.print")):
+        for patcher in (mock.patch("time.sleep"), mock.patch("builtins.print"),
+                        mock.patch.object(geofabrik_pois, "prova_indirizzi", return_value="192.0.2.1: ok")):
             patcher.start()
             self.addCleanup(patcher.stop)
         tmp = tempfile.TemporaryDirectory()
@@ -1156,7 +1158,10 @@ class ScaricaTest(unittest.TestCase):
                                side_effect=urllib.error.URLError("timed out")) as urlopen:
             with self.assertRaises(urllib.error.URLError):
                 geofabrik_pois.scarica("https://d.example/a.osm.pbf", self.dest, "ua")
-            self.assertTrue(os.path.exists(os.path.join(os.path.dirname(self.dest), "fuori-uso-d.example")))
+            segno = os.path.join(os.path.dirname(self.dest), "fuori-uso-d.example")
+            with open(segno, encoding="utf-8") as f:
+                self.assertIn("timed out", f.read())
+            geofabrik_pois.prova_indirizzi.assert_called_once_with("https://d.example/a.osm.pbf")
             with self.assertRaises(OSError) as ctx:
                 geofabrik_pois.scarica("https://d.example/b.osm.pbf", self.dest, "ua")
         self.assertEqual(5, urlopen.call_count)
@@ -1199,6 +1204,30 @@ class ScaricaTest(unittest.TestCase):
         with mock.patch.object(geofabrik_pois.urllib.request, "urlopen", side_effect=opened):
             url = geofabrik_pois.url_datato("https://d.example/europe/iceland-latest.osm.pbf", "ua")
         self.assertEqual("https://d.example/europe/iceland-261001.osm.pbf", url)
+
+
+class ProvaIndirizziTest(unittest.TestCase):
+    def test_esito_di_ogni_indirizzo_anche_dopo_il_primo_errore(self):
+        infos = [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("2001:db8::1", 443, 0, 0)),
+                 (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.0.2.1", 443)),
+                 (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.0.2.2", 443))]
+        errori = {"2001:db8::1": OSError(101, "Network is unreachable"), "192.0.2.1": ConnectionRefusedError(111, "Connection refused")}
+
+        def connect(address):
+            if address[0] in errori:
+                raise errori[address[0]]
+        sock = mock.MagicMock()
+        sock.__enter__.return_value.connect.side_effect = connect
+        with mock.patch.object(geofabrik_pois.socket, "getaddrinfo", return_value=infos) as getaddrinfo, \
+                mock.patch.object(geofabrik_pois.socket, "socket", return_value=sock):
+            esito = geofabrik_pois.prova_indirizzi("https://d.example/x.osm.pbf")
+        getaddrinfo.assert_called_once_with("d.example", 443, type=socket.SOCK_STREAM)
+        self.assertEqual("2001:db8::1: [Errno 101] Network is unreachable; "
+                         "192.0.2.1: [Errno 111] Connection refused; 192.0.2.2: ok", esito)
+
+    def test_nome_non_risolto(self):
+        with mock.patch.object(geofabrik_pois.socket, "getaddrinfo", side_effect=socket.gaierror(-2, "Name or service not known")):
+            self.assertEqual("DNS: [Errno -2] Name or service not known", geofabrik_pois.prova_indirizzi("http://d.example/x"))
 
 
 if __name__ == "__main__":
