@@ -60,8 +60,10 @@ internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: Str
     // solo fontstack (Klokantech Noto Sans Regular di openmaptiles/fonts, licenza OFL) con i range
     // delle scritture che MapLibre disegna senza shaping complesso: latino esteso (lettone, polacco,
     // turco, vietnamita...), greco, cirillico, armeno, ebraico, arabo, thai, georgiano e la
-    // punteggiatura tipografica (U+2000-21FF). Esclusi CJK (centinaia di range, decine di MB) e le
-    // scritture indiane (MapLibre non ne compone le legature): li' restano name:it/name:en se ci sono.
+    // punteggiatura tipografica (U+2000-21FF). Esclusi CJK (centinaia di range, decine di MB): ideogrammi,
+    // kana e hangul li disegna MapLibre col font di sistema (localIdeographFontFamily, attivo di default).
+    // Escluse anche le scritture indiane (MapLibre non ne compone le legature): li' restano name:it/name:en
+    // se ci sono.
     // Il template non contiene "{fontstack}" apposta: con un solo font non serve
     // sostituirlo, ed evita ogni dubbio su come MapLibre codifichi gli spazi nel nome del
     // font quando lo inserisce nell'URL "asset://" (asset:// risolve dentro gli assets
@@ -80,11 +82,9 @@ internal fun regionsStyle(regions: List<RegionSource>, dark: Boolean, label: Str
     // gia' mappata su OSM (rara per name:it, molto piu' comune name:en, es. la
     // romanizzazione dei nomi giapponesi) e usare il nome locale solo come ultima risorsa.
     // Per le regioni a caratteri latini (Italia, San Marino, Andorra, Stati Uniti) name:it e
-    // name:en mancano quasi sempre sulle strade locali, quindi si ricade su "name". Per il
-    // Giappone conta di piu': i caratteri kanji non
-    // renderizzerebbero comunque (il font incluso non copre le scritture CJK), quindi senza
-    // questo fallback quelle etichette sarebbero vuote anche quando OSM ha gia' la
-    // romanizzazione pronta in name:en.
+    // name:en mancano quasi sempre sulle strade locali, quindi si ricade su "name". In Giappone
+    // i kanji si vedono (font di sistema), ma chi non li legge trova piu' utile la romanizzazione
+    // di name:en quando OSM ce l'ha.
     //
     // Con il ripiego (worldFallback) lo sfondo e' il mare e le terre le disegnano, dal basso:
     // i confini Natural Earth, la mappa del mondo e lo strato "earth" della regione, preciso sulle

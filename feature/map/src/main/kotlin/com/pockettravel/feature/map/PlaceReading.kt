@@ -10,7 +10,7 @@ sealed interface PlaceReading {
     /** Un `geo:0,0?q=testo`: nessuna coordinata, un indirizzo o un nome da cercare. */
     data class Search(val text: String) : PlaceReading
 
-    /** Link abbreviato (goo.gl, osm.org/go): per leggerlo serve la rete. */
+    /** Link abbreviato di Google (goo.gl): per leggerlo serve la rete. */
     data object ShortLink : PlaceReading
 
     data object Unreadable : PlaceReading

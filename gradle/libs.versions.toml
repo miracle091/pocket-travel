@@ -44,7 +44,9 @@ androidxTestRunner = "1.7.0"
 concurrentFutures = "1.3.0"
 errorProneAnnotations = "2.53.0"
 splashscreen = "1.2.0"
-biometric = "1.1.0"
+# RC di proposito: da androidx.core 1.19 FingerprintManagerCompat dice sempre "nessun sensore", e fino alla 1.4.0-rc01
+# biometric lo usa su Android 8 e 9, dove la cassaforte risultava senza biometria. Passare alla 1.4.0 stabile appena esce.
+biometric = "1.4.0-rc01"
 fragmentKtx = "1.9.1"
 exifinterface = "1.4.2"
 camerax = "1.7.0"

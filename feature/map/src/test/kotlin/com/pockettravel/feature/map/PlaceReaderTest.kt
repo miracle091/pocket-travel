@@ -123,13 +123,31 @@ class PlaceReaderTest {
         assertEquals(PlaceReading.Unreadable, readPlace("https://www.openstreetmap.org/#map=15/95/1.5"))
     }
 
+    @Test
+    fun `link brevi di OpenStreetMap si leggono senza rete`() {
+        // Punti dati dal server di OpenStreetMap, che risponde a /go/codice?m con mlat e mlon.
+        assertPoint(51.510772705078125, 0.054931640625, "https://osm.org/go/0EEQjE==")
+        assertPoint(41.890199929475784, 12.492198050022125, "https://osm.org/go/xcXpDVgJz-?m")
+        assertPoint(-33.85680556297302, 151.21528387069702, "https://www.openstreetmap.org/go/uN~Ra6l7--")
+        // "@" e' il vecchio "~".
+        assertPoint(-33.85680556297302, 151.21528387069702, "https://osm.org/go/uN@Ra6l7--")
+    }
+
+    @Test
+    fun `link brevi di OpenStreetMap malformati`() {
+        assertEquals(PlaceReading.Unreadable, readPlace("https://osm.org/go/"))
+        assertEquals(PlaceReading.Unreadable, readPlace("https://osm.org/go/0EE%Q"))
+        assertEquals(PlaceReading.Unreadable, readPlace("https://osm.org/go/-"))
+        // 12 caratteri sono 36 bit per coordinata, oltre i 32 del formato.
+        assertEquals(PlaceReading.Unreadable, readPlace("https://osm.org/go/AAAAAAAAAAAA"))
+    }
+
     // --- Link brevi e testi condivisi ---
 
     @Test
     fun `i link brevi chiedono la rete e lo dicono`() {
         assertEquals(PlaceReading.ShortLink, readPlace("https://maps.app.goo.gl/AbC123"))
         assertEquals(PlaceReading.ShortLink, readPlace("https://goo.gl/maps/AbC123"))
-        assertEquals(PlaceReading.ShortLink, readPlace("https://osm.org/go/0EEQjE=="))
     }
 
     @Test

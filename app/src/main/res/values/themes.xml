@@ -2,11 +2,12 @@
 <resources>
     <!-- Tema "reale" post-splash: la UI e' interamente Compose (MaterialTheme in MainActivity),
          questo tema XML esiste solo perche' Android richiede un android:theme sull'Activity
-         per agganciare androidx.core.splashscreen. -->
-    <style name="Theme.PocketTravel" parent="android:Theme.Material.Light.NoActionBar" />
+         per agganciare androidx.core.splashscreen. AppCompat perche' su Android 8 e 9 androidx.biometric mostra un
+         dialogo AppCompat per l'impronta, che senza questo tema chiude l'app. -->
+    <style name="Theme.PocketTravel" parent="Theme.AppCompat.Light.NoActionBar" />
 
     <!-- Foglio "Chiedi all'assistente" (ProcessTextActivity): finestra trasparente sopra l'app che ha mandato il testo. -->
-    <style name="Theme.PocketTravel.Transparent" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.PocketTravel.Transparent" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:backgroundDimEnabled">false</item>
