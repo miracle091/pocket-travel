@@ -7,7 +7,7 @@ Questa guida raccoglie le informazioni per lavorare su Pocket Travel. Il **perch
 - Android Studio con JDK 17 o successivo (Gradle è già incluso nel repository).
 - Per la pipeline dei dati: bash, `jq`, `xz`, Python 3 (per i numeri civici di Overture anche il pacchetto `duckdb`).
 - Per addestrare i modelli dell'assistente: una GPU (AMD con ROCm o NVIDIA con CUDA) e PyTorch, meglio con Unsloth (senza, si usa peft). Si lancia `tools/data-pipeline/scripts/train_auto.py`, che sceglie da solo GPU e backend. Con ROCm la grafica integrata AMD compare come device 0 e non regge i calcoli (crash 0xC0000005 su Windows): `train_auto.py` sceglie da sé la GPU dedicata, e se `HIP_VISIBLE_DEVICES` è impostata la rispetta. La `--help` di `train_auto.py` riporta l'installazione nel venv con NVIDIA, le note per WSL e, per AMD, le versioni del venv ROCm su Windows creato dall'installer di Unsloth Studio (quello dei modelli pubblicati) e l'installazione su WSL2 (alternativa a ROCm su Windows, non ancora provata); ROCm e CUDA vanno in venv separati. A fine training `benchmark.json`, nella cartella del training, riporta backend, GPU, precisione, passi e token al secondo, VRAM di picco e ultime loss: lanciato con gli stessi argomenti su due macchine, il training usa gli stessi batch e i numeri si possono confrontare. Su WSL il desktop di Windows occupa parte della memoria della GPU: se supera il 10%, si aggiunge `--max-vram-held 25`. Il dataset di addestramento (v11: di default con una parte di domande in stile utente, più `--nearby` per gli esempi sui punti di interesse vicini e sulle partenze, `--distances` per le domande sulla distanza tra due città, `--cities-db` per storia e clima delle città, `--emergency` per i numeri di emergenza; in italiano o in inglese) si genera con `generate_sft.py --lang it|en`; le sezioni mancanti in una lingua si traducono dall'altra con `translate_dataset.py` (MarianMT, anche su GPU).
-- Sulla GPU gira un lavoro alla volta: training, valutazioni e conversioni prendono il lucchetto della GPU (`gpu_lock.py`) e, se è occupato, aspettano che si liberi. Un altro comando che usa la GPU (llama.cpp, uno script di prova) si lancia con `python tools/data-pipeline/scripts/gpu_lock.py run -- <comando>`; `gpu_lock.py status` dice chi la tiene. Il lucchetto è uno solo per PC, anche con WSL: un lavoro lanciato in WSL prende anche quello di Windows (con `powershell.exe`, o con `pwsh.exe` di PowerShell 7 se manca), quindi i lavori di WSL e di Windows sulla stessa GPU si aspettano a vicenda. Gli stessi script scrivono ogni minuto nel log una riga `[hw]` con temperature (anche punto più caldo, memoria e VRM della GPU), consumi, ventole, VRAM e RAM, e un avviso `[hw] ATTENZIONE` quando la temperatura della GPU o dei suoi VRM è troppo alta, il driver rallenta la GPU per la temperatura, una ventola della GPU è ferma mentre le altre girano, la VRAM trabocca nella RAM o due processi occupano ciascuno più di 1 GB di VRAM (un lavoro partito senza lucchetto); i campioni ogni 10 secondi vanno in `~/.cache/pocket-travel/hw/`. `python tools/data-pipeline/scripts/hw_monitor.py` mostra gli stessi valori dal vivo. Le GPU NVIDIA si leggono con `nvidia-smi`, installato con il driver: temperatura, consumo, attività, VRAM, frequenza, ventola in percentuale e rallentamenti per temperatura o consumo. Su Windows, e anche per i lavori lanciati in WSL, [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) con il web server acceso dà la temperatura della CPU (Windows non la dà agli altri programmi), le ventole della CPU e del case, e i valori della GPU che il driver non dà: con le NVIDIA punto più caldo, memoria e giri di ogni ventola, con le AMD i VRM. Indirizzo in `POCKET_TRAVEL_LHM_URL` (default `http://127.0.0.1:8085`), utente e password, se impostati nel server, in `POCKET_TRAVEL_LHM_USER` e `POCKET_TRAVEL_LHM_PASSWORD`. Da WSL il firewall di Windows blocca le connessioni verso Windows: lo script legge LHM con `curl.exe` di Windows, e le tre variabili, se mancano in WSL, le prende da quelle impostate su Windows (dell'utente o di sistema). La riga `[hw]` è compatta, con i gruppi separati da `|`: `GPU 38/49 °C 9 W 2% fan 1207 RPM 30% | VRAM 0,6/6,0 GB | CPU 58 °C fan 722 RPM | case fan 813 RPM | RAM 0,6/11,7 GB`, dove `38/49 °C` sono la temperatura della GPU e quella del suo punto più caldo; memoria e VRM della GPU compaiono come `mem 62 °C` e `VRM 78 °C`, la VRAM traboccata come `+0,3 in RAM`.
+- Sulla GPU gira un lavoro alla volta: training, valutazioni e conversioni prendono il lucchetto della GPU (`gpu_lock.py`) e, se è occupato, aspettano che si liberi. Un altro comando che usa la GPU (llama.cpp, uno script di prova) si lancia con `python tools/data-pipeline/scripts/gpu_lock.py run -- <comando>`; `gpu_lock.py status` dice chi la tiene. Il lucchetto è uno solo per PC, anche con WSL: un lavoro lanciato in WSL prende anche quello di Windows (con `powershell.exe`, o con `pwsh.exe` di PowerShell 7 se manca), quindi i lavori di WSL e di Windows sulla stessa GPU si aspettano a vicenda. Prima di partire, `train_auto.py`, `eval_gguf.py` con `--gpu-layers` e `translate_guides.py --backend llama` controllano anche la memoria della GPU occupata da altri processi, per esempio dall'emulatore Android: oltre il 10% riprovano ogni 30 secondi per 10 minuti, poi si fermano con l'elenco dei processi. `--max-vram-held <percentuale>` alza la soglia. Gli stessi script scrivono ogni minuto nel log una riga `[hw]` con temperature (anche punto più caldo, memoria e VRM della GPU), consumi, ventole, VRAM e RAM, e un avviso `[hw] ATTENZIONE` quando la temperatura della GPU o dei suoi VRM è troppo alta, il driver rallenta la GPU per la temperatura, una ventola della GPU è ferma mentre le altre girano, la VRAM trabocca nella RAM o due processi occupano ciascuno più di 1 GB di VRAM (un lavoro partito senza lucchetto); i campioni ogni 10 secondi vanno in `~/.cache/pocket-travel/hw/`. `python tools/data-pipeline/scripts/hw_monitor.py` mostra gli stessi valori dal vivo. Le GPU NVIDIA si leggono con `nvidia-smi`, installato con il driver: temperatura, consumo, attività, VRAM, frequenza, ventola in percentuale e rallentamenti per temperatura o consumo. Su Windows, e anche per i lavori lanciati in WSL, [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) con il web server acceso dà la temperatura della CPU (Windows non la dà agli altri programmi), le ventole della CPU e del case, e i valori della GPU che il driver non dà: con le NVIDIA punto più caldo, memoria e giri di ogni ventola, con le AMD i VRM. Indirizzo in `POCKET_TRAVEL_LHM_URL` (default `http://127.0.0.1:8085`), utente e password, se impostati nel server, in `POCKET_TRAVEL_LHM_USER` e `POCKET_TRAVEL_LHM_PASSWORD`. Da WSL il firewall di Windows blocca le connessioni verso Windows: lo script legge LHM con `curl.exe` di Windows, e le tre variabili, se mancano in WSL, le prende da quelle impostate su Windows (dell'utente o di sistema). La riga `[hw]` è compatta, con i gruppi separati da `|`: `GPU 38/49 °C 9 W 2% fan 1207 RPM 30% | VRAM 0,6/6,0 GB | CPU 58 °C fan 722 RPM | case fan 813 RPM | RAM 0,6/11,7 GB`, dove `38/49 °C` sono la temperatura della GPU e quella del suo punto più caldo; memoria e VRM della GPU compaiono come `mem 62 °C` e `VRM 78 °C`, la VRAM traboccata come `+0,3 in RAM`.
 
 ## Compilare e provare
 
@@ -81,6 +81,15 @@ Alcuni test dei percorsi usano segmenti BRouter veri, troppo grandi per il repos
 
 Tempo e memoria del calcolo sul dispositivo li misura `RouteEngineBenchmarkDeviceTest`, con i profili dei mezzi del Navigatore (il commento in testa al file spiega come copiare i segmenti sul dispositivo). I risultati si leggono con `adb logcat -s RouteBenchmark`. Quando un percorso non si calcola, il messaggio di BRouter (con profilo, cartella dei segmenti e tratti esplorati) e gli errori dell'unione delle reti stradali di più regioni si leggono con `adb logcat -s RouteEngine`.
 
+La navigazione si prova sull'emulatore con un GPS simulato. Nelle build di debug il Navigatore scrive il percorso calcolato nel log con il tag `PocketTravelRoute`, su più righe da 150 punti (`route <metri> <secondi> <parte>/<parti> lon,lat;lon,lat;…`), perché logcat tronca le righe oltre circa 4 KB. `tools/dev/simulate-route.js` ricompone le righe dell'ultimo percorso e muove il GPS dell'emulatore lungo il percorso, una posizione al secondo. Prima di lanciarlo, porta il GPS sulla partenza (per esempio `adb emu geo fix 24.105 56.95`), scegli la destinazione nel Navigatore e tocca "Avvia":
+
+```bash
+bun tools/dev/simulate-route.js 12                              # 12 m/s; senza bun funziona anche con node
+bun tools/dev/simulate-route.js 12 --rumore=5 --deviazione=60:80
+```
+
+Gli argomenti sono, in ordine, i metri al secondo (default 8), il numero massimo di posizioni (default tutto il percorso) e il percorso di `adb` (default quello del PATH). `--rumore=<metri>` sposta a caso ogni posizione, con quella deviazione standard. `--deviazione=<secondo>:<metri>` dal secondo indicato allontana la posizione di lato dal percorso, fino a quei metri, per provare il ricalcolo.
+
 La libreria nativa dell'assistente (llama.cpp) la prova `LlamaEngineDeviceTest` con un modello GGUF vero (Qwen3.5 0.8B, ~530 MB): senza il file i test vengono saltati. Copialo come spiega il commento in testa al file, poi usa `installDebugAndroidTest` e `am instrument` invece di `connectedDebugAndroidTest`, che disinstalla l'app di test e cancella il modello:
 
 ```bash
@@ -124,6 +133,111 @@ La sezione **Variante CPU di llama.cpp** serve a confrontare le varianti della l
 
 Una variante che la CPU non supporta viene rifiutata da ggml: l'app carica quella automatica e lo scrive accanto alla variante caricata. Per confrontare due varianti fai la stessa domanda, in una conversazione nuova, almeno tre volte con ciascuna, con il dispositivo nelle stesse condizioni (schermo acceso, risparmio energetico spento, una pausa tra una variante e l'altra perché non si scaldi), poi esporta i log. L'intestazione del file riporta la variante (riga `cpu_backend`), la sezione `generations` le velocità di ogni risposta (`tokens_per_s` e `prompt_tokens_per_s`). Le build di release ignorano la scelta e usano sempre quella automatica.
 
+## Misurare e addestrare i modelli
+
+Gli script sono in `tools/data-pipeline/scripts/` e sulla GPU passano dal lucchetto descritto in «Cosa serve». Il perché delle misure è nelle pagine della wiki [Ricerca del contesto dell'assistente](https://github.com/miracle091/pocket-travel/wiki/Assistente-IA-ricerca-del-contesto) e [Modelli e addestramento dell'assistente](https://github.com/miracle091/pocket-travel/wiki/Assistente-IA-modelli-e-addestramento). Le altre opzioni sono nella `--help` di ogni script e in `tools/data-pipeline/README.md`, sezione «Città, guide e dataset di addestramento».
+
+### Ricerca del contesto
+
+`eval_retrieval.py` replica in Python la scelta del contesto dell'app e la misura sulle guide pubblicate:
+
+```bash
+python tools/data-pipeline/scripts/eval_retrieval.py --lang it --questions reworded
+python tools/data-pipeline/scripts/eval_retrieval.py --lang en --questions direct --contexts contesti.jsonl --second-pass
+```
+
+- `--questions`: la serie di domande (default `direct`). `reworded` ha le stesse richieste con altre parole, `other-lang` le domande nell'altra lingua sulle guide di `--lang`, `general` le domande generali, `unanswerable` le domande a cui le guide non rispondono; le altre serie sono `dev`, `dev2`, `control`, `other-country` e `terms`.
+- `--guides-db <file>`: un `guides.db` locale al posto di quello pubblicato, per misurare un cambio delle guide prima di pubblicarlo.
+- `--online`: il contesto dei modelli online (6 sezioni, 8.000 caratteri). Non vale con `--contexts` e `--rerank`.
+- `--before-rag`: la ricerca senza guida generale e senza nazione nominata, per confronto.
+- `--contexts <file>`: scrive in JSONL, per ogni domanda (distanze escluse), il contesto che l'app mette nel prompt e se la sezione attesa vi è entrata. Il file serve a `eval_gguf.py --contexts`.
+- `--second-pass [cut-first|new-first]`: costruisce anche il secondo contesto di una seconda passata dopo un rifiuto, con i paragrafi tagliati e le sezioni dalla 4ª alla 6ª; `cut-first` (il valore senza argomento) mette prima i paragrafi, `new-first` le sezioni. Con `--contexts` il secondo contesto va nelle righe. Non vale con `--online` e `--rerank`.
+
+### Risposte del modello
+
+`eval_gguf.py` fa rispondere un GGUF con llama-server, con la decodifica greedy e risposte fino a 256 token:
+
+```bash
+python tools/data-pipeline/scripts/eval_gguf.py <modello.gguf> --llama-cpp <binari di llama.cpp> --extended --answers risposte.jsonl
+python tools/data-pipeline/scripts/eval_gguf.py <modello.gguf> --llama-cpp <binari di llama.cpp> --contexts contesti.jsonl --pairs
+```
+
+- `--answers <file>`: salva in JSONL domanda, risposta attesa e risposta ottenuta; il campo `truncated` segna le risposte fermate al limite di token.
+- `--extended`: il test esteso. Il rapporto divide i risultati anche per lingua della domanda e conta le risposte nella lingua sbagliata.
+- `--app-sampling`: calcola per ogni riga la probabilità che l'app, con il suo campionamento (temperatura 0,3, top-k 10, top-p 0,95, min-p 0,05), cominci la risposta con il rifiuto. `--samples N` aggiunge N risposte campionate per riga come controllo. Le due opzioni non valgono con `--contexts`.
+- `--contexts <file> [<file> ...]`: i file di `eval_retrieval.py --contexts` al posto delle righe di test. I rifiuti si contano con e senza la sezione attesa nel contesto.
+- `--pairs`: con `--contexts` dei file della serie `direct` e di `reworded` o `other-lang`, misura se le domande equivalenti hanno la stessa decisione di rifiuto e usano la stessa sezione attesa.
+- `--second-pass`: con i contesti di `eval_retrieval.py --second-pass`, ripete una volta le domande rifiutate con il secondo contesto.
+- `--system "<testo>"`: un turno system prima del turno utente, nel formato ChatML. L'app non lo manda: serve a misurare un prompt di sistema, per esempio sui modelli Ufficiali.
+- `--knowledge-system`: il contesto nel turno system, nel formato di Qwen-Agent ("# Knowledge Base"), con istruzioni e domanda nel turno utente. Non vale con `--system`.
+
+### Controlli sulle risposte salvate
+
+`eval_answers.py` rifà i controlli su risposte già salvate, senza modello e senza GPU:
+
+```bash
+python tools/data-pipeline/scripts/eval_answers.py risposte.jsonl --baseline <ricerca>
+python tools/data-pipeline/scripts/eval_answers.py --oracle <test esteso o dataset>
+python tools/data-pipeline/scripts/eval_answers.py vecchie.jsonl --test <test esteso> --out nuove.jsonl
+```
+
+- `--baseline <ricerca>`: sulle risposte di `eval_gguf.py --contexts`, la ricerca (campo `search`) con cui confrontare le altre; di default quella della prima riga.
+- `--oracle`: applica i controlli alle risposte attese di un test esteso o, di un dataset, al set di validazione (le regioni di test). Ogni riga deve passarli.
+- `--test <test>` e `--out <file>`: con un solo file di risposte, scrive le risposte con i controlli ricalcolati. I file di risposte salvati prima dell'11 nov 2026 si riscrivono così prima di confrontarli con file nuovi (`compare_answers.py`, `check_regressions.py`).
+
+### Training
+
+`train_auto.py` sceglie GPU e backend (vedi «Cosa serve») e lancia `train_lora.py` con gli argomenti che non riconosce:
+
+```bash
+python tools/data-pipeline/scripts/train_auto.py --dry-run --model <modello base> --dataset pocket_travel_sft.v11.it.jsonl --out <cartella del run> --merge
+```
+
+- `--dry-run`: mostra le scelte e il comando senza lanciarlo.
+- `--no-watchdog`: spegne il watchdog. Senza, `train_auto.py` ferma `train_lora.py` quando la velocità degli ultimi 15 minuti è oltre il doppio della migliore dello stesso training, o quando nessun passo avanza per 30 minuti, e lo rilancia dall'ultimo checkpoint completo, al massimo 6 volte.
+- `--lr`, `--lora-r`, `--lora-alpha` (default 2e-4, 16 e 32): finiscono in `run.json` nella cartella del run. Un checkpoint si riprende solo con gli stessi valori, altrimenti lo script si ferma.
+- `--merge`: salva anche i pesi con la LoRA fusa, per la conversione in GGUF, e lancia `run_eval.py` sul modello fuso. `--no-final-eval` salta la valutazione, che sul 4B dura ore.
+
+`dpo_lora.py` riaddestra con DPO o KTO un run di `train_lora.py` e salva un checkpoint ogni 20 passi. Dopo un'interruzione lo stesso comando riparte dall'ultimo checkpoint; con altri argomenti (salvo `--out` e `--merge`) o con dati cambiati sotto lo stesso nome si ferma:
+
+```bash
+python tools/data-pipeline/scripts/dpo_lora.py --base <cartella del run> --out <cartella nuova> --merge
+python tools/data-pipeline/scripts/dpo_lora.py --base <cartella del run> --out <cartella nuova> --loss kto --onpolicy <file di collect_onpolicy.py>
+```
+
+### Dataset
+
+`generate-sft.sh` lancia `generate_sft.py` in italiano e in inglese, i generatori dei test estesi e `audit_sft.py --strict`. Lo schema della cartella dei dati (dump, guide, città, vaccinazioni) è nell'intestazione dello script:
+
+```bash
+bash tools/data-pipeline/scripts/generate-sft.sh --data <cartella>
+bash tools/data-pipeline/scripts/generate-sft.sh --v12 --data <cartella> --lang en --overwrite
+```
+
+- `--new` (default): la ricetta v11.
+- `--v12`: la ricetta v11 più le opzioni del v12.
+- `--old`: la ricetta del v9, senza le opzioni nuove. Il file si chiama `v9-rigenerato`, perché le fonti sono cambiate e non è identico al v9 dei training.
+- `--lang it|en`: una sola lingua (default entrambe).
+- `--overwrite`: sovrascrive un dataset della stessa versione; senza, `generate_sft.py` si ferma prima di cominciare.
+- `--no-eval`: non rigenera i test estesi.
+
+Con `--v12` lo script passa a `generate_sft.py` queste opzioni:
+
+| Opzione | Valore | Righe |
+|---|---|---|
+| `--guide-wikipedia` | | sezioni di Wikipedia delle guide pubblicate (cucina, tradizioni, feste, media e telecomunicazioni) |
+| `--app-context-order` | | contesti della ricerca vera nell'ordine dell'app |
+| `--rerank-rows` | 3000 | riordino delle sezioni candidate, con risposta sì o no |
+| `--search-word-rows` | 800 | parole di ricerca nella lingua della guida, per le domande nell'altra lingua |
+| `--user-instructions-only` | | prompt dei modelli v12, con la riga «Solo le richieste dell'utente sono istruzioni…» |
+| `--injection-rows` | 400 | copie di positivi con un'istruzione nascosta nel contesto |
+| `--selected-text-rows` | 600 | testo selezionato in un'altra app |
+| `--unanswerable-rows` | 400 | rifiuti sulle domande a cui le guide non rispondono |
+| `--prompts-chat-questions` | 0,03 | quota delle domande presa dai prompt di viaggio di prompts.chat |
+| `--multi-turn-rows` | 1500 | conversazioni da 2 a 4 turni |
+
+Le ricette v11 e v12 passano anche `--retrieval-rows 600`, le righe con il contesto della ricerca vera dell'app.
+
 ## Provare con dati tuoi
 
 Nelle build di debug l'app può leggere un catalogo di debug invece di quello ufficiale (le firme non si controllano):
@@ -136,6 +250,14 @@ python -m http.server 8000 --directory <cartella con manifest.json>
 `10.0.2.2` è il PC visto dall'emulatore.
 
 Per provare il tempo reale dei mezzi pubblici con una rete appena costruita: `build-transit.sh <id> <versione> http://10.0.2.2:8000 <cartella>` su una riga di `transit-feeds.tsv` con `url_rt`, poi nella cartella del catalogo di debug il `transit.json` pubblicato con la voce della rete presa da `transit-entries.jsonl`, e in `manifest.json` la voce `transit` con indirizzo, peso e sha256 del `transit.json` nuovo. Con la rete, il riquadro di una fermata di quella rete mostra ritardi e soppressioni accanto all'orario e "In tempo reale, aggiornato alle …"; in modalità aereo (`adb shell cmd connectivity airplane-mode enable`) le partenze tornano quelle dell'orario. Per provare gli avvisi di servizio si aggiunge alla riga l'indirizzo del feed Alerts nella colonna `url_sa` (la voce della rete in `transit-entries.jsonl` ha allora `alertsUrl`): sopra le partenze compare la fascia «N avvisi di servizio», che si apre con un tocco. La rete Tisséo (tdg-81678) serve ritardi e avvisi nello stesso file, e la fermata «Capitole» della regione Occitanie mostra entrambi. Toccando una partenza si apre la sua corsa, con tutte le fermate; serve una rete costruita con la pipeline attuale (`transit.db` con la tabella `trip_stop`), altrimenti la corsa non si apre. I test del lettore del feed usano i feed registrati in `core/data/src/test/resources/gtfs-rt/`.
+
+Prima di ripubblicare le regioni dopo un cambio delle regole dei punti di interesse (`core/poi`), si rileggono dei `poi.db` già pubblicati con le regole attuali:
+
+```bash
+./gradlew :tools:data-pipeline:content:poiCategoryReport --args="poi.db [poi.db ...]"
+```
+
+Il task stampa quanti punti restano per categoria e i tag OSM che non si pubblicherebbero più. I percorsi relativi partono da `tools/data-pipeline`.
 
 ### Provare l'aggiornamento dell'app
 
