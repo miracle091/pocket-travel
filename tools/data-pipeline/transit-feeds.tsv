@@ -2,7 +2,10 @@
 # Mobility Database (https://files.mobilitydatabase.org/<id>/latest.zip, copia aggiornata ogni giorno
 # del feed dell'ente). Entrano solo reti con una licenza aperta confermata dal catalogo ufficiale
 # dell'ente (pubblico dominio, attribuzione, attribuzione + stessa licenza); niente licenze "solo uso
-# non commerciale", "non opere derivate" o non dichiarate finche' non si leggono i termini.
+# non commerciale", "non opere derivate" o non dichiarate finche' non si leggono i termini. Se il dataset
+# stesso non dichiara nessuna licenza, vale una licenza aperta fissata da una legge nazionale o dai termini
+# d'uso del portale ufficiale che lo pubblica, purche' letti e citati: l'articolo o la pagina sta nella
+# riga (pagina_licenza) e nella nota datata di questo file.
 # Verificate il 2026-09-29 dalle API CKAN dei portali: data.gov.lv (CC0 1.0), dati.comune.milano.it
 # (cc-by), dati.comune.roma.it (cc-by-sa). Svezia, Spagna e Francia il 2026-09-29 dalle pagine delle
 # fonti: Trafiklab (CC0 1.0), data.renfe.com e opendata.vlci.valencia.es (CC BY 4.0),
@@ -164,6 +167,19 @@
 # GTFS-RT ufficiale, solo SIRI). Nizza Lignes d'Azur ha risposto 501 dal 22 al 23 ottobre 2026
 # ("Partner doesn't have the required Gtfs connector"); di nuovo in url_rt dal 2026-11-11, quando il feed scaricato con
 # gli header dell'app aveva 461 trip_id su 461 e 1662 stop_id su 1662 nell'orario.
+# Grecia, Croazia e Belgio (2026-11-26), licenze date dal portale o dalla legge e non dal dataset: Atene OASA su
+# data.gov.gr (i dataset non hanno il campo licenza; i termini d'uso del portale, art. 3.2 e 3.4, e la decisione
+# ministeriale 11654/2026, art. 8.3, danno CC BY 4.0; il file "osy_gtfs.rar" e' uno zip, scaricato con il nome
+# osy_gtfs.zip; solo autobus e filobus; gli orari del file sono
+# fermi al 2026-10-06, finche' OASA non lo aggiorna la rete resta tra le "Non incluse"; metro, ferrovia
+# suburbana e tram di ΣΤΑ.ΣΥ. sono nel dataset dromologia-statheron-sygkoinonion-metro-isap-tram, risorsa stasy_gtfs,
+# anch'essa uno zip, stessi termini); HŽPP su data.gov.hr
+# (nessuna licenza sul dataset: Otvorena dozvola per legge, ZPPI art. 5 e 31.1 e NN 67/17 art. 4.1, come ZET;
+# copia del Mobility Database, aggiornata ogni giorno); STIB-MIVB e De Lijn su data.belgianmobility.io (CC BY 4.0
+# dal 2026-01-01 secondo i termini del portale, art. 3: ogni operatore e' il licenziante; accesso anonimo, senza
+# chiave, 100 richieste al giorno). De Lijn: stesso feed di data.delijn.be (stesse 2042 linee e 33.683 fermate in
+# comune su 33.693; il portale belga ha gli id con prefisso e orari dal 25 novembre invece del 24), ma quello
+# richiede una chiave. Senza url_rt: il tempo reale di STIB e De Lijn richiede un account sul portale.
 #
 # id	regioni	nome	licenza	attribuzione	pagina_licenza	url_feed	cerca_ultimo	url_rt	url_sa	aggancio_rt	agenzie_escluse	linee_escluse
 mdb-992	lettonia	Autobus nazionali (ATD)	CC0-1.0	Valsts SIA Autotransporta direkcija (data.gov.lv, CC0 1.0)	https://data.gov.lv/dati/eng/dataset/atd-gtfs
@@ -296,6 +312,9 @@ mdb-2155	repubblica-ceca	Brno e Moravia meridionale (IDS JMK)	CC-BY	Statutární
 tld-3363	slovacchia	Bratislava (DPB)	CC-BY	Hlavné mesto SR Bratislava, Dopravný podnik Bratislava (data.bratislava.sk, CC BY 4.0); modificato	https://www.arcgis.com/home/item.html?id=aba12fd2cbac4843bc7406151bc66106
 mdb-2093	polonia	Danzica (ZTM Gdańsk)	CC-BY	Zarząd Transportu Miejskiego w Gdańsku (Otwarte Dane Gdańsk, CC BY); modificato	https://ckan.multimediagdansk.pl/dataset/tristar
 tld-1071	croazia	Zagabria, tram e autobus (ZET)	Otvorena-dozvola-HR	Zagrebački električni tramvaj d.o.o.: sadrži informacije tijela javne vlasti u skladu s Otvorenom dozvolom (zet.hr); modificato	https://www.zet.hr/odredbe/datoteke-u-gtfs-formatu/669			https://zet.hr/gtfs-rt-protobuf
+mdb-3043	croazia	Croazia, treni (HŽ Putnički prijevoz)	Otvorena-dozvola-HR	HŽ Putnički prijevoz d.o.o.: sadrži informacije tijela javne vlasti u skladu s Otvorenom dozvolom (data.gov.hr); modificato	https://data.gov.hr/ckan/dataset/vozni-red-h-putni-kog-prijevoza-u-gtfs-obliku
+mdb-3220	grecia	Atene, autobus e filobus (OASA)	CC-BY	Οργανισμός Αστικών Συγκοινωνιών Αθηνών (ΟΑΣΑ) (data.gov.gr, termini del portale: CC BY 4.0); modificato	https://data.gov.gr/pages/terms-of-use	https://data.gov.gr/dataset/fb049bb1-aea6-4443-95fa-8b941dd6a057/resource/119db488-16ea-4c76-b560-41c472872390/download/osy_gtfs.zip
+mdb-3221	grecia	Atene, metro, ferrovia suburbana e tram (STASY)	CC-BY	Σταθερές Συγκοινωνίες Α.Ε. (ΣΤΑ.ΣΥ.) (data.gov.gr, termini del portale: CC BY 4.0); modificato	https://data.gov.gr/pages/terms-of-use	https://data.gov.gr/dataset/4e897a75-975a-4ce7-af65-f32ea01f93b9/resource/5e3858ee-d9ba-48c2-9015-744ea160976d/download/stasy_gtfs.zip
 mdb-53	stati-uniti-california	San Francisco, metropolitana regionale (BART)	BART-DLA	Bay Area Rapid Transit (BART Developer License Agreement); modificato	https://www.bart.gov/schedules/developers/developer-license-agreement			https://api.bart.gov/gtfsrt/tripupdate.aspx	https://api.bart.gov/gtfsrt/alerts.aspx
 mdb-54	stati-uniti-california	San Francisco - San José, treni (Caltrain)	Caltrain-DLA	Peninsula Corridor Joint Powers Board, Caltrain (Developer License Agreement); modificato	https://www.caltrain.com/developer-resources
 mdb-437	stati-uniti-massachusetts,stati-uniti-rhode-island	Boston, tutti i mezzi pubblici (MBTA)	MassDOT-DLA	Dati forniti da MassDOT/MBTA (MassDOT Developers License Agreement); modificato	https://www.mbta.com/developers/gtfs			https://cdn.mbta.com/realtime/TripUpdates.pb	https://cdn.mbta.com/realtime/Alerts.pb
@@ -325,6 +344,8 @@ iett-istanbul	turchia	Istanbul, autobus (IETT)	IBB-ODL	İETT, İstanbul Büyük�
 mdb-3235	estonia	Estonia, tutti i mezzi pubblici	CC-BY-SA	Regionaal- ja Põllumajandusministeerium, Ühistranspordiregister (andmed.eesti.ee, CC BY-SA 3.0); modificato	https://andmed.eesti.ee/datasets/uhistranspordiregistri-avaandmed	https://eu-gtfs.remix.com/estonia_unified_gtfs.zip
 mdb-1104	romania	Romania, treni (CFR Călători e altri operatori)	MIT	Copyright (c) 2014-2022 Vasile Coțovanu, data.gov.ro-gtfs-exporter (licenza MIT); dati di Informatică Feroviară, data.gov.ro (OGL-ROU 1.0); modificato	https://github.com/vasile/data.gov.ro-gtfs-exporter/blob/master/gtfs-out/LICENSE
 mdb-1212	belgio	Vallonia, autobus e metro di Charleroi (TEC)	CC0-1.0	Opérateur de Transport de Wallonie, TEC (transportdata.be, CC0 1.0)	https://transportdata.be/en/dataset/tec-gtfs
+mdb-1088	belgio	Bruxelles, metro, tram e autobus (STIB-MIVB)	CC-BY	Source: STIB-MIVB – Open Data (data.belgianmobility.io, CC BY 4.0); modificato	https://data.belgianmobility.io/en/terms.html	https://api-management-discovery-production.azure-api.net/api/gtfs/feed/stibmivb/static
+mdb-3544	belgio	Fiandre, autobus e tram (De Lijn)	CC-BY	Source: De Lijn – Open Data (data.belgianmobility.io, CC BY 4.0); modificato	https://data.belgianmobility.io/en/terms.html	https://api-management-discovery-production.azure-api.net/api/gtfs/feed/delijn/static
 mdb-2092	polonia	Varsavia, tutti i mezzi pubblici (ZTM)	ZTM-Warszawa-ToU	Zarząd Transportu Miejskiego w Warszawie (ztm.waw.pl, condizioni dei dati degli orari ZTM), feed di mkuran.pl; modificato	https://www.ztm.waw.pl/pliki-do-pobrania/dane-rozkladowe/
 tld-6771	malesia	Kuala Lumpur, treni urbani (Rapid Rail)	CC-BY	Prasarana Malaysia, Rapid Rail (data.gov.my, CC BY 4.0); modificato	https://developer.data.gov.my/realtime-api/gtfs-static
 tld-6767	malesia	Kuala Lumpur, autobus (Rapid KL)	CC-BY	Prasarana Malaysia, Rapid Bus (data.gov.my, CC BY 4.0); modificato	https://developer.data.gov.my/realtime-api/gtfs-static
