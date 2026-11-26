@@ -163,6 +163,8 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | File ricevuto che non corrisponde a niente del catalogo | Questo file non è nel catalogo di Pocket Travel | This file is not in the Pocket Travel catalog |
 | Importazione da file fallita per un motivo diverso da spazio, file danneggiato o file sconosciuto | Importazione non riuscita | Import failed |
 | File ricevuto alterato o incompleto (sha256 diverso) | File danneggiato: chiedi di inviarlo di nuovo | Damaged file: ask for it to be sent again |
+| Codice di 64 cifre esadecimali calcolato dal contenuto di un file (APK, modello, mappa), nella wiki e nei testi tecnici | impronta (impronta sha256) | SHA-256 hash (hash nelle ripetizioni; mai "fingerprint", che è l'impronta digitale) |
+| File firmato già verificato che l'app tiene sul dispositivo e rilegge con l'ETag | copia salvata | saved copy (mai "cached copy") |
 | Parola della lingua del posto spiegata da una voce di Wikipedia | termine locale (nel foglio: Da Wikipedia) | local term (in the sheet: From Wikipedia) |
 | Pulsanti della lettura ad alta voce della risposta | Ascolta, Ferma | Listen, Stop |
 | Impostazione che permette ad Ascolta le voci che mandano il testo in rete | Voci online per Ascolta | Online voices for Listen |
@@ -196,6 +198,7 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Corsa che non parte (nelle partenze successive "11:50 soppressa", minuscolo) | soppressa | canceled |
 | Avviso dell'ente su linee, fermate o corse (deviazioni, lavori, scioperi), distinto dall'allerta meteo | avviso di servizio, avvisi di servizio | service alert, service alerts |
 | Le fermate di una corsa in ordine, aperte dal tocco su una partenza | corsa (Mostra la corsa) | trip (Show the trip) |
+| Itinerario da un punto all'altro con i mezzi pubblici, anche con cambi (RAPTOR, `journeys` nel codice) | viaggio con i mezzi pubblici | public transport journey (mai "trip", che è la corsa) |
 | Pulsante della corsa che apre il Navigatore a piedi verso la fermata, per prendere quella corsa | Raggiungi la fermata | Walk to the stop |
 | Cosa evitare in un percorso: chip dell'anteprima del percorso e voce delle Impostazioni con i valori di partenza | Opzioni, Opzioni di percorso; «Evita i pedaggi», «Evita le autostrade», «Evita le strade sterrate», «Evita le strade trafficate», «Evita i traghetti» | Options, Route options; "Avoid tolls", "Avoid motorways", "Avoid unpaved roads", "Avoid busy roads", "Avoid ferries" |
 | Punto tra partenza e arrivo da cui il percorso passa, nell'anteprima del percorso e durante la navigazione | tappa; «Aggiungi tappa», «Salta la tappa», «Tappa raggiunta» | waypoint; "Add waypoint", "Skip waypoint", "Waypoint reached" |
