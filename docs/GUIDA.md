@@ -34,6 +34,14 @@ python .github/scripts/check-dependencies.py app.txt pipeline.txt
 
 Dopo la build la CI controlla anche che gli APK di debug e di release non contengano classi di Google Play Services, Firebase, librerie Play (`com/google/android/play/`) o ML Kit, con `dexdump` dei build-tools, e nessun tracker noto, con exodus-standalone. Una dipendenza nuova che porta con sé una di queste librerie fa fallire il job.
 
+La build cache di Gradle è accesa (`org.gradle.caching=true`). Se una build si ferma con molti errori `[Dagger/MissingBinding]` che riguardano tutti i binding di un modulo, e in `<modulo>/build/generated` manca la cartella `ksp`, la cache ha un risultato vuoto per il KSP di quel modulo: il task risulta `FROM-CACHE` senza file e poi UP-TO-DATE, anche dopo aver cancellato `build/`. La chiave della cache non dipende dalla cartella, quindi il risultato vuoto arriva in ogni worktree o clone dello stesso commit. È successo il 26 novembre 2026 a `:core:sync` nella build del tag `v0.14.0`. Si ripara rilanciando il task con la cache accesa, che sostituisce il risultato vuoto anche per le build successive:
+
+```bash
+./gradlew :core:sync:kspDebugKotlin --rerun
+```
+
+`--no-build-cache` fa passare la build, ma lascia il risultato vuoto nella cache. Non si sa ancora quale build l'abbia salvato: prima di riparare conviene lanciare il task con `--info --console=plain` e tenere le righe del task (`FROM-CACHE`, `Build cache key`, `Origin for`), che lo dicono.
+
 `:app:dependencyGuard` confronta le dipendenze dell'APK di release, dirette e transitive, con `app/dependencies/releaseRuntimeClasspath.txt` e fallisce a ogni differenza. Dopo un aggiornamento voluto si rigenera il file con `./gradlew :app:dependencyGuardBaseline`, si controlla il diff e lo si committa insieme al cambio.
 
 Il baseline profile (`app/src/release/generated/baselineProfiles/`) elenca le classi e i metodi dell'avvio, che Android compila all'installazione invece che al primo uso. Lo genera il modulo `:baselineprofile` su un emulatore con API 33 o successiva: `./gradlew :app:generateReleaseBaselineProfile`, con l'emulatore acceso e sbloccato (con la schermata di blocco il test fallisce con "Unable to confirm activity launch completion"). Gradle installa l'app di release al posto di quella di debug e alla fine la disinstalla: le regioni e i modelli scaricati sull'emulatore si perdono. Va rigenerato e committato quando cambia molto il codice dell'avvio; la CI e `publish-apk` usano il file committato.
