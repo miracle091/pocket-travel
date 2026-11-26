@@ -274,7 +274,7 @@
     <string name="licenses_component_trained_models">Modelli addestrati da Pocket Travel (pockettravel/*-travel-it-GGUF e *-travel-en-GGUF)</string>
     <string name="licenses_note_trained_models">Fine-tuning dei modelli Qwen, addestrati su testi di Wikivoyage e Wikipedia; scaricati su richiesta da Hugging Face</string>
     <string name="licenses_component_protomaps">Mappa: build Protomaps</string>
-    <string name="licenses_note_protomaps">Mappa, mappa d\'insieme e mappa del mondo estratte dalla build giornaliera di Protomaps, con dati © OpenStreetMap contributors e Natural Earth</string>
+    <string name="licenses_note_protomaps">Mappa, mappa d\'insieme e mappa del mondo estratte dalla build giornaliera di Protomaps, con dati © OpenStreetMap contributors e Natural Earth; copertura del suolo derivata da ESA WorldCover (CC BY 4.0)</string>
     <string name="licenses_component_natural_earth">Natural Earth (confini dei paesi, mappa delle nazioni)</string>
     <string name="licenses_name_public_domain">Pubblico dominio</string>
     <string name="licenses_note_natural_earth">Dati in scala 1:50m, ridotti a confini, codice ISO e nome del paese</string>

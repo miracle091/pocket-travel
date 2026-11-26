@@ -34,7 +34,7 @@ fi
 
 ensure_release world-map \
   "Mappa del mondo" \
-  "Mappa del mondo a bassa risoluzione (z0-8) per l'app Pocket Travel, letta online a pezzi. Non e' una release software."
+  "Mappa del mondo a bassa risoluzione (z0-8) per l'app Pocket Travel, letta online a pezzi. Non e' una release software. Dati © OpenStreetMap contributors (ODbL) e Natural Earth, dalla build giornaliera di Protomaps; copertura del suolo derivata da ESA WorldCover (CC BY 4.0)."
 
 # go-pmtiles serve solo qui, quando la mappa si rigenera (circa ogni 30 giorni). La cartella va nel PATH di questo
 # script: $GITHUB_PATH vale solo per i passi successivi.

@@ -267,7 +267,7 @@
     <string name="licenses_component_trained_models">Models trained by Pocket Travel (pockettravel/*-travel-it-GGUF and *-travel-en-GGUF)</string>
     <string name="licenses_note_trained_models">Fine-tunes of the Qwen models, trained on Wikivoyage and Wikipedia texts; downloaded on request from Hugging Face</string>
     <string name="licenses_component_protomaps">Map: Protomaps build</string>
-    <string name="licenses_note_protomaps">Map, overview map and world map extracted from the daily Protomaps build, with data © OpenStreetMap contributors and Natural Earth</string>
+    <string name="licenses_note_protomaps">Map, overview map and world map extracted from the daily Protomaps build, with data © OpenStreetMap contributors and Natural Earth; land cover derived from ESA WorldCover (CC BY 4.0)</string>
     <string name="licenses_component_natural_earth">Natural Earth (country borders, country map)</string>
     <string name="licenses_name_public_domain">Public domain</string>
     <string name="licenses_note_natural_earth">1:50m data, reduced to borders, ISO code and country name</string>
