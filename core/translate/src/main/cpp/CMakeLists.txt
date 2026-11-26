@@ -134,7 +134,8 @@ if(NOT BERGAMOT_STAMP STREQUAL BERGAMOT_STAMP_OLD)
     # git apply esce con 0 anche quando salta tutti i file: si guarda un file che solo una patch (0006) crea.
     if(BERGAMOT_PATCHES AND NOT EXISTS ${BERGAMOT_SRC}/3rd_party/marian-dev/src/common/git_revision.h)
         message(FATAL_ERROR "Le patch di third-party/patches/bergamot-translator risultano applicate ma "
-                "git_revision.h non esiste: git apply ha saltato i file (vedi .claude/rules/third-party.md)")
+                "git_revision.h non esiste: git apply ha saltato i file (dentro il repository del progetto git legge i percorsi "
+                "dalla sua root: va lanciato dalla root della copia con GIT_CEILING_DIRECTORIES)")
     endif()
     # ssplit-cpp scaricherebbe pcre2 da GitHub durante la compilazione, senza controllo dell'impronta e con le due
     # ABI che scrivono nella stessa cartella: lo si scarica qui, una volta, e FindPCRE2.cmake lo trova gia' estratto.

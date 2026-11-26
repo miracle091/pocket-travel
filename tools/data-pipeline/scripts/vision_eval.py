@@ -7,10 +7,10 @@ di "expected". Le immagini vengono da Wikimedia Commons (miniatura larga IMAGE_W
 
 Uso: vision_eval.py --base-url URL --model MODELLO --key-env NOME_VARIABILE [--lang it|en|both] [--limit N]
                     [--cache CARTELLA] [--out risultati.jsonl] [--set photo-set.json]
-La chiave si legge dalla variabile d'ambiente --key-env (con .claude/scripts/with-env.mjs, mai sulla riga di comando).
+La chiave si legge dalla variabile d'ambiente --key-env, mai dalla riga di comando.
 Con --score-answers risposte.jsonl (righe con id, lang e answer, come le scrive VisionSetDeviceTest sul dispositivo) non
 chiede niente a nessun servizio: valuta le risposte salvate e stampa lo stesso riepilogo.
-Esempio: bun .claude/scripts/with-env.mjs -- python vision_eval.py --base-url https://api.mistral.ai/v1
+Esempio, con MISTRAL_API_KEY nell'ambiente: python vision_eval.py --base-url https://api.mistral.ai/v1
          --model mistral-small-latest --key-env MISTRAL_API_KEY
 """
 import argparse
