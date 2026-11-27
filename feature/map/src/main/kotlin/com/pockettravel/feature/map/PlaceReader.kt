@@ -1,4 +1,4 @@
-// Un lettore per forma (gradi decimali, geo:, Google Maps, OpenStreetMap) e i loro aiuti: divisi in piu' file si perderebbe
+// Un lettore per forma (gradi, geo:, Plus Code, link di mappe) e i loro aiuti: divisi in piu' file si perderebbe
 // l'ordine in cui si provano.
 @file:Suppress("TooManyFunctions")
 
@@ -10,13 +10,16 @@ import java.util.Locale
 /**
  * Legge il posto di [text], che viene dal campo di ricerca, da un URI `geo:` o da un testo condiviso da un'altra app: e'
  * un input non fidato, quindi si leggono solo le forme note e i valori fuori intervallo si scartano. Forme: gradi decimali
- * ("43,6 1,44", "43.6, 1.44"), `geo:lat,lon` e `geo:0,0?q=lat,lon(nome)`, link di Google Maps (`@lat,lon`, `!3d..!4d..`,
- * `q`, `query`, `ll`, `destination`, `daddr`) e di OpenStreetMap (`mlat`/`mlon`, `#map=zoom/lat/lon`, `/go/codice`). Un testo con piu'
- * parole cerca il link tra le parole. Gradi, primi e secondi non si leggono.
+ * ("43,6 1,44", "43.6, 1.44"), gradi con primi e secondi (`41°53'24.8"N 12°29'32.3"E`) o con primi decimali
+ * (`N 41° 53.413' E 12° 29.538'`), `geo:lat,lon` e `geo:0,0?q=lat,lon(nome)`, Plus Code completi (`8FHJVHXV+5Q`, anche in
+ * `plus.codes/`), link di Google Maps (`@lat,lon`, `!3d..!4d..`, `q`, `query`, `ll`, `destination`, `daddr`, ultimo punto di
+ * `/dir/`), di OpenStreetMap (`mlat`/`mlon`, `#map=zoom/lat/lon`, `/go/codice`), di Apple Maps, Waze (anche `/ul/h<geohash>`),
+ * Organic Maps (`ge0`), OsmAnd, HERE, Mapy e Magic Earth. Un percorso con piu' punti da' l'ultimo, la destinazione. Un testo
+ * con piu' parole cerca il link tra le parole.
  */
 fun readPlace(text: String): PlaceReading {
     val trimmed = text.trim().take(MAX_TEXT)
-    val plain = plainCoordinates(trimmed)
+    val plain = plainCoordinates(trimmed) ?: degreesCoordinates(trimmed)
     return when {
         plain != null -> plain
         trimmed.startsWith("geo:", ignoreCase = true) -> readGeo(trimmed)
@@ -35,12 +38,13 @@ fun looksLikeLink(text: String): Boolean = "://" in text || text.trimStart().sta
 
 private const val MAX_TEXT = 2_000
 private const val MAX_NAME = 100
-private const val MAX_LATITUDE = 90.0
-private const val MAX_LONGITUDE = 180.0
+internal const val MAX_LATITUDE = 90.0
+internal const val MAX_LONGITUDE = 180.0
 private val WHITESPACE = Regex("\\s+")
 private val LINK_EDGE = charArrayOf('(', ')', '<', '>', '"', '\'', '.', ',', ';')
 private val CONTROL = Regex("\\p{Cntrl}")
 
+private val UNICODE_SPACE = Regex("\\p{Zs}")
 private const val NUMBER = "[+-]?\\d{1,3}(?:[.,]\\d+)?"
 
 // "lat lon", "lat, lon" o "lat;lon", con la virgola o il punto decimale.
@@ -53,6 +57,27 @@ private const val DECIMAL = "-?\\d+(?:\\.\\d+)?"
 private val GOOGLE_PLACE_DATA = Regex("!3d($DECIMAL)!4d($DECIMAL)")
 private val GOOGLE_VIEW = Regex("/@($DECIMAL),($DECIMAL)")
 private val GOOGLE_PLACE_NAME = Regex("/place/([^/@]+)")
+private const val GOOGLE_DIRECTIONS = "/maps/dir/"
+
+// Gradi, primi e (facoltativi) secondi, con la lettera dell'emisfero prima o dopo i numeri: "41°53'24.8"N" o "N 41° 53.413'".
+private const val DEGREES_VALUE = "(\\d{1,3})\\s*[°º]\\s*(\\d{1,2}(?:\\.\\d+)?)\\s*['′’]\\s*(?:(\\d{1,2}(?:\\.\\d+)?)\\s*(?:\"|″|”|''|′′|’’))?"
+private const val HEMISPHERE = "([NSEWnsew])"
+private const val PAIR_SEPARATOR = "(?:\\s*[,;]\\s*|\\s+)"
+private val DEGREES_AFTER = Regex("$DEGREES_VALUE\\s*$HEMISPHERE$PAIR_SEPARATOR$DEGREES_VALUE\\s*$HEMISPHERE")
+private val DEGREES_BEFORE = Regex("$HEMISPHERE\\s*$DEGREES_VALUE$PAIR_SEPARATOR$HEMISPHERE\\s*$DEGREES_VALUE")
+private const val MINUTES_PER_DEGREE = 60.0
+private const val SECONDS_PER_DEGREE = 3_600.0
+private const val MAX_MINUTES = 60.0
+private const val GROUPS_PER_DEGREES = 4
+
+// Plus Code completo; senza ancore, perche' serve sia da solo sia all'inizio di un pezzo di percorso.
+private val PLUS_CODE = Regex("[2-9CFGHJMPQRVWX]{8}\\+[2-9CFGHJMPQRVWX]{2,7}", RegexOption.IGNORE_CASE)
+private val GE0_HOSTS = setOf("omaps.app", "ge0.me", "comaps.at")
+private val MAPY_HOST = Regex("(?:[a-z0-9-]+\\.)*mapy\\.(?:cz|com)")
+private val WAZE_GEOHASH = Regex("/ul/h([0-9a-z]+)/?", RegexOption.IGNORE_CASE)
+private val HERE_PLACE = Regex("/l/($DECIMAL),($DECIMAL)(?:[,/].*)?")
+private val HERE_MAP = Regex("^($DECIMAL),($DECIMAL)")
+private val OSMAND_FRAGMENT = Regex("^\\d{1,2}(?:\\.\\d+)?/($DECIMAL)/($DECIMAL)")
 private const val OSM_SHORT_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_~"
 private const val OSM_SHORT_CHAR_BITS = 6
 
@@ -101,8 +126,40 @@ private fun readGeo(uri: String): PlaceReading {
     return fromQuery ?: if (q.isEmpty()) PlaceReading.Unreadable else PlaceReading.Search(q.replace(CONTROL, " ").take(MAX_TEXT))
 }
 
-private fun readLink(token: String): PlaceReading =
-    if (token.startsWith("geo:", ignoreCase = true)) readGeo(token) else LINK.matchEntire(token)?.let(::readHttpLink) ?: PlaceReading.Unreadable
+private fun readLink(token: String): PlaceReading = when {
+    token.startsWith("geo:", ignoreCase = true) -> readGeo(token)
+    token.startsWith("ge0://", ignoreCase = true) -> readGe0(token.substring("ge0://".length))
+    PLUS_CODE.matches(token) -> readPlusCode(token)
+    else -> LINK.matchEntire(token)?.let(::readHttpLink) ?: PlaceReading.Unreadable
+}
+
+// "41°53'24.8"N 12°29'32.3"E" o "N 41° 53.413' E 12° 29.538'": la latitudine puo' stare prima o dopo la longitudine.
+private fun degreesCoordinates(text: String): PlaceReading.Coordinates? {
+    val spaced = text.replace(UNICODE_SPACE, " ")
+    val after = DEGREES_AFTER.matchEntire(spaced)?.groupValues?.drop(1)?.chunked(GROUPS_PER_DEGREES)
+    val before = DEGREES_BEFORE.matchEntire(spaced)?.groupValues?.drop(1)?.chunked(GROUPS_PER_DEGREES)
+    // Quattro gruppi per coordinata: gradi, primi, secondi ed emisfero, che in DEGREES_BEFORE sta in testa.
+    val (first, second) = when {
+        after != null -> after.map { degreesValue(it.dropLast(1), it.last()) }
+        before != null -> before.map { degreesValue(it.drop(1), it.first()) }
+        else -> return null
+    }
+    return when {
+        first == null || second == null -> null
+        first.second in "NS" && second.second in "EW" -> coordinates(first.first, second.first)
+        first.second in "EW" && second.second in "NS" -> coordinates(second.first, first.first)
+        else -> null
+    }
+}
+
+// Gradi, primi e secondi (vuoti se mancano) in [numbers], lettera in [hemisphere]: (valore con segno, lettera maiuscola).
+private fun degreesValue(numbers: List<String>, hemisphere: String): Pair<Double, Char>? {
+    val (degrees, minutes, seconds) = numbers.map { it.ifEmpty { "0" }.toDouble() }
+    val letter = hemisphere.uppercase().single()
+    val value = degrees + minutes / MINUTES_PER_DEGREE + seconds / SECONDS_PER_DEGREE
+    val isSigned = letter == 'S' || letter == 'W'
+    return if (minutes >= MAX_MINUTES || seconds >= MAX_MINUTES) null else (if (isSigned) -value else value) to letter
+}
 
 private fun readHttpLink(link: MatchResult): PlaceReading {
     val (authority, path, rawQuery) = link.destructured
@@ -111,14 +168,98 @@ private fun readHttpLink(link: MatchResult): PlaceReading {
     val host = authority.substringAfterLast('@').substringBefore(':').lowercase()
     val query = parseQuery(rawQuery)
     val isOsm = host == "osm.org" || host == "openstreetmap.org" || host.endsWith(".openstreetmap.org")
+    val bareHost = host.removePrefix("www.")
     return when {
         host in SHORT_HOSTS -> PlaceReading.ShortLink
         isOsm && path.startsWith("/go/") -> readOsmShortLink(path.removePrefix("/go/"))
         isOsm -> readOpenStreetMap(query, fragment)
         GOOGLE_HOST.matches(host) && (path.startsWith("/maps") || host.startsWith("maps.")) -> readGoogleMaps(path, query)
-        else -> PlaceReading.Unreadable
+        else -> readOtherApp(bareHost, path, query, fragment)
     }
 }
+
+// I servizi che non sono Google ne' OpenStreetMap; senza rete si legge solo il punto che il link porta.
+private fun readOtherApp(host: String, path: String, query: Map<String, String>, fragment: String): PlaceReading = when {
+    host == "plus.codes" -> readPlusCode(path.removePrefix("/"))
+    host == "maps.apple.com" || host == "maps.apple" -> readApple(path, query)
+    host == "waze.com" || host.endsWith(".waze.com") -> readWaze(path, query)
+    host in GE0_HOSTS -> readGe0(path.removePrefix("/"))
+    host == "osmand.net" -> if ("/navigate" in path) PlaceReading.Unreadable else readOsmAnd(query, fragment)
+    host == "share.here.com" || host == "wego.here.com" -> readHere(path, query)
+    MAPY_HOST.matches(host) -> readMapy(path, query)
+    host == "magicearth.com" -> readMagicEarth(query)
+    else -> PlaceReading.Unreadable
+}
+
+private fun latitudeLongitude(query: Map<String, String>, latitudeKey: String = "lat", longitudeKey: String = "lon") =
+    coordinates(query[latitudeKey]?.toDoubleOrNull(), query[longitudeKey]?.toDoubleOrNull())
+
+// Un Plus Code all'inizio di [raw], anche con "+" scritto %2B ("8FHJVHXV%2B5Q+Roma"); i codici corti non si leggono.
+private fun readPlusCode(raw: String): PlaceReading {
+    val code = PLUS_CODE.find(raw.replace("%2B", "+", ignoreCase = true))?.takeIf { it.range.first == 0 }?.value
+    val point = code?.let(::decodePlusCode)
+    return point?.let { coordinates(it.first, it.second) } ?: PlaceReading.Unreadable
+}
+
+private fun readApple(path: String, query: Map<String, String>): PlaceReading {
+    if (path.startsWith("/p/")) return PlaceReading.ShortLink
+    // Con una destinazione il posto e' quella: ll e sll sono la vista o la partenza.
+    val destination = query["daddr"] ?: query["destination"]
+    return if (destination != null) {
+        coordinateValue(destination) ?: PlaceReading.Unreadable
+    } else {
+        // sll e' dove cercare il testo di q, non il posto: vale solo senza q.
+        val keys = if ("q" in query) listOf("ll", "coordinate", "q") else listOf("ll", "coordinate", "sll")
+        keys.firstNotNullOfOrNull { key -> query[key]?.let(::coordinateValue) } ?: PlaceReading.Unreadable
+    }
+}
+
+private fun readWaze(path: String, query: Map<String, String>): PlaceReading {
+    val geohash = WAZE_GEOHASH.matchEntire(path)?.groupValues?.get(1)?.let(::decodeGeohash)
+    return geohash?.let { coordinates(it.first, it.second) } ?: query["ll"]?.let(::coordinateValue) ?: PlaceReading.Unreadable
+}
+
+// Il nome sta dopo il codice: "_" e' uno spazio e uno spazio codificato e' un trattino basso.
+private fun readGe0(rest: String): PlaceReading {
+    val point = decodeGe0(rest.substringBefore('/').substringBefore('?').substringBefore('#'))
+    val name = decode(rest.substringAfter('/', "").substringBefore('?').substringBefore('#'))
+        .map {
+            when (it) {
+                '_' -> ' '
+                ' ' -> '_'
+                else -> it
+            }
+        }.joinToString("")
+    return point?.let { coordinates(it.first, it.second, cleanName(name)) } ?: PlaceReading.Unreadable
+}
+
+private fun readOsmAnd(query: Map<String, String>, fragment: String): PlaceReading =
+    latitudeLongitude(query)
+        ?: query["pin"]?.let(::coordinateValue)
+        ?: OSMAND_FRAGMENT.find(fragment)?.let { coordinates(it.groupValues[1], it.groupValues[2]) }
+        ?: PlaceReading.Unreadable
+
+private fun readHere(path: String, query: Map<String, String>): PlaceReading = when {
+    path.startsWith("/p/") -> PlaceReading.ShortLink
+    // Un percorso: map= e' la vista, non l'arrivo.
+    path.startsWith("/directions") -> PlaceReading.Unreadable
+    else -> (HERE_PLACE.matchEntire(path) ?: query["map"]?.let { HERE_MAP.find(it) })
+        ?.let { coordinates(it.groupValues[1], it.groupValues[2]) } ?: PlaceReading.Unreadable
+}
+
+// x e y sono la vista, `source=coor&id=lon,lat` e' il punto scelto; l'hash `rc` dei percorsi non si legge, e di un
+// percorso la vista non e' l'arrivo.
+private fun readMapy(path: String, query: Map<String, String>): PlaceReading = when {
+    path.startsWith("/s/") -> PlaceReading.ShortLink
+    "rc" in query -> PlaceReading.Unreadable
+    else -> query["id"]?.split(',')?.takeIf { query["source"] == "coor" && it.size == 2 }
+        ?.let { coordinates(it[1].toDoubleOrNull(), it[0].toDoubleOrNull()) }
+        ?: latitudeLongitude(query, "y", "x")
+        ?: PlaceReading.Unreadable
+}
+
+private fun readMagicEarth(query: Map<String, String>): PlaceReading =
+    latitudeLongitude(query)?.copy(name = query["name"]?.let(::cleanName)) ?: PlaceReading.Unreadable
 
 private fun readOpenStreetMap(query: Map<String, String>, fragment: String): PlaceReading =
     coordinates(query["mlat"]?.toDoubleOrNull(), query["mlon"]?.toDoubleOrNull())
@@ -139,11 +280,17 @@ private fun readOsmShortLink(code: String): PlaceReading {
 }
 
 private fun readGoogleMaps(path: String, query: Map<String, String>): PlaceReading {
-    val name = GOOGLE_PLACE_NAME.find(path)?.groupValues?.get(1)?.let { cleanName(decode(it)) }
-    // Il punto del posto (!3d!4d) viene prima del centro della vista (@), che puo' essere spostato.
-    val inPath = listOf(GOOGLE_PLACE_DATA, GOOGLE_VIEW).firstNotNullOfOrNull { pattern ->
-        pattern.find(path)?.let { coordinates(it.groupValues[1], it.groupValues[2], name) }
-    }
+    // Un percorso (/dir/A/B/C/@vista/...) vale per la sua destinazione, l'ultimo punto prima della vista. Se l'arrivo
+    // non ha coordinate il link non si legge: il centro della vista sta di solito a meta' strada.
+    val stops = path.takeIf { it.startsWith(GOOGLE_DIRECTIONS) }?.removePrefix(GOOGLE_DIRECTIONS)?.split('/')
+        ?.takeWhile { !it.startsWith("@") && !it.startsWith("data=") }?.filter { it.isNotEmpty() }.orEmpty()
+    if (stops.isNotEmpty()) return coordinateValue(decode(stops.last())) ?: PlaceReading.Unreadable
+    val placeName = GOOGLE_PLACE_NAME.find(path)?.groupValues?.get(1)
+    val name = placeName?.let { cleanName(decode(it)) }
+    // Il punto del posto (!3d!4d) e il Plus Code vengono prima del centro della vista (@), che puo' essere spostato.
+    val inPath = GOOGLE_PLACE_DATA.find(path)?.let { coordinates(it.groupValues[1], it.groupValues[2], name) }
+        ?: placeName?.let(::readPlusCode) as? PlaceReading.Coordinates
+        ?: GOOGLE_VIEW.find(path)?.let { coordinates(it.groupValues[1], it.groupValues[2], name) }
     return inPath
         ?: listOf("q", "query", "ll", "destination", "daddr").firstNotNullOfOrNull { key -> query[key]?.let(::coordinateValue) }
             ?.let { if (it.name == null) it.copy(name = name) else it }
