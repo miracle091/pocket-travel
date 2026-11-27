@@ -1,5 +1,7 @@
 package com.pockettravel.feature.ai.llamacpp
 
+import androidx.annotation.StringRes
+import com.pockettravel.feature.ai.R
 import java.io.IOException
 
 /** Perche' il caricamento di un modello e' fallito, ricavato dalle righe di errore del log di llama.cpp. */
@@ -36,6 +38,15 @@ private val FILE_MARKERS = listOf(
 )
 
 private const val MAX_MESSAGE_CHARS = 400
+
+/** Messaggio per l'utente di un caricamento fallito per [reason]; senza una causa riconosciuta quello generico. */
+@StringRes
+internal fun modelLoadErrorMessage(reason: ModelLoadFailure): Int = when (reason) {
+    ModelLoadFailure.FILE -> R.string.ai_error_model_file
+    ModelLoadFailure.MEMORY -> R.string.ai_error_model_memory
+    ModelLoadFailure.ARCHITECTURE -> R.string.ai_error_model_architecture
+    ModelLoadFailure.OTHER -> R.string.ai_error_answer
+}
 
 /** Classifica le righe di errore native [nativeError] (vuote se llama.cpp non ne ha scritte). */
 internal fun classifyModelLoadFailure(nativeError: String): ModelLoadFailure {

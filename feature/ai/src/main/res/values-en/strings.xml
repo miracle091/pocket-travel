@@ -169,6 +169,9 @@
     <string name="ai_error_busy">The service is busy. Try again shortly</string>
     <string name="ai_error_interrupted">The answer was cut off. Try again</string>
     <string name="ai_error_empty_answer">The answer has no useful content and isn\'t shown. Try again</string>
+    <string name="ai_error_model_file">The model file is damaged or incomplete: delete it in AI assistant → On device and download it again</string>
+    <string name="ai_error_model_memory">Not enough memory to load the model: close other apps or choose a smaller model in AI assistant → On device</string>
+    <string name="ai_error_model_architecture">This version of the app can\'t use this model: choose another one in AI assistant → On device</string>
     <string name="ai_error_wrong_language">The answer is in another language and isn\'t shown. Try again</string>
     <string name="ai_saved_key_reminder">A %1$s API key is saved: the online assistant is available right away, without downloading a model</string>
     <string name="ai_use_online">Use online</string>

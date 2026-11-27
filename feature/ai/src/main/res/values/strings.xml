@@ -171,6 +171,9 @@
     <string name="ai_error_busy">Servizio occupato. Riprova tra poco</string>
     <string name="ai_error_interrupted">La risposta si è interrotta. Riprova</string>
     <string name="ai_error_empty_answer">La risposta non ha contenuto utile e non viene mostrata. Riprova</string>
+    <string name="ai_error_model_file">Il file del modello è danneggiato o incompleto: eliminalo in Assistente IA → Sul dispositivo e scaricalo di nuovo</string>
+    <string name="ai_error_model_memory">Memoria insufficiente per caricare il modello: chiudi le altre app o scegli un modello più piccolo in Assistente IA → Sul dispositivo</string>
+    <string name="ai_error_model_architecture">Questa versione dell\'app non può usare questo modello: scegline un altro in Assistente IA → Sul dispositivo</string>
     <string name="ai_error_wrong_language">La risposta è in un\'altra lingua e non viene mostrata. Riprova</string>
     <string name="ai_saved_key_reminder">È salvata una chiave API di %1$s: l\'assistente online è utilizzabile subito, senza scaricare un modello</string>
     <string name="ai_use_online">Usa online</string>

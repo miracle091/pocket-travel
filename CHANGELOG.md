@@ -70,6 +70,7 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 - Assistente IA, motore Online: sotto un modello gratuito, come `inclusionai/ling-3.2-flash:free` di OpenRouter, il costo dice «Gratuito» invece di «Meno di 0,01 USD ogni 100 domande».
 
 ### Corretto
+- Assistente IA: se il modello sul dispositivo non si carica, il messaggio dice perché e cosa fare, invece di «Impossibile generare una risposta». Con un file danneggiato o incompleto chiede di eliminarlo e scaricarlo di nuovo; senza memoria sufficiente chiede di chiudere le altre app o di scegliere un modello più piccolo; con un modello che questa versione dell'app non sa usare chiede di sceglierne un altro.
 - Licenze: la nota della mappa cita anche ESA WorldCover (CC BY 4.0), da cui viene la copertura del suolo contenuta nelle mappe di Protomaps.
 - Documenti: se l'app veniva chiusa dal sistema subito dopo il primo sblocco della cassaforte, il successivo sblocco creava una chiave nuova e i documenti salvati non si aprivano più. Ora la chiave si salva prima di usarla; se non si riesce a salvarla, per esempio con la memoria del telefono piena, lo sblocco non riesce e la cassaforte resta chiusa.
 - Cronologia dell'assistente: se alla prima conversazione salvata la memoria del telefono era piena, le chiavi della cronologia restavano solo nell'app e dopo il riavvio le conversazioni non si aprivano più. Ora in quel caso la conversazione non si salva.

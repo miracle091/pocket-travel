@@ -19,6 +19,9 @@ import com.pockettravel.core.data.runCatchingCancellable
 import com.pockettravel.core.sync.AppStatusClient
 import com.pockettravel.core.sync.OnlineModelEntry
 import com.pockettravel.feature.ai.di.AiPhotosDir
+import com.pockettravel.feature.ai.llamacpp.ModelLoadException
+import com.pockettravel.feature.ai.llamacpp.UnsupportedArchitectureException
+import com.pockettravel.feature.ai.llamacpp.modelLoadErrorMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -986,7 +989,10 @@ private suspend fun MutableStateFlow<AiUiState>.showEmergencyCard(
     update { it.withEmergencyCard(question, EmergencyCardState(numbers, alerts)) }
 }
 
-/** Messaggio per un errore di [AiAssistantViewModel.ask]: il modello online sconosciuto ha il suo, il resto quello generico. */
+/**
+ * Messaggio per un errore di [AiAssistantViewModel.ask]: gli errori online riconosciuti e i modelli sul dispositivo che non
+ * si caricano (file rovinato, memoria, architettura) hanno il loro, il resto quello generico.
+ */
 @StringRes
 internal fun askErrorMessage(error: Exception): Int = when (error) {
     is OnlineModelNotFoundException -> R.string.ai_error_model
@@ -997,6 +1003,8 @@ internal fun askErrorMessage(error: Exception): Int = when (error) {
     is OnlineAnswerInterruptedException -> R.string.ai_error_interrupted
     is OnlineAnswerWrongLanguageException -> R.string.ai_error_wrong_language
     is OnlineAnswerEmptyException -> R.string.ai_error_empty_answer
+    is UnsupportedArchitectureException -> R.string.ai_error_model_architecture
+    is ModelLoadException -> modelLoadErrorMessage(error.reason)
     else -> R.string.ai_error_answer
 }
 
