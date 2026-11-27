@@ -13,8 +13,8 @@ import com.pockettravel.feature.ai.llamacpp.CpuBackendInfo
 import com.pockettravel.feature.ai.llamacpp.CpuBackendOverride
 import com.pockettravel.feature.ai.llamacpp.HistoryTurn
 import com.pockettravel.feature.ai.llamacpp.InferenceEngine
-import com.pockettravel.feature.ai.llamacpp.UnsupportedArchitectureException
 import com.pockettravel.feature.ai.llamacpp.internal.InferenceEngineImpl.Companion.getInstance
+import com.pockettravel.feature.ai.llamacpp.modelLoadException
 import dalvik.annotation.optimization.FastNative
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -108,6 +108,9 @@ internal class InferenceEngineImpl private constructor(
     private external fun load(modelPath: String): Int
 
     private external fun prepare(topK: Int, topP: Float, nThreads: Int, nThreadsBatch: Int, speculativeNgram: Boolean): Int
+
+    // Ultime righe di errore di llama.cpp scritte da load o prepare, da leggere dopo un loro codice diverso da 0.
+    private external fun lastLoadErrorNative(): String?
 
     @FastNative
     private external fun systemInfo(): String
@@ -285,10 +288,10 @@ internal class InferenceEngineImpl private constructor(
                 Log.i(TAG, "Loading model... \n$pathToModel")
                 _state.value = InferenceEngine.State.LoadingModel
                 load(pathToModel).let {
-                    if (it != 0) throw UnsupportedArchitectureException()
+                    if (it != 0) throw modelLoadException("load", it, lastLoadErrorNative().orEmpty())
                 }
                 prepare(topK, topP, nThreads, nThreadsBatch, speculativeNgram).let {
-                    if (it != 0) throw IOException("Failed to prepare resources")
+                    if (it != 0) throw modelLoadException("prepare", it, lastLoadErrorNative().orEmpty())
                 }
                 Log.i(TAG, "Model loaded!")
 

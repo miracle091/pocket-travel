@@ -31,6 +31,7 @@ interface InferenceEngine {
      * [nThreadsBatch] il prompt.
      *
      * @throws UnsupportedArchitectureException if model architecture not supported
+     * @throws ModelLoadException for the other native failures (file, memory, unknown): its message has the llama.cpp log lines
      */
     suspend fun loadModel(
         pathToModel: String,
@@ -139,7 +140,8 @@ val State.isModelLoaded: Boolean
         this is State.ProcessingUserPrompt ||
         this is State.Generating
 
-class UnsupportedArchitectureException : Exception()
+/** Il GGUF e' di un'architettura che questa versione di llama.cpp non conosce; [message] riporta la riga del log nativo. */
+class UnsupportedArchitectureException(message: String? = null) : Exception(message)
 
 /** Un turno di prima nel contesto del modello: la domanda come l'ha scritta l'utente e la risposta data. */
 data class HistoryTurn(val question: String, val answer: String)

@@ -1,6 +1,8 @@
 // Adattato da examples/llama.android (com.arm.aichat) di ggml-org/llama.cpp, git tag v0.6.0.
 #pragma once
 #include <android/log.h>
+#include <mutex>
+#include <string>
 
 #ifndef LOG_TAG
 #define LOG_TAG "llm-engine"
@@ -52,9 +54,40 @@ static inline int android_log_prio_from_ggml(enum ggml_log_level level) {
     }
 }
 
+// Ultime righe di errore del log di llama.cpp e ggml, per dire perche' un caricamento e' fallito (il codice di ritorno
+// non lo dice). Il callback gira anche sui thread di ggml: l'accesso e' sotto mutex. Limitato a LOAD_ERROR_MAX_CHARS
+// byte: restano gli ultimi, che comprendono la causa e la riga generica che la segue.
+constexpr size_t LOAD_ERROR_MAX_CHARS = 1024;
+static std::mutex g_captured_errors_mutex;
+static std::string g_captured_errors;
+
+static inline void ai_clear_captured_errors() {
+    std::lock_guard<std::mutex> lock(g_captured_errors_mutex);
+    g_captured_errors.clear();
+}
+
+static inline std::string ai_captured_errors() {
+    std::lock_guard<std::mutex> lock(g_captured_errors_mutex);
+    return g_captured_errors;
+}
+
+static inline void ai_capture_error(const char *text) {
+    if (text == nullptr) return;
+    try {
+        std::lock_guard<std::mutex> lock(g_captured_errors_mutex);
+        g_captured_errors += text;
+        if (g_captured_errors.size() > LOAD_ERROR_MAX_CHARS) {
+            g_captured_errors.erase(0, g_captured_errors.size() - LOAD_ERROR_MAX_CHARS);
+        }
+    } catch (...) {
+        // Memoria finita: il log di Android resta, il motivo del caricamento no.
+    }
+}
+
 static inline void aichat_android_log_callback(enum ggml_log_level level,
                                               const char* text,
                                               void* /*user*/) {
+    if (level == GGML_LOG_LEVEL_ERROR) ai_capture_error(text);
     const int prio = android_log_prio_from_ggml(level);
     if (!ai_should_log(prio)) return;
     __android_log_write(prio, LOG_TAG, text);

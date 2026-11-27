@@ -192,6 +192,8 @@ static jint load_impl(JNIEnv *env, jstring jmodel_path) {
     const std::string model_path = jstring_to_path(env, jmodel_path);
     LOGd("%s: Loading model from: \n%s\n", __func__, model_path.c_str());
 
+    // Le righe di errore di llama.cpp di questo caricamento (lastLoadErrorNative) spiegano il codice 1.
+    ai_clear_captured_errors();
     auto *model = llama_model_load_from_file(model_path.c_str(), model_params);
     if (!model) {
         return 1;
@@ -201,7 +203,7 @@ static jint load_impl(JNIEnv *env, jstring jmodel_path) {
 }
 
 static llama_context *init_context(llama_model *model, const int n_threads, const int n_threads_batch,
-                                   const int n_ctx = DEFAULT_CONTEXT_SIZE) {
+                                   const int n_outputs_max, const int n_ctx = DEFAULT_CONTEXT_SIZE) {
     if (!model) {
         LOGe("%s: model cannot be null", __func__);
         return nullptr;
@@ -219,6 +221,12 @@ static llama_context *init_context(llama_model *model, const int n_threads, cons
     ctx_params.n_ctx = n_ctx;
     ctx_params.n_batch = BATCH_SIZE;
     ctx_params.n_ubatch = BATCH_SIZE;
+    // Righe di logit che un solo decode puo' chiedere. Senza, llama.cpp usa n_batch (512) e riserva il buffer dei logit e
+    // il grafo di lettura del prompt per 512 righe da n_vocab float (circa 250k token con Qwen3.5). Piu' righe di
+    // questo massimo in un batch fermano il processo (GGML_ASSERT in llama_context::output_reserve), quindi vale il
+    // massimo tra i decode del file: il batch di verifica del ngram (token in attesa + NGRAM_SIZE_M ipotesi, ognuno con
+    // il logit); tutti gli altri (prompt, foto, cronologia, benchmark, chiusura del turno) ne chiedono 1 o 0.
+    ctx_params.n_outputs_max = n_outputs_max;
     ctx_params.n_threads = n_threads;
     ctx_params.n_threads_batch = n_threads_batch;
     auto *context = llama_init_from_model(model, ctx_params);
@@ -392,8 +400,11 @@ static ChatFormat choose_chat_format(const bool jinja_parsed) {
 // top_k/top_p passati da Kotlin (OnDeviceLlmEngine): il riferimento Arm usa solo i default di
 // common_params_sampling, qui il campionamento lo sceglie il chiamante.
 static jint prepare_impl(jint top_k, jfloat top_p, jint n_threads, jint n_threads_batch, jboolean speculative) {
+    // Senza ngram (generation_step non propone ipotesi) ogni decode chiede al massimo 1 riga di logit.
+    ai_clear_captured_errors();
     auto *context = init_context(g_model, n_threads > 0 ? n_threads : DEFAULT_N_THREADS,
-                                 n_threads_batch > 0 ? n_threads_batch : DEFAULT_N_THREADS);
+                                 n_threads_batch > 0 ? n_threads_batch : DEFAULT_N_THREADS,
+                                 speculative ? NGRAM_SIZE_M + 1 : 1);
     if (!context) { return 1; }
     g_context = context;
     // Vale solo durante la lettura del prompt (g_reading_prompt): generazione, chiusura del turno e foto non lo sentono.
@@ -1406,6 +1417,22 @@ Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_load(JNIE
     } catch (...) {
         LOGe("%s: unknown exception", __func__);
         return -100;
+    }
+}
+
+// Righe di errore di llama.cpp dell'ultimo load o prepare (al massimo LOAD_ERROR_MAX_CHARS byte, le ultime), da
+// leggere subito dopo un codice d'errore: Kotlin ne ricava la causa. Stringa vuota se non ce n'e'; null solo se la
+// stringa Java non si crea (OutOfMemoryError gia' pendente). Convertita in UTF-16: i byte tagliati diventano U+FFFD.
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_pockettravel_feature_ai_llamacpp_internal_InferenceEngineImpl_lastLoadErrorNative(JNIEnv *env, jobject /*unused*/) {
+    try {
+        std::vector<jchar> utf16;
+        utf8_to_utf16(ai_captured_errors(), utf16, true);
+        return env->NewString(utf16.data(), (jsize) utf16.size());
+    } catch (...) {
+        LOGe("%s: cannot build the error text", __func__);
+        return nullptr;
     }
 }
 
