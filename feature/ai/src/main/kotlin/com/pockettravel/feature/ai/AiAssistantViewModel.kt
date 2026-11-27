@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pockettravel.core.data.ConversationRepository
+import com.pockettravel.core.data.ConversationSearchResult
 import com.pockettravel.core.data.GuideSourceTarget
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.SavedConversation
@@ -183,10 +184,16 @@ sealed interface HistoryUiState {
     /** Biometria cambiata o dati rovinati: le conversazioni salvate non si leggono piu', resta la cancellazione. */
     data object Invalidated : HistoryUiState
 
-    data class Unlocked(val conversations: List<SavedConversation>) : HistoryUiState
+    /** [query] e' il testo cercato; [results] i risultati (null con la ricerca vuota), solo in memoria. */
+    data class Unlocked(
+        val conversations: List<SavedConversation>,
+        val query: String = "",
+        val results: List<ConversationSearchResult>? = null,
+    ) : HistoryUiState
 }
 
 @HiltViewModel
+@Suppress("LargeClass") // la schermata dell'assistente: domanda, conversazione, cronologia e ricerca
 class AiAssistantViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val deviceAiCapability: DeviceAiCapability,
@@ -788,9 +795,12 @@ class AiAssistantViewModel @Inject constructor(
     // La ripresa in corso: una domanda o la fine della conversazione la annullano.
     private var resumeJob: Job? = null
 
+    // La ricerca in corso nella cronologia.
+    private var searchJob: Job? = null
+
     /** Apre la cronologia: senza biometria spiega perche' non c'e', altrimenti prepara lo sblocco. */
     fun openHistory() {
-        historyReader = null
+        dropHistoryReader()
         val session = ++historySession
         if (!historyAvailability.isAvailable()) {
             _uiState.update { it.copy(history = HistoryUiState.Unavailable) }
@@ -836,9 +846,29 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     fun closeHistory() {
-        historyReader = null
+        dropHistoryReader()
         historySession++
         _uiState.update { it.copy(history = null, historyDeleteFailed = false) }
+    }
+
+    // Il lettore e l'indice di ricerca (testi in chiaro) vivono solo con la cronologia aperta.
+    private fun dropHistoryReader() {
+        historyReader = null
+        searchJob?.cancel()
+        conversationRepository.closeSearch()
+    }
+
+    /** Cerca [query] nelle conversazioni della cronologia sbloccata; una ricerca nuova annulla quella in corso. */
+    fun searchHistory(query: String) {
+        val reader = historyReader ?: return
+        val session = historySession
+        searchJob?.cancel()
+        updateUnlocked(session) { it.copy(query = query, results = if (query.isBlank()) null else it.results) }
+        if (query.isBlank()) return
+        searchJob = viewModelScope.launch {
+            val results = conversationRepository.searchOrNull(reader, query)
+            updateUnlocked(session) { if (it.query == query) it.copy(results = results) else it }
+        }
     }
 
     /**
@@ -912,8 +942,18 @@ class AiAssistantViewModel @Inject constructor(
         }
     }
 
+    // Dopo una cancellazione l'elenco si rilegge e la ricerca in corso si rifa'.
     private suspend fun showHistoryList(session: Int, reader: HistoryReader) {
-        updateHistory(session, HistoryUiState.Unlocked(conversationRepository.list(reader)))
+        val conversations = conversationRepository.list(reader)
+        val query = (_uiState.value.history as? HistoryUiState.Unlocked)?.query.orEmpty()
+        updateHistory(session, HistoryUiState.Unlocked(conversations, query, conversationRepository.searchOrNull(reader, query)))
+    }
+
+    private fun updateUnlocked(session: Int, transform: (HistoryUiState.Unlocked) -> HistoryUiState.Unlocked) {
+        _uiState.update {
+            val history = it.history
+            if (session != historySession || history !is HistoryUiState.Unlocked) it else it.copy(history = transform(history))
+        }
     }
 
     private fun updateHistory(session: Int, history: HistoryUiState) {
@@ -921,6 +961,7 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        conversationRepository.closeSearch()
         conversation.end()
     }
 }

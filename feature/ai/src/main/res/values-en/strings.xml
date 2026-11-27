@@ -313,6 +313,13 @@
     <string name="ai_history_delete_all_title">Delete the history?</string>
     <string name="ai_history_delete_all_message">All saved conversations will be deleted</string>
     <string name="ai_history_delete_failed">Couldn\'t delete. Try again</string>
+    <string name="ai_history_search_hint">Search the conversations</string>
+    <string name="ai_history_search_clear">Clear the search</string>
+    <string name="ai_history_search_empty_title">No results</string>
+    <string name="ai_history_search_empty_body">No conversation contains these words</string>
+    <string name="ai_history_found_in_answer">In the answer</string>
+    <string name="ai_history_found_in_title">In the title</string>
+    <string name="ai_history_found_in_question">In the question</string>
     <plurals name="ai_history_saved_count">
         <item quantity="one">History: %d conversation</item>
         <item quantity="other">History: %d conversations</item>

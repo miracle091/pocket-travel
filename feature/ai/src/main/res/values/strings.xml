@@ -320,6 +320,13 @@
     <string name="ai_history_delete_all_title">Eliminare la cronologia?</string>
     <string name="ai_history_delete_all_message">Tutte le conversazioni salvate verranno eliminate</string>
     <string name="ai_history_delete_failed">Eliminazione non riuscita. Riprova</string>
+    <string name="ai_history_search_hint">Cerca nelle conversazioni</string>
+    <string name="ai_history_search_clear">Svuota la ricerca</string>
+    <string name="ai_history_search_empty_title">Nessun risultato</string>
+    <string name="ai_history_search_empty_body">Nessuna conversazione contiene queste parole</string>
+    <string name="ai_history_found_in_answer">Nella risposta</string>
+    <string name="ai_history_found_in_title">Nel titolo</string>
+    <string name="ai_history_found_in_question">Nella domanda</string>
     <plurals name="ai_history_saved_count">
         <item quantity="one">Cronologia: %d conversazione</item>
         <item quantity="many">Cronologia: %d conversazioni</item>

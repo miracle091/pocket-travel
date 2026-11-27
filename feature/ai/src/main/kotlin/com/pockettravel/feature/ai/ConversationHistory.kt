@@ -22,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -38,6 +39,10 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -47,7 +52,10 @@ import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.FragmentActivity
+import com.pockettravel.core.data.ConversationSearchResult
 import com.pockettravel.core.data.SavedConversation
+import com.pockettravel.core.data.SearchExcerpt
+import com.pockettravel.core.data.SearchField
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.ConfirmationDialog
 import com.pockettravel.core.ui.EmptyState
@@ -108,7 +116,7 @@ internal fun ConversationHistoryDialog(history: HistoryUiState, deleteFailed: Bo
                         HistoryUiState.Unavailable -> NoBiometrics()
                         is HistoryUiState.Locked -> LockedHistory(history.cipher, activity, actions)
                         HistoryUiState.Invalidated -> InvalidatedHistory(actions.onDeleteAll)
-                        is HistoryUiState.Unlocked -> ConversationList(history.conversations, actions)
+                        is HistoryUiState.Unlocked -> ConversationHistory(history, actions)
                     }
                 }
             }
@@ -204,9 +212,10 @@ internal fun DeleteHistoryConfirmation(onConfirm: () -> Unit, onDismiss: () -> U
     )
 }
 
+// Campo di ricerca, poi i risultati se c'e' una ricerca, altrimenti l'elenco.
 @Composable
-private fun ConversationList(conversations: List<SavedConversation>, actions: HistoryActions) {
-    if (conversations.isEmpty()) {
+private fun ConversationHistory(history: HistoryUiState.Unlocked, actions: HistoryActions) {
+    if (history.conversations.isEmpty()) {
         EmptyState(
             icon = AppIcons.History,
             title = stringResource(R.string.ai_history_empty_title),
@@ -215,6 +224,81 @@ private fun ConversationList(conversations: List<SavedConversation>, actions: Hi
         )
         return
     }
+    Column(modifier = Modifier.fillMaxSize()) {
+        SearchField(history.query, actions.onSearch)
+        val results = history.results
+        if (results == null) ConversationList(history.conversations, actions) else SearchResults(results, actions)
+    }
+}
+
+@Composable
+private fun SearchField(initial: String, onSearch: (String) -> Unit) {
+    var query by remember { mutableStateOf(initial) }
+    OutlinedTextField(
+        value = query,
+        onValueChange = { query = it; onSearch(it) },
+        placeholder = { Text(stringResource(R.string.ai_history_search_hint)) },
+        leadingIcon = { Icon(AppIcons.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { query = ""; onSearch("") }) {
+                    Icon(AppIcons.Close, contentDescription = stringResource(R.string.ai_history_search_clear))
+                }
+            }
+        },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+
+@Composable
+private fun SearchResults(results: List<ConversationSearchResult>, actions: HistoryActions) {
+    if (results.isEmpty()) {
+        EmptyState(
+            icon = AppIcons.Search,
+            title = stringResource(R.string.ai_history_search_empty_title),
+            subtitle = stringResource(R.string.ai_history_search_empty_body),
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
+    }
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        items(results, key = { it.conversation.id }) { result ->
+            val excerpt = highlightedExcerpt(result.excerpt, SpanStyle(fontWeight = FontWeight.Bold, background = MaterialTheme.colorScheme.primaryContainer))
+            val foundIn = stringResource(
+                when (result.field) {
+                    SearchField.ANSWER -> R.string.ai_history_found_in_answer
+                    SearchField.TITLE -> R.string.ai_history_found_in_title
+                    SearchField.QUESTION -> R.string.ai_history_found_in_question
+                },
+            )
+            ListItem(
+                overlineContent = { Text(foundIn) },
+                supportingContent = {
+                    // Un titolo trovato si mostra una volta sola, con le parole evidenziate.
+                    if (result.field != SearchField.TITLE) Text(excerpt, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                },
+                modifier = Modifier.clickable(onClickLabel = stringResource(R.string.ai_history_resume)) { actions.onResume(result.conversation.id) },
+                contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 20.dp, bottom = 8.dp),
+            ) {
+                if (result.field == SearchField.TITLE) {
+                    Text(excerpt, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                } else {
+                    Text(result.conversation.summary.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}
+
+/** [excerpt] con le parole trovate nello stile [highlight]. */
+internal fun highlightedExcerpt(excerpt: SearchExcerpt, highlight: SpanStyle): AnnotatedString = buildAnnotatedString {
+    append(excerpt.text)
+    excerpt.highlights.forEach { addStyle(highlight, it.first, it.last + 1) }
+}
+
+@Composable
+private fun ConversationList(conversations: List<SavedConversation>, actions: HistoryActions) {
     var toDelete by remember { mutableStateOf<SavedConversation?>(null) }
     val dateFormat = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM) }
     LazyColumn(modifier = Modifier.fillMaxSize()) {

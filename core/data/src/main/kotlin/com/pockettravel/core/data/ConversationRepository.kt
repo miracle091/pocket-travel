@@ -76,6 +76,7 @@ class ConversationHandle internal constructor(val id: String, internal val ciphe
  * schermata che le chiede si chiude, e la prima, che crea le chiavi della cronologia, non blocca chi la chiede.
  */
 @Singleton
+@Suppress("TooManyFunctions") // letture, scritture in coda e indice di ricerca della stessa cronologia
 class ConversationRepository @Inject constructor(
     private val dao: ConversationDao,
     private val keys: HistoryKeys,
@@ -111,6 +112,7 @@ class ConversationRepository @Inject constructor(
         if (dao.find(handle.id) == null) return@enqueue
         dao.insertTurn(ConversationTurnEntity(conversationId = handle.id, encryptedPayload = handle.encrypt(turn), createdAt = now))
         dao.touch(handle.id, now)
+        forgetInSearch(handle.id)
     }
 
     /** [turn] al posto dell'ultimo turno: la stessa domanda rifatta (previsioni aggiornate). */
@@ -118,6 +120,7 @@ class ConversationRepository @Inject constructor(
         val last = dao.turns(handle.id).lastOrNull() ?: return@enqueue
         dao.insertTurn(last.copy(encryptedPayload = handle.encrypt(turn), createdAt = now))
         dao.touch(handle.id, now)
+        forgetInSearch(handle.id)
     }
 
     /** La conversazione lascia la schermata (nuova conversazione, cambio di motore o di modello, schermata chiusa). */
@@ -143,6 +146,50 @@ class ConversationRepository @Inject constructor(
         }
     }
 
+    // L'indice di ricerca vive in RAM con il lettore che l'ha costruito: chi chiude la cronologia lo butta (closeSearch).
+    private class SearchSession(val reader: HistoryReader, val index: ConversationSearchIndex = ConversationSearchIndex())
+
+    private var searchSession: SearchSession? = null
+
+    private fun searchIndex(reader: HistoryReader): ConversationSearchIndex = synchronized(this) {
+        searchSession?.takeIf { it.reader === reader }?.index ?: SearchSession(reader).also { searchSession = it }.index
+    }
+
+    /**
+     * Cerca [query] nei testi delle conversazioni (risposte, titoli, domande; non le fonti), solo in memoria: la prima
+     * ricerca dopo lo sblocco decifra i turni, le altre rileggono solo le conversazioni cambiate. Risultati in ordine
+     * (vedi ConversationSearchIndex.search).
+     */
+    suspend fun search(reader: HistoryReader, query: String): List<ConversationSearchResult> = withContext(ioDispatcher) {
+        writes.await()
+        val index = searchIndex(reader)
+        val entities = dao.all()
+        index.retainOnly(entities.mapTo(HashSet()) { it.id })
+        entities.filterNot { index.isCurrent(it.id, it.updatedAt) }.forEach { indexConversation(reader, index, it) }
+        index.search(query)
+    }
+
+    private suspend fun indexConversation(reader: HistoryReader, index: ConversationSearchIndex, entity: ConversationEntity) {
+        val cipher = reader.conversationKey(entity.wrappedKey)?.let(::SessionAesCipher)
+        val summary = cipher?.decode<ConversationSummary>(entity.encryptedSummary)
+        if (cipher == null || summary == null) {
+            index.putUnreadable(entity.id, entity.updatedAt)
+            return
+        }
+        val turns = dao.turns(entity.id).mapNotNull { cipher.decode<ConversationTurn>(it.encryptedPayload) }
+        index.put(SavedConversation(entity.id, summary, entity.createdAt, entity.updatedAt), turns)
+    }
+
+    /** La cronologia si richiude: l'indice di ricerca, con i testi in chiaro, si butta. */
+    fun closeSearch() {
+        synchronized(this) { searchSession = null }
+    }
+
+    // Una scrittura cambia o toglie una conversazione: la sua voce dell'indice non vale piu'.
+    private fun clearSearch() = synchronized(this) { searchSession?.index }?.clear()
+
+    private fun forgetInSearch(id: String) = synchronized(this) { searchSession?.index }?.forget(id)
+
     /** Riapre una conversazione per continuarla, e conta la ripresa; null se non c'e' piu' o non si decifra. */
     suspend fun resume(reader: HistoryReader, id: String, now: Long = System.currentTimeMillis()): ResumedConversation? = withContext(ioDispatcher) {
         writes.await()
@@ -165,11 +212,15 @@ class ConversationRepository @Inject constructor(
      * Cancella una conversazione. Passa dalla coda delle scritture: nessuna scrittura chiesta prima arriva dopo. Lancia se
      * la cancellazione non riesce: la conversazione e' ancora nella cronologia.
      */
-    suspend fun delete(id: String) = writes.run { dao.delete(id) }
+    suspend fun delete(id: String) = writes.run {
+        dao.delete(id)
+        forgetInSearch(id)
+    }
 
     /** Cancella le conversazioni non usate da piu' di [RETENTION_DAYS] giorni (dall'ultimo turno), senza sblocco. */
     fun deleteExpired(now: Long = System.currentTimeMillis()) = writes.enqueue {
         dao.deleteUpdatedBefore(now - RETENTION_DAYS * MS_PER_DAY)
+        clearSearch()
     }
 
     /**
@@ -181,6 +232,7 @@ class ConversationRepository @Inject constructor(
             dao.deleteUpdatedBefore(Long.MAX_VALUE)
         } finally {
             keys.reset()
+            clearSearch()
         }
     }
 

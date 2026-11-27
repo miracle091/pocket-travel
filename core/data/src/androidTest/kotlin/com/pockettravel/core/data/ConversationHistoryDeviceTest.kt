@@ -73,6 +73,26 @@ class ConversationHistoryDeviceTest {
         Log.i(TAG, "keystore: un'operazione RSA come lo sblocco ${keystoreDecryptMs()} ms")
     }
 
+    // Soglie del piano: primo accesso entro 1 s, ricerca dopo entro 50 ms. Tempi nel logcat.
+    @Test
+    fun ricercaConMolteConversazioni() = runBlocking<Unit> {
+        val keys = HistoryKeys(InMemorySharedPreferences(), SoftwareHistoryMasterKey())
+        val repository = ConversationRepository(db.conversationDao(), keys, Dispatchers.IO).also { it.onWriteError = { error -> throw error } }
+        repeat(CONVERSATIONS) { index ->
+            val handle = repository.start({ SUMMARY.copy(title = "Domanda $index: ${SUMMARY.title}") }, turn(index, 0))
+            repeat(TURNS_PER_CONVERSATION - 1) { repository.append(handle, turn(index, it + 1)) }
+        }
+        val unlock = repository.prepareUnlock()
+        check(unlock is HistoryKeys.Unlock.Ready)
+        val reader = keys.completeUnlock(unlock.cipher)
+
+        var found = 0
+        val firstMs = measureTimeMillis { found = repository.search(reader, "schengen frontiera").size }
+        assertEquals(CONVERSATIONS, found)
+        val nextMs = measureTimeMillis { repository.search(reader, "schengen frontiera") }
+        Log.i(TAG, "ricerca in $CONVERSATIONS conversazioni da $TURNS_PER_CONVERSATION turni: primo accesso $firstMs ms, ricerca dopo $nextMs ms")
+    }
+
     private fun databaseBytes(): Long =
         listOf("", "-wal", "-shm").sumOf { context.getDatabasePath(dbName + it).let { file -> if (file.exists()) file.length() else 0L } }
 

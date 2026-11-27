@@ -149,6 +149,7 @@ fun AiAssistantScreen(
                 onResume = viewModel::resumeConversation,
                 onDelete = viewModel::deleteConversation,
                 onDeleteAll = viewModel::deleteHistory,
+                onSearch = viewModel::searchHistory,
             ),
         )
     }
@@ -226,6 +227,7 @@ internal class HistoryActions(
     val onResume: (String) -> Unit,
     val onDelete: (String) -> Unit,
     val onDeleteAll: () -> Unit,
+    val onSearch: (String) -> Unit,
 )
 
 internal fun AiAssistantViewModel.toActions(regionId: String) = AiActions(

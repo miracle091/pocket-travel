@@ -114,6 +114,10 @@ risposte finché i modelli non vengono riaddestrati. Restano come sono, salvo er
 | Domande e risposte di seguito con l'assistente | conversazione | conversation |
 | Voce del menù di selezione e di Condividi che manda un testo all'assistente | Chiedi all'assistente | Ask the assistant |
 | Elenco delle conversazioni salvate (solo con il motore Sul dispositivo) | cronologia | history |
+| Campo che cerca le parole nelle conversazioni della cronologia | Cerca nelle conversazioni (mai "Filtra") | Search the conversations |
+| Pulsante che azzera il campo di ricerca (diverso da "Elimina", che cancella le conversazioni) | Svuota la ricerca | Clear the search |
+| Ricerca senza conversazioni trovate | Nessun risultato | No results |
+| Dove la ricerca ha trovato le parole, sopra il risultato | Nella risposta, Nel titolo, Nella domanda | In the answer, In the title, In the question |
 | Dove gira l'assistente | motore (Sul dispositivo, Online; mai "offline" o "locale" per il modello) | engine (On device, Online) |
 | Modello scaricabile | modello (modello IA) | model (AI model) |
 | Gruppo di dispositivi per RAM che decide i modelli proposti | fascia di RAM | RAM tier |
