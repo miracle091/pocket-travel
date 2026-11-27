@@ -71,6 +71,8 @@ Oltre alle categorie di Keep a Changelog, la sezione "Cambiamenti incompatibili"
 
 ### Corretto
 - Licenze: la nota della mappa cita anche ESA WorldCover (CC BY 4.0), da cui viene la copertura del suolo contenuta nelle mappe di Protomaps.
+- Documenti: se l'app veniva chiusa dal sistema subito dopo il primo sblocco della cassaforte, il successivo sblocco creava una chiave nuova e i documenti salvati non si aprivano più. Ora la chiave si salva prima di usarla; se non si riesce a salvarla, per esempio con la memoria del telefono piena, lo sblocco non riesce e la cassaforte resta chiusa.
+- Cronologia dell'assistente: se alla prima conversazione salvata la memoria del telefono era piena, le chiavi della cronologia restavano solo nell'app e dopo il riavvio le conversazioni non si aprivano più. Ora in quel caso la conversazione non si salva.
 - Documenti: su Android 8 e 9 la cassaforte si sblocca con l'impronta. Prima diceva «Biometria non configurata» anche con un'impronta registrata, e la cronologia dell'assistente non si salvava.
 - Mezzi pubblici: il metro di Siviglia e gli autobus di Palma (EMT) hanno tutte le partenze. Le loro corse passano a intervalli regolari, e prima il tabellone mostrava solo una partenza per corsa: 104 a Siviglia in due settimane, ora 1.598. Arrivano con la prossima pubblicazione degli orari.
 - Scelta della nazionalità: cancellata la ricerca, l'elenco torna all'inizio; prima restava sulla nazione trovata, a metà elenco.

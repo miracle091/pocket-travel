@@ -1,8 +1,12 @@
 package com.pockettravel.core.data.crypto
 
+import android.content.SharedPreferences
+import com.pockettravel.core.data.PreferencesFactory
 import com.pockettravel.core.data.testing.InMemoryPreferencesFactory
+import com.pockettravel.core.data.testing.InMemorySharedPreferences
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -66,5 +70,40 @@ class VaultKeyEnvelopeTest {
         val failed = runCatching { envelope.completeUnlock(VaultKeyEnvelope.UnlockCipher.Unwrap(cipher), cipher) }
 
         assertTrue(failed.exceptionOrNull() is IllegalStateException)
+    }
+
+    @Test
+    fun `la chiave avvolta si scrive subito, non con apply che il processo puo' perdere`() {
+        // apply() scrive su disco dopo: se il processo muore prima, il prossimo sblocco crea una DEK nuova
+        // e i documenti cifrati con la vecchia spariscono. Qui apply() non scrive mai.
+        val disk = InMemoryPreferencesFactory()
+        val applyLost = PreferencesFactory { name ->
+            val prefs = disk.open(name)
+            object : SharedPreferences by prefs {
+                override fun edit(): SharedPreferences.Editor = object : SharedPreferences.Editor by prefs.edit() {
+                    override fun apply() = Unit
+                }
+            }
+        }
+        val cipher = encryptionCipher()
+
+        VaultKeyEnvelope(applyLost).completeUnlock(VaultKeyEnvelope.UnlockCipher.GenerateAndWrap(cipher), cipher)
+
+        assertNotNull(disk.open("vault_key_envelope_v2").getString("wrapped_dek", null))
+    }
+
+    @Test
+    fun `una chiave avvolta che non si scrive su disco non sblocca la cassaforte`() {
+        // Come SharedPreferences di Android con il disco pieno: il valore entra in memoria, commit() da' false. Una DEK
+        // usata senza essere sul disco cifrerebbe documenti che dopo il riavvio non si aprono piu'.
+        val prefs = InMemorySharedPreferences().apply { diskFull = true }
+        val cipher = encryptionCipher()
+
+        val failed = runCatching {
+            VaultKeyEnvelope { prefs }.completeUnlock(VaultKeyEnvelope.UnlockCipher.GenerateAndWrap(cipher), cipher)
+        }
+
+        assertTrue(failed.exceptionOrNull() is IllegalStateException)
+        assertNull(prefs.getString("wrapped_dek", null))
     }
 }

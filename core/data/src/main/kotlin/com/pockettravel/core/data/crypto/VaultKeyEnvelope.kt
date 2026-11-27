@@ -61,7 +61,14 @@ class VaultKeyEnvelope @Inject constructor(preferences: PreferencesFactory) {
             is UnlockCipher.GenerateAndWrap -> {
                 val dek = ByteArray(DEK_SIZE_BYTES).also { SecureRandom().nextBytes(it) }
                 val wrapped = authenticatedCipher.doFinal(dek)
-                prefs.edit { putString(KEY_WRAPPED_DEK, AesGcmCodec.encode(authenticatedCipher.iv, wrapped)) }
+                // commit: con apply() una morte del processo prima della scrittura farebbe creare una DEK nuova
+                // al prossimo sblocco, e i documenti cifrati con questa sparirebbero. Per lo stesso motivo una DEK che
+                // non arriva sul disco non si usa: il valore rimasto in memoria si toglie e lo sblocco non riesce.
+                if (!prefs.edit().putString(KEY_WRAPPED_DEK, AesGcmCodec.encode(authenticatedCipher.iv, wrapped)).commit()) {
+                    prefs.edit().remove(KEY_WRAPPED_DEK).commit()
+                    dek.fill(0)
+                    error("Chiave di sessione avvolta non scritta sul disco")
+                }
                 dek
             }
             is UnlockCipher.Unwrap -> {

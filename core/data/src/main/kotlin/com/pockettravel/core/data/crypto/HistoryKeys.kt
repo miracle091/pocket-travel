@@ -150,10 +150,15 @@ class HistoryKeys(private val prefs: SharedPreferences, private val masterKey: H
         val secret = ByteArray(AES_KEY_BYTES).also { random.nextBytes(it) }
         try {
             val wrapped = rsaCipher(Cipher.ENCRYPT_MODE, masterKey.publicKey()).doFinal(secret)
-            prefs.edit(commit = true) {
-                putString(KEY_PRIVATE, encode(SessionAesCipher(secret).encryptBytes(pair.private.encoded)))
-                putString(KEY_WRAPPED_SECRET, encode(wrapped))
-                putString(KEY_PUBLIC, encode(pair.public.encoded))
+            val saved = prefs.edit()
+                .putString(KEY_PRIVATE, encode(SessionAesCipher(secret).encryptBytes(pair.private.encoded)))
+                .putString(KEY_WRAPPED_SECRET, encode(wrapped))
+                .putString(KEY_PUBLIC, encode(pair.public.encoded))
+                .commit()
+            // Chiavi rimaste solo in memoria: la conversazione avvolta adesso non si leggerebbe dopo il riavvio.
+            if (!saved) {
+                prefs.edit().clear().commit()
+                error("Chiavi della cronologia non scritte sul disco")
             }
         } finally {
             secret.fill(0)

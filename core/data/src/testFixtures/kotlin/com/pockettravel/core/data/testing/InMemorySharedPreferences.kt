@@ -9,6 +9,9 @@ import com.pockettravel.core.data.PreferencesFactory
  */
 class InMemorySharedPreferences : SharedPreferences {
 
+    /** Disco pieno: come nel sistema, le modifiche entrano in memoria ma `commit` da' false. */
+    var diskFull = false
+
     private val values = mutableMapOf<String, Any?>()
     private val listeners = mutableSetOf<SharedPreferences.OnSharedPreferenceChangeListener>()
 
@@ -52,7 +55,7 @@ class InMemorySharedPreferences : SharedPreferences {
             changes.forEach { (key, value) -> if (value == null) values.remove(key) else values[key] = value }
             changed += changes.keys
             changed.forEach { key -> listeners.toList().forEach { it.onSharedPreferenceChanged(this@InMemorySharedPreferences, key) } }
-            return true
+            return !diskFull
         }
 
         override fun apply() {

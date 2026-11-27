@@ -267,6 +267,16 @@ class ConversationRepositoryTest {
     }
 
     @Test
+    fun `chiavi della cronologia che non si scrivono su disco non avvolgono la conversazione`() {
+        // Come SharedPreferences di Android con il disco pieno: i valori entrano in memoria, commit() da' false. Una
+        // conversazione avvolta con chiavi che non sono sul disco dopo il riavvio non si leggerebbe piu'.
+        val disk = InMemorySharedPreferences().apply { diskFull = true }
+
+        assertThrows(IllegalStateException::class.java) { HistoryKeys(disk, SoftwareHistoryMasterKey()).wrap(ByteArray(32)) }
+        assertNull(disk.getString("public_key", null))
+    }
+
+    @Test
     fun `una ripresa dopo la chiusura forzata dell'app conta anche l'archiviazione mancata`() = runTest {
         val repository = repository()
         val handle = repository.start({ summary }, turn("Prima"))
