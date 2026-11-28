@@ -441,6 +441,15 @@ class GuardAnswerTest(unittest.TestCase):
             with self.subTest(answer=answer):
                 self.assertEqual((answer, False, False), eval_online.guard_answer(answer, asked, known, self.INSTRUCTIONS, "it"))
 
+    def test_la_prosa_della_guida_con_utenti_o_risposte_non_e_un_istruzione(self):
+        known = ("Il biglietto va convalidato a bordo: gli utenti senza biglietto pagano una multa di 50 euro. "
+                 "Il personale risponde anche in inglese.\n" + self.QUESTION)
+        for answer in ("Il biglietto va convalidato a bordo, altrimenti la multa è di 50 euro.",
+                       "Il personale risponde anche in inglese."):
+            with self.subTest(answer=answer):
+                self.assertEqual((answer, False, False),
+                                 eval_online.guard_answer(answer, self.QUESTION, known, self.INSTRUCTIONS, "it", final=False))
+
     def test_liste_di_parole_e_espressioni_uguali_a_quelle_dell_app(self):
         kt = (TEMPLATES.parent / "OnlineAnswerGuard.kt").read_text(encoding="utf-8")
         words_kt = (TEMPLATES.parent / "OnlineAnswerWords.kt").read_text(encoding="utf-8")
@@ -450,7 +459,7 @@ class GuardAnswerTest(unittest.TestCase):
         from eval_common import EN_WORDS, IT_WORDS, OTHER_LANG_WORDS
         self.assertEqual({"it": set(IT_WORDS), "en": set(EN_WORDS), **{k: set(v) for k, v in OTHER_LANG_WORDS.items()}}, words)
         kt += (TEMPLATES.parent / "OnlineInstructionTraces.kt").read_text(encoding="utf-8")
-        for name in ("GUIDES_NOT_ENOUGH", "ORDER_TALK", "ADDRESSED"):
+        for name in ("GUIDES_NOT_ENOUGH", "ORDER_TALK", "ADDRESSED", "ADDRESSED_WEAK", "ADDRESSED_ORDER"):
             body = "".join(re.findall(r'"""(.*?)"""', re.search(rf"private val {name} = Regex\((.*?)RegexOption", kt, re.S).group(1), re.S))
             self.assertEqual(body, getattr(eval_online, name).pattern, name)
         self.assertEqual(re.search(r'val YES_NO = Regex\("""\^(.*?)"""', kt).group(1), eval_online.YES_NO.pattern)

@@ -6,10 +6,22 @@ package com.pockettravel.feature.ai
 private const val INSTRUCTION_RUN_WORDS = 4
 
 // Le frasi del contesto rivolte all'assistente: un'istruzione nascosta. Più stretto di ORDER_TALK, perché qui la frase perde
-// anche i suoi indirizzi e numeri; IA e AI solo maiuscole ("ai" è una preposizione).
-private val ADDRESSED = Regex(
-    """\b(?:assistent[ei]|assistants?|chatbots?|prompts?|rispond\w*|risposta|risposte|answer\w*|repl(?:y|ies)|respond|responds""" +
-        """|response|responses|utent[ei]|users?|(?-i:IA|AI))\b""",
+// anche i suoi indirizzi e numeri; IA e AI solo maiuscole ("ai" è una preposizione). I destinatari espliciti bastano da soli;
+// le parole di risposta e di utente (prosa normale delle guide: "gli utenti pagano", "il personale risponde") contano solo
+// con un imperativo o un vocativo nella stessa frase.
+private val ADDRESSED = Regex("""\b(?:assistent[ei]|assistants?|chatbots?|prompts?|(?-i:IA|AI))\b""", RegexOption.IGNORE_CASE)
+private val ADDRESSED_WEAK = Regex(
+    """\b(?:rispond\w*|risposta|risposte|answer\w*|repl(?:y|ies)|respond|responds|response|responses|utent[ei]|users?)\b""",
+    RegexOption.IGNORE_CASE,
+)
+private val ADDRESSED_ORDER = Regex(
+    """\b(?:rispondi|rispondete|rispondere|aggiungi|aggiungete|inserisci|scrivi|ripeti|ignora|lascia|ricorda|consiglia|suggerisci""" +
+        """|digli|dagli|invita|firma|indica|cita|inizia|comincia|concludi|chiudi|termina|includi|menziona|mostra)\b""" +
+        """|(?:^\W*|[:;,]\s*|\band\s+)(?:please\s+)?(?:answer|reply|respond|add|append|insert|write|say|tell|inform|ignore|repeat""" +
+        """|remember|recommend|suggest|invite|sign|start|begin|end|finish|include|mention|use|cite|give)\b""" +
+        """|\b(?:sempre|mai|always|never|must|devi|dovete|whatever|qualunque|policy|politica|piattaforma|platform|sistema|system)\b""" +
+        """|\b(?:ogni|every|each)\s+(?:risposta|answer|reply|response)|\b(?:this|the|questo|l')\s*(?:user|utente)\b""" +
+        """|\b(?:utent[ei]|users?)\s*[,:]""",
     RegexOption.IGNORE_CASE,
 )
 private val WORD_OR_NUMBER = Regex("""[\p{L}\p{N}]+""")
@@ -41,7 +53,9 @@ internal class InstructionTraces(known: String, question: String) {
     private val runs: Set<List<String>>
 
     init {
-        val (addressed, rest) = sentences(known).partition { ADDRESSED.containsMatchIn(it) }
+        val (addressed, rest) = sentences(known).partition {
+            ADDRESSED.containsMatchIn(it) || (ADDRESSED_WEAK.containsMatchIn(it) && ADDRESSED_ORDER.containsMatchIn(it))
+        }
         guide = (rest + question).joinToString("\n")
         val guideWords = words(guide)
         suspicious = addressed.flatMap { contentWords(it) }.toSet() - guideWords.toSet()

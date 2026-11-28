@@ -286,10 +286,20 @@ ORDER_TALK = re.compile(
     r"""|users?|assistente|assistant|output)\b""", re.I)
 YES_NO = re.compile(r"""\W*(?:sì|si|no|yes)(?!\w)""", re.I)
 # Le frasi del contesto rivolte all'assistente: un'istruzione nascosta. Più stretto di ORDER_TALK, perché qui la frase perde
-# anche i suoi indirizzi e numeri; IA e AI solo maiuscole ("ai" è una preposizione).
-ADDRESSED = re.compile(
-    r"""\b(?:assistent[ei]|assistants?|chatbots?|prompts?|rispond\w*|risposta|risposte|answer\w*|repl(?:y|ies)|respond|responds"""
-    r"""|response|responses|utent[ei]|users?|(?-i:IA|AI))\b""", re.I)
+# anche i suoi indirizzi e numeri; IA e AI solo maiuscole ("ai" è una preposizione). I destinatari espliciti bastano da soli;
+# le parole di risposta e di utente (prosa normale delle guide: "gli utenti pagano", "il personale risponde") contano solo
+# con un imperativo o un vocativo nella stessa frase.
+ADDRESSED = re.compile(r"""\b(?:assistent[ei]|assistants?|chatbots?|prompts?|(?-i:IA|AI))\b""", re.I)
+ADDRESSED_WEAK = re.compile(
+    r"""\b(?:rispond\w*|risposta|risposte|answer\w*|repl(?:y|ies)|respond|responds|response|responses|utent[ei]|users?)\b""", re.I)
+ADDRESSED_ORDER = re.compile(
+    r"""\b(?:rispondi|rispondete|rispondere|aggiungi|aggiungete|inserisci|scrivi|ripeti|ignora|lascia|ricorda|consiglia|suggerisci"""
+    r"""|digli|dagli|invita|firma|indica|cita|inizia|comincia|concludi|chiudi|termina|includi|menziona|mostra)\b"""
+    r"""|(?:^\W*|[:;,]\s*|\band\s+)(?:please\s+)?(?:answer|reply|respond|add|append|insert|write|say|tell|inform|ignore|repeat"""
+    r"""|remember|recommend|suggest|invite|sign|start|begin|end|finish|include|mention|use|cite|give)\b"""
+    r"""|\b(?:sempre|mai|always|never|must|devi|dovete|whatever|qualunque|policy|politica|piattaforma|platform|sistema|system)\b"""
+    r"""|\b(?:ogni|every|each)\s+(?:risposta|answer|reply|response)|\b(?:this|the|questo|l')\s*(?:user|utente)\b"""
+    r"""|\b(?:utent[ei]|users?)\s*[,:]""", re.I)
 WORD_OR_NUMBER = re.compile(r"[^\W_]+")
 PARENTHESIS_END = re.compile(r"(?<=[.!?]\))\s+")
 INSTRUCTION_RUN_WORDS = 4
@@ -392,14 +402,18 @@ def _runs(words, n):
     return {tuple(words[i:i + n]) for i in range(len(words) - n + 1)}
 
 
+def _is_addressed(sentence):
+    return bool(ADDRESSED.search(sentence) or ADDRESSED_WEAK.search(sentence) and ADDRESSED_ORDER.search(sentence))
+
+
 def _instruction_traces(known_text, question):
     """Le tracce delle istruzioni nascoste di [known_text] (frasi ADDRESSED): il testo senza di loro (con la domanda), le
     parole di contenuto che hanno solo loro, le coppie di parole vicine e le sequenze di INSTRUCTION_RUN_WORDS parole che
     il resto del contesto e la domanda non hanno. Le frasi si dividono anche dopo un link: un'istruzione che finisce con
     un link senza punto non si attacca alla frase della guida che segue."""
     sentences = [p for s in _sentences(known_text) for p in _split_after_links(s)]
-    addressed = [s for s in sentences if ADDRESSED.search(s)]
-    guide = "\n".join([s for s in sentences if not ADDRESSED.search(s)] + [question])
+    addressed = [s for s in sentences if _is_addressed(s)]
+    guide = "\n".join([s for s in sentences if not _is_addressed(s)] + [question])
     guide_words = WORD_OR_NUMBER.findall(guide.lower())
     suspicious, pairs, runs = set(), set(), set()
     for s in addressed:
