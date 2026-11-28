@@ -93,13 +93,41 @@ def stop_on_missing_lora_targets(model):
                  "controlla i nomi con model.named_modules() prima di cambiare LORA['target_modules'].")
 
 
+def safetensors_complete(path):
+    """True se il file .safetensors ha la dimensione che la sua intestazione dichiara: un salvataggio interrotto no."""
+    try:
+        with open(path, "rb") as f:
+            size = int.from_bytes(f.read(8), "little")
+            header = json.loads(f.read(size))
+        end = max((v["data_offsets"][1] for k, v in header.items() if k != "__metadata__"), default=0)
+        return Path(path).stat().st_size == 8 + size + end
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def merge_complete(merged):
+    """True se la cartella del merge e' finita: config.json c'e' (save_pretrained lo scrive per primo, prima dei pesi),
+    e tutti i .safetensors dell'indice (o, senza indice, almeno uno) sono interi."""
+    merged = Path(merged)
+    if not (merged / "config.json").exists():
+        return False
+    try:
+        index = json.loads((merged / "model.safetensors.index.json").read_text(encoding="utf-8"))
+        shards = sorted(set(index["weight_map"].values()))
+    except FileNotFoundError:
+        shards = [p.name for p in merged.glob("*.safetensors")]
+    except (OSError, ValueError, KeyError, AttributeError):
+        return False  # indice illeggibile: scritto a meta'
+    return bool(shards) and all(safetensors_complete(merged / s) for s in shards)
+
+
 def finished_lora(out, last_checkpoint):
     """Messaggio d'uscita quando --out ha gia' la LoRA finale e nessun checkpoint da riprendere: un training
     finito non si rifa' da zero (14 ore per il 4B) e un run.json nuovo non deve finire accanto al merged/ vecchio."""
     lora = Path(out) / "lora" / "adapter_model.safetensors"
     if last_checkpoint or not lora.exists():
         return None
-    merged = "" if (Path(out) / "merged" / "config.json").exists() else (
+    merged = "" if merge_complete(Path(out) / "merged") else (
         "; merge mancante: fondilo dalla LoRA salvata (merge_full_precision di train_lora.py), senza rifare il training")
     return f"{lora.parent} ha gia' la LoRA finale: training non rifatto{merged}. Per un training nuovo usa un altro --out"
 

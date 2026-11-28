@@ -6,6 +6,7 @@ torch, quindi la funzione si estrae dal sorgente senza eseguirlo.
 Uso: python test_train_lora.py
 """
 import ast
+import json
 import math
 import shutil
 import sys
@@ -23,6 +24,13 @@ SPOT_NAMESPACE = {"random": __import__("random")}
 exec(compile(ast.Module([SPOT_NODE], []), "train_lora.py", "exec"), SPOT_NAMESPACE)
 spot_check_rows = SPOT_NAMESPACE["spot_check_rows"]
 MERGE_NODE = next(n for n in ast.parse(SOURCE).body if isinstance(n, ast.FunctionDef) and n.name == "merge_full_precision")
+
+
+def write_safetensors(path, truncated=False):
+    """File .safetensors minimo con un tensore da 8 byte; truncated lo taglia a meta' dei dati, come un salvataggio interrotto."""
+    header = json.dumps({"w": {"dtype": "F32", "shape": [2], "data_offsets": [0, 8]}}).encode()
+    data = len(header).to_bytes(8, "little") + header + b"\0" * (4 if truncated else 8)
+    Path(path).write_bytes(data)
 
 
 def checkpoint(out, step, complete=True):
@@ -229,7 +237,8 @@ class FinalEvalTest(unittest.TestCase):
 
 class FinishedRunTest(unittest.TestCase):
     """Un --out con la LoRA finale non si riaddestra; i checkpoint si tolgono solo dopo il merge."""
-    NS = extract("finished_lora", "remove_checkpoints", Path=Path, shutil=shutil)
+    NS = extract("finished_lora", "remove_checkpoints", "merge_complete", "safetensors_complete",
+                 Path=Path, shutil=shutil, json=json)
 
     def test_lora_finale_senza_checkpoint_ferma_il_training(self):
         with tempfile.TemporaryDirectory() as out:
@@ -239,9 +248,36 @@ class FinishedRunTest(unittest.TestCase):
             self.assertIn("merge mancante", self.NS["finished_lora"](out, None))
             (Path(out) / "merged").mkdir()
             (Path(out) / "merged" / "config.json").write_text("{}")
+            # solo config.json: il merge si e' interrotto prima dei pesi
+            self.assertIn("merge mancante", self.NS["finished_lora"](out, None))
+            write_safetensors(Path(out) / "merged" / "model.safetensors")
             self.assertNotIn("merge mancante", self.NS["finished_lora"](out, None))
             # merge fallito con i checkpoint rimasti: si riprende, non ci si ferma
             self.assertIsNone(self.NS["finished_lora"](out, str(Path(out) / "checkpoint-9")))
+
+    def test_merge_interrotto_non_vale_come_finito(self):
+        merge_complete = self.NS["merge_complete"]
+        with tempfile.TemporaryDirectory() as tmp:
+            merged = Path(tmp)
+            self.assertFalse(merge_complete(merged))  # niente config.json
+            (merged / "config.json").write_text("{}")
+            self.assertFalse(merge_complete(merged))  # nessun peso
+            write_safetensors(merged / "model.safetensors", truncated=True)
+            self.assertFalse(merge_complete(merged))  # salvataggio tagliato
+            write_safetensors(merged / "model.safetensors")
+            self.assertTrue(merge_complete(merged))
+            # a pezzi: l'indice elenca i file, e uno manca o e' tagliato
+            (merged / "model.safetensors").unlink()
+            (merged / "model.safetensors.index.json").write_text(json.dumps(
+                {"weight_map": {"a": "model-1.safetensors", "b": "model-2.safetensors"}}))
+            write_safetensors(merged / "model-1.safetensors")
+            self.assertFalse(merge_complete(merged))
+            write_safetensors(merged / "model-2.safetensors", truncated=True)
+            self.assertFalse(merge_complete(merged))
+            write_safetensors(merged / "model-2.safetensors")
+            self.assertTrue(merge_complete(merged))
+            (merged / "model.safetensors.index.json").write_text('{"weight_map": {"a": "mod')  # indice a meta'
+            self.assertFalse(merge_complete(merged))
 
     def test_checkpoint_tolti_anche_con_un_file_bloccato(self):
         with tempfile.TemporaryDirectory() as out:
