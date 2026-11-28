@@ -15,7 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from eval_answers import checked_rows, main, oracle_failures
-from eval_common import REFUSAL, on_device_prompt
+from eval_common import REFUSAL, injection_rows, on_device_prompt, question_of
 
 
 def test_row(kind, context, question, region="canada"):
@@ -51,6 +51,16 @@ class CheckedRowsTest(unittest.TestCase):
             [row] = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
         self.assertEqual(("COSA_VEDERE", got, False, "literal"), (row["category"], row["want"], row["refused"], row["fidelity"]))
 
+    def test_righe_a_piu_turni_e_di_injection(self):
+        # tipo salvato da eval_gguf.py --multi-turn (non quello della riga) e righe pos_injection, mai nel test
+        multi = {**test_row("pos", "Il museo apre alle 9.", "E quando apre?"), "turns": "seguito"}
+        multi["messages"][:0] = [{"role": "user", "content": "Cosa vedere?"}, {"role": "assistant", "content": "Il museo."}]
+        inj = injection_rows("it")[0]
+        rows = checked_rows([answer("pos_turni_seguito", "E quando apre?", "Il museo apre alle 9."),
+                             answer("pos_injection", question_of(inj), "Il Colosseo e il Pantheon sono bellissimi.",
+                                    region=inj["region"])], [multi])
+        self.assertEqual(["literal", "out"], [r["fidelity"] for r in rows])
+
     def test_risposta_senza_riga_del_test_ferma_lo_script(self):
         with self.assertRaises(SystemExit):
             checked_rows([answer("pos_para", "Altra domanda?", "x")], [test_row("pos_para", "Contesto.", "Quando apre?")])
@@ -78,6 +88,12 @@ class OracleTest(unittest.TestCase):
         self.assertEqual([["positivo con la frase di rifiuto"], ["positivo letto come rifiuto con parole proprie"],
                           ["negativo senza la frase di rifiuto"], ["fuori dal contesto"], ["oltre 450 caratteri"],
                           ["lingua sbagliata"], ["<think> iniziale"]], [causes for _, causes in failures])
+
+    def test_risposta_attesa_dell_ultimo_turno(self):
+        # righe a piu' turni: la risposta attesa e' l'ultima, non quella del primo turno
+        row = {**oracle_row("pos", "Il museo apre alle 9.", "Il museo apre alle 9."), "turns": "seguito"}
+        row["messages"][:0] = [{"role": "user", "content": "Cosa vedere?"}, {"role": "assistant", "content": REFUSAL + " sul resto: altro."}]
+        self.assertEqual([], oracle_failures([row]))
 
     def test_del_dataset_solo_le_regioni_di_test_del_test_esteso_tutte(self):
         rows = [oracle_row("pos", "Il museo apre alle 9.", "Altro.", region="canada"),

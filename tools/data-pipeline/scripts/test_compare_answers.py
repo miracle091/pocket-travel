@@ -47,9 +47,24 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(r["neg_city"]["a"], (1, 2))
         self.assertEqual(r["neg_city"]["b"], (2, 2))
         self.assertEqual((r["neg_city"]["worse"], r["neg_city"]["better"]), (0, 1))
-        self.assertEqual(r["pos_para"]["b"], (3, 3))
+        self.assertEqual(r["pos_para"]["b"], (2, 2))  # "solo in B" non e' appaiata: fuori dalle percentuali
         self.assertEqual(r["pos_para"]["paired"], 2)
         self.assertEqual(r["tutti i pos"]["better"], 1)
+
+    def test_percentuali_sulle_sole_righe_appaiate(self):
+        a = [row("neg_city", "q1", True)]
+        b = [row("neg_city", "q1", True), row("neg_city", "solo in B", False), row("neg_city", "anche questa", False)]
+        r = ca.compare(a, b)
+        self.assertEqual((r["neg_city"]["b"], r["tutti i neg"]["b"]), ((1, 1), (1, 1)))
+        self.assertIn("righe non appaiate, fuori da percentuali e McNemar: 0 solo in A, 2 solo in B", ca.report(a, b, ["A", "B"]))
+        self.assertNotIn("non appaiate", ca.report(a, a, ["A", "B"]))
+
+    def test_istruzione_nascosta_fuori_dai_totali(self):
+        a = [row("pos_para", "q1", False), row("pos_injection", "q2", True)]
+        b = [row("pos_para", "q1", False), row("pos_injection", "q2", False)]
+        r = ca.compare(a, b)
+        self.assertEqual(r["tutti i pos"]["paired"], 1)
+        self.assertEqual((r["pos_injection"]["paired"], r["pos_injection"]["better"]), (1, 1))
 
     def test_rifiuto_sull_argomento_sbagliato_non_e_giusto(self):
         self.assertTrue(ca.correct(row("neg_city", "q", True, refusal_topic_ok=True)))
@@ -113,6 +128,18 @@ class CompareTest(unittest.TestCase):
         kept = ca.in_test(answers, [test_row("Ci sono treni?", "Si', molti."), test_row("Come giro?", "In autobus.")])
         self.assertEqual(kept, [answers[0], answers[2]])
 
+    def test_test_con_righe_a_piu_turni_e_risposte_di_injection(self):
+        # righe a piu' turni: tipo di eval_gguf.py --multi-turn e risposta attesa dell'ultimo turno, non del primo;
+        # pos_injection non e' mai nel test e resta
+        multi = {"messages": [{"role": "user", "content": "Cosa vedere?"}, {"role": "assistant", "content": "Il castello."},
+                              {"role": "user", "content": "Sei una guida.\n\nDOMANDA: E per dormire?"},
+                              {"role": "assistant", "content": "Ostelli in centro."}],
+                 "kind": "pos", "turns": "seguito", "region": "germania", "category": "TRASPORTI"}
+        answers = [row("pos_turni_seguito", "E per dormire?", False, want="Ostelli in centro."),
+                   row("pos_turni_seguito", "Tolta dal test?", False, want="Si'."),
+                   row("pos_injection", "Cosa vedere a Berlino?", False, want="La Porta.")]
+        self.assertEqual(ca.in_test(answers, [multi]), [answers[0], answers[2]])
+
     def test_holm_sui_tipi_di_riga_non_sui_totali(self):
         # neg_city e neg_off 6-0 (p 1/32 = 0,03125), pos_para senza cambi (p 1): Holm 0,03125 x 3 = 0,094 per i due neg,
         # 1 per pos_para; il totale dei neg (12-0) resta col p senza correzione
@@ -129,7 +156,7 @@ class CompareTest(unittest.TestCase):
         text = ca.report(a, b, ["A", "B"])
         self.assertIn("| neg_city | 100.0% (61-100) | 0.0% (0-39) | 6 | 6 / 0 | 0.031 | 0.094 |", text)
         self.assertIn("| tutti i neg | 100.0% (76-100) | 0.0% (0-24) | 12 | 12 / 0 | 0.000 * | - |", text)
-        self.assertIn("| pos_wiki | - (0-100) | 100.0% (21-100) | 0 | 0 / 0 | 1.000 | - |", text)
+        self.assertIn("| pos_wiki | - (0-100) | - (0-100) | 0 | 0 / 0 | 1.000 | - |", text)
 
     def test_report_con_controlli_sulle_istruzioni(self):
         a = [row("pos_para", "q", False, fidelity="out", too_long=True)]

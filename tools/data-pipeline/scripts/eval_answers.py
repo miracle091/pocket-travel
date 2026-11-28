@@ -20,8 +20,8 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from eval_common import (MAX_ANSWER_CHARS, TEST_REGIONS, instruction_checks, print_context_use_report, print_instruction_report,
-                         question_lang, question_of, score)
+from eval_common import (MAX_ANSWER_CHARS, TEST_REGIONS, answer_kind, injection_rows, instruction_checks, print_context_use_report,
+                         print_instruction_report, question_lang, question_of, score)
 
 
 def key(kind, region, question):
@@ -30,10 +30,12 @@ def key(kind, region, question):
 
 def checked_rows(answers, test):
     """Le risposte con i campi di instruction_checks, calcolati sulla riga del test con la stessa chiave (tipo, regione,
-    domanda); le righe con la stessa chiave si usano nell'ordine in cui compaiono."""
+    domanda); le righe con la stessa chiave si usano nell'ordine in cui compaiono. Le righe a piu' turni hanno il tipo
+    con cui eval_gguf.py --multi-turn le salva (answer_kind), e le righe pos_injection di eval_gguf.py --injection, che
+    non sono nel test, si aggiungono nelle due lingue."""
     by_key = {}
-    for row in test:
-        by_key.setdefault(key(row["kind"], row["region"], question_of(row)), []).append(row)
+    for row in [*test, *injection_rows("it"), *injection_rows("en")]:
+        by_key.setdefault(key(answer_kind(row), row["region"], question_of(row)), []).append(row)
     out = []
     for a in answers:
         rows = by_key.get(key(a["kind"], a["region"], a["question"]))
@@ -50,7 +52,7 @@ def oracle_failures(test):
     rifiuto e l'"inizio uguale" di score non si controllano: con la risposta attesa sono sempre giusti."""
     out = []
     for row in test:
-        want, neg = row["messages"][1]["content"], row["kind"].startswith("neg")
+        want, neg = row["messages"][-1]["content"], row["kind"].startswith("neg")
         stats = {}
         score(stats, row, want)
         strict = stats[row["kind"]][0][0]
@@ -79,7 +81,7 @@ def print_oracle_report(test):
         kinds = Counter(r["kind"] for r in rows)
         print(f"{cause}: {len(rows)} ({', '.join(f'{k} {n}' for k, n in sorted(kinds.items()))})")
         for r in rows:
-            print(f"  {r['kind']} {r['region']} | {question_of(r).strip()} | {r['messages'][1]['content'][:200].replace(chr(10), ' ')}")
+            print(f"  {r['kind']} {r['region']} | {question_of(r).strip()} | {r['messages'][-1]['content'][:200].replace(chr(10), ' ')}")
 
 
 def main():

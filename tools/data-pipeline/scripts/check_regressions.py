@@ -46,16 +46,16 @@ def answer_regressions(base_rows, new_rows, points):
         if group not in results:
             continue
         r = results[group]
-        (ka, na), (kb, nb) = r["a"], r["b"]
-        if not na or not nb:
-            continue
-        before, after = 100 * ka / na, 100 * kb / nb
-        line = f"{group}: {before:.1f}% -> {after:.1f}% ({after - before:+.1f} punti, p {r['p']:.3f})"
-        lines.append(line)
-        if before - after > points:
-            regressions.append(line)
-        if r["paired"] < MIN_PAIRED_SHARE * min(na, nb):
-            few = f"{group}: solo {r['paired']} righe appaiate su {na} e {nb}: i due file non coprono le stesse righe"
+        # percentuali sulle righe appaiate; la copertura si conta su tutte le righe di ciascun file
+        (ka, na), (kb, nb), (rows_a, rows_b) = r["a"], r["b"], r["rows"]
+        if na and nb:
+            before, after = 100 * ka / na, 100 * kb / nb
+            line = f"{group}: {before:.1f}% -> {after:.1f}% ({after - before:+.1f} punti, p {r['p']:.3f})"
+            lines.append(line)
+            if before - after > points:
+                regressions.append(line)
+        if rows_a and rows_b and r["paired"] < MIN_PAIRED_SHARE * min(rows_a, rows_b):
+            few = f"{group}: solo {r['paired']} righe appaiate su {rows_a} e {rows_b}: i due file non coprono le stesse righe"
             lines.append(few)
             regressions.append(few)
     for group in sorted(g for g in results if not g.startswith("tutti")):

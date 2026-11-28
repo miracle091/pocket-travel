@@ -18,7 +18,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from eval_answers import key
-from eval_common import is_refusal, question_of
+from eval_common import answer_kind, dataset_lang, injection_rows, is_refusal, question_of, user_content
 
 KINDS = ("telefono", "prezzo", "orario", "data", "distanza", "anno", "altro")
 
@@ -167,10 +167,11 @@ def context_of_prompt(prompt):
 
 def checked(answers, test=None):
     """Le risposte non di rifiuto con "unsupported"; senza "context" il contesto viene dalla riga del test con la stessa
-    chiave, nell'ordine in cui compaiono (come eval_answers.checked_rows)."""
+    chiave, nell'ordine in cui compaiono (come eval_answers.checked_rows, con le righe a piu' turni e quelle di
+    --injection), e il rifiuto si riconosce nella lingua del suo prompt, non della domanda."""
     by_key = {}
-    for row in test or []:
-        by_key.setdefault(key(row["kind"], row["region"], question_of(row)), []).append(row)
+    for row in [*(test or []), *injection_rows("it"), *injection_rows("en")]:
+        by_key.setdefault(key(answer_kind(row), row["region"], question_of(row)), []).append(row)
     out = []
     for a in answers:
         lang = a.get("lang") or a.get("question_lang") or "it"
@@ -180,7 +181,9 @@ def checked(answers, test=None):
             rows = by_key.get(key(a["kind"], a["region"], a["question"]))
             if not rows:
                 raise SystemExit(f"riga del test non trovata per la risposta: {a['kind']} {a['region']} {a['question']}")
-            context = context_of_prompt(rows.pop(0)["messages"][0]["content"])
+            row = rows.pop(0)
+            lang = dataset_lang(row)
+            context = context_of_prompt(user_content(row))
         if is_refusal(a["got"], lang):
             continue
         # una risposta fermata al limite di token puo' finire a meta' di un numero ("1819 - 188"): quel pezzo non conta.

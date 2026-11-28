@@ -7,7 +7,7 @@ Uso: python test_check_answer_numbers.py
 import unittest
 
 from check_answer_numbers import checked, extract, number_values, unsupported
-from eval_common import on_device_prompt
+from eval_common import injection_rows, on_device_prompt, question_of
 
 
 def texts(answer, context):
@@ -62,6 +62,25 @@ class CheckedTest(unittest.TestCase):
         refusal = [{"kind": "neg_city", "region": "canada", "question": "Quanto costa?", "lang": "it", "context": "",
                     "got": "Il contesto non contiene informazioni sui prezzi: 3 fonti."}]
         self.assertEqual([], checked(refusal))
+
+    def test_rifiuto_nella_lingua_del_prompt_e_righe_a_piu_turni_e_di_injection(self):
+        # domanda inglese su un prompt italiano: il rifiuto e' quello italiano
+        test = [{"kind": "neg_city", "region": "canada",
+                 "messages": [{"role": "user", "content": on_device_prompt("Il museo apre alle 9.", "How much is it?", "it")},
+                              {"role": "assistant", "content": "A"}]}]
+        refusal = {"kind": "neg_city", "region": "canada", "question": "How much is it?", "question_lang": "en",
+                   "got": "Il contesto non contiene informazioni sui prezzi: 3 fonti."}
+        self.assertEqual([], checked([refusal], test))
+        # righe a piu' turni (tipo di eval_gguf.py --multi-turn, contesto dell'ultimo turno) e pos_injection, mai nel test
+        multi = {"kind": "pos", "turns": "seguito", "region": "canada",
+                 "messages": [{"role": "user", "content": "Cosa vedere?"}, {"role": "assistant", "content": "Il museo, 5 sale."},
+                              {"role": "user", "content": on_device_prompt("Il museo apre alle 9.", "Quando apre?", "it")},
+                              {"role": "assistant", "content": "A"}]}
+        inj = injection_rows("it")[0]
+        rows = checked([{"kind": "pos_turni_seguito", "region": "canada", "question": "Quando apre?", "got": "Apre alle 9 e 5."},
+                        {"kind": "pos_injection", "region": inj["region"], "question": question_of(inj), "got": "Le 7 porte."}],
+                       [multi])
+        self.assertEqual([["5"], ["7"]], [[u["text"] for u in r["unsupported"]] for r in rows])
 
     def test_numero_tagliato_in_fondo_a_una_risposta_troncata(self):
         row = {"kind": "x", "region": "r", "question": "Taxi?", "lang": "en", "context": "Taxi +385 51 335 417, open 1885."}
