@@ -1,5 +1,6 @@
 package com.pockettravel.app.regions
 
+import android.database.SQLException
 import com.pockettravel.app.R
 import com.pockettravel.core.data.IoDispatcher
 import com.pockettravel.core.data.PackageKind
@@ -44,6 +45,9 @@ class RegionRemoval @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (_: IllegalStateException) {
+            R.string.regions_delete_error
+        } catch (_: SQLException) {
+            // Il database e' occupato da un'installazione per piu' di 30 s.
             R.string.regions_delete_error
         }
 }

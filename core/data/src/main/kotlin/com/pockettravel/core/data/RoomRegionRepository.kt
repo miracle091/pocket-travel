@@ -10,6 +10,8 @@ import com.pockettravel.core.data.db.RegionDatabase
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,6 +25,9 @@ class RoomRegionRepository @Inject constructor(
     private val cityDao: CityDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : RegionRepository {
+    // Il pool di Room da' errore dopo 30 s di attesa del writer: le installazioni, lunghe, si mettono in fila qui.
+    private val installLock = Mutex()
+
     override fun observeInstalled(): Flow<List<InstalledRegion>> =
         installedRegionDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
@@ -185,7 +190,8 @@ class RoomRegionRepository @Inject constructor(
     override suspend fun markGuidesInstalled(version: String, sizeBytes: Long) =
         installedRegionDao.upsertGuides(InstalledGuidesEntity(version = version, sizeBytes = sizeBytes))
 
-    override suspend fun <T> inInstallTransaction(block: suspend () -> T): T = database.withWriteTransaction { block() }
+    override suspend fun <T> inInstallTransaction(block: suspend () -> T): T =
+        installLock.withLock { database.withWriteTransaction { block() } }
 
     override suspend fun recoverInterruptedActivations(regionId: String) {
         val current = installed(regionId)

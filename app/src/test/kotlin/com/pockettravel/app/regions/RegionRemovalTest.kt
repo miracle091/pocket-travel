@@ -1,5 +1,6 @@
 package com.pockettravel.app.regions
 
+import android.database.SQLException
 import com.pockettravel.app.R
 import com.pockettravel.core.data.InstalledRegion
 import com.pockettravel.core.data.PackageKind
@@ -67,5 +68,15 @@ class RegionRemovalTest {
 
         assertEquals(R.string.regions_delete_error, removal.remove("italia"))
         assertEquals(R.string.regions_delete_error, removal.removePackage("italia", PackageKind.MAP))
+    }
+
+    @Test
+    fun `un database occupato da un'installazione da' il messaggio d'errore invece del crash`() = runTest {
+        repository.installedRegions.value = listOf(installed())
+        val busy = object : RegionRepository by repository {
+            override suspend fun remove(regionId: String) = throw SQLException("Timed out attempting to acquire a writer connection")
+        }
+
+        assertEquals(R.string.regions_delete_error, removal(busy, testScheduler).remove("italia"))
     }
 }
