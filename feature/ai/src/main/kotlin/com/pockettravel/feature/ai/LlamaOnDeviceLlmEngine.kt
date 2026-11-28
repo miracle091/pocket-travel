@@ -79,12 +79,12 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
         idleReleaser.withModelUse {
             mutex.withLock {
                 val loadTimeMs = loadModelIfNeeded()
-                val start = System.currentTimeMillis()
+                val start = System.nanoTime()
                 val answers = prompts.map {
                     engine.resetConversation()
                     _stats.collectTimed(engine.sendUserPrompt(it), { engine.contextUsage.value }) { }
                 }
-                OnDeviceLlmEngine.GenerationBatch(loadTimeMs, System.currentTimeMillis() - start, answers)
+                OnDeviceLlmEngine.GenerationBatch(loadTimeMs, (System.nanoTime() - start) / NANOS_PER_MS, answers)
             }
         }
     }
@@ -172,7 +172,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
     // Carica il modello scelto se serve e restituisce i millisecondi impiegati (0 se era gia' in memoria).
     private suspend fun loadModelIfNeeded(): Long {
         if (isSelectedModelLoaded()) return 0L
-        val start = System.currentTimeMillis()
+        val start = System.nanoTime()
         // Un altro modello in memoria (scelta cambiata): va scaricato prima di caricare quello nuovo.
         if (engine.state.value is InferenceEngine.State.ModelReady) engine.cleanUp()
         loadedModelPath = null
@@ -206,7 +206,7 @@ class LlamaOnDeviceLlmEngine @Inject constructor(
         }
         loadedModelPath = path
         _stats.update { it.copy(loadedModelId = definition.id, loadTimeMs = (System.nanoTime() - loadStart) / NANOS_PER_MS) }
-        return System.currentTimeMillis() - start
+        return (System.nanoTime() - start) / NANOS_PER_MS
     }
 
     private companion object {
