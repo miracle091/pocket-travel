@@ -942,11 +942,23 @@ class AiAssistantViewModel @Inject constructor(
         }
     }
 
-    // Dopo una cancellazione l'elenco si rilegge e la ricerca in corso si rifa'.
+    // Dopo una cancellazione l'elenco si rilegge e la ricerca in corso si rifa' con la query di adesso.
     private suspend fun showHistoryList(session: Int, reader: HistoryReader) {
         val conversations = conversationRepository.list(reader)
-        val query = (_uiState.value.history as? HistoryUiState.Unlocked)?.query.orEmpty()
-        updateHistory(session, HistoryUiState.Unlocked(conversations, query, conversationRepository.searchOrNull(reader, query)))
+        val ids = conversations.mapTo(HashSet()) { it.id }
+        _uiState.update {
+            val history = it.history
+            if (session != historySession || history == null) {
+                it
+            } else {
+                // I risultati di una conversazione cancellata escono subito, senza aspettare la ricerca rifatta.
+                val unlocked = (history as? HistoryUiState.Unlocked)?.let { current ->
+                    current.copy(conversations = conversations, results = current.results?.filter { r -> r.conversation.id in ids })
+                }
+                it.copy(history = unlocked ?: HistoryUiState.Unlocked(conversations))
+            }
+        }
+        searchHistory((_uiState.value.history as? HistoryUiState.Unlocked)?.query.orEmpty())
     }
 
     private fun updateUnlocked(session: Int, transform: (HistoryUiState.Unlocked) -> HistoryUiState.Unlocked) {

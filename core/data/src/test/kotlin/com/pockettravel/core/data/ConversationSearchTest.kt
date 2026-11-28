@@ -5,6 +5,8 @@ import com.pockettravel.core.data.crypto.HistoryReader
 import com.pockettravel.core.data.testing.FakeConversationDao
 import com.pockettravel.core.data.testing.InMemorySharedPreferences
 import com.pockettravel.core.data.testing.SoftwareHistoryMasterKey
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -149,6 +151,20 @@ class ConversationSearchTest {
 
         repository.closeSearch()
 
+        assertEquals(listOf("Meteo"), repository.found(reader, "sereno"))
+    }
+
+    @Test
+    fun `una ricerca cominciata prima della chiusura non ricrea l'indice, una dopo si`() = runTest {
+        val repository = repository()
+        repository.start({ summary("Meteo") }, turn("D", "Sereno"), now = 10)
+        val reader = repository.unlock()
+        // UNDISPATCHED: la ricerca parte subito e aspetta il dispatcher, la chiusura arriva prima del suo lavoro.
+        val late = async(start = CoroutineStart.UNDISPATCHED) { repository.found(reader, "sereno") }
+
+        repository.closeSearch()
+
+        assertEquals(emptyList<String>(), late.await())
         assertEquals(listOf("Meteo"), repository.found(reader, "sereno"))
     }
 }

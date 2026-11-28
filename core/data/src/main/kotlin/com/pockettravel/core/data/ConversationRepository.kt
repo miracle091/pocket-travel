@@ -151,7 +151,11 @@ class ConversationRepository @Inject constructor(
 
     private var searchSession: SearchSession? = null
 
-    private fun searchIndex(reader: HistoryReader): ConversationSearchIndex = synchronized(this) {
+    // Cresce a ogni closeSearch: una ricerca cominciata prima della chiusura non ricrea l'indice.
+    private var searchGeneration = 0
+
+    private fun searchIndex(reader: HistoryReader, generation: Int): ConversationSearchIndex? = synchronized(this) {
+        if (generation != searchGeneration) return null
         searchSession?.takeIf { it.reader === reader }?.index ?: SearchSession(reader).also { searchSession = it }.index
     }
 
@@ -160,13 +164,18 @@ class ConversationRepository @Inject constructor(
      * ricerca dopo lo sblocco decifra i turni, le altre rileggono solo le conversazioni cambiate. Risultati in ordine
      * (vedi ConversationSearchIndex.search).
      */
-    suspend fun search(reader: HistoryReader, query: String): List<ConversationSearchResult> = withContext(ioDispatcher) {
+    suspend fun search(reader: HistoryReader, query: String): List<ConversationSearchResult> {
+        val generation = synchronized(this) { searchGeneration }
+        return withContext(ioDispatcher) { searchIn(reader, query, generation) }
+    }
+
+    private suspend fun searchIn(reader: HistoryReader, query: String, generation: Int): List<ConversationSearchResult> {
         writes.await()
-        val index = searchIndex(reader)
+        val index = searchIndex(reader, generation) ?: return emptyList()
         val entities = dao.all()
         index.retainOnly(entities.mapTo(HashSet()) { it.id })
         entities.filterNot { index.isCurrent(it.id, it.updatedAt) }.forEach { indexConversation(reader, index, it) }
-        index.search(query)
+        return index.search(query)
     }
 
     private suspend fun indexConversation(reader: HistoryReader, index: ConversationSearchIndex, entity: ConversationEntity) {
@@ -182,7 +191,10 @@ class ConversationRepository @Inject constructor(
 
     /** La cronologia si richiude: l'indice di ricerca, con i testi in chiaro, si butta. */
     fun closeSearch() {
-        synchronized(this) { searchSession = null }
+        synchronized(this) {
+            searchSession = null
+            searchGeneration++
+        }
     }
 
     // Una scrittura cambia o toglie una conversazione: la sua voce dell'indice non vale piu'.
