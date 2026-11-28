@@ -411,7 +411,15 @@ class LeakageTest(unittest.TestCase):
                  make("Contesto del test uno con abbastanza testo.", "Altra?", "Contesto del test uno.", region="canada"),  # test: no
                  make(it.FALLBACK_CONTEXT, "Mai?", refusal("it"), kind="neg", region="francia")]
         ev.append(make(it.FALLBACK_CONTEXT, "Un'altra?", refusal("it"), kind="neg", region="francia"))
-        self.assertEqual(leakage(train, ev), (1, 1))
+        self.assertEqual(leakage(train, ev), (2, 1, 0))  # la domanda conta anche con un'altra regione
+
+    def test_domanda_normalizzata_e_paragrafi_in_comune(self):
+        shared = "Il visto si chiede online almeno tre giorni prima della partenza, con il passaporto valido sei mesi."
+        ev = [make(f"Breve.\n{shared}", "Serve il visto?", "Breve.", region="canada")]
+        train = [make("Altro contesto.", "serve il  VISTO", "Altro contesto.", region="francia"),  # stessa domanda
+                 make(f"{shared}\nAltro.", "Come si arriva?", "Altro.", region="francia"),  # paragrafo in comune
+                 make("Breve.\nAltro.", "Come si arriva?", "Altro.", region="francia")]  # "Breve." troppo corto
+        self.assertEqual(leakage(train, ev), (1, 0, 1))
 
 
 class CommandLineTest(unittest.TestCase):
@@ -457,7 +465,7 @@ class CommandLineTest(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertIn("lingua en", out)
             self.assertIn("errori: nessuno", out)
-            self.assertIn("stessa domanda e regione: 1", out)
+            self.assertIn("la stessa domanda: 1", out)
 
 
 class GuessLangTest(unittest.TestCase):

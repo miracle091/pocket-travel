@@ -28,7 +28,8 @@ Avvisi e statistiche: quota di rifiuti (totale e per categoria), righe per categ
 ripetute, domande oltre il limite, risposte con piu' di 3 frasi o nella lingua sbagliata (euristica prudente sulle parole
 funzione), risposte che cominciano con un rimando (pronome o connettivo) a una frase rimasta fuori dallo stesso
 paragrafo del contesto, righe con stessa domanda e stessa risposta ma contesto diverso, kind incoerente con la risposta e, con --eval,
-righe di training con la stessa domanda e regione, o lo stesso contesto, di una riga del test esteso. Con
+righe di training con la stessa domanda, lo stesso contesto o un paragrafo di 80+ caratteri di una riga del test
+esteso (conteggi, mai errori). Con
 --retrieval-cache, le righe di training con una domanda quasi uguale (Jaccard delle parole >= NEAR_JACCARD) a una
 domanda delle serie di eval_retrieval.py sulla stessa regione: quelle serie misurano la ricerca su regioni di
 training, quindi una domanda ripetuta nel dataset ne falserebbe la misura dopo il training.
@@ -281,7 +282,7 @@ def find_drops(entries, lang, max_repeats=None):
 def load(path):
     """[(riga di testo, riga JSON o None se non e' JSON valido)] senza le righe vuote."""
     out = []
-    for raw in Path(path).read_text(encoding="utf-8").splitlines():
+    for raw in Path(path).read_text(encoding="utf-8").split("\n"):
         if raw.strip():
             try:
                 row = json.loads(raw)
@@ -306,22 +307,35 @@ def guess_lang(path, entries):
     return counts.most_common(1)[0][0] if counts else "it"
 
 
+LEAK_PARAGRAPH = 80  # caratteri minimi di un paragrafo del contesto per contarlo tra quelli in comune con il test esteso
+
+
+def paragraphs(context):
+    """I paragrafi del contesto di almeno LEAK_PARAGRAPH caratteri, con gli spazi normalizzati."""
+    return {p for p in map(squash, context.split("\n")) if len(p) >= LEAK_PARAGRAPH}
+
+
 def leakage(rows, eval_rows):
-    """(righe con stessa domanda e regione, righe con lo stesso contesto) di una riga del test esteso: solo righe di
-    training (le regioni di test non si addestrano) e senza il contesto di fallback, uguale per tutti."""
-    pairs, contexts = set(), set()
+    """(righe con la stessa domanda, righe con lo stesso contesto, righe con almeno un paragrafo di LEAK_PARAGRAPH o piu'
+    caratteri) di una riga del test esteso: solo righe di training (le regioni di test non si addestrano) e senza il
+    contesto di fallback, uguale per tutti. La domanda si confronta da sola (question_words), senza la regione: le righe
+    di training non hanno mai le regioni del test. I paragrafi fissi (i consigli ufficiali ripetuti in ogni regione)
+    finiscono nel terzo conteggio, che e' solo un'informazione."""
+    questions, contexts, paras = set(), set(), set()
     for r in eval_rows:
         c, q, _ = parse_row(r)
-        pairs.add((q, r.get("region")))
+        questions.add(question_words(q))
         contexts.add(squash(c))
-    same_q = same_ctx = 0
+        paras |= paragraphs(c)
+    same_q = same_ctx = same_para = 0
     for r in rows:
         if r["region"] in TEST_REGIONS:
             continue
         c, q, _ = parse_row(r)
-        same_q += (q, r["region"]) in pairs
+        same_q += question_words(q) in questions
         same_ctx += c not in FALLBACKS and squash(c) in contexts
-    return same_q, same_ctx
+        same_para += c not in FALLBACKS and not paragraphs(c).isdisjoint(paras)
+    return same_q, same_ctx, same_para
 
 
 NEAR_JACCARD = 0.8
@@ -470,8 +484,9 @@ def report(path, entries, lang, max_repeats, eval_rows=None, measured=None):
           + (f" (righe {lines_of(mixed)})" if mixed else ""))
 
     if eval_rows is not None:
-        same_q, same_ctx = leakage([row for _, row in all_rows], eval_rows)
-        print(f"test esteso: {len(eval_rows)} righe | training con stessa domanda e regione: {same_q}, stesso contesto: {same_ctx}")
+        same_q, same_ctx, same_para = leakage([row for _, row in all_rows], eval_rows)
+        print(f"test esteso: {len(eval_rows)} righe | training con la stessa domanda: {same_q}, stesso contesto: {same_ctx}, "
+              f"un paragrafo di {LEAK_PARAGRAPH}+ caratteri in comune: {same_para}")
 
     if measured is not None:
         near = near_measured(all_rows, measured)
