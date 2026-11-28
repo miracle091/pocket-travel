@@ -42,11 +42,24 @@ def group_of(row):
     return row["kind"] + (suffix or "")
 
 
+def is_multi_turn(row):
+    """Riga con piu' di una coppia domanda-risposta (dataset v12b, con la cronologia nei messaggi)."""
+    return len(row["messages"]) != 2
+
+
+def todo_rows(picked, results, key):
+    """Righe scelte non ancora raccolte. La ripresa riconosce una riga da prompt e risposta attesa, non dal solo prompt:
+    righe diverse con lo stesso prompt non si confondono. I file gia' scritti hanno entrambi i campi."""
+    done = {(r["prompt"], r["want"]) for r in results}
+    return [r for r in picked if (key(r), r["messages"][1]["content"]) not in done]
+
+
 def pick_rows(rows, excluded_regions, quotas, seed=42):
-    """Righe fuori dalle regioni escluse, per gruppo: una quota float e' la frazione del gruppo, una int il massimo."""
+    """Righe fuori dalle regioni escluse, per gruppo: una quota float e' la frazione del gruppo, una int il massimo.
+    Le righe a piu' turni (is_multi_turn) restano fuori: il prompt e l'etichetta usano solo il primo scambio."""
     groups = {}
     for r in rows:
-        if r["region"] not in excluded_regions and r["region"] not in TEST_REGIONS:
+        if r["region"] not in excluded_regions and r["region"] not in TEST_REGIONS and not is_multi_turn(r):
             groups.setdefault(group_of(r), []).append(r)
     rng = random.Random(seed)
     picked = []
@@ -105,12 +118,14 @@ def main():
     gpu_lock.gpu_job("collect_onpolicy.py", gpu=a.gpu_layers > 0)
     rows = [json.loads(line) for line in (SFT_DIR / a.dataset).open(encoding="utf-8")]
     excluded = {json.loads(line)["region"] for line in (SFT_DIR / extended_file(a.dataset)).open(encoding="utf-8")}
+    if skipped := sum(map(is_multi_turn, rows)):
+        print(f"righe a piu' turni saltate: {skipped} (il prompt perderebbe la cronologia)")
     picked = pick_rows(rows, excluded, QUOTAS)
     if a.limit:
         picked = picked[:a.limit]
-    done = {r["prompt"] for r in read_jsonl_lenient(a.out)} if a.out.exists() else set()
-    todo = [r for r in picked if key(r) not in done]
-    phase("raccolta on-policy", f"{a.model.name}: {len(picked)} prompt, {len(done)} gia' fatti, "
+    results = read_jsonl_lenient(a.out) if a.out.exists() else []
+    todo = todo_rows(picked, results, key)
+    phase("raccolta on-policy", f"{a.model.name}: {len(picked)} prompt, {len(picked) - len(todo)} gia' fatti, "
                                 f"{a.samples} campioni + greedy, temperatura {a.temperature}")
 
     exe = find_llama_bin("llama-server", a.llama_cpp)

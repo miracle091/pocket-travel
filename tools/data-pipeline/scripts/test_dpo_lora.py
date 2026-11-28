@@ -7,8 +7,8 @@ Uso: python test_dpo_lora.py
 import math
 import unittest
 
-from dpo_lora import (build_kto_examples, build_pairs, context_of, dpo_loss, dpo_margin, first_index, first_sentence,
-                      kto_loss, kto_weights, leftover_scale)
+from dpo_lora import (build_kto_examples, build_pairs, context_of, dpo_loss, dpo_margin, finite_loss, first_index,
+                      first_sentence, is_multi_turn, kto_loss, kto_weights, leftover_scale, require_examples)
 
 
 def row(kind, region, category, context, answer, question="Cosa c'e'?"):
@@ -72,6 +72,35 @@ class PairsTest(unittest.TestCase):
         many = [row("pos", f"citta:C{i}", "CIBO_BEVANDE", "x", f"risposta {i}") for i in range(10)] + [ROWS[0]]
         pairs = build_pairs(many, set(), {"pos_city": 3})
         self.assertEqual(len(pairs["pos_city"]), 3)
+
+
+class MultiTurnTest(unittest.TestCase):
+    def test_righe_a_piu_turni_non_fanno_coppie(self):
+        multi = dict(ROWS[0], messages=[ROWS[0]["messages"][0], {"role": "assistant", "content": "Ok."},
+                                        {"role": "user", "content": "E il cibo?"}, ROWS[0]["messages"][1]])
+        self.assertTrue(is_multi_turn(multi))
+        self.assertFalse(is_multi_turn(ROWS[0]))
+        pairs = build_pairs([multi, ROWS[0], ROWS[1]], set(), {})
+        self.assertEqual(1, len(pairs["neg_city"]))  # solo ROWS[0]: il rifiuto a piu' turni non diventa una coppia
+        self.assertEqual(1, len(pairs["pos_city"]))
+        # nemmeno come rifiuto di riferimento delle altre righe
+        only_multi = dict(multi, kind="neg", category="CIBO_BEVANDE")
+        self.assertEqual([], build_pairs([only_multi, ROWS[1]], set(), {})["pos_city"])
+
+
+class SafetyTest(unittest.TestCase):
+    def test_dati_vuoti_fermano_lo_script(self):
+        with self.assertRaises(SystemExit) as ctx:
+            require_examples(0, "coppia")
+        self.assertIn("0 coppia", str(ctx.exception))
+        require_examples(1, "coppia")
+
+    def test_loss_non_finita_ferma_lo_script(self):
+        self.assertEqual(0.7, finite_loss(0.7, 3))
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with self.assertRaises(SystemExit) as ctx:
+                finite_loss(bad, 3)
+            self.assertIn("passo 3", str(ctx.exception))
 
 
 class LossTest(unittest.TestCase):

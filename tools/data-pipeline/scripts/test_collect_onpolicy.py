@@ -5,7 +5,7 @@ Uso: python test_collect_onpolicy.py
 """
 import unittest
 
-from collect_onpolicy import group_of, label, pick_rows, prompt_key
+from collect_onpolicy import group_of, label, pick_rows, prompt_key, todo_rows
 from eval_common import REFUSAL
 
 
@@ -49,6 +49,27 @@ class GroupTest(unittest.TestCase):
         self.assertFalse({"germania", "esclusa"} & {r["region"] for r in picked})
         self.assertEqual(picked, pick_rows(rows, {"esclusa"}, {"pos_near": 0.5, "neg": 3}))
         self.assertEqual([], pick_rows(rows, set(), {}))
+
+
+class MultiTurnTest(unittest.TestCase):
+    def test_righe_a_piu_turni_saltate(self):
+        multi = dict(POS, messages=[POS["messages"][0], {"role": "assistant", "content": "Ok."},
+                                    {"role": "user", "content": "E il cibo?"}, POS["messages"][1]])
+        self.assertEqual([POS], pick_rows([POS, multi], set(), {"pos_city": 1.0}))
+        self.assertEqual([], pick_rows([multi], set(), {"pos_city": 1.0}))
+
+
+class ResumeTest(unittest.TestCase):
+    def test_stesso_prompt_con_risposta_attesa_diversa_non_si_confonde(self):
+        a = row("neg", "cipro", "SALUTE", CONTEXT, "Rifiuto A.")
+        b = row("neg", "cipro", "TRASPORTI", CONTEXT, "Rifiuto B.")
+        a["messages"][0] = b["messages"][0]  # stesso prompt
+        key = lambda r: prompt_key(r)  # noqa: E731
+        fatto = {"prompt": key(a), "want": "Rifiuto A."}
+        self.assertEqual([b], todo_rows([a, b], [fatto], key))
+        # file di ripresa gia' scritti: stessi campi, righe diverse si riprendono ancora
+        self.assertEqual([], todo_rows([a], [fatto], key))
+        self.assertEqual([a, b], todo_rows([a, b], [], key))
 
 
 class LabelTest(unittest.TestCase):

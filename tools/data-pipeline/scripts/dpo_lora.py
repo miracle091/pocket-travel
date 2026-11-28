@@ -135,9 +135,30 @@ def first_index(resume, epoch):
     return resume[1] if epoch == resume[0] else 0
 
 
+def is_multi_turn(row):
+    """Riga con piu' di una coppia domanda-risposta (v12b: cronologia nel prompt): il prompt di una coppia e' il solo
+    primo messaggio, e senza la cronologia un rifiuto corretto passerebbe per un errore."""
+    return len(row["messages"]) != 2
+
+
+def require_examples(count, what):
+    """Esce con errore se non c'e' nulla da addestrare: senza, lo script salverebbe e fonderebbe i pesi di partenza."""
+    if count <= 0:
+        sys.exit(f"Niente da addestrare, 0 {what}: controlla dataset, regioni escluse e --max-len. Nulla salvato.")
+
+
+def finite_loss(value, step):
+    """Valore della loss, o uscita con errore se e' NaN o infinito: i pesi sarebbero gia' rovinati e non si salvano."""
+    if not math.isfinite(value):
+        sys.exit(f"Loss non valida ({value}) al passo {step}: training fermato, nessun peso salvato ne' fuso")
+    return value
+
+
 def build_pairs(rows, excluded_regions, per_group, seed=42):
-    """{gruppo: [(messaggi del prompt, preferita, scartata)]}, al piu' per_group[gruppo] coppie per gruppo."""
-    rows = [r for r in rows if r["region"] not in excluded_regions and r["region"] not in TEST_REGIONS]
+    """{gruppo: [(messaggi del prompt, preferita, scartata)]}, al piu' per_group[gruppo] coppie per gruppo; le righe a
+    piu' turni (is_multi_turn) restano fuori."""
+    rows = [r for r in rows if r["region"] not in excluded_regions and r["region"] not in TEST_REGIONS
+            and not is_multi_turn(r)]
     refusals = {}
     for r in rows:
         if r["kind"] == "neg":
@@ -207,11 +228,14 @@ def main():
     else:
         per_group = {k: int(v) for k, v in (item.split("=") for item in a.per_group.split(","))}
         rows = [json.loads(line) for line in (SFT_DIR / a.dataset).open(encoding="utf-8")]
+        if skipped := sum(map(is_multi_turn, rows)):
+            print(f"righe a piu' turni saltate: {skipped} (il prompt perderebbe la cronologia)")
         excluded = {json.loads(line)["region"] for line in (SFT_DIR / extended_file(a.dataset)).open(encoding="utf-8")}
         pairs = build_pairs(rows, excluded, per_group)
         counts = {g: len(p) for g, p in pairs.items()}
         print("coppie:", counts)
         data = [p for items in pairs.values() for p in items]
+    require_examples(len(data), "esempi" if a.loss == "kto" else "coppie")
     random.Random(42).shuffle(data)
 
     # bf16 nativo solo con capability >= 8, come train_lora.py: su Turing is_bf16_supported() e' vero ma emulato (lento)
@@ -353,7 +377,7 @@ def main():
                 r = logratio(ids, start)
                 loss = kto_loss(r, z0, desirable, a.beta, desirable_weight, undesirable_weight)
                 (loss / a.accum).backward()
-                losses.append(loss.item())
+                losses.append(finite_loss(loss.item(), step))
                 wins.append(float((r.item() > z0) == desirable))
             optimizer_step(len(chunk), epoch, i + a.accum)
 
@@ -373,7 +397,7 @@ def main():
             margin = dpo_margin(policy[0], policy[1], reference[0], reference[1])
             loss = dpo_loss(margin, a.beta)
             (loss / a.accum).backward()
-            losses.append(loss.item())
+            losses.append(finite_loss(loss.item(), step))
             wins.append(float(margin.item() > 0))
             pending += 1
             if pending == a.accum:
@@ -381,6 +405,7 @@ def main():
                 pending = 0
         if pending:  # coppie rimaste a fine epoca: un passo a parte, senza trascinarle nell'epoca successiva
             optimizer_step(pending, epoch + 1, 0)
+    require_examples(len(losses), "esempi entro --max-len")  # tutti saltati: i pesi sarebbero quelli di partenza
     print("peak VRAM GiB:", round(torch.cuda.max_memory_allocated() / 2**30, 2))
     Path(a.out).mkdir(parents=True, exist_ok=True)
     record = {"base": a.base, "dataset": a.dataset, "loss": a.loss, "beta": a.beta, "lr": a.lr, "epochs": a.epochs,
