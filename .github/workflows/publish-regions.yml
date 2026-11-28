@@ -779,6 +779,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           DAY: ${{ steps.geofabrik-keys.outputs.day }}
         run: |
+          # Senza il giorno (un passo prima e' fallito) il filtro non distingue le cache di oggi dalle altre e le
+          # toglierebbe tutte, anche quelle degli altri shard.
+          [ -n "$DAY" ] || exit 0
           if ! KEYS="$(gh cache list --repo "$GITHUB_REPOSITORY" --key geofabrik-poi- --limit 100 --json key --jq '.[].key')"; then
             echo "::warning::elenco delle cache di Geofabrik non leggibile: cache dei giorni scorsi non tolte"
             exit 0
