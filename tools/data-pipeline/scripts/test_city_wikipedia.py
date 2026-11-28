@@ -82,6 +82,12 @@ class DeadlineTitlesTest(unittest.TestCase):
         get.assert_not_called()
         self.assertIn("tempo esaurito, 1 sitelink", err.getvalue())
 
+    def test_la_scadenza_arriva_alle_richieste(self):
+        with mock.patch("city_wikipedia.city_population.wikibase_items", return_value={"Rimini": "Q18"}), \
+                mock.patch("city_wikipedia.city_population.get_json", return_value={}) as get:
+            city_wikipedia.wikipedia_titles(["Rimini"], "it", deadline=float("inf"))
+        self.assertEqual(float("inf"), get.call_args.kwargs["deadline"])
+
 
 class WikipediaSectionsTest(unittest.TestCase):
     def test_segue_continue_e_tiene_solo_le_voci_con_sezioni(self):

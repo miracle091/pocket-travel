@@ -241,6 +241,16 @@ class CacheTest(unittest.TestCase):
         self.assertEqual([10, None, 30], [r["population"] for r in rows])
         self.assertEqual((1.0, 2.0), (rows[0]["lat"], rows[0]["lon"]))
 
+    def test_testo_con_separatore_unicode_resta_una_riga(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "x.jsonl"
+            # json.dumps con ensure_ascii=False, come i JSONL delle citta', lascia U+2028 nel testo
+            path.write_text(json.dumps({"city": "A", "text": "uno due"}, ensure_ascii=False) + "\n", encoding="utf-8")
+            self._annotate(path, Path(d) / "cache" / "city-facts.json", {"A": (10, None)})
+            rows = [json.loads(line) for line in path.read_text(encoding="utf-8").split("\n") if line]
+        self.assertEqual(["uno due"], [r["text"] for r in rows])
+        self.assertEqual([10], [r["population"] for r in rows])
+
     def test_voci_scadute_o_illeggibili_si_richiedono(self):
         with tempfile.TemporaryDirectory() as d:
             cache = Path(d) / "city-facts.json"

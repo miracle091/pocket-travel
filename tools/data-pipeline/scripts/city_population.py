@@ -71,7 +71,7 @@ def wikibase_items(titles, lang, deadline=None):
         chunk = titles[i:i + BATCH]
         url = (f"https://{lang}.wikivoyage.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item"
                f"&redirects=1&format=json&titles=" + urllib.parse.quote("|".join(chunk)))
-        data = get_json(url)["query"]
+        data = get_json(url, deadline=deadline)["query"]
         alias = {n["to"]: n["from"] for k in ("normalized", "redirects") for n in data.get(k, [])}
         for page in data.get("pages", {}).values():
             if q := page.get("pageprops", {}).get("wikibase_item"):
@@ -191,7 +191,7 @@ def annotate(paths, lang, region_titles=None):
     [region_titles] ({percorso: titolo della regione}) anche "capital" (true per la capitale della regione); "lat" e
     "lon" da Wikidata (senza, restano quelle gia' nel file). Con CITY_FACTS_CACHE si chiedono a Wikidata solo le citta'
     che la cache non ha o ha da troppo tempo."""
-    rows = {p: [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()] for p in paths}
+    rows = {p: [json.loads(l) for l in p.read_text(encoding="utf-8").split("\n") if l.strip()] for p in paths}
     capital_of = {}
     if region_titles:
         try:

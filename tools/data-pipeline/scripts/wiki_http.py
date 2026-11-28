@@ -2,11 +2,12 @@
 """Richieste JSON a Wikidata e Wikimedia con nuovi tentativi, condivise da city_population, poi_wikidata e
 wikidata_missions: attese crescenti con un po' di casualita', Retry-After della risposta, tetto all'attesa.
 
-Si riprova su 429 e 5xx, errori di rete e risposte che non sono JSON; gli altri 4xx (richiesta sbagliata) si rilanciano
-subito. Ogni chiamante sceglie i suoi tentativi e la sua scadenza.
+Si riprova su 429 e 5xx, errori di rete, risposte troncate e risposte che non sono JSON; gli altri 4xx (richiesta
+sbagliata) si rilanciano subito. Ogni chiamante sceglie i suoi tentativi e la sua scadenza.
 
 Uso: from wiki_http import get_json
 """
+import http.client
 import json
 import random
 import sys
@@ -33,8 +34,8 @@ def retry_wait(error, attempt):
 
 def get_json(url, data=None, headers=UA, timeout=60, service="Wikimedia", attempts=RETRY_ATTEMPTS, deadline=None):
     """JSON di [url] (POST se c'e' [data]), con nuovi tentativi e attese crescenti su 429, 5xx e errori di rete.
-    Con [deadline] (time.monotonic()) non inizia un tentativo dopo la scadenza (TimeoutError) e il timeout della
-    richiesta non la supera."""
+    Con [deadline] (time.monotonic()) non inizia un tentativo dopo la scadenza (TimeoutError), il timeout della
+    richiesta non la supera e l'attesa tra due tentativi non va oltre il tempo rimasto."""
     for attempt in range(attempts):
         remaining = None if deadline is None else deadline - time.monotonic()
         if remaining is not None and remaining <= 0:
@@ -43,11 +44,15 @@ def get_json(url, data=None, headers=UA, timeout=60, service="Wikimedia", attemp
             request = urllib.request.Request(url, data=data, headers=headers)
             with urllib.request.urlopen(request, timeout=timeout if remaining is None else min(timeout, remaining)) as r:
                 return json.loads(r.read().decode("utf-8"))
-        except (OSError, ValueError) as e:  # URLError e HTTPError sono OSError; un corpo non JSON e' ValueError
+        # URLError e HTTPError sono OSError; un corpo non JSON e' ValueError; una risposta troncata (IncompleteRead) e'
+        # un http.client.HTTPException
+        except (OSError, ValueError, http.client.HTTPException) as e:
             if isinstance(e, urllib.error.HTTPError) and e.code != 429 and e.code < 500:
                 raise
             if attempt == attempts - 1:
                 raise
             wait = retry_wait(e, attempt)
+            if deadline is not None:
+                wait = max(0, min(wait, deadline - time.monotonic()))
             print(f"-- {service}: {e}, riprovo tra {wait:.0f}s", file=sys.stderr)
             time.sleep(wait)

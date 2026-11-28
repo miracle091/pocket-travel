@@ -163,8 +163,8 @@ def _expired(deadline):
     return time.monotonic() >= deadline
 
 
-def _sparql(query):
-    return city_population.get_json(SPARQL + urllib.parse.quote(query))["results"]["bindings"]
+def _sparql(query, deadline=None):
+    return city_population.get_json(SPARQL + urllib.parse.quote(query), deadline=deadline)["results"]["bindings"]
 
 
 def subclasses(types, roots, deadline):
@@ -174,7 +174,7 @@ def subclasses(types, roots, deadline):
         if _expired(deadline):
             break
         rows = _sparql(f"SELECT DISTINCT ?t WHERE {{ VALUES ?t {{ {' '.join('wd:' + q for q in todo[i:i + 200])} }} "
-                       f"VALUES ?r {{ {' '.join('wd:' + q for q in sorted(roots))} }} ?t wdt:P279* ?r }}")
+                       f"VALUES ?r {{ {' '.join('wd:' + q for q in sorted(roots))} }} ?t wdt:P279* ?r }}", deadline)
         out |= {r["t"]["value"].rsplit("/", 1)[-1] for r in rows}
     return out
 
@@ -211,9 +211,9 @@ def categories(country, lang):
     return cats, mains
 
 
-def _api(lang, params):
+def _api(lang, params, deadline=None):
     params = {"format": "json", "formatversion": "2", **params}
-    return city_population.get_json(f"https://{lang}.wikipedia.org/w/api.php?" + urllib.parse.urlencode(params))
+    return city_population.get_json(f"https://{lang}.wikipedia.org/w/api.php?" + urllib.parse.urlencode(params), deadline=deadline)
 
 
 def members(cats, lang, deadline):
@@ -225,7 +225,7 @@ def members(cats, lang, deadline):
                 return pages
             params = {"action": "query", "list": "categorymembers", "cmtitle": cat, "cmtype": "page|subcat", "cmlimit": "500"}
             while True:
-                data = _api(lang, params)
+                data = _api(lang, params, deadline)
                 for m in data.get("query", {}).get("categorymembers", []):
                     if m["ns"] == 0:
                         pages.add(m["title"])
@@ -249,7 +249,7 @@ def page_info(titles, lang, deadline):
         params = {"action": "query", "titles": "|".join(titles[i:i + city_population.BATCH]), "redirects": "1",
                   "prop": "redirects|pageprops|info", "rdnamespace": "0", "rdlimit": "max", "ppprop": "wikibase_item|disambiguation"}
         while True:
-            data = _api(lang, params)
+            data = _api(lang, params, deadline)
             for page in data.get("query", {}).get("pages", []):
                 if page.get("missing") or page.get("ns") != 0:
                     continue
@@ -271,7 +271,7 @@ def existing_articles(titles, lang, deadline):
     for i in range(0, len(titles), city_population.BATCH):
         if _expired(deadline):
             break
-        data = _api(lang, {"action": "query", "titles": "|".join(titles[i:i + city_population.BATCH])})
+        data = _api(lang, {"action": "query", "titles": "|".join(titles[i:i + city_population.BATCH])}, deadline)
         out |= {p["title"] for p in data.get("query", {}).get("pages", []) if not p.get("missing") and "redirect" not in p}
         time.sleep(0.1)
     return out
@@ -288,7 +288,7 @@ def excluded_items(items, deadline, country=None, topic_cache=None):
             break
         url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims|sitelinks&format=json&ids="
                + "|".join(items[i:i + city_population.BATCH]))
-        for q, entity in city_population.get_json(url).get("entities", {}).items():
+        for q, entity in city_population.get_json(url, deadline=deadline).get("entities", {}).items():
             claims = entity.get("claims", {})
             ids = lambda prop: {c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") for c in claims.get(prop, [])}
             types = ids("P31")
@@ -340,7 +340,7 @@ def summaries(titles, lang, deadline):
         params = {"action": "query", "prop": "extracts", "exintro": "1", "explaintext": "1", "exlimit": "max",
                   "titles": "|".join(titles[i:i + EXTRACT_BATCH])}
         while True:
-            data = _api(lang, params)
+            data = _api(lang, params, deadline)
             for page in data.get("query", {}).get("pages", []):
                 if extract := page.get("extract", "").strip():
                     # wikitext rimasto nell'estratto (categorie di una voce rotta): "[[Categoria:Cucina ...]]"
@@ -414,7 +414,7 @@ def _claims_of(items, deadline, cache):
             break
         url = ("https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims|sitelinks&format=json&ids="
                + "|".join(todo[i:i + city_population.BATCH]))
-        for q, entity in city_population.get_json(url).get("entities", {}).items():
+        for q, entity in city_population.get_json(url, deadline=deadline).get("entities", {}).items():
             claims = entity.get("claims", {})
             ids = lambda prop: {c["mainsnak"].get("datavalue", {}).get("value", {}).get("id") for c in claims.get(prop, [])}
             cache[q] = {"types": ids("P31"), "origin": ids("P495"), "country": ids("P17"), "place": "P625" in claims or "P131" in claims,
@@ -463,7 +463,7 @@ def resolve(candidates, lang, deadline, cache):
                   "ppprop": "wikibase_item|disambiguation"}
         alias, pages = {}, {}
         while True:
-            data = _api(lang, params)
+            data = _api(lang, params, deadline)
             query = data.get("query", {})
             for kind in ("normalized", "redirects"):
                 alias.update({n["from"]: n["to"] for n in query.get(kind, [])})

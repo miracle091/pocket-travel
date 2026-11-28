@@ -5,6 +5,7 @@ il caso sono sostituiti con unittest.mock.
 Uso: python test_wiki_http.py
 """
 import email.message
+import http.client
 import io
 import json
 import time
@@ -119,10 +120,22 @@ class GetJsonTest(unittest.TestCase):
 
     def test_scadenza_raggiunta_tra_due_tentativi(self):
         with self._urlopen(OSError("rete")) as urlopen, \
-                mock.patch("wiki_http.time.monotonic", side_effect=[0, 31]):
+                mock.patch("wiki_http.time.monotonic", side_effect=[0, 0, 31]):
             with self.assertRaises(TimeoutError):
                 wiki_http.get_json("http://x", deadline=30)
         self.assertEqual(1, urlopen.call_count)
+
+    def test_riprova_su_risposta_troncata(self):
+        with self._urlopen([http.client.IncompleteRead(b"ab"), self._response({"a": 1})]) as urlopen:
+            self.assertEqual({"a": 1}, wiki_http.get_json("http://x"))
+        self.assertEqual(2, urlopen.call_count)
+
+    def test_attesa_limitata_al_tempo_rimasto(self):
+        # Primo tentativo a 0 s con scadenza a 30 s; al calcolo dell'attesa ne restano 4.
+        with self._urlopen([OSError("rete"), self._response({"a": 1})]), \
+                mock.patch("wiki_http.time.monotonic", side_effect=[0, 26, 26]):
+            self.assertEqual({"a": 1}, wiki_http.get_json("http://x", deadline=30))
+        self.sleep.assert_called_once_with(4)
 
 
 if __name__ == "__main__":
