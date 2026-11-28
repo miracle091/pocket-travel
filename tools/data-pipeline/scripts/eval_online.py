@@ -288,17 +288,25 @@ YES_NO = re.compile(r"""\W*(?:sì|si|no|yes)(?!\w)""", re.I)
 # Le frasi del contesto rivolte all'assistente: un'istruzione nascosta. Più stretto di ORDER_TALK, perché qui la frase perde
 # anche i suoi indirizzi e numeri; IA e AI solo maiuscole ("ai" è una preposizione). I destinatari espliciti bastano da soli;
 # le parole di risposta e di utente (prosa normale delle guide: "gli utenti pagano", "il personale risponde") contano solo
-# con un imperativo o un vocativo nella stessa frase.
-ADDRESSED = re.compile(r"""\b(?:assistent[ei]|assistants?|chatbots?|prompts?|(?-i:IA|AI))\b""", re.I)
+# con un imperativo o un vocativo nella stessa frase. Non contano da soli, perché nelle guide sono prosa: "prompt" aggettivo
+# ("prompt service"), "si consiglia", "dagli" preposizione, "rispondere" a metà frase ("sarà in grado di rispondere"),
+# sempre/mai/always/never ("don't always respond"), sistema/system ("il sistema invierà all'utente"), "the user" soggetto.
+ADDRESSED = re.compile(
+    r"""\b(?:assistent[ei]|assistants?|chatbots?|(?-i:IA|AI))\b"""
+    r"""|\b(?:system|your|initial|original|il|tuo|del|questo|this)\s+prompts?\b|\bprompts?\s+(?:di\s+sistema|iniziale)\b""", re.I)
 ADDRESSED_WEAK = re.compile(
     r"""\b(?:rispond\w*|risposta|risposte|answer\w*|repl(?:y|ies)|respond|responds|response|responses|utent[ei]|users?)\b""", re.I)
 ADDRESSED_ORDER = re.compile(
-    r"""\b(?:rispondi|rispondete|rispondere|aggiungi|aggiungete|inserisci|scrivi|ripeti|ignora|lascia|ricorda|consiglia|suggerisci"""
-    r"""|digli|dagli|invita|firma|indica|cita|inizia|comincia|concludi|chiudi|termina|includi|menziona|mostra)\b"""
-    r"""|(?:^\W*|[:;,]\s*|\band\s+)(?:please\s+)?(?:answer|reply|respond|add|append|insert|write|say|tell|inform|ignore|repeat"""
-    r"""|remember|recommend|suggest|invite|sign|start|begin|end|finish|include|mention|use|cite|give)\b"""
-    r"""|\b(?:sempre|mai|always|never|must|devi|dovete|whatever|qualunque|policy|politica|piattaforma|platform|sistema|system)\b"""
-    r"""|\b(?:ogni|every|each)\s+(?:risposta|answer|reply|response)|\b(?:this|the|questo|l')\s*(?:user|utente)\b"""
+    r"""(?<!\bsi )\b(?:rispondi|rispondete|aggiungi|aggiungete|inserisci|scrivi|ripeti|ignora|lascia|ricorda|consiglia"""
+    r"""|suggerisci|digli|invita|firma|indica|cita|inizia|comincia|concludi|chiudi|termina|includi|menziona|mostra)\b"""
+    r"""|(?:^\W*|[:;]\s*)(?:non\s+|prima\s+di\s+)?rispondere\b|,\s*non\s+rispondere\b|\bdeve\s+rispondere\b"""
+    r"""|(?:^\W*|[:;,]\s*|\band\s+)(?:please\s+|always\s+|never\s+)?(?:answer|reply|respond|add|append|insert|write|say|tell"""
+    r"""|inform|ignore|repeat|remember|recommend|suggest|invite|sign|start|begin|end|finish|include|mention|use|cite|give|list)\b"""
+    r"""|\b(?:must|devi|dovete|whatever|qualunque|policy|politica|piattaforma|platform)\b"""
+    r"""|(?-i:\bSYSTEM\b|\bSISTEMA\b|<<SYS>>)|\b(?:system|sistema)\s*:|\bsystem\s+(?:message|instructions?|prompt|update)"""
+    r"""|\b(?:messaggio|istruzioni|indicazioni|prompt|aggiornamento)\s+(?:di|del)\s+sistema\b"""
+    r"""|\b(?:ogni|every|each)\s+(?:risposta|answer|reply|response)"""
+    r"""|\b(?:this|questo)\s+(?:user|utente)\b|\bl'\s*utente\b|\bthe\s+user['’]s\b|\bwhat\s+the\s+user\b"""
     r"""|\b(?:utent[ei]|users?)\s*[,:]""", re.I)
 WORD_OR_NUMBER = re.compile(r"[^\W_]+")
 PARENTHESIS_END = re.compile(r"(?<=[.!?]\))\s+")

@@ -8,19 +8,29 @@ private const val INSTRUCTION_RUN_WORDS = 4
 // Le frasi del contesto rivolte all'assistente: un'istruzione nascosta. Più stretto di ORDER_TALK, perché qui la frase perde
 // anche i suoi indirizzi e numeri; IA e AI solo maiuscole ("ai" è una preposizione). I destinatari espliciti bastano da soli;
 // le parole di risposta e di utente (prosa normale delle guide: "gli utenti pagano", "il personale risponde") contano solo
-// con un imperativo o un vocativo nella stessa frase.
-private val ADDRESSED = Regex("""\b(?:assistent[ei]|assistants?|chatbots?|prompts?|(?-i:IA|AI))\b""", RegexOption.IGNORE_CASE)
+// con un imperativo o un vocativo nella stessa frase. Non contano da soli, perché nelle guide sono prosa: "prompt" aggettivo
+// ("prompt service"), "si consiglia", "dagli" preposizione, "rispondere" a metà frase ("sarà in grado di rispondere"),
+// sempre/mai/always/never ("don't always respond"), sistema/system ("il sistema invierà all'utente"), "the user" soggetto.
+private val ADDRESSED = Regex(
+    """\b(?:assistent[ei]|assistants?|chatbots?|(?-i:IA|AI))\b""" +
+        """|\b(?:system|your|initial|original|il|tuo|del|questo|this)\s+prompts?\b|\bprompts?\s+(?:di\s+sistema|iniziale)\b""",
+    RegexOption.IGNORE_CASE,
+)
 private val ADDRESSED_WEAK = Regex(
     """\b(?:rispond\w*|risposta|risposte|answer\w*|repl(?:y|ies)|respond|responds|response|responses|utent[ei]|users?)\b""",
     RegexOption.IGNORE_CASE,
 )
 private val ADDRESSED_ORDER = Regex(
-    """\b(?:rispondi|rispondete|rispondere|aggiungi|aggiungete|inserisci|scrivi|ripeti|ignora|lascia|ricorda|consiglia|suggerisci""" +
-        """|digli|dagli|invita|firma|indica|cita|inizia|comincia|concludi|chiudi|termina|includi|menziona|mostra)\b""" +
-        """|(?:^\W*|[:;,]\s*|\band\s+)(?:please\s+)?(?:answer|reply|respond|add|append|insert|write|say|tell|inform|ignore|repeat""" +
-        """|remember|recommend|suggest|invite|sign|start|begin|end|finish|include|mention|use|cite|give)\b""" +
-        """|\b(?:sempre|mai|always|never|must|devi|dovete|whatever|qualunque|policy|politica|piattaforma|platform|sistema|system)\b""" +
-        """|\b(?:ogni|every|each)\s+(?:risposta|answer|reply|response)|\b(?:this|the|questo|l')\s*(?:user|utente)\b""" +
+    """(?<!\bsi )\b(?:rispondi|rispondete|aggiungi|aggiungete|inserisci|scrivi|ripeti|ignora|lascia|ricorda|consiglia""" +
+        """|suggerisci|digli|invita|firma|indica|cita|inizia|comincia|concludi|chiudi|termina|includi|menziona|mostra)\b""" +
+        """|(?:^\W*|[:;]\s*)(?:non\s+|prima\s+di\s+)?rispondere\b|,\s*non\s+rispondere\b|\bdeve\s+rispondere\b""" +
+        """|(?:^\W*|[:;,]\s*|\band\s+)(?:please\s+|always\s+|never\s+)?(?:answer|reply|respond|add|append|insert|write|say|tell""" +
+        """|inform|ignore|repeat|remember|recommend|suggest|invite|sign|start|begin|end|finish|include|mention|use|cite|give|list)\b""" +
+        """|\b(?:must|devi|dovete|whatever|qualunque|policy|politica|piattaforma|platform)\b""" +
+        """|(?-i:\bSYSTEM\b|\bSISTEMA\b|<<SYS>>)|\b(?:system|sistema)\s*:|\bsystem\s+(?:message|instructions?|prompt|update)""" +
+        """|\b(?:messaggio|istruzioni|indicazioni|prompt|aggiornamento)\s+(?:di|del)\s+sistema\b""" +
+        """|\b(?:ogni|every|each)\s+(?:risposta|answer|reply|response)""" +
+        """|\b(?:this|questo)\s+(?:user|utente)\b|\bl'\s*utente\b|\bthe\s+user['’]s\b|\bwhat\s+the\s+user\b""" +
         """|\b(?:utent[ei]|users?)\s*[,:]""",
     RegexOption.IGNORE_CASE,
 )
