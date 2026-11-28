@@ -25,6 +25,7 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 /** Errore che ritentare non risolve: risposta del server incoerente con il catalogo. */
@@ -88,11 +89,25 @@ class SegmentedDownload(
         return true
     }
 
-    // Prima richiesta (segue i redirect): Range 0-0 deve dare 206 e la dimensione del catalogo. null = niente segmenti.
+    // Prima richiesta (segue i redirect): Range 0-0 deve dare 206 e la dimensione del catalogo. null = niente segmenti
+    // (server senza Range). Errori temporanei e risposte che non sono il file (captive portal) sono IOException: il
+    // chiamante ritenta senza buttare i segmenti gia' scaricati.
     private suspend fun resolve(url: HttpUrl, sizeBytes: Long): HttpUrl? =
         client.newCall(Request.Builder().url(url).header("Range", "bytes=0-0").build()).runCancellable { response ->
-            val range = response.takeIf { it.code == HTTP_PARTIAL_CONTENT }?.header("Content-Range")?.let(::parseContentRange)
-            if (range == Triple(0L, 0L, sizeBytes)) response.request.url else null
+            val code = response.code
+            when {
+                isRetryableHttpStatus(code) -> throw IOException("Sonda del download fallita: HTTP $code")
+                code == HTTP_PARTIAL_CONTENT ->
+                    response.takeIf { response.header("Content-Range")?.let(::parseContentRange) == Triple(0L, 0L, sizeBytes) }?.request?.url
+                code == HTTP_OK -> when {
+                    response.header("Content-Type")?.startsWith("text/html", ignoreCase = true) == true ->
+                        throw IOException("La sonda del download ha ricevuto una pagina HTML")
+                    response.body.contentLength() != sizeBytes ->
+                        throw IOException("La sonda del download ha ricevuto ${response.body.contentLength()} byte, attesi $sizeBytes")
+                    else -> null
+                }
+                else -> null
+            }
         }
 
     // Segmenti finiti dalla mappa; la mappa o il .part non coerenti con file e catalogo si scartano e si riparte da zero.
@@ -100,9 +115,10 @@ class SegmentedDownload(
         val header = "v1 $sizeBytes $segmentBytes ${sha256.lowercase()}"
         val lines = if (map.isFile && part.length() == sizeBytes) map.readLines() else emptyList()
         if (lines.firstOrNull() == header) return lines.drop(1).mapNotNull { it.toIntOrNull() }.filter { it in 0 until segments }.toSet()
+        // Prima la mappa, poi la lunghezza: un crash in mezzo non lascia un .part lungo quanto il file e senza mappa.
         part.delete()
-        RandomAccessFile(part, "rw").use { it.setLength(sizeBytes) }
         FileOutputStream(map).use { it.write("$header\n".toByteArray()); it.fd.sync() }
+        RandomAccessFile(part, "rw").use { it.setLength(sizeBytes) }
         return emptySet()
     }
 
@@ -120,7 +136,7 @@ class SegmentedDownload(
         private val reportLock = Mutex()
         private val mapLock = Mutex()
         private val refreshLock = Mutex()
-        private var refreshes = 0
+        private val refreshes = AtomicInteger()
 
         fun lengthOf(index: Int): Long = minOf(segmentBytes, sizeBytes - index * segmentBytes)
 
@@ -135,7 +151,11 @@ class SegmentedDownload(
                 } finally {
                     if (!finished) progress.addAndGet(-counted)
                 }
-                if (finished) break
+                if (finished) {
+                    // Un indirizzo firmato dura circa un'ora: un segmento finito col nuovo indirizzo ne rinnova il diritto.
+                    if (used == url) refreshes.set(0)
+                    break
+                }
                 refresh(used)
             }
             // I dati sul disco prima della mappa: una voce in mappa e' sempre un segmento intero.
@@ -143,10 +163,11 @@ class SegmentedDownload(
             mapLock.withLock { FileOutputStream(map, true).use { it.write("$index\n".toByteArray()); it.fd.sync() } }
         }
 
-        // URL firmato scaduto (401/403): si risolve di nuovo dall'URL del catalogo, una sola volta per scarico.
+        // URL firmato scaduto (401/403): si risolve di nuovo dall'URL del catalogo, una volta sola finche' nessun
+        // segmento finisce col nuovo indirizzo: se e' rifiutato subito, il rifiuto e' definitivo.
         private suspend fun refresh(expired: HttpUrl) = refreshLock.withLock {
             if (url != expired) return@withLock
-            if (refreshes++ > 0) throw SegmentedDownloadException("Indirizzo di download rifiutato (401/403)")
+            if (refreshes.getAndIncrement() > 0) throw SegmentedDownloadException("Indirizzo di download rifiutato (401/403)")
             url = resolve(originalUrl.toHttpUrlOrThrow(), sizeBytes) ?: throw SegmentedDownloadException("Il server non risponde piu' agli intervalli")
         }
 
@@ -214,6 +235,7 @@ class SegmentedDownload(
         const val DEFAULT_PARALLELISM = 4
         const val DEFAULT_MIN_BYTES = 32L * 1024 * 1024
         private const val BUFFER_SIZE = 64 * 1024
+        private const val HTTP_OK = 200
         private const val HTTP_UNAUTHORIZED = 401
         private const val HTTP_FORBIDDEN = 403
         private val CONTENT_RANGE = Regex("""bytes (\d+)-(\d+)/(\d+)""", RegexOption.IGNORE_CASE)

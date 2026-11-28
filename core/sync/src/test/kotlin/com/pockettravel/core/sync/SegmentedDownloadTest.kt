@@ -201,4 +201,71 @@ class SegmentedDownloadTest {
             // atteso
         }
     }
+
+    @Test
+    fun `un indirizzo che scade piu' volte nello stesso scarico si rinnova ogni volta`() {
+        val probes = AtomicInteger()
+        val served = Collections.synchronizedMap(mutableMapOf<String, Int>())
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val path = request.path.orEmpty()
+                val range = request.getHeader("Range")
+                // ogni indirizzo firmato regge due segmenti, poi scade (la sonda passa sempre)
+                return when {
+                    path == "/file" -> MockResponse().setResponseCode(302).setHeader("Location", "/signed/${probes.incrementAndGet()}")
+                    range != "bytes=0-0" && (served.merge(path, 1, Int::plus) ?: 0) > 2 -> MockResponse().setResponseCode(403)
+                    else -> serve(range)
+                }
+            }
+        }
+
+        assertTrue(fetch(download(parallelism = 1)))
+
+        assertArrayEquals(data, part.readBytes())
+        assertEquals(3, probes.get())
+    }
+
+    @Test
+    fun `una sonda con errore temporaneo o una pagina HTML non scarta niente e si ritenta`() {
+        val probes = listOf(
+            MockResponse().setResponseCode(503),
+            MockResponse().setResponseCode(429),
+            MockResponse().setResponseCode(200).setHeader("Content-Type", "text/html").setBody("<html>accedi</html>"),
+            MockResponse().setResponseCode(200).setBody("<html>accedi</html>"),
+        )
+        for (probe in probes) {
+            part.writeBytes(ByteArray(data.size) { 1 })
+            SegmentedDownload.mapFile(part).writeText("v1 ${data.size} 1000 $sha256\n0\n1\n")
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse = probe
+            }
+
+            try {
+                fetch()
+                fail("la sonda ${probe.status} deve dare IOException")
+            } catch (_: IOException) {
+                // atteso
+            }
+            assertEquals(listOf("0", "1"), SegmentedDownload.mapFile(part).readLines().drop(1))
+            assertEquals(data.size.toLong(), part.length())
+        }
+    }
+
+    @Test
+    fun `la mappa si scrive prima di allungare il file parziale`() {
+        // Una dimensione che nessun file system alloca: setLength fallisce dopo l'intestazione della mappa.
+        val huge = Long.MAX_VALUE / 2
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                MockResponse().setResponseCode(206).setHeader("Content-Range", "bytes 0-0/$huge").setBody("x")
+        }
+
+        try {
+            runBlocking { SegmentedDownload(OkHttpClient(), segmentBytes = huge / 2, parallelism = 1, minBytes = 100).fetch(server.url("/file").toString(), part, huge, sha256, 1L) { } }
+            fail("il file parziale non si puo' allungare a $huge byte")
+        } catch (_: IOException) {
+            // atteso
+        }
+        assertEquals("v1 $huge ${huge / 2} $sha256", SegmentedDownload.mapFile(part).readLines().firstOrNull())
+    }
 }
