@@ -69,7 +69,7 @@ class VaultKeyEnvelopeTest {
 
         val failed = runCatching { envelope.completeUnlock(VaultKeyEnvelope.UnlockCipher.Unwrap(cipher), cipher) }
 
-        assertTrue(failed.exceptionOrNull() is IllegalStateException)
+        assertTrue(failed.exceptionOrNull() is VaultKeyUnreadableException)
     }
 
     @Test

@@ -73,7 +73,7 @@ class VaultKeyEnvelope @Inject constructor(preferences: PreferencesFactory) {
             }
             is UnlockCipher.Unwrap -> {
                 val ciphertext = AesGcmCodec.decodeCiphertext(prefs.getString(KEY_WRAPPED_DEK, null) ?: "")
-                    ?: error("Chiave di sessione avvolta mancante nonostante Unwrap")
+                    ?: throw VaultKeyUnreadableException("Chiave di sessione avvolta mancante nonostante Unwrap")
                 authenticatedCipher.doFinal(ciphertext)
             }
         }
@@ -85,3 +85,6 @@ class VaultKeyEnvelope @Inject constructor(preferences: PreferencesFactory) {
         const val DEK_SIZE_BYTES = 32
     }
 }
+
+// La chiave di sessione avvolta non c'e' piu' o non si legge: riprovare non serve, resta solo reset().
+class VaultKeyUnreadableException(message: String) : GeneralSecurityException(message)

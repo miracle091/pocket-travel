@@ -22,8 +22,18 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pockettravel.core.data.crypto.VaultKeyEnvelope
+import com.pockettravel.core.data.crypto.VaultKeyUnreadableException
 import com.pockettravel.core.ui.AppIcons
 import com.pockettravel.core.ui.EmptyState
+import javax.crypto.AEADBadTagException
+
+// Vero se la chiave non apre piu' la chiave di sessione avvolta o questa manca: tag GCM sbagliato (anche come causa di
+// un'altra eccezione) o VaultKeyUnreadableException.
+internal fun isKeyUnreadable(error: Throwable): Boolean =
+    generateSequence(error) { it.cause }.take(MAX_CAUSE_DEPTH)
+        .any { it is AEADBadTagException || it is VaultKeyUnreadableException }
+
+private const val MAX_CAUSE_DEPTH = 8
 
 @Composable
 internal fun NoLockScreenSetUp() {
@@ -92,11 +102,12 @@ internal fun LockedContent(viewModel: VaultViewModel, onUnlock: () -> Unit, onNo
                         errorMessage = unlockFailed
                         return
                     }
-                    // Chiave di sessione avvolta rovinata o KEK sparita dal Keystore (ne e' stata creata una
-                    // nuova, che non apre la vecchia): doFinal lancia, meglio un messaggio che un crash.
-                    if (runCatching { viewModel.completeUnlock(unlockIntent, authenticatedCipher) }.isFailure) {
-                        if (unlockIntent is VaultKeyEnvelope.UnlockCipher.Unwrap) {
-                            // Riprovare darebbe sempre lo stesso errore: si offre il reset.
+                    // doFinal lancia: meglio un messaggio che un crash. Il reset, che cancella i documenti, si
+                    // offre solo se la chiave non apre piu' la chiave di sessione avvolta (tag GCM sbagliato, KEK
+                    // ricreata): riprovare darebbe sempre lo stesso errore. Un guasto momentaneo del Keystore si riprova.
+                    val failure = runCatching { viewModel.completeUnlock(unlockIntent, authenticatedCipher) }.exceptionOrNull()
+                    if (failure != null) {
+                        if (unlockIntent is VaultKeyEnvelope.UnlockCipher.Unwrap && isKeyUnreadable(failure)) {
                             errorMessage = null
                             keyInvalidated = true
                         } else {
