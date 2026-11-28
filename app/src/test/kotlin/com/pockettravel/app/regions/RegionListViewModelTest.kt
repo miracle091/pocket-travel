@@ -137,7 +137,19 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
     }
 
     @Test
-    fun `con la rete bloccata per l'app il catalogo irraggiungibile ha il messaggio del blocco`() = runTest {
+    fun `con un blocco sospetto sull'app il catalogo irraggiungibile ha il messaggio del blocco`() = runTest {
+        manifests.failure = ConnectException("rifiutata")
+        networkBlock = NetworkBlock.SUSPECTED
+        repository.installedRegions.value = listOf(installed())
+        val viewModel = viewModel()
+
+        observe(viewModel)
+
+        assertEquals(UiR.string.network_blocked_suspected, viewModel.uiState.value.loadError)
+    }
+
+    @Test
+    fun `in primo piano il Risparmio dati non blocca e il catalogo irraggiungibile ha il messaggio normale`() = runTest {
         manifests.failure = ConnectException("rifiutata")
         networkBlock = NetworkBlock.DATA_SAVER
         repository.installedRegions.value = listOf(installed())
@@ -145,7 +157,7 @@ class RegionListViewModelTest : RegionListViewModelTestBase() {
 
         observe(viewModel)
 
-        assertEquals(UiR.string.network_blocked_data_saver, viewModel.uiState.value.loadError)
+        assertEquals(R.string.regions_load_error, viewModel.uiState.value.loadError)
     }
 
     @Test

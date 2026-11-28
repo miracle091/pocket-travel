@@ -20,4 +20,13 @@ class RegionPackageDownloadTest {
     fun `senza la mappa tra i pacchetti non ci si arrende mai`() {
         assertFalse(RegionPackageDownload.givesUpWithoutForeground(10, setOf(PackageKind.POI, PackageKind.ROUTING)))
     }
+
+    @Test
+    fun `un blocco della rete non toglie lo staging, un fallimento definitivo si`() {
+        assertTrue(RegionPackageDownload.keepsStaging(DownloadOutcome.RETRY))
+        assertTrue(RegionPackageDownload.keepsStaging(DownloadOutcome.DATA_SAVER_BLOCKED))
+        assertTrue(RegionPackageDownload.keepsStaging(DownloadOutcome.NETWORK_BLOCKED))
+        assertFalse(RegionPackageDownload.keepsStaging(DownloadOutcome.FAILURE))
+        assertFalse(RegionPackageDownload.keepsStaging(DownloadOutcome.SUCCESS))
+    }
 }

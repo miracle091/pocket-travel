@@ -387,7 +387,7 @@ class RegionListViewModel @Inject constructor(
 
     // Catalogo non letto: se Android blocca la rete dell'app lo si dice, con il pulsante per le impostazioni.
     @StringRes
-    private fun loadErrorFor(error: IOException): Int = networkBlocks.blockFor(error).message() ?: R.string.regions_load_error
+    private fun loadErrorFor(error: IOException): Int = networkBlocks.blockFor(error).foregroundMessage() ?: R.string.regions_load_error
 
     // La voce del catalogo limitata alla zona scelta: anche il worker la limita, ma dimensioni, spazio libero e versioni
     // da confrontare devono essere gia' quelle della zona.

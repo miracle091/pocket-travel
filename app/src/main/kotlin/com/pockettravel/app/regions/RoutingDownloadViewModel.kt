@@ -121,7 +121,7 @@ class RoutingDownloadViewModel @Inject constructor(
                 .onSuccess { entries -> entries.forEach { regionSyncScheduler.enqueueDownload(it, setOf(PackageKind.ROUTING)) } }
                 .onFailure { error ->
                     manifestFailed.value = true
-                    manifestBlockMessage.value = (error as? IOException)?.let { networkBlocks.blockFor(it).message() }
+                    manifestBlockMessage.value = (error as? IOException)?.let { networkBlocks.blockFor(it).foregroundMessage() }
                 }
         }
     }

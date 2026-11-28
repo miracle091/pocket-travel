@@ -39,6 +39,13 @@ internal fun WorkInfo?.blockMessage(): Int? {
     }
 }
 
+/**
+ * Il messaggio quando il catalogo non si legge con l'app in primo piano: il Risparmio dati lì non blocca mai, quindi
+ * solo il sospetto di un blocco sull'app ha il suo messaggio.
+ */
+@StringRes
+internal fun NetworkBlock.foregroundMessage(): Int? = if (this == NetworkBlock.SUSPECTED) message() else null
+
 /** Il messaggio per l'utente di un blocco della rete dell'app; null se non c'è blocco. */
 @StringRes
 internal fun NetworkBlock.message(): Int? = when (this) {

@@ -1,6 +1,9 @@
 package com.pockettravel.core.sync
 
+import android.net.ConnectivityManager
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 import java.net.ConnectException
@@ -41,5 +44,14 @@ class NetworkBlockTest {
     fun `timeout e altri errori di I O non sono un blocco`() {
         assertEquals(NetworkBlock.NONE, classifyNetworkBlock(SocketTimeoutException(), networkValidated = true, dataSaverRestricting = true))
         assertEquals(NetworkBlock.NONE, classifyNetworkBlock(IOException("HTTP 503"), networkValidated = true, dataSaverRestricting = false))
+    }
+
+    @Test
+    fun `il Risparmio dati limita l'app solo su una rete a consumo`() {
+        val enabled = ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
+        assertTrue(dataSaverRestricts(enabled, activeNetworkMetered = true))
+        assertFalse(dataSaverRestricts(enabled, activeNetworkMetered = false))
+        assertFalse(dataSaverRestricts(ConnectivityManager.RESTRICT_BACKGROUND_STATUS_DISABLED, activeNetworkMetered = true))
+        assertFalse(dataSaverRestricts(ConnectivityManager.RESTRICT_BACKGROUND_STATUS_WHITELISTED, activeNetworkMetered = true))
     }
 }

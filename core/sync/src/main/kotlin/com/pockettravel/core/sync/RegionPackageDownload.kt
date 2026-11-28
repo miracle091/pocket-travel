@@ -88,8 +88,8 @@ internal class RegionPackageDownload @Inject constructor(
             DownloadOutcome.FAILURE
         }
         // Installazione finita (i file sono gia' stati spostati, restava una cartella vuota) o fallimento definitivo: lo
-        // staging (file .part compresi) non serve piu'. Solo un nuovo tentativo lo riusa.
-        if (outcome != DownloadOutcome.RETRY) cleanUp(staging)
+        // staging (file .part compresi) non serve piu'. Un nuovo tentativo, anche dopo un blocco della rete, lo riusa.
+        if (!keepsStaging(outcome)) cleanUp(staging)
         return outcome
     }
 
@@ -170,6 +170,12 @@ internal class RegionPackageDownload @Inject constructor(
             attempt < MAX_RETRIES -> DownloadOutcome.RETRY
             block == NetworkBlock.SUSPECTED -> DownloadOutcome.NETWORK_BLOCKED
             else -> DownloadOutcome.FAILURE
+        }
+
+        // Un blocco della rete non e' un fallimento definitivo: i .part scaricati servono quando la rete torna.
+        internal fun keepsStaging(outcome: DownloadOutcome) = when (outcome) {
+            DownloadOutcome.RETRY, DownloadOutcome.DATA_SAVER_BLOCKED, DownloadOutcome.NETWORK_BLOCKED -> true
+            DownloadOutcome.SUCCESS, DownloadOutcome.FAILURE -> false
         }
 
         internal fun givesUpWithoutForeground(attempt: Int, kinds: Set<PackageKind>) =

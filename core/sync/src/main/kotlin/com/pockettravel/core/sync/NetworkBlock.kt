@@ -30,6 +30,10 @@ fun classifyNetworkBlock(error: IOException, networkValidated: Boolean, dataSave
     else -> NetworkBlock.SUSPECTED
 }
 
+/** Il Risparmio dati limita l'app solo su una rete a consumo: su un Wi-Fi non a consumo non blocca nulla. */
+internal fun dataSaverRestricts(restrictBackgroundStatus: Int, activeNetworkMetered: Boolean): Boolean =
+    restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED && activeNetworkMetered
+
 /** [Context.networkBlockFor] come dipendenza iniettabile: i ViewModel la ricevono, i test passano un falso. */
 fun interface NetworkBlockDetector {
     fun blockFor(error: IOException): NetworkBlock
@@ -45,6 +49,6 @@ fun Context.networkBlockFor(error: IOException): NetworkBlock {
     val validated = networks.mapNotNull(manager::getNetworkCapabilities).any {
         it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && it.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
-    val dataSaver = manager.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
+    val dataSaver = dataSaverRestricts(manager.restrictBackgroundStatus, manager.isActiveNetworkMetered)
     return classifyNetworkBlock(error, validated, dataSaver)
 }
