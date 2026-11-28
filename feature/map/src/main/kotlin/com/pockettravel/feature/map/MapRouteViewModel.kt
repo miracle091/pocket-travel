@@ -304,9 +304,14 @@ class MapRouteViewModel @Inject constructor(
             lastRead?.takeIf { it.covers(regionId, wanted, hidden, access) }?.pois?.within(wanted) ?: run {
                 val generation = readGeneration
                 val tags = regionTags?.takeIf { cached -> cached.first == regionId }?.second
-                    ?: poiRepository.categoryTags(regionId).also { read -> regionTags = regionId to read }
-                poiRepository.inBounds(regionId, wanted.minLat, wanted.maxLat, wanted.minLon, wanted.maxLon, MAX_PINS, hidden, access, tags)
-                    .also { read -> if (generation == readGeneration) lastRead = PinRead(regionId, wanted, hidden, access, read) }
+                    ?: poiRepository.categoryTags(regionId)
+                val read = poiRepository.inBounds(regionId, wanted.minLat, wanted.maxLat, wanted.minLon, wanted.maxLon, MAX_PINS, hidden, access, tags)
+                // Un azzeramento durante la lettura la rende vecchia: non si tiene.
+                if (generation == readGeneration) {
+                    regionTags = regionId to tags
+                    lastRead = PinRead(regionId, wanted, hidden, access, read)
+                }
+                read
             }
         }
         // Regione cambiata durante il caricamento: questi segnalini non sono piu' suoi.

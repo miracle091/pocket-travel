@@ -213,6 +213,23 @@ class MapRouteViewModelTest {
     }
 
     @Test
+    fun `una lettura delle categorie in volo prima di un aggiornamento dei POI non riscrive quelle in memoria`() = runTest {
+        dao.rows += poiRow(1, "Vecchio", lat = 45.2, lon = 9.2)
+        val viewModel = viewModel()
+        val gate = CompletableDeferred<Unit>()
+        dao.tagGates["r1"] = gate
+        viewModel.loadPins("r1")
+        runCurrent()
+
+        regions.installedRegions.value = listOf(installedRegion("r1").copy(poiVersion = "p2"), installedRegion("r2"))
+        runCurrent()
+        gate.complete(Unit)
+        runCurrent()
+
+        assertEquals(2, dao.categoryTagReads)
+    }
+
+    @Test
     fun `uscire dall'ultima area letta rilegge i POI`() = runTest {
         dao.rows += poiRow(1, "Da Mario", lat = 45.2, lon = 9.2)
         val viewModel = viewModel()

@@ -21,6 +21,8 @@ class FakePoiDao : PoiDao {
 
     /** Se c'e' un blocco per la regione, `poisInBounds` aspetta che lo si sblocchi. */
     val gates = mutableMapOf<String, CompletableDeferred<Unit>>()
+    /** Come [gates], per la lettura delle categorie della regione. */
+    val tagGates = mutableMapOf<String, CompletableDeferred<Unit>>()
     val searches = mutableListOf<Pair<List<String>, String>>()
     val nearestRows = mutableListOf<PoiEntity>()
 
@@ -56,7 +58,9 @@ class FakePoiDao : PoiDao {
 
     override suspend fun categoryTagsInRegion(regionId: String): List<CategoryTag> {
         categoryTagReads++
-        return rows.filter { it.regionId == regionId }.map { CategoryTag(it.category, it.osmTag) }.distinct()
+        val found = rows.filter { it.regionId == regionId }.map { CategoryTag(it.category, it.osmTag) }.distinct()
+        tagGates[regionId]?.await()
+        return found
     }
 
     override suspend fun insertAll(pois: List<PoiRow>) = Unit
