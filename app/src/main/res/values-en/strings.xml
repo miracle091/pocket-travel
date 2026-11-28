@@ -96,6 +96,7 @@
     <string name="package_delete_title_transit">Delete public transport timetables for %1$s?</string>
     <string name="package_delete_message">The region\'s other content stays on the device</string>
     <string name="map_download">Download the map</string>
+    <string name="map_unavailable">The catalog no longer offers this country\'s map</string>
     <string name="map_preview_notice">Overview map: for street detail and route calculation, download the region\'s map and road network</string>
     <string name="map_missing_notice">Map not downloaded: download it to see streets and places. Route calculation requires the downloaded map and road network</string>
     <string name="regions_large_download_title">Large download</string>

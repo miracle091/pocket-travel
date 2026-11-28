@@ -262,11 +262,14 @@ class RegionHubViewModel @Inject constructor(
         val id = regionId.value ?: return
         mapDownloadError.value = null
         viewModelScope.launch {
-            runCatchingCancellable { manifestClient.fetchManifest().regions.first { it.regionId == id } }
-                .onSuccess { regionSyncScheduler.enqueueDownload(it, setOf(PackageKind.MAP)) }
+            runCatchingCancellable { manifestClient.fetchManifest().regions.firstOrNull { it.regionId == id } }
+                // Regione installata ma tolta dal catalogo: non c'e' nulla da scaricare, e il catalogo e' raggiungibile.
+                .onSuccess { entry ->
+                    if (entry == null) mapDownloadError.value = R.string.map_unavailable else regionSyncScheduler.enqueueDownload(entry, setOf(PackageKind.MAP))
+                }
                 // Senza messaggio il tocco su "Scarica" offline non farebbe nulla: il motivo se Android blocca la rete dell'app.
                 .onFailure { error ->
-                    mapDownloadError.value = (error as? IOException)?.let { networkBlocks.blockFor(it).message() } ?: R.string.regions_load_error
+                    mapDownloadError.value = (error as? IOException)?.let { networkBlocks.blockFor(it).foregroundMessage() } ?: R.string.regions_load_error
                 }
         }
     }

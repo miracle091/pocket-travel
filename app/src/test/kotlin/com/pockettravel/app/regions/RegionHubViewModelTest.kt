@@ -311,6 +311,20 @@ class RegionHubViewModelTest {
     }
 
     @Test
+    fun `scaricare la mappa di una regione tolta dal catalogo raggiungibile non dice che il catalogo e' irraggiungibile`() = runTest {
+        val viewModel = viewModel()
+        observe(viewModel)
+        viewModel.load("italia")
+        advanceUntilIdle()
+        manifests.manifest = regionManifest(listOf(regionEntry("francia", "Francia", "fr")))
+
+        viewModel.downloadMap()
+        advanceUntilIdle()
+
+        assertEquals(R.string.map_unavailable, viewModel.uiState.value.mapDownloadError)
+    }
+
+    @Test
     fun `scaricare la mappa senza catalogo lo dice, con il motivo se Android blocca la rete`() = runTest {
         val viewModel = viewModel()
         observe(viewModel)
@@ -322,10 +336,16 @@ class RegionHubViewModelTest {
         advanceUntilIdle()
         assertEquals(R.string.regions_load_error, viewModel.uiState.value.mapDownloadError)
 
+        // In primo piano il Risparmio dati non blocca: il messaggio resta quello del catalogo.
         block = NetworkBlock.DATA_SAVER
         viewModel.downloadMap()
         advanceUntilIdle()
-        assertEquals(UiR.string.network_blocked_data_saver, viewModel.uiState.value.mapDownloadError)
+        assertEquals(R.string.regions_load_error, viewModel.uiState.value.mapDownloadError)
+
+        block = NetworkBlock.SUSPECTED
+        viewModel.downloadMap()
+        advanceUntilIdle()
+        assertEquals(UiR.string.network_blocked_suspected, viewModel.uiState.value.mapDownloadError)
 
         manifests.failure = null
         viewModel.downloadMap()

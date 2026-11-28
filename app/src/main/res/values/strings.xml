@@ -97,6 +97,7 @@
     <string name="package_delete_title_transit">%1$s: eliminare gli orari dei mezzi pubblici?</string>
     <string name="package_delete_message">Gli altri contenuti della regione restano sul dispositivo</string>
     <string name="map_download">Scarica la mappa</string>
+    <string name="map_unavailable">Il catalogo non offre più la mappa di questa nazione</string>
     <string name="map_preview_notice">Mappa d\'insieme: per il dettaglio delle strade e per calcolare i percorsi scarica la mappa e la rete stradale della regione</string>
     <string name="map_missing_notice">Mappa non scaricata: scaricala per vedere strade e luoghi. Il calcolo dei percorsi richiede la mappa e la rete stradale scaricate</string>
     <string name="regions_large_download_title">Download di grandi dimensioni</string>
