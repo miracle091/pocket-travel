@@ -162,6 +162,12 @@ class EvalGgufTest(unittest.TestCase):
         self.assertTrue(self.prompts[0]["prompt"].startswith("<|im_start|>system\nRispondi solo dal contesto.<|im_end|>\n"
                                                              "<|im_start|>user\nD?<|im_end|>\n"))
 
+    def test_no_user_instructions_only_toglie_la_riga_dei_v12(self):
+        v12 = eval_common.on_device_prompt("Il museo apre alle 9.", "Quando apre?", "it", user_instructions_only=True)
+        self.run_script("--no-user-instructions-only", replies=["Alle 9."], rows=[row("pos", v12, "Alle 9.")])
+        self.assertIn(eval_common.on_device_prompt("Il museo apre alle 9.", "Quando apre?", "it"), self.prompts[0]["prompt"])
+        self.assertNotIn(eval_common.USER_INSTRUCTIONS_ONLY["it"], self.prompts[0]["prompt"])
+
     def test_contesto_nel_turno_system_con_knowledge_system(self):
         rows = [row("pos", "Sei una guida.\n\nCONTESTO: Il museo apre alle 9.\n\nDOMANDA: Quando apre?", "Alle 9.")]
         self.run_script("--knowledge-system", replies=["Alle 9."], rows=rows)

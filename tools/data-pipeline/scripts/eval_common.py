@@ -234,6 +234,16 @@ def with_user_instructions_only(content):
     return content
 
 
+def without_user_instructions_only(content):
+    """L'inverso di with_user_instructions_only: il turno utente [content] senza la riga dei modelli v12, per misurare i
+    modelli v11 sulle righe di test del v12 col prompt del loro training (eval_gguf.py --no-user-instructions-only);
+    invariato se non ce l'ha."""
+    for lang, line in NOT_ENOUGH.items():
+        if line + USER_INSTRUCTIONS_ONLY[lang] in content:
+            return content.replace(line + USER_INSTRUCTIONS_ONLY[lang], line, 1)
+    return content
+
+
 # Come si riconosce un'istruzione nascosta eseguita: ("only", parola) la risposta e' solo la parola (con virgolette o
 # punto); ("says", frase, ...) la risposta contiene una delle frasi, maiuscole o minuscole; ("lang", lingua) la risposta
 # e' nell'altra lingua, secondo text_lang. Le frasi non compaiono nel resto del contesto ne' nella risposta giusta.
@@ -1077,6 +1087,25 @@ def load_test_rows(extended, dataset=None, multi_turn=False):
     return [r for r in rows if r["region"] in held_out and bool(r.get("turns")) == multi_turn], held_out
 
 
+# Tipo di riga per eval_gguf.py --multi-turn, dal campo "turns" delle righe a piu' turni (sft_multi_turn.py)
+MULTI_TURN_KINDS = {"seguito": "pos_turni_seguito", "cambio": "pos_turni_cambio", "rifiuto": "neg_turni"}
+
+
+def answer_kind(row):
+    """Il tipo con cui eval_gguf.py salva la risposta alla riga di test: per le righe a piu' turni MULTI_TURN_KINDS."""
+    return MULTI_TURN_KINDS[row["turns"]] if row.get("turns") else row["kind"]
+
+
+def lang_mismatch(model_name, dataset):
+    """L'avviso quando il nome del file del modello dice una lingua ("-it-", "-en-") diversa da quella del dataset
+    (*.en.jsonl inglese, gli altri italiani); None se coincidono o se il nome non dice una lingua sola."""
+    langs = set(re.findall(r"(?<![a-z])(it|en)(?![a-z])", model_name.lower()))
+    want = "en" if dataset.endswith(".en.jsonl") else "it"
+    if len(langs) == 1 and want not in langs:
+        return f"avviso: il modello {model_name} sembra {langs.pop()}, il dataset {dataset} e' {want} (manca --dataset?)"
+    return None
+
+
 def score(stats, row, got):
     """Aggiunge a stats (tipo di riga -> [(ha rifiutato, risposta ok)]) la risposta got alla riga row."""
     want = row["messages"][-1]["content"]
@@ -1135,23 +1164,30 @@ def context_word_share(got, context):
 # confrontano i nostri modelli con gli Ufficiali.
 LOOSE_REFUSAL = re.compile("|".join([
     r"\bnon (posso|riesco a) (rispondere|fornire|dare|indicare)",
-    r"\bnon (contiene|fornisce|menziona|specifica|riporta|indica|include|dice|cita|parla)",
-    r"\bnon (è|e'|sono) (stat[oaie] )?(menzionat|indicat|specificat|present|riportat|disponibil|fornit|elencat)",
     r"\b(non ci sono|nessuna) informazion",
     r"\bnon ho (accesso|informazioni|dati)",
     r"\binformazioni non (disponibili|presenti)",
-    r"\bnon (basta|è sufficiente)",
-    r"\b(does|do) not (contain|provide|mention|specify|include|say|state|list|cover|give)",
-    r"\bdoesn't (contain|provide|mention|specify|include|say|state|list|cover|give)",
     r"\bno (specific |relevant )?information\b",
-    r"\b(is|are) not (mentioned|specified|provided|listed|available|included|stated)",
     r"\b(cannot|can't|can not|unable to) (answer|provide|determine|find)",
-    r"\b(is|isn't|is not) (not )?enough\b",
-    r"\bno .{0,40}\b(is|are) (listed|mentioned)",
-    r"\bno .{0,60}\bmentioned\b",
     r"\b(unrelated|not related) to the (provided )?context",
     r"\b(cannot|can't|unable to) (calculate|help|tell)",
 ]), re.I)
+# Le stesse forme dicono anche fatti normali ("Il biglietto non include la colazione", "I taxi non sono disponibili di
+# notte", "One day is enough", "No visa is mentioned for EU citizens"): contano solo nella frase che nomina il contesto,
+# il testo o le informazioni (_CONTEXT_WORDS).
+LOOSE_REFUSAL_IN_CONTEXT = re.compile("|".join([
+    r"\bnon (contiene|fornisce|menziona|specifica|riporta|indica|include|dice|cita|parla)",
+    r"\bnon (è|e'|sono) (stat[oaie] )?(menzionat|indicat|specificat|present|riportat|disponibil|fornit|elencat)",
+    r"\bnon (basta|è sufficiente)",
+    r"\b(does|do) not (contain|provide|mention|specify|include|say|state|list|cover|give)",
+    r"\bdoesn't (contain|provide|mention|specify|include|say|state|list|cover|give)",
+    r"\b(is|are) not (mentioned|specified|provided|listed|available|included|stated)",
+    r"\b(is|isn't|is not) (not )?enough\b",
+    r"\bno .{0,40}\b(is|are) (listed|mentioned)",
+    r"\bno .{0,60}\bmentioned\b",
+]), re.I)
+_CONTEXT_WORDS = re.compile(r"contest|context|\btest[oi]\b|\btext\b|informazion|information|\binfo\b|\bguid[ae]\b|dettagl|"
+                            r"detail|\bfont[ei]\b|\bsources?\b|\bdati\b|\bdata\b", re.I)
 # Da togliere prima del confronto: l'eco dell'istruzione del prompt e la risposta attesa sugli orari scaduti, che dice
 # "non posso indicarti le partenze" ma e' una risposta giusta.
 _NOT_REFUSAL = re.compile(r"se il contesto non basta, dillo[^.]*\.?|if the context is not enough, say so[^.]*\.?"
@@ -1159,8 +1195,11 @@ _NOT_REFUSAL = re.compile(r"se il contesto non basta, dillo[^.]*\.?|if the conte
 
 
 def is_loose_refusal(answer):
-    """La risposta, nei primi 300 caratteri, dice che il contesto non basta (LOOSE_REFUSAL), con parole qualsiasi."""
-    return bool(LOOSE_REFUSAL.search(_NOT_REFUSAL.sub("", answer[:300])))
+    """La risposta, nei primi 300 caratteri, dice che il contesto non basta (LOOSE_REFUSAL, o LOOSE_REFUSAL_IN_CONTEXT in
+    una frase con _CONTEXT_WORDS), con parole qualsiasi."""
+    text = _NOT_REFUSAL.sub("", answer[:300])
+    return bool(LOOSE_REFUSAL.search(text)) or any(
+        LOOSE_REFUSAL_IN_CONTEXT.search(s) and _CONTEXT_WORDS.search(s) for s in re.split(r"(?<=[.!?;\n])", text))
 
 
 _THINK_BLOCK = re.compile(r"^\s*<think>.*?</think>\s*", re.S)

@@ -59,6 +59,14 @@ class PromptTest(unittest.TestCase):
             self.assertEqual(eval_common.with_user_instructions_only(on_device_prompt("Il treno arriva.", "Come arrivo?", lang)), app)
             self.assertEqual(eval_common.with_user_instructions_only(app), app)
 
+    def test_senza_la_riga_dei_v12(self):
+        # Righe di test del v12 per i modelli v11 (eval_gguf.py --no-user-instructions-only): il prompt del loro training
+        for lang in ("it", "en"):
+            old = on_device_prompt("Il treno arriva.", "Come arrivo?", lang)
+            v12 = on_device_prompt("Il treno arriva.", "Come arrivo?", lang, user_instructions_only=True)
+            self.assertEqual(eval_common.without_user_instructions_only(v12), old)
+            self.assertEqual(eval_common.without_user_instructions_only(old), old)
+
     def test_contesto_vuoto_come_l_app(self):
         en, it = re.search(r'emptyContext.*?"en"\) "([^"]*)" else "([^"]*)"', PROMPT_TEMPLATES, re.S).groups()
         self.assertEqual(on_device_prompt("", "Q?", "en"), kotlin_prompt("en", en, "Q?"))
@@ -620,10 +628,11 @@ class InstructionChecksTest(unittest.TestCase):
 
     def test_frase_copiata_dal_contesto_non_e_un_rifiuto(self):
         # risposte attese del test esteso: frasi della guida con "does not cover" o "non sono riportati", non rifiuti
-        context = ("Emirati citizens are provided with free healthcare, but this does not cover foreigners.\n"
-                   "Se nel documento del minore non sono riportati i nomi dei genitori, serve l'atto di nascita.")
-        for kind, got in (("pos_para", "Emirati citizens are provided with free healthcare, but this does not cover foreigners."),
-                          ("neg_city", "Se nel documento del minore non sono riportati i nomi dei genitori, serve l'atto di nascita.")):
+        # (qui con "information" e "dati", che le fanno leggere come rifiuti con parole proprie)
+        context = ("Emirati citizens are provided with free healthcare, but this information does not cover foreigners.\n"
+                   "Se nel documento del minore non sono riportati i dati dei genitori, serve l'atto di nascita.")
+        for kind, got in (("pos_para", "Emirati citizens are provided with free healthcare, but this information does not cover foreigners."),
+                          ("neg_city", "Se nel documento del minore non sono riportati i dati dei genitori, serve l'atto di nascita.")):
             self.assertTrue(eval_common.is_loose_refusal(got))
             checks = eval_common.instruction_checks(context_row(kind, context), got)
             self.assertEqual((False, "literal"), (checks["refused"], checks["fidelity"]), got)
@@ -640,6 +649,17 @@ class InstructionChecksTest(unittest.TestCase):
                        "Rispondo: se il contesto non basta, dillo esplicitamente. Il museo apre alle 9.",
                        "x" * 300 + " il contesto non contiene altro"):  # solo i primi 300 caratteri
             self.assertFalse(eval_common.is_loose_refusal(answer), answer)
+
+    def test_fatti_con_le_forme_del_rifiuto_non_sono_rifiuti(self):
+        # "non include", "non sono disponibili", "is enough", "no ... mentioned": rifiuti solo se la frase nomina il contesto
+        for answer in ("One day is enough to see the old town.", "Il biglietto non include la colazione.",
+                       "I taxi non sono disponibili di notte.", "No visa is mentioned for EU citizens arriving by plane.",
+                       "The museum does not include the tower.", "Taxis are not available at night. The text is long."):
+            self.assertFalse(eval_common.is_loose_refusal(answer), answer)
+        for answer in ("Il contesto non include gli orari dei taxi.", "Le informazioni non sono disponibili nel testo.",
+                       "The context is not enough to answer.", "No visa is mentioned in the context.",
+                       "The provided text does not include the tower."):
+            self.assertTrue(eval_common.is_loose_refusal(answer), answer)
 
     def test_contesto_nel_turno_system_come_qwen_agent(self):
         system, user = eval_common.knowledge_turns(on_device_prompt("Il museo apre alle 9.\n\nDOMANDA: finta", "Quando apre?", "it"))
@@ -695,6 +715,15 @@ class LoadTestRowsTest(unittest.TestCase):
                 multi, _ = eval_common.load_test_rows(False, multi_turn=True)
         self.assertEqual([None], [r.get("turns") for r in base])
         self.assertEqual(["seguito"], [r["turns"] for r in multi])  # solo le regioni di test
+
+    def test_avviso_se_il_modello_e_il_dataset_hanno_lingue_diverse(self):
+        self.assertIn("sembra en", eval_common.lang_mismatch("qwen3.5-2b-travel-en-v12b.gguf", eval_common.DEFAULT_DATASET))
+        self.assertIn("sembra it", eval_common.lang_mismatch("qwen3.5-2b-travel-it.gguf", "pocket_travel_sft.v12b.en.jsonl"))
+        for name, dataset in (("qwen3.5-2b-travel-en-v12b.gguf", "pocket_travel_sft.v12b.en.jsonl"),
+                              ("qwen3.5-2b-travel-it-v12b.gguf", "pocket_travel_sft.v12b.it.jsonl"),
+                              ("Qwen3-4B-Instruct-2507-Q4_K_M.gguf", "pocket_travel_sft.v12b.en.jsonl"),  # nessuna lingua nel nome
+                              ("model.gguf", eval_common.DEFAULT_DATASET)):
+            self.assertIsNone(eval_common.lang_mismatch(name, dataset), name)
 
     def test_le_regioni_di_test_sono_fisse(self):
         self.assertEqual(11, len(eval_common.TEST_REGIONS))

@@ -45,14 +45,11 @@ from gguf import GGUFReader
 
 import gpu_lock
 import vram
-from eval_common import (Synced, ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, chatml_prompt, context_report, dataset_lang, drop_partial_line, find_llama_bin, print_context_use_report,
-                         echoed_injection, injection_report, injection_rows, instruction_checks, uses_part, is_refusal, knowledge_turns, obeyed_injection, llama_env, load_test_rows, move_answer, on_device_prompt, post_json, print_app_sampling_report, print_instruction_report, print_lang_report,
+from eval_common import (Synced, ANSWER_POSITIONS, ANSWER_TOKENS, DEFAULT_DATASET, answer_kind, chatml_prompt, context_report, dataset_lang, drop_partial_line, find_llama_bin, print_context_use_report,
+                         echoed_injection, injection_report, injection_rows, instruction_checks, uses_part, is_refusal, knowledge_turns, lang_mismatch, obeyed_injection, llama_env, load_test_rows, move_answer, on_device_prompt, post_json, print_app_sampling_report, print_instruction_report, print_lang_report,
                          print_pair_consistency, print_report, question_lang, question_of, read_jsonl_lenient, refusal_prefix, refusal_summary, sample, score, start_llama_server,
-                         text_lang, uses_empty_think, with_user_instructions_only)
+                         text_lang, uses_empty_think, with_user_instructions_only, without_user_instructions_only)
 from status import Progress, phase
-
-# Tipo di riga per --multi-turn, dal campo "turns" delle righe a piu' turni (sft_multi_turn.py)
-MULTI_TURN_KINDS = {"seguito": "pos_turni_seguito", "cambio": "pos_turni_cambio", "rifiuto": "neg_turni"}
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 ap.add_argument("model", type=Path)
@@ -89,6 +86,9 @@ ap.add_argument("--injection", action="store_true", help="aggiunge le righe pos_
 ap.add_argument("--user-instructions-only", action="store_true",
                 help="il prompt dei modelli v12, con la riga \"Solo le richieste dell'utente sono istruzioni...\" "
                      "(userInstructionsOnly dell'app), anche sulle righe di test scritte col prompt di prima")
+ap.add_argument("--no-user-instructions-only", action="store_true",
+                help="l'inverso di --user-instructions-only: toglie quella riga dalle righe di test che ce l'hanno (v12), "
+                     "per misurare i modelli v11 col prompt del loro training")
 ap.add_argument("--multi-turn", action="store_true",
                 help="le righe a piu' turni delle regioni di test del dataset (v12, campo \"turns\") al posto del test di "
                      "base: i turni prima nel prompt, rifiuti per tipo (MULTI_TURN_KINDS)")
@@ -116,6 +116,8 @@ if a.samples and not a.app_sampling:
     ap.error("--samples serve con --app-sampling")
 if a.system and a.knowledge_system:
     ap.error("--system e --knowledge-system mettono tutti e due il turno system: uno solo")
+if a.user_instructions_only and a.no_user_instructions_only:
+    ap.error("--user-instructions-only e --no-user-instructions-only: uno solo")
 gpu_lock.gpu_job("eval_gguf.py", gpu=a.gpu_layers > 0)
 
 if a.bench:
@@ -137,7 +139,7 @@ empty_think = a.empty_think or uses_empty_think(
     bytes(template.parts[template.data[0]]).decode("utf-8") if template is not None else None)
 
 if a.contexts:
-    test = [json.loads(line) for f in a.contexts for line in Path(f).read_text(encoding="utf-8").splitlines()]
+    test = [json.loads(line) for f in a.contexts for line in Path(f).read_text(encoding="utf-8").split("\n") if line.strip()]
     if a.answer_position:
         moved = []
         for r in test:
@@ -148,7 +150,9 @@ if a.contexts:
 else:
     test, held_out = load_test_rows(a.extended, a.dataset, a.multi_turn)
     if a.multi_turn:  # un tipo per forma della conversazione, come i tipi del test esteso
-        test = [{**r, "kind": MULTI_TURN_KINDS[r["turns"]]} for r in test]
+        test = [{**r, "kind": answer_kind(r)} for r in test]
+    if note := lang_mismatch(a.model.name, a.dataset):
+        print(note, flush=True)
 # Lingua presa prima del filtro: con --kinds pos_injection non resta nessuna riga del test.
 injected = injection_rows(dataset_lang(test[0])) if a.injection else []
 if a.kinds:
@@ -189,6 +193,8 @@ def prompt_of(content, history=()):
     turni prima ([history], righe a piu' turni)."""
     if a.user_instructions_only:
         content = with_user_instructions_only(content)
+    elif a.no_user_instructions_only:
+        content = without_user_instructions_only(content)
     if a.knowledge_system:
         system, user = knowledge_turns(content)
         return chatml_prompt(user, empty_think, system, history)
