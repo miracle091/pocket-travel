@@ -93,6 +93,24 @@ def stop_on_missing_lora_targets(model):
                  "controlla i nomi con model.named_modules() prima di cambiare LORA['target_modules'].")
 
 
+def finished_lora(out, last_checkpoint):
+    """Messaggio d'uscita quando --out ha gia' la LoRA finale e nessun checkpoint da riprendere: un training
+    finito non si rifa' da zero (14 ore per il 4B) e un run.json nuovo non deve finire accanto al merged/ vecchio."""
+    lora = Path(out) / "lora" / "adapter_model.safetensors"
+    if last_checkpoint or not lora.exists():
+        return None
+    merged = "" if (Path(out) / "merged" / "config.json").exists() else (
+        "; merge mancante: fondilo dalla LoRA salvata (merge_full_precision di train_lora.py), senza rifare il training")
+    return f"{lora.parent} ha gia' la LoRA finale: training non rifatto{merged}. Per un training nuovo usa un altro --out"
+
+
+def remove_checkpoints(out):
+    """Servivano solo alla ripresa: si tolgono dopo il merge, cosi' un errore nel controllo a campione o nel merge
+    lascia l'ultimo checkpoint. Un file ancora aperto (antivirus, indicizzazione) non ferma lo script."""
+    for checkpoint in Path(out).glob("checkpoint-*"):
+        shutil.rmtree(checkpoint, ignore_errors=True)
+
+
 def throughput(start, end):
     """Passi e token al secondo tra due misure (passo, token visti senza padding, secondi); None senza misure o senza
     passi in mezzo (training di un passo solo), e token None se il Trainer non li ha contati (ciclo sostituito)."""
@@ -350,6 +368,8 @@ run_key = {"model": a.model, "dataset": a.dataset, "dataset_sha256": hashlib.sha
            **({"seed": a.seed} if a.seed != 42 else {})}  # come lora_linear_attn: i run.json di prima restano validi
 run_key_path = Path(a.out) / "run.json"
 last_checkpoint = last_complete_checkpoint(a.out)
+if done := finished_lora(a.out, last_checkpoint):
+    sys.exit(done)
 if last_checkpoint:
     if not run_key_path.exists() or json.loads(run_key_path.read_text(encoding="utf-8")) != run_key:
         sys.exit(f"{last_checkpoint} e' di un training diverso (modello, dataset o parametri): cancellalo o usa un altro --out")
@@ -378,8 +398,6 @@ def last_logged(key):
 phase("salvataggio LoRA", a.out + "/lora")
 model.save_pretrained(a.out + "/lora")
 tok.save_pretrained(a.out + "/lora")
-for checkpoint in Path(a.out).glob("checkpoint-*"):  # servivano solo alla ripresa: LoRA finale salvato
-    shutil.rmtree(checkpoint)
 
 def copy_attribution(dst):
     if attribution_path.exists():
@@ -392,15 +410,19 @@ copy_attribution(a.out + "/lora")
 # Controllo a occhio sul test: 2 positivi e 2 negativi (il comportamento, non solo la loss)
 phase("controllo a campione", "2 positivi e 2 negativi del test")
 model.eval()
-for r in spot_check_rows(test_ds):
-    kind = r["kind"]
-    ids = tok(chat_prompt_and_answer(tok, r["messages"][:-1])[0], add_special_tokens=False,
-              return_tensors="pt").to(model.device)
-    with torch.no_grad():
-        out = model.generate(**ids, max_new_tokens=120, do_sample=False)
-    print(f"\n[{kind}] {question_of(r).strip()}")
-    print("  atteso:", r["messages"][-1]["content"][:160])
-    print("  ottenuto:", tok.decode(out[0][ids["input_ids"].shape[1]:], skip_special_tokens=True)[:160])
+try:  # serve solo a guardare: un suo errore (memoria esaurita dopo il training) non deve costare il merge
+    for r in spot_check_rows(test_ds):
+        kind = r["kind"]
+        ids = tok(chat_prompt_and_answer(tok, r["messages"][:-1])[0], add_special_tokens=False,
+                  return_tensors="pt").to(model.device)
+        with torch.no_grad():
+            out = model.generate(**ids, max_new_tokens=120, do_sample=False)
+        print(f"\n[{kind}] {question_of(r).strip()}")
+        print("  atteso:", r["messages"][-1]["content"][:160])
+        print("  ottenuto:", tok.decode(out[0][ids["input_ids"].shape[1]:], skip_special_tokens=True)[:160])
+except Exception as e:
+    print(f"-- controllo a campione saltato: {type(e).__name__}: {e}", file=sys.stderr)
+    torch.cuda.empty_cache()
 print("LoRA salvato in", a.out + "/lora")
 # Il merge modifica il modello sul posto: va dopo il controllo a occhio
 def merge_full_precision(base, lora_dir, out, dtype):
@@ -421,6 +443,7 @@ if a.merge:
         model.merge_and_unload().save_pretrained(a.out + "/merged")
     tok.save_pretrained(a.out + "/merged")
     copy_attribution(a.out + "/merged")
+remove_checkpoints(a.out)
 # Libera la VRAM prima dell'eval (processo figlio) e dell'uscita: con ROCm su Windows il processo
 # a volte resta appeso in chiusura e il driver continua a riservargli la memoria occupata (visto:
 # 5,8 GB tenuti dal training del 2B finito, il 4B successivo e' finito in memoria condivisa, 12x piu' lento)

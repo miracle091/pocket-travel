@@ -7,6 +7,7 @@ Uso: python test_train_lora.py
 """
 import ast
 import math
+import shutil
 import sys
 import tempfile
 import types
@@ -224,6 +225,39 @@ class FinalEvalTest(unittest.TestCase):
         self.assertTrue(self.runs_eval(merge=True, no_final_eval=False))
         self.assertFalse(self.runs_eval(merge=True, no_final_eval=True))
         self.assertFalse(self.runs_eval(merge=False, no_final_eval=False))
+
+
+class FinishedRunTest(unittest.TestCase):
+    """Un --out con la LoRA finale non si riaddestra; i checkpoint si tolgono solo dopo il merge."""
+    NS = extract("finished_lora", "remove_checkpoints", Path=Path, shutil=shutil)
+
+    def test_lora_finale_senza_checkpoint_ferma_il_training(self):
+        with tempfile.TemporaryDirectory() as out:
+            self.assertIsNone(self.NS["finished_lora"](out, None))
+            (Path(out) / "lora").mkdir()
+            (Path(out) / "lora" / "adapter_model.safetensors").write_bytes(b"x")
+            self.assertIn("merge mancante", self.NS["finished_lora"](out, None))
+            (Path(out) / "merged").mkdir()
+            (Path(out) / "merged" / "config.json").write_text("{}")
+            self.assertNotIn("merge mancante", self.NS["finished_lora"](out, None))
+            # merge fallito con i checkpoint rimasti: si riprende, non ci si ferma
+            self.assertIsNone(self.NS["finished_lora"](out, str(Path(out) / "checkpoint-9")))
+
+    def test_checkpoint_tolti_anche_con_un_file_bloccato(self):
+        with tempfile.TemporaryDirectory() as out:
+            checkpoint(out, 5)
+            with mock.patch.object(shutil, "rmtree") as rmtree:
+                self.NS["remove_checkpoints"](out)
+            rmtree.assert_called_once_with(Path(out) / "checkpoint-5", ignore_errors=True)
+
+    def test_ordine_controllo_a_campione_merge_e_checkpoint(self):
+        body = ast.parse(SOURCE).body
+        spot = next(i for i, n in enumerate(body) if isinstance(n, ast.Try) and "spot_check_rows" in ast.unparse(n))
+        merge = next(i for i, n in enumerate(body) if isinstance(n, ast.If) and "merge_and_unload" in ast.unparse(n))
+        remove = next(i for i, n in enumerate(body) if ast.unparse(n) == "remove_checkpoints(a.out)")
+        self.assertLess(spot, merge)
+        self.assertLess(merge, remove)
+        self.assertNotIn("rmtree", "".join(ast.unparse(n) for n in body[:remove] if not isinstance(n, ast.FunctionDef)))
 
 
 if __name__ == "__main__":
