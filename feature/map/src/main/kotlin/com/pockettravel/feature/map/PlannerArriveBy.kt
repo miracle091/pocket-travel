@@ -77,11 +77,12 @@ internal fun ArriveBy(
     val timeFormat = remember(context) { DateFormat.getTimeFormat(context) }
     val format = { time: LocalDateTime -> timeFormat.format(java.util.Date.from(time.atZone(ZoneId.systemDefault()).toInstant())) }
     // Partenza per cui si e' chiesto il permesso: serve alla risposta, che arriva dopo la scelta.
-    var pendingDeparture by remember { mutableStateOf<LocalDateTime?>(null) }
+    // In minuti e salvata: il dialogo di sistema ricrea l'activity se si ruota lo schermo.
+    var pendingDeparture by rememberSaveable { mutableStateOf<Long?>(null) }
     val requestNotifications = rememberPermissionRequest(
         Manifest.permission.POST_NOTIFICATIONS,
         onGranted = {
-            pendingDeparture?.let(onSetReminder)
+            pendingDeparture?.let { onSetReminder(minuteToDateTime(it)) }
             pendingDeparture = null
         },
         onDenied = { canAskAgain ->
@@ -162,7 +163,7 @@ internal fun ArriveBy(
                         NotificationManagerCompat.from(context).areNotificationsEnabled() -> onSetReminder(departure)
                         // Da Android 13 le notifiche vanno chieste; negate o spente dalle impostazioni, niente avviso.
                         Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED -> {
-                            pendingDeparture = departure
+                            pendingDeparture = dateTimeToMinute(departure)
                             requestNotifications()
                         }
                         else -> {

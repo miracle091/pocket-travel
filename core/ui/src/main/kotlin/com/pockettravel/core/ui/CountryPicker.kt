@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLocale
@@ -30,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.drop
 import java.text.Collator
 import java.text.Normalizer
 import java.util.Locale
@@ -83,7 +85,8 @@ fun CountryPickerSheet(title: String, selected: String?, onSelect: (String) -> U
             )
             // La lista tiene la posizione per chiave: senza questo, cancellata la ricerca, resterebbe sul primo risultato.
             val listState = rememberLazyListState()
-            LaunchedEffect(query) { listState.scrollToItem(0) }
+            // Il primo valore no: dopo una rotazione la lista ripristinata resta dov'era.
+            LaunchedEffect(Unit) { snapshotFlow { query }.drop(1).collect { listState.scrollToItem(0) } }
             LazyColumn(state = listState) {
                 items(filtered, key = { it.first }) { (code, name) ->
                     ListItem(
