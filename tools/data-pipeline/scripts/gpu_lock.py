@@ -211,9 +211,47 @@ class GpuLock:
             del os.environ[HELD_ENV]
 
 
+def pid_alive(pid):
+    """True se il processo [pid] (testo o numero) esiste ancora. Non usa os.kill su Windows: li' un segnale diverso da
+    quelli della console termina il processo."""
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return False
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        import ctypes
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.OpenProcess.restype = ctypes.c_void_p
+        k32.GetExitCodeProcess.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong)]
+        k32.CloseHandle.argtypes = [ctypes.c_void_p]
+        handle = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return ctypes.get_last_error() == 5  # accesso negato: il processo c'e'
+        try:
+            code = ctypes.c_ulong()
+            return bool(k32.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == 259  # STILL_ACTIVE
+        finally:
+            k32.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def held_by_parent():
+    """True se un processo padre tiene il lucchetto: HELD_ENV c'e' e il suo PID e' vivo. Con il padre morto la variabile
+    ereditata e' vecchia, e il suo blocco e' gia' sciolto."""
+    return pid_alive(os.environ.get(HELD_ENV))
+
+
 def gpu_job(name, gpu=True):
     """Lucchetto (se gpu e se un processo padre non lo tiene gia') e monitor fino all'uscita del processo."""
-    if gpu and not os.environ.get(HELD_ENV):
+    if gpu and not held_by_parent():
         lock = GpuLock(name).acquire()
         atexit.register(lock.release)
     hw_monitor.start(name)

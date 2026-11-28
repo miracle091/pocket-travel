@@ -94,11 +94,25 @@ class GpuLockTest(unittest.TestCase):
         self.assertEqual("GPU libera", out.getvalue().strip())
 
     def test_figlio_di_chi_lo_tiene_non_lo_riprende(self):
-        with mock.patch.dict(os.environ, {gpu_lock.HELD_ENV: "123"}), \
+        with mock.patch.dict(os.environ, {gpu_lock.HELD_ENV: str(os.getpid())}), \
                 mock.patch.object(gpu_lock, "GpuLock") as lock, mock.patch("hw_monitor.start") as monitor:
             gpu_lock.gpu_job("train_lora")
         lock.assert_not_called()
         monitor.assert_called_once_with("train_lora")
+
+    def test_variabile_ereditata_di_un_padre_morto_non_vale(self):
+        dead = subprocess.Popen([sys.executable, "-c", "pass"])
+        dead.wait(timeout=30)
+        self.assertFalse(gpu_lock.pid_alive(dead.pid))
+        self.assertTrue(gpu_lock.pid_alive(os.getpid()))
+        for garbage in ("", "x", "0", "-5"):
+            self.assertFalse(gpu_lock.pid_alive(garbage), garbage)
+        with mock.patch.dict(os.environ, {gpu_lock.HELD_ENV: str(dead.pid)}), \
+                mock.patch.object(gpu_lock, "GpuLock") as lock, mock.patch("hw_monitor.start"), \
+                mock.patch("atexit.register"):
+            gpu_lock.gpu_job("train_lora")
+        lock.assert_called_once_with("train_lora")
+        lock.return_value.acquire.assert_called_once_with()
 
     def test_lavoro_senza_gpu_solo_monitor(self):
         with mock.patch.object(gpu_lock, "GpuLock") as lock, mock.patch("hw_monitor.start") as monitor:
