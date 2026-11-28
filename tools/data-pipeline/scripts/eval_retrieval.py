@@ -90,7 +90,7 @@ from contextlib import closing
 from pathlib import Path
 
 import city_wikipedia
-from eval_common import file_sha256
+from eval_common import file_sha256, post_json
 # Liste di parole dell'app (stopword sempre; categorie e previsioni solo con --word-lists), dal file che legge anche l'app.
 from word_lists import (CATEGORY_GUIDE_WORDS, CATEGORY_TRIGGERS, FORECAST_STEMS, HISTORY_CLIMATE_WORDS, NEAR_TIME_STEMS,
                         STOPWORDS)
@@ -1217,7 +1217,7 @@ class RerankScorer:
     def __init__(self, model, llama_cpp, gpu_layers, device, cache_file, user_instructions_only=False):
         self.user_instructions_only = user_instructions_only  # punteggio "refusal" col prompt dei modelli v12
         from gguf import GGUFReader
-        from eval_common import chatml_prompt, find_llama_bin, on_device_prompt, post_json, start_llama_server, uses_empty_think
+        from eval_common import chatml_prompt, find_llama_bin, on_device_prompt, start_llama_server, uses_empty_think
         self.chatml_prompt, self.on_device_prompt = chatml_prompt, on_device_prompt
         template = GGUFReader(model).fields.get("tokenizer.chat_template")
         self.think = uses_empty_think(bytes(template.parts[template.data[0]]).decode("utf-8") if template is not None else None)
