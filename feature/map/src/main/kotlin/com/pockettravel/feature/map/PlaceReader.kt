@@ -216,8 +216,16 @@ private fun readApple(path: String, query: Map<String, String>): PlaceReading {
 
 private fun readWaze(path: String, query: Map<String, String>): PlaceReading {
     val geohash = WAZE_GEOHASH.matchEntire(path)?.groupValues?.get(1)?.let(::decodeGeohash)
-    return geohash?.let { coordinates(it.first, it.second) } ?: query["ll"]?.let(::coordinateValue) ?: PlaceReading.Unreadable
+    // Con q il testo e' la destinazione e ll e' la vista: vale solo senza q.
+    return geohash?.let { coordinates(it.first, it.second) }
+        ?: query["q"]?.let(::searchByName)
+        ?: query["ll"]?.let(::coordinateValue)
+        ?: PlaceReading.Unreadable
 }
+
+// Il testo di una ricerca del link: coordinate se lo sono, altrimenti la ricerca per nome; null se vuoto.
+private fun searchByName(text: String): PlaceReading? =
+    coordinateValue(text) ?: text.replace(CONTROL, " ").trim().take(MAX_TEXT).takeIf { it.isNotEmpty() }?.let(PlaceReading::Search)
 
 // Il nome sta dopo il codice: "_" e' uno spazio e uno spazio codificato e' un trattino basso.
 private fun readGe0(rest: String): PlaceReading {
@@ -243,6 +251,9 @@ private fun readHere(path: String, query: Map<String, String>): PlaceReading = w
     path.startsWith("/p/") -> PlaceReading.ShortLink
     // Un percorso: map= e' la vista, non l'arrivo.
     path.startsWith("/directions") -> PlaceReading.Unreadable
+    // Una ricerca (/search/nome): map= e' la vista, la destinazione e' il nome.
+    path.startsWith("/search/") || path.startsWith("/discover/") ->
+        searchByName(decode(path.substringAfter('/', "").substringAfter('/').substringBefore('/'))) ?: PlaceReading.Unreadable
     else -> (HERE_PLACE.matchEntire(path) ?: query["map"]?.let { HERE_MAP.find(it) })
         ?.let { coordinates(it.groupValues[1], it.groupValues[2]) } ?: PlaceReading.Unreadable
 }
@@ -254,6 +265,7 @@ private fun readMapy(path: String, query: Map<String, String>): PlaceReading = w
     "rc" in query -> PlaceReading.Unreadable
     else -> query["id"]?.split(',')?.takeIf { query["source"] == "coor" && it.size == 2 }
         ?.let { coordinates(it[1].toDoubleOrNull(), it[0].toDoubleOrNull()) }
+        ?: query["q"]?.let(::searchByName)
         ?: latitudeLongitude(query, "y", "x")
         ?: PlaceReading.Unreadable
 }
@@ -291,8 +303,9 @@ private fun readGoogleMaps(path: String, query: Map<String, String>): PlaceReadi
     val inPath = GOOGLE_PLACE_DATA.find(path)?.let { coordinates(it.groupValues[1], it.groupValues[2], name) }
         ?: placeName?.let(::readPlusCode) as? PlaceReading.Coordinates
         ?: GOOGLE_VIEW.find(path)?.let { coordinates(it.groupValues[1], it.groupValues[2], name) }
+    // destination e daddr prima di ll: nei link vecchi ll e' il centro della mappa.
     return inPath
-        ?: listOf("q", "query", "ll", "destination", "daddr").firstNotNullOfOrNull { key -> query[key]?.let(::coordinateValue) }
+        ?: listOf("q", "query", "destination", "daddr", "ll").firstNotNullOfOrNull { key -> query[key]?.let(::coordinateValue) }
             ?.let { if (it.name == null) it.copy(name = name) else it }
         ?: PlaceReading.Unreadable
 }

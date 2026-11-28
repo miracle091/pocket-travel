@@ -107,6 +107,11 @@ class PlaceReaderTest {
     }
 
     @Test
+    fun `daddr vale piu' di ll, che nei link vecchi e' il centro della mappa`() {
+        assertPoint(41.89, 12.49, "https://maps.google.com/maps?saddr=45.46,9.19&daddr=41.89,12.49&ll=43.5,10.9&z=7")
+    }
+
+    @Test
     fun `link di Google Maps senza coordinate o con host che non e' di Google`() {
         assertEquals(PlaceReading.Unreadable, readPlace("https://www.google.com/maps?q=Eiffel+Tower"))
         assertEquals(PlaceReading.Unreadable, readPlace("https://www.google.com/search?q=43.6,1.44"))
@@ -247,8 +252,17 @@ class PlaceReaderTest {
     @Test
     fun `link di Waze malformati`() {
         // "a" non e' nell'alfabeto del geohash.
-        listOf("https://waze.com/ul/hu4pruyda", "https://waze.com/ul/h", "https://waze.com/ul?ll=95,1", "https://waze.com/ul?q=Roma", "https://evilwaze.com/ul?ll=41.8,12.4")
+        listOf("https://waze.com/ul/hu4pruyda", "https://waze.com/ul/h", "https://waze.com/ul?ll=95,1", "https://evilwaze.com/ul?ll=41.8,12.4")
             .forEach { assertEquals(it, PlaceReading.Unreadable, readPlace(it)) }
+    }
+
+    @Test
+    fun `i link di ricerca di Waze, HERE e Mapy cercano il nome e non prendono la vista`() {
+        assertEquals(PlaceReading.Search("Roma"), readPlace("https://waze.com/ul?q=Roma"))
+        assertEquals(PlaceReading.Search("Via Roma 1"), readPlace("https://waze.com/ul?q=Via+Roma+1&ll=45.69,9.67"))
+        assertEquals(PlaceReading.Search("colosseo"), readPlace("https://wego.here.com/search/colosseo?map=41.89,12.49,15,normal"))
+        assertEquals(PlaceReading.Search("colosseo"), readPlace("https://wego.here.com/discover/colosseo?map=41.89,12.49,15,normal"))
+        assertEquals(PlaceReading.Search("praha"), readPlace("https://mapy.cz/zakladni?q=praha&x=14.4&y=50.08&z=12"))
     }
 
     // --- Organic Maps (ge0) ---
