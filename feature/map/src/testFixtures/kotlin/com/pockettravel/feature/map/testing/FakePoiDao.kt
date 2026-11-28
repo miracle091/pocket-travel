@@ -32,11 +32,13 @@ class FakePoiDao : PoiDao {
         excluded: List<String>, accessibility: Int, limit: Int,
     ): List<PoiEntity> {
         inBoundsCalls += InBoundsCall(regionId, minLat, maxLat, minLon, maxLon, excluded, accessibility, limit)
-        gates[regionId]?.await()
-        inBoundsFailure?.let { throw it }
-        return rows.filter {
+        // Le righe si leggono prima del blocco, come una query che e' gia' partita.
+        val found = rows.filter {
             it.regionId == regionId && it.lat in minLat..maxLat && it.lon in minLon..maxLon && "${it.category}|${it.osmTag}" !in excluded
         }.take(limit)
+        gates[regionId]?.await()
+        inBoundsFailure?.let { throw it }
+        return found
     }
 
     override suspend fun searchByName(regionIds: List<String>, pattern: String, limit: Int): List<PoiEntity> {

@@ -100,6 +100,9 @@ class MapRouteViewModel @Inject constructor(
     // L'ultima lettura dei POI dell'area: una vista dentro quell'area, con gli stessi filtri, non rilegge il database.
     private var lastRead: PinRead? = null
 
+    // Cresce a ogni azzeramento di lastRead: una lettura iniziata prima non lo riscrive con righe vecchie.
+    private var readGeneration = 0
+
     init {
         // POI della regione aperta aggiornati con la mappa aperta (anche in background): categorie e area letta non
         // valgono piu', i segnalini si rileggono. Il cambio di regione lo fa gia' loadPins.
@@ -114,6 +117,7 @@ class MapRouteViewModel @Inject constructor(
                 if (last?.first == current.first) {
                     regionTags = null
                     lastRead = null
+                    readGeneration += 1
                     reloadPins()
                 }
                 last = current
@@ -269,6 +273,7 @@ class MapRouteViewModel @Inject constructor(
         // Riaperta la regione si rileggono le categorie: un aggiornamento dei POI puo' averle cambiate.
         regionTags = null
         lastRead = null
+        readGeneration += 1
         reloadPins()
     }
 
@@ -297,10 +302,11 @@ class MapRouteViewModel @Inject constructor(
         val access = accessibility()
         val inArea = area?.let { wanted ->
             lastRead?.takeIf { it.covers(regionId, wanted, hidden, access) }?.pois?.within(wanted) ?: run {
+                val generation = readGeneration
                 val tags = regionTags?.takeIf { cached -> cached.first == regionId }?.second
                     ?: poiRepository.categoryTags(regionId).also { read -> regionTags = regionId to read }
                 poiRepository.inBounds(regionId, wanted.minLat, wanted.maxLat, wanted.minLon, wanted.maxLon, MAX_PINS, hidden, access, tags)
-                    .also { read -> lastRead = PinRead(regionId, wanted, hidden, access, read) }
+                    .also { read -> if (generation == readGeneration) lastRead = PinRead(regionId, wanted, hidden, access, read) }
             }
         }
         // Regione cambiata durante il caricamento: questi segnalini non sono piu' suoi.
