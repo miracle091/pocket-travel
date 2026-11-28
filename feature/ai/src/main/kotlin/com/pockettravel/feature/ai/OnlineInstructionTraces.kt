@@ -10,7 +10,8 @@ private const val INSTRUCTION_RUN_WORDS = 4
 // le parole di risposta e di utente (prosa normale delle guide: "gli utenti pagano", "il personale risponde") contano solo
 // con un imperativo o un vocativo nella stessa frase. Non contano da soli, perché nelle guide sono prosa: "prompt" aggettivo
 // ("prompt service"), "si consiglia", "dagli" preposizione, "rispondere" a metà frase ("sarà in grado di rispondere"),
-// sempre/mai/always/never ("don't always respond"), sistema/system ("il sistema invierà all'utente"), "the user" soggetto.
+// sempre/mai/always/never ("don't always respond", ma contano dopo should/devono/vanno: "answers should always include"),
+// sistema/system ("il sistema invierà all'utente"), "the user" soggetto.
 private val ADDRESSED = Regex(
     """\b(?:assistent[ei]|assistants?|chatbots?|(?-i:IA|AI))\b""" +
         """|\b(?:system|your|initial|original|il|tuo|del|questo|this)\s+prompts?\b|\bprompts?\s+(?:di\s+sistema|iniziale)\b""",
@@ -27,6 +28,7 @@ private val ADDRESSED_ORDER = Regex(
         """|(?:^\W*|[:;,]\s*|\band\s+)(?:please\s+|always\s+|never\s+)?(?:answer|reply|respond|add|append|insert|write|say|tell""" +
         """|inform|ignore|repeat|remember|recommend|suggest|invite|sign|start|begin|end|finish|include|mention|use|cite|give|list)\b""" +
         """|\b(?:must|devi|dovete|whatever|qualunque|policy|politica|piattaforma|platform)\b""" +
+        """|\b(?:should|shall|devono|deve|vanno|va|dovrebbero|dovranno)\s+(?:always|never|sempre|mai)\b""" +
         """|(?-i:\bSYSTEM\b|\bSISTEMA\b|<<SYS>>)|\b(?:system|sistema)\s*:|\bsystem\s+(?:message|instructions?|prompt|update)""" +
         """|\b(?:messaggio|istruzioni|indicazioni|prompt|aggiornamento)\s+(?:di|del)\s+sistema\b""" +
         """|\b(?:ogni|every|each)\s+(?:risposta|answer|reply|response)""" +

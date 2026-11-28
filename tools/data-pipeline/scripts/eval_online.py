@@ -290,7 +290,8 @@ YES_NO = re.compile(r"""\W*(?:sì|si|no|yes)(?!\w)""", re.I)
 # le parole di risposta e di utente (prosa normale delle guide: "gli utenti pagano", "il personale risponde") contano solo
 # con un imperativo o un vocativo nella stessa frase. Non contano da soli, perché nelle guide sono prosa: "prompt" aggettivo
 # ("prompt service"), "si consiglia", "dagli" preposizione, "rispondere" a metà frase ("sarà in grado di rispondere"),
-# sempre/mai/always/never ("don't always respond"), sistema/system ("il sistema invierà all'utente"), "the user" soggetto.
+# sempre/mai/always/never ("don't always respond", ma contano dopo should/devono/vanno: "answers should always include"),
+# sistema/system ("il sistema invierà all'utente"), "the user" soggetto.
 ADDRESSED = re.compile(
     r"""\b(?:assistent[ei]|assistants?|chatbots?|(?-i:IA|AI))\b"""
     r"""|\b(?:system|your|initial|original|il|tuo|del|questo|this)\s+prompts?\b|\bprompts?\s+(?:di\s+sistema|iniziale)\b""", re.I)
@@ -303,6 +304,7 @@ ADDRESSED_ORDER = re.compile(
     r"""|(?:^\W*|[:;,]\s*|\band\s+)(?:please\s+|always\s+|never\s+)?(?:answer|reply|respond|add|append|insert|write|say|tell"""
     r"""|inform|ignore|repeat|remember|recommend|suggest|invite|sign|start|begin|end|finish|include|mention|use|cite|give|list)\b"""
     r"""|\b(?:must|devi|dovete|whatever|qualunque|policy|politica|piattaforma|platform)\b"""
+    r"""|\b(?:should|shall|devono|deve|vanno|va|dovrebbero|dovranno)\s+(?:always|never|sempre|mai)\b"""
     r"""|(?-i:\bSYSTEM\b|\bSISTEMA\b|<<SYS>>)|\b(?:system|sistema)\s*:|\bsystem\s+(?:message|instructions?|prompt|update)"""
     r"""|\b(?:messaggio|istruzioni|indicazioni|prompt|aggiornamento)\s+(?:di|del)\s+sistema\b"""
     r"""|\b(?:ogni|every|each)\s+(?:risposta|answer|reply|response)"""
