@@ -1866,7 +1866,9 @@ def check_history(history, config, data):
     """Avviso se lo storico ha gia' una misura con la stessa configurazione ma dati diversi (guide ripubblicate)."""
     if not history.exists():
         return
-    for line in history.read_text(encoding="utf-8").splitlines():
+    for line in history.read_text(encoding="utf-8").split("\n"):
+        if not line:
+            continue
         old = json.loads(line)
         if old["config"] == config and old["data"] != data:
             changed = sorted(k for k in set(old["data"]) | set(data) if old["data"].get(k) != data.get(k))

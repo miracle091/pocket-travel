@@ -670,7 +670,7 @@ def fetch_off_topic(sources=OFF_TOPIC_SOURCES, keywords=KEYWORDS, travel_stems=T
                 offset += 100; time.sleep(2)
             with replaced_when_done(cache) as tmp:
                 tmp.write_text("\n".join(qs[:keep]) + "\n", encoding="utf-8")
-        out[name] = [l for l in cache.read_text(encoding="utf-8").splitlines() if l.strip()]
+        out[name] = [l for l in cache.read_text(encoding="utf-8").split("\n") if l.strip()]
     return out
 
 def load_sources():

@@ -187,7 +187,7 @@ def webfaq_rows(lang, download_dir):
         tmp = out.with_suffix(".tmp")
         tmp.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
         os.replace(tmp, out)
-    return [(d["o"], d["q"]) for d in map(json.loads, out.read_text(encoding="utf-8").splitlines())]
+    return [(d["o"], d["q"]) for d in map(json.loads, filter(None, out.read_text(encoding="utf-8").split("\n")))]
 
 
 # ----- filtri di forma: domande ben scritte, in lingua, senza nomi propri -----

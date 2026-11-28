@@ -202,7 +202,7 @@ class TranslationStore:
         if not self.path.exists():
             return
         drop_partial_line(self.path)
-        for line in self.path.read_text(encoding="utf-8").splitlines():
+        for line in self.path.read_text(encoding="utf-8").split("\n"):
             try:
                 d = json.loads(line)
                 key, text, row_model = d["k"], d["t"], d["m"]
@@ -664,7 +664,7 @@ def other_titles(own_titles, other_titles, own_lang, other_lang, cache_dir):
     cache_path = Path(cache_dir) / f"city-titles.{own_lang}-{other_lang}.jsonl"
     known = {}
     if cache_path.exists():
-        for line in cache_path.read_text(encoding="utf-8").splitlines():
+        for line in cache_path.read_text(encoding="utf-8").split("\n"):
             if line:
                 d = json.loads(line)
                 known[d["own"]] = d["other"]

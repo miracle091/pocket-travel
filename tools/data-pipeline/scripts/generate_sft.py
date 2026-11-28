@@ -1788,7 +1788,7 @@ def main():
     if a.vaccinations:
         phase("vaccinazioni", str(a.vaccinations))
         by_flag = flag_regions()
-        summaries = [json.loads(l) for l in a.vaccinations.read_text(encoding="utf-8").splitlines() if l.strip()]
+        summaries = [json.loads(l) for l in a.vaccinations.read_text(encoding="utf-8").split("\n") if l.strip()]
         if any("Consigliate per la destinazione:" in s["text"] for s in summaries):
             sys.exit(f"{a.vaccinations} e' esportato prima di \"Raccomandate per la destinazione:\": riesportalo con VaccinationSummaryExport")
         vq = VACC_QUESTIONS[lang]

@@ -72,7 +72,7 @@ class Translator:
         self.cache = {}
         self.trusted = set()  # chiavi di traduzioni corrette a mano: niente controllo di plausibilita'
         if self.cache_path.exists():
-            for line in self.cache_path.read_text(encoding="utf-8").splitlines():
+            for line in self.cache_path.read_text(encoding="utf-8").split("\n"):
                 try:
                     d = json.loads(line)
                     self.cache[d["k"]] = d["t"]
