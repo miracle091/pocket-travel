@@ -9,6 +9,7 @@ import io
 import json
 import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -267,6 +268,55 @@ class MonitorTest(unittest.TestCase):
         self.assertEqual(1, text.count("una ventola della GPU e' ferma mentre le altre girano (1200/0 RPM)"))
         self.assertEqual(1, text.count("VRM della GPU a 106 °C"))
         self.assertEqual(1, text.count("GPU rallentata dal driver per la temperatura (88 °C)"))
+
+    def test_gpu_ferma_con_il_lucchetto_tenuto_avvisa_dopo_15_minuti(self):
+        samples = [dict(gpu_busy_pct=1)] * 3 + [dict(gpu_busy_pct=80), dict(gpu_busy_pct=0), dict(gpu_busy_pct=2),
+                                               dict(gpu_busy_pct=None)]
+        with tempfile.TemporaryDirectory() as tmp:
+            out = io.StringIO()
+            monitor = hw_monitor.Monitor("prova", path=Path(tmp) / "hw.csv", out=out, reader=FakeReader(samples),
+                                         lock_held=lambda: True)
+            for now in (0, 899, 901):
+                monitor.tick(now)
+            text = out.getvalue()
+            self.assertEqual(1, text.count("GPU ferma (1%) da 15 min"))
+            monitor.tick(1000)  # attivita': l'episodio finisce
+            monitor.tick(1010)  # fermo di nuovo, il conto riparte
+            monitor.tick(1950)  # 940 s di fermo: secondo episodio, secondo avviso
+            monitor.tick(2000)  # dato mancante: nessun cambio
+            self.assertEqual(2, out.getvalue().count("GPU ferma"))
+
+    def test_gpu_ferma_senza_lucchetto_non_avvisa(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = io.StringIO()
+            monitor = hw_monitor.Monitor("prova", path=Path(tmp) / "hw.csv", out=out,
+                                         reader=FakeReader([dict(gpu_busy_pct=0)] * 2), lock_held=lambda: False)
+            monitor.tick(0)
+            monitor.tick(5000)
+        self.assertNotIn("GPU ferma", out.getvalue())
+
+    def test_eccezione_registrata_e_il_monitor_continua(self):
+        class Flaky:
+            def __init__(self):
+                self.calls = 0
+
+            def sample(self):
+                self.calls += 1
+                if self.calls == 1:
+                    raise OSError("disco pieno")
+                return dict.fromkeys(hw_monitor.FIELDS, 1)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out, reader = io.StringIO(), Flaky()
+            monitor = hw_monitor.Monitor("prova", path=Path(tmp) / "hw.csv", out=out, reader=reader, interval=0.01)
+            monitor.start()
+            for _ in range(500):
+                if reader.calls >= 3:
+                    break
+                time.sleep(0.01)
+            monitor.stop()
+        self.assertGreaterEqual(reader.calls, 3)
+        self.assertIn("errore del monitor, riprovo: OSError: disco pieno", out.getvalue())
 
     def test_figlio_di_un_processo_monitorato(self):
         with mock.patch.dict(os.environ, {hw_monitor.HELD_ENV: "1"}), mock.patch.object(hw_monitor, "Monitor") as m:

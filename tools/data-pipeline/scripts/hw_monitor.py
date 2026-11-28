@@ -48,6 +48,9 @@ import urllib.request
 from pathlib import Path
 
 HELD_ENV = "POCKET_TRAVEL_HW_MONITOR"
+GPU_LOCK_ENV = "POCKET_TRAVEL_GPU_LOCK"  # lo scrive gpu_lock.py: lo stesso nome di gpu_lock.HELD_ENV
+IDLE_BUSY_PCT = 5  # sotto questo uso la GPU e' ferma
+IDLE_ALERT_AFTER = 15 * 60  # secondi di GPU ferma con il lucchetto tenuto prima dell'avviso
 FIELDS = ["time", "gpu_c", "gpu_hotspot_c", "gpu_mem_c", "gpu_vrm_c", "gpu_w", "gpu_busy_pct", "gpu_fan_rpm",
           "gpu_fan_pct", "gpu_fans_rpm", "gpu_clock_mhz", "gpu_throttle", "vram_used_mb", "vram_shared_mb",
           "vram_total_mb", "cpu_pct", "cpu_w", "cpu_c", "cpu_fan_rpm", "case_fan_rpm", "ram_used_mb", "ram_total_mb",
@@ -621,9 +624,12 @@ def line(s):
 class Monitor:
     """Thread che campiona ogni `interval` secondi, scrive il CSV e stampa le righe e gli avvisi."""
 
-    def __init__(self, name, path=None, interval=10, report_every=60, out=sys.stderr, reader=None):
+    def __init__(self, name, path=None, interval=10, report_every=60, out=sys.stderr, reader=None, lock_held=None):
         self.name, self.interval, self.report_every, self.out = name, interval, report_every, out
         self.reader = reader or Reader()
+        # lucchetto della GPU tenuto da questo lavoro o da un suo padre (gpu_lock.py ne scrive il PID in GPU_LOCK_ENV)
+        self.lock_held = lock_held or (lambda: bool(os.environ.get(GPU_LOCK_ENV)))
+        self.idle_since = self.last_error = None
         hw_dir = Path(os.environ.get("POCKET_TRAVEL_HW_DIR") or Path.home() / ".cache" / "pocket-travel" / "hw")
         self.path = Path(path) if path else hw_dir / f"{re.sub(r'[^\w.-]', '_', name)}-{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}.csv"
         self.max, self.active, self.last_report = {}, set(), None
@@ -649,18 +655,40 @@ class Monitor:
             elif not cond(s):
                 self.active.discard(key)
         now = time.monotonic() if now is None else now
+        self._idle_alert(s, now)
         if self.last_report is None or now - self.last_report >= self.report_every:
             self.last_report = now
             print(f"[hw] {line(s)}", file=self.out, flush=True)
         return s
 
+    def _idle_alert(self, s, now):
+        """Avviso, una volta per episodio, se il lucchetto della GPU e' tenuto ma l'uso resta sotto IDLE_BUSY_PCT per
+        IDLE_ALERT_AFTER secondi: il lavoro e' fermo (appeso, in attesa) e nessuno se ne accorge. Senza il dato d'uso
+        non si decide nulla."""
+        busy = s.get("gpu_busy_pct")
+        if busy is None:
+            return
+        if not self.lock_held() or busy >= IDLE_BUSY_PCT:
+            self.idle_since = None
+            self.active.discard("gpu_idle")
+            return
+        self.idle_since = now if self.idle_since is None else self.idle_since
+        if now - self.idle_since >= IDLE_ALERT_AFTER and "gpu_idle" not in self.active:
+            self.active.add("gpu_idle")
+            print(f"[hw] ATTENZIONE: GPU ferma ({busy}%) da {int((now - self.idle_since) // 60)} min con il lucchetto "
+                  "tenuto: il lavoro e' appeso o aspetta qualcosa?", file=self.out, flush=True)
+
     def _run(self):
         while not self.stop_event.is_set():
             try:
                 self.tick()
-            except Exception as e:  # il monitor non deve mai fermare il lavoro
-                print(f"[hw] monitor fermo: {e}", file=self.out, flush=True)
-                return
+            except Exception as e:  # il monitor non deve mai fermare il lavoro: si registra e si va avanti
+                message = f"{type(e).__name__}: {e}"
+                if message != self.last_error:  # lo stesso errore a ogni campione riempirebbe il log
+                    print(f"[hw] errore del monitor, riprovo: {message}", file=self.out, flush=True)
+                self.last_error = message
+            else:
+                self.last_error = None
             self.stop_event.wait(self.interval)
 
     def start(self):
